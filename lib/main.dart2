@@ -1,0 +1,99 @@
+import 'package:flutter/material.dart';
+import 'screens/profile_page.dart'; // SEN HOZIR YUKLAGAN FAYL
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'MuhajeerBooks',
+      theme: ThemeData(
+        useMaterial3: true,
+        colorSchemeSeed: Colors.green,
+        fontFamily: 'Roboto',
+      ),
+      home: const RootTabs(),
+    );
+  }
+}
+
+/// Pastdagi 4 ta sahifa: Bosh oyna, Sevimli, Savat, Profil
+class RootTabs extends StatefulWidget {
+  const RootTabs({super.key});
+
+  @override
+  State<RootTabs> createState() => _RootTabsState();
+}
+
+class _RootTabsState extends State<RootTabs> {
+  int _current = 0;
+
+  // Hozircha Home/Sevimli/Savat uchun oddiy placeholder beramiz.
+  // Keyin istasang ularni ham to‘ldiramiz.
+  final _pages = const [
+    _HomePlaceholder(),
+    _FavoritesPlaceholder(),
+    _CartPlaceholder(),
+    ProfilePage(), // SENING YANGI PROFIL SAHIFANG
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(index: _current, children: _pages),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _current,
+        onDestinationSelected: (i) => setState(() => _current = i),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Bosh oyna'),
+          NavigationDestination(icon: Icon(Icons.favorite_border), selectedIcon: Icon(Icons.favorite), label: 'Sevimli'),
+          NavigationDestination(icon: Icon(Icons.shopping_bag_outlined), selectedIcon: Icon(Icons.shopping_bag), label: 'Savat'),
+          NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Profil'),
+        ],
+      ),
+    );
+  }
+}
+
+/// --- Placeholder sahifalar (keyin o‘zingiz to‘ldirasiz) ---
+class _HomePlaceholder extends StatelessWidget {
+  const _HomePlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('MuhajeerBooks')),
+      body: const Center(
+        child: Text('Bosh oyna — mahsulot ro‘yxati shu yerda bo‘ladi'),
+      ),
+    );
+  }
+}
+
+class _FavoritesPlaceholder extends StatelessWidget {
+  const _FavoritesPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(child: Text('Sevimlilar sahifasi')),
+    );
+  }
+}
+
+class _CartPlaceholder extends StatelessWidget {
+  const _CartPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(child: Text('Savat sahifasi')),
+    );
+  }
+}

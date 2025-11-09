@@ -1,0 +1,26 @@
+[
+  {
+    "id": 1,
+    "title": "Ta'sir psixologiyasi",
+    "price": 15000,
+    "image": "tasir_psixologiyasi.jpg"
+  },
+  {
+    "id": 2,
+    "title": "Ochlik",
+    "price": 15000,
+    "image": "ochlik.jpg"
+  },
+  {
+    "id": 3,
+    "title": "Beparvolikning nozik san'ati",
+    "price": 15000,
+    "image": "beparvolik.jpg"
+  },
+  {
+    "id": 4,
+    "title": "Xalqa",
+    "price": 15000,
+    "image": "xalqa.jpg"
+  }
+]

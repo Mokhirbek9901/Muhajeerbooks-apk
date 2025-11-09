@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "title": "Anomaliya",
+    "price": 16000,
+    "oldPrice": 18000,
+    "rating": 5,
+    "image": "assets/images/anomaliya.jpg",
+    "desc": "‘Anomaliya’ juda ixcham holatda ham katta dolzarb mavzularni ko‘taradi..."
+  },
+  {
+    "id": 2,
+    "title": "Yashamoq",
+    "price": 15000,
+    "oldPrice": 18000,
+    "rating": 5,
+    "image": "assets/images/yashamoq.jpg",
+    "desc": "Hayot falsafasi, rejalashtirish va samaradorlik haqida."
+  }
+]

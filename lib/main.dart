@@ -35,8 +35,13 @@ class MuhajeerBooksApp extends StatelessWidget {
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF176B45),
+            seedColor: const Color(0xFFFF8A00),
             brightness: Brightness.light,
+          ).copyWith(
+            primary: const Color(0xFF10213D),
+            onPrimary: Colors.white,
+            secondary: const Color(0xFFFF8A00),
+            tertiary: const Color(0xFFFFC928),
           ),
           scaffoldBackgroundColor: const Color(0xFFF7F8FA),
           inputDecorationTheme: InputDecorationTheme(

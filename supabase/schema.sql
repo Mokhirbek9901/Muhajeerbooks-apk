@@ -11,15 +11,19 @@ create table if not exists public.profiles (
 
 create table if not exists public.books (
   id uuid primary key default gen_random_uuid(),
+  legacy_id integer unique,
   title text not null,
   author text not null default '',
-  category text not null default 'Boshqa',
+  category text not null default 'Boshqalar',
   description text not null default '',
   price integer not null check (price >= 0),
   stock integer not null default 0 check (stock >= 0),
   discount_percent integer not null default 0 check (discount_percent between 0 and 99),
   image_url text not null default '',
   is_active boolean not null default true,
+  cover_type text not null default 'Ko‘rsatilmagan',
+  cost_price integer not null default 0 check (cost_price >= 0),
+  recommended boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -90,6 +94,7 @@ as $$
   );
 $$;
 
+-- Omborni buyurtma yaratilganda atomik ravishda kamaytiradi.
 create or replace function public.reserve_order_stock()
 returns trigger
 language plpgsql
@@ -133,6 +138,7 @@ create trigger reserve_stock_before_order
 before insert on public.orders
 for each row execute function public.reserve_order_stock();
 
+-- Buyurtma bekor qilinsa omborni qaytaradi; bekor qilingan buyurtma qayta ochilsa yana rezerv qiladi.
 create or replace function public.sync_cancelled_order_stock()
 returns trigger
 language plpgsql
@@ -177,11 +183,13 @@ alter table public.profiles enable row level security;
 alter table public.books enable row level security;
 alter table public.orders enable row level security;
 
+-- Profiles
 create policy "users can read own profile"
 on public.profiles for select
 to authenticated
 using (id = auth.uid() or public.is_admin());
 
+-- Books: mijozlar faol kitoblarni ko'radi, admin hammasini boshqaradi.
 create policy "public can read active books"
 on public.books for select
 to anon, authenticated
@@ -203,6 +211,7 @@ on public.books for delete
 to authenticated
 using (public.is_admin());
 
+-- Orders: xaridor login qilmasdan buyurtma bera oladi; faqat admin o'qiydi va statusni o'zgartiradi.
 create policy "public can create orders"
 on public.orders for insert
 to anon, authenticated
@@ -219,6 +228,7 @@ to authenticated
 using (public.is_admin())
 with check (public.is_admin());
 
+-- Kitob muqovalari uchun public bucket.
 insert into storage.buckets (id, name, public)
 values ('book-covers', 'book-covers', true)
 on conflict (id) do update set public = true;

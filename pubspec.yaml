@@ -14,6 +14,7 @@ dependencies:
   supabase_flutter: ^2.8.4
   image_picker: ^1.1.2
   intl: ^0.20.2
+  shared_preferences: ^2.5.3
 
 dev_dependencies:
   flutter_test:
@@ -22,3 +23,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/images/muhajeer_logo.jpg
+    - assets/data/migrated_books.json

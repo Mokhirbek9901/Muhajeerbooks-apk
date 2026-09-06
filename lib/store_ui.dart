@@ -8,12 +8,13 @@ import 'admin_ui.dart';
 import 'app_state.dart';
 import 'brand.dart';
 import 'design_system.dart';
+import 'uzbek_customer_style.dart';
 
-const _navy = Color(0xFF10213D);
-const _orange = Color(0xFFFF8A00);
-const _gold = Color(0xFFFFC928);
-const _cream = Color(0xFFFFFBF1);
-const _green = Color(0xFF138A4B);
+const _navy = UzbekCustomerColors.navy;
+const _orange = UzbekCustomerColors.goldDeep;
+const _gold = UzbekCustomerColors.gold;
+const _cream = UzbekCustomerColors.ivory;
+const _green = UzbekCustomerColors.success;
 
 final _money = NumberFormat('#,###', 'en_US');
 String won(int value) => '₩${_money.format(value)}';
@@ -38,6 +39,7 @@ class _StoreShellState extends State<StoreShell> {
       const ProfilePage(),
     ];
     return Scaffold(
+      backgroundColor: UzbekCustomerColors.background,
       body: IndexedStack(index: index, children: pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
@@ -226,6 +228,17 @@ class _HomePageState extends State<HomePage> {
                     return ChoiceChip(
                       label: Text(c),
                       selected: category == c,
+                      selectedColor: UzbekCustomerColors.goldSoft,
+                      backgroundColor: Colors.white,
+                      side: const BorderSide(color: UzbekCustomerColors.border),
+                      labelStyle: TextStyle(
+                        color: category == c
+                            ? UzbekCustomerColors.navy
+                            : AppColors.text,
+                        fontWeight: category == c
+                            ? FontWeight.w900
+                            : FontWeight.w700,
+                      ),
                       onSelected: (_) => setState(() => category = c),
                     );
                   },
@@ -321,66 +334,70 @@ class _StoreHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final active = state.books.where((b) => b.isActive).length;
     final available = state.books.where((b) => b.isActive && b.inStock).length;
-    return AppSurface(
-      padding: const EdgeInsets.fromLTRB(13, 12, 13, 12),
-      shadow: true,
-      child: Row(
+    return UzbekPatternPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const MuhajeerLogoBadge(size: 58, radius: 17),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Muhajeer Books',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 2),
-                const Text(
-                  'Koreyadagi O’zbek kitobxonlari uchun',
-                  style: TextStyle(
-                    color: AppColors.muted,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const MuhajeerLogoBadge(size: 62, radius: 18),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    AppInfoPill(
-                      icon: Icons.auto_stories_outlined,
-                      label: '$active kitob',
+                    Text(
+                      'Muhajeer Books',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: UzbekCustomerColors.navy,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
-                    AppInfoPill(
-                      icon: Icons.inventory_2_outlined,
-                      label: '$available mavjud',
-                      foreground: AppColors.success,
-                      background: AppColors.successSoft,
-                      border: const Color(0xFFCDEAD7),
+                    const SizedBox(height: 3),
+                    const Text(
+                      'Koreyadagi O’zbek kitobxonlari uchun',
+                      style: TextStyle(
+                        color: UzbekCustomerColors.textMuted,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              UzbekMiniPill(
+                icon: state.isOnlineBackend
+                    ? Icons.cloud_done_rounded
+                    : Icons.save_rounded,
+                text: state.isOnlineBackend ? 'Onlayn' : 'Saqlanadi',
+                color: state.isOnlineBackend
+                    ? UzbekCustomerColors.success
+                    : UzbekCustomerColors.goldDeep,
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          AppInfoPill(
-            icon: state.isOnlineBackend
-                ? Icons.cloud_done_rounded
-                : Icons.save_rounded,
-            label: state.isOnlineBackend ? 'Onlayn' : 'Saqlanadi',
-            foreground: state.isOnlineBackend
-                ? AppColors.success
-                : AppColors.warning,
-            background: state.isOnlineBackend
-                ? AppColors.successSoft
-                : AppColors.warningSoft,
-            border: state.isOnlineBackend
-                ? const Color(0xFFCDEAD7)
-                : const Color(0xFFFFDCA0),
+          const SizedBox(height: 13),
+          Wrap(
+            spacing: 7,
+            runSpacing: 7,
+            children: [
+              UzbekMiniPill(
+                icon: Icons.auto_stories_outlined,
+                text: '$active kitob',
+              ),
+              UzbekMiniPill(
+                icon: Icons.inventory_2_outlined,
+                text: '$available mavjud',
+                color: UzbekCustomerColors.success,
+              ),
+              const UzbekMiniPill(
+                icon: Icons.auto_awesome_rounded,
+                text: 'Milliy ruh',
+                color: UzbekCustomerColors.goldDeep,
+              ),
+            ],
           ),
         ],
       ),
@@ -393,81 +410,48 @@ class _DeliveryPromoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return UzbekPatternPanel(
+      dark: true,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.navy, AppColors.navy2],
-        ),
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x2610213D),
-            blurRadius: 28,
-            offset: Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Positioned(
-            right: -24,
-            top: -42,
-            child: Container(
-              width: 140,
-              height: 140,
-              decoration: const BoxDecoration(
-                color: Color(0x16FFFFFF),
-                shape: BoxShape.circle,
-              ),
+          const UzbekMiniPill(
+            icon: Icons.local_shipping_rounded,
+            text: 'Koreya bo‘ylab yetkazib berish',
+            dark: true,
+          ),
+          const SizedBox(height: 15),
+          const Text(
+            'O‘zbek kitoblari —\nKoreyadagi xonadoningizga.',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              height: 1.14,
+              letterSpacing: -.25,
             ),
           ),
-          Positioned(
-            right: 55,
-            bottom: -55,
-            child: Container(
-              width: 110,
-              height: 110,
-              decoration: const BoxDecoration(
-                color: Color(0x10FFC928),
-                shape: BoxShape.circle,
-              ),
+          const SizedBox(height: 7),
+          const Text(
+            'Sodda buyurtma, ishonchli xizmat va kitobxonlarga mehr bilan.',
+            style: TextStyle(
+              color: Color(0xFFE9F3F0),
+              fontSize: 12.5,
+              height: 1.4,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 14),
+          const Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              const AppInfoPill(
-                icon: Icons.local_shipping_rounded,
-                label: 'Koreya bo‘ylab yetkazib berish',
-                foreground: Colors.white,
-                background: Color(0x1FFFFFFF),
-                border: Color(0x30FFFFFF),
-              ),
-              const SizedBox(height: 14),
-              const Text(
-                'Kitobingizni qulay buyurtma qiling,\nqolganini biz hal qilamiz.',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  height: 1.16,
-                ),
-              ),
-              const SizedBox(height: 13),
-              const Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _HeroFact(icon: Icons.payments_outlined, text: '택배 ₩4,000'),
-                  _HeroFact(icon: Icons.schedule_rounded, text: '1–3 ish kuni'),
-                  _HeroFact(
-                    icon: Icons.card_giftcard_rounded,
-                    text: '4+ kitob — bepul',
-                  ),
-                ],
+              _HeroFact(icon: Icons.payments_outlined, text: '택배 ₩4,000'),
+              _HeroFact(icon: Icons.schedule_rounded, text: '1–3 ish kuni'),
+              _HeroFact(
+                icon: Icons.card_giftcard_rounded,
+                text: '4+ kitob — bepul',
               ),
             ],
           ),
@@ -529,11 +513,18 @@ class _TrustStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
     decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: const Color(0xFFE7E9ED)),
+      color: UzbekCustomerColors.surface,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: UzbekCustomerColors.border),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x09000000),
+          blurRadius: 14,
+          offset: Offset(0, 5),
+        ),
+      ],
     ),
     child: const Row(
       children: [
@@ -550,8 +541,8 @@ class _TrustStrip extends StatelessWidget {
         _TrustDivider(),
         Expanded(
           child: _TrustItem(
-            icon: Icons.support_agent_rounded,
-            text: 'Yordam mavjud',
+            icon: Icons.favorite_border_rounded,
+            text: 'Kitobxonga e’tibor',
           ),
         ),
       ],
@@ -563,7 +554,7 @@ class _TrustDivider extends StatelessWidget {
   const _TrustDivider();
   @override
   Widget build(BuildContext context) =>
-      Container(width: 1, height: 30, color: const Color(0xFFE7E9ED));
+      Container(width: 1, height: 30, color: UzbekCustomerColors.border);
 }
 
 class _TrustItem extends StatelessWidget {
@@ -577,7 +568,7 @@ class _TrustItem extends StatelessWidget {
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 18, color: _navy),
+        Icon(icon, size: 18, color: UzbekCustomerColors.teal),
         const SizedBox(height: 4),
         Text(
           text,
@@ -598,15 +589,9 @@ class _FeaturedBooksStrip extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const Row(
-        children: [
-          Icon(Icons.auto_awesome_rounded, color: _orange, size: 20),
-          SizedBox(width: 7),
-          Text(
-            'Tavsiya etamiz',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-          ),
-        ],
+      const UzbekSectionTitle(
+        title: 'Tavsiya etamiz',
+        icon: Icons.auto_awesome_rounded,
       ),
       const SizedBox(height: 9),
       SizedBox(
@@ -707,10 +692,10 @@ class BookCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: UzbekCustomerColors.border),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0B0F172A),
+            color: Color(0x100F4C5C),
             blurRadius: 18,
             offset: Offset(0, 7),
           ),
@@ -730,6 +715,12 @@ class BookCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   _BookCover(book: book),
+                  const Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: UzbekAccentLine(),
+                  ),
                   Positioned(
                     top: 8,
                     left: 8,
@@ -973,12 +964,16 @@ class BookDetailPage extends StatelessWidget {
     }
     if (book == null) {
       return const Scaffold(
+        backgroundColor: UzbekCustomerColors.background,
         body: SafeArea(child: Center(child: Text('Kitob topilmadi'))),
       );
     }
     final b = book;
     return Scaffold(
+      backgroundColor: UzbekCustomerColors.background,
       appBar: AppBar(
+        backgroundColor: UzbekCustomerColors.background,
+        surfaceTintColor: Colors.transparent,
         title: const Text('Kitob haqida'),
         actions: [
           IconButton.filledTonal(
@@ -1243,7 +1238,12 @@ class FavoritesPage extends StatelessWidget {
         .where((b) => b.isActive && state.isFavorite(b))
         .toList();
     return Scaffold(
-      appBar: AppBar(title: const Text('Sevimlilar')),
+      backgroundColor: UzbekCustomerColors.background,
+      appBar: AppBar(
+        backgroundColor: UzbekCustomerColors.background,
+        surfaceTintColor: Colors.transparent,
+        title: const Text('Sevimlilar'),
+      ),
       body: books.isEmpty
           ? const _EmptyState(
               icon: Icons.favorite_border_rounded,
@@ -1306,7 +1306,10 @@ class CartPage extends StatelessWidget {
     final state = context.watch<AppState>();
     final lines = state.cartLines;
     return Scaffold(
+      backgroundColor: UzbekCustomerColors.background,
       appBar: AppBar(
+        backgroundColor: UzbekCustomerColors.background,
+        surfaceTintColor: Colors.transparent,
         title: const Text('Savatcha'),
         actions: [
           if (lines.isNotEmpty)
@@ -1608,7 +1611,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final total = state.cartSubtotal + deliveryFee;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Buyurtmani rasmiylashtirish')),
+      backgroundColor: UzbekCustomerColors.background,
+      appBar: AppBar(
+        backgroundColor: UzbekCustomerColors.background,
+        surfaceTintColor: Colors.transparent,
+        title: const Text('Buyurtmani rasmiylashtirish'),
+      ),
       body: Form(
         key: formKey,
         child: ListView(
@@ -1946,7 +1954,7 @@ class _CheckoutStepHeader extends StatelessWidget {
         height: 34,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: AppColors.navy,
+          color: UzbekCustomerColors.teal,
           borderRadius: BorderRadius.circular(11),
           boxShadow: const [
             BoxShadow(
@@ -1975,15 +1983,8 @@ class _PaymentCard extends StatelessWidget {
   final VoidCallback onCopy;
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => UzbekPatternPanel(
     padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [Color(0xFFFFFBF1), Color(0xFFFFF2D2)],
-      ),
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: const Color(0xFFFFD88A)),
-    ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2072,28 +2073,21 @@ class ProfilePage extends StatelessWidget {
     final name = state.savedCustomer['name'] ?? '';
     final phone = state.savedCustomer['phone'] ?? '';
     return Scaffold(
-      appBar: AppBar(title: const Text('Profil')),
+      backgroundColor: UzbekCustomerColors.background,
+      appBar: AppBar(
+        backgroundColor: UzbekCustomerColors.background,
+        surfaceTintColor: Colors.transparent,
+        title: const Text('Profil'),
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
         children: [
-          Container(
+          UzbekPatternPanel(
+            dark: true,
             padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppColors.navy, AppColors.navy2],
-              ),
-              borderRadius: BorderRadius.circular(26),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x2510213D),
-                  blurRadius: 24,
-                  offset: Offset(0, 10),
-                ),
-              ],
-            ),
             child: Row(
               children: [
-                const MuhajeerLogoCircle(size: 68),
+                const MuhajeerLogoCircle(size: 70),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -2101,7 +2095,7 @@ class ProfilePage extends StatelessWidget {
                     children: [
                       Text(
                         name.trim().isEmpty
-                            ? 'Muhajeer Books mijoz'
+                            ? 'Muhajeer Books kitobxoni'
                             : name.trim(),
                         style: const TextStyle(
                           color: Colors.white,
@@ -2112,24 +2106,34 @@ class ProfilePage extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         phone.trim().isEmpty
-                            ? 'Yaxshi kitob — yaxshi hayot!'
+                            ? 'Kitobga mehr — ma’rifatga qadam.'
                             : phone,
                         style: const TextStyle(
-                          color: Color(0xFFDCE5F2),
+                          color: Color(0xFFE6F2EF),
                           fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(height: 9),
-                      AppInfoPill(
-                        icon: state.isOnlineBackend
-                            ? Icons.cloud_done_rounded
-                            : Icons.save_rounded,
-                        label: state.isOnlineBackend
-                            ? 'Onlayn hisob'
-                            : 'Qurilmada saqlanadi',
-                        foreground: Colors.white,
-                        background: const Color(0x18FFFFFF),
-                        border: const Color(0x2FFFFFFF),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 7,
+                        runSpacing: 7,
+                        children: [
+                          UzbekMiniPill(
+                            icon: state.isOnlineBackend
+                                ? Icons.cloud_done_rounded
+                                : Icons.save_rounded,
+                            text: state.isOnlineBackend
+                                ? 'Onlayn hisob'
+                                : 'Qurilmada saqlanadi',
+                            dark: true,
+                          ),
+                          const UzbekMiniPill(
+                            icon: Icons.auto_stories_rounded,
+                            text: 'Kitobxon profili',
+                            dark: true,
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -2137,14 +2141,16 @@ class ProfilePage extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 18),
-          const AppSectionHeader(
+          const SizedBox(height: 19),
+          const UzbekSectionTitle(
             title: 'Hisob va xizmatlar',
-            subtitle: 'Buyurtmalar va do‘kon boshqaruvi',
+            subtitle: 'Buyurtmalaringiz va do‘kon xizmatlari',
+            icon: Icons.person_outline_rounded,
           ),
           const SizedBox(height: 10),
           AppSurface(
             padding: EdgeInsets.zero,
+            borderColor: UzbekCustomerColors.border,
             child: Column(
               children: [
                 ListTile(
@@ -2208,20 +2214,23 @@ class ProfilePage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          AppSurface(
-            backgroundColor: AppColors.surfaceSoft,
+          UzbekPatternPanel(
+            padding: const EdgeInsets.all(14),
             child: const Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.verified_user_outlined, color: AppColors.success),
+                Icon(
+                  Icons.format_quote_rounded,
+                  color: UzbekCustomerColors.goldDeep,
+                ),
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Buyurtma, manzil va to‘lov cheki faqat buyurtmani bajarish uchun ishlatiladi. To‘lov cheki maxfiy saqlanadi.',
+                    '“Kitob — insonning eng sokin, ammo eng dono hamrohidir.”',
                     style: TextStyle(
-                      fontSize: 12.5,
-                      height: 1.5,
-                      color: AppColors.muted,
+                      color: UzbekCustomerColors.navy,
+                      fontWeight: FontWeight.w700,
+                      height: 1.45,
                     ),
                   ),
                 ),
@@ -2274,7 +2283,10 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: UzbekCustomerColors.background,
       appBar: AppBar(
+        backgroundColor: UzbekCustomerColors.background,
+        surfaceTintColor: Colors.transparent,
         title: const Text('Mening buyurtmalarim'),
         actions: [
           IconButton(

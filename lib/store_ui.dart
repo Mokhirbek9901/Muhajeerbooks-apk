@@ -338,7 +338,7 @@ class _StoreHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 const Text(
-                  'Koreyadagi o‘zbek kitob do‘koni',
+                  'Koreyadagi O’zbek kitobxonlari uchun',
                   style: TextStyle(
                     color: AppColors.muted,
                     fontSize: 12.5,

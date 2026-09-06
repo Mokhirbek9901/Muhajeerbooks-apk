@@ -37,6 +37,9 @@ jobs:
       - name: Test
         run: flutter test
 
+      - name: Prepare web platform
+        run: flutter create . --platforms=web
+
       - name: Validate web release build
         run: flutter build web --release
 

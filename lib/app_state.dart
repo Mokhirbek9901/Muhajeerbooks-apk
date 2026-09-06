@@ -47,22 +47,23 @@ class Book {
   bool get inStock => stock > 0 && price > 0;
 
   factory Book.fromMap(Map<String, dynamic> map) => Book(
-        id: (map['id'] ?? '').toString(),
-        legacyId: (map['legacy_id'] as num?)?.toInt(),
-        title: (map['title'] ?? map['name'] ?? '').toString(),
-        author: (map['author'] ?? 'Ko‘rsatilmagan').toString(),
-        category: (map['category'] ?? 'Boshqalar').toString(),
-        description: (map['description'] ?? '').toString(),
-        price: (map['price'] as num?)?.toInt() ?? 0,
-        stock: (map['stock'] as num?)?.toInt() ?? 0,
-        discountPercent: (map['discount_percent'] as num?)?.toInt() ?? 0,
-        imageUrl: (map['image_url'] ?? '').toString(),
-        isActive: map['is_active'] as bool? ?? true,
-        coverType: (map['cover_type'] ?? map['cover'] ?? 'Ko‘rsatilmagan').toString(),
-        costPrice: (map['cost_price'] as num?)?.toInt() ?? 0,
-        recommended: map['recommended'] as bool? ?? false,
-        createdAt: DateTime.tryParse((map['created_at'] ?? '').toString()),
-      );
+    id: (map['id'] ?? '').toString(),
+    legacyId: (map['legacy_id'] as num?)?.toInt(),
+    title: (map['title'] ?? map['name'] ?? '').toString(),
+    author: (map['author'] ?? 'Ko‘rsatilmagan').toString(),
+    category: (map['category'] ?? 'Boshqalar').toString(),
+    description: (map['description'] ?? '').toString(),
+    price: (map['price'] as num?)?.toInt() ?? 0,
+    stock: (map['stock'] as num?)?.toInt() ?? 0,
+    discountPercent: (map['discount_percent'] as num?)?.toInt() ?? 0,
+    imageUrl: (map['image_url'] ?? '').toString(),
+    isActive: map['is_active'] as bool? ?? true,
+    coverType: (map['cover_type'] ?? map['cover'] ?? 'Ko‘rsatilmagan')
+        .toString(),
+    costPrice: (map['cost_price'] as num?)?.toInt() ?? 0,
+    recommended: map['recommended'] as bool? ?? false,
+    createdAt: DateTime.tryParse((map['created_at'] ?? '').toString()),
+  );
 
   factory Book.fromSeed(Map<String, dynamic> map) {
     final legacyId = (map['legacy_id'] as num?)?.toInt();
@@ -83,26 +84,26 @@ class Book {
   }
 
   Map<String, dynamic> toDbMap() => {
-        'legacy_id': legacyId,
-        'title': title,
-        'author': author,
-        'category': category,
-        'description': description,
-        'price': price,
-        'stock': stock,
-        'discount_percent': discountPercent,
-        'image_url': imageUrl,
-        'is_active': isActive,
-        'cover_type': coverType,
-        'cost_price': costPrice,
-        'recommended': recommended,
-      };
+    'legacy_id': legacyId,
+    'title': title,
+    'author': author,
+    'category': category,
+    'description': description,
+    'price': price,
+    'stock': stock,
+    'discount_percent': discountPercent,
+    'image_url': imageUrl,
+    'is_active': isActive,
+    'cover_type': coverType,
+    'cost_price': costPrice,
+    'recommended': recommended,
+  };
 
   Map<String, dynamic> toLocalMap() => {
-        'id': id,
-        ...toDbMap(),
-        'created_at': createdAt?.toIso8601String(),
-      };
+    'id': id,
+    ...toDbMap(),
+    'created_at': createdAt?.toIso8601String(),
+  };
 
   Book copyWith({
     String? id,
@@ -120,24 +121,23 @@ class Book {
     int? costPrice,
     bool? recommended,
     DateTime? createdAt,
-  }) =>
-      Book(
-        id: id ?? this.id,
-        legacyId: legacyId ?? this.legacyId,
-        title: title ?? this.title,
-        author: author ?? this.author,
-        category: category ?? this.category,
-        description: description ?? this.description,
-        price: price ?? this.price,
-        stock: stock ?? this.stock,
-        discountPercent: discountPercent ?? this.discountPercent,
-        imageUrl: imageUrl ?? this.imageUrl,
-        isActive: isActive ?? this.isActive,
-        coverType: coverType ?? this.coverType,
-        costPrice: costPrice ?? this.costPrice,
-        recommended: recommended ?? this.recommended,
-        createdAt: createdAt ?? this.createdAt,
-      );
+  }) => Book(
+    id: id ?? this.id,
+    legacyId: legacyId ?? this.legacyId,
+    title: title ?? this.title,
+    author: author ?? this.author,
+    category: category ?? this.category,
+    description: description ?? this.description,
+    price: price ?? this.price,
+    stock: stock ?? this.stock,
+    discountPercent: discountPercent ?? this.discountPercent,
+    imageUrl: imageUrl ?? this.imageUrl,
+    isActive: isActive ?? this.isActive,
+    coverType: coverType ?? this.coverType,
+    costPrice: costPrice ?? this.costPrice,
+    recommended: recommended ?? this.recommended,
+    createdAt: createdAt ?? this.createdAt,
+  );
 }
 
 class CartLine {
@@ -160,6 +160,9 @@ class ShopOrder {
     required this.status,
     required this.items,
     required this.createdAt,
+    this.paymentProofPath = '',
+    this.paymentSubmittedAt,
+    this.stockReserved = false,
   });
 
   final String id;
@@ -173,50 +176,73 @@ class ShopOrder {
   final String status;
   final List<Map<String, dynamic>> items;
   final DateTime createdAt;
+  final String paymentProofPath;
+  final DateTime? paymentSubmittedAt;
+  final bool stockReserved;
+
+  bool get hasPaymentProof => paymentProofPath.trim().isNotEmpty;
 
   factory ShopOrder.fromMap(Map<String, dynamic> map) => ShopOrder(
-        id: (map['id'] ?? '').toString(),
-        customerName: (map['customer_name'] ?? '').toString(),
-        phone: (map['phone'] ?? '').toString(),
-        address: (map['address'] ?? '').toString(),
-        deliveryType: (map['delivery_type'] ?? '').toString(),
-        deliveryFee: (map['delivery_fee'] as num?)?.toInt() ?? 0,
-        subtotal: (map['subtotal'] as num?)?.toInt() ?? 0,
-        total: (map['total'] as num?)?.toInt() ?? 0,
-        status: (map['status'] ?? 'new').toString(),
-        items: ((map['items'] as List?) ?? const [])
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList(),
-        createdAt: DateTime.tryParse((map['created_at'] ?? '').toString()) ?? DateTime.now(),
-      );
+    id: (map['id'] ?? '').toString(),
+    customerName: (map['customer_name'] ?? '').toString(),
+    phone: (map['phone'] ?? '').toString(),
+    address: (map['address'] ?? '').toString(),
+    deliveryType: (map['delivery_type'] ?? '').toString(),
+    deliveryFee: (map['delivery_fee'] as num?)?.toInt() ?? 0,
+    subtotal: (map['subtotal'] as num?)?.toInt() ?? 0,
+    total: (map['total'] as num?)?.toInt() ?? 0,
+    status: (map['status'] ?? 'new').toString(),
+    items: ((map['items'] as List?) ?? const [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList(),
+    createdAt:
+        DateTime.tryParse((map['created_at'] ?? '').toString()) ??
+        DateTime.now(),
+    paymentProofPath: (map['payment_proof_path'] ?? '').toString(),
+    paymentSubmittedAt: DateTime.tryParse(
+      (map['payment_submitted_at'] ?? '').toString(),
+    ),
+    stockReserved: map['stock_reserved'] as bool? ?? false,
+  );
 
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'customer_name': customerName,
-        'phone': phone,
-        'address': address,
-        'delivery_type': deliveryType,
-        'delivery_fee': deliveryFee,
-        'subtotal': subtotal,
-        'total': total,
-        'status': status,
-        'items': items,
-        'created_at': createdAt.toIso8601String(),
-      };
+    'id': id,
+    'customer_name': customerName,
+    'phone': phone,
+    'address': address,
+    'delivery_type': deliveryType,
+    'delivery_fee': deliveryFee,
+    'subtotal': subtotal,
+    'total': total,
+    'status': status,
+    'items': items,
+    'created_at': createdAt.toIso8601String(),
+    'payment_proof_path': paymentProofPath,
+    'payment_submitted_at': paymentSubmittedAt?.toIso8601String(),
+    'stock_reserved': stockReserved,
+  };
 
-  ShopOrder copyWith({String? status}) => ShopOrder(
-        id: id,
-        customerName: customerName,
-        phone: phone,
-        address: address,
-        deliveryType: deliveryType,
-        deliveryFee: deliveryFee,
-        subtotal: subtotal,
-        total: total,
-        status: status ?? this.status,
-        items: items,
-        createdAt: createdAt,
-      );
+  ShopOrder copyWith({
+    String? status,
+    String? paymentProofPath,
+    DateTime? paymentSubmittedAt,
+    bool? stockReserved,
+  }) => ShopOrder(
+    id: id,
+    customerName: customerName,
+    phone: phone,
+    address: address,
+    deliveryType: deliveryType,
+    deliveryFee: deliveryFee,
+    subtotal: subtotal,
+    total: total,
+    status: status ?? this.status,
+    items: items,
+    createdAt: createdAt,
+    paymentProofPath: paymentProofPath ?? this.paymentProofPath,
+    paymentSubmittedAt: paymentSubmittedAt ?? this.paymentSubmittedAt,
+    stockReserved: stockReserved ?? this.stockReserved,
+  );
 }
 
 class BackendService {
@@ -224,7 +250,10 @@ class BackendService {
   final SupabaseClient client;
 
   Future<List<Book>> fetchBooks({bool includeInactive = false}) async {
-    final data = await client.from('books').select().order('created_at', ascending: false);
+    final data = await client
+        .from('books')
+        .select()
+        .order('created_at', ascending: false);
     return (data as List)
         .map((e) => Book.fromMap(Map<String, dynamic>.from(e as Map)))
         .where((b) => includeInactive || b.isActive)
@@ -233,17 +262,23 @@ class BackendService {
 
   Future<void> saveBook(Book book) async {
     final payload = book.toDbMap();
-    if (book.id.isEmpty || book.id.startsWith('local-') || book.id.startsWith('telegram-')) {
+    if (book.id.isEmpty ||
+        book.id.startsWith('local-') ||
+        book.id.startsWith('telegram-')) {
       await client.from('books').insert(payload);
     } else {
       await client.from('books').update(payload).eq('id', book.id);
     }
   }
 
-  Future<void> deleteBook(String id) async => client.from('books').delete().eq('id', id);
+  Future<void> deleteBook(String id) async =>
+      client.from('books').delete().eq('id', id);
 
   Future<void> applyDiscountToAll(int percent) async {
-    await client.from('books').update({'discount_percent': percent}).eq('is_active', true);
+    await client
+        .from('books')
+        .update({'discount_percent': percent})
+        .eq('is_active', true);
   }
 
   Future<void> clearAllDiscounts() async {
@@ -252,10 +287,14 @@ class BackendService {
 
   Future<String> uploadCover(XFile file) async {
     final Uint8List bytes = await file.readAsBytes();
-    final ext = file.name.contains('.') ? file.name.split('.').last.toLowerCase() : 'jpg';
+    final ext = file.name.contains('.')
+        ? file.name.split('.').last.toLowerCase()
+        : 'jpg';
     final cleanName = file.name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
     final path = 'covers/${DateTime.now().millisecondsSinceEpoch}_$cleanName';
-    await client.storage.from('book-covers').uploadBinary(
+    await client.storage
+        .from('book-covers')
+        .uploadBinary(
           path,
           bytes,
           fileOptions: FileOptions(
@@ -267,14 +306,57 @@ class BackendService {
   }
 
   Future<bool> signInAdmin(String email, String password) async {
-    final result = await client.auth.signInWithPassword(email: email.trim(), password: password);
+    final result = await client.auth.signInWithPassword(
+      email: email.trim(),
+      password: password,
+    );
     final user = result.user;
     if (user == null) return false;
-    final profile = await client.from('profiles').select('role').eq('id', user.id).maybeSingle();
+    final profile = await client
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
     return profile != null && profile['role'] == 'admin';
   }
 
   Future<void> signOut() => client.auth.signOut();
+
+  Future<String> uploadPaymentProof(XFile file) async {
+    final bytes = await file.readAsBytes();
+    if (bytes.isEmpty) throw StateError('Chek rasmi bo‘sh.');
+    if (bytes.length > 7 * 1024 * 1024) {
+      throw StateError('Chek rasmi 7 MB dan kichik bo‘lishi kerak.');
+    }
+
+    final lower = file.name.toLowerCase();
+    final contentType = lower.endsWith('.png')
+        ? 'image/png'
+        : lower.endsWith('.webp')
+        ? 'image/webp'
+        : 'image/jpeg';
+
+    final response = await client.functions.invoke(
+      'payment-proof',
+      body: {
+        'action': 'upload',
+        'file_name': file.name,
+        'content_type': contentType,
+        'data_base64': base64Encode(bytes),
+      },
+    );
+    final raw = response.data;
+    final data = raw is Map
+        ? Map<String, dynamic>.from(raw)
+        : <String, dynamic>{};
+    final path = (data['path'] ?? '').toString();
+    if (path.isEmpty) {
+      throw StateError(
+        (data['error'] ?? 'To‘lov cheki yuklanmadi.').toString(),
+      );
+    }
+    return path;
+  }
 
   Future<String> createOrder({
     required String customerName,
@@ -285,6 +367,7 @@ class BackendService {
     required int subtotal,
     required int total,
     required List<CartLine> lines,
+    String paymentProofPath = '',
   }) async {
     final payload = {
       'customer_name': customerName.trim(),
@@ -296,13 +379,40 @@ class BackendService {
       'total': total,
       'status': 'new',
       'items': lines.map(_lineToMap).toList(),
+      'payment_proof_path': paymentProofPath,
+      'payment_submitted_at': paymentProofPath.isEmpty
+          ? null
+          : DateTime.now().toIso8601String(),
     };
-    final data = await client.from('orders').insert(payload).select('id').single();
+    final data = await client
+        .from('orders')
+        .insert(payload)
+        .select('id')
+        .single();
     return data['id'].toString();
   }
 
+  Future<Map<String, Map<String, dynamic>>> fetchOrderStatuses(
+    List<String> ids,
+  ) async {
+    if (ids.isEmpty) return {};
+    final data = await client.rpc(
+      'customer_order_statuses',
+      params: {'p_ids': ids.take(50).toList()},
+    );
+    final result = <String, Map<String, dynamic>>{};
+    for (final row in (data as List)) {
+      final map = Map<String, dynamic>.from(row as Map);
+      result[(map['id'] ?? '').toString()] = map;
+    }
+    return result;
+  }
+
   Future<List<ShopOrder>> fetchOrders() async {
-    final data = await client.from('orders').select().order('created_at', ascending: false);
+    final data = await client
+        .from('orders')
+        .select()
+        .order('created_at', ascending: false);
     return (data as List)
         .map((e) => ShopOrder.fromMap(Map<String, dynamic>.from(e as Map)))
         .toList();
@@ -313,12 +423,12 @@ class BackendService {
   }
 
   static Map<String, dynamic> _lineToMap(CartLine line) => {
-        'book_id': line.book.id,
-        'title': line.book.title,
-        'price': line.book.currentPrice,
-        'quantity': line.quantity,
-        'line_total': line.total,
-      };
+    'book_id': line.book.id,
+    'title': line.book.title,
+    'price': line.book.currentPrice,
+    'quantity': line.quantity,
+    'line_total': line.total,
+  };
 }
 
 class _LocalStore {
@@ -365,7 +475,10 @@ class _LocalStore {
   }
 
   Future<void> saveOrders(List<ShopOrder> orders) async {
-    await (await _prefs).setString(_ordersKey, jsonEncode(orders.map((e) => e.toMap()).toList()));
+    await (await _prefs).setString(
+      _ordersKey,
+      jsonEncode(orders.map((e) => e.toMap()).toList()),
+    );
   }
 
   Future<Set<String>> loadFavorites() async =>
@@ -388,8 +501,10 @@ class _LocalStore {
   Future<void> saveCart(Map<String, int> cart) async =>
       (await _prefs).setString(_cartKey, jsonEncode(cart));
 
-  Future<int> seedVersion() async => (await _prefs).getInt(_seedVersionKey) ?? 0;
-  Future<void> setSeedVersion(int value) async => (await _prefs).setInt(_seedVersionKey, value);
+  Future<int> seedVersion() async =>
+      (await _prefs).getInt(_seedVersionKey) ?? 0;
+  Future<void> setSeedVersion(int value) async =>
+      (await _prefs).setInt(_seedVersionKey, value);
 
   Future<Map<String, String>> loadCustomer() async {
     final prefs = await _prefs;
@@ -426,13 +541,18 @@ class AppState extends ChangeNotifier {
   final Set<String> _favorites = {};
   bool loading = true;
   String? error;
-  Map<String, String> savedCustomer = const {'name': '', 'phone': '', 'address': ''};
+  Map<String, String> savedCustomer = const {
+    'name': '',
+    'phone': '',
+    'address': '',
+  };
 
   List<Book> get books => List.unmodifiable(_books);
   Set<String> get favorites => Set.unmodifiable(_favorites);
   BackendService? get backend => _backend;
   bool get isOnlineBackend => _backend != null;
-  String get dataModeLabel => isOnlineBackend ? 'Onlayn baza' : 'Qurilmada saqlanadi';
+  String get dataModeLabel =>
+      isOnlineBackend ? 'Onlayn baza' : 'Qurilmada saqlanadi';
 
   Future<void> initialize() async {
     _favorites
@@ -442,15 +562,15 @@ class AppState extends ChangeNotifier {
       ..clear()
       ..addAll(await _local.loadCart());
     savedCustomer = await _local.loadCustomer();
+    _localOrders
+      ..clear()
+      ..addAll(await _local.loadOrders());
 
     if (backendConfigured) {
       _backend = BackendService(Supabase.instance.client);
     }
 
     if (_backend == null) {
-      _localOrders
-        ..clear()
-        ..addAll(await _local.loadOrders());
       await _initializeLocalCatalog();
     } else {
       await refreshBooks();
@@ -466,7 +586,9 @@ class AppState extends ChangeNotifier {
       if (version < telegramSeedVersion) {
         final seed = await _loadTelegramSeed();
         final custom = localBooks
-            .where((b) => !b.id.startsWith('demo-') && !b.id.startsWith('telegram-'))
+            .where(
+              (b) => !b.id.startsWith('demo-') && !b.id.startsWith('telegram-'),
+            )
             .toList();
         final existingTitles = <String>{};
         final merged = <Book>[];
@@ -509,7 +631,9 @@ class AppState extends ChangeNotifier {
       if (_backend != null) {
         _books
           ..clear()
-          ..addAll(await _backend!.fetchBooks(includeInactive: includeInactive));
+          ..addAll(
+            await _backend!.fetchBooks(includeInactive: includeInactive),
+          );
       } else {
         _books
           ..clear()
@@ -584,7 +708,10 @@ class AppState extends ChangeNotifier {
       return;
     }
     final saved = book.id.isEmpty
-        ? book.copyWith(id: 'local-${DateTime.now().microsecondsSinceEpoch}', createdAt: DateTime.now())
+        ? book.copyWith(
+            id: 'local-${DateTime.now().microsecondsSinceEpoch}',
+            createdAt: DateTime.now(),
+          )
         : book;
     final index = _books.indexWhere((b) => b.id == saved.id);
     if (index == -1) {
@@ -597,7 +724,9 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> deleteBook(Book book) async {
-    if (_backend != null && !book.id.startsWith('local-') && !book.id.startsWith('telegram-')) {
+    if (_backend != null &&
+        !book.id.startsWith('local-') &&
+        !book.id.startsWith('telegram-')) {
       await _backend!.deleteBook(book.id);
       await refreshBooks(includeInactive: true);
       return;
@@ -640,6 +769,7 @@ class AppState extends ChangeNotifier {
     required String address,
     required String deliveryType,
     required int deliveryFee,
+    XFile? paymentProof,
   }) async {
     final lines = cartLines;
     if (lines.isEmpty) throw StateError('Savatcha bo‘sh.');
@@ -648,10 +778,29 @@ class AppState extends ChangeNotifier {
         throw StateError('${line.book.title} omborda yetarli emas.');
       }
     }
+
     final subtotal = cartSubtotal;
     final total = subtotal + deliveryFee;
-    await _local.saveCustomer(customerName.trim(), phone.trim(), address.trim());
-    savedCustomer = {'name': customerName.trim(), 'phone': phone.trim(), 'address': address.trim()};
+    await _local.saveCustomer(
+      customerName.trim(),
+      phone.trim(),
+      address.trim(),
+    );
+    savedCustomer = {
+      'name': customerName.trim(),
+      'phone': phone.trim(),
+      'address': address.trim(),
+    };
+
+    var paymentProofPath = '';
+    if (paymentProof != null) {
+      paymentProofPath = _backend != null
+          ? await _backend!.uploadPaymentProof(paymentProof)
+          : 'local:${paymentProof.name}';
+    }
+
+    final now = DateTime.now();
+    final items = lines.map(BackendService._lineToMap).toList();
 
     if (_backend != null) {
       final id = await _backend!.createOrder(
@@ -663,15 +812,37 @@ class AppState extends ChangeNotifier {
         subtotal: subtotal,
         total: total,
         lines: lines,
+        paymentProofPath: paymentProofPath,
       );
-      clearCart();
+
+      final receipt = ShopOrder(
+        id: id,
+        customerName: customerName.trim(),
+        phone: phone.trim(),
+        address: address.trim(),
+        deliveryType: deliveryType,
+        deliveryFee: deliveryFee,
+        subtotal: subtotal,
+        total: total,
+        status: 'new',
+        items: items,
+        createdAt: now,
+        paymentProofPath: paymentProofPath,
+        paymentSubmittedAt: paymentProofPath.isEmpty ? null : now,
+        stockReserved: false,
+      );
+      _localOrders.removeWhere((o) => o.id == id);
+      _localOrders.insert(0, receipt);
+      _cart.clear();
+      await Future.wait([
+        _local.saveOrders(_localOrders),
+        _local.saveCart(_cart),
+      ]);
       await refreshBooks();
       return id;
     }
 
-    final now = DateTime.now();
     final id = 'MB-${now.millisecondsSinceEpoch.toString().substring(5)}';
-    final items = lines.map(BackendService._lineToMap).toList();
     final order = ShopOrder(
       id: id,
       customerName: customerName.trim(),
@@ -684,18 +855,14 @@ class AppState extends ChangeNotifier {
       status: 'new',
       items: items,
       createdAt: now,
+      paymentProofPath: paymentProofPath,
+      paymentSubmittedAt: paymentProofPath.isEmpty ? null : now,
+      stockReserved: false,
     );
 
-    for (final line in lines) {
-      final index = _books.indexWhere((b) => b.id == line.book.id);
-      if (index >= 0) {
-        _books[index] = _books[index].copyWith(stock: _books[index].stock - line.quantity);
-      }
-    }
     _localOrders.insert(0, order);
     _cart.clear();
     await Future.wait([
-      _local.saveBooks(_books),
       _local.saveOrders(_localOrders),
       _local.saveCart(_cart),
     ]);
@@ -720,16 +887,30 @@ class AppState extends ChangeNotifier {
     final index = _localOrders.indexWhere((o) => o.id == id);
     if (index < 0) return;
     final old = _localOrders[index];
+    if (old.status == 'cancelled' && status != 'cancelled') {
+      throw StateError('Bekor qilingan buyurtmani qayta ochib bo‘lmaydi.');
+    }
 
-    if (old.status != 'cancelled' && status == 'cancelled') {
-      _restoreLocalStock(old.items);
-    } else if (old.status == 'cancelled' && status != 'cancelled') {
+    final shouldReserve = [
+      'accepted',
+      'paid',
+      'shipping',
+      'done',
+    ].contains(status);
+    var reserved = old.stockReserved;
+
+    if (shouldReserve && !reserved) {
       if (!_canReserveLocalStock(old.items)) {
-        throw StateError('Buyurtmani qayta ochish uchun ombor yetarli emas.');
+        throw StateError('Buyurtmani qabul qilish uchun ombor yetarli emas.');
       }
       _reserveLocalStock(old.items);
+      reserved = true;
+    } else if (status == 'cancelled' && reserved) {
+      _restoreLocalStock(old.items);
+      reserved = false;
     }
-    _localOrders[index] = old.copyWith(status: status);
+
+    _localOrders[index] = old.copyWith(status: status, stockReserved: reserved);
     await Future.wait([
       _local.saveOrders(_localOrders),
       _local.saveBooks(_books),
@@ -756,8 +937,36 @@ class AppState extends ChangeNotifier {
   Future<List<ShopOrder>> customerOrdersByPhone(String phone) async {
     final clean = phone.replaceAll(RegExp(r'\D'), '');
     if (clean.length < 7) return [];
-    final all = await fetchOrders();
-    return all.where((o) => o.phone.replaceAll(RegExp(r'\D'), '') == clean).toList();
+
+    _localOrders
+      ..clear()
+      ..addAll(await _local.loadOrders());
+
+    if (_backend != null && _localOrders.isNotEmpty) {
+      try {
+        final uuidIds = _localOrders
+            .map((o) => o.id)
+            .where((id) => RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(id))
+            .toList();
+        final statuses = await _backend!.fetchOrderStatuses(uuidIds);
+        for (var i = 0; i < _localOrders.length; i++) {
+          final row = statuses[_localOrders[i].id];
+          if (row == null) continue;
+          _localOrders[i] = _localOrders[i].copyWith(
+            status: (row['status'] ?? _localOrders[i].status).toString(),
+            stockReserved:
+                row['stock_reserved'] as bool? ?? _localOrders[i].stockReserved,
+          );
+        }
+        await _local.saveOrders(_localOrders);
+      } catch (_) {
+        // Buyurtma tarixi qurilmada saqlangan nusxa bilan ishlashda davom etadi.
+      }
+    }
+
+    return _localOrders
+        .where((o) => o.phone.replaceAll(RegExp(r'\D'), '') == clean)
+        .toList();
   }
 
   void _sanitizeCart() {
@@ -786,7 +995,10 @@ class AppState extends ChangeNotifier {
       final id = (item['book_id'] ?? '').toString();
       final qty = (item['quantity'] as num?)?.toInt() ?? 0;
       final index = _books.indexWhere((b) => b.id == id);
-      if (index >= 0) _books[index] = _books[index].copyWith(stock: _books[index].stock - qty);
+      if (index >= 0)
+        _books[index] = _books[index].copyWith(
+          stock: _books[index].stock - qty,
+        );
     }
   }
 
@@ -795,7 +1007,10 @@ class AppState extends ChangeNotifier {
       final id = (item['book_id'] ?? '').toString();
       final qty = (item['quantity'] as num?)?.toInt() ?? 0;
       final index = _books.indexWhere((b) => b.id == id);
-      if (index >= 0) _books[index] = _books[index].copyWith(stock: _books[index].stock + qty);
+      if (index >= 0)
+        _books[index] = _books[index].copyWith(
+          stock: _books[index].stock + qty,
+        );
     }
   }
 

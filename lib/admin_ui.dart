@@ -20,36 +20,50 @@ class _AdminApi {
   SupabaseClient get client => Supabase.instance.client;
 
   Future<bool> verify() async {
-    final result = await client.rpc('admin_verify', params: {'p_secret': secret});
+    final result = await client.rpc(
+      'admin_verify',
+      params: {'p_secret': secret},
+    );
     return result == true;
   }
 
   Future<List<Book>> books() async {
-    final data = await client.rpc('admin_list_books', params: {'p_secret': secret});
+    final data = await client.rpc(
+      'admin_list_books',
+      params: {'p_secret': secret},
+    );
     return (data as List)
         .map((e) => Book.fromMap(Map<String, dynamic>.from(e as Map)))
         .toList();
   }
 
   Future<void> saveBook(Book book) async {
-    await client.rpc('admin_save_book', params: {
-      'p_secret': secret,
-      'p_id': book.id.isEmpty || book.id.startsWith('local-') || book.id.startsWith('telegram-') ? null : book.id,
-      'p_data': {
-        'title': book.title,
-        'author': book.author,
-        'category': book.category,
-        'description': book.description,
-        'price': book.price,
-        'stock': book.stock,
-        'discount_percent': book.discountPercent,
-        'image_url': book.imageUrl,
-        'is_active': book.isActive,
-        'cover': book.coverType,
-        'cost_price': book.costPrice,
-        'recommended': book.recommended,
+    await client.rpc(
+      'admin_save_book',
+      params: {
+        'p_secret': secret,
+        'p_id':
+            book.id.isEmpty ||
+                book.id.startsWith('local-') ||
+                book.id.startsWith('telegram-')
+            ? null
+            : book.id,
+        'p_data': {
+          'title': book.title,
+          'author': book.author,
+          'category': book.category,
+          'description': book.description,
+          'price': book.price,
+          'stock': book.stock,
+          'discount_percent': book.discountPercent,
+          'image_url': book.imageUrl,
+          'is_active': book.isActive,
+          'cover': book.coverType,
+          'cost_price': book.costPrice,
+          'recommended': book.recommended,
+        },
       },
-    });
+    );
   }
 
   Future<String> uploadCover(XFile file) async {
@@ -63,8 +77,8 @@ class _AdminApi {
     final contentType = lower.endsWith('.png')
         ? 'image/png'
         : lower.endsWith('.webp')
-            ? 'image/webp'
-            : 'image/jpeg';
+        ? 'image/webp'
+        : 'image/jpeg';
 
     final response = await client.functions.invoke(
       'admin-cover-upload',
@@ -77,7 +91,9 @@ class _AdminApi {
     );
 
     final raw = response.data;
-    final data = raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+    final data = raw is Map
+        ? Map<String, dynamic>.from(raw)
+        : <String, dynamic>{};
     final url = (data['url'] ?? '').toString();
     if (url.isEmpty) {
       throw StateError((data['error'] ?? 'Rasm yuklanmadi.').toString());
@@ -86,11 +102,17 @@ class _AdminApi {
   }
 
   Future<void> deleteBook(String id) async {
-    await client.rpc('admin_delete_book', params: {'p_secret': secret, 'p_id': id});
+    await client.rpc(
+      'admin_delete_book',
+      params: {'p_secret': secret, 'p_id': id},
+    );
   }
 
   Future<void> applyDiscount(int percent) async {
-    await client.rpc('admin_apply_discount', params: {'p_secret': secret, 'p_percent': percent});
+    await client.rpc(
+      'admin_apply_discount',
+      params: {'p_secret': secret, 'p_percent': percent},
+    );
   }
 
   Future<void> clearDiscounts() async {
@@ -98,18 +120,39 @@ class _AdminApi {
   }
 
   Future<List<ShopOrder>> orders() async {
-    final data = await client.rpc('admin_list_orders', params: {'p_secret': secret});
+    final data = await client.rpc(
+      'admin_list_orders',
+      params: {'p_secret': secret},
+    );
     return (data as List)
         .map((e) => ShopOrder.fromMap(Map<String, dynamic>.from(e as Map)))
         .toList();
   }
 
+  Future<String> paymentProofUrl(String path) async {
+    final response = await client.functions.invoke(
+      'payment-proof',
+      body: {'action': 'view', 'admin_code': secret, 'path': path},
+    );
+    final raw = response.data;
+    final data = raw is Map
+        ? Map<String, dynamic>.from(raw)
+        : <String, dynamic>{};
+    final url = (data['url'] ?? '').toString();
+    if (url.isEmpty)
+      throw StateError((data['error'] ?? 'Chek ochilmadi.').toString());
+    return url;
+  }
+
+  Future<void> setStock(Book book, int value) async {
+    await saveBook(book.copyWith(stock: value < 0 ? 0 : value));
+  }
+
   Future<void> updateOrderStatus(String id, String status) async {
-    await client.rpc('admin_update_order_status', params: {
-      'p_secret': secret,
-      'p_id': id,
-      'p_status': status,
-    });
+    await client.rpc(
+      'admin_update_order_status',
+      params: {'p_secret': secret, 'p_id': id, 'p_status': status},
+    );
   }
 }
 
@@ -151,7 +194,8 @@ class _AdminGatePageState extends State<AdminGatePage> {
         MaterialPageRoute(builder: (_) => AdminDashboardPage(secret: value)),
       );
     } catch (_) {
-      if (mounted) setState(() => error = 'Kirishda xatolik. Internetni tekshiring.');
+      if (mounted)
+        setState(() => error = 'Kirishda xatolik. Internetni tekshiring.');
     } finally {
       if (mounted) setState(() => loading = false);
     }
@@ -191,7 +235,11 @@ class _AdminGatePageState extends State<AdminGatePage> {
                   prefixIcon: const Icon(Icons.lock_outline_rounded),
                   suffixIcon: IconButton(
                     onPressed: () => setState(() => obscure = !obscure),
-                    icon: Icon(obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                    icon: Icon(
+                      obscure
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                    ),
                   ),
                 ),
               ),
@@ -203,7 +251,11 @@ class _AdminGatePageState extends State<AdminGatePage> {
               FilledButton.icon(
                 onPressed: loading ? null : _login,
                 icon: loading
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : const Icon(Icons.login_rounded),
                 label: const Text('Kirish'),
               ),
@@ -236,33 +288,575 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   @override
   Widget build(BuildContext context) {
     final pages = [
+      _OverviewAdmin(api: api),
       _BooksAdmin(api: api),
+      _InventoryAdmin(api: api),
       _OrdersAdmin(api: api),
       _DiscountAdmin(api: api),
     ];
-    return Scaffold(
-      appBar: AppBar(
-        title: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            MuhajeerLogoBadge(size: 38, radius: 10, showShadow: false),
-            SizedBox(width: 10),
-            Text('Boshqaruv paneli'),
-          ],
-        ),
+    const railDestinations = [
+      NavigationRailDestination(
+        icon: Icon(Icons.dashboard_outlined),
+        selectedIcon: Icon(Icons.dashboard_rounded),
+        label: Text('Bosh sahifa'),
       ),
-      body: pages[tab],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: tab,
-        onDestinationSelected: (v) => setState(() => tab = v),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.menu_book_outlined), label: 'Kitoblar'),
-          NavigationDestination(icon: Icon(Icons.receipt_long_outlined), label: 'Buyurtmalar'),
-          NavigationDestination(icon: Icon(Icons.percent_rounded), label: 'Chegirma'),
-        ],
+      NavigationRailDestination(
+        icon: Icon(Icons.menu_book_outlined),
+        selectedIcon: Icon(Icons.menu_book_rounded),
+        label: Text('Kitoblar'),
       ),
+      NavigationRailDestination(
+        icon: Icon(Icons.inventory_2_outlined),
+        selectedIcon: Icon(Icons.inventory_2_rounded),
+        label: Text('Ombor'),
+      ),
+      NavigationRailDestination(
+        icon: Icon(Icons.receipt_long_outlined),
+        selectedIcon: Icon(Icons.receipt_long_rounded),
+        label: Text('Buyurtmalar'),
+      ),
+      NavigationRailDestination(
+        icon: Icon(Icons.percent_rounded),
+        label: Text('Chegirma'),
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final desktop = constraints.maxWidth >= 900;
+        return Scaffold(
+          appBar: AppBar(
+            title: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                MuhajeerLogoBadge(size: 38, radius: 10, showShadow: false),
+                SizedBox(width: 10),
+                Text('Muhajeer Books • Admin'),
+              ],
+            ),
+          ),
+          body: desktop
+              ? Row(
+                  children: [
+                    NavigationRail(
+                      selectedIndex: tab,
+                      onDestinationSelected: (v) => setState(() => tab = v),
+                      labelType: NavigationRailLabelType.all,
+                      groupAlignment: -.8,
+                      destinations: railDestinations,
+                    ),
+                    const VerticalDivider(width: 1),
+                    Expanded(child: pages[tab]),
+                  ],
+                )
+              : pages[tab],
+          bottomNavigationBar: desktop
+              ? null
+              : NavigationBar(
+                  selectedIndex: tab,
+                  onDestinationSelected: (v) => setState(() => tab = v),
+                  labelBehavior:
+                      NavigationDestinationLabelBehavior.onlyShowSelected,
+                  destinations: const [
+                    NavigationDestination(
+                      icon: Icon(Icons.dashboard_outlined),
+                      selectedIcon: Icon(Icons.dashboard_rounded),
+                      label: 'Bosh',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.menu_book_outlined),
+                      selectedIcon: Icon(Icons.menu_book_rounded),
+                      label: 'Kitoblar',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.inventory_2_outlined),
+                      selectedIcon: Icon(Icons.inventory_2_rounded),
+                      label: 'Ombor',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.receipt_long_outlined),
+                      selectedIcon: Icon(Icons.receipt_long_rounded),
+                      label: 'Zakazlar',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.percent_rounded),
+                      label: 'Chegirma',
+                    ),
+                  ],
+                ),
+        );
+      },
     );
   }
+}
+
+class _OverviewData {
+  const _OverviewData(this.books, this.orders);
+  final List<Book> books;
+  final List<ShopOrder> orders;
+}
+
+class _OverviewAdmin extends StatefulWidget {
+  const _OverviewAdmin({required this.api});
+  final _AdminApi api;
+
+  @override
+  State<_OverviewAdmin> createState() => _OverviewAdminState();
+}
+
+class _OverviewAdminState extends State<_OverviewAdmin> {
+  late Future<_OverviewData> future;
+
+  @override
+  void initState() {
+    super.initState();
+    future = load();
+  }
+
+  Future<_OverviewData> load() async =>
+      _OverviewData(await widget.api.books(), await widget.api.orders());
+  void reload() => setState(() => future = load());
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<_OverviewData>(
+    future: future,
+    builder: (context, snap) {
+      if (snap.connectionState == ConnectionState.waiting)
+        return const Center(child: CircularProgressIndicator());
+      if (snap.hasError) return Center(child: Text('Xatolik: ${snap.error}'));
+      final data = snap.data ?? const _OverviewData([], []);
+      final books = data.books;
+      final orders = data.orders;
+      final now = DateTime.now();
+      final todayOrders = orders
+          .where(
+            (o) =>
+                o.createdAt.year == now.year &&
+                o.createdAt.month == now.month &&
+                o.createdAt.day == now.day,
+          )
+          .length;
+      final newOrders = orders.where((o) => o.status == 'new').length;
+      final proofOrders = orders
+          .where((o) => o.status == 'new' && o.hasPaymentProof)
+          .length;
+      final activeRevenue = orders
+          .where(
+            (o) => ['accepted', 'paid', 'shipping', 'done'].contains(o.status),
+          )
+          .fold<int>(0, (sum, o) => sum + o.total);
+      final totalStock = books.fold<int>(0, (sum, b) => sum + b.stock);
+      final retailValue = books.fold<int>(
+        0,
+        (sum, b) => sum + b.currentPrice * b.stock,
+      );
+      final lowStock = books.where((b) => b.stock <= 2).toList()
+        ..sort((a, b) => a.stock.compareTo(b.stock));
+
+      return RefreshIndicator(
+        onRefresh: () async => reload(),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(18),
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Boshqaruv markazi',
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      SizedBox(height: 3),
+                      Text(
+                        'Savdo, buyurtma va ombor holati bir joyda.',
+                        style: TextStyle(color: Colors.black54),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton.filledTonal(
+                  onPressed: reload,
+                  icon: const Icon(Icons.refresh_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _AdminStatCard(
+                  icon: Icons.new_releases_outlined,
+                  label: 'Yangi buyurtma',
+                  value: '$newOrders',
+                  accent: _orange,
+                ),
+                _AdminStatCard(
+                  icon: Icons.today_outlined,
+                  label: 'Bugungi zakaz',
+                  value: '$todayOrders',
+                  accent: _navy,
+                ),
+                _AdminStatCard(
+                  icon: Icons.receipt_outlined,
+                  label: 'Chek yuborilgan',
+                  value: '$proofOrders',
+                  accent: const Color(0xFF138A4B),
+                ),
+                _AdminStatCard(
+                  icon: Icons.inventory_2_outlined,
+                  label: 'Ombordagi dona',
+                  value: '$totalStock',
+                  accent: const Color(0xFF6B5DD3),
+                ),
+                _AdminStatCard(
+                  icon: Icons.payments_outlined,
+                  label: 'Qabul qilingan savdo',
+                  value: _won(activeRevenue),
+                  accent: const Color(0xFF138A4B),
+                ),
+                _AdminStatCard(
+                  icon: Icons.account_balance_wallet_outlined,
+                  label: 'Ombor retail qiymati',
+                  value: _won(retailValue),
+                  accent: _navy,
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.warning_amber_rounded, color: _orange),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'Kam qolgan kitoblar',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${lowStock.length} ta',
+                          style: const TextStyle(color: Colors.black54),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    if (lowStock.isEmpty)
+                      const Text(
+                        'Hamma kitoblarda qoldiq yaxshi ✅',
+                        style: TextStyle(
+                          color: Color(0xFF138A4B),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      )
+                    else
+                      ...lowStock
+                          .take(6)
+                          .map(
+                            (b) => ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: _AdminBookThumb(url: b.imageUrl),
+                              title: Text(
+                                b.title,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              trailing: Text(
+                                '${b.stock} dona',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  color: b.stock == 0 ? Colors.red : _orange,
+                                ),
+                              ),
+                            ),
+                          ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+class _AdminStatCard extends StatelessWidget {
+  const _AdminStatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.accent,
+  });
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 210,
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: const Color(0xFFE6E8EC)),
+    ),
+    child: Row(
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: .10),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(icon, color: accent),
+        ),
+        const SizedBox(width: 11),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                maxLines: 2,
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  color: Colors.black54,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _InventoryAdmin extends StatefulWidget {
+  const _InventoryAdmin({required this.api});
+  final _AdminApi api;
+
+  @override
+  State<_InventoryAdmin> createState() => _InventoryAdminState();
+}
+
+class _InventoryAdminState extends State<_InventoryAdmin> {
+  late Future<List<Book>> future;
+  String query = '';
+  final Set<String> busy = {};
+
+  @override
+  void initState() {
+    super.initState();
+    future = widget.api.books();
+  }
+
+  void reload() {
+    setState(() => future = widget.api.books());
+    context.read<AppState>().refreshBooks();
+  }
+
+  Future<void> change(Book book, int delta) async {
+    if (busy.contains(book.id)) return;
+    setState(() => busy.add(book.id));
+    try {
+      await widget.api.setStock(
+        book,
+        (book.stock + delta).clamp(0, 99999).toInt(),
+      );
+      if (mounted) reload();
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Ombor xatosi: $e')));
+    } finally {
+      if (mounted) setState(() => busy.remove(book.id));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Book>>(
+    future: future,
+    builder: (context, snap) {
+      final all = snap.data ?? const <Book>[];
+      final q = query.trim().toLowerCase();
+      final books =
+          all
+              .where((b) => q.isEmpty || b.title.toLowerCase().contains(q))
+              .toList()
+            ..sort((a, b) => a.stock.compareTo(b.stock));
+      final total = all.fold<int>(0, (s, b) => s + b.stock);
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Ombor boshqaruvi',
+                        style: TextStyle(
+                          fontSize: 23,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    Chip(label: Text('$total dona')),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  onChanged: (v) => setState(() => query = v),
+                  decoration: const InputDecoration(
+                    hintText: 'Kitob nomi...',
+                    prefixIcon: Icon(Icons.search_rounded),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (snap.connectionState == ConnectionState.waiting)
+            const Expanded(child: Center(child: CircularProgressIndicator()))
+          else
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                itemCount: books.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (_, i) {
+                  final b = books[i];
+                  final isBusy = busy.contains(b.id);
+                  return Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Row(
+                        children: [
+                          _AdminBookThumb(url: b.imageUrl),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  b.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${_won(b.currentPrice)} • ${b.stock <= 2 ? 'Kam qolgan' : 'Qoldiq yaxshi'}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: b.stock <= 2
+                                        ? _orange
+                                        : const Color(0xFF138A4B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isBusy)
+                            const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            )
+                          else
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton.outlined(
+                                  onPressed: () => change(b, -1),
+                                  icon: const Icon(Icons.remove_rounded),
+                                ),
+                                SizedBox(
+                                  width: 50,
+                                  child: Text(
+                                    '${b.stock}',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                                IconButton.filledTonal(
+                                  onPressed: () => change(b, 1),
+                                  icon: const Icon(Icons.add_rounded),
+                                ),
+                                const SizedBox(width: 4),
+                                PopupMenuButton<int>(
+                                  tooltip: 'Tez qo‘shish',
+                                  onSelected: (v) => change(b, v),
+                                  itemBuilder: (_) => const [
+                                    PopupMenuItem(
+                                      value: 5,
+                                      child: Text('+5 dona'),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 10,
+                                      child: Text('+10 dona'),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 20,
+                                      child: Text('+20 dona'),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
+      );
+    },
+  );
 }
 
 class _BooksAdmin extends StatefulWidget {
@@ -291,7 +885,9 @@ class _BooksAdminState extends State<_BooksAdmin> {
   Future<void> openForm([Book? book]) async {
     final changed = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => _BookForm(api: widget.api, book: book)),
+      MaterialPageRoute(
+        builder: (_) => _BookForm(api: widget.api, book: book),
+      ),
     );
     if (changed == true && mounted) reload();
   }
@@ -303,8 +899,14 @@ class _BooksAdminState extends State<_BooksAdmin> {
         title: const Text('Kitobni o‘chirish'),
         content: Text('“${book.title}” o‘chirilsinmi?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Yo‘q')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('O‘chirish')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Yo‘q'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('O‘chirish'),
+          ),
         ],
       ),
     );
@@ -321,7 +923,14 @@ class _BooksAdminState extends State<_BooksAdmin> {
       builder: (context, snap) {
         final all = snap.data ?? const <Book>[];
         final q = query.trim().toLowerCase();
-        final books = all.where((b) => q.isEmpty || b.title.toLowerCase().contains(q) || b.author.toLowerCase().contains(q)).toList();
+        final books = all
+            .where(
+              (b) =>
+                  q.isEmpty ||
+                  b.title.toLowerCase().contains(q) ||
+                  b.author.toLowerCase().contains(q),
+            )
+            .toList();
         final totalStock = all.fold<int>(0, (s, b) => s + b.stock);
         return Column(
           children: [
@@ -335,8 +944,15 @@ class _BooksAdminState extends State<_BooksAdmin> {
                     children: [
                       _MiniStat(label: 'Kitob', value: '${all.length}'),
                       _MiniStat(label: 'Ombor', value: '$totalStock dona'),
-                      _MiniStat(label: 'Rasmli', value: '${all.where((b) => b.imageUrl.isNotEmpty).length}'),
-                      _MiniStat(label: 'Kam qolgan', value: '${all.where((b) => b.stock <= 2).length}'),
+                      _MiniStat(
+                        label: 'Rasmli',
+                        value:
+                            '${all.where((b) => b.imageUrl.isNotEmpty).length}',
+                      ),
+                      _MiniStat(
+                        label: 'Kam qolgan',
+                        value: '${all.where((b) => b.stock <= 2).length}',
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -345,13 +961,23 @@ class _BooksAdminState extends State<_BooksAdmin> {
                       Expanded(
                         child: TextField(
                           onChanged: (v) => setState(() => query = v),
-                          decoration: const InputDecoration(hintText: 'Kitob yoki muallif...', prefixIcon: Icon(Icons.search)),
+                          decoration: const InputDecoration(
+                            hintText: 'Kitob yoki muallif...',
+                            prefixIcon: Icon(Icons.search),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      IconButton(onPressed: reload, icon: const Icon(Icons.refresh_rounded)),
+                      IconButton(
+                        onPressed: reload,
+                        icon: const Icon(Icons.refresh_rounded),
+                      ),
                       const SizedBox(width: 4),
-                      FilledButton.icon(onPressed: () => openForm(), icon: const Icon(Icons.add), label: const Text('Qo‘shish')),
+                      FilledButton.icon(
+                        onPressed: () => openForm(),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Qo‘shish'),
+                      ),
                     ],
                   ),
                 ],
@@ -372,13 +998,25 @@ class _BooksAdminState extends State<_BooksAdmin> {
                     return Card(
                       child: ListTile(
                         leading: _AdminBookThumb(url: b.imageUrl),
-                        title: Text(b.title, style: const TextStyle(fontWeight: FontWeight.w900)),
-                        subtitle: Text('${b.author} • ${b.stock} dona • ${_won(b.currentPrice)}${b.isActive ? '' : ' • Yashirilgan'}'),
+                        title: Text(
+                          b.title,
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        subtitle: Text(
+                          '${b.author} • ${b.stock} dona • ${_won(b.currentPrice)}${b.isActive ? '' : ' • Yashirilgan'}',
+                        ),
                         trailing: PopupMenuButton<String>(
-                          onSelected: (v) => v == 'edit' ? openForm(b) : remove(b),
+                          onSelected: (v) =>
+                              v == 'edit' ? openForm(b) : remove(b),
                           itemBuilder: (_) => const [
-                            PopupMenuItem(value: 'edit', child: Text('Tahrirlash')),
-                            PopupMenuItem(value: 'delete', child: Text('O‘chirish')),
+                            PopupMenuItem(
+                              value: 'edit',
+                              child: Text('Tahrirlash'),
+                            ),
+                            PopupMenuItem(
+                              value: 'delete',
+                              child: Text('O‘chirish'),
+                            ),
                           ],
                         ),
                       ),
@@ -403,7 +1041,10 @@ class _AdminBookThumb extends StatelessWidget {
       return Container(
         width: 48,
         height: 64,
-        decoration: BoxDecoration(color: const Color(0xFFF2F3F5), borderRadius: BorderRadius.circular(8)),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF2F3F5),
+          borderRadius: BorderRadius.circular(8),
+        ),
         alignment: Alignment.center,
         child: const Icon(Icons.menu_book_rounded, color: _navy),
       );
@@ -434,10 +1075,17 @@ class _MiniStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFE7E9ED))),
-        child: Text('$label: $value', style: const TextStyle(fontWeight: FontWeight.w800)),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: const Color(0xFFE7E9ED)),
+    ),
+    child: Text(
+      '$label: $value',
+      style: const TextStyle(fontWeight: FontWeight.w800),
+    ),
+  );
 }
 
 class _BookForm extends StatefulWidget {
@@ -472,14 +1120,20 @@ class _BookFormState extends State<_BookForm> {
     super.initState();
     final b = widget.book;
     title = TextEditingController(text: b?.title ?? '');
-    author = TextEditingController(text: b?.author == 'Ko‘rsatilmagan' ? '' : b?.author ?? '');
+    author = TextEditingController(
+      text: b?.author == 'Ko‘rsatilmagan' ? '' : b?.author ?? '',
+    );
     category = TextEditingController(text: b?.category ?? 'Boshqalar');
     description = TextEditingController(text: b?.description ?? '');
     price = TextEditingController(text: b == null ? '' : '${b.price}');
     stock = TextEditingController(text: b == null ? '' : '${b.stock}');
-    discount = TextEditingController(text: b == null ? '0' : '${b.discountPercent}');
+    discount = TextEditingController(
+      text: b == null ? '0' : '${b.discountPercent}',
+    );
     image = TextEditingController(text: b?.imageUrl ?? '');
-    cost = TextEditingController(text: b == null || b.costPrice == 0 ? '' : '${b.costPrice}');
+    cost = TextEditingController(
+      text: b == null || b.costPrice == 0 ? '' : '${b.costPrice}',
+    );
     cover = b?.coverType ?? 'Ko‘rsatilmagan';
     active = b?.isActive ?? true;
     recommended = b?.recommended ?? false;
@@ -493,22 +1147,40 @@ class _BookFormState extends State<_BookForm> {
   @override
   void dispose() {
     image.removeListener(_imageChanged);
-    for (final c in [title, author, category, description, price, stock, discount, image, cost]) {
+    for (final c in [
+      title,
+      author,
+      category,
+      description,
+      price,
+      stock,
+      discount,
+      image,
+      cost,
+    ]) {
       c.dispose();
     }
     super.dispose();
   }
 
-  Widget field(TextEditingController c, String label, {bool number = false, bool required = false, int lines = 1}) => Padding(
-        padding: const EdgeInsets.only(bottom: 11),
-        child: TextFormField(
-          controller: c,
-          maxLines: lines,
-          keyboardType: number ? TextInputType.number : TextInputType.text,
-          decoration: InputDecoration(labelText: label),
-          validator: required ? (v) => v == null || v.trim().isEmpty ? 'Majburiy' : null : null,
-        ),
-      );
+  Widget field(
+    TextEditingController c,
+    String label, {
+    bool number = false,
+    bool required = false,
+    int lines = 1,
+  }) => Padding(
+    padding: const EdgeInsets.only(bottom: 11),
+    child: TextFormField(
+      controller: c,
+      maxLines: lines,
+      keyboardType: number ? TextInputType.number : TextInputType.text,
+      decoration: InputDecoration(labelText: label),
+      validator: required
+          ? (v) => v == null || v.trim().isEmpty ? 'Majburiy' : null
+          : null,
+    ),
+  );
 
   Future<void> pickAndUploadImage() async {
     if (uploadingImage) return;
@@ -523,10 +1195,14 @@ class _BookFormState extends State<_BookForm> {
       final url = await widget.api.uploadCover(picked);
       if (!mounted) return;
       image.text = url;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kitob rasmi yuklandi ✅')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Kitob rasmi yuklandi ✅')));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Rasm yuklashda xatolik: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Rasm yuklashda xatolik: $e')));
       }
     } finally {
       if (mounted) setState(() => uploadingImage = false);
@@ -540,31 +1216,45 @@ class _BookFormState extends State<_BookForm> {
     final d = int.tryParse(discount.text.trim()) ?? 0;
     final c = int.tryParse(cost.text.trim()) ?? 0;
     if (p < 0 || s < 0 || d < 0 || d > 99 || c < 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Narx, ombor yoki chegirma qiymatini tekshiring.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Narx, ombor yoki chegirma qiymatini tekshiring.'),
+        ),
+      );
       return;
     }
     setState(() => saving = true);
     try {
-      await widget.api.saveBook(Book(
-        id: widget.book?.id ?? '',
-        legacyId: widget.book?.legacyId,
-        title: title.text.trim(),
-        author: author.text.trim().isEmpty ? 'Ko‘rsatilmagan' : author.text.trim(),
-        category: category.text.trim().isEmpty ? 'Boshqalar' : category.text.trim(),
-        description: description.text.trim().isEmpty ? 'Ma’lumot kiritilmagan.' : description.text.trim(),
-        price: p,
-        stock: s,
-        discountPercent: d,
-        imageUrl: image.text.trim(),
-        isActive: active,
-        coverType: cover,
-        costPrice: c,
-        recommended: recommended,
-        createdAt: widget.book?.createdAt,
-      ));
+      await widget.api.saveBook(
+        Book(
+          id: widget.book?.id ?? '',
+          legacyId: widget.book?.legacyId,
+          title: title.text.trim(),
+          author: author.text.trim().isEmpty
+              ? 'Ko‘rsatilmagan'
+              : author.text.trim(),
+          category: category.text.trim().isEmpty
+              ? 'Boshqalar'
+              : category.text.trim(),
+          description: description.text.trim().isEmpty
+              ? 'Ma’lumot kiritilmagan.'
+              : description.text.trim(),
+          price: p,
+          stock: s,
+          discountPercent: d,
+          imageUrl: image.text.trim(),
+          isActive: active,
+          coverType: cover,
+          costPrice: c,
+          recommended: recommended,
+          createdAt: widget.book?.createdAt,
+        ),
+      );
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Saqlashda xatolik: $e')));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Saqlashda xatolik: $e')));
     } finally {
       if (mounted) setState(() => saving = false);
     }
@@ -574,7 +1264,11 @@ class _BookFormState extends State<_BookForm> {
   Widget build(BuildContext context) {
     final imageUrl = image.text.trim();
     return Scaffold(
-      appBar: AppBar(title: Text(widget.book == null ? 'Kitob qo‘shish' : 'Kitobni tahrirlash')),
+      appBar: AppBar(
+        title: Text(
+          widget.book == null ? 'Kitob qo‘shish' : 'Kitobni tahrirlash',
+        ),
+      ),
       body: Form(
         key: key,
         child: ListView(
@@ -594,15 +1288,24 @@ class _BookFormState extends State<_BookForm> {
                     ? const Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.photo_library_outlined, size: 46, color: _navy),
+                          Icon(
+                            Icons.photo_library_outlined,
+                            size: 46,
+                            color: _navy,
+                          ),
                           SizedBox(height: 8),
-                          Text('Rasm yo‘q', style: TextStyle(color: Colors.black54)),
+                          Text(
+                            'Rasm yo‘q',
+                            style: TextStyle(color: Colors.black54),
+                          ),
                         ],
                       )
                     : Image.network(
                         imageUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image_outlined, size: 44)),
+                        errorBuilder: (_, __, ___) => const Center(
+                          child: Icon(Icons.broken_image_outlined, size: 44),
+                        ),
                       ),
               ),
             ),
@@ -611,9 +1314,19 @@ class _BookFormState extends State<_BookForm> {
               child: FilledButton.tonalIcon(
                 onPressed: uploadingImage ? null : pickAndUploadImage,
                 icon: uploadingImage
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : const Icon(Icons.add_photo_alternate_outlined),
-                label: Text(uploadingImage ? 'Yuklanmoqda...' : imageUrl.isEmpty ? 'Rasm tanlash' : 'Rasmni almashtirish'),
+                label: Text(
+                  uploadingImage
+                      ? 'Yuklanmoqda...'
+                      : imageUrl.isEmpty
+                      ? 'Rasm tanlash'
+                      : 'Rasmni almashtirish',
+                ),
               ),
             ),
             if (imageUrl.isNotEmpty)
@@ -636,27 +1349,56 @@ class _BookFormState extends State<_BookForm> {
             field(author, 'Muallif'),
             field(category, 'Kategoriya'),
             field(description, 'Tavsif', lines: 4),
-            Row(children: [
-              Expanded(child: field(price, 'Asl narx (₩)', number: true, required: true)),
-              const SizedBox(width: 8),
-              Expanded(child: field(stock, 'Ombor', number: true, required: true)),
-            ]),
-            Row(children: [
-              Expanded(child: field(discount, 'Chegirma %', number: true)),
-              const SizedBox(width: 8),
-              Expanded(child: field(cost, 'Tannarx (₩)', number: true)),
-            ]),
+            Row(
+              children: [
+                Expanded(
+                  child: field(
+                    price,
+                    'Asl narx (₩)',
+                    number: true,
+                    required: true,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: field(stock, 'Ombor', number: true, required: true),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(child: field(discount, 'Chegirma %', number: true)),
+                const SizedBox(width: 8),
+                Expanded(child: field(cost, 'Tannarx (₩)', number: true)),
+              ],
+            ),
             ExpansionTile(
               tilePadding: EdgeInsets.zero,
-              title: const Text('Rasm URL (ixtiyoriy)', style: TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: const Text('Odatda yuqoridagi “Rasm tanlash” tugmasi yetadi.'),
+              title: const Text(
+                'Rasm URL (ixtiyoriy)',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: const Text(
+                'Odatda yuqoridagi “Rasm tanlash” tugmasi yetadi.',
+              ),
               children: [field(image, 'Muqova rasm URL')],
             ),
             DropdownButtonFormField<String>(
-              initialValue: ['Qattiq', 'Yumshoq', 'Flexible', 'Ko‘rsatilmagan'].contains(cover) ? cover : 'Ko‘rsatilmagan',
+              initialValue:
+                  [
+                    'Qattiq',
+                    'Yumshoq',
+                    'Flexible',
+                    'Ko‘rsatilmagan',
+                  ].contains(cover)
+                  ? cover
+                  : 'Ko‘rsatilmagan',
               decoration: const InputDecoration(labelText: 'Muqova turi'),
               items: const [
-                DropdownMenuItem(value: 'Ko‘rsatilmagan', child: Text('Ko‘rsatilmagan')),
+                DropdownMenuItem(
+                  value: 'Ko‘rsatilmagan',
+                  child: Text('Ko‘rsatilmagan'),
+                ),
                 DropdownMenuItem(value: 'Qattiq', child: Text('Qattiq')),
                 DropdownMenuItem(value: 'Yumshoq', child: Text('Yumshoq')),
                 DropdownMenuItem(value: 'Flexible', child: Text('Flexible')),
@@ -664,12 +1406,28 @@ class _BookFormState extends State<_BookForm> {
               onChanged: (v) => cover = v ?? cover,
             ),
             const SizedBox(height: 8),
-            SwitchListTile(value: active, onChanged: (v) => setState(() => active = v), title: const Text('Sotuvda ko‘rsatish'), contentPadding: EdgeInsets.zero),
-            SwitchListTile(value: recommended, onChanged: (v) => setState(() => recommended = v), title: const Text('Tavsiya etilgan kitob'), contentPadding: EdgeInsets.zero),
+            SwitchListTile(
+              value: active,
+              onChanged: (v) => setState(() => active = v),
+              title: const Text('Sotuvda ko‘rsatish'),
+              contentPadding: EdgeInsets.zero,
+            ),
+            SwitchListTile(
+              value: recommended,
+              onChanged: (v) => setState(() => recommended = v),
+              title: const Text('Tavsiya etilgan kitob'),
+              contentPadding: EdgeInsets.zero,
+            ),
             const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: saving || uploadingImage ? null : save,
-              icon: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save_outlined),
+              icon: saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save_outlined),
               label: const Text('Saqlash'),
             ),
           ],
@@ -689,6 +1447,9 @@ class _OrdersAdmin extends StatefulWidget {
 
 class _OrdersAdminState extends State<_OrdersAdmin> {
   late Future<List<ShopOrder>> future;
+  String filter = 'all';
+  String query = '';
+  final Set<String> busy = {};
 
   @override
   void initState() {
@@ -698,67 +1459,243 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
 
   void reload() => setState(() => future = widget.api.orders());
 
+  Future<void> changeStatus(ShopOrder order, String status) async {
+    if (busy.contains(order.id)) return;
+    if (status == 'accepted') {
+      final yes = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          icon: const Icon(
+            Icons.inventory_2_rounded,
+            color: Color(0xFF138A4B),
+            size: 44,
+          ),
+          title: const Text('Buyurtmani qabul qilasizmi?'),
+          content: const Text(
+            'Qabul qilinganda buyurtmadagi kitoblar ombordagi qoldiqdan avtomatik ayriladi.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Yo‘q'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Qabul qilish'),
+            ),
+          ],
+        ),
+      );
+      if (yes != true) return;
+    }
+    if (status == 'cancelled') {
+      final yes = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Buyurtmani bekor qilish'),
+          content: Text(
+            order.stockReserved
+                ? 'Bu buyurtma ombordan ajratilgan. Bekor qilsangiz kitoblar omborga avtomatik qaytariladi.'
+                : 'Buyurtma bekor qilinsinmi?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Yo‘q'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Bekor qilish'),
+            ),
+          ],
+        ),
+      );
+      if (yes != true) return;
+    }
+
+    setState(() => busy.add(order.id));
+    try {
+      await widget.api.updateOrderStatus(order.id, status);
+      await context.read<AppState>().refreshBooks();
+      if (mounted) {
+        reload();
+        final message = status == 'accepted'
+            ? 'Buyurtma qabul qilindi. Ombor avtomatik kamaydi ✅'
+            : status == 'cancelled'
+            ? 'Buyurtma bekor qilindi.'
+            : 'Buyurtma holati yangilandi.';
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
+      }
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Xatolik: $e')));
+    } finally {
+      if (mounted) setState(() => busy.remove(order.id));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<ShopOrder>>(
       future: future,
       builder: (context, snap) {
-        final orders = snap.data ?? const <ShopOrder>[];
+        final all = snap.data ?? const <ShopOrder>[];
+        final q = query.trim().toLowerCase();
+        final orders = all.where((o) {
+          final matchStatus = filter == 'all' || o.status == filter;
+          final matchQuery =
+              q.isEmpty ||
+              o.customerName.toLowerCase().contains(q) ||
+              o.phone.toLowerCase().contains(q) ||
+              o.id.toLowerCase().contains(q);
+          return matchStatus && matchQuery;
+        }).toList();
+        final newCount = all.where((o) => o.status == 'new').length;
+        final proofCount = all
+            .where((o) => o.status == 'new' && o.hasPaymentProof)
+            .length;
+
         return Column(
           children: [
             Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(children: [
-                const Expanded(child: Text('Buyurtmalar', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900))),
-                IconButton(onPressed: reload, icon: const Icon(Icons.refresh_rounded)),
-              ]),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Buyurtmalar',
+                          style: TextStyle(
+                            fontSize: 25,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      Badge(
+                        isLabelVisible: newCount > 0,
+                        label: Text('$newCount'),
+                        child: IconButton.filledTonal(
+                          onPressed: reload,
+                          icon: const Icon(Icons.refresh_rounded),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          onChanged: (v) => setState(() => query = v),
+                          decoration: const InputDecoration(
+                            hintText: 'Mijoz, telefon yoki buyurtma ID...',
+                            prefixIcon: Icon(Icons.search_rounded),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: proofCount > 0
+                              ? const Color(0xFFEAF7EF)
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFE6E8EC)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.receipt_outlined,
+                              size: 18,
+                              color: Color(0xFF138A4B),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              '$proofCount chek',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _OrderFilterChip(
+                          label: 'Barchasi',
+                          value: 'all',
+                          selected: filter,
+                          onTap: (v) => setState(() => filter = v),
+                        ),
+                        _OrderFilterChip(
+                          label: 'Yangi',
+                          value: 'new',
+                          selected: filter,
+                          onTap: (v) => setState(() => filter = v),
+                        ),
+                        _OrderFilterChip(
+                          label: 'Qabul qilingan',
+                          value: 'accepted',
+                          selected: filter,
+                          onTap: (v) => setState(() => filter = v),
+                        ),
+                        _OrderFilterChip(
+                          label: 'Jo‘natilgan',
+                          value: 'shipping',
+                          selected: filter,
+                          onTap: (v) => setState(() => filter = v),
+                        ),
+                        _OrderFilterChip(
+                          label: 'Yakunlangan',
+                          value: 'done',
+                          selected: filter,
+                          onTap: (v) => setState(() => filter = v),
+                        ),
+                        _OrderFilterChip(
+                          label: 'Bekor',
+                          value: 'cancelled',
+                          selected: filter,
+                          onTap: (v) => setState(() => filter = v),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
             if (snap.connectionState == ConnectionState.waiting)
               const Expanded(child: Center(child: CircularProgressIndicator()))
             else if (snap.hasError)
               Expanded(child: Center(child: Text('Xatolik: ${snap.error}')))
             else if (orders.isEmpty)
-              const Expanded(child: Center(child: Text('Hozircha buyurtma yo‘q')))
+              const Expanded(
+                child: Center(child: Text('Bu bo‘limda buyurtma yo‘q')),
+              )
             else
               Expanded(
                 child: ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                   itemCount: orders.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (_, i) {
-                    final o = orders[i];
-                    return Card(
-                      child: ExpansionTile(
-                        leading: const CircleAvatar(child: Icon(Icons.receipt_long_outlined)),
-                        title: Text(o.customerName, style: const TextStyle(fontWeight: FontWeight.w900)),
-                        subtitle: Text('${_won(o.total)} • ${o.phone}'),
-                        trailing: DropdownButton<String>(
-                          value: ['new', 'paid', 'shipping', 'done', 'cancelled'].contains(o.status) ? o.status : 'new',
-                          items: const [
-                            DropdownMenuItem(value: 'new', child: Text('Yangi')),
-                            DropdownMenuItem(value: 'paid', child: Text('To‘landi')),
-                            DropdownMenuItem(value: 'shipping', child: Text('Jo‘natildi')),
-                            DropdownMenuItem(value: 'done', child: Text('Yakunlandi')),
-                            DropdownMenuItem(value: 'cancelled', child: Text('Bekor')),
-                          ],
-                          onChanged: (v) async {
-                            if (v == null) return;
-                            await widget.api.updateOrderStatus(o.id, v);
-                            if (mounted) reload();
-                          },
-                        ),
-                        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                        children: [
-                          Align(alignment: Alignment.centerLeft, child: Text('📱 ${o.phone}\n📍 ${o.address}\n🚚 ${o.deliveryType} • ${_won(o.deliveryFee)}')),
-                          const SizedBox(height: 8),
-                          ...o.items.map((item) => Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text('• ${item['title']} × ${item['quantity']} — ${_won((item['line_total'] as num?)?.toInt() ?? 0)}'),
-                              )),
-                        ],
-                      ),
-                    );
-                  },
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (_, i) => _ProfessionalOrderCard(
+                    order: orders[i],
+                    api: widget.api,
+                    loading: busy.contains(orders[i].id),
+                    onStatus: (status) => changeStatus(orders[i], status),
+                  ),
                 ),
               ),
           ],
@@ -766,6 +1703,351 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
       },
     );
   }
+}
+
+class _OrderFilterChip extends StatelessWidget {
+  const _OrderFilterChip({
+    required this.label,
+    required this.value,
+    required this.selected,
+    required this.onTap,
+  });
+  final String label;
+  final String value;
+  final String selected;
+  final ValueChanged<String> onTap;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(right: 7),
+    child: ChoiceChip(
+      label: Text(label),
+      selected: selected == value,
+      onSelected: (_) => onTap(value),
+    ),
+  );
+}
+
+class _ProfessionalOrderCard extends StatelessWidget {
+  const _ProfessionalOrderCard({
+    required this.order,
+    required this.api,
+    required this.loading,
+    required this.onStatus,
+  });
+  final ShopOrder order;
+  final _AdminApi api;
+  final bool loading;
+  final ValueChanged<String> onStatus;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        leading: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: _navy.withValues(alpha: .08),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Icon(Icons.receipt_long_rounded, color: _navy),
+        ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                order.customerName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ),
+            _AdminOrderStatusChip(status: order.status),
+          ],
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Row(
+            children: [
+              Text(
+                _won(order.total),
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              const Text(' • '),
+              Expanded(
+                child: Text(
+                  order.phone,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (order.hasPaymentProof)
+                const Padding(
+                  padding: EdgeInsets.only(left: 6),
+                  child: Icon(
+                    Icons.receipt_rounded,
+                    size: 17,
+                    color: Color(0xFF138A4B),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '№ ${order.id}',
+                  style: const TextStyle(fontSize: 11, color: Colors.black45),
+                ),
+              ),
+              Text(
+                DateFormat('yyyy.MM.dd HH:mm').format(order.createdAt),
+                style: const TextStyle(fontSize: 11, color: Colors.black45),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF7F8FA),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(
+              '📱 ${order.phone}\n📍 ${order.address}\n🚚 ${order.deliveryType} • ${_won(order.deliveryFee)}',
+              style: const TextStyle(height: 1.55),
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...order.items.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${item['title']} × ${item['quantity']}',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  Text(
+                    _won((item['line_total'] as num?)?.toInt() ?? 0),
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const Divider(height: 22),
+          Row(
+            children: [
+              const Text('Jami', style: TextStyle(fontWeight: FontWeight.w800)),
+              const Spacer(),
+              Text(
+                _won(order.total),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: _navy,
+                ),
+              ),
+            ],
+          ),
+          if (order.hasPaymentProof) ...[
+            const SizedBox(height: 12),
+            _PaymentProofPanel(api: api, path: order.paymentProofPath),
+          ],
+          const SizedBox(height: 14),
+          if (loading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(10),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else
+            _OrderActions(order: order, onStatus: onStatus),
+        ],
+      ),
+    );
+  }
+}
+
+class _OrderActions extends StatelessWidget {
+  const _OrderActions({required this.order, required this.onStatus});
+  final ShopOrder order;
+  final ValueChanged<String> onStatus;
+
+  @override
+  Widget build(BuildContext context) {
+    if (order.status == 'cancelled' || order.status == 'done')
+      return const SizedBox.shrink();
+    String? primaryStatus;
+    String? primaryLabel;
+    IconData? primaryIcon;
+    if (order.status == 'new') {
+      primaryStatus = 'accepted';
+      primaryLabel = 'Qabul qilish';
+      primaryIcon = Icons.check_circle_rounded;
+    } else if (order.status == 'accepted' || order.status == 'paid') {
+      primaryStatus = 'shipping';
+      primaryLabel = 'Jo‘natildi';
+      primaryIcon = Icons.local_shipping_rounded;
+    } else if (order.status == 'shipping') {
+      primaryStatus = 'done';
+      primaryLabel = 'Yakunlash';
+      primaryIcon = Icons.task_alt_rounded;
+    }
+
+    return Row(
+      children: [
+        if (primaryStatus != null)
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: () => onStatus(primaryStatus!),
+              icon: Icon(primaryIcon),
+              label: Text(primaryLabel!),
+            ),
+          ),
+        if (primaryStatus != null) const SizedBox(width: 8),
+        OutlinedButton.icon(
+          onPressed: () => onStatus('cancelled'),
+          icon: const Icon(Icons.close_rounded),
+          label: const Text('Bekor'),
+        ),
+      ],
+    );
+  }
+}
+
+class _AdminOrderStatusChip extends StatelessWidget {
+  const _AdminOrderStatusChip({required this.status});
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) = switch (status) {
+      'accepted' => ('Qabul qilindi', const Color(0xFF138A4B)),
+      'paid' => ('To‘landi', Colors.blue),
+      'shipping' => ('Jo‘natildi', _orange),
+      'done' => ('Yakunlandi', const Color(0xFF138A4B)),
+      'cancelled' => ('Bekor', Colors.red),
+      _ => ('Yangi', _navy),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .10),
+        borderRadius: BorderRadius.circular(100),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 10.5,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _PaymentProofPanel extends StatelessWidget {
+  const _PaymentProofPanel({required this.api, required this.path});
+  final _AdminApi api;
+  final String path;
+
+  Future<void> openProof(BuildContext context) async {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    try {
+      final url = await api.paymentProofUrl(path);
+      if (!context.mounted) return;
+      Navigator.pop(context);
+      await showDialog<void>(
+        context: context,
+        builder: (_) => Dialog(
+          insetPadding: const EdgeInsets.all(16),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720, maxHeight: 820),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  title: const Text(
+                    'To‘lov cheki',
+                    style: TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  trailing: IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ),
+                const Divider(height: 1),
+                Flexible(
+                  child: InteractiveViewer(
+                    minScale: .5,
+                    maxScale: 4,
+                    child: Image.network(url, fit: BoxFit.contain),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Chekni ochishda xatolik: $e')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: const Color(0xFFEAF7EF),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: const Color(0xFFBDE2C9)),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.receipt_rounded, color: Color(0xFF138A4B)),
+        const SizedBox(width: 9),
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'To‘lov cheki yuborilgan',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+              Text(
+                'Chek maxfiy saqlanadi.',
+                style: TextStyle(fontSize: 11, color: Colors.black54),
+              ),
+            ],
+          ),
+        ),
+        FilledButton.tonalIcon(
+          onPressed: () => openProof(context),
+          icon: const Icon(Icons.visibility_outlined),
+          label: const Text('Ko‘rish'),
+        ),
+      ],
+    ),
+  );
 }
 
 class _DiscountAdmin extends StatefulWidget {
@@ -789,14 +2071,18 @@ class _DiscountAdminState extends State<_DiscountAdmin> {
   Future<void> apply() async {
     final p = int.tryParse(percent.text.trim());
     if (p == null || p < 1 || p > 99) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('1 dan 99 gacha foiz kiriting.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('1 dan 99 gacha foiz kiriting.')),
+      );
       return;
     }
     setState(() => loading = true);
     try {
       await widget.api.applyDiscount(p);
       await context.read<AppState>().refreshBooks();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$p% chegirma qo‘llandi.')));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$p% chegirma qo‘llandi.')));
     } finally {
       if (mounted) setState(() => loading = false);
     }
@@ -807,7 +2093,10 @@ class _DiscountAdminState extends State<_DiscountAdmin> {
     try {
       await widget.api.clearDiscounts();
       await context.read<AppState>().refreshBooks();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Chegirmalar bekor qilindi.')));
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Chegirmalar bekor qilindi.')),
+        );
     } finally {
       if (mounted) setState(() => loading = false);
     }
@@ -818,20 +2107,44 @@ class _DiscountAdminState extends State<_DiscountAdmin> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text('Chegirma boshqaruvi', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900)),
+        const Text(
+          'Chegirma boshqaruvi',
+          style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900),
+        ),
         const SizedBox(height: 12),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                TextField(controller: percent, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Chegirma foizi', suffixText: '%')),
+                TextField(
+                  controller: percent,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Chegirma foizi',
+                    suffixText: '%',
+                  ),
+                ),
                 const SizedBox(height: 12),
-                Row(children: [
-                  Expanded(child: FilledButton.icon(onPressed: loading ? null : apply, icon: const Icon(Icons.sell_outlined), label: const Text('Barchasiga berish'))),
-                  const SizedBox(width: 8),
-                  Expanded(child: OutlinedButton.icon(onPressed: loading ? null : clear, icon: const Icon(Icons.delete_sweep_outlined), label: const Text('Bekor qilish'))),
-                ]),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: loading ? null : apply,
+                        icon: const Icon(Icons.sell_outlined),
+                        label: const Text('Barchasiga berish'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: loading ? null : clear,
+                        icon: const Icon(Icons.delete_sweep_outlined),
+                        label: const Text('Bekor qilish'),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),

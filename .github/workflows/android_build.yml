@@ -1,49 +1,37 @@
-name: Phone Build (Debug APK)
+name: Android Debug APK
 
 on:
   workflow_dispatch:
   push:
+    branches: [main, feature/store-app-v2]
     paths:
-      - 'source.zip'
+      - 'lib/**'
+      - 'pubspec.yaml'
       - '.github/workflows/android_build.yml'
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.0'
-          channel: 'stable'
+          channel: stable
+          cache: true
 
-      # ZIP bo'lsa - ichidan lib/main.dart olamiz
-      - name: Unzip source (optional)
-        run: |
-          if [ -f "source.zip" ]; then
-            unzip -q source.zip -d ./src || true
-          fi
+      - name: Create Android platform files
+        run: flutter create . --platforms=android --project-name muhajeerbooks --org com.muhajeerbooks
 
-      # Loyiha avtomatik yaratiladi
-      - name: Create Flutter app
-        run: |
-          flutter create . --project-name muhajeerbooks --org uz.muhajeer
-          if [ -f "./src/lib/main.dart" ]; then
-            mkdir -p lib
-            cp ./src/lib/main.dart lib/main.dart
-          fi
-
-      - name: Pub get
-        run: flutter pub get
+      - run: flutter pub get
 
       - name: Build debug APK
-        run: flutter build apk --debug
+        run: |
+          flutter build apk --debug \
+            --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
+            --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: app-debug.apk
+          name: muhajeer-books-debug-apk
           path: build/app/outputs/flutter-apk/app-debug.apk

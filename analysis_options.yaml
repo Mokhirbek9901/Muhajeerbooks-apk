@@ -1,0 +1,7 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - lib/lib/**
+    - lib/main.dart2
+    - lib/checkout_page.dart

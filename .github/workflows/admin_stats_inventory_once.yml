@@ -1,0 +1,59 @@
+name: Admin statistics and inventory UX
+
+on:
+  push:
+    paths:
+      - '.github/workflows/admin_stats_inventory_once.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Apply requested upgrade
+        run: python3 tools/admin_stats_inventory_patch.py
+
+      - name: Format Dart
+        run: dart format lib/store_ui.dart lib/admin_ui.dart
+
+      - name: Install packages
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+
+      - name: Test
+        run: flutter test
+
+      - name: Validate web release build
+        run: flutter build web --release
+
+      - name: Remove one-shot helpers
+        run: |
+          rm -f tools/admin_stats_inventory_patch.py
+          rm -f .github/workflows/admin_stats_inventory_once.yml
+
+      - name: Commit production update
+        run: |
+          git config user.name "Muhajeer Books Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add lib/store_ui.dart lib/admin_ui.dart pubspec.yaml pubspec.lock
+          git add -A tools/admin_stats_inventory_patch.py .github/workflows/admin_stats_inventory_once.yml
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "Improve admin statistics and stable inventory controls"
+          git push

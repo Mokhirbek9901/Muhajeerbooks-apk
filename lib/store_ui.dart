@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'admin_ui.dart';
 import 'app_state.dart';
 import 'brand.dart';
+import 'design_system.dart';
 
 const _navy = Color(0xFF10213D);
 const _orange = Color(0xFFFF8A00);
@@ -318,59 +319,71 @@ class _StoreHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const MuhajeerLogoBadge(size: 58, radius: 17),
-        const SizedBox(width: 12),
-        const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Muhajeer Books',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
-              ),
-              SizedBox(height: 2),
-              Text(
-                'Koreyadagi O’zbek kitobxonlari uchun',
-                style: TextStyle(color: Colors.black54, fontSize: 13),
-              ),
-            ],
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-          decoration: BoxDecoration(
-            color: state.isOnlineBackend
-                ? const Color(0xFFE8F7EE)
-                : const Color(0xFFFFF4D6),
-            borderRadius: BorderRadius.circular(100),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                state.isOnlineBackend
-                    ? Icons.cloud_done_rounded
-                    : Icons.save_rounded,
-                size: 15,
-                color: state.isOnlineBackend ? _green : const Color(0xFF8A5A00),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                state.isOnlineBackend ? 'Onlayn' : 'Saqlanadi',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  color: state.isOnlineBackend
-                      ? _green
-                      : const Color(0xFF8A5A00),
+    final active = state.books.where((b) => b.isActive).length;
+    final available = state.books.where((b) => b.isActive && b.inStock).length;
+    return AppSurface(
+      padding: const EdgeInsets.fromLTRB(13, 12, 13, 12),
+      shadow: true,
+      child: Row(
+        children: [
+          const MuhajeerLogoBadge(size: 58, radius: 17),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Muhajeer Books',
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
-              ),
-            ],
+                const SizedBox(height: 2),
+                const Text(
+                  'Koreyadagi o‘zbek kitob do‘koni',
+                  style: TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    AppInfoPill(
+                      icon: Icons.auto_stories_outlined,
+                      label: '$active kitob',
+                    ),
+                    AppInfoPill(
+                      icon: Icons.inventory_2_outlined,
+                      label: '$available mavjud',
+                      foreground: AppColors.success,
+                      background: AppColors.successSoft,
+                      border: const Color(0xFFCDEAD7),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+          const SizedBox(width: 8),
+          AppInfoPill(
+            icon: state.isOnlineBackend
+                ? Icons.cloud_done_rounded
+                : Icons.save_rounded,
+            label: state.isOnlineBackend ? 'Onlayn' : 'Saqlanadi',
+            foreground: state.isOnlineBackend
+                ? AppColors.success
+                : AppColors.warning,
+            background: state.isOnlineBackend
+                ? AppColors.successSoft
+                : AppColors.warningSoft,
+            border: state.isOnlineBackend
+                ? const Color(0xFFCDEAD7)
+                : const Color(0xFFFFDCA0),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -381,45 +394,118 @@ class _DeliveryPromoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(15),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [_navy, Color(0xFF1A365E)]),
-        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.navy, AppColors.navy2],
+        ),
+        borderRadius: BorderRadius.circular(26),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x1810213D),
-            blurRadius: 16,
-            offset: Offset(0, 7),
+            color: Color(0x2610213D),
+            blurRadius: 28,
+            offset: Offset(0, 12),
           ),
         ],
       ),
-      child: const Row(
+      child: Stack(
         children: [
-          ContainerIcon(icon: Icons.local_shipping_rounded),
-          SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Koreya bo‘ylab tez yetkazib berish',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                SizedBox(height: 3),
-                Text(
-                  '택배 ₩4,000 • 1–3 ish kuni • 4+ kitobda bepul',
-                  style: TextStyle(color: Color(0xFFDCE5F2), fontSize: 12),
-                ),
-              ],
+          Positioned(
+            right: -24,
+            top: -42,
+            child: Container(
+              width: 140,
+              height: 140,
+              decoration: const BoxDecoration(
+                color: Color(0x16FFFFFF),
+                shape: BoxShape.circle,
+              ),
             ),
+          ),
+          Positioned(
+            right: 55,
+            bottom: -55,
+            child: Container(
+              width: 110,
+              height: 110,
+              decoration: const BoxDecoration(
+                color: Color(0x10FFC928),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const AppInfoPill(
+                icon: Icons.local_shipping_rounded,
+                label: 'Koreya bo‘ylab yetkazib berish',
+                foreground: Colors.white,
+                background: Color(0x1FFFFFFF),
+                border: Color(0x30FFFFFF),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Kitobingizni qulay buyurtma qiling,\nqolganini biz hal qilamiz.',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  height: 1.16,
+                ),
+              ),
+              const SizedBox(height: 13),
+              const Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _HeroFact(icon: Icons.payments_outlined, text: '택배 ₩4,000'),
+                  _HeroFact(icon: Icons.schedule_rounded, text: '1–3 ish kuni'),
+                  _HeroFact(
+                    icon: Icons.card_giftcard_rounded,
+                    text: '4+ kitob — bepul',
+                  ),
+                ],
+              ),
+            ],
           ),
         ],
       ),
     );
   }
+}
+
+class _HeroFact extends StatelessWidget {
+  const _HeroFact({required this.icon, required this.text});
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    decoration: BoxDecoration(
+      color: const Color(0x16FFFFFF),
+      borderRadius: BorderRadius.circular(100),
+      border: Border.all(color: const Color(0x26FFFFFF)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 15, color: AppColors.gold),
+        const SizedBox(width: 5),
+        Text(
+          text,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 11.5,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class ContainerIcon extends StatelessWidget {
@@ -616,7 +702,20 @@ class BookCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    return Card(
+    final favorite = state.isFavorite(book);
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.border),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0B0F172A),
+            blurRadius: 18,
+            offset: Offset(0, 7),
+          ),
+        ],
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => Navigator.push(
@@ -631,39 +730,48 @@ class BookCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   _BookCover(book: book),
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Material(
+                      color: Colors.white.withValues(alpha: .94),
+                      borderRadius: BorderRadius.circular(100),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(100),
+                        onTap: () => state.toggleFavorite(book),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Icon(
+                            favorite
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            color: favorite ? AppColors.danger : AppColors.navy,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                   if (book.isDiscounted)
                     Positioned(
-                      top: 9,
-                      right: 9,
+                      top: 8,
+                      right: 8,
                       child: _Badge(
                         text: '-${book.discountPercent}%',
-                        color: const Color(0xFFE63D3D),
+                        color: AppColors.danger,
                       ),
                     ),
                   if (book.recommended)
                     const Positioned(
                       bottom: 8,
                       left: 8,
-                      child: _Badge(text: 'Tavsiya', color: _orange),
+                      child: _Badge(text: 'Tavsiya', color: AppColors.orange),
                     ),
-                  Positioned(
-                    top: 5,
-                    left: 5,
-                    child: IconButton.filledTonal(
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () => state.toggleFavorite(book),
-                      icon: Icon(
-                        state.isFavorite(book)
-                            ? Icons.favorite_rounded
-                            : Icons.favorite_border_rounded,
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(11, 10, 11, 11),
+              padding: const EdgeInsets.fromLTRB(12, 11, 12, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -674,6 +782,7 @@ class BookCard extends StatelessWidget {
                     style: const TextStyle(
                       fontWeight: FontWeight.w900,
                       height: 1.15,
+                      fontSize: 14.5,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -682,77 +791,96 @@ class BookCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: Colors.black54,
+                      color: AppColors.muted,
                       fontSize: 11.5,
                     ),
                   ),
-                  const SizedBox(height: 7),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
+                      Icon(
+                        book.inStock
+                            ? Icons.check_circle_rounded
+                            : Icons.cancel_rounded,
+                        size: 14,
+                        color: book.inStock
+                            ? AppColors.success
+                            : AppColors.danger,
+                      ),
+                      const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          book.inStock ? '${book.stock} dona' : 'Mavjud emas',
+                          book.inStock
+                              ? '${book.stock} dona mavjud'
+                              : 'Hozircha mavjud emas',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: book.inStock ? _green : Colors.red,
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w700,
+                            color: book.inStock
+                                ? AppColors.success
+                                : AppColors.danger,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                       ),
-                      if (book.coverType != 'Ko‘rsatilmagan')
-                        Text(
-                          book.coverType,
-                          style: const TextStyle(
-                            color: Colors.black45,
-                            fontSize: 10.5,
-                          ),
-                        ),
                     ],
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 8),
                   if (book.isDiscounted)
                     Text(
                       won(book.price),
                       style: const TextStyle(
-                        color: Colors.black38,
+                        color: AppColors.muted,
                         decoration: TextDecoration.lineThrough,
-                        fontSize: 11,
+                        fontSize: 10.5,
                       ),
                     ),
-                  Text(
-                    won(book.currentPrice),
-                    style: const TextStyle(
-                      color: _navy,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 7),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 39,
-                    child: FilledButton.icon(
-                      onPressed: book.inStock
-                          ? () {
-                              state.addToCart(book);
-                              ScaffoldMessenger.of(context)
-                                ..hideCurrentSnackBar()
-                                ..showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      '${book.title} savatga qo‘shildi ✅',
-                                    ),
-                                    duration: const Duration(milliseconds: 900),
-                                  ),
-                                );
-                            }
-                          : null,
-                      icon: const Icon(
-                        Icons.add_shopping_cart_rounded,
-                        size: 17,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          won(book.currentPrice),
+                          style: const TextStyle(
+                            color: AppColors.navy,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16.5,
+                          ),
+                        ),
                       ),
-                      label: Text(book.inStock ? 'Savatga' : 'Tugagan'),
-                    ),
+                      SizedBox(
+                        width: 38,
+                        height: 38,
+                        child: FilledButton(
+                          onPressed: book.inStock
+                              ? () {
+                                  state.addToCart(book);
+                                  ScaffoldMessenger.of(context)
+                                    ..hideCurrentSnackBar()
+                                    ..showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          '${book.title} savatga qo‘shildi ✅',
+                                        ),
+                                        duration: const Duration(
+                                          milliseconds: 900,
+                                        ),
+                                      ),
+                                    );
+                                }
+                              : null,
+                          style: FilledButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(38, 38),
+                          ),
+                          child: const Icon(
+                            Icons.add_shopping_cart_rounded,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -795,7 +923,7 @@ class _BookCover extends StatelessWidget {
           child: Opacity(
             opacity: .08,
             child: Image.asset(
-              'assets/images/muhajeer_logo.png',
+              'assets/images/muhajeer_logo.jpg',
               fit: BoxFit.cover,
             ),
           ),
@@ -837,9 +965,9 @@ class BookDetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     Book? book;
-    for (final b in state.books) {
-      if (b.id == bookId) {
-        book = b;
+    for (final item in state.books) {
+      if (item.id == bookId) {
+        book = item;
         break;
       }
     }
@@ -853,135 +981,256 @@ class BookDetailPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Kitob haqida'),
         actions: [
-          IconButton(
+          IconButton.filledTonal(
             onPressed: () => state.toggleFavorite(b),
+            tooltip: 'Sevimlilar',
             icon: Icon(
               state.isFavorite(b)
                   ? Icons.favorite_rounded
                   : Icons.favorite_border_rounded,
             ),
           ),
+          const SizedBox(width: 10),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(18, 8, 18, 110),
-        children: [
-          Center(
-            child: Container(
-              width: 230,
-              height: 320,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x22000000),
-                    blurRadius: 20,
-                    offset: Offset(0, 10),
-                  ),
-                ],
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: _BookCover(book: b),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            b.title,
-            style: const TextStyle(
-              fontSize: 27,
-              fontWeight: FontWeight.w900,
-              height: 1.12,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            b.author,
-            style: const TextStyle(fontSize: 16, color: Colors.black54),
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              Chip(
-                avatar: const Icon(Icons.category_outlined, size: 17),
-                label: Text(b.category),
-              ),
-              Chip(
-                avatar: const Icon(Icons.inventory_2_outlined, size: 17),
-                label: Text('Omborda ${b.stock} dona'),
-              ),
-              if (b.coverType != 'Ko‘rsatilmagan')
-                Chip(
-                  avatar: const Icon(Icons.book_outlined, size: 17),
-                  label: Text(b.coverType),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final desktop = constraints.maxWidth >= 760;
+          final cover = Container(
+            width: desktop ? 300 : 235,
+            height: desktop ? 420 : 330,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x220F172A),
+                  blurRadius: 28,
+                  offset: Offset(0, 14),
                 ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          if (b.description.isNotEmpty &&
-              b.description != 'Ma’lumot kiritilmagan.') ...[
-            const Text(
-              'Kitob haqida',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              b.description,
-              style: const TextStyle(height: 1.55, fontSize: 15),
+            clipBehavior: Clip.antiAlias,
+            child: _BookCover(book: b),
+          );
+          final info = _BookDetailInfo(book: b);
+          return SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+              desktop ? 32 : 18,
+              10,
+              desktop ? 32 : 18,
+              125,
             ),
-            const SizedBox(height: 18),
-          ],
-          if (b.isDiscounted)
-            Text(
-              won(b.price),
-              style: const TextStyle(
-                decoration: TextDecoration.lineThrough,
-                color: Colors.black38,
-                fontSize: 14,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1050),
+                child: desktop
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          cover,
+                          const SizedBox(width: 34),
+                          Expanded(child: info),
+                        ],
+                      )
+                    : Column(
+                        children: [cover, const SizedBox(height: 26), info],
+                      ),
               ),
             ),
-          Text(
-            won(b.currentPrice),
-            style: const TextStyle(
-              fontSize: 29,
-              fontWeight: FontWeight.w900,
-              color: _navy,
-            ),
-          ),
-        ],
+          );
+        },
       ),
       bottomNavigationBar: SafeArea(
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.fromLTRB(16, 11, 16, 14),
           decoration: const BoxDecoration(
             color: Colors.white,
+            border: Border(top: BorderSide(color: AppColors.border)),
             boxShadow: [
               BoxShadow(
-                color: Color(0x18000000),
-                blurRadius: 18,
-                offset: Offset(0, -4),
+                color: Color(0x120F172A),
+                blurRadius: 20,
+                offset: Offset(0, -5),
               ),
             ],
           ),
-          child: FilledButton.icon(
-            onPressed: b.inStock
-                ? () {
-                    state.addToCart(b);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Savatchaga qo‘shildi ✅')),
-                    );
-                  }
-                : null,
-            icon: const Icon(Icons.shopping_bag_rounded),
-            label: Text(
-              b.inStock ? 'Savatchaga qo‘shish' : 'Hozircha mavjud emas',
-            ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Narxi',
+                      style: TextStyle(fontSize: 11, color: AppColors.muted),
+                    ),
+                    if (b.isDiscounted)
+                      Text(
+                        won(b.price),
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          color: AppColors.muted,
+                          decoration: TextDecoration.lineThrough,
+                        ),
+                      ),
+                    Text(
+                      won(b.currentPrice),
+                      style: const TextStyle(
+                        fontSize: 21,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.navy,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: b.inStock
+                    ? () {
+                        state.addToCart(b);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Savatchaga qo‘shildi ✅'),
+                          ),
+                        );
+                      }
+                    : null,
+                icon: const Icon(Icons.shopping_bag_rounded),
+                label: Text(b.inStock ? 'Savatchaga qo‘shish' : 'Mavjud emas'),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+}
+
+class _BookDetailInfo extends StatelessWidget {
+  const _BookDetailInfo({required this.book});
+  final Book book;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (book.recommended)
+        const AppInfoPill(
+          icon: Icons.auto_awesome_rounded,
+          label: 'Muhajeer tavsiyasi',
+          foreground: AppColors.orange,
+          background: Color(0xFFFFF2E3),
+          border: Color(0xFFFFD4A3),
+        ),
+      if (book.recommended) const SizedBox(height: 10),
+      Text(book.title, style: Theme.of(context).textTheme.headlineLarge),
+      const SizedBox(height: 7),
+      Text(
+        book.author,
+        style: const TextStyle(
+          fontSize: 16,
+          color: AppColors.muted,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      const SizedBox(height: 16),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          AppInfoPill(icon: Icons.category_outlined, label: book.category),
+          AppInfoPill(
+            icon: Icons.inventory_2_outlined,
+            label: book.inStock ? '${book.stock} dona mavjud' : 'Mavjud emas',
+            foreground: book.inStock ? AppColors.success : AppColors.danger,
+            background: book.inStock
+                ? AppColors.successSoft
+                : AppColors.dangerSoft,
+            border: book.inStock
+                ? const Color(0xFFCDEAD7)
+                : const Color(0xFFFFCCD1),
+          ),
+          if (book.coverType != 'Ko‘rsatilmagan')
+            AppInfoPill(icon: Icons.book_outlined, label: book.coverType),
+        ],
+      ),
+      const SizedBox(height: 22),
+      AppSurface(
+        backgroundColor: AppColors.surfaceSoft,
+        child: const Row(
+          children: [
+            _DetailFact(
+              icon: Icons.local_shipping_outlined,
+              title: 'Yetkazish',
+              value: '1–3 ish kuni',
+            ),
+            SizedBox(width: 8),
+            _DetailFact(
+              icon: Icons.payments_outlined,
+              title: '택배',
+              value: '₩4,000',
+            ),
+            SizedBox(width: 8),
+            _DetailFact(
+              icon: Icons.card_giftcard_outlined,
+              title: '4+ kitob',
+              value: 'Bepul',
+            ),
+          ],
+        ),
+      ),
+      if (book.description.isNotEmpty &&
+          book.description != 'Ma’lumot kiritilmagan.') ...[
+        const SizedBox(height: 22),
+        const AppSectionHeader(
+          title: 'Kitob haqida',
+          icon: Icons.notes_rounded,
+        ),
+        const SizedBox(height: 10),
+        Text(
+          book.description,
+          style: const TextStyle(
+            height: 1.65,
+            fontSize: 15,
+            color: AppColors.text,
+          ),
+        ),
+      ],
+    ],
+  );
+}
+
+class _DetailFact extends StatelessWidget {
+  const _DetailFact({
+    required this.icon,
+    required this.title,
+    required this.value,
+  });
+  final IconData icon;
+  final String title;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Column(
+      children: [
+        Icon(icon, size: 20, color: AppColors.navy),
+        const SizedBox(height: 5),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 10.5, color: AppColors.muted),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900),
+        ),
+      ],
+    ),
+  );
 }
 
 class FavoritesPage extends StatelessWidget {
@@ -994,32 +1243,56 @@ class FavoritesPage extends StatelessWidget {
         .where((b) => b.isActive && state.isFavorite(b))
         .toList();
     return Scaffold(
-      appBar: AppBar(title: const Text('Sevimli kitoblar')),
+      appBar: AppBar(title: const Text('Sevimlilar')),
       body: books.isEmpty
           ? const _EmptyState(
               icon: Icons.favorite_border_rounded,
-              title: 'Sevimlilar bo‘sh',
-              subtitle: 'Yoqtirgan kitobingizdagi yurakchani bosing.',
+              title: 'Sevimlilar hali bo‘sh',
+              subtitle: 'Yoqtirgan kitobingizdagi yurakchani bosing — keyin shu yerda tez topasiz.',
             )
-          : LayoutBuilder(
-              builder: (context, constraints) {
-                final count = constraints.maxWidth >= 900
-                    ? 4
-                    : constraints.maxWidth >= 600
-                    ? 3
-                    : 2;
-                return GridView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: books.length,
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: count,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: .60,
+          : Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+                  child: AppSectionHeader(
+                    title: 'Saqlangan kitoblar',
+                    subtitle: 'Tanlaganlaringiz bir joyda',
+                    trailing: AppInfoPill(
+                      icon: Icons.favorite_rounded,
+                      label: '${books.length} ta',
+                      foreground: AppColors.danger,
+                      background: AppColors.dangerSoft,
+                      border: const Color(0xFFFFCCD1),
+                    ),
                   ),
-                  itemBuilder: (_, i) => BookCard(book: books[i]),
-                );
-              },
+                ),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final count = constraints.maxWidth >= 1100
+                          ? 5
+                          : constraints.maxWidth >= 850
+                          ? 4
+                          : constraints.maxWidth >= 600
+                          ? 3
+                          : 2;
+                      return GridView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                        itemCount: books.length,
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: count,
+                          mainAxisSpacing: 12,
+                          crossAxisSpacing: 12,
+                          childAspectRatio: constraints.maxWidth < 450
+                              ? .57
+                              : .62,
+                        ),
+                        itemBuilder: (_, i) => BookCard(book: books[i]),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
     );
   }
@@ -1037,123 +1310,155 @@ class CartPage extends StatelessWidget {
         title: const Text('Savatcha'),
         actions: [
           if (lines.isNotEmpty)
-            TextButton(
+            TextButton.icon(
               onPressed: state.clearCart,
-              child: const Text('Tozalash'),
+              icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+              label: const Text('Tozalash'),
             ),
+          const SizedBox(width: 6),
         ],
       ),
       body: lines.isEmpty
           ? const _EmptyState(
               icon: Icons.shopping_bag_outlined,
               title: 'Savatcha bo‘sh',
-              subtitle: 'Kitob tanlang va savatchaga qo‘shing.',
+              subtitle: 'Kerakli kitoblarni savatchaga qo‘shing. 4 ta va undan ko‘p kitobda yetkazib berish bepul.',
             )
-          : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 180),
-              itemCount: lines.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (_, i) {
-                final line = lines[i];
-                return Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 72,
-                          height: 98,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: _BookCover(book: line.book),
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 190),
+              children: [
+                AppSectionHeader(
+                  title: 'Sizning tanlovingiz',
+                  subtitle: '${state.cartCount} dona kitob',
+                  trailing: AppInfoPill(
+                    icon: state.cartCount >= 4
+                        ? Icons.card_giftcard_rounded
+                        : Icons.local_shipping_outlined,
+                    label: state.cartCount >= 4
+                        ? 'Yetkazish bepul'
+                        : '4+ kitobda bepul',
+                    foreground: state.cartCount >= 4
+                        ? AppColors.success
+                        : AppColors.navy,
+                    background: state.cartCount >= 4
+                        ? AppColors.successSoft
+                        : AppColors.surfaceSoft,
+                    border: state.cartCount >= 4
+                        ? const Color(0xFFCDEAD7)
+                        : AppColors.border,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...lines.map(
+                  (line) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: AppSurface(
+                      padding: const EdgeInsets.all(11),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 72,
+                            height: 100,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(14),
+                              child: _BookCover(book: line.book),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                line.book.title,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              const SizedBox(height: 5),
-                              Text(
-                                won(line.book.currentPrice),
-                                style: const TextStyle(
-                                  color: _navy,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              const SizedBox(height: 9),
-                              Row(
-                                children: [
-                                  _QtyButton(
-                                    icon: Icons.remove,
-                                    onTap: () => state.decrementCart(line.book),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  line.book.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    height: 1.2,
                                   ),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 13,
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  won(line.book.currentPrice),
+                                  style: const TextStyle(
+                                    color: AppColors.navy,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    _QtyButton(
+                                      icon: Icons.remove,
+                                      onTap: () =>
+                                          state.decrementCart(line.book),
                                     ),
-                                    child: Text(
-                                      '${line.quantity}',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w900,
+                                    SizedBox(
+                                      width: 42,
+                                      child: Text(
+                                        '${line.quantity}',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 15,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  _QtyButton(
-                                    icon: Icons.add,
-                                    onTap: line.quantity < line.book.stock
-                                        ? () => state.addToCart(line.book)
-                                        : null,
-                                  ),
-                                ],
+                                    _QtyButton(
+                                      icon: Icons.add,
+                                      onTap: line.quantity < line.book.stock
+                                          ? () => state.addToCart(line.book)
+                                          : null,
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                won(line.total),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 30),
+                              IconButton(
+                                onPressed: () =>
+                                    state.removeFromCart(line.book),
+                                tooltip: 'Olib tashlash',
+                                icon: const Icon(
+                                  Icons.delete_outline_rounded,
+                                  color: AppColors.danger,
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                        Column(
-                          children: [
-                            Text(
-                              won(line.total),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 13,
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: () => state.removeFromCart(line.book),
-                              icon: const Icon(
-                                Icons.delete_outline_rounded,
-                                color: Colors.red,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                );
-              },
+                ),
+              ],
             ),
       bottomNavigationBar: lines.isEmpty
           ? null
           : SafeArea(
               child: Container(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 15),
                 decoration: const BoxDecoration(
                   color: Colors.white,
+                  border: Border(top: BorderSide(color: AppColors.border)),
                   boxShadow: [
                     BoxShadow(
-                      color: Color(0x18000000),
-                      blurRadius: 18,
-                      offset: Offset(0, -4),
+                      color: Color(0x120F172A),
+                      blurRadius: 20,
+                      offset: Offset(0, -5),
                     ),
                   ],
                 ),
@@ -1164,33 +1469,52 @@ class CartPage extends StatelessWidget {
                       children: [
                         const Text(
                           'Kitoblar jami',
-                          style: TextStyle(color: Colors.black54),
+                          style: TextStyle(
+                            color: AppColors.muted,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                         const Spacer(),
                         Text(
                           won(state.cartSubtotal),
                           style: const TextStyle(
                             fontWeight: FontWeight.w900,
-                            fontSize: 20,
+                            fontSize: 21,
+                            color: AppColors.navy,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        state.cartCount >= 4
-                            ? '🎁 4+ kitob: yetkazib berish bepul'
-                            : '🚚 택배 ₩4,000 • 4+ kitobda bepul',
-                        style: TextStyle(
-                          color: state.cartCount >= 4 ? _green : Colors.black54,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        Icon(
+                          state.cartCount >= 4
+                              ? Icons.check_circle_rounded
+                              : Icons.local_shipping_outlined,
+                          size: 16,
+                          color: state.cartCount >= 4
+                              ? AppColors.success
+                              : AppColors.muted,
                         ),
-                      ),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            state.cartCount >= 4
+                                ? 'Yetkazib berish siz uchun bepul'
+                                : '택배 ₩4,000 • 4+ kitobda bepul',
+                            style: TextStyle(
+                              color: state.cartCount >= 4
+                                  ? AppColors.success
+                                  : AppColors.muted,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 11),
+                    const SizedBox(height: 10),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
@@ -1200,8 +1524,8 @@ class CartPage extends StatelessWidget {
                             builder: (_) => const CheckoutPage(),
                           ),
                         ),
-                        icon: const Icon(Icons.arrow_forward_rounded),
-                        label: const Text('Buyurtma berish'),
+                        icon: const Icon(Icons.lock_outline_rounded),
+                        label: const Text('Buyurtmani rasmiylashtirish'),
                       ),
                     ),
                   ],
@@ -1618,10 +1942,20 @@ class _CheckoutStepHeader extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     children: [
       Container(
-        width: 30,
-        height: 30,
+        width: 34,
+        height: 34,
         alignment: Alignment.center,
-        decoration: const BoxDecoration(color: _navy, shape: BoxShape.circle),
+        decoration: BoxDecoration(
+          color: AppColors.navy,
+          borderRadius: BorderRadius.circular(11),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x1610213D),
+              blurRadius: 10,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
         child: Text(
           number,
           style: const TextStyle(
@@ -1630,11 +1964,8 @@ class _CheckoutStepHeader extends StatelessWidget {
           ),
         ),
       ),
-      const SizedBox(width: 9),
-      Text(
-        title,
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-      ),
+      const SizedBox(width: 10),
+      Text(title, style: Theme.of(context).textTheme.titleLarge),
     ],
   );
 }
@@ -1645,44 +1976,66 @@ class _PaymentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(14),
+    padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: _cream,
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: const Color(0xFFFFDB7B)),
+      gradient: const LinearGradient(
+        colors: [Color(0xFFFFFBF1), Color(0xFFFFF2D2)],
+      ),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: const Color(0xFFFFD88A)),
     ),
-    child: Row(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const ContainerIcon(icon: Icons.account_balance_rounded),
-        const SizedBox(width: 12),
-        const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                AppState.bankName,
-                style: TextStyle(fontWeight: FontWeight.w900),
-              ),
-              SizedBox(height: 2),
-              SelectableText(
-                AppState.bankAccount,
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: .4,
-                ),
-              ),
-              Text(
-                AppState.bankOwner,
-                style: TextStyle(color: Colors.black54, fontSize: 12),
-              ),
-            ],
-          ),
+        const Row(
+          children: [
+            Icon(Icons.account_balance_rounded, color: AppColors.navy),
+            SizedBox(width: 8),
+            Text(
+              'To‘lov rekvizitlari',
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+            ),
+          ],
         ),
-        IconButton(
-          onPressed: onCopy,
-          tooltip: 'Nusxalash',
-          icon: const Icon(Icons.copy_rounded),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    AppState.bankName,
+                    style: TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  SizedBox(height: 3),
+                  SelectableText(
+                    AppState.bankAccount,
+                    style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: .5,
+                      color: AppColors.navy,
+                    ),
+                  ),
+                  SizedBox(height: 3),
+                  Text(
+                    AppState.bankOwner,
+                    style: TextStyle(color: AppColors.muted, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            FilledButton.tonalIcon(
+              onPressed: onCopy,
+              icon: const Icon(Icons.copy_rounded, size: 17),
+              label: const Text('Nusxalash'),
+            ),
+          ],
         ),
       ],
     ),
@@ -1716,53 +2069,97 @@ class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
+    final name = state.savedCustomer['name'] ?? '';
     final phone = state.savedCustomer['phone'] ?? '';
     return Scaffold(
       appBar: AppBar(title: const Text('Profil')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(15),
-              child: Row(
-                children: [
-                  const MuhajeerLogoCircle(size: 62),
-                  const SizedBox(width: 13),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Muhajeer Books',
-                          style: TextStyle(
-                            fontSize: 19,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        SizedBox(height: 3),
-                        Text(
-                          'Yaxshi kitob — yaxshi hayot!',
-                          style: TextStyle(color: Colors.black54),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppColors.navy, AppColors.navy2],
               ),
+              borderRadius: BorderRadius.circular(26),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x2510213D),
+                  blurRadius: 24,
+                  offset: Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                const MuhajeerLogoCircle(size: 68),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name.trim().isEmpty
+                            ? 'Muhajeer Books mijoz'
+                            : name.trim(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        phone.trim().isEmpty
+                            ? 'Yaxshi kitob — yaxshi hayot!'
+                            : phone,
+                        style: const TextStyle(
+                          color: Color(0xFFDCE5F2),
+                          fontSize: 12.5,
+                        ),
+                      ),
+                      const SizedBox(height: 9),
+                      AppInfoPill(
+                        icon: state.isOnlineBackend
+                            ? Icons.cloud_done_rounded
+                            : Icons.save_rounded,
+                        label: state.isOnlineBackend
+                            ? 'Onlayn hisob'
+                            : 'Qurilmada saqlanadi',
+                        foreground: Colors.white,
+                        background: const Color(0x18FFFFFF),
+                        border: const Color(0x2FFFFFFF),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
-          Card(
+          const SizedBox(height: 18),
+          const AppSectionHeader(
+            title: 'Hisob va xizmatlar',
+            subtitle: 'Buyurtmalar va do‘kon boshqaruvi',
+          ),
+          const SizedBox(height: 10),
+          AppSurface(
+            padding: EdgeInsets.zero,
             child: Column(
               children: [
                 ListTile(
-                  leading: const Icon(Icons.receipt_long_outlined),
-                  title: const Text('Mening buyurtmalarim'),
+                  minTileHeight: 68,
+                  leading: const _ProfileIcon(
+                    icon: Icons.receipt_long_outlined,
+                  ),
+                  title: const Text(
+                    'Mening buyurtmalarim',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
                   subtitle: Text(
                     phone.isEmpty
                         ? 'Buyurtma berganingizdan keyin ko‘rinadi'
-                        : phone,
+                        : 'Holatini kuzatish va tarixni ko‘rish',
                   ),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => Navigator.push(
@@ -1770,24 +2167,34 @@ class ProfilePage extends StatelessWidget {
                     MaterialPageRoute(builder: (_) => const MyOrdersPage()),
                   ),
                 ),
-                const Divider(height: 1),
+                const Divider(),
                 ListTile(
-                  leading: Icon(
-                    state.isOnlineBackend
+                  minTileHeight: 68,
+                  leading: _ProfileIcon(
+                    icon: state.isOnlineBackend
                         ? Icons.cloud_done_outlined
                         : Icons.save_outlined,
                   ),
-                  title: const Text('Ma’lumot saqlanishi'),
+                  title: const Text(
+                    'Ma’lumotlar holati',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
                   subtitle: Text(
                     state.isOnlineBackend
-                        ? 'Onlayn baza ulangan — barcha qurilmalarda bir xil'
-                        : 'Hozir o‘zgarishlar shu qurilmada saqlanadi',
+                        ? 'Barcha qurilmalarda sinxron ishlaydi'
+                        : 'Hozir shu qurilmada saqlanadi',
                   ),
                 ),
-                const Divider(height: 1),
+                const Divider(),
                 ListTile(
-                  leading: const Icon(Icons.admin_panel_settings_outlined),
-                  title: const Text('Admin paneli'),
+                  minTileHeight: 68,
+                  leading: const _ProfileIcon(
+                    icon: Icons.admin_panel_settings_outlined,
+                  ),
+                  title: const Text(
+                    'Admin paneli',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
                   subtitle: const Text(
                     'Kitoblar, ombor, chegirma va buyurtmalar',
                   ),
@@ -1800,17 +2207,47 @@ class ProfilePage extends StatelessWidget {
               ],
             ),
           ),
-          if (!state.isOnlineBackend) ...[
-            const SizedBox(height: 12),
-            const _InfoBanner(
-              icon: Icons.info_outline_rounded,
-              text: 'Sinov versiyada qo‘shgan va tahrirlagan kitoblaringiz endi yo‘qolmaydi — shu telefon/brauzerda saqlanadi. Onlayn baza ulangach barcha qurilmalar bir xil ma’lumotni ko‘radi.',
+          const SizedBox(height: 14),
+          AppSurface(
+            backgroundColor: AppColors.surfaceSoft,
+            child: const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.verified_user_outlined, color: AppColors.success),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Buyurtma, manzil va to‘lov cheki faqat buyurtmani bajarish uchun ishlatiladi. To‘lov cheki maxfiy saqlanadi.',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      height: 1.5,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ],
       ),
     );
   }
+}
+
+class _ProfileIcon extends StatelessWidget {
+  const _ProfileIcon({required this.icon});
+  final IconData icon;
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 42,
+    height: 42,
+    decoration: BoxDecoration(
+      color: AppColors.surfaceSoft,
+      borderRadius: BorderRadius.circular(13),
+      border: Border.all(color: AppColors.border),
+    ),
+    child: Icon(icon, color: AppColors.navy, size: 21),
+  );
 }
 
 class MyOrdersPage extends StatefulWidget {
@@ -1826,6 +2263,10 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
   @override
   void initState() {
     super.initState();
+    _reload();
+  }
+
+  void _reload() {
     final state = context.read<AppState>();
     future = state.customerOrdersByPhone(state.savedCustomer['phone'] ?? '');
   }
@@ -1833,7 +2274,16 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Mening buyurtmalarim')),
+      appBar: AppBar(
+        title: const Text('Mening buyurtmalarim'),
+        actions: [
+          IconButton(
+            onPressed: () => setState(_reload),
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: FutureBuilder<List<ShopOrder>>(
         future: future,
         builder: (context, snapshot) {
@@ -1844,94 +2294,214 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
             return const _EmptyState(
               icon: Icons.receipt_long_outlined,
               title: 'Buyurtma topilmadi',
-              subtitle: 'Shu qurilmada saqlangan telefon raqamingiz bo‘yicha buyurtmalar ko‘rinadi.',
+              subtitle: 'Buyurtma berganingizdan keyin uning holati va tarixi shu yerda ko‘rinadi.',
             );
           }
           return ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 28),
             itemCount: orders.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (_, i) {
               final order = orders[i];
-              return Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '№ ${order.id}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w900,
+              return AppSurface(
+                padding: const EdgeInsets.all(15),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Buyurtma № ${order.id}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 14,
+                                ),
                               ),
-                            ),
+                              const SizedBox(height: 3),
+                              Text(
+                                DateFormat('yyyy.MM.dd • HH:mm')
+                                    .format(order.createdAt),
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: AppColors.muted,
+                                ),
+                              ),
+                            ],
                           ),
-                          _OrderStatusChip(status: order.status),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      ...order.items
-                          .take(4)
-                          .map(
-                            (item) => Padding(
-                              padding: const EdgeInsets.only(bottom: 4),
-                              child: Text(
-                                '• ${item['title']} × ${item['quantity']}',
-                              ),
-                            ),
-                          ),
-                      if (order.items.length > 4)
-                        Text('+ yana ${order.items.length - 4} ta'),
-                      if (order.hasPaymentProof) ...[
-                        const SizedBox(height: 4),
-                        const Row(
-                          children: [
-                            Icon(
-                              Icons.receipt_rounded,
-                              size: 16,
-                              color: _green,
-                            ),
-                            SizedBox(width: 5),
-                            Text(
-                              'To‘lov cheki yuborilgan',
-                              style: TextStyle(
-                                color: _green,
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
                         ),
+                        _OrderStatusChip(status: order.status),
                       ],
-                      const Divider(height: 20),
-                      Row(
-                        children: [
-                          Text(
-                            DateFormat('yyyy.MM.dd HH:mm')
-                                .format(order.createdAt),
-                            style: const TextStyle(
-                              color: Colors.black54,
-                              fontSize: 12,
+                    ),
+                    const SizedBox(height: 14),
+                    _OrderProgress(status: order.status),
+                    const SizedBox(height: 14),
+                    ...order.items
+                        .take(4)
+                        .map(
+                          (item) => Padding(
+                            padding: const EdgeInsets.only(bottom: 5),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.auto_stories_outlined,
+                                  size: 15,
+                                  color: AppColors.muted,
+                                ),
+                                const SizedBox(width: 7),
+                                Expanded(
+                                  child: Text(
+                                    '${item['title']} × ${item['quantity']}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const Spacer(),
-                          Text(
-                            won(order.total),
-                            style: const TextStyle(fontWeight: FontWeight.w900),
-                          ),
-                        ],
+                        ),
+                    if (order.items.length > 4)
+                      Text(
+                        '+ yana ${order.items.length - 4} ta',
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 11.5,
+                        ),
+                      ),
+                    if (order.hasPaymentProof) ...[
+                      const SizedBox(height: 8),
+                      const AppInfoPill(
+                        icon: Icons.receipt_rounded,
+                        label: 'To‘lov cheki yuborilgan',
+                        foreground: AppColors.success,
+                        background: AppColors.successSoft,
+                        border: Color(0xFFCDEAD7),
                       ),
                     ],
-                  ),
+                    const SizedBox(height: 12),
+                    const Divider(),
+                    const SizedBox(height: 11),
+                    Row(
+                      children: [
+                        const Text(
+                          'Jami',
+                          style: TextStyle(
+                            color: AppColors.muted,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          won(order.total),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 18,
+                            color: AppColors.navy,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               );
             },
           );
         },
       ),
+    );
+  }
+}
+
+class _OrderProgress extends StatelessWidget {
+  const _OrderProgress({required this.status});
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    if (status == 'cancelled') {
+      return const AppInfoPill(
+        icon: Icons.cancel_rounded,
+        label: 'Buyurtma bekor qilingan',
+        foreground: AppColors.danger,
+        background: AppColors.dangerSoft,
+        border: Color(0xFFFFCCD1),
+      );
+    }
+    final level = switch (status) {
+      'accepted' || 'paid' => 1,
+      'shipping' => 2,
+      'done' => 3,
+      _ => 0,
+    };
+    const labels = ['Yuborildi', 'Qabul qilindi', 'Jo‘natildi', 'Yakunlandi'];
+    const icons = [
+      Icons.outbox_rounded,
+      Icons.inventory_2_rounded,
+      Icons.local_shipping_rounded,
+      Icons.task_alt_rounded,
+    ];
+    return Row(
+      children: List.generate(labels.length, (i) {
+        final done = i <= level;
+        return Expanded(
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  if (i > 0)
+                    Expanded(
+                      child: Container(
+                        height: 2,
+                        color: i <= level
+                            ? AppColors.success
+                            : AppColors.border,
+                      ),
+                    ),
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: done ? AppColors.success : AppColors.surfaceSoft,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: done ? AppColors.success : AppColors.border,
+                      ),
+                    ),
+                    child: Icon(
+                      icons[i],
+                      size: 15,
+                      color: done ? Colors.white : AppColors.muted,
+                    ),
+                  ),
+                  if (i < labels.length - 1)
+                    Expanded(
+                      child: Container(
+                        height: 2,
+                        color: i < level ? AppColors.success : AppColors.border,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 5),
+              Text(
+                labels[i],
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                style: TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: done ? FontWeight.w800 : FontWeight.w600,
+                  color: done ? AppColors.text : AppColors.muted,
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
     );
   }
 }

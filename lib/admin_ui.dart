@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_state.dart';
 import 'brand.dart';
+import 'design_system.dart';
 
 const _navy = Color(0xFF10213D);
 const _orange = Color(0xFFFF8A00);
@@ -204,62 +205,106 @@ class _AdminGatePageState extends State<AdminGatePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Admin paneli')),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 430),
-          child: ListView(
-            shrinkWrap: true,
-            padding: const EdgeInsets.all(24),
-            children: [
-              const Center(child: MuhajeerLogoBadge(size: 94, radius: 26)),
-              const SizedBox(height: 18),
-              const Text(
-                'Muhajeer Books boshqaruvi',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 7),
-              const Text(
-                'Kitoblar, rasmlar, ombor, chegirmalar va buyurtmalar shu yerdan boshqariladi.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.black54),
-              ),
-              const SizedBox(height: 24),
-              TextField(
-                controller: code,
-                obscureText: obscure,
-                onSubmitted: (_) => _login(),
-                decoration: InputDecoration(
-                  labelText: 'Admin kodi',
-                  prefixIcon: const Icon(Icons.lock_outline_rounded),
-                  suffixIcon: IconButton(
-                    onPressed: () => setState(() => obscure = !obscure),
-                    icon: Icon(
-                      obscure
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 470),
+              child: AppSurface(
+                padding: const EdgeInsets.all(24),
+                shadow: true,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const MuhajeerLogoBadge(size: 92, radius: 25),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Muhajeer Books Admin',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineMedium,
                     ),
-                  ),
+                    const SizedBox(height: 7),
+                    const Text(
+                      'Savdo, ombor, kitoblar va buyurtmalarni xavfsiz boshqarish markazi.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppColors.muted, height: 1.45),
+                    ),
+                    const SizedBox(height: 22),
+                    TextField(
+                      controller: code,
+                      obscureText: obscure,
+                      autofocus: false,
+                      onSubmitted: (_) => _login(),
+                      decoration: InputDecoration(
+                        labelText: 'Admin kodi',
+                        prefixIcon: const Icon(Icons.lock_outline_rounded),
+                        suffixIcon: IconButton(
+                          onPressed: () => setState(() => obscure = !obscure),
+                          icon: Icon(
+                            obscure
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (error != null) ...[
+                      const SizedBox(height: 10),
+                      AppInfoPill(
+                        icon: Icons.error_outline_rounded,
+                        label: error!,
+                        foreground: AppColors.danger,
+                        background: AppColors.dangerSoft,
+                        border: const Color(0xFFFFCCD1),
+                      ),
+                    ],
+                    const SizedBox(height: 15),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: loading ? null : _login,
+                        icon: loading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.login_rounded),
+                        label: Text(
+                          loading
+                              ? 'Tekshirilmoqda...'
+                              : 'Boshqaruv paneliga kirish',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.verified_user_outlined,
+                          size: 15,
+                          color: AppColors.success,
+                        ),
+                        SizedBox(width: 5),
+                        Text(
+                          'Himoyalangan admin kirishi',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: AppColors.muted,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              if (error != null) ...[
-                const SizedBox(height: 10),
-                Text(error!, style: const TextStyle(color: Colors.red)),
-              ],
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: loading ? null : _login,
-                icon: loading
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.login_rounded),
-                label: const Text('Kirish'),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -278,6 +323,21 @@ class AdminDashboardPage extends StatefulWidget {
 class _AdminDashboardPageState extends State<AdminDashboardPage> {
   int tab = 0;
   late final _AdminApi api;
+
+  static const titles = [
+    'Boshqaruv markazi',
+    'Kitoblar',
+    'Ombor',
+    'Buyurtmalar',
+    'Chegirmalar',
+  ];
+  static const icons = [
+    Icons.dashboard_rounded,
+    Icons.menu_book_rounded,
+    Icons.inventory_2_rounded,
+    Icons.receipt_long_rounded,
+    Icons.percent_rounded,
+  ];
 
   @override
   void initState() {
@@ -324,25 +384,95 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final desktop = constraints.maxWidth >= 900;
+        final extended = constraints.maxWidth >= 1180;
         return Scaffold(
           appBar: AppBar(
-            title: const Row(
-              mainAxisSize: MainAxisSize.min,
+            backgroundColor: Colors.white,
+            title: Row(
               children: [
-                MuhajeerLogoBadge(size: 38, radius: 10, showShadow: false),
-                SizedBox(width: 10),
-                Text('Muhajeer Books • Admin'),
+                if (!desktop) ...[
+                  const MuhajeerLogoBadge(
+                    size: 36,
+                    radius: 10,
+                    showShadow: false,
+                  ),
+                  const SizedBox(width: 9),
+                ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        titles[tab],
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 18,
+                        ),
+                      ),
+                      const Text(
+                        'Muhajeer Books boshqaruvi',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: AppColors.muted,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
+            actions: const [
+              Padding(
+                padding: EdgeInsets.only(right: 14),
+                child: AppInfoPill(
+                  icon: Icons.cloud_done_rounded,
+                  label: 'Onlayn',
+                  foreground: AppColors.success,
+                  background: AppColors.successSoft,
+                  border: Color(0xFFCDEAD7),
+                ),
+              ),
+            ],
           ),
           body: desktop
               ? Row(
                   children: [
                     NavigationRail(
+                      extended: extended,
                       selectedIndex: tab,
                       onDestinationSelected: (v) => setState(() => tab = v),
-                      labelType: NavigationRailLabelType.all,
-                      groupAlignment: -.8,
+                      labelType: extended
+                          ? NavigationRailLabelType.none
+                          : NavigationRailLabelType.selected,
+                      groupAlignment: -.72,
+                      leading: Padding(
+                        padding: const EdgeInsets.only(top: 12, bottom: 20),
+                        child: extended
+                            ? const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  MuhajeerLogoBadge(
+                                    size: 46,
+                                    radius: 13,
+                                    showShadow: false,
+                                  ),
+                                  SizedBox(width: 10),
+                                  Text(
+                                    'Muhajeer\nBooks',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      height: 1.05,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : const MuhajeerLogoBadge(
+                                size: 46,
+                                radius: 13,
+                                showShadow: false,
+                              ),
+                      ),
                       destinations: railDestinations,
                     ),
                     const VerticalDivider(width: 1),
@@ -357,32 +487,13 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   onDestinationSelected: (v) => setState(() => tab = v),
                   labelBehavior:
                       NavigationDestinationLabelBehavior.onlyShowSelected,
-                  destinations: const [
-                    NavigationDestination(
-                      icon: Icon(Icons.dashboard_outlined),
-                      selectedIcon: Icon(Icons.dashboard_rounded),
-                      label: 'Bosh',
+                  destinations: List.generate(
+                    titles.length,
+                    (i) => NavigationDestination(
+                      icon: Icon(icons[i]),
+                      label: i == 0 ? 'Bosh' : titles[i],
                     ),
-                    NavigationDestination(
-                      icon: Icon(Icons.menu_book_outlined),
-                      selectedIcon: Icon(Icons.menu_book_rounded),
-                      label: 'Kitoblar',
-                    ),
-                    NavigationDestination(
-                      icon: Icon(Icons.inventory_2_outlined),
-                      selectedIcon: Icon(Icons.inventory_2_rounded),
-                      label: 'Ombor',
-                    ),
-                    NavigationDestination(
-                      icon: Icon(Icons.receipt_long_outlined),
-                      selectedIcon: Icon(Icons.receipt_long_rounded),
-                      label: 'Zakazlar',
-                    ),
-                    NavigationDestination(
-                      icon: Icon(Icons.percent_rounded),
-                      label: 'Chegirma',
-                    ),
-                  ],
+                  ),
                 ),
         );
       },
@@ -423,7 +534,33 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
     builder: (context, snap) {
       if (snap.connectionState == ConnectionState.waiting)
         return const Center(child: CircularProgressIndicator());
-      if (snap.hasError) return Center(child: Text('Xatolik: ${snap.error}'));
+      if (snap.hasError) {
+        return Center(
+          child: AppSurface(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.cloud_off_rounded,
+                  size: 44,
+                  color: AppColors.danger,
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Ma’lumotni yuklab bo‘lmadi',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 10),
+                FilledButton.tonalIcon(
+                  onPressed: reload,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Qayta urinish'),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
       final data = snap.data ?? const _OverviewData([], []);
       final books = data.books;
       final orders = data.orders;
@@ -445,13 +582,13 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
             (o) => ['accepted', 'paid', 'shipping', 'done'].contains(o.status),
           )
           .fold<int>(0, (sum, o) => sum + o.total);
+      final completedRevenue = orders
+          .where((o) => o.status == 'done')
+          .fold<int>(0, (sum, o) => sum + o.total);
       final totalStock = books.fold<int>(0, (sum, b) => sum + b.stock);
-      final retailValue = books.fold<int>(
-        0,
-        (sum, b) => sum + b.currentPrice * b.stock,
-      );
       final lowStock = books.where((b) => b.stock <= 2).toList()
         ..sort((a, b) => a.stock.compareTo(b.stock));
+      final recent = orders.take(5).toList();
 
       return RefreshIndicator(
         onRefresh: () async => reload(),
@@ -459,137 +596,234 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(18),
           children: [
-            Row(
-              children: [
-                const Expanded(
+            AppPageHeading(
+              title: 'Boshqaruv markazi',
+              subtitle: 'Savdo, buyurtmalar va ombor holati real vaqtga yaqin ko‘rinishda.',
+              trailing: IconButton.filledTonal(
+                onPressed: reload,
+                tooltip: 'Yangilash',
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ),
+            const SizedBox(height: 18),
+            LayoutBuilder(
+              builder: (context, c) {
+                final cardWidth = c.maxWidth >= 1200
+                    ? (c.maxWidth - 36) / 4
+                    : c.maxWidth >= 760
+                    ? (c.maxWidth - 24) / 3
+                    : c.maxWidth >= 480
+                    ? (c.maxWidth - 12) / 2
+                    : c.maxWidth;
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    SizedBox(
+                      width: cardWidth,
+                      child: AppMetricCard(
+                        icon: Icons.new_releases_outlined,
+                        label: 'Yangi buyurtmalar',
+                        value: '$newOrders',
+                        accent: AppColors.orange,
+                        note: proofOrders > 0
+                            ? '$proofOrders ta chek kutilmoqda'
+                            : 'Tekshirish navbati',
+                      ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: AppMetricCard(
+                        icon: Icons.today_outlined,
+                        label: 'Bugungi buyurtma',
+                        value: '$todayOrders',
+                        accent: AppColors.info,
+                        note: DateFormat('yyyy.MM.dd').format(now),
+                      ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: AppMetricCard(
+                        icon: Icons.inventory_2_outlined,
+                        label: 'Ombordagi dona',
+                        value: '$totalStock',
+                        accent: const Color(0xFF6B5DD3),
+                        note: '${books.length} xil kitob',
+                      ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: AppMetricCard(
+                        icon: Icons.payments_outlined,
+                        label: 'Faol savdo',
+                        value: _won(activeRevenue),
+                        accent: AppColors.success,
+                        note: 'Qabul qilingan buyurtmalar',
+                      ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: AppMetricCard(
+                        icon: Icons.task_alt_rounded,
+                        label: 'Yakunlangan savdo',
+                        value: _won(completedRevenue),
+                        accent: AppColors.navy,
+                        note: 'Yakunlangan buyurtmalar',
+                      ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: AppMetricCard(
+                        icon: Icons.warning_amber_rounded,
+                        label: 'Kam qolgan kitob',
+                        value: '${lowStock.length}',
+                        accent: AppColors.warning,
+                        note: '2 dona yoki undan kam',
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 20),
+            LayoutBuilder(
+              builder: (context, c) {
+                final wide = c.maxWidth >= 900;
+                final lowCard = AppSurface(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Boshqaruv markazi',
-                        style: TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w900,
-                        ),
+                      AppSectionHeader(
+                        title: 'Ombor nazorati',
+                        subtitle: 'Eng avval e’tibor beriladigan qoldiqlar',
+                        icon: Icons.warning_amber_rounded,
+                        trailing: AppInfoPill(label: '${lowStock.length} ta'),
                       ),
-                      SizedBox(height: 3),
-                      Text(
-                        'Savdo, buyurtma va ombor holati bir joyda.',
-                        style: TextStyle(color: Colors.black54),
-                      ),
+                      const SizedBox(height: 12),
+                      if (lowStock.isEmpty)
+                        const AppInfoPill(
+                          icon: Icons.check_circle_rounded,
+                          label: 'Hamma qoldiq yaxshi',
+                          foreground: AppColors.success,
+                          background: AppColors.successSoft,
+                          border: Color(0xFFCDEAD7),
+                        )
+                      else
+                        ...lowStock
+                            .take(6)
+                            .map(
+                              (b) => ListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                leading: _AdminBookThumb(url: b.imageUrl),
+                                title: Text(
+                                  b.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  _won(b.currentPrice),
+                                  style: const TextStyle(fontSize: 11.5),
+                                ),
+                                trailing: AppInfoPill(
+                                  label: '${b.stock} dona',
+                                  foreground: b.stock == 0
+                                      ? AppColors.danger
+                                      : AppColors.warning,
+                                  background: b.stock == 0
+                                      ? AppColors.dangerSoft
+                                      : AppColors.warningSoft,
+                                  border: b.stock == 0
+                                      ? const Color(0xFFFFCCD1)
+                                      : const Color(0xFFFFDCA0),
+                                ),
+                              ),
+                            ),
                     ],
                   ),
-                ),
-                IconButton.filledTonal(
-                  onPressed: reload,
-                  icon: const Icon(Icons.refresh_rounded),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                _AdminStatCard(
-                  icon: Icons.new_releases_outlined,
-                  label: 'Yangi buyurtma',
-                  value: '$newOrders',
-                  accent: _orange,
-                ),
-                _AdminStatCard(
-                  icon: Icons.today_outlined,
-                  label: 'Bugungi zakaz',
-                  value: '$todayOrders',
-                  accent: _navy,
-                ),
-                _AdminStatCard(
-                  icon: Icons.receipt_outlined,
-                  label: 'Chek yuborilgan',
-                  value: '$proofOrders',
-                  accent: const Color(0xFF138A4B),
-                ),
-                _AdminStatCard(
-                  icon: Icons.inventory_2_outlined,
-                  label: 'Ombordagi dona',
-                  value: '$totalStock',
-                  accent: const Color(0xFF6B5DD3),
-                ),
-                _AdminStatCard(
-                  icon: Icons.payments_outlined,
-                  label: 'Qabul qilingan savdo',
-                  value: _won(activeRevenue),
-                  accent: const Color(0xFF138A4B),
-                ),
-                _AdminStatCard(
-                  icon: Icons.account_balance_wallet_outlined,
-                  label: 'Ombor retail qiymati',
-                  value: _won(retailValue),
-                  accent: _navy,
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
+                );
+                final recentCard = AppSurface(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AppSectionHeader(
+                        title: 'So‘nggi buyurtmalar',
+                        subtitle: 'Yaqinda kelgan mijoz buyurtmalari',
+                        icon: Icons.receipt_long_outlined,
+                        trailing: AppInfoPill(label: '${orders.length} ta'),
+                      ),
+                      const SizedBox(height: 12),
+                      if (recent.isEmpty)
+                        const Text(
+                          'Hozircha buyurtma yo‘q.',
+                          style: TextStyle(color: AppColors.muted),
+                        )
+                      else
+                        ...recent.map(
+                          (o) => ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading: Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceSoft,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppColors.border),
+                              ),
+                              child: const Icon(
+                                Icons.person_outline_rounded,
+                                size: 19,
+                              ),
+                            ),
+                            title: Text(
+                              o.customerName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            subtitle: Text(
+                              DateFormat('MM.dd • HH:mm').format(o.createdAt),
+                              style: const TextStyle(fontSize: 11.5),
+                            ),
+                            trailing: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                _AdminOrderStatusChip(status: o.status),
+                                const SizedBox(height: 3),
+                                Text(
+                                  _won(o.total),
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+                if (!wide)
+                  return Column(
+                    children: [recentCard, const SizedBox(height: 12), lowCard],
+                  );
+                return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.warning_amber_rounded, color: _orange),
-                        const SizedBox(width: 8),
-                        const Expanded(
-                          child: Text(
-                            'Kam qolgan kitoblar',
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          '${lowStock.length} ta',
-                          style: const TextStyle(color: Colors.black54),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    if (lowStock.isEmpty)
-                      const Text(
-                        'Hamma kitoblarda qoldiq yaxshi ✅',
-                        style: TextStyle(
-                          color: Color(0xFF138A4B),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      )
-                    else
-                      ...lowStock
-                          .take(6)
-                          .map(
-                            (b) => ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              leading: _AdminBookThumb(url: b.imageUrl),
-                              title: Text(
-                                b.title,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              trailing: Text(
-                                '${b.stock} dona',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  color: b.stock == 0 ? Colors.red : _orange,
-                                ),
-                              ),
-                            ),
-                          ),
+                    Expanded(child: recentCard),
+                    const SizedBox(width: 12),
+                    Expanded(child: lowCard),
                   ],
-                ),
-              ),
+                );
+              },
             ),
           ],
         ),
@@ -1932,28 +2166,56 @@ class _AdminOrderStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (label, color) = switch (status) {
-      'accepted' => ('Qabul qilindi', const Color(0xFF138A4B)),
-      'paid' => ('To‘landi', Colors.blue),
-      'shipping' => ('Jo‘natildi', _orange),
-      'done' => ('Yakunlandi', const Color(0xFF138A4B)),
-      'cancelled' => ('Bekor', Colors.red),
-      _ => ('Yangi', _navy),
+    final (label, fg, bg, border, icon) = switch (status) {
+      'accepted' => (
+        'Qabul qilindi',
+        AppColors.success,
+        AppColors.successSoft,
+        const Color(0xFFCDEAD7),
+        Icons.inventory_2_rounded,
+      ),
+      'paid' => (
+        'To‘landi',
+        AppColors.info,
+        AppColors.infoSoft,
+        const Color(0xFFCFE0FA),
+        Icons.verified_rounded,
+      ),
+      'shipping' => (
+        'Jo‘natildi',
+        AppColors.orange,
+        const Color(0xFFFFF2E3),
+        const Color(0xFFFFD4A3),
+        Icons.local_shipping_rounded,
+      ),
+      'done' => (
+        'Yakunlandi',
+        AppColors.success,
+        AppColors.successSoft,
+        const Color(0xFFCDEAD7),
+        Icons.task_alt_rounded,
+      ),
+      'cancelled' => (
+        'Bekor',
+        AppColors.danger,
+        AppColors.dangerSoft,
+        const Color(0xFFFFCCD1),
+        Icons.cancel_rounded,
+      ),
+      _ => (
+        'Yangi',
+        AppColors.navy,
+        AppColors.surfaceSoft,
+        AppColors.border,
+        Icons.new_releases_rounded,
+      ),
     };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .10),
-        borderRadius: BorderRadius.circular(100),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 10.5,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
+    return AppInfoPill(
+      icon: icon,
+      label: label,
+      foreground: fg,
+      background: bg,
+      border: border,
     );
   }
 }
@@ -2082,7 +2344,7 @@ class _DiscountAdminState extends State<_DiscountAdmin> {
       await context.read<AppState>().refreshBooks();
       if (mounted)
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$p% chegirma qo‘llandi.')));
+            .showSnackBar(SnackBar(content: Text('$p% chegirma qo‘llandi ✅')));
     } finally {
       if (mounted) setState(() => loading = false);
     }
@@ -2095,7 +2357,7 @@ class _DiscountAdminState extends State<_DiscountAdmin> {
       await context.read<AppState>().refreshBooks();
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Chegirmalar bekor qilindi.')),
+          const SnackBar(content: Text('Barcha chegirmalar bekor qilindi.')),
         );
     } finally {
       if (mounted) setState(() => loading = false);
@@ -2105,51 +2367,163 @@ class _DiscountAdminState extends State<_DiscountAdmin> {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       children: [
-        const Text(
-          'Chegirma boshqaruvi',
-          style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900),
+        const AppPageHeading(
+          title: 'Chegirma boshqaruvi',
+          subtitle:
+              'Aksiya foizini bir necha soniyada barcha kitoblarga qo‘llang.',
         ),
-        const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                TextField(
-                  controller: percent,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Chegirma foizi',
-                    suffixText: '%',
+        const SizedBox(height: 18),
+        LayoutBuilder(
+          builder: (context, c) {
+            final wide = c.maxWidth >= 760;
+            final editor = AppSurface(
+              shadow: true,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const AppSectionHeader(
+                    title: 'Yangi aksiya',
+                    subtitle: 'Foizni tanlang yoki qo‘lda kiriting',
+                    icon: Icons.sell_outlined,
                   ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: loading ? null : apply,
-                        icon: const Icon(Icons.sell_outlined),
-                        label: const Text('Barchasiga berish'),
-                      ),
+                  const SizedBox(height: 15),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [10, 15, 20, 25, 30]
+                        .map(
+                          (v) => ActionChip(
+                            label: Text('$v%'),
+                            onPressed: loading
+                                ? null
+                                : () => setState(() => percent.text = '$v'),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: percent,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Chegirma foizi',
+                      prefixIcon: Icon(Icons.percent_rounded),
+                      suffixText: '%',
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: loading ? null : clear,
-                        icon: const Icon(Icons.delete_sweep_outlined),
-                        label: const Text('Bekor qilish'),
-                      ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: loading ? null : apply,
+                      icon: const Icon(Icons.campaign_outlined),
+                      label: const Text('Chegirmani qo‘llash'),
                     ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: loading ? null : clear,
+                      icon: const Icon(Icons.delete_sweep_outlined),
+                      label: const Text('Barcha chegirmalarni bekor qilish'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+            final guide = AppSurface(
+              backgroundColor: AppColors.surfaceSoft,
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AppSectionHeader(
+                    title: 'Aksiya tavsiyasi',
+                    subtitle: 'Narxni tushunarli va ishonchli ko‘rsating',
+                    icon: Icons.tips_and_updates_outlined,
+                  ),
+                  SizedBox(height: 14),
+                  _DiscountTip(
+                    icon: Icons.visibility_outlined,
+                    title: 'Eski narx ko‘rinadi',
+                    text: 'Chegirma yoqilganda asl narx ustidan chiziq bilan ko‘rsatiladi.',
+                  ),
+                  SizedBox(height: 10),
+                  _DiscountTip(
+                    icon: Icons.calculate_outlined,
+                    title: 'Yangi narx avtomatik',
+                    text: 'Mijozga chegirmadan keyingi yakuniy narx ko‘rsatiladi.',
+                  ),
+                  SizedBox(height: 10),
+                  _DiscountTip(
+                    icon: Icons.restart_alt_rounded,
+                    title: 'Bir tugmada bekor',
+                    text: 'Aksiya tugaganda barcha chegirmalarni birdan o‘chira olasiz.',
+                  ),
+                ],
+              ),
+            );
+            return wide
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: editor),
+                      const SizedBox(width: 14),
+                      Expanded(child: guide),
+                    ],
+                  )
+                : Column(children: [editor, const SizedBox(height: 14), guide]);
+          },
         ),
       ],
     );
   }
+}
+
+class _DiscountTip extends StatelessWidget {
+  const _DiscountTip({
+    required this.icon,
+    required this.title,
+    required this.text,
+  });
+  final IconData icon;
+  final String title;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Icon(icon, size: 19, color: AppColors.navy),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+            const SizedBox(height: 2),
+            Text(
+              text,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.muted,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
 }

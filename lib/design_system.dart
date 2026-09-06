@@ -39,20 +39,21 @@ abstract final class AppSpacing {
 abstract final class MuhajeerDesign {
   static ThemeData get theme {
     final base = ThemeData(useMaterial3: true, brightness: Brightness.light);
-    final scheme = ColorScheme.fromSeed(
-      seedColor: AppColors.orange,
-      brightness: Brightness.light,
-    ).copyWith(
-      primary: AppColors.navy,
-      onPrimary: Colors.white,
-      secondary: AppColors.orange,
-      onSecondary: Colors.white,
-      tertiary: AppColors.gold,
-      surface: AppColors.surface,
-      onSurface: AppColors.text,
-      outline: AppColors.border,
-      error: AppColors.danger,
-    );
+    final scheme =
+        ColorScheme.fromSeed(
+          seedColor: AppColors.orange,
+          brightness: Brightness.light,
+        ).copyWith(
+          primary: AppColors.navy,
+          onPrimary: Colors.white,
+          secondary: AppColors.orange,
+          onSecondary: Colors.white,
+          tertiary: AppColors.gold,
+          surface: AppColors.surface,
+          onSurface: AppColors.text,
+          outline: AppColors.border,
+          error: AppColors.danger,
+        );
 
     final text = base.textTheme.copyWith(
       headlineLarge: const TextStyle(
@@ -80,10 +81,25 @@ abstract final class MuhajeerDesign {
         fontWeight: FontWeight.w800,
         color: AppColors.text,
       ),
-      bodyLarge: const TextStyle(fontSize: 15.5, height: 1.5, color: AppColors.text),
-      bodyMedium: const TextStyle(fontSize: 14, height: 1.45, color: AppColors.text),
-      bodySmall: const TextStyle(fontSize: 12, height: 1.4, color: AppColors.muted),
-      labelLarge: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0),
+      bodyLarge: const TextStyle(
+        fontSize: 15.5,
+        height: 1.5,
+        color: AppColors.text,
+      ),
+      bodyMedium: const TextStyle(
+        fontSize: 14,
+        height: 1.45,
+        color: AppColors.text,
+      ),
+      bodySmall: const TextStyle(
+        fontSize: 12,
+        height: 1.4,
+        color: AppColors.muted,
+      ),
+      labelLarge: const TextStyle(
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0,
+      ),
     );
 
     return base.copyWith(
@@ -113,8 +129,14 @@ abstract final class MuhajeerDesign {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-        labelStyle: const TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 15,
+        ),
+        labelStyle: const TextStyle(
+          color: AppColors.muted,
+          fontWeight: FontWeight.w600,
+        ),
         hintStyle: const TextStyle(color: Color(0xFF98A2B3)),
         prefixIconColor: AppColors.muted,
         suffixIconColor: AppColors.muted,
@@ -141,7 +163,9 @@ abstract final class MuhajeerDesign {
           foregroundColor: Colors.white,
           minimumSize: const Size(44, 50),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.medium)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.medium),
+          ),
           textStyle: const TextStyle(fontWeight: FontWeight.w900),
         ),
       ),
@@ -151,7 +175,9 @@ abstract final class MuhajeerDesign {
           minimumSize: const Size(44, 48),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           side: const BorderSide(color: AppColors.border),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.medium)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.medium),
+          ),
           textStyle: const TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
@@ -170,8 +196,12 @@ abstract final class MuhajeerDesign {
         labelTextStyle: WidgetStateProperty.resolveWith(
           (states) => TextStyle(
             fontSize: 11.5,
-            fontWeight: states.contains(WidgetState.selected) ? FontWeight.w900 : FontWeight.w600,
-            color: states.contains(WidgetState.selected) ? AppColors.navy : AppColors.muted,
+            fontWeight: states.contains(WidgetState.selected)
+                ? FontWeight.w900
+                : FontWeight.w600,
+            color: states.contains(WidgetState.selected)
+                ? AppColors.navy
+                : AppColors.muted,
           ),
         ),
       ),
@@ -179,34 +209,57 @@ abstract final class MuhajeerDesign {
         backgroundColor: Colors.white,
         indicatorColor: Color(0xFFFFE8CF),
         selectedIconTheme: IconThemeData(color: AppColors.navy),
-        selectedLabelTextStyle: TextStyle(fontWeight: FontWeight.w900, color: AppColors.navy),
-        unselectedLabelTextStyle: TextStyle(fontWeight: FontWeight.w600, color: AppColors.muted),
+        selectedLabelTextStyle: TextStyle(
+          fontWeight: FontWeight.w900,
+          color: AppColors.navy,
+        ),
+        unselectedLabelTextStyle: TextStyle(
+          fontWeight: FontWeight.w600,
+          color: AppColors.muted,
+        ),
       ),
       chipTheme: ChipThemeData(
         backgroundColor: Colors.white,
         selectedColor: const Color(0xFFFFE8CF),
         side: const BorderSide(color: AppColors.border),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.text),
+        labelStyle: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: AppColors.text,
+        ),
       ),
-      dividerTheme: const DividerThemeData(color: AppColors.border, thickness: 1, space: 1),
+      dividerTheme: const DividerThemeData(
+        color: AppColors.border,
+        thickness: 1,
+        space: 1,
+      ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: AppColors.text,
-        contentTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.medium)),
+        contentTextStyle: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.medium),
+        ),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.xl)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.xl),
+        ),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         showDragHandle: true,
       ),
-      progressIndicatorTheme: const ProgressIndicatorThemeData(color: AppColors.orange),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: AppColors.orange,
+      ),
     );
   }
 }
@@ -231,19 +284,23 @@ class AppSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: padding,
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(radius),
-          border: Border.all(color: borderColor),
-          boxShadow: shadow
-              ? const [
-                  BoxShadow(color: Color(0x100F172A), blurRadius: 24, offset: Offset(0, 10)),
-                ]
-              : null,
-        ),
-        child: child,
-      );
+    padding: padding,
+    decoration: BoxDecoration(
+      color: backgroundColor,
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(color: borderColor),
+      boxShadow: shadow
+          ? const [
+              BoxShadow(
+                color: Color(0x100F172A),
+                blurRadius: 24,
+                offset: Offset(0, 10),
+              ),
+            ]
+          : null,
+    ),
+    child: child,
+  );
 }
 
 class AppSectionHeader extends StatelessWidget {
@@ -262,35 +319,35 @@ class AppSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (icon != null) ...[
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF1E2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: AppColors.orange, size: 20),
-            ),
-            const SizedBox(width: 10),
-          ],
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: Theme.of(context).textTheme.titleLarge),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
-                  Text(subtitle!, style: Theme.of(context).textTheme.bodySmall),
-                ],
-              ],
-            ),
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (icon != null) ...[
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF1E2),
+            borderRadius: BorderRadius.circular(12),
           ),
-          if (trailing != null) trailing!,
-        ],
-      );
+          child: Icon(icon, color: AppColors.orange, size: 20),
+        ),
+        const SizedBox(width: 10),
+      ],
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleLarge),
+            if (subtitle != null) ...[
+              const SizedBox(height: 2),
+              Text(subtitle!, style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ],
+        ),
+      ),
+      if (trailing != null) trailing!,
+    ],
+  );
 }
 
 class AppInfoPill extends StatelessWidget {
@@ -311,26 +368,30 @@ class AppInfoPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: BorderRadius.circular(100),
-          border: Border.all(color: border),
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+    decoration: BoxDecoration(
+      color: background,
+      borderRadius: BorderRadius.circular(100),
+      border: Border.all(color: border),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (icon != null) ...[
+          Icon(icon, size: 15, color: foreground),
+          const SizedBox(width: 5),
+        ],
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w800,
+            color: foreground,
+          ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 15, color: foreground),
-              const SizedBox(width: 5),
-            ],
-            Text(
-              label,
-              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: foreground),
-            ),
-          ],
-        ),
-      );
+      ],
+    ),
+  );
 }
 
 class AppPageHeading extends StatelessWidget {
@@ -347,23 +408,27 @@ class AppPageHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: Theme.of(context).textTheme.headlineMedium),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 4),
-                  Text(subtitle!, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.muted)),
-                ],
-              ],
-            ),
-          ),
-          if (trailing != null) trailing!,
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.headlineMedium),
+            if (subtitle != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                subtitle!,
+                style: Theme.of(context).textTheme.bodyMedium
+                    ?.copyWith(color: AppColors.muted),
+              ),
+            ],
+          ],
+        ),
+      ),
+      if (trailing != null) trailing!,
+    ],
+  );
 }
 
 class AppMetricCard extends StatelessWidget {
@@ -384,34 +449,51 @@ class AppMetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AppSurface(
-        padding: const EdgeInsets.all(15),
-        child: Row(
-          children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: .10),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(icon, color: accent),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 2),
-                  Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700)),
-                  if (note != null) ...[
-                    const SizedBox(height: 2),
-                    Text(note!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, color: AppColors.muted)),
-                  ],
-                ],
-              ),
-            ),
-          ],
+    padding: const EdgeInsets.all(15),
+    child: Row(
+      children: [
+        Container(
+          width: 46,
+          height: 46,
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: .10),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(icon, color: accent),
         ),
-      );
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              if (note != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  note!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    color: AppColors.muted,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }

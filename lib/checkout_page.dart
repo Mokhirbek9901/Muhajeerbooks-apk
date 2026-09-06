@@ -4,7 +4,11 @@ class CheckoutPage extends StatefulWidget {
   final String productName;
   final int price;
 
-  const CheckoutPage({super.key, required this.productName, required this.price});
+  const CheckoutPage({
+    super.key,
+    required this.productName,
+    required this.price,
+  });
 
   @override
   State<CheckoutPage> createState() => _CheckoutPageState();
@@ -23,9 +27,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Kitob: ${widget.productName}', style: const TextStyle(fontSize: 18)),
+            Text(
+              'Kitob: ${widget.productName}',
+              style: const TextStyle(fontSize: 18),
+            ),
             const SizedBox(height: 10),
-            Text('Narx: ${widget.price} W', style: const TextStyle(fontSize: 16, color: Colors.green)),
+            Text(
+              'Narx: ${widget.price} W',
+              style: const TextStyle(fontSize: 16, color: Colors.green),
+            ),
             const Divider(height: 30),
             TextField(
               controller: _nameController,
@@ -33,10 +43,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
             ),
             TextField(
               controller: _addressController,
-              decoration: const InputDecoration(labelText: 'Manzil (shahar, tuman, ko‘cha)'),
+              decoration: const InputDecoration(
+                labelText: 'Manzil (shahar, tuman, ko‘cha)',
+              ),
             ),
             const SizedBox(height: 20),
-            const Text('To‘lov turi:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              'To‘lov turi:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             Container(
               decoration: BoxDecoration(
@@ -52,13 +67,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
             const Spacer(),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green, minimumSize: const Size.fromHeight(50)),
+                backgroundColor: Colors.green,
+                minimumSize: const Size.fromHeight(50),
+              ),
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Buyurtma qabul qilindi ✅')),
                 );
               },
-              child: const Text('Buyurtma qilish', style: TextStyle(fontSize: 18)),
+              child: const Text(
+                'Buyurtma qilish',
+                style: TextStyle(fontSize: 18),
+              ),
             ),
           ],
         ),

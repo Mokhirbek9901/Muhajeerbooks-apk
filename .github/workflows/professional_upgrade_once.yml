@@ -23,6 +23,33 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Fix AppState patch scope
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('tools/professional_upgrade.py')
+          text = p.read_text(encoding='utf-8')
+          pattern = re.compile(
+              r'text = replace_between\(text,\s*"  Future<void> updateOrderStatus\(String id, String status\) async \\{",\s*"  Future<void> resetLocalCatalogFromTelegram\(\) async \\{",\s*local_status,\s*"local status flow"\)'
+          )
+          replacement = '''app_anchor = text.find("class AppState extends ChangeNotifier {")
+          if app_anchor < 0:
+              raise SystemExit("AppState anchor not found")
+          status_start = text.find("  Future<void> updateOrderStatus(String id, String status) async {", app_anchor)
+          if status_start < 0:
+              raise SystemExit("AppState updateOrderStatus not found")
+          status_end = text.find("  Future<void> resetLocalCatalogFromTelegram() async {", status_start)
+          if status_end < 0:
+              raise SystemExit("AppState reset marker not found")
+          text = text[:status_start] + local_status.rstrip() + "\\n\\n" + text[status_end:]'''
+          fixed, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f"Could not patch AppState scope; replacements={count}")
+          p.write_text(fixed, encoding='utf-8')
+          PY
+
       - name: Apply professional upgrade
         run: python tools/professional_upgrade.py
 

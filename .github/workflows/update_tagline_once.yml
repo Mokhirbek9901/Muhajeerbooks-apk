@@ -1,0 +1,39 @@
+name: Update storefront tagline once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/update_tagline_once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Replace storefront tagline
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('lib/store_ui.dart')
+          text = p.read_text(encoding='utf-8')
+          old = "Koreyadagi o‘zbek kitob do‘koni"
+          new = "Koreyadagi O’zbek kitobxonlari uchun"
+          if old not in text:
+              raise SystemExit('Old tagline not found')
+          p.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+      - name: Remove one-shot workflow
+        run: rm .github/workflows/update_tagline_once.yml
+      - name: Commit change
+        run: |
+          git config user.name "Muhajeer Books Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add lib/store_ui.dart .github/workflows/update_tagline_once.yml
+          git commit -m "Update storefront tagline"
+          git push

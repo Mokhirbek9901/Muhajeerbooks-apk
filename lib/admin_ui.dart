@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -47,6 +50,39 @@ class _AdminApi {
         'recommended': book.recommended,
       },
     });
+  }
+
+  Future<String> uploadCover(XFile file) async {
+    final bytes = await file.readAsBytes();
+    if (bytes.isEmpty) throw StateError('Rasm bo‘sh.');
+    if (bytes.length > 7 * 1024 * 1024) {
+      throw StateError('Rasm hajmi 7 MB dan kichik bo‘lishi kerak.');
+    }
+
+    final lower = file.name.toLowerCase();
+    final contentType = lower.endsWith('.png')
+        ? 'image/png'
+        : lower.endsWith('.webp')
+            ? 'image/webp'
+            : 'image/jpeg';
+
+    final response = await client.functions.invoke(
+      'admin-cover-upload',
+      body: {
+        'admin_code': secret,
+        'file_name': file.name,
+        'content_type': contentType,
+        'data_base64': base64Encode(bytes),
+      },
+    );
+
+    final raw = response.data;
+    final data = raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+    final url = (data['url'] ?? '').toString();
+    if (url.isEmpty) {
+      throw StateError((data['error'] ?? 'Rasm yuklanmadi.').toString());
+    }
+    return url;
   }
 
   Future<void> deleteBook(String id) async {
@@ -114,7 +150,7 @@ class _AdminGatePageState extends State<AdminGatePage> {
         context,
         MaterialPageRoute(builder: (_) => AdminDashboardPage(secret: value)),
       );
-    } catch (e) {
+    } catch (_) {
       if (mounted) setState(() => error = 'Kirishda xatolik. Internetni tekshiring.');
     } finally {
       if (mounted) setState(() => loading = false);
@@ -141,7 +177,7 @@ class _AdminGatePageState extends State<AdminGatePage> {
               ),
               const SizedBox(height: 7),
               const Text(
-                'Kitoblar, ombor, chegirmalar va buyurtmalar shu yerdan boshqariladi.',
+                'Kitoblar, rasmlar, ombor, chegirmalar va buyurtmalar shu yerdan boshqariladi.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.black54),
               ),
@@ -299,6 +335,7 @@ class _BooksAdminState extends State<_BooksAdmin> {
                     children: [
                       _MiniStat(label: 'Kitob', value: '${all.length}'),
                       _MiniStat(label: 'Ombor', value: '$totalStock dona'),
+                      _MiniStat(label: 'Rasmli', value: '${all.where((b) => b.imageUrl.isNotEmpty).length}'),
                       _MiniStat(label: 'Kam qolgan', value: '${all.where((b) => b.stock <= 2).length}'),
                     ],
                   ),
@@ -334,9 +371,7 @@ class _BooksAdminState extends State<_BooksAdmin> {
                     final b = books[i];
                     return Card(
                       child: ListTile(
-                        leading: b.imageUrl.isEmpty
-                            ? const CircleAvatar(child: Icon(Icons.menu_book_rounded))
-                            : CircleAvatar(backgroundImage: NetworkImage(b.imageUrl)),
+                        leading: _AdminBookThumb(url: b.imageUrl),
                         title: Text(b.title, style: const TextStyle(fontWeight: FontWeight.w900)),
                         subtitle: Text('${b.author} • ${b.stock} dona • ${_won(b.currentPrice)}${b.isActive ? '' : ' • Yashirilgan'}'),
                         trailing: PopupMenuButton<String>(
@@ -354,6 +389,40 @@ class _BooksAdminState extends State<_BooksAdmin> {
           ],
         );
       },
+    );
+  }
+}
+
+class _AdminBookThumb extends StatelessWidget {
+  const _AdminBookThumb({required this.url});
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    if (url.isEmpty) {
+      return Container(
+        width: 48,
+        height: 64,
+        decoration: BoxDecoration(color: const Color(0xFFF2F3F5), borderRadius: BorderRadius.circular(8)),
+        alignment: Alignment.center,
+        child: const Icon(Icons.menu_book_rounded, color: _navy),
+      );
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Image.network(
+        url,
+        width: 48,
+        height: 64,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+          width: 48,
+          height: 64,
+          alignment: Alignment.center,
+          color: const Color(0xFFF2F3F5),
+          child: const Icon(Icons.broken_image_outlined),
+        ),
+      ),
     );
   }
 }
@@ -391,10 +460,12 @@ class _BookFormState extends State<_BookForm> {
   late final TextEditingController discount;
   late final TextEditingController image;
   late final TextEditingController cost;
+  final picker = ImagePicker();
   String cover = 'Ko‘rsatilmagan';
   bool active = true;
   bool recommended = false;
   bool saving = false;
+  bool uploadingImage = false;
 
   @override
   void initState() {
@@ -412,10 +483,16 @@ class _BookFormState extends State<_BookForm> {
     cover = b?.coverType ?? 'Ko‘rsatilmagan';
     active = b?.isActive ?? true;
     recommended = b?.recommended ?? false;
+    image.addListener(_imageChanged);
+  }
+
+  void _imageChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    image.removeListener(_imageChanged);
     for (final c in [title, author, category, description, price, stock, discount, image, cost]) {
       c.dispose();
     }
@@ -432,6 +509,29 @@ class _BookFormState extends State<_BookForm> {
           validator: required ? (v) => v == null || v.trim().isEmpty ? 'Majburiy' : null : null,
         ),
       );
+
+  Future<void> pickAndUploadImage() async {
+    if (uploadingImage) return;
+    try {
+      final picked = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1600,
+      );
+      if (picked == null) return;
+      setState(() => uploadingImage = true);
+      final url = await widget.api.uploadCover(picked);
+      if (!mounted) return;
+      image.text = url;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kitob rasmi yuklandi ✅')));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Rasm yuklashda xatolik: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => uploadingImage = false);
+    }
+  }
 
   Future<void> save() async {
     if (!key.currentState!.validate()) return;
@@ -472,6 +572,7 @@ class _BookFormState extends State<_BookForm> {
 
   @override
   Widget build(BuildContext context) {
+    final imageUrl = image.text.trim();
     return Scaffold(
       appBar: AppBar(title: Text(widget.book == null ? 'Kitob qo‘shish' : 'Kitobni tahrirlash')),
       body: Form(
@@ -479,6 +580,58 @@ class _BookFormState extends State<_BookForm> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            Center(
+              child: Container(
+                width: 150,
+                height: 210,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF4F5F7),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE4E6EA)),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: imageUrl.isEmpty
+                    ? const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.photo_library_outlined, size: 46, color: _navy),
+                          SizedBox(height: 8),
+                          Text('Rasm yo‘q', style: TextStyle(color: Colors.black54)),
+                        ],
+                      )
+                    : Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image_outlined, size: 44)),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Center(
+              child: FilledButton.tonalIcon(
+                onPressed: uploadingImage ? null : pickAndUploadImage,
+                icon: uploadingImage
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.add_photo_alternate_outlined),
+                label: Text(uploadingImage ? 'Yuklanmoqda...' : imageUrl.isEmpty ? 'Rasm tanlash' : 'Rasmni almashtirish'),
+              ),
+            ),
+            if (imageUrl.isNotEmpty)
+              Center(
+                child: TextButton.icon(
+                  onPressed: uploadingImage ? null : () => image.clear(),
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Rasmni olib tashlash'),
+                ),
+              ),
+            const Padding(
+              padding: EdgeInsets.only(bottom: 14),
+              child: Text(
+                'Telefon galereyasidan JPG, PNG yoki WEBP rasm tanlang. Maksimal hajm: 7 MB.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+            ),
             field(title, 'Kitob nomi', required: true),
             field(author, 'Muallif'),
             field(category, 'Kategoriya'),
@@ -493,7 +646,12 @@ class _BookFormState extends State<_BookForm> {
               const SizedBox(width: 8),
               Expanded(child: field(cost, 'Tannarx (₩)', number: true)),
             ]),
-            field(image, 'Muqova rasm URL'),
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              title: const Text('Rasm URL (ixtiyoriy)', style: TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: const Text('Odatda yuqoridagi “Rasm tanlash” tugmasi yetadi.'),
+              children: [field(image, 'Muqova rasm URL')],
+            ),
             DropdownButtonFormField<String>(
               initialValue: ['Qattiq', 'Yumshoq', 'Flexible', 'Ko‘rsatilmagan'].contains(cover) ? cover : 'Ko‘rsatilmagan',
               decoration: const InputDecoration(labelText: 'Muqova turi'),
@@ -510,7 +668,7 @@ class _BookFormState extends State<_BookForm> {
             SwitchListTile(value: recommended, onChanged: (v) => setState(() => recommended = v), title: const Text('Tavsiya etilgan kitob'), contentPadding: EdgeInsets.zero),
             const SizedBox(height: 12),
             FilledButton.icon(
-              onPressed: saving ? null : save,
+              onPressed: saving || uploadingImage ? null : save,
               icon: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save_outlined),
               label: const Text('Saqlash'),
             ),
@@ -557,6 +715,8 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
             ),
             if (snap.connectionState == ConnectionState.waiting)
               const Expanded(child: Center(child: CircularProgressIndicator()))
+            else if (snap.hasError)
+              Expanded(child: Center(child: Text('Xatolik: ${snap.error}')))
             else if (orders.isEmpty)
               const Expanded(child: Center(child: Text('Hozircha buyurtma yo‘q')))
             else

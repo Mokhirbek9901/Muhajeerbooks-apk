@@ -1,0 +1,34 @@
+name: Apply app upgrade
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/muhajeer_update.b64'
+      - '.github/workflows/app_upgrade_apply.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply staged source bundle
+        shell: bash
+        run: |
+          if [ ! -f tools/muhajeer_update.b64 ]; then
+            echo 'No staged upgrade bundle; nothing to do.'
+            exit 0
+          fi
+          base64 -d tools/muhajeer_update.b64 > /tmp/muhajeer_update.tar.gz
+          tar -xzf /tmp/muhajeer_update.tar.gz -C .
+          rm -f tools/muhajeer_update.b64
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m 'Upgrade Muhajeer Books app and import Telegram catalog'
+          git push

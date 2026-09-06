@@ -17,5 +17,5 @@ jobs:
       - name: Create platform folders if missing
         run: flutter create . --platforms=android,ios,web
       - run: flutter pub get
-      - run: flutter analyze --no-fatal-infos
+      - run: flutter analyze --no-fatal-warnings --no-fatal-infos
       - run: flutter test

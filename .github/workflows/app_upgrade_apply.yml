@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'tools/muhajeer_update.b64'
+      - 'tools/update.chunk*'
       - '.github/workflows/app_upgrade_apply.yml'
   workflow_dispatch:
 
@@ -19,13 +19,18 @@ jobs:
       - name: Apply staged source bundle
         shell: bash
         run: |
-          if [ ! -f tools/muhajeer_update.b64 ]; then
+          if [ ! -f tools/update.chunk00 ]; then
             echo 'No staged upgrade bundle; nothing to do.'
             exit 0
           fi
-          base64 -d tools/muhajeer_update.b64 > /tmp/muhajeer_update.tar.gz
+          cat tools/update.chunk00 tools/update.chunk01 tools/update.chunk02 tools/update.chunk03 tools/update.chunk04 tools/update.chunk05 tools/update.chunk06 tools/update.chunk07 tools/update.chunk08 > /tmp/muhajeer_update.b64
+          head -c 10000 tools/update.chunk09 >> /tmp/muhajeer_update.b64
+          cat tools/update.chunk10 >> /tmp/muhajeer_update.b64
+          test "$(wc -c < /tmp/muhajeer_update.b64)" -eq 100440
+          base64 -d /tmp/muhajeer_update.b64 > /tmp/muhajeer_update.tar.gz
+          tar -tzf /tmp/muhajeer_update.tar.gz
           tar -xzf /tmp/muhajeer_update.tar.gz -C .
-          rm -f tools/muhajeer_update.b64
+          rm -f tools/muhajeer_update.b64 tools/update.chunk00 tools/update.chunk01 tools/update.chunk02 tools/update.chunk03 tools/update.chunk04 tools/update.chunk05 tools/update.chunk06 tools/update.chunk07 tools/update.chunk08 tools/update.chunk09 tools/update.chunk10
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A

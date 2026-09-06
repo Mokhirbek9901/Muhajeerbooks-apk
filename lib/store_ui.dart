@@ -274,7 +274,7 @@ class _StoreHeader extends StatelessWidget {
             children: [
               Text('Muhajeer Books', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
               SizedBox(height: 2),
-              Text('Koreyadagi o‘zbek kitob do‘koni', style: TextStyle(color: Colors.black54, fontSize: 13)),
+              Text('Koreyadagi O’zbek kitobxonlari uchun', style: TextStyle(color: Colors.black54, fontSize: 13)),
             ],
           ),
         ),

@@ -25,6 +25,16 @@ jobs:
       - name: Apply customer design
         run: python3 tools/modern_uzbek_customer_patch.py
 
+      - name: Normalize generated hero line break
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/store_ui.dart')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace("'O‘zbek kitoblari —\nKoreyadagi xonadoningizga.'", "'O‘zbek kitoblari —\\nKoreyadagi xonadoningizga.'")
+          p.write_text(s, encoding='utf-8')
+          PY
+
       - name: Format Dart
         run: dart format lib/store_ui.dart lib/uzbek_customer_style.dart
 

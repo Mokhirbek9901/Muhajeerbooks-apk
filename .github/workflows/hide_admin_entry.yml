@@ -1,0 +1,122 @@
+name: Hide customer admin entry
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/hide_admin_entry.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Hide visible admin button and keep secret access
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('lib/store_ui.dart')
+          s = path.read_text(encoding='utf-8')
+
+          visible_admin = """                ListTile(
+                  minTileHeight: 68,
+                  leading: const _ProfileIcon(
+                      icon: Icons.admin_panel_settings_outlined),
+                  title: const Text(
+                    'Admin paneli',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  subtitle:
+                      const Text('Kitoblar, ombor, statistika va buyurtmalar'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AdminGatePage()),
+                  ),
+                ),
+"""
+          if visible_admin not in s:
+              raise SystemExit('Visible Admin paneli block not found; refusing unsafe patch')
+          s = s.replace(visible_admin, '', 1)
+
+          profile_name = """                const Text(
+                  'Mohirbek Ismoilov',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 23,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -.3,
+                  ),
+                ),
+"""
+          hidden_entry = """                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onLongPress: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AdminGatePage()),
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4),
+                    child: Text(
+                      'Mohirbek Ismoilov',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 23,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -.3,
+                      ),
+                    ),
+                  ),
+                ),
+"""
+          if profile_name not in s:
+              raise SystemExit('Profile name block not found; refusing unsafe patch')
+          s = s.replace(profile_name, hidden_entry, 1)
+
+          if "'Admin paneli'" in s:
+              raise SystemExit('Visible Admin paneli text still present')
+          if 'onLongPress: () => Navigator.push(' not in s:
+              raise SystemExit('Hidden admin entry was not added')
+
+          path.write_text(s, encoding='utf-8')
+
+      - name: Format
+        run: dart format lib/store_ui.dart
+
+      - name: Dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Test
+        run: flutter test
+
+      - name: Web build
+        run: |
+          flutter create . --platforms=web
+          flutter build web --release
+
+      - name: Commit production change and cleanup
+        shell: bash
+        run: |
+          rm -f .github/workflows/hide_admin_entry.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m 'Hide admin panel entry from customers'
+          git push

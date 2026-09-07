@@ -1,0 +1,60 @@
+name: Apply profile name without image
+
+on:
+  push:
+    paths:
+      - '.github/workflows/profile_name_once.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-profile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Apply profile change
+        run: python3 tools/profile_name_patch.py
+
+      - name: Format
+        run: dart format lib/store_ui.dart
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+
+      - name: Test
+        run: flutter test
+
+      - name: Validate web build
+        run: |
+          flutter create . --platforms=web
+          flutter build web --release
+
+      - name: Remove helpers
+        run: |
+          rm -f tools/profile_name_patch.py
+          rm -f .github/workflows/profile_name_once.yml
+
+      - name: Commit production update
+        run: |
+          git config user.name "Muhajeer Books Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add lib/store_ui.dart
+          git add -A tools/profile_name_patch.py .github/workflows/profile_name_once.yml
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "Show Mohirbek Ismoilov profile without image"
+          git push

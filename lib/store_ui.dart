@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'admin_ui.dart';
 import 'app_state.dart';
@@ -2169,22 +2170,49 @@ class _CheckoutPageState extends State<CheckoutPage> {
               ),
             ),
             const SizedBox(height: 14),
-            SizedBox(
-              height: 52,
-              child: FilledButton.icon(
-                onPressed: saving || state.cartLines.isEmpty
-                    ? null
-                    : () => _submit(state, deliveryFee),
-                icon: saving
-                    ? const SizedBox(
-                        width: 19,
-                        height: 19,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.send_rounded),
-                label: Text(saving ? 'Yuborilmoqda...' : 'Buyurtmani yuborish'),
+            if (paymentDone && paymentProof != null)
+              SizedBox(
+                height: 52,
+                child: FilledButton.icon(
+                  onPressed: saving || state.cartLines.isEmpty
+                      ? null
+                      : () => _submit(state, deliveryFee),
+                  icon: saving
+                      ? const SizedBox(
+                          width: 19,
+                          height: 19,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.send_rounded),
+                  label: Text(
+                    saving ? 'Yuborilmoqda...' : 'Buyurtmani yuborish',
+                  ),
+                ),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.all(13),
+                decoration: BoxDecoration(
+                  color: AppColors.warningSoft,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFFFDF9B)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.lock_outline_rounded, color: AppColors.warning),
+                    SizedBox(width: 9),
+                    Expanded(
+                      child: Text(
+                        'Buyurtmani yuborish tugmasi chek skrinshotini joylaganingizdan keyin ochiladi.',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -2201,7 +2229,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   Future<void> _submit(AppState state, int deliveryFee) async {
     if (!formKey.currentState!.validate()) return;
-    if (paymentDone && paymentProof == null) {
+    if (!paymentDone || paymentProof == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('To‘lov qilgan bo‘lsangiz, chek skrinshotini tanlang.'),
@@ -2212,7 +2240,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
     setState(() => saving = true);
     try {
-      final proof = paymentDone ? paymentProof : null;
+      final proof = paymentProof;
       final orderId = await state.placeOrder(
         customerName: name.text,
         phone: phone.text,
@@ -2403,6 +2431,12 @@ class ProfilePage extends StatelessWidget {
     final availableBooks = state.books
         .where((b) => b.isActive && b.inStock)
         .length;
+    final currentUser = Supabase.instance.client.auth.currentUser;
+    final displayName = (state.savedCustomer['name'] ?? '').trim().isNotEmpty
+        ? state.savedCustomer['name']!.trim()
+        : 'Muhajeer kitobxoni';
+    final displayPhone =
+        currentUser?.phone ?? state.savedCustomer['phone'] ?? '';
 
     return Scaffold(
       backgroundColor: UzbekCustomerColors.background,
@@ -2412,8 +2446,13 @@ class ProfilePage extends StatelessWidget {
         title: const Text('Profil'),
         actions: [
           IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Hisobdan chiqish',
+            onPressed: currentUser == null
+                ? null
+                : () async {
+                    await Supabase.instance.client.auth.signOut();
+                  },
+            icon: const Icon(Icons.logout_rounded),
           ),
           const SizedBox(width: 6),
         ],
@@ -2433,10 +2472,10 @@ class ProfilePage extends StatelessWidget {
                     context,
                     MaterialPageRoute(builder: (_) => const AdminGatePage()),
                   ),
-                  child: const Padding(
+                  child: Padding(
                     padding: EdgeInsets.symmetric(vertical: 4),
                     child: Text(
-                      'Mohirbek Ismoilov',
+                      displayName,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white,
@@ -2447,6 +2486,18 @@ class ProfilePage extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (displayPhone.trim().isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    displayPhone,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFFE5F1EE),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 4),
                 const Text(
                   'Muhajeer Books',

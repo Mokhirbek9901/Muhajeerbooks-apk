@@ -323,6 +323,13 @@ class BackendService {
 
   Future<void> signOut() => client.auth.signOut();
 
+  Future<void> registerInstallation(String installId, String platform) async {
+    await client.rpc(
+      'register_app_install',
+      params: {'p_install_id': installId, 'p_platform': platform},
+    );
+  }
+
   Future<String> uploadPaymentProof(XFile file) async {
     final bytes = await file.readAsBytes();
     if (bytes.isEmpty) throw StateError('Chek rasmi bo‘sh.');
@@ -441,6 +448,7 @@ class _LocalStore {
   static const _customerNameKey = 'muhajeer_customer_name';
   static const _customerPhoneKey = 'muhajeer_customer_phone';
   static const _customerAddressKey = 'muhajeer_customer_address';
+  static const _installIdKey = 'muhajeer_install_id_v1';
 
   Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
 
@@ -522,6 +530,16 @@ class _LocalStore {
     await prefs.setString(_customerPhoneKey, phone);
     await prefs.setString(_customerAddressKey, address);
   }
+
+  Future<String> installId() async {
+    final prefs = await _prefs;
+    final existing = prefs.getString(_installIdKey);
+    if (existing != null && existing.length >= 12) return existing;
+    final generated =
+        'mb-${DateTime.now().microsecondsSinceEpoch}-${identityHashCode(prefs).abs()}';
+    await prefs.setString(_installIdKey, generated);
+    return generated;
+  }
 }
 
 class AppState extends ChangeNotifier {
@@ -578,9 +596,36 @@ class AppState extends ChangeNotifier {
     if (_backend == null) {
       await _initializeLocalCatalog();
     } else {
+      unawaited(_registerInstallation());
       await refreshBooks();
       _startLiveBooksSync();
     }
+  }
+
+  Future<void> _registerInstallation() async {
+    try {
+      final id = await _local.installId();
+      final platform = kIsWeb ? 'web' : defaultTargetPlatform.name;
+      await _backend?.registerInstallation(id, platform);
+    } catch (_) {
+      // Analytics must never slow or block shopping.
+    }
+  }
+
+  Future<void> setAuthenticatedCustomer(String name, String phone) async {
+    final cleanName = name.trim();
+    final cleanPhone = phone.trim();
+    savedCustomer = {
+      'name': cleanName.isEmpty ? (savedCustomer['name'] ?? '') : cleanName,
+      'phone': cleanPhone.isEmpty ? (savedCustomer['phone'] ?? '') : cleanPhone,
+      'address': savedCustomer['address'] ?? '',
+    };
+    await _local.saveCustomer(
+      savedCustomer['name'] ?? '',
+      savedCustomer['phone'] ?? '',
+      savedCustomer['address'] ?? '',
+    );
+    notifyListeners();
   }
 
   void _startLiveBooksSync() {

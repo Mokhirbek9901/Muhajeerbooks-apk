@@ -157,6 +157,24 @@ class _AdminApi {
       params: {'p_secret': secret, 'p_id': id, 'p_status': status},
     );
   }
+
+  Future<Map<String, dynamic>> userStats() async {
+    final raw = await client.rpc(
+      'admin_user_stats',
+      params: {'p_secret': secret},
+    );
+    return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+  }
+
+  Future<List<Map<String, dynamic>>> customers() async {
+    final raw = await client.rpc(
+      'admin_list_customers',
+      params: {'p_secret': secret},
+    );
+    return ((raw as List?) ?? const [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
 }
 
 class AdminGatePage extends StatefulWidget {
@@ -336,6 +354,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     'Kitoblar',
     'Ombor',
     'Buyurtmalar',
+    'Mijozlar',
     'Chegirmalar',
   ];
   static const icons = [
@@ -343,6 +362,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     Icons.menu_book_rounded,
     Icons.inventory_2_rounded,
     Icons.receipt_long_rounded,
+    Icons.people_alt_rounded,
     Icons.percent_rounded,
   ];
 
@@ -2937,4 +2957,293 @@ class _DiscountTip extends StatelessWidget {
       ),
     ],
   );
+}
+
+class _CustomersAdmin extends StatefulWidget {
+  const _CustomersAdmin({required this.api});
+  final _AdminApi api;
+
+  @override
+  State<_CustomersAdmin> createState() => _CustomersAdminState();
+}
+
+class _CustomersAdminState extends State<_CustomersAdmin> {
+  late Future<(Map<String, dynamic>, List<Map<String, dynamic>>)> future;
+  String query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _reload();
+  }
+
+  void _reload() {
+    future =
+        Future.wait<dynamic>([widget.api.userStats(), widget.api.customers()])
+            .then(
+              (v) => (
+                Map<String, dynamic>.from(v[0] as Map),
+                (v[1] as List)
+                    .map((e) => Map<String, dynamic>.from(e as Map))
+                    .toList(),
+              ),
+            );
+  }
+
+  String _date(dynamic value) {
+    final d = DateTime.tryParse((value ?? '').toString())?.toLocal();
+    if (d == null) return '—';
+    return DateFormat('yyyy.MM.dd HH:mm').format(d);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<(Map<String, dynamic>, List<Map<String, dynamic>>)>(
+      future: future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(
+            child: FilledButton.icon(
+              onPressed: () => setState(_reload),
+              icon: const Icon(Icons.refresh_rounded),
+              label: Text('Qayta yuklash: ${snapshot.error}'),
+            ),
+          );
+        }
+        final stats = snapshot.data?.$1 ?? <String, dynamic>{};
+        final all = snapshot.data?.$2 ?? <Map<String, dynamic>>[];
+        final q = query.trim().toLowerCase();
+        final customers = all.where((c) {
+          if (q.isEmpty) return true;
+          return (c['full_name'] ?? '').toString().toLowerCase().contains(q) ||
+              (c['phone'] ?? '').toString().toLowerCase().contains(q);
+        }).toList();
+
+        Widget metric(String label, dynamic value, IconData icon) => Expanded(
+          child: AppSurface(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, color: AppColors.navy, size: 20),
+                const SizedBox(height: 10),
+                Text(
+                  '$value',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.navy,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 11.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+
+        return RefreshIndicator(
+          onRefresh: () async {
+            _reload();
+            setState(() {});
+            await future;
+          },
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 30),
+            children: [
+              const AppSectionHeader(
+                title: 'Mijozlar markazi',
+                subtitle: 'Loginlar, faol foydalanuvchilar va xarid tarixi',
+                icon: Icons.people_alt_rounded,
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  metric(
+                    'Ro‘yxatdan o‘tgan',
+                    stats['total_users'] ?? 0,
+                    Icons.person_add_alt_1_rounded,
+                  ),
+                  const SizedBox(width: 10),
+                  metric(
+                    'Bugun faol',
+                    stats['active_today'] ?? 0,
+                    Icons.bolt_rounded,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  metric(
+                    'Ilova qurilmalari',
+                    stats['total_installs'] ?? 0,
+                    Icons.phone_iphone_rounded,
+                  ),
+                  const SizedBox(width: 10),
+                  metric(
+                    '7 kunda faol',
+                    stats['active_7d'] ?? 0,
+                    Icons.calendar_view_week_rounded,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              AppSurface(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.receipt_long_rounded,
+                      color: AppColors.navy,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Ochiq buyurtmalar: ${stats['open_orders'] ?? 0} • Yakunlangan: ${stats['completed_orders'] ?? 0}',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                    Text(
+                      _won((stats['completed_revenue'] as num?)?.toInt() ?? 0),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.success,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                onChanged: (v) => setState(() => query = v),
+                decoration: const InputDecoration(
+                  hintText: 'Ism yoki telefon bo‘yicha qidirish...',
+                  prefixIcon: Icon(Icons.search_rounded),
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (customers.isEmpty)
+                const AppSurface(
+                  child: Text('Hozircha ro‘yxatdan o‘tgan mijoz yo‘q.'),
+                )
+              else
+                ...customers.map(
+                  (c) => Padding(
+                    padding: const EdgeInsets.only(bottom: 9),
+                    child: AppSurface(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: AppColors.infoSoft,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(
+                              Icons.person_rounded,
+                              color: AppColors.info,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  (c['full_name'] ?? '')
+                                          .toString()
+                                          .trim()
+                                          .isEmpty
+                                      ? 'Nomsiz mijoz'
+                                      : c['full_name'].toString(),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  (c['phone'] ?? '—').toString(),
+                                  style: const TextStyle(
+                                    color: AppColors.muted,
+                                  ),
+                                ),
+                                const SizedBox(height: 7),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 6,
+                                  children: [
+                                    AppInfoPill(
+                                      icon: Icons.shopping_bag_outlined,
+                                      label:
+                                          '${c['order_count'] ?? 0} buyurtma',
+                                    ),
+                                    AppInfoPill(
+                                      icon: Icons.payments_outlined,
+                                      label: _won(
+                                        (c['spent'] as num?)?.toInt() ?? 0,
+                                      ),
+                                      foreground: AppColors.success,
+                                      background: AppColors.successSoft,
+                                      border: const Color(0xFFCDEAD7),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              const Text(
+                                'Oxirgi faollik',
+                                style: TextStyle(
+                                  color: AppColors.muted,
+                                  fontSize: 10.5,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                _date(c['last_seen_at']),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                '${c['login_count'] ?? 0} login',
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  color: AppColors.muted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }

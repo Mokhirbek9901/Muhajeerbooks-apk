@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_state.dart';
+import 'auth_gate.dart';
 import 'design_system.dart';
 import 'store_ui.dart';
 
@@ -41,7 +42,11 @@ class MuhajeerBooksApp extends StatelessWidget {
         title: 'Muhajeer Books',
         debugShowCheckedModeBanner: false,
         theme: MuhajeerDesign.theme,
-        home: const StoreShell(),
+        builder: (context, child) => ColoredBox(
+          color: AppColors.background,
+          child: child ?? const SizedBox.shrink(),
+        ),
+        home: backendConfigured ? const CustomerAuthGate() : const StoreShell(),
       ),
     );
   }

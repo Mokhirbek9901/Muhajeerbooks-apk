@@ -2417,8 +2417,6 @@ class ProfilePage extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(18, 20, 18, 20),
             child: Column(
               children: [
-                const UzbekMedallion(size: 58, dark: true),
-                const SizedBox(height: 10),
                 const Text(
                   'Mohirbek Ismoilov',
                   textAlign: TextAlign.center,

@@ -1,0 +1,51 @@
+name: Professional app upgrade
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/professional_upgrade.py'
+      - '.github/workflows/professional_upgrade.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Apply professional upgrade
+        run: python tools/professional_upgrade.py
+
+      - name: Format Dart
+        run: dart format lib
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Test
+        run: flutter test
+
+      - name: Build web release
+        run: flutter build web --release
+
+      - name: Commit upgraded app
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lib pubspec.yaml pubspec.lock
+          git diff --cached --quiet && exit 0
+          git commit -m 'Professionalize checkout navigation auth and admin'
+          git push

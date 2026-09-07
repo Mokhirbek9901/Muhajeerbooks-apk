@@ -3,6 +3,7 @@ FROM ghcr.io/cirruslabs/flutter:stable
 USER root
 WORKDIR /src
 
+# Dedicated Google Play release builder. Signing material is injected only at runtime.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends python3 imagemagick \
     && rm -rf /var/lib/apt/lists/*

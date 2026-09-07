@@ -6,3 +6,4 @@ analyzer:
     - lib/main.dart2
     - lib/checkout_page.dart
     - build/**
+    - web/**

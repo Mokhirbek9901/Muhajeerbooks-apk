@@ -3,10 +3,11 @@ name: Android Debug APK
 on:
   workflow_dispatch:
   push:
-    branches: [main, feature/store-app-v2]
+    branches: [main]
     paths:
       - 'lib/**'
       - 'pubspec.yaml'
+      - 'assets/**'
       - '.github/workflows/android_build.yml'
 
 jobs:
@@ -25,7 +26,35 @@ jobs:
 
       - run: flutter pub get
 
-      - name: Build debug APK
+      - name: Prepare Android package
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('android/app/build.gradle.kts')
+          s = p.read_text(encoding='utf-8')
+          s = re.sub(r'applicationId\s*=\s*"[^"]+"', 'applicationId = "com.muhajeerbooks.app"', s)
+          p.write_text(s, encoding='utf-8')
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          m = manifest.read_text(encoding='utf-8')
+          if 'android.permission.INTERNET' not in m:
+              m = m.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">', '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET" />', 1)
+          m = re.sub(r'android:label="[^"]*"', 'android:label="Muhajeer Books"', m, count=1)
+          manifest.write_text(m, encoding='utf-8')
+          PY
+
+      - name: Apply official Muhajeer launcher icon
+        run: |
+          sudo apt-get -qq update
+          sudo apt-get -qq install -y imagemagick
+          for spec in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+            density="${spec%%:*}"
+            size="${spec##*:}"
+            dir="android/app/src/main/res/mipmap-${density}"
+            convert assets/images/muhajeer_logo.jpg -resize "${size}x${size}^" -gravity center -extent "${size}x${size}" "$dir/ic_launcher.png"
+          done
+
+      - name: Build installable APK
         run: |
           flutter build apk --debug \
             --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
@@ -33,5 +62,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: muhajeer-books-debug-apk
+          name: muhajeer-books-installable-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 7

@@ -27,6 +27,12 @@ s = s.replace(
 1,
 )
 
+s = s.replace(
+"class _CustomersAdmin extends StatefulWidget {\n  const _CustomersAdmin({required this.api});\n",
+"class _CustomersAdmin extends StatefulWidget {\n  const _CustomersAdmin({super.key, required this.api});\n",
+1,
+)
+
 needle = "class _CustomersAdminState extends State<_CustomersAdmin> {\n  late Future<(Map<String, dynamic>, List<Map<String, dynamic>>)> future;\n  String query = '';\n"
 replacement = "class _CustomersAdminState extends State<_CustomersAdmin> {\n  late Future<(Map<String, dynamic>, List<Map<String, dynamic>>)> future;\n  String query = '';\n\n  void reload() {\n    if (!mounted) return;\n    _reload();\n    setState(() {});\n  }\n"
 if needle not in s:

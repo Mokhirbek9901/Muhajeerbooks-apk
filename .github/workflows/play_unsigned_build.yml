@@ -44,6 +44,17 @@ jobs:
           manifest.write_text(m, encoding='utf-8')
           PY
 
+      - name: Apply official Muhajeer launcher icon
+        run: |
+          sudo apt-get -qq update
+          sudo apt-get -qq install -y imagemagick
+          for spec in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+            density="${spec%%:*}"
+            size="${spec##*:}"
+            dir="android/app/src/main/res/mipmap-${density}"
+            convert assets/images/muhajeer_logo.jpg -resize "${size}x${size}^" -gravity center -extent "${size}x${size}" "$dir/ic_launcher.png"
+          done
+
       - name: Build release AAB
         run: flutter build appbundle --release
 

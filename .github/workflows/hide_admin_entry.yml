@@ -30,67 +30,78 @@ jobs:
           path = Path('lib/store_ui.dart')
           s = path.read_text(encoding='utf-8')
 
-          visible_admin = """                ListTile(
-                  minTileHeight: 68,
-                  leading: const _ProfileIcon(
-                      icon: Icons.admin_panel_settings_outlined),
-                  title: const Text(
-                    'Admin paneli',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  subtitle:
-                      const Text('Kitoblar, ombor, statistika va buyurtmalar'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const AdminGatePage()),
-                  ),
-                ),
-          """
-          if visible_admin not in s:
-              raise SystemExit('Visible Admin paneli block not found; refusing unsafe patch')
-          s = s.replace(visible_admin, '', 1)
+          def widget_span(src, anchor, widget_start):
+              anchor_pos = src.find(anchor)
+              if anchor_pos < 0:
+                  raise SystemExit(f'Anchor not found: {anchor}')
+              start = src.rfind(widget_start, 0, anchor_pos)
+              if start < 0:
+                  raise SystemExit(f'Widget start not found for: {anchor}')
+              line_start = src.rfind('\n', 0, start) + 1
+              open_pos = src.find('(', start)
+              depth = 0
+              end = None
+              for i in range(open_pos, len(src)):
+                  ch = src[i]
+                  if ch == '(':
+                      depth += 1
+                  elif ch == ')':
+                      depth -= 1
+                      if depth == 0:
+                          end = i + 1
+                          break
+              if end is None:
+                  raise SystemExit(f'Widget end not found for: {anchor}')
+              while end < len(src) and src[end] in ' \t':
+                  end += 1
+              if end < len(src) and src[end] == ',':
+                  end += 1
+              if end < len(src) and src[end] == '\r':
+                  end += 1
+              if end < len(src) and src[end] == '\n':
+                  end += 1
+              indent = src[line_start:start]
+              return line_start, end, indent
 
-          profile_name = """                const Text(
-                  'Mohirbek Ismoilov',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 23,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -.3,
-                  ),
-                ),
-          """
-          hidden_entry = """                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onLongPress: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const AdminGatePage()),
-                  ),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4),
-                    child: Text(
-                      'Mohirbek Ismoilov',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 23,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -.3,
-                      ),
-                    ),
-                  ),
-                ),
-          """
-          if profile_name not in s:
-              raise SystemExit('Profile name block not found; refusing unsafe patch')
-          s = s.replace(profile_name, hidden_entry, 1)
+          # Remove the visible Admin paneli row from the customer profile.
+          admin_start, admin_end, _ = widget_span(s, "'Admin paneli'", 'ListTile(')
+          admin_block = s[admin_start:admin_end]
+          if 'AdminGatePage' not in admin_block:
+              raise SystemExit('Refusing to remove unexpected ListTile')
+          s = s[:admin_start] + s[admin_end:]
+
+          # Keep owner access hidden: long-press the profile name, then the existing
+          # server-verified admin code screen opens. Nothing admin-related is visible.
+          name_start, name_end, indent = widget_span(s, "'Mohirbek Ismoilov'", 'const Text(')
+          lines = [
+              'GestureDetector(',
+              '  behavior: HitTestBehavior.opaque,',
+              '  onLongPress: () => Navigator.push(',
+              '    context,',
+              '    MaterialPageRoute(builder: (_) => const AdminGatePage()),',
+              '  ),',
+              '  child: const Padding(',
+              '    padding: EdgeInsets.symmetric(vertical: 4),',
+              '    child: Text(',
+              "      'Mohirbek Ismoilov',",
+              '      textAlign: TextAlign.center,',
+              '      style: TextStyle(',
+              '        color: Colors.white,',
+              '        fontSize: 23,',
+              '        fontWeight: FontWeight.w900,',
+              '        letterSpacing: -.3,',
+              '      ),',
+              '    ),',
+              '  ),',
+              '),',
+          ]
+          replacement = '\n'.join(indent + line for line in lines) + '\n'
+          s = s[:name_start] + replacement + s[name_end:]
 
           if "'Admin paneli'" in s:
-              raise SystemExit('Visible Admin paneli text still present')
-          if 'onLongPress: () => Navigator.push(' not in s:
-              raise SystemExit('Hidden admin entry was not added')
+              raise SystemExit('Visible admin text still present')
+          if s.count('onLongPress: () => Navigator.push(') < 1:
+              raise SystemExit('Hidden admin access was not added')
 
           path.write_text(s, encoding='utf-8')
           PY

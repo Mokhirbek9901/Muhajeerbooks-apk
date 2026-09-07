@@ -22,8 +22,9 @@ jobs:
           cache: true
 
       - name: Hide visible admin button and keep secret access
-        shell: python
+        shell: bash
         run: |
+          python3 - <<'PY'
           from pathlib import Path
 
           path = Path('lib/store_ui.dart')
@@ -45,7 +46,7 @@ jobs:
                     MaterialPageRoute(builder: (_) => const AdminGatePage()),
                   ),
                 ),
-"""
+          """
           if visible_admin not in s:
               raise SystemExit('Visible Admin paneli block not found; refusing unsafe patch')
           s = s.replace(visible_admin, '', 1)
@@ -60,7 +61,7 @@ jobs:
                     letterSpacing: -.3,
                   ),
                 ),
-"""
+          """
           hidden_entry = """                GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onLongPress: () => Navigator.push(
@@ -81,7 +82,7 @@ jobs:
                     ),
                   ),
                 ),
-"""
+          """
           if profile_name not in s:
               raise SystemExit('Profile name block not found; refusing unsafe patch')
           s = s.replace(profile_name, hidden_entry, 1)
@@ -92,6 +93,7 @@ jobs:
               raise SystemExit('Hidden admin entry was not added')
 
           path.write_text(s, encoding='utf-8')
+          PY
 
       - name: Format
         run: dart format lib/store_ui.dart

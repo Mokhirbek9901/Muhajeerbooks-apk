@@ -1,0 +1,103 @@
+name: Live books realtime patch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/live_books_realtime.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Patch realtime catalog
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('lib/app_state.dart')
+          s=p.read_text(encoding='utf-8')
+          if "import 'dart:async';" not in s:
+              s=s.replace("import 'dart:convert';\n", "import 'dart:async';\nimport 'dart:convert';\n",1)
+          needle="  BackendService? _backend;\n"
+          if "_booksRealtime" not in s:
+              assert needle in s
+              s=s.replace(needle, needle+"  StreamSubscription<List<Map<String, dynamic>>>? _booksRealtime;\n",1)
+          old="""    if (_backend == null) {
+      await _initializeLocalCatalog();
+    } else {
+      await refreshBooks();
+    }
+  }
+
+  Future<void> _initializeLocalCatalog() async {
+"""
+          new="""    if (_backend == null) {
+      await _initializeLocalCatalog();
+    } else {
+      await refreshBooks();
+      _startBooksRealtime();
+    }
+  }
+
+  void _startBooksRealtime() {
+    _booksRealtime?.cancel();
+    _booksRealtime = Supabase.instance.client
+        .from('books')
+        .stream(primaryKey: ['id'])
+        .order('created_at', ascending: false)
+        .listen(
+          (rows) {
+            final next = rows
+                .map((e) => Book.fromMap(Map<String, dynamic>.from(e)))
+                .where((b) => b.isActive)
+                .toList();
+            _books
+              ..clear()
+              ..addAll(next);
+            _sanitizeCart();
+            loading = false;
+            error = null;
+            notifyListeners();
+          },
+          onError: (Object e) {
+            error = e.toString();
+            notifyListeners();
+          },
+        );
+  }
+
+  @override
+  void dispose() {
+    _booksRealtime?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _initializeLocalCatalog() async {
+"""
+          if "void _startBooksRealtime()" not in s:
+              assert old in s
+              s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Format and test
+        run: |
+          dart format lib/app_state.dart
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+          flutter build web --release
+      - name: Commit patch
+        run: |
+          rm .github/workflows/live_books_realtime.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/app_state.dart .github/workflows/live_books_realtime.yml
+          git commit -m "Add realtime book inventory sync"
+          git push

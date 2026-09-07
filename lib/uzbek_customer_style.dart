@@ -113,10 +113,10 @@ class UzbekAtlasBand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    height: height,
-    width: double.infinity,
-    child: const CustomPaint(painter: _AtlasBandPainter()),
-  );
+        height: height,
+        width: double.infinity,
+        child: const CustomPaint(painter: _AtlasBandPainter()),
+      );
 }
 
 class UzbekMiniPill extends StatelessWidget {
@@ -139,9 +139,8 @@ class UzbekMiniPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: dark
-            ? const Color(0x18FFFFFF)
-            : Colors.white.withValues(alpha: .9),
+        color:
+            dark ? const Color(0x18FFFFFF) : Colors.white.withValues(alpha: .9),
         borderRadius: BorderRadius.circular(100),
         border: Border.all(
           color: dark ? const Color(0x38FFFFFF) : color.withValues(alpha: .22),
@@ -207,10 +206,10 @@ class UzbekSectionTitle extends StatelessWidget {
               Text(
                 title,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: UzbekCustomerColors.navy,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -.2,
-                ),
+                      color: UzbekCustomerColors.navy,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -.2,
+                    ),
               ),
               if (subtitle != null) ...[
                 const SizedBox(height: 2),
@@ -245,15 +244,17 @@ class UzbekOrnamentDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-    children: [
-      Expanded(child: Container(height: 1, color: UzbekCustomerColors.border)),
-      const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 9),
-        child: _SmallOrnament(),
-      ),
-      Expanded(child: Container(height: 1, color: UzbekCustomerColors.border)),
-    ],
-  );
+        children: [
+          Expanded(
+              child: Container(height: 1, color: UzbekCustomerColors.border)),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 9),
+            child: _SmallOrnament(),
+          ),
+          Expanded(
+              child: Container(height: 1, color: UzbekCustomerColors.border)),
+        ],
+      );
 }
 
 class UzbekMedallion extends StatelessWidget {
@@ -263,10 +264,10 @@ class UzbekMedallion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    width: size,
-    height: size,
-    child: CustomPaint(painter: _MedallionPainter(dark: dark)),
-  );
+        width: size,
+        height: size,
+        child: CustomPaint(painter: _MedallionPainter(dark: dark)),
+      );
 }
 
 class _SmallOrnament extends StatelessWidget {
@@ -274,10 +275,10 @@ class _SmallOrnament extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    width: 28,
-    height: 28,
-    child: CustomPaint(painter: _SingleMotifPainter()),
-  );
+        width: 28,
+        height: 28,
+        child: CustomPaint(painter: _SingleMotifPainter()),
+      );
 }
 
 class _SingleMotifPainter extends CustomPainter {

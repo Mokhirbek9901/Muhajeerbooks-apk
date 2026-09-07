@@ -34,49 +34,262 @@ class _StoreShellState extends State<StoreShell> {
     final state = context.watch<AppState>();
     final pages = [
       const HomePage(),
-      const FavoritesPage(),
+      const CategoriesPage(),
       const CartPage(),
+      const FavoritesPage(),
       const ProfilePage(),
     ];
     return Scaffold(
       backgroundColor: UzbekCustomerColors.background,
       body: IndexedStack(index: index, children: pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: index,
-        onDestinationSelected: (value) => setState(() => index = value),
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: 'Bosh sahifa',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.favorite_border_rounded),
-            selectedIcon: Icon(Icons.favorite_rounded),
-            label: 'Sevimli',
-          ),
-          NavigationDestination(
-            icon: Badge(
-              isLabelVisible: state.cartCount > 0,
-              label: Text('${state.cartCount}'),
-              child: const Icon(Icons.shopping_bag_outlined),
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: UzbekCustomerColors.border)),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x140B2942),
+              blurRadius: 20,
+              offset: Offset(0, -5),
             ),
-            selectedIcon: Badge(
-              isLabelVisible: state.cartCount > 0,
-              label: Text('${state.cartCount}'),
-              child: const Icon(Icons.shopping_bag_rounded),
+          ],
+        ),
+        child: NavigationBar(
+          height: 70,
+          backgroundColor: Colors.white,
+          indicatorColor: UzbekCustomerColors.goldSoft,
+          selectedIndex: index,
+          onDestinationSelected: (value) => setState(() => index = value),
+          destinations: [
+            const NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon:
+                  Icon(Icons.home_rounded, color: UzbekCustomerColors.goldDeep),
+              label: 'Bosh sahifa',
             ),
-            label: 'Savat',
+            const NavigationDestination(
+              icon: Icon(Icons.grid_view_rounded),
+              selectedIcon: Icon(Icons.grid_view_rounded,
+                  color: UzbekCustomerColors.goldDeep),
+              label: 'Kategoriya',
+            ),
+            NavigationDestination(
+              icon: Badge(
+                isLabelVisible: state.cartCount > 0,
+                label: Text('${state.cartCount}'),
+                child: const Icon(Icons.shopping_cart_outlined),
+              ),
+              selectedIcon: Badge(
+                isLabelVisible: state.cartCount > 0,
+                label: Text('${state.cartCount}'),
+                child: const Icon(Icons.shopping_cart_rounded,
+                    color: UzbekCustomerColors.goldDeep),
+              ),
+              label: 'Savatcha',
+            ),
+            const NavigationDestination(
+              icon: Icon(Icons.favorite_border_rounded),
+              selectedIcon: Icon(Icons.favorite_rounded,
+                  color: UzbekCustomerColors.goldDeep),
+              label: 'Sevimlilar',
+            ),
+            const NavigationDestination(
+              icon: Icon(Icons.person_outline_rounded),
+              selectedIcon: Icon(Icons.person_rounded,
+                  color: UzbekCustomerColors.goldDeep),
+              label: 'Profil',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class CategoriesPage extends StatelessWidget {
+  const CategoriesPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final categories = state.books
+        .where((b) => b.isActive)
+        .map((b) => b.category.trim().isEmpty ? 'Boshqalar' : b.category.trim())
+        .toSet()
+        .toList()
+      ..sort();
+
+    return Scaffold(
+      backgroundColor: UzbekCustomerColors.background,
+      appBar: AppBar(
+        backgroundColor: UzbekCustomerColors.background,
+        surfaceTintColor: Colors.transparent,
+        title: const Text('Kategoriyalar'),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 6, 16, 28),
+        children: [
+          const UzbekPatternPanel(
+            dark: true,
+            strongPattern: true,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                UzbekMiniPill(
+                  icon: Icons.auto_stories_rounded,
+                  text: 'Muhajeer Books',
+                  dark: true,
+                ),
+                SizedBox(height: 14),
+                Text(
+                  'O‘zingizga mos kitobni\nkategoriyadan toping',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 23,
+                    height: 1.14,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Badiiy, tarixiy, psixologiya, biznes va boshqa yo‘nalishlar.',
+                  style: TextStyle(
+                    color: Color(0xFFE6F2EF),
+                    fontSize: 12.5,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.person_outline_rounded),
-            selectedIcon: Icon(Icons.person_rounded),
-            label: 'Profil',
+          const SizedBox(height: 18),
+          const UzbekSectionTitle(
+            title: 'Yo‘nalishlar',
+            subtitle: 'Kitoblarni mavzu bo‘yicha ko‘ring',
+            icon: Icons.category_outlined,
+          ),
+          const SizedBox(height: 12),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: categories.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 1.55,
+            ),
+            itemBuilder: (context, i) {
+              final c = categories[i];
+              final count = state.books
+                  .where((b) => b.isActive && b.category == c)
+                  .length;
+              return InkWell(
+                borderRadius: BorderRadius.circular(22),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => CategoryBrowsePage(category: c)),
+                ),
+                child: UzbekPatternPanel(
+                  padding: const EdgeInsets.all(14),
+                  radius: 22,
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: UzbekCustomerColors.goldSoft,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: UzbekCustomerColors.border),
+                        ),
+                        child: Icon(
+                          _categoryIcon(c),
+                          color: UzbekCustomerColors.teal,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              c,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: UzbekCustomerColors.navy,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '$count ta kitob',
+                              style: const TextStyle(
+                                color: UzbekCustomerColors.textMuted,
+                                fontSize: 11.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
     );
   }
+}
+
+class CategoryBrowsePage extends StatelessWidget {
+  const CategoryBrowsePage({super.key, required this.category});
+  final String category;
+
+  @override
+  Widget build(BuildContext context) {
+    final books = context
+        .watch<AppState>()
+        .books
+        .where((b) => b.isActive && b.category == category)
+        .toList();
+    return Scaffold(
+      backgroundColor: UzbekCustomerColors.background,
+      appBar: AppBar(
+        backgroundColor: UzbekCustomerColors.background,
+        surfaceTintColor: Colors.transparent,
+        title: Text(category),
+      ),
+      body: GridView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+        itemCount: books.length,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: .57,
+        ),
+        itemBuilder: (_, i) => BookCard(book: books[i]),
+      ),
+    );
+  }
+}
+
+IconData _categoryIcon(String value) {
+  final v = value.toLowerCase();
+  if (v.contains('badi')) return Icons.menu_book_rounded;
+  if (v.contains('tarix')) return Icons.account_balance_rounded;
+  if (v.contains('psix')) return Icons.psychology_alt_rounded;
+  if (v.contains('biznes') || v.contains('moliya'))
+    return Icons.trending_up_rounded;
+  if (v.contains('dini')) return Icons.auto_awesome_rounded;
+  if (v.contains('bol')) return Icons.child_care_rounded;
+  return Icons.auto_stories_rounded;
 }
 
 class HomePage extends StatefulWidget {
@@ -106,8 +319,7 @@ class _HomePageState extends State<HomePage> {
 
     final books = state.books.where((book) {
       final q = query.trim().toLowerCase();
-      final matchesQuery =
-          q.isEmpty ||
+      final matchesQuery = q.isEmpty ||
           book.title.toLowerCase().contains(q) ||
           book.author.toLowerCase().contains(q) ||
           book.category.toLowerCase().contains(q);
@@ -149,9 +361,15 @@ class _HomePageState extends State<HomePage> {
               padding: EdgeInsets.fromLTRB(16, 8, 16, 6),
               sliver: SliverToBoxAdapter(child: _DeliveryPromoCard()),
             ),
-            const SliverPadding(
-              padding: EdgeInsets.fromLTRB(16, 6, 16, 4),
-              sliver: SliverToBoxAdapter(child: _TrustStrip()),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 7, 16, 5),
+              sliver: SliverToBoxAdapter(
+                child: _QuickCategoryStrip(
+                  categories: categories,
+                  selected: category,
+                  onSelected: (value) => setState(() => category = value),
+                ),
+              ),
             ),
             if (featured.isNotEmpty)
               SliverPadding(
@@ -215,36 +433,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: 46,
-                child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  scrollDirection: Axis.horizontal,
-                  itemCount: categories.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (_, i) {
-                    final c = categories[i];
-                    return ChoiceChip(
-                      label: Text(c),
-                      selected: category == c,
-                      selectedColor: UzbekCustomerColors.goldSoft,
-                      backgroundColor: Colors.white,
-                      side: const BorderSide(color: UzbekCustomerColors.border),
-                      labelStyle: TextStyle(
-                        color: category == c
-                            ? UzbekCustomerColors.navy
-                            : AppColors.text,
-                        fontWeight: category == c
-                            ? FontWeight.w900
-                            : FontWeight.w700,
-                      ),
-                      onSelected: (_) => setState(() => category = c),
-                    );
-                  },
-                ),
-              ),
-            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 2)),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
               sliver: SliverToBoxAdapter(
@@ -274,7 +463,8 @@ class _HomePageState extends State<HomePage> {
                 sliver: SliverToBoxAdapter(
                   child: _InfoBanner(
                     icon: Icons.warning_amber_rounded,
-                    text: 'Ma’lumotni yangilashda xatolik bo‘ldi. Oxirgi saqlangan ma’lumot ko‘rsatilmoqda.',
+                    text:
+                        'Ma’lumotni yangilashda xatolik bo‘ldi. Oxirgi saqlangan ma’lumot ko‘rsatilmoqda.',
                   ),
                 ),
               ),
@@ -300,10 +490,10 @@ class _HomePageState extends State<HomePage> {
                     final count = width >= 1150
                         ? 5
                         : width >= 850
-                        ? 4
-                        : width >= 600
-                        ? 3
-                        : 2;
+                            ? 4
+                            : width >= 600
+                                ? 3
+                                : 2;
                     return SliverGrid(
                       delegate: SliverChildBuilderDelegate(
                         (context, i) => BookCard(book: books[i]),
@@ -332,73 +522,56 @@ class _StoreHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final active = state.books.where((b) => b.isActive).length;
-    final available = state.books.where((b) => b.isActive && b.inStock).length;
-    return UzbekPatternPanel(
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+      decoration: BoxDecoration(
+        color: UzbekCustomerColors.surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: UzbekCustomerColors.border),
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const MuhajeerLogoBadge(size: 62, radius: 18),
-              const SizedBox(width: 13),
+              const MuhajeerLogoBadge(size: 54, radius: 16),
+              const SizedBox(width: 11),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Muhajeer Books',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      style: TextStyle(
                         color: UzbekCustomerColors.navy,
+                        fontSize: 21,
                         fontWeight: FontWeight.w900,
+                        letterSpacing: -.35,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 2),
                     const Text(
                       'Koreyadagi O’zbek kitobxonlari uchun',
                       style: TextStyle(
                         color: UzbekCustomerColors.textMuted,
-                        fontSize: 12.5,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              UzbekMiniPill(
-                icon: state.isOnlineBackend
-                    ? Icons.cloud_done_rounded
-                    : Icons.save_rounded,
-                text: state.isOnlineBackend ? 'Onlayn' : 'Saqlanadi',
-                color: state.isOnlineBackend
-                    ? UzbekCustomerColors.success
-                    : UzbekCustomerColors.goldDeep,
+              IconButton(
+                tooltip: 'Bildirishnomalar',
+                onPressed: () {},
+                icon: const Icon(
+                  Icons.notifications_none_rounded,
+                  color: UzbekCustomerColors.navy,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 13),
-          Wrap(
-            spacing: 7,
-            runSpacing: 7,
-            children: [
-              UzbekMiniPill(
-                icon: Icons.auto_stories_outlined,
-                text: '$active kitob',
-              ),
-              UzbekMiniPill(
-                icon: Icons.inventory_2_outlined,
-                text: '$available mavjud',
-                color: UzbekCustomerColors.success,
-              ),
-              const UzbekMiniPill(
-                icon: Icons.auto_awesome_rounded,
-                text: 'Milliy ruh',
-                color: UzbekCustomerColors.goldDeep,
-              ),
-            ],
-          ),
+          const SizedBox(height: 8),
+          const UzbekAtlasBand(height: 4),
         ],
       ),
     );
@@ -412,48 +585,71 @@ class _DeliveryPromoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return UzbekPatternPanel(
       dark: true,
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      strongPattern: true,
+      padding: EdgeInsets.zero,
+      radius: 26,
+      child: Stack(
         children: [
-          const UzbekMiniPill(
-            icon: Icons.local_shipping_rounded,
-            text: 'Koreya bo‘ylab yetkazib berish',
-            dark: true,
-          ),
-          const SizedBox(height: 15),
-          const Text(
-            'O‘zbek kitoblari —\nKoreyadagi xonadoningizga.',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-              height: 1.14,
-              letterSpacing: -.25,
+          Positioned(
+            right: -24,
+            bottom: -22,
+            child: Icon(
+              Icons.auto_stories_rounded,
+              size: 150,
+              color: UzbekCustomerColors.gold.withValues(alpha: .22),
             ),
           ),
-          const SizedBox(height: 7),
-          const Text(
-            'Sodda buyurtma, ishonchli xizmat va kitobxonlarga mehr bilan.',
-            style: TextStyle(
-              color: Color(0xFFE9F3F0),
-              fontSize: 12.5,
-              height: 1.4,
-              fontWeight: FontWeight.w600,
-            ),
+          Positioned(
+            right: 18,
+            top: 18,
+            child: UzbekMedallion(size: 70, dark: true),
           ),
-          const SizedBox(height: 14),
-          const Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _HeroFact(icon: Icons.payments_outlined, text: '택배 ₩4,000'),
-              _HeroFact(icon: Icons.schedule_rounded, text: '1–3 ish kuni'),
-              _HeroFact(
-                icon: Icons.card_giftcard_rounded,
-                text: '4+ kitob — bepul',
-              ),
-            ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 118, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const UzbekMiniPill(
+                  icon: Icons.auto_awesome_rounded,
+                  text: 'O‘zbekona ruh',
+                  dark: true,
+                ),
+                const SizedBox(height: 15),
+                const Text(
+                  'Kitob bilan\nyanada yaqinroq bo‘ling',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    height: 1.08,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -.4,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Bilim har doim siz bilan!',
+                  style: TextStyle(
+                    color: Color(0xFFF8E6BF),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _HeroFact(
+                        icon: Icons.local_shipping_rounded,
+                        text: '1–3 ish kuni'),
+                    _HeroFact(icon: Icons.payments_outlined, text: '택배 ₩4,000'),
+                    _HeroFact(
+                        icon: Icons.card_giftcard_rounded,
+                        text: '4+ kitob — bepul'),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -468,28 +664,28 @@ class _HeroFact extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-    decoration: BoxDecoration(
-      color: const Color(0x16FFFFFF),
-      borderRadius: BorderRadius.circular(100),
-      border: Border.all(color: const Color(0x26FFFFFF)),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 15, color: AppColors.gold),
-        const SizedBox(width: 5),
-        Text(
-          text,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 11.5,
-            fontWeight: FontWeight.w800,
-          ),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0x16FFFFFF),
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(color: const Color(0x26FFFFFF)),
         ),
-      ],
-    ),
-  );
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: AppColors.gold),
+            const SizedBox(width: 5),
+            Text(
+              text,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      );
 }
 
 class ContainerIcon extends StatelessWidget {
@@ -498,14 +694,107 @@ class ContainerIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    width: 42,
-    height: 42,
-    decoration: BoxDecoration(
-      color: const Color(0x22FFFFFF),
-      borderRadius: BorderRadius.circular(13),
-    ),
-    child: Icon(icon, color: _gold),
-  );
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: const Color(0x22FFFFFF),
+          borderRadius: BorderRadius.circular(13),
+        ),
+        child: Icon(icon, color: _gold),
+      );
+}
+
+class _QuickCategoryStrip extends StatelessWidget {
+  const _QuickCategoryStrip({
+    required this.categories,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<String> categories;
+  final String selected;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = categories.take(6).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const UzbekSectionTitle(
+          title: 'Kategoriyalar',
+          subtitle: 'O‘zingizga mos yo‘nalishni tanlang',
+          icon: Icons.grid_view_rounded,
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 88,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: visible.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (_, i) {
+              final c = visible[i];
+              final active = c == selected;
+              return InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: () => onSelected(c),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: 78,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: active ? UzbekCustomerColors.goldSoft : Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: active
+                          ? UzbekCustomerColors.goldDeep
+                          : UzbekCustomerColors.border,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x0B0E2B45),
+                        blurRadius: 10,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        c == 'Barchasi'
+                            ? Icons.grid_view_rounded
+                            : _categoryIcon(c),
+                        color: active
+                            ? UzbekCustomerColors.goldDeep
+                            : UzbekCustomerColors.teal,
+                        size: 25,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        c,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: UzbekCustomerColors.navy,
+                          fontSize: 10.5,
+                          fontWeight:
+                              active ? FontWeight.w900 : FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _TrustStrip extends StatelessWidget {
@@ -513,41 +802,42 @@ class _TrustStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-    decoration: BoxDecoration(
-      color: UzbekCustomerColors.surface,
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: UzbekCustomerColors.border),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x09000000),
-          blurRadius: 14,
-          offset: Offset(0, 5),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        decoration: BoxDecoration(
+          color: UzbekCustomerColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: UzbekCustomerColors.border),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x09000000),
+              blurRadius: 14,
+              offset: Offset(0, 5),
+            ),
+          ],
         ),
-      ],
-    ),
-    child: const Row(
-      children: [
-        Expanded(
-          child: _TrustItem(
-            icon: Icons.verified_outlined,
-            text: 'Ishonchli buyurtma',
-          ),
+        child: const Row(
+          children: [
+            Expanded(
+              child: _TrustItem(
+                icon: Icons.verified_outlined,
+                text: 'Ishonchli buyurtma',
+              ),
+            ),
+            _TrustDivider(),
+            Expanded(
+              child: _TrustItem(
+                  icon: Icons.schedule_rounded, text: '1–3 ish kuni'),
+            ),
+            _TrustDivider(),
+            Expanded(
+              child: _TrustItem(
+                icon: Icons.favorite_border_rounded,
+                text: 'Kitobxonga e’tibor',
+              ),
+            ),
+          ],
         ),
-        _TrustDivider(),
-        Expanded(
-          child: _TrustItem(icon: Icons.schedule_rounded, text: '1–3 ish kuni'),
-        ),
-        _TrustDivider(),
-        Expanded(
-          child: _TrustItem(
-            icon: Icons.favorite_border_rounded,
-            text: 'Kitobxonga e’tibor',
-          ),
-        ),
-      ],
-    ),
-  );
+      );
 }
 
 class _TrustDivider extends StatelessWidget {
@@ -564,21 +854,22 @@ class _TrustItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 5),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 18, color: UzbekCustomerColors.teal),
-        const SizedBox(height: 4),
-        Text(
-          text,
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700),
+        padding: const EdgeInsets.symmetric(horizontal: 5),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: UzbekCustomerColors.teal),
+            const SizedBox(height: 4),
+            Text(
+              text,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              style:
+                  const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700),
+            ),
+          ],
         ),
-      ],
-    ),
-  );
+      );
 }
 
 class _FeaturedBooksStrip extends StatelessWidget {
@@ -587,97 +878,126 @@ class _FeaturedBooksStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      const UzbekSectionTitle(
-        title: 'Tavsiya etamiz',
-        icon: Icons.auto_awesome_rounded,
-      ),
-      const SizedBox(height: 9),
-      SizedBox(
-        height: 176,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: books.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 10),
-          itemBuilder: (context, i) {
-            final b = books[i];
-            return SizedBox(
-              width: 265,
-              child: Card(
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => BookDetailPage(bookId: b.id),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 108,
-                        height: double.infinity,
-                        child: _BookCover(book: b),
-                      ),
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                b.title,
-                                maxLines: 3,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  height: 1.15,
-                                ),
-                              ),
-                              const SizedBox(height: 5),
-                              Text(
-                                b.author,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.black54,
-                                  fontSize: 11,
-                                ),
-                              ),
-                              const Spacer(),
-                              Text(
-                                won(b.currentPrice),
-                                style: const TextStyle(
-                                  color: _navy,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                '${b.stock} dona mavjud',
-                                style: const TextStyle(
-                                  color: _green,
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const UzbekSectionTitle(
+            title: 'Tavsiya etamiz',
+            subtitle: 'Muhajeer Books tanlovi',
+            icon: Icons.auto_awesome_rounded,
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 248,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: books.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, i) {
+                final b = books[i];
+                return Container(
+                  width: 148,
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: UzbekCustomerColors.border),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x100E2B45),
+                        blurRadius: 14,
+                        offset: Offset(0, 6),
                       ),
                     ],
                   ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    ],
-  );
+                  child: InkWell(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => BookDetailPage(bookId: b.id)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                            height: 126,
+                            width: double.infinity,
+                            child: _BookCover(book: b)),
+                        const UzbekAtlasBand(height: 4),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(10, 9, 10, 10),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  b.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: UzbekCustomerColors.navy,
+                                    fontSize: 12.5,
+                                    height: 1.15,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  b.author,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: UzbekCustomerColors.textMuted,
+                                    fontSize: 10.5,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        won(b.currentPrice),
+                                        style: const TextStyle(
+                                          color: UzbekCustomerColors.navy,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: 32,
+                                      height: 32,
+                                      child: FilledButton(
+                                        style: FilledButton.styleFrom(
+                                          padding: EdgeInsets.zero,
+                                          minimumSize: const Size(32, 32),
+                                          backgroundColor:
+                                              UzbekCustomerColors.navy,
+                                        ),
+                                        onPressed: b.inStock
+                                            ? () => context
+                                                .read<AppState>()
+                                                .addToCart(b)
+                                            : null,
+                                        child: const Icon(
+                                            Icons.add_shopping_cart_rounded,
+                                            size: 16),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      );
 }
 
 class BookCard extends StatelessWidget {
@@ -794,9 +1114,8 @@ class BookCard extends StatelessWidget {
                             ? Icons.check_circle_rounded
                             : Icons.cancel_rounded,
                         size: 14,
-                        color: book.inStock
-                            ? AppColors.success
-                            : AppColors.danger,
+                        color:
+                            book.inStock ? AppColors.success : AppColors.danger,
                       ),
                       const SizedBox(width: 4),
                       Expanded(
@@ -900,29 +1219,29 @@ class _BookCover extends StatelessWidget {
   }
 
   Widget _placeholder() => Container(
-    decoration: const BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [_cream, Color(0xFFFFE9B0)],
-      ),
-    ),
-    child: Stack(
-      alignment: Alignment.center,
-      children: [
-        Positioned.fill(
-          child: Opacity(
-            opacity: .08,
-            child: Image.asset(
-              'assets/images/muhajeer_logo.jpg',
-              fit: BoxFit.cover,
-            ),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [_cream, Color(0xFFFFE9B0)],
           ),
         ),
-        const Icon(Icons.auto_stories_rounded, size: 56, color: _navy),
-      ],
-    ),
-  );
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Positioned.fill(
+              child: Opacity(
+                opacity: .08,
+                child: Image.asset(
+                  'assets/images/muhajeer_logo.jpg',
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            const Icon(Icons.auto_stories_rounded, size: 56, color: _navy),
+          ],
+        ),
+      );
 }
 
 class _Badge extends StatelessWidget {
@@ -932,20 +1251,20 @@ class _Badge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-    decoration: BoxDecoration(
-      color: color,
-      borderRadius: BorderRadius.circular(100),
-    ),
-    child: Text(
-      text,
-      style: const TextStyle(
-        color: Colors.white,
-        fontSize: 10.5,
-        fontWeight: FontWeight.w900,
-      ),
-    ),
-  );
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(100),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 10.5,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      );
 }
 
 class BookDetailPage extends StatelessWidget {
@@ -1108,92 +1427,92 @@ class _BookDetailInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      if (book.recommended)
-        const AppInfoPill(
-          icon: Icons.auto_awesome_rounded,
-          label: 'Muhajeer tavsiyasi',
-          foreground: AppColors.orange,
-          background: Color(0xFFFFF2E3),
-          border: Color(0xFFFFD4A3),
-        ),
-      if (book.recommended) const SizedBox(height: 10),
-      Text(book.title, style: Theme.of(context).textTheme.headlineLarge),
-      const SizedBox(height: 7),
-      Text(
-        book.author,
-        style: const TextStyle(
-          fontSize: 16,
-          color: AppColors.muted,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      const SizedBox(height: 16),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AppInfoPill(icon: Icons.category_outlined, label: book.category),
-          AppInfoPill(
-            icon: Icons.inventory_2_outlined,
-            label: book.inStock ? '${book.stock} dona mavjud' : 'Mavjud emas',
-            foreground: book.inStock ? AppColors.success : AppColors.danger,
-            background: book.inStock
-                ? AppColors.successSoft
-                : AppColors.dangerSoft,
-            border: book.inStock
-                ? const Color(0xFFCDEAD7)
-                : const Color(0xFFFFCCD1),
+          if (book.recommended)
+            const AppInfoPill(
+              icon: Icons.auto_awesome_rounded,
+              label: 'Muhajeer tavsiyasi',
+              foreground: AppColors.orange,
+              background: Color(0xFFFFF2E3),
+              border: Color(0xFFFFD4A3),
+            ),
+          if (book.recommended) const SizedBox(height: 10),
+          Text(book.title, style: Theme.of(context).textTheme.headlineLarge),
+          const SizedBox(height: 7),
+          Text(
+            book.author,
+            style: const TextStyle(
+              fontSize: 16,
+              color: AppColors.muted,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-          if (book.coverType != 'Ko‘rsatilmagan')
-            AppInfoPill(icon: Icons.book_outlined, label: book.coverType),
-        ],
-      ),
-      const SizedBox(height: 22),
-      AppSurface(
-        backgroundColor: AppColors.surfaceSoft,
-        child: const Row(
-          children: [
-            _DetailFact(
-              icon: Icons.local_shipping_outlined,
-              title: 'Yetkazish',
-              value: '1–3 ish kuni',
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              AppInfoPill(icon: Icons.category_outlined, label: book.category),
+              AppInfoPill(
+                icon: Icons.inventory_2_outlined,
+                label:
+                    book.inStock ? '${book.stock} dona mavjud' : 'Mavjud emas',
+                foreground: book.inStock ? AppColors.success : AppColors.danger,
+                background:
+                    book.inStock ? AppColors.successSoft : AppColors.dangerSoft,
+                border: book.inStock
+                    ? const Color(0xFFCDEAD7)
+                    : const Color(0xFFFFCCD1),
+              ),
+              if (book.coverType != 'Ko‘rsatilmagan')
+                AppInfoPill(icon: Icons.book_outlined, label: book.coverType),
+            ],
+          ),
+          const SizedBox(height: 22),
+          AppSurface(
+            backgroundColor: AppColors.surfaceSoft,
+            child: const Row(
+              children: [
+                _DetailFact(
+                  icon: Icons.local_shipping_outlined,
+                  title: 'Yetkazish',
+                  value: '1–3 ish kuni',
+                ),
+                SizedBox(width: 8),
+                _DetailFact(
+                  icon: Icons.payments_outlined,
+                  title: '택배',
+                  value: '₩4,000',
+                ),
+                SizedBox(width: 8),
+                _DetailFact(
+                  icon: Icons.card_giftcard_outlined,
+                  title: '4+ kitob',
+                  value: 'Bepul',
+                ),
+              ],
             ),
-            SizedBox(width: 8),
-            _DetailFact(
-              icon: Icons.payments_outlined,
-              title: '택배',
-              value: '₩4,000',
+          ),
+          if (book.description.isNotEmpty &&
+              book.description != 'Ma’lumot kiritilmagan.') ...[
+            const SizedBox(height: 22),
+            const AppSectionHeader(
+              title: 'Kitob haqida',
+              icon: Icons.notes_rounded,
             ),
-            SizedBox(width: 8),
-            _DetailFact(
-              icon: Icons.card_giftcard_outlined,
-              title: '4+ kitob',
-              value: 'Bepul',
+            const SizedBox(height: 10),
+            Text(
+              book.description,
+              style: const TextStyle(
+                height: 1.65,
+                fontSize: 15,
+                color: AppColors.text,
+              ),
             ),
           ],
-        ),
-      ),
-      if (book.description.isNotEmpty &&
-          book.description != 'Ma’lumot kiritilmagan.') ...[
-        const SizedBox(height: 22),
-        const AppSectionHeader(
-          title: 'Kitob haqida',
-          icon: Icons.notes_rounded,
-        ),
-        const SizedBox(height: 10),
-        Text(
-          book.description,
-          style: const TextStyle(
-            height: 1.65,
-            fontSize: 15,
-            color: AppColors.text,
-          ),
-        ),
-      ],
-    ],
-  );
+        ],
+      );
 }
 
 class _DetailFact extends StatelessWidget {
@@ -1208,24 +1527,25 @@ class _DetailFact extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Expanded(
-    child: Column(
-      children: [
-        Icon(icon, size: 20, color: AppColors.navy),
-        const SizedBox(height: 5),
-        Text(
-          title,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 10.5, color: AppColors.muted),
+        child: Column(
+          children: [
+            Icon(icon, size: 20, color: AppColors.navy),
+            const SizedBox(height: 5),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 10.5, color: AppColors.muted),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              textAlign: TextAlign.center,
+              style:
+                  const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900),
+            ),
+          ],
         ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900),
-        ),
-      ],
-    ),
-  );
+      );
 }
 
 class FavoritesPage extends StatelessWidget {
@@ -1234,9 +1554,8 @@ class FavoritesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final books = state.books
-        .where((b) => b.isActive && state.isFavorite(b))
-        .toList();
+    final books =
+        state.books.where((b) => b.isActive && state.isFavorite(b)).toList();
     return Scaffold(
       backgroundColor: UzbekCustomerColors.background,
       appBar: AppBar(
@@ -1248,7 +1567,8 @@ class FavoritesPage extends StatelessWidget {
           ? const _EmptyState(
               icon: Icons.favorite_border_rounded,
               title: 'Sevimlilar hali bo‘sh',
-              subtitle: 'Yoqtirgan kitobingizdagi yurakchani bosing — keyin shu yerda tez topasiz.',
+              subtitle:
+                  'Yoqtirgan kitobingizdagi yurakchani bosing — keyin shu yerda tez topasiz.',
             )
           : Column(
               children: [
@@ -1272,10 +1592,10 @@ class FavoritesPage extends StatelessWidget {
                       final count = constraints.maxWidth >= 1100
                           ? 5
                           : constraints.maxWidth >= 850
-                          ? 4
-                          : constraints.maxWidth >= 600
-                          ? 3
-                          : 2;
+                              ? 4
+                              : constraints.maxWidth >= 600
+                                  ? 3
+                                  : 2;
                       return GridView.builder(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                         itemCount: books.length,
@@ -1283,9 +1603,8 @@ class FavoritesPage extends StatelessWidget {
                           crossAxisCount: count,
                           mainAxisSpacing: 12,
                           crossAxisSpacing: 12,
-                          childAspectRatio: constraints.maxWidth < 450
-                              ? .57
-                              : .62,
+                          childAspectRatio:
+                              constraints.maxWidth < 450 ? .57 : .62,
                         ),
                         itemBuilder: (_, i) => BookCard(book: books[i]),
                       );
@@ -1325,7 +1644,8 @@ class CartPage extends StatelessWidget {
           ? const _EmptyState(
               icon: Icons.shopping_bag_outlined,
               title: 'Savatcha bo‘sh',
-              subtitle: 'Kerakli kitoblarni savatchaga qo‘shing. 4 ta va undan ko‘p kitobda yetkazib berish bepul.',
+              subtitle:
+                  'Kerakli kitoblarni savatchaga qo‘shing. 4 ta va undan ko‘p kitobda yetkazib berish bepul.',
             )
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 190),
@@ -1546,15 +1866,15 @@ class _QtyButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    width: 34,
-    height: 34,
-    child: IconButton.outlined(
-      onPressed: onTap,
-      padding: EdgeInsets.zero,
-      iconSize: 18,
-      icon: Icon(icon),
-    ),
-  );
+        width: 34,
+        height: 34,
+        child: IconButton.outlined(
+          onPressed: onTap,
+          padding: EdgeInsets.zero,
+          iconSize: 18,
+          icon: Icon(icon),
+        ),
+      );
 }
 
 class CheckoutPage extends StatefulWidget {
@@ -1650,8 +1970,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         hintText: '010-1234-5678',
                         prefixIcon: Icon(Icons.phone_outlined),
                       ),
-                      validator: (v) =>
-                          v == null ||
+                      validator: (v) => v == null ||
                               v.replaceAll(RegExp(r'\D'), '').length < 7
                           ? 'Telefon raqamni to‘liq kiriting'
                           : null,
@@ -1664,7 +1983,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         labelText: 'Manzil',
                         alignLabelWithHint: true,
                         helperMaxLines: 3,
-                        helperText: 'Manzil va xona raqamini to‘liq yozing.\nMasalan: 경상북도 경산시 계양로 37길 7-3, 808호',
+                        helperText:
+                            'Manzil va xona raqamini to‘liq yozing.\nMasalan: 경상북도 경산시 계양로 37길 7-3, 808호',
                         prefixIcon: Icon(Icons.location_on_outlined),
                       ),
                       validator: (v) => v == null || v.trim().length < 8
@@ -1948,34 +2268,34 @@ class _CheckoutStepHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-    children: [
-      Container(
-        width: 34,
-        height: 34,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: UzbekCustomerColors.teal,
-          borderRadius: BorderRadius.circular(11),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x1610213D),
-              blurRadius: 10,
-              offset: Offset(0, 4),
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: UzbekCustomerColors.teal,
+              borderRadius: BorderRadius.circular(11),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x1610213D),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Text(
-          number,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w900,
+            child: Text(
+              number,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
           ),
-        ),
-      ),
-      const SizedBox(width: 10),
-      Text(title, style: Theme.of(context).textTheme.titleLarge),
-    ],
-  );
+          const SizedBox(width: 10),
+          Text(title, style: Theme.of(context).textTheme.titleLarge),
+        ],
+      );
 }
 
 class _PaymentCard extends StatelessWidget {
@@ -1984,85 +2304,85 @@ class _PaymentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => UzbekPatternPanel(
-    padding: const EdgeInsets.all(16),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Row(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.account_balance_rounded, color: AppColors.navy),
-            SizedBox(width: 8),
-            Text(
-              'To‘lov rekvizitlari',
-              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+            const Row(
+              children: [
+                Icon(Icons.account_balance_rounded, color: AppColors.navy),
+                SizedBox(width: 8),
+                Text(
+                  'To‘lov rekvizitlari',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        AppState.bankName,
+                        style: TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      SizedBox(height: 3),
+                      SelectableText(
+                        AppState.bankAccount,
+                        style: TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: .5,
+                          color: AppColors.navy,
+                        ),
+                      ),
+                      SizedBox(height: 3),
+                      Text(
+                        AppState.bankOwner,
+                        style: TextStyle(color: AppColors.muted, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                FilledButton.tonalIcon(
+                  onPressed: onCopy,
+                  icon: const Icon(Icons.copy_rounded, size: 17),
+                  label: const Text('Nusxalash'),
+                ),
+              ],
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    AppState.bankName,
-                    style: TextStyle(
-                      color: AppColors.muted,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  SizedBox(height: 3),
-                  SelectableText(
-                    AppState.bankAccount,
-                    style: TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: .5,
-                      color: AppColors.navy,
-                    ),
-                  ),
-                  SizedBox(height: 3),
-                  Text(
-                    AppState.bankOwner,
-                    style: TextStyle(color: AppColors.muted, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-            FilledButton.tonalIcon(
-              onPressed: onCopy,
-              icon: const Icon(Icons.copy_rounded, size: 17),
-              label: const Text('Nusxalash'),
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
+      );
 }
 
 Widget _priceRow(String label, int value, {bool bold = false}) => Row(
-  children: [
-    Text(
-      label,
-      style: TextStyle(
-        fontWeight: bold ? FontWeight.w900 : FontWeight.w500,
-        fontSize: bold ? 17 : 14,
-      ),
-    ),
-    const Spacer(),
-    Text(
-      won(value),
-      style: TextStyle(
-        fontWeight: bold ? FontWeight.w900 : FontWeight.w700,
-        fontSize: bold ? 20 : 14,
-        color: bold ? _navy : null,
-      ),
-    ),
-  ],
-);
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontWeight: bold ? FontWeight.w900 : FontWeight.w500,
+            fontSize: bold ? 17 : 14,
+          ),
+        ),
+        const Spacer(),
+        Text(
+          won(value),
+          style: TextStyle(
+            fontWeight: bold ? FontWeight.w900 : FontWeight.w700,
+            fontSize: bold ? 20 : 14,
+            color: bold ? _navy : null,
+          ),
+        ),
+      ],
+    );
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -2070,81 +2390,93 @@ class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final name = state.savedCustomer['name'] ?? '';
-    final phone = state.savedCustomer['phone'] ?? '';
+    final activeBooks = state.books.where((b) => b.isActive).length;
+    final availableBooks =
+        state.books.where((b) => b.isActive && b.inStock).length;
+
     return Scaffold(
       backgroundColor: UzbekCustomerColors.background,
       appBar: AppBar(
         backgroundColor: UzbekCustomerColors.background,
         surfaceTintColor: Colors.transparent,
         title: const Text('Profil'),
+        actions: [
+          IconButton(
+            onPressed: () {},
+            icon: const Icon(Icons.settings_outlined),
+          ),
+          const SizedBox(width: 6),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
         children: [
           UzbekPatternPanel(
             dark: true,
-            padding: const EdgeInsets.all(18),
-            child: Row(
+            strongPattern: true,
+            padding: const EdgeInsets.fromLTRB(18, 20, 18, 20),
+            child: Column(
               children: [
-                const MuhajeerLogoCircle(size: 70),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name.trim().isEmpty
-                            ? 'Muhajeer Books kitobxoni'
-                            : name.trim(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        phone.trim().isEmpty
-                            ? 'Kitobga mehr — ma’rifatga qadam.'
-                            : phone,
-                        style: const TextStyle(
-                          color: Color(0xFFE6F2EF),
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 7,
-                        runSpacing: 7,
-                        children: [
-                          UzbekMiniPill(
-                            icon: state.isOnlineBackend
-                                ? Icons.cloud_done_rounded
-                                : Icons.save_rounded,
-                            text: state.isOnlineBackend
-                                ? 'Onlayn hisob'
-                                : 'Qurilmada saqlanadi',
-                            dark: true,
-                          ),
-                          const UzbekMiniPill(
-                            icon: Icons.auto_stories_rounded,
-                            text: 'Kitobxon profili',
-                            dark: true,
-                          ),
-                        ],
-                      ),
-                    ],
+                const UzbekMedallion(size: 58, dark: true),
+                const SizedBox(height: 10),
+                const Text(
+                  'Mohirbek Ismoilov',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 23,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -.3,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Muhajeer Books',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFFF8E6BF),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const UzbekOrnamentDivider(),
+                const SizedBox(height: 10),
+                const Text(
+                  'Koreyadagi O’zbek kitobxonlari uchun',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFFE5F1EE),
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
           ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                  child:
+                      _ProfileStat(value: '$activeBooks', label: 'Kitoblar')),
+              const SizedBox(width: 8),
+              Expanded(
+                  child:
+                      _ProfileStat(value: '$availableBooks', label: 'Mavjud')),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ProfileStat(
+                  value: state.isOnlineBackend ? 'Onlayn' : 'Local',
+                  label: 'Tizim',
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 19),
           const UzbekSectionTitle(
             title: 'Hisob va xizmatlar',
-            subtitle: 'Buyurtmalaringiz va do‘kon xizmatlari',
+            subtitle: 'Buyurtmalar va do‘kon xizmatlari',
             icon: Icons.person_outline_rounded,
           ),
           const SizedBox(height: 10),
@@ -2155,18 +2487,13 @@ class ProfilePage extends StatelessWidget {
               children: [
                 ListTile(
                   minTileHeight: 68,
-                  leading: const _ProfileIcon(
-                    icon: Icons.receipt_long_outlined,
-                  ),
+                  leading:
+                      const _ProfileIcon(icon: Icons.receipt_long_outlined),
                   title: const Text(
                     'Mening buyurtmalarim',
                     style: TextStyle(fontWeight: FontWeight.w800),
                   ),
-                  subtitle: Text(
-                    phone.isEmpty
-                        ? 'Buyurtma berganingizdan keyin ko‘rinadi'
-                        : 'Holatini kuzatish va tarixni ko‘rish',
-                  ),
+                  subtitle: const Text('Holatini kuzatish va tarixni ko‘rish'),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => Navigator.push(
                     context,
@@ -2176,34 +2503,30 @@ class ProfilePage extends StatelessWidget {
                 const Divider(),
                 ListTile(
                   minTileHeight: 68,
-                  leading: _ProfileIcon(
-                    icon: state.isOnlineBackend
-                        ? Icons.cloud_done_outlined
-                        : Icons.save_outlined,
-                  ),
+                  leading:
+                      const _ProfileIcon(icon: Icons.favorite_border_rounded),
                   title: const Text(
-                    'Ma’lumotlar holati',
+                    'Sevimli kitoblar',
                     style: TextStyle(fontWeight: FontWeight.w800),
                   ),
-                  subtitle: Text(
-                    state.isOnlineBackend
-                        ? 'Barcha qurilmalarda sinxron ishlaydi'
-                        : 'Hozir shu qurilmada saqlanadi',
+                  subtitle: const Text('Saqlab qo‘yilgan kitoblarni ko‘ring'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const FavoritesPage()),
                   ),
                 ),
                 const Divider(),
                 ListTile(
                   minTileHeight: 68,
                   leading: const _ProfileIcon(
-                    icon: Icons.admin_panel_settings_outlined,
-                  ),
+                      icon: Icons.admin_panel_settings_outlined),
                   title: const Text(
                     'Admin paneli',
                     style: TextStyle(fontWeight: FontWeight.w800),
                   ),
-                  subtitle: const Text(
-                    'Kitoblar, ombor, chegirma va buyurtmalar',
-                  ),
+                  subtitle:
+                      const Text('Kitoblar, ombor, statistika va buyurtmalar'),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => Navigator.push(
                     context,
@@ -2215,23 +2538,23 @@ class ProfilePage extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           UzbekPatternPanel(
-            padding: const EdgeInsets.all(14),
-            child: const Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            strongPattern: true,
+            padding: const EdgeInsets.all(16),
+            child: const Column(
               children: [
                 Icon(
                   Icons.format_quote_rounded,
                   color: UzbekCustomerColors.goldDeep,
+                  size: 28,
                 ),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    '“Kitob — insonning eng sokin, ammo eng dono hamrohidir.”',
-                    style: TextStyle(
-                      color: UzbekCustomerColors.navy,
-                      fontWeight: FontWeight.w700,
-                      height: 1.45,
-                    ),
+                SizedBox(height: 8),
+                Text(
+                  '“Kitob o‘qigan millat hech qachon yutqazmaydi.”',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: UzbekCustomerColors.navy,
+                    fontWeight: FontWeight.w800,
+                    height: 1.45,
                   ),
                 ),
               ],
@@ -2243,20 +2566,60 @@ class ProfilePage extends StatelessWidget {
   }
 }
 
+class _ProfileStat extends StatelessWidget {
+  const _ProfileStat({required this.value, required this.label});
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 13),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF8EC),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: UzbekCustomerColors.border),
+        ),
+        child: Column(
+          children: [
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: UzbekCustomerColors.navy,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: UzbekCustomerColors.textMuted,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
 class _ProfileIcon extends StatelessWidget {
   const _ProfileIcon({required this.icon});
   final IconData icon;
   @override
   Widget build(BuildContext context) => Container(
-    width: 42,
-    height: 42,
-    decoration: BoxDecoration(
-      color: AppColors.surfaceSoft,
-      borderRadius: BorderRadius.circular(13),
-      border: Border.all(color: AppColors.border),
-    ),
-    child: Icon(icon, color: AppColors.navy, size: 21),
-  );
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: UzbekCustomerColors.goldSoft,
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(color: UzbekCustomerColors.border),
+        ),
+        child: Icon(icon, color: UzbekCustomerColors.teal, size: 21),
+      );
 }
 
 class MyOrdersPage extends StatefulWidget {
@@ -2306,7 +2669,8 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
             return const _EmptyState(
               icon: Icons.receipt_long_outlined,
               title: 'Buyurtma topilmadi',
-              subtitle: 'Buyurtma berganingizdan keyin uning holati va tarixi shu yerda ko‘rinadi.',
+              subtitle:
+                  'Buyurtma berganingizdan keyin uning holati va tarixi shu yerda ko‘rinadi.',
             );
           }
           return ListView.separated(
@@ -2353,9 +2717,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                     const SizedBox(height: 14),
                     _OrderProgress(status: order.status),
                     const SizedBox(height: 14),
-                    ...order.items
-                        .take(4)
-                        .map(
+                    ...order.items.take(4).map(
                           (item) => Padding(
                             padding: const EdgeInsets.only(bottom: 5),
                             child: Row(
@@ -2469,9 +2831,8 @@ class _OrderProgress extends StatelessWidget {
                     Expanded(
                       child: Container(
                         height: 2,
-                        color: i <= level
-                            ? AppColors.success
-                            : AppColors.border,
+                        color:
+                            i <= level ? AppColors.success : AppColors.border,
                       ),
                     ),
                   Container(
@@ -2565,21 +2926,21 @@ class _InfoBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: const Color(0xFFFFF4D6),
-      borderRadius: BorderRadius.circular(15),
-      border: Border.all(color: const Color(0xFFFFDF8C)),
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: const Color(0xFF8A5A00)),
-        const SizedBox(width: 10),
-        Expanded(child: Text(text, style: const TextStyle(height: 1.35))),
-      ],
-    ),
-  );
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF4D6),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: const Color(0xFFFFDF8C)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: const Color(0xFF8A5A00)),
+            const SizedBox(width: 10),
+            Expanded(child: Text(text, style: const TextStyle(height: 1.35))),
+          ],
+        ),
+      );
 }
 
 class _EmptyState extends StatelessWidget {
@@ -2594,26 +2955,27 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 62, color: Colors.black26),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 62, color: Colors.black26),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style:
+                    const TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.black54, height: 1.4),
+              ),
+            ],
           ),
-          const SizedBox(height: 5),
-          Text(
-            subtitle,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.black54, height: 1.4),
-          ),
-        ],
-      ),
-    ),
-  );
+        ),
+      );
 }

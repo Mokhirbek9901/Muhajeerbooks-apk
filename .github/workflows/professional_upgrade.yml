@@ -25,6 +25,13 @@ jobs:
       - name: Apply professional upgrade
         run: python tools/professional_upgrade.py
 
+      - name: Fix iOS transition import
+        shell: bash
+        run: |
+          if ! grep -q "package:flutter/cupertino.dart" lib/design_system.dart; then
+            sed -i "1i import 'package:flutter/cupertino.dart';" lib/design_system.dart
+          fi
+
       - name: Format Dart
         run: dart format lib
 

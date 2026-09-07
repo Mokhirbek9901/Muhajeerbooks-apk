@@ -1,0 +1,59 @@
+name: Play Store Unsigned AAB
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/play_unsigned_build.yml'
+
+jobs:
+  build-aab:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Create Android platform
+        run: flutter create . --platforms=android --project-name muhajeerbooks --org com.muhajeerbooks
+
+      - run: flutter pub get
+
+      - name: Prepare Play package without signing key
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('android/app/build.gradle.kts')
+          s = p.read_text(encoding='utf-8')
+          s = re.sub(r'compileSdk\s*=\s*flutter\.compileSdkVersion', 'compileSdk = 36', s)
+          s = re.sub(r'applicationId\s*=\s*"[^"]+"', 'applicationId = "com.muhajeerbooks.app"', s)
+          s = re.sub(r'targetSdk\s*=\s*flutter\.targetSdkVersion', 'targetSdk = 36', s)
+          s = s.replace('signingConfig = signingConfigs.getByName("debug")', '')
+          p.write_text(s, encoding='utf-8')
+
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          m = manifest.read_text(encoding='utf-8')
+          if 'android.permission.INTERNET' not in m:
+              m = m.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">', '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET" />', 1)
+          m = re.sub(r'android:label="[^"]*"', 'android:label="Muhajeer Books"', m, count=1)
+          manifest.write_text(m, encoding='utf-8')
+          PY
+
+      - name: Build release AAB
+        run: flutter build appbundle --release
+
+      - name: Show bundle info
+        run: |
+          ls -lh build/app/outputs/bundle/release/
+          sha256sum build/app/outputs/bundle/release/app-release.aab
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: muhajeer-books-unsigned-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 7

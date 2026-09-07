@@ -348,6 +348,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   final _booksKey = GlobalKey<_BooksAdminState>();
   final _inventoryKey = GlobalKey<_InventoryAdminState>();
   final _ordersKey = GlobalKey<_OrdersAdminState>();
+  final _customersKey = GlobalKey<_CustomersAdminState>();
 
   static const titles = [
     'Boshqaruv markazi',
@@ -381,6 +382,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           _inventoryKey.currentState?.loadQuietly();
         case 3:
           _ordersKey.currentState?.reload();
+        case 4:
+          _customersKey.currentState?.reload();
       }
     });
   }
@@ -398,6 +401,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       _BooksAdmin(key: _booksKey, api: api),
       _InventoryAdmin(key: _inventoryKey, api: api),
       _OrdersAdmin(key: _ordersKey, api: api),
+      _CustomersAdmin(key: _customersKey, api: api),
       _DiscountAdmin(api: api),
     ];
     const railDestinations = [
@@ -420,6 +424,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         icon: Icon(Icons.receipt_long_outlined),
         selectedIcon: Icon(Icons.receipt_long_rounded),
         label: Text('Buyurtmalar'),
+      ),
+      NavigationRailDestination(
+        icon: Icon(Icons.people_alt_outlined),
+        selectedIcon: Icon(Icons.people_alt_rounded),
+        label: Text('Mijozlar'),
       ),
       NavigationRailDestination(
         icon: Icon(Icons.percent_rounded),
@@ -2960,7 +2969,7 @@ class _DiscountTip extends StatelessWidget {
 }
 
 class _CustomersAdmin extends StatefulWidget {
-  const _CustomersAdmin({required this.api});
+  const _CustomersAdmin({super.key, required this.api});
   final _AdminApi api;
 
   @override
@@ -2970,6 +2979,12 @@ class _CustomersAdmin extends StatefulWidget {
 class _CustomersAdminState extends State<_CustomersAdmin> {
   late Future<(Map<String, dynamic>, List<Map<String, dynamic>>)> future;
   String query = '';
+
+  void reload() {
+    if (!mounted) return;
+    _reload();
+    setState(() {});
+  }
 
   @override
   void initState() {

@@ -1,0 +1,62 @@
+name: Strong Uzbek premium customer UI
+
+on:
+  push:
+    paths:
+      - '.github/workflows/strong_uzbek_customer_once.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install packages
+        run: flutter pub get
+
+      - name: Apply strong Uzbek customer design
+        run: python3 tools/strong_uzbek_customer_patch.py
+
+      - name: Format Dart
+        run: dart format lib/store_ui.dart lib/uzbek_customer_style.dart
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+
+      - name: Test
+        run: flutter test
+
+      - name: Prepare web platform
+        run: flutter create . --platforms=web
+
+      - name: Validate web release build
+        run: flutter build web --release
+
+      - name: Remove one-shot helpers
+        run: |
+          rm -f tools/strong_uzbek_customer_patch.py
+          rm -f .github/workflows/strong_uzbek_customer_once.yml
+
+      - name: Commit production update
+        run: |
+          git config user.name "Muhajeer Books Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add lib/store_ui.dart lib/uzbek_customer_style.dart
+          git add -A tools/strong_uzbek_customer_patch.py .github/workflows/strong_uzbek_customer_once.yml
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "Apply strong Uzbek premium customer design"
+          git push

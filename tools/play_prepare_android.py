@@ -47,4 +47,26 @@ if 'android.permission.INTERNET' not in m:
 m = re.sub(r'android:label="[^"]*"', f'android:label="{APP_NAME}"', m, count=1)
 manifest.write_text(m, encoding="utf-8")
 
+# Railway's free container has much less memory than Flutter's generated 8 GiB
+# Gradle default. Keep the release build single-worker and within the container.
+gradle_props = Path("android/gradle.properties")
+gp = gradle_props.read_text(encoding="utf-8") if gradle_props.exists() else ""
+settings = {
+    "org.gradle.jvmargs": "-Xmx512m -XX:MaxMetaspaceSize=256m -XX:ReservedCodeCacheSize=128m -Dfile.encoding=UTF-8",
+    "org.gradle.daemon": "false",
+    "org.gradle.parallel": "false",
+    "org.gradle.workers.max": "1",
+    "kotlin.daemon.jvmargs": "-Xmx256m",
+}
+for key, value in settings.items():
+    pattern = rf"(?m)^{re.escape(key)}=.*$"
+    line = f"{key}={value}"
+    if re.search(pattern, gp):
+        gp = re.sub(pattern, line, gp)
+    else:
+        if gp and not gp.endswith("\n"):
+            gp += "\n"
+        gp += line + "\n"
+gradle_props.write_text(gp, encoding="utf-8")
+
 print(f"Prepared Android release: {PACKAGE_ID}, targetSdk={TARGET_SDK}")

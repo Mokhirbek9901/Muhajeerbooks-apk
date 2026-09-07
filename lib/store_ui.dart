@@ -31,8 +31,8 @@ class _StoreShellState extends State<StoreShell> {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
-    final pages = [
+    final cartCount = context.select<AppState, int>((s) => s.cartCount);
+    const pages = [
       const HomePage(),
       const CategoriesPage(),
       const CartPage(),
@@ -79,13 +79,13 @@ class _StoreShellState extends State<StoreShell> {
             ),
             NavigationDestination(
               icon: Badge(
-                isLabelVisible: state.cartCount > 0,
-                label: Text('${state.cartCount}'),
+                isLabelVisible: cartCount > 0,
+                label: Text('${cartCount}'),
                 child: const Icon(Icons.shopping_cart_outlined),
               ),
               selectedIcon: Badge(
-                isLabelVisible: state.cartCount > 0,
-                label: Text('${state.cartCount}'),
+                isLabelVisible: cartCount > 0,
+                label: Text('${cartCount}'),
                 child: const Icon(
                   Icons.shopping_cart_rounded,
                   color: UzbekCustomerColors.goldDeep,
@@ -1026,8 +1026,8 @@ class BookCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
-    final favorite = state.isFavorite(book);
+    final favorite = context.select<AppState, bool>((s) => s.isFavorite(book));
+    final state = context.read<AppState>();
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1233,6 +1233,8 @@ class _BookCover extends StatelessWidget {
       return Image.network(
         book.imageUrl,
         fit: BoxFit.cover,
+        filterQuality: FilterQuality.medium,
+        gaplessPlayback: true,
         errorBuilder: (_, __, ___) => _placeholder(),
       );
     }

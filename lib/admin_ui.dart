@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -476,10 +477,12 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                       destinations: railDestinations,
                     ),
                     const VerticalDivider(width: 1),
-                    Expanded(child: pages[tab]),
+                    Expanded(
+                      child: IndexedStack(index: tab, children: pages),
+                    ),
                   ],
                 )
-              : pages[tab],
+              : IndexedStack(index: tab, children: pages),
           bottomNavigationBar: desktop
               ? null
               : NavigationBar(
@@ -1684,12 +1687,109 @@ class _BookFormState extends State<_BookForm> {
     padding: const EdgeInsets.only(bottom: 11),
     child: TextFormField(
       controller: c,
+      minLines: lines > 1 ? 4 : 1,
       maxLines: lines,
-      keyboardType: number ? TextInputType.number : TextInputType.text,
+      keyboardType: number
+          ? TextInputType.number
+          : lines > 1
+          ? TextInputType.multiline
+          : TextInputType.text,
+      textInputAction: number
+          ? TextInputAction.next
+          : lines > 1
+          ? TextInputAction.newline
+          : TextInputAction.next,
+      enableSuggestions: !number,
+      autocorrect: !number,
       decoration: InputDecoration(labelText: label),
       validator: required
           ? (v) => v == null || v.trim().isEmpty ? 'Majburiy' : null
           : null,
+    ),
+  );
+
+  Future<void> _pasteDescription() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final pasted = data?.text ?? '';
+    if (pasted.isEmpty) return;
+
+    final source = description.text;
+    final selection = description.selection;
+    final rawStart = selection.isValid ? selection.start : source.length;
+    final rawEnd = selection.isValid ? selection.end : source.length;
+    final start = rawStart.clamp(0, source.length).toInt();
+    final end = rawEnd.clamp(start, source.length).toInt();
+    final next = source.replaceRange(start, end, pasted);
+
+    description.value = TextEditingValue(
+      text: next,
+      selection: TextSelection.collapsed(offset: start + pasted.length),
+    );
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _copyDescription() async {
+    final text = description.text;
+    if (text.isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Tavsif nusxalandi ✅')));
+  }
+
+  void _clearDescription() {
+    description.clear();
+    setState(() {});
+  }
+
+  Widget _descriptionEditor() => Padding(
+    padding: const EdgeInsets.only(bottom: 11),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextFormField(
+          controller: description,
+          minLines: 6,
+          maxLines: 10,
+          keyboardType: TextInputType.multiline,
+          textInputAction: TextInputAction.newline,
+          enableInteractiveSelection: true,
+          enableSuggestions: true,
+          autocorrect: true,
+          decoration: const InputDecoration(
+            labelText: 'Tavsif',
+            alignLabelWithHint: true,
+            hintText: 'Kitob haqida tavsifni yozing yoki pastdagi “Qo‘yish” tugmasidan foydalaning.',
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            FilledButton.tonalIcon(
+              onPressed: _pasteDescription,
+              icon: const Icon(Icons.content_paste_rounded, size: 18),
+              label: const Text('Qo‘yish'),
+            ),
+            OutlinedButton.icon(
+              onPressed: description.text.isEmpty ? null : _copyDescription,
+              icon: const Icon(Icons.copy_rounded, size: 18),
+              label: const Text('Nusxa olish'),
+            ),
+            TextButton.icon(
+              onPressed: description.text.isEmpty ? null : _clearDescription,
+              icon: const Icon(Icons.backspace_outlined, size: 18),
+              label: const Text('Tozalash'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 5),
+        const Text(
+          '“Qo‘yish” clipboarddagi matnni aynan kursor turgan joyga qo‘shadi.',
+          style: TextStyle(fontSize: 11.5, color: AppColors.muted),
+        ),
+      ],
     ),
   );
 
@@ -1698,8 +1798,8 @@ class _BookFormState extends State<_BookForm> {
     try {
       final picked = await picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 85,
-        maxWidth: 1600,
+        imageQuality: 82,
+        maxWidth: 1200,
       );
       if (picked == null) return;
       setState(() => uploadingImage = true);
@@ -1859,7 +1959,7 @@ class _BookFormState extends State<_BookForm> {
             field(title, 'Kitob nomi', required: true),
             field(author, 'Muallif'),
             field(category, 'Kategoriya'),
-            field(description, 'Tavsif', lines: 4),
+            _descriptionEditor(),
             Row(
               children: [
                 Expanded(

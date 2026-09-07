@@ -1945,9 +1945,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final deliveryFee = delivery == 'Gyeongsan' || state.cartCount >= 4
-        ? 0
-        : AppState.deliveryFee;
+    final deliveryFee = state.cartCount >= 4 ? 0 : AppState.deliveryFee;
     final total = state.cartSubtotal + deliveryFee;
 
     return Scaffold(
@@ -2034,17 +2032,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           ? '4+ kitob — BEPUL • 1–3 ish kuni'
                           : '₩4,000 • 1–3 ish kuni',
                     ),
-                  ),
-                  const Divider(height: 1),
-                  RadioListTile<String>(
-                    value: 'Gyeongsan',
-                    groupValue: delivery,
-                    onChanged: (v) => setState(() => delivery = v!),
-                    title: const Text(
-                      'Gyeongsan ichida',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    subtitle: const Text('Bepul yetkazib berish'),
                   ),
                 ],
               ),

@@ -1,0 +1,43 @@
+name: Fix admin customers navigation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/fix_admin_customers_nav.py'
+      - '.github/workflows/fix_admin_customers_nav.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Apply fix
+        run: python tools/fix_admin_customers_nav.py
+      - name: Format
+        run: dart format lib/admin_ui.dart
+      - name: Dependencies
+        run: flutter pub get
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Test
+        run: flutter test
+      - name: Web build
+        run: flutter build web --release
+      - name: Commit fix
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lib/admin_ui.dart
+          git diff --cached --quiet && exit 0
+          git commit -m 'Fix professional admin customer navigation'
+          git push

@@ -11,7 +11,7 @@ mkdir -p /work /output
 cp -a /src/. /work/
 cd /work
 
-flutter create . --platforms=android --project-name muhajeerbooks --org com.muhajeerbooks
+flutter create . --platforms=android,web --project-name muhajeerbooks --org com.muhajeerbooks
 flutter pub get
 python3 tools/play_prepare_android.py
 
@@ -40,7 +40,9 @@ for spec in "mdpi:48" "hdpi:72" "xhdpi:96" "xxhdpi:144" "xxxhdpi:192"; do
 done
 
 flutter build appbundle --release
+flutter build web --release
 
+cp -a build/web/. /output/
 cp build/app/outputs/bundle/release/app-release.aab /output/muhajeer-books-release.aab
 keytool -exportcert -rfc \
   -keystore android/app/upload-keystore.jks \
@@ -51,17 +53,4 @@ sha256sum /output/muhajeer-books-release.aab | awk '{print $1}' > /output/muhaje
 
 rm -f android/app/upload-keystore.jks android/key.properties
 
-cat > /output/index.html <<'HTML'
-<!doctype html>
-<html lang="uz">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Muhajeer Books — Play Release</title></head>
-<body style="font-family:system-ui;max-width:720px;margin:48px auto;padding:0 20px;line-height:1.55">
-<h1>Muhajeer Books — Google Play release</h1>
-<p>Production uchun imzolangan Android App Bundle tayyor.</p>
-<p><a href="/muhajeer-books-release.aab">muhajeer-books-release.aab</a></p>
-<p><a href="/upload_certificate.pem">upload_certificate.pem</a></p>
-<p><a href="/muhajeer-books-release.sha256">SHA-256</a></p>
-</body></html>
-HTML
-
-exec python3 -m http.server 8080 --directory /output
+exec python3 /src/tools/play_serve.py

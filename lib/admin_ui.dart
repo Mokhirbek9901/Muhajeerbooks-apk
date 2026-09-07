@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -324,6 +325,11 @@ class AdminDashboardPage extends StatefulWidget {
 class _AdminDashboardPageState extends State<AdminDashboardPage> {
   int tab = 0;
   late final _AdminApi api;
+  Timer? _liveRefreshTimer;
+  final _overviewKey = GlobalKey<_OverviewAdminState>();
+  final _booksKey = GlobalKey<_BooksAdminState>();
+  final _inventoryKey = GlobalKey<_InventoryAdminState>();
+  final _ordersKey = GlobalKey<_OrdersAdminState>();
 
   static const titles = [
     'Boshqaruv markazi',
@@ -344,15 +350,34 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   void initState() {
     super.initState();
     api = _AdminApi(widget.secret);
+    _liveRefreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted) return;
+      switch (tab) {
+        case 0:
+          _overviewKey.currentState?.reload();
+        case 1:
+          _booksKey.currentState?.reload(syncStore: false);
+        case 2:
+          _inventoryKey.currentState?.loadQuietly();
+        case 3:
+          _ordersKey.currentState?.reload();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _liveRefreshTimer?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final pages = [
-      _OverviewAdmin(api: api),
-      _BooksAdmin(api: api),
-      _InventoryAdmin(api: api),
-      _OrdersAdmin(api: api),
+      _OverviewAdmin(key: _overviewKey, api: api),
+      _BooksAdmin(key: _booksKey, api: api),
+      _InventoryAdmin(key: _inventoryKey, api: api),
+      _OrdersAdmin(key: _ordersKey, api: api),
       _DiscountAdmin(api: api),
     ];
     const railDestinations = [
@@ -511,7 +536,7 @@ class _OverviewData {
 }
 
 class _OverviewAdmin extends StatefulWidget {
-  const _OverviewAdmin({required this.api});
+  const _OverviewAdmin({super.key, required this.api});
   final _AdminApi api;
 
   @override
@@ -529,7 +554,9 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
 
   Future<_OverviewData> load() async =>
       _OverviewData(await widget.api.books(), await widget.api.orders());
-  void reload() => setState(() => future = load());
+  void reload() {
+    if (mounted) setState(() => future = load());
+  }
 
   @override
   Widget build(BuildContext context) => FutureBuilder<_OverviewData>(
@@ -1090,7 +1117,7 @@ class _AdminStatCard extends StatelessWidget {
 }
 
 class _InventoryAdmin extends StatefulWidget {
-  const _InventoryAdmin({required this.api});
+  const _InventoryAdmin({super.key, required this.api});
   final _AdminApi api;
 
   @override
@@ -1110,8 +1137,8 @@ class _InventoryAdminState extends State<_InventoryAdmin> {
     _load();
   }
 
-  Future<void> _load() async {
-    if (mounted) {
+  Future<void> _load({bool showLoading = true}) async {
+    if (mounted && showLoading) {
       setState(() {
         loading = true;
         error = null;
@@ -1137,6 +1164,8 @@ class _InventoryAdminState extends State<_InventoryAdmin> {
       });
     }
   }
+
+  Future<void> loadQuietly() => _load(showLoading: false);
 
   Future<void> change(Book book, int delta) async {
     if (busy.contains(book.id)) return;
@@ -1374,7 +1403,7 @@ class _InventoryAdminState extends State<_InventoryAdmin> {
 }
 
 class _BooksAdmin extends StatefulWidget {
-  const _BooksAdmin({required this.api});
+  const _BooksAdmin({super.key, required this.api});
   final _AdminApi api;
 
   @override
@@ -1391,9 +1420,12 @@ class _BooksAdminState extends State<_BooksAdmin> {
     future = widget.api.books();
   }
 
-  void reload() {
+  void reload({bool syncStore = true}) {
+    if (!mounted) return;
     setState(() => future = widget.api.books());
-    context.read<AppState>().refreshBooks();
+    if (syncStore) {
+      context.read<AppState>().refreshBooks();
+    }
   }
 
   Future<void> openForm([Book? book]) async {
@@ -2049,7 +2081,7 @@ class _BookFormState extends State<_BookForm> {
 }
 
 class _OrdersAdmin extends StatefulWidget {
-  const _OrdersAdmin({required this.api});
+  const _OrdersAdmin({super.key, required this.api});
   final _AdminApi api;
 
   @override
@@ -2068,7 +2100,9 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
     future = widget.api.orders();
   }
 
-  void reload() => setState(() => future = widget.api.orders());
+  void reload() {
+    if (mounted) setState(() => future = widget.api.orders());
+  }
 
   Future<void> changeStatus(ShopOrder order, String status) async {
     if (busy.contains(order.id)) return;

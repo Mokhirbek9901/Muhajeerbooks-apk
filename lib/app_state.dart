@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -539,6 +540,10 @@ class AppState extends ChangeNotifier {
   final List<ShopOrder> _localOrders = [];
   final Map<String, int> _cart = {};
   final Set<String> _favorites = {};
+  RealtimeChannel? _booksChannel;
+  Timer? _booksRealtimeDebounce;
+  Timer? _booksFallbackTimer;
+  bool _quietBooksRefreshing = false;
   bool loading = true;
   String? error;
   Map<String, String> savedCustomer = const {
@@ -574,7 +579,83 @@ class AppState extends ChangeNotifier {
       await _initializeLocalCatalog();
     } else {
       await refreshBooks();
+      _startLiveBooksSync();
     }
+  }
+
+  void _startLiveBooksSync() {
+    if (_backend == null || _booksChannel != null) return;
+
+    _booksChannel = Supabase.instance.client
+        .channel('muhajeer-books-catalog-live')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'books',
+          callback: (_) {
+            _booksRealtimeDebounce?.cancel();
+            _booksRealtimeDebounce = Timer(
+              const Duration(milliseconds: 180),
+              _refreshBooksQuietly,
+            );
+          },
+        )
+        .subscribe();
+
+    // Realtime uzilib qolgan holat uchun yengil zaxira tekshiruv.
+    _booksFallbackTimer = Timer.periodic(
+      const Duration(seconds: 20),
+      (_) => _refreshBooksQuietly(),
+    );
+  }
+
+  String _catalogStamp(Iterable<Book> items) => items
+      .map(
+        (b) => [
+          b.id,
+          b.title,
+          b.author,
+          b.category,
+          b.description,
+          b.price,
+          b.stock,
+          b.discountPercent,
+          b.imageUrl,
+          b.isActive,
+          b.coverType,
+          b.costPrice,
+          b.recommended,
+        ].join('¦'),
+      )
+      .join('§');
+
+  Future<void> _refreshBooksQuietly() async {
+    if (_backend == null || _quietBooksRefreshing) return;
+    _quietBooksRefreshing = true;
+    try {
+      final fresh = await _backend!.fetchBooks();
+      if (_catalogStamp(fresh) == _catalogStamp(_books)) return;
+      _books
+        ..clear()
+        ..addAll(fresh);
+      _sanitizeCart();
+      notifyListeners();
+    } catch (_) {
+      // Oddiy internet uzilishida ekrandagi oxirgi katalog saqlanadi.
+    } finally {
+      _quietBooksRefreshing = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _booksRealtimeDebounce?.cancel();
+    _booksFallbackTimer?.cancel();
+    final channel = _booksChannel;
+    if (channel != null) {
+      unawaited(Supabase.instance.client.removeChannel(channel));
+    }
+    super.dispose();
   }
 
   Future<void> _initializeLocalCatalog() async {

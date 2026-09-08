@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -9,14 +7,6 @@ import 'app_state.dart';
 import 'brand.dart';
 import 'design_system.dart';
 import 'store_ui.dart';
-
-/// Phone OTP is ready in the app. Keep this false until a Supabase SMS provider
-/// is enabled, so customers are never locked out by missing third-party SMS
-/// credentials. Enable at build time with --dart-define=REQUIRE_PHONE_AUTH=true.
-const bool requirePhoneAuth = bool.fromEnvironment(
-  'REQUIRE_PHONE_AUTH',
-  defaultValue: false,
-);
 
 class CustomerAuthGate extends StatefulWidget {
   const CustomerAuthGate({super.key});
@@ -28,142 +18,103 @@ class CustomerAuthGate extends StatefulWidget {
 class _CustomerAuthGateState extends State<CustomerAuthGate> {
   final name = TextEditingController();
   final phone = TextEditingController();
-  final code = TextEditingController();
-  StreamSubscription<AuthState>? _authSub;
-  bool sending = false;
-  bool verifying = false;
-  bool codeSent = false;
-  String normalizedPhone = '';
+
+  bool saving = false;
+  bool syncScheduled = false;
   String? error;
 
   SupabaseClient get client => Supabase.instance.client;
 
   @override
-  void initState() {
-    super.initState();
-    _authSub = client.auth.onAuthStateChange.listen((_) {
-      if (mounted) setState(() {});
-    });
-    if (client.auth.currentSession != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _hydrateExisting());
-    }
-  }
-
-  @override
   void dispose() {
-    _authSub?.cancel();
     name.dispose();
     phone.dispose();
-    code.dispose();
     super.dispose();
   }
 
-  String _normalizeKoreanPhone(String input) {
-    final raw = input.trim();
-    final digits = raw.replaceAll(RegExp(r'\D'), '');
-    if (digits.isEmpty) return '';
-    if (raw.startsWith('+')) return '+$digits';
-    if (digits.startsWith('82')) return '+$digits';
-    if (digits.startsWith('0')) return '+82${digits.substring(1)}';
-    return '+82$digits';
+  bool _isValidSavedCustomer(Map<String, String> customer) {
+    final savedName = (customer['name'] ?? '').trim();
+    final savedPhone = (customer['phone'] ?? '').replaceAll(RegExp(r'\D'), '');
+    return savedName.length >= 2 && savedPhone.length >= 9;
   }
 
-  Future<void> _hydrateExisting() async {
-    final user = client.auth.currentUser;
-    if (user == null || !mounted) return;
-    try {
-      final row = await client
-          .from('profiles')
-          .select('full_name, phone')
-          .eq('id', user.id)
-          .maybeSingle();
-      final displayName = (row?['full_name'] ?? '').toString();
-      final displayPhone = (row?['phone'] ?? user.phone ?? '').toString();
-      await client.rpc(
-        'customer_register_session',
-        params: {'p_name': displayName},
-      );
-      if (!mounted) return;
-      await context.read<AppState>().setAuthenticatedCustomer(
-        displayName,
-        displayPhone,
-      );
-    } catch (_) {
-      // Session is still valid; analytics/profile sync can retry next launch.
-    }
+  void _syncSavedCustomer(AppState state) {
+    if (syncScheduled || !state.isOnlineBackend) return;
+    syncScheduled = true;
+    final savedName = (state.savedCustomer['name'] ?? '').trim();
+    final savedPhone = (state.savedCustomer['phone'] ?? '').trim();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        await client.rpc(
+          'customer_register_free',
+          params: {'p_name': savedName, 'p_phone': savedPhone},
+        );
+      } catch (_) {
+        // Xarid qilish internetdagi vaqtinchalik xatolik sabab bloklanmaydi.
+        // Keyingi ilova ochilishida profil yana sinxronlanadi.
+      }
+    });
   }
 
-  Future<void> _sendCode() async {
-    final fullName = name.text.trim();
-    final value = _normalizeKoreanPhone(phone.text);
+  Future<void> _continue() async {
+    final fullName = name.text.trim().replaceAll(RegExp(r'\s+'), ' ');
+    final phoneValue = phone.text.trim();
+    final digits = phoneValue.replaceAll(RegExp(r'\D'), '');
+
     if (fullName.length < 2) {
-      setState(() => error = 'Ism va familiyangizni kiriting.');
+      setState(() => error = 'Ismingizni kiriting.');
       return;
     }
-    if (value.length < 10) {
+    if (digits.length < 9 || digits.length > 15) {
       setState(() => error = 'Telefon raqamingizni to‘liq kiriting.');
       return;
     }
-    setState(() {
-      sending = true;
-      error = null;
-    });
-    try {
-      await client.auth.signInWithOtp(phone: value);
-      if (!mounted) return;
-      setState(() {
-        normalizedPhone = value;
-        codeSent = true;
-      });
-    } on AuthException catch (e) {
-      if (mounted) setState(() => error = e.message);
-    } catch (e) {
-      if (mounted) setState(() => error = 'SMS yuborilmadi: $e');
-    } finally {
-      if (mounted) setState(() => sending = false);
-    }
-  }
 
-  Future<void> _verify() async {
-    final token = code.text.replaceAll(RegExp(r'\D'), '');
-    if (token.length != 6) {
-      setState(() => error = 'SMS orqali kelgan 6 xonali kodni kiriting.');
-      return;
-    }
     setState(() {
-      verifying = true;
+      saving = true;
       error = null;
+      syncScheduled = true;
     });
+
+    final state = context.read<AppState>();
     try {
-      final response = await client.auth.verifyOTP(
-        type: OtpType.sms,
-        token: token,
-        phone: normalizedPhone,
-      );
-      if (response.session == null) {
-        throw const AuthException('Tasdiqlash yakunlanmadi.');
+      // Avval qurilmaga saqlaymiz: profil bepul va SMSsiz ishlaydi.
+      await state.setAuthenticatedCustomer(fullName, phoneValue);
+
+      // Admin paneldagi mijozlar statistikasi uchun serverga ham yozamiz.
+      if (state.isOnlineBackend) {
+        try {
+          await client.rpc(
+            'customer_register_free',
+            params: {'p_name': fullName, 'p_phone': phoneValue},
+          );
+        } catch (_) {
+          // Mahalliy profil saqlangan. Internet qaytgach keyingi ochilishda sync bo‘ladi.
+        }
       }
-      await client.rpc(
-        'customer_register_session',
-        params: {'p_name': name.text.trim()},
-      );
-      await context.read<AppState>().setAuthenticatedCustomer(
-        name.text.trim(),
-        normalizedPhone,
-      );
-      if (mounted) setState(() {});
-    } on AuthException catch (e) {
-      if (mounted) setState(() => error = e.message);
-    } catch (e) {
-      if (mounted) setState(() => error = 'Kod tasdiqlanmadi: $e');
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          error = 'Ma’lumotni saqlab bo‘lmadi. Qayta urinib ko‘ring.';
+          syncScheduled = false;
+        });
+      }
     } finally {
-      if (mounted) setState(() => verifying = false);
+      if (mounted) setState(() => saving = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!requirePhoneAuth || client.auth.currentSession != null) {
+    final state = context.watch<AppState>();
+
+    if (state.loading) {
+      return const _CustomerLoadingScreen();
+    }
+
+    if (_isValidSavedCustomer(state.savedCustomer)) {
+      _syncSavedCustomer(state);
       return const StoreShell();
     }
 
@@ -172,152 +123,167 @@ class _CustomerAuthGateState extends State<CustomerAuthGate> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(18, 20, 18, 28),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 470),
+              constraints: const BoxConstraints(maxWidth: 480),
               child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(22),
-                  child: AutofillGroup(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Center(
-                          child: MuhajeerLogoBadge(size: 92, radius: 24),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          codeSent
-                              ? 'SMS kodni tasdiqlang'
-                              : 'Muhajeer Books’ga kirish',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.headlineMedium,
-                        ),
-                        const SizedBox(height: 7),
-                        Text(
-                          codeSent
-                              ? '$normalizedPhone raqamiga kelgan 6 xonali kodni kiriting.'
-                              : 'Ismingiz va Koreya telefon raqamingiz kifoya. Parol kerak emas.',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: AppColors.muted,
-                            height: 1.45,
-                          ),
-                        ),
-                        const SizedBox(height: 22),
-                        if (!codeSent) ...[
-                          TextField(
-                            controller: name,
-                            textInputAction: TextInputAction.next,
-                            autofillHints: const [AutofillHints.name],
-                            decoration: const InputDecoration(
-                              labelText: 'Ism va familiya',
-                              prefixIcon: Icon(Icons.person_outline_rounded),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+                      color: AppColors.navy,
+                      child: const Column(
+                        children: [
+                          MuhajeerLogoBadge(size: 88, radius: 24),
+                          SizedBox(height: 15),
+                          Text(
+                            'Muhajeer Books’ga\nxush kelibsiz',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 25,
+                              height: 1.1,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -.35,
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: phone,
-                            keyboardType: TextInputType.phone,
-                            textInputAction: TextInputAction.done,
-                            autofillHints: const [
-                              AutofillHints.telephoneNumber,
-                            ],
-                            onSubmitted: (_) => _sendCode(),
-                            decoration: const InputDecoration(
-                              labelText: 'Telefon raqam',
-                              hintText: '010-1234-5678',
-                              prefixIcon: Icon(Icons.phone_iphone_rounded),
-                              helperText: '010 bilan yozsangiz, +82 avtomatik qo‘shiladi.',
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          FilledButton.icon(
-                            onPressed: sending ? null : _sendCode,
-                            icon: sending
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.sms_outlined),
-                            label: Text(
-                              sending ? 'Yuborilmoqda...' : 'SMS kod yuborish',
-                            ),
-                          ),
-                        ] else ...[
-                          TextField(
-                            controller: code,
-                            autofocus: true,
-                            keyboardType: TextInputType.number,
-                            textInputAction: TextInputAction.done,
-                            autofillHints: const [AutofillHints.oneTimeCode],
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(6),
-                            ],
-                            onSubmitted: (_) => _verify(),
-                            decoration: const InputDecoration(
-                              labelText: '6 xonali SMS kod',
-                              prefixIcon: Icon(Icons.verified_user_outlined),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          FilledButton.icon(
-                            onPressed: verifying ? null : _verify,
-                            icon: verifying
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.login_rounded),
-                            label: Text(
-                              verifying ? 'Tekshirilmoqda...' : 'Kirish',
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          TextButton(
-                            onPressed: sending
-                                ? null
-                                : () {
-                                    setState(() {
-                                      codeSent = false;
-                                      code.clear();
-                                      error = null;
-                                    });
-                                  },
-                            child: const Text('Raqamni o‘zgartirish'),
-                          ),
-                        ],
-                        if (error != null) ...[
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: AppColors.dangerSoft,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: const Color(0xFFFFCCD1),
-                              ),
-                            ),
-                            child: Text(
-                              error!,
-                              style: const TextStyle(
-                                color: AppColors.danger,
-                                height: 1.4,
-                              ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Bepul profil • parol ham, SMS ham kerak emas',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Color(0xFFE5EDF5),
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ],
-                      ],
+                      ),
                     ),
-                  ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
+                      child: AutofillGroup(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const _WelcomeFeatureRow(),
+                            const SizedBox(height: 19),
+                            TextField(
+                              controller: name,
+                              textCapitalization: TextCapitalization.words,
+                              textInputAction: TextInputAction.next,
+                              autofillHints: const [AutofillHints.name],
+                              decoration: const InputDecoration(
+                                labelText: 'Ismingiz',
+                                hintText: 'Masalan: Azizbek',
+                                prefixIcon: Icon(Icons.person_outline_rounded),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: phone,
+                              keyboardType: TextInputType.phone,
+                              textInputAction: TextInputAction.done,
+                              autofillHints: const [
+                                AutofillHints.telephoneNumber,
+                              ],
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'[0-9+\-\s()]'),
+                                ),
+                                LengthLimitingTextInputFormatter(24),
+                              ],
+                              onSubmitted: (_) => saving ? null : _continue(),
+                              decoration: const InputDecoration(
+                                labelText: 'Telefon raqamingiz',
+                                hintText: '010-1234-5678',
+                                prefixIcon: Icon(Icons.phone_iphone_rounded),
+                                helperText: 'Koreya raqamini 010 bilan yozishingiz mumkin.',
+                              ),
+                            ),
+                            if (error != null) ...[
+                              const SizedBox(height: 12),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.dangerSoft,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: const Color(0xFFFFCCD1),
+                                  ),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(
+                                      Icons.error_outline_rounded,
+                                      size: 19,
+                                      color: AppColors.danger,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        error!,
+                                        style: const TextStyle(
+                                          color: AppColors.danger,
+                                          height: 1.35,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 17),
+                            SizedBox(
+                              height: 52,
+                              child: FilledButton.icon(
+                                onPressed: saving ? null : _continue,
+                                icon: saving
+                                    ? const SizedBox(
+                                        width: 19,
+                                        height: 19,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Icon(Icons.arrow_forward_rounded),
+                                label: Text(
+                                  saving ? 'Saqlanmoqda...' : 'Davom etish',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 13),
+                            const Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.lock_outline_rounded,
+                                  size: 16,
+                                  color: AppColors.muted,
+                                ),
+                                SizedBox(width: 7),
+                                Expanded(
+                                  child: Text(
+                                    'Ism va telefon buyurtmalarni rasmiylashtirish va siz bilan bog‘lanish uchun saqlanadi.',
+                                    style: TextStyle(
+                                      color: AppColors.muted,
+                                      fontSize: 11.5,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -326,4 +292,83 @@ class _CustomerAuthGateState extends State<CustomerAuthGate> {
       ),
     );
   }
+}
+
+class _WelcomeFeatureRow extends StatelessWidget {
+  const _WelcomeFeatureRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        _WelcomeFeature(icon: Icons.check_circle_outline_rounded, text: 'Bepul'),
+        _WelcomeFeature(icon: Icons.sms_outlined, text: 'SMS shart emas'),
+        _WelcomeFeature(icon: Icons.speed_rounded, text: 'Bir marta kiritiladi'),
+      ],
+    );
+  }
+}
+
+class _WelcomeFeature extends StatelessWidget {
+  const _WelcomeFeature({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    decoration: BoxDecoration(
+      color: AppColors.surfaceSoft,
+      borderRadius: BorderRadius.circular(999),
+      border: Border.all(color: AppColors.border),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 15, color: AppColors.success),
+        const SizedBox(width: 5),
+        Text(
+          text,
+          style: const TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w800,
+            color: AppColors.navy,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _CustomerLoadingScreen extends StatelessWidget {
+  const _CustomerLoadingScreen();
+
+  @override
+  Widget build(BuildContext context) => const Scaffold(
+    backgroundColor: AppColors.background,
+    body: SafeArea(
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            MuhajeerLogoBadge(size: 82, radius: 22),
+            SizedBox(height: 18),
+            CircularProgressIndicator(strokeWidth: 2.5),
+            SizedBox(height: 12),
+            Text(
+              'Muhajeer Books',
+              style: TextStyle(
+                color: AppColors.navy,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }

@@ -252,7 +252,7 @@ class _SalesAdminState extends State<_SalesAdmin> {
                         icon: Icons.calendar_month_rounded,
                         label: 'Shu oy $monthCount ta',
                         foreground: AppColors.orange,
-                        background: AppColors.orangeSoft,
+                        background: const Color(0xFFFFF3E3),
                         border: AppColors.border,
                       ),
                     ],

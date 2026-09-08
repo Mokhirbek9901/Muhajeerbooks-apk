@@ -8,6 +8,7 @@ import 'design_system.dart';
 import 'store_ui.dart';
 
 // Live Railway web va APK aynan shu bir xil storefront kodidan build qilinadi.
+// Customer logout live deploy marker.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 

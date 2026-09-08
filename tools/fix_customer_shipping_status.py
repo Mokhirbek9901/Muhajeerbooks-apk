@@ -35,14 +35,13 @@ new_steps = """      'accepted' || 'paid' => 1,
       Icons.inventory_2_rounded,
       Icons.local_shipping_rounded,
     ];"""
-s = replace_all(s, old_steps, new_steps, 'customer order timeline', minimum=2)
+s = replace_all(s, old_steps, new_steps, 'customer order timeline')
 
 s = replace_all(
     s,
     "      'done' => 'Yakunlandi',",
     "      'done' => 'Jo‘natildi',",
     'legacy done label',
-    minimum=2,
 )
 
 old_proof = """                    if (order.hasPaymentProof) ...[
@@ -92,7 +91,7 @@ new_proof = old_proof + """
                         ),
                       ),
                     ],"""
-s = replace_all(s, old_proof, new_proof, 'shipping delivery note', minimum=2)
+s = replace_all(s, old_proof, new_proof, 'shipping delivery note')
 
 old_snackbar = """            SnackBar(
               content: Text(

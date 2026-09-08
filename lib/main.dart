@@ -3,12 +3,13 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_state.dart';
+import 'app_state_fixed.dart';
 import 'auth_gate.dart';
 import 'design_system.dart';
 import 'store_ui.dart';
 
 // Live Railway web va APK aynan shu bir xil storefront kodidan build qilinadi.
-// Customer logout live deploy marker.
+// Customer logout local ma'lumotlarni darhol tozalaydi.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -18,7 +19,7 @@ Future<void> main() async {
   );
   const supabaseAnonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
-    defaultValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ5dGZoanZoanhuYmhnaXRvd2hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2MzIzNjMsImV4cCI6MjEwNDIwODM2M30.JYcxkDTJ0ChS34Id_6UI-vxPXjKnWc5rTjH0IampVjs',
+    defaultValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXAiLCJyZWYiOiJyeXRmaGp2aGp4bmJoZ2l0b3dobyIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNzg4NjMyMzYzLCJleHAiOjIxMDQyMDgzNjN9.JYcxkDTJ0ChS34Id_6UI-vxPXjKnWc5rTjH0IampVjs',
   );
   final backendConfigured =
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
@@ -37,9 +38,9 @@ class MuhajeerBooksApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
+    return ChangeNotifierProvider<AppState>(
       create: (_) =>
-          AppState(backendConfigured: backendConfigured)..initialize(),
+          AppStateFixed(backendConfigured: backendConfigured)..initialize(),
       child: MaterialApp(
         title: 'Muhajeer Books',
         debugShowCheckedModeBanner: false,

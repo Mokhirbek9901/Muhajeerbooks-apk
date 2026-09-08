@@ -372,15 +372,15 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       if (!mounted) return;
       switch (tab) {
         case 0:
-          _overviewKey.currentState?.reload();
+          unawaited(_overviewKey.currentState?.reloadQuietly());
         case 1:
-          _booksKey.currentState?.reload(syncStore: false);
+          unawaited(_booksKey.currentState?.reloadQuietly());
         case 2:
-          _inventoryKey.currentState?.loadQuietly();
+          unawaited(_inventoryKey.currentState?.loadQuietly());
         case 3:
-          _ordersKey.currentState?.reload();
+          unawaited(_ordersKey.currentState?.reloadQuietly());
         case 4:
-          _customersKey.currentState?.reload();
+          unawaited(_customersKey.currentState?.reloadQuietly());
       }
     });
   }
@@ -584,6 +584,16 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
     if (mounted) setState(() => future = load());
   }
 
+  Future<void> reloadQuietly() async {
+    try {
+      final data = await load();
+      if (!mounted) return;
+      setState(() => future = Future.value(data));
+    } catch (_) {
+      // Background refresh must not replace visible data.
+    }
+  }
+
   @override
   Widget build(BuildContext context) => FutureBuilder<_OverviewData>(
         future: future,
@@ -639,8 +649,7 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
               .length;
           final activeRevenue = orders
               .where(
-                (o) =>
-                    ['accepted', 'paid', 'shipping'].contains(o.status),
+                (o) => ['accepted', 'paid', 'shipping'].contains(o.status),
               )
               .fold<int>(0, (sum, o) => sum + o.total);
           final completedRevenue = orders
@@ -676,8 +685,9 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
           final cancelledOrders =
               orders.where((o) => o.status == 'cancelled').length;
           final outOfStock = books.where((b) => b.stock == 0).length;
-          final completionRate =
-              orders.isEmpty ? 0 : ((shippingOrders / orders.length) * 100).round();
+          final completionRate = orders.isEmpty
+              ? 0
+              : ((shippingOrders / orders.length) * 100).round();
           final cancelRate = orders.isEmpty
               ? 0
               : ((cancelledOrders / orders.length) * 100).round();
@@ -1450,6 +1460,16 @@ class _BooksAdminState extends State<_BooksAdmin> {
     }
   }
 
+  Future<void> reloadQuietly() async {
+    try {
+      final data = await widget.api.books();
+      if (!mounted) return;
+      setState(() => future = Future.value(data));
+    } catch (_) {
+      // Keep the previous list visible when a background fetch fails.
+    }
+  }
+
   Future<void> openForm([Book? book]) async {
     final changed = await Navigator.push<bool>(
       context,
@@ -2130,11 +2150,22 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
     if (mounted) setState(() => future = widget.api.orders());
   }
 
+  Future<void> reloadQuietly() async {
+    try {
+      final data = await widget.api.orders();
+      if (!mounted) return;
+      setState(() => future = Future.value(data));
+    } catch (_) {
+      // Keep the current orders visible during background refresh.
+    }
+  }
+
   Future<void> changeStatus(ShopOrder order, String status) async {
     if (order.isTelegram) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Telegram buyurtmasi botdan boshqariladi.')),
+          const SnackBar(
+              content: Text('Telegram buyurtmasi botdan boshqariladi.')),
         );
       }
       return;
@@ -2447,7 +2478,8 @@ class _ProfessionalOrderCard extends StatelessWidget {
           child: Row(
             children: [
               if (order.isTelegram) ...[
-                const Icon(Icons.send_rounded, size: 15, color: Color(0xFF229ED9)),
+                const Icon(Icons.send_rounded,
+                    size: 15, color: Color(0xFF229ED9)),
                 const SizedBox(width: 4),
                 const Text(
                   'Telegramdan zakas',
@@ -3011,6 +3043,25 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
     if (!mounted) return;
     _reload();
     setState(() {});
+  }
+
+  Future<void> reloadQuietly() async {
+    try {
+      final values = await Future.wait<dynamic>([
+        widget.api.userStats(),
+        widget.api.customers(),
+      ]);
+      final data = (
+        Map<String, dynamic>.from(values[0] as Map),
+        (values[1] as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList(),
+      );
+      if (!mounted) return;
+      setState(() => future = Future.value(data));
+    } catch (_) {
+      // Keep the current customer list visible during background refresh.
+    }
   }
 
   @override

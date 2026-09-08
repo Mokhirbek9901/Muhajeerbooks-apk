@@ -566,19 +566,10 @@ class _StoreHeader extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     const Text(
-                      'Mohirbek Ismoilov',
-                      style: TextStyle(
-                        color: UzbekCustomerColors.navy,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    const Text(
                       'Koreyadagi O’zbek kitobxonlari uchun',
                       style: TextStyle(
                         color: UzbekCustomerColors.textMuted,
-                        fontSize: 10.8,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.w700,
                       ),
                     ),

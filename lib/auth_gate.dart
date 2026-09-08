@@ -32,10 +32,33 @@ class _CustomerAuthGateState extends State<CustomerAuthGate> {
     super.dispose();
   }
 
+  String? _normalizePhone(String raw) {
+    var digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.startsWith('00')) digits = digits.substring(2);
+
+    // O‘zbekiston: +998 XX XXX XX XX, 998XXXXXXXXX yoki mahalliy 9 raqam.
+    if (digits.length == 12 && digits.startsWith('998')) {
+      return '+$digits';
+    }
+    if (digits.length == 9 && !digits.startsWith('0')) {
+      return '+998$digits';
+    }
+
+    // Koreya: 010-XXXX-XXXX yoki +82 10-XXXX-XXXX.
+    if (digits.length == 11 && digits.startsWith('010')) {
+      return '+82${digits.substring(1)}';
+    }
+    if (digits.length == 12 && digits.startsWith('8210')) {
+      return '+$digits';
+    }
+
+    return null;
+  }
+
   bool _isValidSavedCustomer(Map<String, String> customer) {
     final savedName = (customer['name'] ?? '').trim();
-    final savedPhone = (customer['phone'] ?? '').replaceAll(RegExp(r'\D'), '');
-    return savedName.length >= 2 && savedPhone.length >= 9;
+    final savedPhone = (customer['phone'] ?? '').trim();
+    return savedName.length >= 2 && _normalizePhone(savedPhone) != null;
   }
 
   void _syncSavedCustomer(AppState state) {
@@ -59,15 +82,17 @@ class _CustomerAuthGateState extends State<CustomerAuthGate> {
 
   Future<void> _continue() async {
     final fullName = name.text.trim().replaceAll(RegExp(r'\s+'), ' ');
-    final phoneValue = phone.text.trim();
-    final digits = phoneValue.replaceAll(RegExp(r'\D'), '');
+    final rawPhone = phone.text.trim();
+    final phoneValue = _normalizePhone(rawPhone);
 
     if (fullName.length < 2) {
       setState(() => error = 'Ismingizni kiriting.');
       return;
     }
-    if (digits.length < 9 || digits.length > 15) {
-      setState(() => error = 'Telefon raqamingizni to‘liq kiriting.');
+    if (phoneValue == null) {
+      setState(
+        () => error = 'O‘zbekiston (+998) yoki Koreya (010 / +82) telefon raqamini to‘liq kiriting.',
+      );
       return;
     }
 
@@ -137,17 +162,7 @@ class _CustomerAuthGateState extends State<CustomerAuthGate> {
                       child: const Column(
                         children: [
                           MuhajeerLogoBadge(size: 88, radius: 24),
-                          SizedBox(height: 11),
-                          Text(
-                            'Mohirbek Ismoilov',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: AppColors.gold,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          SizedBox(height: 7),
+                          SizedBox(height: 15),
                           Text(
                             'Muhajeer Books’ga\nxush kelibsiz',
                             textAlign: TextAlign.center,
@@ -208,9 +223,10 @@ class _CustomerAuthGateState extends State<CustomerAuthGate> {
                               onSubmitted: (_) => saving ? null : _continue(),
                               decoration: const InputDecoration(
                                 labelText: 'Telefon raqamingiz',
-                                hintText: '010-1234-5678',
+                                hintText:
+                                    '+998 90 123 45 67 yoki 010-1234-5678',
                                 prefixIcon: Icon(Icons.phone_iphone_rounded),
-                                helperText: 'Koreya raqamini 010 bilan yozishingiz mumkin.',
+                                helperText: 'O‘zbekiston +998 va Koreya 010 / +82 raqamlari qabul qilinadi.',
                               ),
                             ),
                             if (error != null) ...[

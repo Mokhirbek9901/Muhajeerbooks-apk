@@ -137,7 +137,17 @@ class _CustomerAuthGateState extends State<CustomerAuthGate> {
                       child: const Column(
                         children: [
                           MuhajeerLogoBadge(size: 88, radius: 24),
-                          SizedBox(height: 15),
+                          SizedBox(height: 11),
+                          Text(
+                            'Mohirbek Ismoilov',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: AppColors.gold,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          SizedBox(height: 7),
                           Text(
                             'Muhajeer Books’ga\nxush kelibsiz',
                             textAlign: TextAlign.center,
@@ -304,9 +314,15 @@ class _WelcomeFeatureRow extends StatelessWidget {
       spacing: 8,
       runSpacing: 8,
       children: [
-        _WelcomeFeature(icon: Icons.check_circle_outline_rounded, text: 'Bepul'),
+        _WelcomeFeature(
+          icon: Icons.check_circle_outline_rounded,
+          text: 'Bepul',
+        ),
         _WelcomeFeature(icon: Icons.sms_outlined, text: 'SMS shart emas'),
-        _WelcomeFeature(icon: Icons.speed_rounded, text: 'Bir marta kiritiladi'),
+        _WelcomeFeature(
+          icon: Icons.speed_rounded,
+          text: 'Bir marta kiritiladi',
+        ),
       ],
     );
   }

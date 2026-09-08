@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - '.github/workflows/fix_customer_shipping_status.yml'
+      - 'tools/fix_customer_shipping_status.py'
   workflow_dispatch:
 
 permissions:

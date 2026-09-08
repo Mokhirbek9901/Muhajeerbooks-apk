@@ -8,9 +8,7 @@ def replace_once(text, old, new, label):
         raise SystemExit(f"{label}: expected 1 match, found {count}")
     return text.replace(old, new, 1)
 
-# -------------------------
-# App state: source identity must be exact.
-# -------------------------
+# App state: exact channel ownership.
 state_path = Path('lib/app_state.dart')
 s = state_path.read_text(encoding='utf-8')
 s = replace_once(
@@ -21,10 +19,7 @@ s = replace_once(
 )
 state_path.write_text(s, encoding='utf-8')
 
-# -------------------------
-# Admin: sales revenue is final only after Jo‘natildi.
-# Instagram/Telegram orders are read-only outside their owner channel.
-# -------------------------
+# Admin: only Jo‘natildi is a realized sale.
 admin_path = Path('lib/admin_ui.dart')
 a = admin_path.read_text(encoding='utf-8')
 
@@ -66,34 +61,21 @@ new_change = """  Future<void> changeStatus(ShopOrder order, String status) asyn
     }"""
 a = replace_once(a, old_change, new_change, 'order source management guard')
 
-old_badge = """              if (order.isTelegram) ...[
-                const Icon(Icons.send_rounded,
-                    size: 15, color: Color(0xFF229ED9)),
-                const SizedBox(width: 4),
-                const Text(
-                  'Telegramdan zakas',
-                  style: TextStyle(
-                    color: Color(0xFF1976A3),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                  ),
+# Add a distinct Instagram badge after the existing Telegram source badge.
+badge_pattern = re.compile(
+    r"(\s+if \(order\.isTelegram\) \.\.\.\[.*?'Telegramdan zakas'.*?\n\s*\],)",
+    re.S,
+)
+match = badge_pattern.search(a)
+if not match:
+    raise SystemExit('order source badge: Telegram badge not found')
+instagram_badge = """
+              if (order.isInstagram) ...[
+                const Icon(
+                  Icons.photo_camera_outlined,
+                  size: 15,
+                  color: Color(0xFFC13584),
                 ),
-              ],"""
-new_badge = """              if (order.isTelegram) ...[
-                const Icon(Icons.send_rounded,
-                    size: 15, color: Color(0xFF229ED9)),
-                const SizedBox(width: 4),
-                const Text(
-                  'Telegramdan zakas',
-                  style: TextStyle(
-                    color: Color(0xFF1976A3),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ] else if (order.isInstagram) ...[
-                const Icon(Icons.photo_camera_outlined,
-                    size: 15, color: Color(0xFFC13584)),
                 const SizedBox(width: 4),
                 const Text(
                   'Instagram savdo',
@@ -104,7 +86,7 @@ new_badge = """              if (order.isTelegram) ...[
                   ),
                 ),
               ],"""
-a = replace_once(a, old_badge, new_badge, 'order source badge')
+a = a[:match.end()] + instagram_badge + a[match.end():]
 
 old_action_guard = """    if (order.isTelegram) {
       return const AppInfoPill(

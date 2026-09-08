@@ -19,3 +19,20 @@ Rasmiy qo‘llanmalar:
 - https://supabase.com/docs/reference/dart/auth-signinwithotp
 
 Tasdiqlangan mijoz buyurtma tarixini serverdan o‘z user ID’si bo‘yicha oladi. Oldingi, akkauntga bog‘lanmagan buyurtmalar yangi hisobga avtomatik biriktirilmaydi. Bu o‘zgarish hamma mavjud kamchiliklar tugaganini anglatmaydi.
+
+## Tekshiruv natijalari
+
+GitHub Flutter CI’da tahlil xatosiz tugadi, 6 ta test o‘tdi (770935e commit). Mavjud lint ogohlantirishlari qolgan. Haqiqiy SMS va qurilmadagi to‘liq xarid sinovi hali bajarilmagan.
+
+2026-09-08 kuni `protect_customer_profile_role` migratsiyasi amaldagi bazaga qo‘llandi. Mijozlar o‘z `role` maydonini o‘zgartira olishi aniqlandi va yopildi. Ismni tahrirlash huquqi saqlandi; sessiyani ro‘yxatga olish faqat autentifikatsiyadan o‘tgan foydalanuvchiga qoldirildi:
+
+```sql
+revoke update on table public.profiles from public, anon, authenticated;
+grant update (full_name) on table public.profiles to authenticated;
+revoke execute on function public.customer_register_session(text) from public, anon;
+grant execute on function public.customer_register_session(text) to authenticated;
+```
+
+Tekshiruv: customer_can_change_role=false, customer_can_edit_name=true, anon_can_register=false, customer_can_register=true. Admin amallari amaldagi admin RPC tekshiruvi orqali ishlaydi.
+
+Qolgan SECURITY DEFINER ogohlantirishlari amaldagi admin/bot RPC arxitekturasiga tegishli; bu ish ularning barchasi bartaraf etilganini anglatmaydi. Qo‘llanma: https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable

@@ -1,0 +1,45 @@
+name: Fix admin refresh and customer notices v2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/fix_admin_refresh_and_customer_notices_v2.py'
+      - '.github/workflows/fix_admin_refresh_and_customer_notices_v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Apply corrected patch
+        run: python3 tools/fix_admin_refresh_and_customer_notices_v2.py
+      - name: Get packages
+        run: flutter pub get
+      - name: Format
+        run: dart format lib/admin_ui.dart lib/app_state.dart lib/store_ui.dart
+      - name: Analyze
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+      - name: Test
+        run: flutter test
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lib/admin_ui.dart lib/app_state.dart lib/store_ui.dart
+          if git diff --cached --quiet; then
+            echo 'No changes'
+          else
+            git commit -m 'Fix silent admin refresh and add in-app order notifications'
+            git push origin main
+          fi

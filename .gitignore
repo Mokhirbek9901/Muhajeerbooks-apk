@@ -19,3 +19,8 @@ macos/Pods/
 # OS
 .DS_Store
 Thumbs.db
+
+# Android upload signing material
+*.jks
+*.keystore
+android/key.properties

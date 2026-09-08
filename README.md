@@ -1,92 +1,76 @@
-# Muhajeer Books — Flutter do‘kon ilovasi
+# Muhajeer Books — professional Flutter kitob do‘koni
 
-Bitta kod bazadan **Android + iOS + Web** uchun ishlaydigan kitob do‘koni.
+Bitta kod bazadan **Android + iOS + Web** uchun ishlaydigan Muhajeer Books ilovasi.
 
-## Tayyor funksiyalar
+## Mijoz uchun
 
-### Mijoz uchun
-- Kitoblar katalogi
-- Qidiruv va kategoriyalar
-- Kitob tafsilotlari
-- Chegirma badge va eski/yangi narx
+- Birinchi kirishda faqat **ism + telefon** kiritiladi
+- Profil **bepul**: SMS va parol talab qilinmaydi
+- Keyingi kirishlarda ma’lumot qayta so‘ralmaydi
+- Kitoblar katalogi, qidiruv, kategoriyalar va saralash
+- Tavsiya etilgan kitoblar, chegirma badge va eski/yangi narx
 - Sevimlilar
-- Savatcha, +/− miqdor va o‘chirish
-- Koreya bo‘ylab 택배 (₩4,000) yoki Gyeongsan ichida bepul yetkazish
-- Ism, telefon, to‘liq manzil/xona raqami bilan buyurtma
-- Buyurtma Supabase bazasiga yoziladi
+- Savatcha, miqdorni `+ / −` o‘zgartirish va o‘chirish
+- Koreya bo‘ylab 택배 — ₩4,000
+- 4+ kitobda yetkazib berish bepul
+- Yetkazib berish: 1–3 ish kuni
+- Ism, telefon, to‘liq manzil va xona raqami bilan checkout
+- Toss Bank rekvizitlari va to‘lov cheki yuklash
+- Buyurtma tarixi va holatini kuzatish
+- Katalog Supabase Realtime orqali yangilanadi
 
-### Admin uchun
-- Email/parol bilan admin kirish
-- Dashboard: kitoblar, ombor, kam qolganlar, chegirmalar
+## Admin uchun
+
+- Himoyalangan admin kirishi
+- Professional dashboard
 - Kitob qo‘shish / tahrirlash / o‘chirish
-- Narx, ombor, kategoriya, tavsif, aktiv holat
-- Muqovani galereyadan Supabase Storage’ga yuklash
-- Har kitobga alohida chegirma
-- Barcha kitoblarga bir xil chegirma berish va bekor qilish
-- Buyurtmalar ro‘yxati va status: yangi / to‘landi / jo‘natildi / yakunlandi / bekor
-- Buyurtmada ombor avtomatik kamayadi; bekor qilinsa qaytadi
+- Muqova rasmi yuklash
+- Narx, tannarx, ombor, kategoriya, tavsif, muqova turi
+- Tavsiya etilgan kitob va aktiv/yashirilgan holat
+- Ombor nazorati va kam qolgan kitoblar
+- Buyurtmalar va statuslar: yangi / qabul qilindi / to‘landi / jo‘natildi / yakunlandi / bekor
+- To‘lov chekini maxfiy ko‘rish
+- Chegirmalarni boshqarish
+- **Mijozlar markazi**: jami mijozlar, bugun faol, 7 kunda faol, ilova qurilmalari, buyurtmalar va xarid summasi
 
-## 1. Flutter platform fayllarini yaratish
+## Mijozlar statistikasi
 
-Repo ildizida:
+Mijozning ism va telefoni `customer_contacts` jadvalida telefon bo‘yicha yagona profil sifatida saqlanadi. Bir xil telefon qayta kirganda yangi mijoz yaratmaydi — mavjud profilning oxirgi faolligi yangilanadi. Buyurtma berilganda ham mijoz profili avtomatik sinxronlanadi.
+
+To‘g‘ridan-to‘g‘ri jadvalga public access yopiq; mobil ilova faqat validatsiyalangan `customer_register_free` RPC orqali yozadi.
+
+## Supabase
+
+Production loyiha migratsiyalari `supabase/migrations/` ichida saqlanadi. Yangi muhitda migratsiyalarni tartib bilan qo‘llash kerak.
+
+Ilova `SUPABASE_URL` va `SUPABASE_ANON_KEY` dart define’larini qo‘llab-quvvatlaydi. Repositorydagi frontend key faqat public/anon client uchun; `service_role` yoki boshqa server secret mobil ilovaga qo‘yilmasligi kerak.
+
+## Android build
 
 ```bash
 flutter create . --platforms=android,ios,web
 flutter pub get
+flutter analyze --no-fatal-warnings --no-fatal-infos
+flutter test
+flutter build appbundle --release
 ```
 
-Bu mavjud `lib/` kodini o‘chirmaydi, faqat Android/iOS/Web uchun native papkalarni yaratadi.
+Google Play uchun `.aab` hosil bo‘ladi. Release signing alohida sozlanadi.
 
-## 2. Supabase sozlash
+## iOS build
 
-1. Supabase’da yangi project yarating.
-2. `supabase/schema.sql` faylini SQL Editor’da ishga tushiring.
-3. Authentication -> Users orqali admin email/parol yarating.
-4. `schema.sql` oxiridagi `update public.profiles ...` so‘rovini emailingiz bilan bajarib admin qiling.
-5. Project Settings -> API’dan **Project URL** va **anon public key** oling.
-
-## 3. Ilovani ishga tushirish
+Mac + Xcode talab qilinadi:
 
 ```bash
-flutter run \
-  --dart-define=SUPABASE_URL=https://YOUR_PROJECT.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY
-```
-
-URL/key berilmasa ilova **demo rejim**da ochiladi. Demo rejimda katalog va admin UI’ni tekshirish mumkin, ammo ma’lumotlar serverda saqlanmaydi.
-
-## 4. Android build
-
-```bash
-flutter build appbundle --release \
-  --dart-define=SUPABASE_URL=https://YOUR_PROJECT.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY
-```
-
-Google Play uchun `.aab` hosil bo‘ladi. Release signing key alohida sozlanadi.
-
-## 5. iOS build
-
-Mac + Xcode kerak:
-
-```bash
-flutter build ipa --release \
-  --dart-define=SUPABASE_URL=https://YOUR_PROJECT.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY
+flutter build ipa --release
 ```
 
 App Store Connect uchun Apple Developer account, Bundle ID, signing va privacy ma’lumotlari kerak bo‘ladi.
 
 ## Xavfsizlik
 
-- Supabase `anon` key maxfiy server paroli emas va mobil app ichida ishlatilishi mumkin.
-- `service_role` key’ni ilovaga **hech qachon** qo‘ymang.
-- Admin huquqi `profiles.role = admin` va RLS policy orqali tekshiriladi.
-
-## Keyingi tavsiya etiladigan bosqichlar
-
-- To‘lov cheki / bank o‘tkazmasi workflow
-- Push notification
-- Mijoz akkaunti va buyurtma tarixi
-- Telegram bot bilan bitta ombor bazasini ulash
-- App icon, splash screen, privacy policy va store screenshots
+- `service_role` key ilovaga qo‘yilmaydi
+- Supabase RLS yoqilgan
+- Buyurtma narxlari serverda qayta tekshiriladi
+- To‘lov cheklari public bucket’da saqlanmaydi
+- Admin va Telegram bot operatsiyalari alohida himoyalangan RPC oqimlaridan foydalanadi

@@ -2856,7 +2856,7 @@ class _PaymentProofPanel extends StatelessWidget {
 }
 
 class _DiscountAdmin extends StatefulWidget {
-  const _DiscountAdmin({required this.api});
+  const _DiscountAdmin({super.key, required this.api});
   final _AdminApi api;
 
   @override

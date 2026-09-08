@@ -640,17 +640,17 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
           final activeRevenue = orders
               .where(
                 (o) =>
-                    ['accepted', 'paid', 'shipping', 'done'].contains(o.status),
+                    ['accepted', 'paid', 'shipping'].contains(o.status),
               )
               .fold<int>(0, (sum, o) => sum + o.total);
           final completedRevenue = orders
-              .where((o) => o.status == 'done')
+              .where((o) => o.status == 'shipping')
               .fold<int>(0, (sum, o) => sum + o.total);
           final totalStock = books.fold<int>(0, (sum, b) => sum + b.stock);
           final lowStock = books.where((b) => b.stock <= 2).toList()
             ..sort((a, b) => a.stock.compareTo(b.stock));
           final recent = orders.take(5).toList();
-          final activeStatuses = {'accepted', 'paid', 'shipping', 'done'};
+          final activeStatuses = {'accepted', 'paid', 'shipping'};
           final activeOrders =
               orders.where((o) => activeStatuses.contains(o.status)).toList();
           final monthOrders = orders.where((o) {
@@ -673,12 +673,11 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
               orders.where((o) => o.status == 'accepted').length;
           final shippingOrders =
               orders.where((o) => o.status == 'shipping').length;
-          final doneOrders = orders.where((o) => o.status == 'done').length;
           final cancelledOrders =
               orders.where((o) => o.status == 'cancelled').length;
           final outOfStock = books.where((b) => b.stock == 0).length;
           final completionRate =
-              orders.isEmpty ? 0 : ((doneOrders / orders.length) * 100).round();
+              orders.isEmpty ? 0 : ((shippingOrders / orders.length) * 100).round();
           final cancelRate = orders.isEmpty
               ? 0
               : ((cancelledOrders / orders.length) * 100).round();
@@ -759,10 +758,10 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                           width: cardWidth,
                           child: AppMetricCard(
                             icon: Icons.task_alt_rounded,
-                            label: 'Yakunlangan savdo',
+                            label: 'Jo‘natilgan savdo',
                             value: _won(completedRevenue),
                             accent: AppColors.navy,
-                            note: 'Yakunlangan buyurtmalar',
+                            note: 'Jo‘natilgan buyurtmalar',
                           ),
                         ),
                         SizedBox(
@@ -853,12 +852,6 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                             background: const Color(0xFFEAF2FF),
                           ),
                           AppInfoPill(
-                            icon: Icons.task_alt_rounded,
-                            label: '$doneOrders yakunlangan',
-                            foreground: AppColors.navy,
-                            background: AppColors.surfaceSoft,
-                          ),
-                          AppInfoPill(
                             icon: Icons.cancel_outlined,
                             label: '$cancelledOrders bekor',
                             foreground: AppColors.danger,
@@ -874,7 +867,7 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                       ),
                       const SizedBox(height: 18),
                       _AdminProgressStat(
-                        label: 'Yakunlangan buyurtmalar',
+                        label: 'Jo‘natilgan buyurtmalar',
                         value: completionRate,
                         color: AppColors.success,
                       ),
@@ -2343,12 +2336,6 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
                           onTap: (v) => setState(() => filter = v),
                         ),
                         _OrderFilterChip(
-                          label: 'Yakunlangan',
-                          value: 'done',
-                          selected: filter,
-                          onTap: (v) => setState(() => filter = v),
-                        ),
-                        _OrderFilterChip(
                           label: 'Bekor',
                           value: 'cancelled',
                           selected: filter,
@@ -2608,10 +2595,6 @@ class _OrderActions extends StatelessWidget {
       primaryStatus = 'shipping';
       primaryLabel = 'Jo‘natildi';
       primaryIcon = Icons.local_shipping_rounded;
-    } else if (order.status == 'shipping') {
-      primaryStatus = 'done';
-      primaryLabel = 'Yakunlash';
-      primaryIcon = Icons.task_alt_rounded;
     }
 
     return Row(
@@ -2658,17 +2641,19 @@ class _AdminOrderStatusChip extends StatelessWidget {
         ),
       'shipping' => (
           'Jo‘natildi',
-          AppColors.orange,
-          const Color(0xFFFFF2E3),
-          const Color(0xFFFFD4A3),
-          Icons.local_shipping_rounded,
-        ),
-      'done' => (
-          'Yakunlandi',
           AppColors.success,
           AppColors.successSoft,
           const Color(0xFFCDEAD7),
-          Icons.task_alt_rounded,
+          Icons.local_shipping_rounded,
+        ),
+      // Eski buildlardan qolgan 'done' yozuvi uchrasa ham alohida
+      // bosqich ko‘rsatmaymiz: Jo‘natildi yakuniy holat.
+      'done' => (
+          'Jo‘natildi',
+          AppColors.success,
+          AppColors.successSoft,
+          const Color(0xFFCDEAD7),
+          Icons.local_shipping_rounded,
         ),
       'cancelled' => (
           'Bekor',
@@ -3164,7 +3149,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Ochiq buyurtmalar: ${stats['open_orders'] ?? 0} • Yakunlangan: ${stats['completed_orders'] ?? 0}',
+                        'Ochiq buyurtmalar: ${stats['open_orders'] ?? 0} • Jo‘natilgan: ${stats['completed_orders'] ?? 0}',
                         style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
                     ),

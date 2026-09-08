@@ -114,3 +114,5 @@ jobs:
           name: muhajeer-books-installable-apk
           path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 30
+
+# customer shipping flow build: final stage is Jo‘natildi

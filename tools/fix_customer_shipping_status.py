@@ -79,7 +79,7 @@ new_proof = old_proof + """
                             SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                'Buyurtma pochtaga topshirildi.\n1–3 ish kunida yetkaziladi.',
+                                'Buyurtma pochtaga topshirildi.\\n1–3 ish kunida yetkaziladi.',
                                 style: TextStyle(
                                   color: AppColors.success,
                                   fontWeight: FontWeight.w800,

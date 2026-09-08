@@ -1,0 +1,31 @@
+name: Remove final done order stage
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/remove_done_order_stage.py'
+      - '.github/workflows/remove_done_order_stage.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove done stage from admin UI
+        run: python3 tools/remove_done_order_stage.py
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/admin_ui.dart
+          if git diff --cached --quiet; then
+            echo "No changes needed"
+          else
+            git commit -m "Make shipped the final green order stage"
+            git push
+          fi

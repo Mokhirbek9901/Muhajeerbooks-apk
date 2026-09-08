@@ -2582,8 +2582,11 @@ class _OrderActions extends StatelessWidget {
         border: Color(0xFFC8E8F6),
       );
     }
-    if (order.status == 'cancelled' || order.status == 'done')
+    if (order.status == 'cancelled' ||
+        order.status == 'shipping' ||
+        order.status == 'done') {
       return const SizedBox.shrink();
+    }
     String? primaryStatus;
     String? primaryLabel;
     IconData? primaryIcon;

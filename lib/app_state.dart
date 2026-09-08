@@ -665,17 +665,16 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> signOutCustomer() async {
-    try {
-      if (backendConfigured) {
-        await Supabase.instance.client.auth.signOut();
-      }
-    } catch (_) {
-      // Local logout must still work even if the network is unavailable.
-    }
+    // Profil lokal qurilmada saqlanadi. Uni tarmoq javobini kutmasdan darhol
+    // tozalaymiz, shuning uchun tugma internet sust bo‘lsa ham ishlaydi.
     savedCustomer = const {'name': '', 'phone': '', 'address': ''};
     customerVerified = false;
     await _local.clearCustomer();
     notifyListeners();
+
+    if (backendConfigured) {
+      unawaited(Supabase.instance.client.auth.signOut().catchError((_) {}));
+    }
   }
 
   void _startLiveBooksSync() {

@@ -20,6 +20,20 @@ const _green = UzbekCustomerColors.success;
 final _money = NumberFormat('#,###', 'en_US');
 String won(int value) => '₩${_money.format(value)}';
 
+bool _isSupportedCustomerPhone(String raw) {
+  var digits = raw.replaceAll(RegExp(r'\D'), '');
+  if (digits.startsWith('00')) digits = digits.substring(2);
+
+  // O‘zbekiston: +998 XX XXX XX XX, 998XXXXXXXXX yoki mahalliy 9 raqam.
+  if (digits.length == 12 && digits.startsWith('998')) return true;
+  if (digits.length == 9 && !digits.startsWith('0')) return true;
+
+  // Koreya: 010-XXXX-XXXX yoki +82 10-XXXX-XXXX.
+  if (digits.length == 11 && digits.startsWith('010')) return true;
+  if (digits.length == 12 && digits.startsWith('8210')) return true;
+  return false;
+}
+
 class StoreShell extends StatefulWidget {
   const StoreShell({super.key});
 
@@ -1988,13 +2002,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       textInputAction: TextInputAction.next,
                       decoration: const InputDecoration(
                         labelText: 'Telefon raqam',
-                        hintText: '010-1234-5678',
+                        hintText: '+998 90 123 45 67 yoki 010-1234-5678',
+                        helperText: 'O‘zbekiston +998 va Koreya 010 / +82 raqamlari qabul qilinadi.',
                         prefixIcon: Icon(Icons.phone_outlined),
                       ),
-                      validator: (v) =>
-                          v == null ||
-                              v.replaceAll(RegExp(r'\D'), '').length < 7
-                          ? 'Telefon raqamni to‘liq kiriting'
+                      validator: (v) => !_isSupportedCustomerPhone(v ?? '')
+                          ? 'O‘zbekiston (+998) yoki Koreya (010 / +82) raqamini to‘liq kiriting'
                           : null,
                     ),
                     const SizedBox(height: 12),
@@ -2444,31 +2457,35 @@ class ProfilePage extends StatelessWidget {
         title: const Text('Profil'),
         actions: [
           IconButton(
-            tooltip: 'Hisobdan chiqish',
+            tooltip: 'Profil ma’lumotlarini tozalash',
             onPressed: () async {
-              final shouldLogout = await showDialog<bool>(
+              final shouldClear = await showDialog<bool>(
                 context: context,
                 builder: (dialogContext) => AlertDialog(
-                  title: const Text('Hisobdan chiqish'),
+                  title: const Text('Profil ma’lumotlarini tozalash'),
                   content: const Text(
-                    'Haqiqatan ham hisobdan chiqmoqchimisiz?',
+                    'Saqlangan ism, telefon va manzil shu qurilmadan o‘chiriladi. Do‘kondan foydalanishda davom etasiz.',
                   ),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(dialogContext, false),
-                      child: const Text('Yo‘q'),
+                      child: const Text('Bekor qilish'),
                     ),
                     FilledButton(
                       onPressed: () => Navigator.pop(dialogContext, true),
-                      child: const Text('Chiqish'),
+                      child: const Text('Tozalash'),
                     ),
                   ],
                 ),
               );
-              if (shouldLogout != true || !context.mounted) return;
+              if (shouldClear != true || !context.mounted) return;
               await context.read<AppState>().signOutCustomer();
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Profil ma’lumotlari tozalandi.')),
+              );
             },
-            icon: const Icon(Icons.logout_rounded),
+            icon: const Icon(Icons.person_remove_alt_1_outlined),
           ),
           const SizedBox(width: 6),
         ],

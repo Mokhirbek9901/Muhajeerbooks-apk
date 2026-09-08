@@ -1,0 +1,31 @@
+name: Finalize shipping UI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/finalize_shipping_ui.py'
+      - '.github/workflows/finalize_shipping_ui.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make shipping final in app admin
+        run: python3 tools/finalize_shipping_ui.py
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/admin_ui.dart
+          if git diff --cached --quiet; then
+            echo "No changes needed"
+          else
+            git commit -m "Hide actions after shipped order"
+            git push
+          fi

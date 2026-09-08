@@ -185,7 +185,8 @@ class ShopOrder {
 
   bool get hasPaymentProof => paymentProofPath.trim().isNotEmpty;
   bool get isTelegram => source == 'telegram';
-  bool get isApp => !isTelegram;
+  bool get isInstagram => source == 'instagram';
+  bool get isApp => source == 'app';
 
   factory ShopOrder.fromMap(Map<String, dynamic> map) => ShopOrder(
     id: (map['id'] ?? '').toString(),

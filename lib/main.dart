@@ -10,6 +10,7 @@ import 'store_ui.dart';
 
 // Live Railway web va APK aynan shu bir xil storefront kodidan build qilinadi.
 // Customer logout local ma'lumotlarni darhol tozalaydi.
+// Admin fon yangilanishi jim ishlaydi; mijoz buyurtma holatini ilova ichida ko'radi.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 

@@ -1,0 +1,59 @@
+name: Fix admin customer background refresh flicker
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix_admin_customer_refresh.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Keep customer list visible during 5-second refresh
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/admin_ui.dart')
+          s = p.read_text(encoding='utf-8')
+          old = """        if (snapshot.connectionState == ConnectionState.waiting) {\n          return const Center(child: CircularProgressIndicator());\n        }\n"""
+          new = """        // Faqat birinchi yuklanishda katta spinner ko‘rsatamiz.\n        // 5 soniyalik fon yangilanishida eski ma’lumot ekranda qoladi,\n        // shuning uchun admin panel miltillamaydi va qayta-qayta bo‘shamaydi.\n        if (snapshot.connectionState == ConnectionState.waiting &&\n            snapshot.data == null) {\n          return const Center(child: CircularProgressIndicator());\n        }\n"""
+          if old not in s:
+              print('Refresh condition already fixed or source changed; no patch needed.')
+          else:
+              p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          PY
+
+      - name: Setup Flutter
+        if: hashFiles('pubspec.yaml') != ''
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Validate
+        if: hashFiles('pubspec.yaml') != ''
+        run: |
+          flutter pub get
+          dart format --set-exit-if-changed lib/admin_ui.dart || dart format lib/admin_ui.dart
+          flutter analyze
+          flutter test
+
+      - name: Commit fix
+        run: |
+          if git diff --quiet; then
+            echo 'No source changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lib/admin_ui.dart
+          git commit -m 'Keep admin customers visible during background refresh'
+          git pull --rebase origin main
+          git push origin HEAD:main

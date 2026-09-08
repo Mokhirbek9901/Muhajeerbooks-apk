@@ -6,16 +6,16 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_state.dart';
+import 'admin_ui.dart';
+import 'customer_identity.dart';
 import 'brand.dart';
 import 'design_system.dart';
 import 'store_ui.dart';
 
-/// Phone OTP is ready in the app. Keep this false until a Supabase SMS provider
-/// is enabled, so customers are never locked out by missing third-party SMS
-/// credentials. Enable at build time with --dart-define=REQUIRE_PHONE_AUTH=true.
+/// Production customers verify their phone once; Supabase restores the session.
 const bool requirePhoneAuth = bool.fromEnvironment(
   'REQUIRE_PHONE_AUTH',
-  defaultValue: false,
+  defaultValue: true,
 );
 
 class CustomerAuthGate extends StatefulWidget {
@@ -35,16 +35,41 @@ class _CustomerAuthGateState extends State<CustomerAuthGate> {
   bool codeSent = false;
   String normalizedPhone = '';
   String? error;
+  String? readyUserId;
+  bool syncing = false;
+  Timer? resendTimer;
+  DateTime? resendAt;
+  int get resendSeconds => resendAt == null
+      ? 0
+      : (resendAt!.difference(DateTime.now()).inMilliseconds / 1000)
+            .ceil()
+            .clamp(0, 60);
 
   SupabaseClient get client => Supabase.instance.client;
 
   @override
   void initState() {
     super.initState();
-    _authSub = client.auth.onAuthStateChange.listen((_) {
-      if (mounted) setState(() {});
+    _authSub = client.auth.onAuthStateChange.listen((event) {
+      if (!mounted) return;
+      if (event.session == null) {
+        setState(() {
+          readyUserId = null;
+          codeSent = false;
+          name.clear();
+          phone.clear();
+          code.clear();
+          normalizedPhone = '';
+          error = null;
+        });
+      } else if (!verifying &&
+          !syncing &&
+          readyUserId != event.session!.user.id) {
+        unawaited(_hydrateExisting());
+      }
     });
     if (client.auth.currentSession != null) {
+      syncing = true;
       WidgetsBinding.instance.addPostFrameCallback((_) => _hydrateExisting());
     }
   }
@@ -52,55 +77,72 @@ class _CustomerAuthGateState extends State<CustomerAuthGate> {
   @override
   void dispose() {
     _authSub?.cancel();
+    resendTimer?.cancel();
     name.dispose();
     phone.dispose();
     code.dispose();
     super.dispose();
   }
 
-  String _normalizeKoreanPhone(String input) {
-    final raw = input.trim();
-    final digits = raw.replaceAll(RegExp(r'\D'), '');
-    if (digits.isEmpty) return '';
-    if (raw.startsWith('+')) return '+$digits';
-    if (digits.startsWith('82')) return '+$digits';
-    if (digits.startsWith('0')) return '+82${digits.substring(1)}';
-    return '+82$digits';
-  }
-
-  Future<void> _hydrateExisting() async {
+  Future<void> _hydrateExisting({String? enteredName}) async {
     final user = client.auth.currentUser;
     if (user == null || !mounted) return;
-    try {
-      final row = await client
-          .from('profiles')
-          .select('full_name, phone')
-          .eq('id', user.id)
-          .maybeSingle();
-      final displayName = (row?['full_name'] ?? '').toString();
-      final displayPhone = (row?['phone'] ?? user.phone ?? '').toString();
-      await client.rpc(
-        'customer_register_session',
-        params: {'p_name': displayName},
-      );
-      if (!mounted) return;
-      await context.read<AppState>().setAuthenticatedCustomer(
-        displayName,
-        displayPhone,
-      );
-    } catch (_) {
-      // Session is still valid; analytics/profile sync can retry next launch.
+    if ((user.phone ?? '').isEmpty || user.phoneConfirmedAt == null) {
+      setState(() => syncing = false);
+      return;
     }
+    final state = context.read<AppState>();
+    setState(() {
+      syncing = true;
+      error = null;
+    });
+    try {
+      await state.initialize();
+      final result = await client.rpc(
+        'customer_register_session',
+        params: {'p_name': enteredName ?? ''},
+      );
+      if (!mounted || client.auth.currentUser?.id != user.id) return;
+      final profile = Map<String, dynamic>.from(result as Map);
+      await state.setAuthenticatedCustomer(
+        (profile['full_name'] ?? enteredName ?? '').toString(),
+        user.phone!,
+      );
+      if (!mounted || client.auth.currentUser?.id != user.id) return;
+      setState(() => readyUserId = user.id);
+    } catch (_) {
+      if (mounted)
+        setState(
+          () => error =
+              'Hisobni yuklab bo‘lmadi. Internetni tekshirib, qayta urining.',
+        );
+    } finally {
+      if (mounted) setState(() => syncing = false);
+    }
+  }
+
+  void _startResendTimer() {
+    resendAt = DateTime.now().add(const Duration(seconds: 60));
+    resendTimer?.cancel();
+    resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {});
+      if (resendSeconds == 0) timer.cancel();
+    });
   }
 
   Future<void> _sendCode() async {
+    if (sending || verifying || resendSeconds > 0) return;
     final fullName = name.text.trim();
-    final value = _normalizeKoreanPhone(phone.text);
+    final value = normalizeCustomerPhone(phone.text);
     if (fullName.length < 2) {
-      setState(() => error = 'Ism va familiyangizni kiriting.');
+      setState(() => error = 'Ismingizni kiriting.');
       return;
     }
-    if (value.length < 10) {
+    if (value == null) {
       setState(() => error = 'Telefon raqamingizni to‘liq kiriting.');
       return;
     }
@@ -109,22 +151,31 @@ class _CustomerAuthGateState extends State<CustomerAuthGate> {
       error = null;
     });
     try {
-      await client.auth.signInWithOtp(phone: value);
+      await client.auth.signInWithOtp(
+        phone: value,
+        data: {'full_name': fullName},
+      );
       if (!mounted) return;
       setState(() {
         normalizedPhone = value;
         codeSent = true;
+        code.clear();
+        _startResendTimer();
       });
-    } on AuthException catch (e) {
-      if (mounted) setState(() => error = e.message);
-    } catch (e) {
-      if (mounted) setState(() => error = 'SMS yuborilmadi: $e');
+    } on AuthException catch (_) {
+      if (mounted)
+        setState(
+          () => error = 'SMS yuborilmadi. Raqamni tekshiring va birozdan keyin qayta urining.',
+        );
+    } catch (_) {
+      if (mounted) setState(() => error = 'Internet aloqasini tekshiring.');
     } finally {
       if (mounted) setState(() => sending = false);
     }
   }
 
   Future<void> _verify() async {
+    if (verifying || sending || !codeSent) return;
     final token = code.text.replaceAll(RegExp(r'\D'), '');
     if (token.length != 6) {
       setState(() => error = 'SMS orqali kelgan 6 xonali kodni kiriting.');
@@ -143,19 +194,14 @@ class _CustomerAuthGateState extends State<CustomerAuthGate> {
       if (response.session == null) {
         throw const AuthException('Tasdiqlash yakunlanmadi.');
       }
-      await client.rpc(
-        'customer_register_session',
-        params: {'p_name': name.text.trim()},
-      );
-      await context.read<AppState>().setAuthenticatedCustomer(
-        name.text.trim(),
-        normalizedPhone,
-      );
-      if (mounted) setState(() {});
-    } on AuthException catch (e) {
-      if (mounted) setState(() => error = e.message);
-    } catch (e) {
-      if (mounted) setState(() => error = 'Kod tasdiqlanmadi: $e');
+      await _hydrateExisting(enteredName: name.text.trim());
+    } on AuthException catch (_) {
+      if (mounted)
+        setState(
+          () => error = 'Kod noto‘g‘ri yoki muddati tugagan. Qayta tekshiring.',
+        );
+    } catch (_) {
+      if (mounted) setState(() => error = 'Internet aloqasini tekshiring.');
     } finally {
       if (mounted) setState(() => verifying = false);
     }
@@ -163,8 +209,61 @@ class _CustomerAuthGateState extends State<CustomerAuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    if (!requirePhoneAuth || client.auth.currentSession != null) {
+    if (!requirePhoneAuth ||
+        (readyUserId != null && readyUserId == client.auth.currentUser?.id)) {
       return const StoreShell();
+    }
+
+    if (syncing ||
+        (client.auth.currentUser?.phoneConfirmedAt != null &&
+            client.auth.currentSession != null &&
+            !verifying)) {
+      return Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (syncing)
+                    const CircularProgressIndicator()
+                  else ...[
+                    Text(
+                      error ?? 'Hisobni yuklash kerak.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton(
+                      onPressed: () => _hydrateExisting(
+                        enteredName: name.text.trim().isEmpty
+                            ? null
+                            : name.text.trim(),
+                      ),
+                      child: const Text('Qayta urinish'),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        final state = context.read<AppState>();
+                        try {
+                          await client.auth.signOut();
+                          await state.clearCustomerSession();
+                        } catch (_) {
+                          if (mounted)
+                            setState(
+                              () => error = 'Chiqib bo‘lmadi. Qayta urining.',
+                            );
+                        }
+                      },
+                      child: const Text('Boshqa raqam bilan kirish'),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
     }
 
     return Scaffold(
@@ -198,7 +297,7 @@ class _CustomerAuthGateState extends State<CustomerAuthGate> {
                         Text(
                           codeSent
                               ? '$normalizedPhone raqamiga kelgan 6 xonali kodni kiriting.'
-                              : 'Ismingiz va Koreya telefon raqamingiz kifoya. Parol kerak emas.',
+                              : 'Ismingiz va telefon raqamingiz kifoya. Parol kerak emas.',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             color: AppColors.muted,
@@ -209,16 +308,19 @@ class _CustomerAuthGateState extends State<CustomerAuthGate> {
                         if (!codeSent) ...[
                           TextField(
                             controller: name,
+                            enabled: !sending,
+                            maxLength: 60,
                             textInputAction: TextInputAction.next,
                             autofillHints: const [AutofillHints.name],
                             decoration: const InputDecoration(
-                              labelText: 'Ism va familiya',
+                              labelText: 'Ismingiz',
                               prefixIcon: Icon(Icons.person_outline_rounded),
                             ),
                           ),
                           const SizedBox(height: 12),
                           TextField(
                             controller: phone,
+                            enabled: !sending,
                             keyboardType: TextInputType.phone,
                             textInputAction: TextInputAction.done,
                             autofillHints: const [
@@ -234,7 +336,9 @@ class _CustomerAuthGateState extends State<CustomerAuthGate> {
                           ),
                           const SizedBox(height: 16),
                           FilledButton.icon(
-                            onPressed: sending ? null : _sendCode,
+                            onPressed: sending || resendSeconds > 0
+                                ? null
+                                : _sendCode,
                             icon: sending
                                 ? const SizedBox(
                                     width: 18,
@@ -245,7 +349,11 @@ class _CustomerAuthGateState extends State<CustomerAuthGate> {
                                   )
                                 : const Icon(Icons.sms_outlined),
                             label: Text(
-                              sending ? 'Yuborilmoqda...' : 'SMS kod yuborish',
+                              sending
+                                  ? 'Yuborilmoqda...'
+                                  : resendSeconds > 0
+                                  ? 'Qayta yuborish: ${resendSeconds}s'
+                                  : 'SMS kod yuborish',
                             ),
                           ),
                         ] else ...[
@@ -282,8 +390,19 @@ class _CustomerAuthGateState extends State<CustomerAuthGate> {
                             ),
                           ),
                           const SizedBox(height: 8),
+                          TextButton.icon(
+                            onPressed: sending || verifying || resendSeconds > 0
+                                ? null
+                                : _sendCode,
+                            icon: const Icon(Icons.refresh_rounded),
+                            label: Text(
+                              resendSeconds > 0
+                                  ? 'Qayta yuborish: ${resendSeconds}s'
+                                  : 'Kodni qayta yuborish',
+                            ),
+                          ),
                           TextButton(
-                            onPressed: sending
+                            onPressed: sending || verifying
                                 ? null
                                 : () {
                                     setState(() {
@@ -295,6 +414,19 @@ class _CustomerAuthGateState extends State<CustomerAuthGate> {
                             child: const Text('Raqamni o‘zgartirish'),
                           ),
                         ],
+                        const SizedBox(height: 8),
+                        TextButton.icon(
+                          onPressed: sending || verifying
+                              ? null
+                              : () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const AdminGatePage(),
+                                  ),
+                                ),
+                          icon: const Icon(Icons.admin_panel_settings_outlined),
+                          label: const Text('Admin kirishi'),
+                        ),
                         if (error != null) ...[
                           const SizedBox(height: 12),
                           Container(

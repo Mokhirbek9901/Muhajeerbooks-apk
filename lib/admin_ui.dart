@@ -197,6 +197,7 @@ class _AdminGatePageState extends State<AdminGatePage> {
   }
 
   Future<void> _login() async {
+    if (loading) return;
     final value = code.text.trim();
     if (value.isEmpty) return;
     setState(() {
@@ -344,6 +345,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   int tab = 0;
   late final _AdminApi api;
   Timer? _liveRefreshTimer;
+  bool autoRefresh = true;
   final _overviewKey = GlobalKey<_OverviewAdminState>();
   final _booksKey = GlobalKey<_BooksAdminState>();
   final _inventoryKey = GlobalKey<_InventoryAdminState>();
@@ -372,7 +374,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     super.initState();
     api = _AdminApi(widget.secret);
     _liveRefreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (!mounted) return;
+      if (!mounted || !autoRefresh || ModalRoute.of(context)?.isCurrent != true)
+        return;
       switch (tab) {
         case 0:
           _overviewKey.currentState?.reload();
@@ -394,15 +397,41 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     super.dispose();
   }
 
+  void refreshCurrent() {
+    switch (tab) {
+      case 0:
+        _overviewKey.currentState?.reload();
+      case 1:
+        _booksKey.currentState?.reload();
+      case 2:
+        _inventoryKey.currentState?.loadQuietly();
+      case 3:
+        _ordersKey.currentState?.reload();
+      case 4:
+        _customersKey.currentState?.reload();
+      case 5:
+        setState(() => discountRevision++);
+    }
+  }
+
+  int discountRevision = 0;
+
+  void openTab(int index) => setState(() => tab = index);
+
   @override
   Widget build(BuildContext context) {
     final pages = [
-      _OverviewAdmin(key: _overviewKey, api: api),
+      _OverviewAdmin(
+        key: _overviewKey,
+        api: api,
+        onNavigate: openTab,
+        onAddBook: () => _booksKey.currentState?.openForm(),
+      ),
       _BooksAdmin(key: _booksKey, api: api),
       _InventoryAdmin(key: _inventoryKey, api: api),
       _OrdersAdmin(key: _ordersKey, api: api),
       _CustomersAdmin(key: _customersKey, api: api),
-      _DiscountAdmin(api: api),
+      _DiscountAdmin(key: ValueKey(discountRevision), api: api),
     ];
     const railDestinations = [
       NavigationRailDestination(
@@ -477,16 +506,42 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 ),
               ],
             ),
-            actions: const [
-              Padding(
-                padding: EdgeInsets.only(right: 14),
-                child: AppInfoPill(
-                  icon: Icons.cloud_done_rounded,
-                  label: 'Onlayn',
-                  foreground: AppColors.success,
-                  background: AppColors.successSoft,
-                  border: Color(0xFFCDEAD7),
-                ),
+            actions: [
+              IconButton(
+                tooltip: 'Yangilash',
+                onPressed: refreshCurrent,
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+              PopupMenuButton<String>(
+                tooltip: 'Boshqaruv amallari',
+                onSelected: (action) {
+                  switch (action) {
+                    case 'add':
+                      _booksKey.currentState?.openForm();
+                    case 'auto':
+                      setState(() => autoRefresh = !autoRefresh);
+                    case 'store':
+                      Navigator.pop(context);
+                  }
+                },
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                    value: 'add',
+                    child: Text('Kitob qo‘shish'),
+                  ),
+                  PopupMenuItem(
+                    value: 'auto',
+                    child: Text(
+                      autoRefresh
+                          ? 'Avtoyangilashni to‘xtatish'
+                          : 'Avtoyangilashni yoqish',
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'store',
+                    child: Text('Paneldan chiqish'),
+                  ),
+                ],
               ),
             ],
           ),
@@ -565,8 +620,15 @@ class _OverviewData {
 }
 
 class _OverviewAdmin extends StatefulWidget {
-  const _OverviewAdmin({super.key, required this.api});
+  const _OverviewAdmin({
+    super.key,
+    required this.api,
+    required this.onNavigate,
+    required this.onAddBook,
+  });
   final _AdminApi api;
+  final ValueChanged<int> onNavigate;
+  final VoidCallback onAddBook;
 
   @override
   State<_OverviewAdmin> createState() => _OverviewAdminState();
@@ -591,7 +653,7 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
   Widget build(BuildContext context) => FutureBuilder<_OverviewData>(
     future: future,
     builder: (context, snap) {
-      if (snap.connectionState == ConnectionState.waiting)
+      if (snap.connectionState == ConnectionState.waiting && !snap.hasData)
         return const Center(child: CircularProgressIndicator());
       if (snap.hasError) {
         return Center(
@@ -699,6 +761,38 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                 tooltip: 'Yangilash',
                 icon: const Icon(Icons.refresh_rounded),
               ),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton.icon(
+                  onPressed: widget.onAddBook,
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('Kitob qo‘shish'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => widget.onNavigate(3),
+                  icon: const Icon(Icons.receipt_long_outlined),
+                  label: const Text('Buyurtmalar'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => widget.onNavigate(2),
+                  icon: const Icon(Icons.inventory_2_outlined),
+                  label: const Text('Ombor'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => widget.onNavigate(4),
+                  icon: const Icon(Icons.people_outline),
+                  label: const Text('Mijozlar'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => widget.onNavigate(5),
+                  icon: const Icon(Icons.percent_rounded),
+                  label: const Text('Chegirmalar'),
+                ),
+              ],
             ),
             const SizedBox(height: 18),
             LayoutBuilder(
@@ -1486,8 +1580,17 @@ class _BooksAdminState extends State<_BooksAdmin> {
       ),
     );
     if (yes == true) {
-      await widget.api.deleteBook(book.id);
-      if (mounted) reload();
+      try {
+        await widget.api.deleteBook(book.id);
+        if (mounted) reload();
+      } catch (_) {
+        if (mounted)
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Kitobni o‘chirib bo‘lmadi. Qayta urining.'),
+            ),
+          );
+      }
     }
   }
 
@@ -2753,7 +2856,7 @@ class _PaymentProofPanel extends StatelessWidget {
 }
 
 class _DiscountAdmin extends StatefulWidget {
-  const _DiscountAdmin({required this.api});
+  const _DiscountAdmin({super.key, required this.api});
   final _AdminApi api;
 
   @override

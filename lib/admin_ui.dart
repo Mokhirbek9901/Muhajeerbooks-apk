@@ -1558,7 +1558,10 @@ class _BooksAdminState extends State<_BooksAdmin> {
                 ],
               ),
             ),
-            if (snap.connectionState == ConnectionState.waiting)
+            // Avtomatik 5 soniyalik refresh paytida eski ma'lumotni ekranda
+            // qoldiramiz. Katta loading faqat sahifa birinchi marta ochilganda chiqadi.
+            if (snap.connectionState == ConnectionState.waiting &&
+                snap.data == null)
               const Expanded(child: Center(child: CircularProgressIndicator()))
             else if (snap.hasError)
               Expanded(child: Center(child: Text('Xatolik: ${snap.error}')))
@@ -2357,7 +2360,10 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
                 ],
               ),
             ),
-            if (snap.connectionState == ConnectionState.waiting)
+            // Avtomatik 5 soniyalik refresh paytida eski ma'lumotni ekranda
+            // qoldiramiz. Katta loading faqat sahifa birinchi marta ochilganda chiqadi.
+            if (snap.connectionState == ConnectionState.waiting &&
+                snap.data == null)
               const Expanded(child: Center(child: CircularProgressIndicator()))
             else if (snap.hasError)
               Expanded(child: Center(child: Text('Xatolik: ${snap.error}')))

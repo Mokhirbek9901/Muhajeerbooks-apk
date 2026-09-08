@@ -448,6 +448,7 @@ class _LocalStore {
   static const _customerNameKey = 'muhajeer_customer_name';
   static const _customerPhoneKey = 'muhajeer_customer_phone';
   static const _customerAddressKey = 'muhajeer_customer_address';
+  static const _customerVerifiedKey = 'muhajeer_customer_verified_v1';
   static const _installIdKey = 'muhajeer_install_id_v1';
 
   Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
@@ -531,6 +532,20 @@ class _LocalStore {
     await prefs.setString(_customerAddressKey, address);
   }
 
+  Future<bool?> loadCustomerVerified() async =>
+      (await _prefs).getBool(_customerVerifiedKey);
+
+  Future<void> saveCustomerVerified(bool value) async =>
+      (await _prefs).setBool(_customerVerifiedKey, value);
+
+  Future<void> clearCustomer() async {
+    final prefs = await _prefs;
+    await prefs.remove(_customerNameKey);
+    await prefs.remove(_customerPhoneKey);
+    await prefs.remove(_customerAddressKey);
+    await prefs.setBool(_customerVerifiedKey, false);
+  }
+
   Future<String> installId() async {
     final prefs = await _prefs;
     final existing = prefs.getString(_installIdKey);
@@ -564,6 +579,7 @@ class AppState extends ChangeNotifier {
   bool _quietBooksRefreshing = false;
   bool loading = true;
   String? error;
+  bool customerVerified = false;
   Map<String, String> savedCustomer = const {
     'name': '',
     'phone': '',
@@ -585,6 +601,20 @@ class AppState extends ChangeNotifier {
       ..clear()
       ..addAll(await _local.loadCart());
     savedCustomer = await _local.loadCustomer();
+    final storedVerification = await _local.loadCustomerVerified();
+    if (storedVerification == null) {
+      // Old installations were already registered before SMS verification was introduced.
+      // Keep them signed in; new registrations can be verified once when SMS is enabled.
+      final legacyName = (savedCustomer['name'] ?? '').trim();
+      final legacyPhone = (savedCustomer['phone'] ?? '').replaceAll(
+        RegExp(r'\D'),
+        '',
+      );
+      customerVerified = legacyName.length >= 2 && legacyPhone.length >= 9;
+      if (customerVerified) await _local.saveCustomerVerified(true);
+    } else {
+      customerVerified = storedVerification;
+    }
     _localOrders
       ..clear()
       ..addAll(await _local.loadOrders());
@@ -612,7 +642,11 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> setAuthenticatedCustomer(String name, String phone) async {
+  Future<void> setAuthenticatedCustomer(
+    String name,
+    String phone, {
+    bool verified = true,
+  }) async {
     final cleanName = name.trim();
     final cleanPhone = phone.trim();
     savedCustomer = {
@@ -625,6 +659,22 @@ class AppState extends ChangeNotifier {
       savedCustomer['phone'] ?? '',
       savedCustomer['address'] ?? '',
     );
+    customerVerified = verified;
+    await _local.saveCustomerVerified(verified);
+    notifyListeners();
+  }
+
+  Future<void> signOutCustomer() async {
+    try {
+      if (backendConfigured) {
+        await Supabase.instance.client.auth.signOut();
+      }
+    } catch (_) {
+      // Local logout must still work even if the network is unavailable.
+    }
+    savedCustomer = const {'name': '', 'phone': '', 'address': ''};
+    customerVerified = false;
+    await _local.clearCustomer();
     notifyListeners();
   }
 

@@ -2431,12 +2431,10 @@ class ProfilePage extends StatelessWidget {
     final availableBooks = state.books
         .where((b) => b.isActive && b.inStock)
         .length;
-    final currentUser = Supabase.instance.client.auth.currentUser;
     final displayName = (state.savedCustomer['name'] ?? '').trim().isNotEmpty
         ? state.savedCustomer['name']!.trim()
         : 'Muhajeer kitobxoni';
-    final displayPhone =
-        currentUser?.phone ?? state.savedCustomer['phone'] ?? '';
+    final displayPhone = state.savedCustomer['phone'] ?? '';
 
     return Scaffold(
       backgroundColor: UzbekCustomerColors.background,
@@ -2447,11 +2445,29 @@ class ProfilePage extends StatelessWidget {
         actions: [
           IconButton(
             tooltip: 'Hisobdan chiqish',
-            onPressed: currentUser == null
-                ? null
-                : () async {
-                    await Supabase.instance.client.auth.signOut();
-                  },
+            onPressed: () async {
+              final shouldLogout = await showDialog<bool>(
+                context: context,
+                builder: (dialogContext) => AlertDialog(
+                  title: const Text('Hisobdan chiqish'),
+                  content: const Text(
+                    'Haqiqatan ham hisobdan chiqmoqchimisiz?',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext, false),
+                      child: const Text('Yo‘q'),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(dialogContext, true),
+                      child: const Text('Chiqish'),
+                    ),
+                  ],
+                ),
+              );
+              if (shouldLogout != true || !context.mounted) return;
+              await context.read<AppState>().signOutCustomer();
+            },
             icon: const Icon(Icons.logout_rounded),
           ),
           const SizedBox(width: 6),

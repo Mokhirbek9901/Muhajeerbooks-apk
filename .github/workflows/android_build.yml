@@ -1,4 +1,4 @@
-name: Android Debug APK
+name: Unified Web + Android APK
 
 on:
   workflow_dispatch:
@@ -9,6 +9,9 @@ on:
       - 'pubspec.yaml'
       - 'assets/**'
       - '.github/workflows/android_build.yml'
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -21,8 +24,27 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Create Android platform files
-        run: flutter create . --platforms=android --project-name muhajeerbooks --org com.muhajeerbooks
+      - name: Keep one Android signing key for future APK updates
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: muhajeer-books-apk-signing-v1
+
+      - name: Create Web and Android platform files
+        run: flutter create . --platforms=android,web --project-name muhajeerbooks --org com.muhajeerbooks
+
+      - name: Restore or create stable APK signing key
+        run: |
+          mkdir -p ~/.android
+          if [ ! -f ~/.android/debug.keystore ]; then
+            keytool -genkeypair -v \
+              -keystore ~/.android/debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -dname "CN=Muhajeer Books, OU=Mobile, O=Muhajeer Books, L=Gyeongsan, C=KR" \
+              -keyalg RSA -keysize 2048 -validity 10000
+          fi
 
       - run: flutter pub get
 
@@ -31,14 +53,20 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
+
           p = Path('android/app/build.gradle.kts')
           s = p.read_text(encoding='utf-8')
           s = re.sub(r'applicationId\s*=\s*"[^"]+"', 'applicationId = "com.muhajeerbooks.app"', s)
           p.write_text(s, encoding='utf-8')
+
           manifest = Path('android/app/src/main/AndroidManifest.xml')
           m = manifest.read_text(encoding='utf-8')
           if 'android.permission.INTERNET' not in m:
-              m = m.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">', '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET" />', 1)
+              m = m.replace(
+                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
+                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET" />',
+                  1,
+              )
           m = re.sub(r'android:label="[^"]*"', 'android:label="Muhajeer Books"', m, count=1)
           manifest.write_text(m, encoding='utf-8')
           PY
@@ -54,14 +82,34 @@ jobs:
             convert assets/images/muhajeer_logo.jpg -resize "${size}x${size}^" -gravity center -extent "${size}x${size}" "$dir/ic_launcher.png"
           done
 
-      - name: Build installable APK
+      - name: Analyze
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+
+      - name: Test
+        run: flutter test
+
+      - name: Build Web from this exact commit
         run: |
-          flutter build apk --debug \
+          flutter build web --release \
             --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
             --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
 
-      - uses: actions/upload-artifact@v4
+      - name: Build installable APK from this exact commit
+        run: |
+          flutter build apk --release \
+            --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
+            --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
+
+      - name: Upload Web build
+        uses: actions/upload-artifact@v4
+        with:
+          name: muhajeer-books-web-build
+          path: build/web
+          retention-days: 30
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
           name: muhajeer-books-installable-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
-          retention-days: 7
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30

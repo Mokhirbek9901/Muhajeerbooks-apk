@@ -1,4 +1,7 @@
 import 'dart:async';
+
+import 'customer_identity.dart';
+
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -577,7 +580,11 @@ class AppState extends ChangeNotifier {
   String get dataModeLabel =>
       isOnlineBackend ? 'Onlayn baza' : 'Qurilmada saqlanadi';
 
-  Future<void> initialize() async {
+  Future<void>? _initialization;
+
+  Future<void> initialize() => _initialization ??= _initialize();
+
+  Future<void> _initialize() async {
     _favorites
       ..clear()
       ..addAll(await _local.loadFavorites());
@@ -615,16 +622,32 @@ class AppState extends ChangeNotifier {
   Future<void> setAuthenticatedCustomer(String name, String phone) async {
     final cleanName = name.trim();
     final cleanPhone = phone.trim();
+    final sameCustomer =
+        normalizeCustomerPhone(savedCustomer['phone'] ?? '') ==
+        normalizeCustomerPhone(cleanPhone);
     savedCustomer = {
-      'name': cleanName.isEmpty ? (savedCustomer['name'] ?? '') : cleanName,
-      'phone': cleanPhone.isEmpty ? (savedCustomer['phone'] ?? '') : cleanPhone,
-      'address': savedCustomer['address'] ?? '',
+      'name': cleanName,
+      'phone': cleanPhone,
+      'address': sameCustomer ? (savedCustomer['address'] ?? '') : '',
     };
     await _local.saveCustomer(
       savedCustomer['name'] ?? '',
       savedCustomer['phone'] ?? '',
       savedCustomer['address'] ?? '',
     );
+    notifyListeners();
+  }
+
+  Future<void> clearCustomerSession() async {
+    await initialize();
+    savedCustomer = const {'name': '', 'phone': '', 'address': ''};
+    _cart.clear();
+    _favorites.clear();
+    await Future.wait([
+      _local.saveCustomer('', '', ''),
+      _local.saveCart(_cart),
+      _local.saveFavorites(_favorites),
+    ]);
     notifyListeners();
   }
 
@@ -1061,12 +1084,27 @@ class AppState extends ChangeNotifier {
   }
 
   Future<List<ShopOrder>> customerOrdersByPhone(String phone) async {
-    final clean = phone.replaceAll(RegExp(r'\D'), '');
-    if (clean.length < 7) return [];
+    final clean = normalizeCustomerPhone(phone);
+    if (clean == null) return [];
 
     _localOrders
       ..clear()
       ..addAll(await _local.loadOrders());
+
+    final user = _backend?.client.auth.currentUser;
+    if (_backend != null && user != null && user.phoneConfirmedAt != null) {
+      // Ownership comes from the authenticated user ID, never an editable phone.
+      final data = await _backend!.client
+          .from('orders')
+          .select()
+          .eq('customer_user_id', user.id)
+          .order('created_at', ascending: false);
+      return (data as List)
+          .map(
+            (row) => ShopOrder.fromMap(Map<String, dynamic>.from(row as Map)),
+          )
+          .toList();
+    }
 
     if (_backend != null && _localOrders.isNotEmpty) {
       try {
@@ -1091,7 +1129,7 @@ class AppState extends ChangeNotifier {
     }
 
     return _localOrders
-        .where((o) => o.phone.replaceAll(RegExp(r'\D'), '') == clean)
+        .where((o) => normalizeCustomerPhone(o.phone) == clean)
         .toList();
   }
 

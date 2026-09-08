@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'admin_ui.dart';
 import 'app_state.dart';
+import 'customer_identity.dart';
 import 'brand.dart';
 import 'design_system.dart';
 import 'uzbek_customer_style.dart';
@@ -2446,11 +2447,29 @@ class ProfilePage extends StatelessWidget {
         title: const Text('Profil'),
         actions: [
           IconButton(
+            tooltip: 'Admin paneli',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AdminGatePage()),
+            ),
+            icon: const Icon(Icons.admin_panel_settings_outlined),
+          ),
+          IconButton(
             tooltip: 'Hisobdan chiqish',
             onPressed: currentUser == null
                 ? null
                 : () async {
-                    await Supabase.instance.client.auth.signOut();
+                    try {
+                      await Supabase.instance.client.auth.signOut();
+                      await state.clearCustomerSession();
+                    } catch (_) {
+                      if (context.mounted)
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Chiqib bo‘lmadi. Qayta urining.'),
+                          ),
+                        );
+                    }
                   },
             icon: const Icon(Icons.logout_rounded),
           ),
@@ -2475,7 +2494,7 @@ class ProfilePage extends StatelessWidget {
                   child: Padding(
                     padding: EdgeInsets.symmetric(vertical: 4),
                     child: Text(
-                      displayName,
+                      shopOwnerName,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white,
@@ -2486,18 +2505,6 @@ class ProfilePage extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (displayPhone.trim().isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    displayPhone,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Color(0xFFE5F1EE),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
                 const SizedBox(height: 4),
                 const Text(
                   'Muhajeer Books',
@@ -2541,6 +2548,20 @@ class ProfilePage extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 16),
+          AppSurface(
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.verified_user_outlined),
+              title: Text(
+                displayName,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              subtitle: Text(
+                displayPhone.isEmpty ? 'Mijoz hisobi' : displayPhone,
+              ),
+            ),
           ),
           const SizedBox(height: 19),
           const UzbekSectionTitle(

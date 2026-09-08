@@ -451,8 +451,8 @@ class BackendService {
 
 class _LocalStore {
   static const _booksKey = 'muhajeer_books_v3';
-  static const _ordersKey = 'muhajeer_orders_v3';
-  static const _customerNoticesKey = 'muhajeer_customer_notices_v1';
+  static const _ordersKey = 'muhajeer_orders_v4';
+  static const _customerNoticesKey = 'muhajeer_customer_notices_v2';
   static const _favoritesKey = 'muhajeer_favorites_v2';
   static const _cartKey = 'muhajeer_cart_v2';
   static const _seedVersionKey = 'muhajeer_seed_version';
@@ -1009,8 +1009,13 @@ class AppState extends ChangeNotifier {
       }
     }
 
+    if (_backend != null && paymentProof == null) {
+      throw StateError('To‘lov chekini tanlang.');
+    }
+
     final subtotal = cartSubtotal;
-    final total = subtotal + deliveryFee;
+    final safeDeliveryFee = cartCount >= 4 ? 0 : AppState.deliveryFee;
+    final total = subtotal + safeDeliveryFee;
     await _local.saveCustomer(
       customerName.trim(),
       phone.trim(),
@@ -1038,7 +1043,7 @@ class AppState extends ChangeNotifier {
         phone: phone,
         address: address,
         deliveryType: deliveryType,
-        deliveryFee: deliveryFee,
+        deliveryFee: safeDeliveryFee,
         subtotal: subtotal,
         total: total,
         lines: lines,
@@ -1051,7 +1056,7 @@ class AppState extends ChangeNotifier {
         phone: phone.trim(),
         address: address.trim(),
         deliveryType: deliveryType,
-        deliveryFee: deliveryFee,
+        deliveryFee: safeDeliveryFee,
         subtotal: subtotal,
         total: total,
         status: 'new',
@@ -1079,7 +1084,7 @@ class AppState extends ChangeNotifier {
       phone: phone.trim(),
       address: address.trim(),
       deliveryType: deliveryType,
-      deliveryFee: deliveryFee,
+      deliveryFee: safeDeliveryFee,
       subtotal: subtotal,
       total: total,
       status: 'new',
@@ -1165,8 +1170,8 @@ class AppState extends ChangeNotifier {
   }
 
   Future<List<ShopOrder>> customerOrdersByPhone(String phone) async {
-    final clean = phone.replaceAll(RegExp(r'\D'), '');
-    if (clean.length < 7) return [];
+    final key = _customerPhoneKey(phone);
+    if (key.isEmpty) return [];
 
     _localOrders
       ..clear()
@@ -1190,12 +1195,12 @@ class AppState extends ChangeNotifier {
         }
         await _local.saveOrders(_localOrders);
       } catch (_) {
-        // Buyurtma tarixi qurilmada saqlangan nusxa bilan ishlashda davom etadi.
+        // Temporary network failure: keep the last known local order history.
       }
     }
 
     return _localOrders
-        .where((o) => o.phone.replaceAll(RegExp(r'\D'), '') == clean)
+        .where((o) => _customerPhoneKey(o.phone) == key)
         .toList();
   }
 
@@ -1329,6 +1334,18 @@ class AppState extends ChangeNotifier {
   }
 
   void _persistCart() => _local.saveCart(_cart);
+
+  static String _customerPhoneKey(String raw) {
+    var digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.startsWith('00')) digits = digits.substring(2);
+    if (digits.length == 12 && digits.startsWith('998')) return digits;
+    if (digits.length == 9 && !digits.startsWith('0')) return '998$digits';
+    if (digits.length == 11 && digits.startsWith('010')) {
+      return '82${digits.substring(1)}';
+    }
+    if (digits.length == 12 && digits.startsWith('8210')) return digits;
+    return '';
+  }
 
   static String _normalize(String input) => input
       .toLowerCase()

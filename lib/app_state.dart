@@ -48,23 +48,23 @@ class Book {
   bool get inStock => stock > 0 && price > 0;
 
   factory Book.fromMap(Map<String, dynamic> map) => Book(
-        id: (map['id'] ?? '').toString(),
-        legacyId: (map['legacy_id'] as num?)?.toInt(),
-        title: (map['title'] ?? map['name'] ?? '').toString(),
-        author: (map['author'] ?? 'Ko‘rsatilmagan').toString(),
-        category: (map['category'] ?? 'Boshqalar').toString(),
-        description: (map['description'] ?? '').toString(),
-        price: (map['price'] as num?)?.toInt() ?? 0,
-        stock: (map['stock'] as num?)?.toInt() ?? 0,
-        discountPercent: (map['discount_percent'] as num?)?.toInt() ?? 0,
-        imageUrl: (map['image_url'] ?? '').toString(),
-        isActive: map['is_active'] as bool? ?? true,
-        coverType:
-            (map['cover_type'] ?? map['cover'] ?? 'Ko‘rsatilmagan').toString(),
-        costPrice: (map['cost_price'] as num?)?.toInt() ?? 0,
-        recommended: map['recommended'] as bool? ?? false,
-        createdAt: DateTime.tryParse((map['created_at'] ?? '').toString()),
-      );
+    id: (map['id'] ?? '').toString(),
+    legacyId: (map['legacy_id'] as num?)?.toInt(),
+    title: (map['title'] ?? map['name'] ?? '').toString(),
+    author: (map['author'] ?? 'Ko‘rsatilmagan').toString(),
+    category: (map['category'] ?? 'Boshqalar').toString(),
+    description: (map['description'] ?? '').toString(),
+    price: (map['price'] as num?)?.toInt() ?? 0,
+    stock: (map['stock'] as num?)?.toInt() ?? 0,
+    discountPercent: (map['discount_percent'] as num?)?.toInt() ?? 0,
+    imageUrl: (map['image_url'] ?? '').toString(),
+    isActive: map['is_active'] as bool? ?? true,
+    coverType: (map['cover_type'] ?? map['cover'] ?? 'Ko‘rsatilmagan')
+        .toString(),
+    costPrice: (map['cost_price'] as num?)?.toInt() ?? 0,
+    recommended: map['recommended'] as bool? ?? false,
+    createdAt: DateTime.tryParse((map['created_at'] ?? '').toString()),
+  );
 
   factory Book.fromSeed(Map<String, dynamic> map) {
     final legacyId = (map['legacy_id'] as num?)?.toInt();
@@ -85,26 +85,26 @@ class Book {
   }
 
   Map<String, dynamic> toDbMap() => {
-        'legacy_id': legacyId,
-        'title': title,
-        'author': author,
-        'category': category,
-        'description': description,
-        'price': price,
-        'stock': stock,
-        'discount_percent': discountPercent,
-        'image_url': imageUrl,
-        'is_active': isActive,
-        'cover_type': coverType,
-        'cost_price': costPrice,
-        'recommended': recommended,
-      };
+    'legacy_id': legacyId,
+    'title': title,
+    'author': author,
+    'category': category,
+    'description': description,
+    'price': price,
+    'stock': stock,
+    'discount_percent': discountPercent,
+    'image_url': imageUrl,
+    'is_active': isActive,
+    'cover_type': coverType,
+    'cost_price': costPrice,
+    'recommended': recommended,
+  };
 
   Map<String, dynamic> toLocalMap() => {
-        'id': id,
-        ...toDbMap(),
-        'created_at': createdAt?.toIso8601String(),
-      };
+    'id': id,
+    ...toDbMap(),
+    'created_at': createdAt?.toIso8601String(),
+  };
 
   Book copyWith({
     String? id,
@@ -122,24 +122,23 @@ class Book {
     int? costPrice,
     bool? recommended,
     DateTime? createdAt,
-  }) =>
-      Book(
-        id: id ?? this.id,
-        legacyId: legacyId ?? this.legacyId,
-        title: title ?? this.title,
-        author: author ?? this.author,
-        category: category ?? this.category,
-        description: description ?? this.description,
-        price: price ?? this.price,
-        stock: stock ?? this.stock,
-        discountPercent: discountPercent ?? this.discountPercent,
-        imageUrl: imageUrl ?? this.imageUrl,
-        isActive: isActive ?? this.isActive,
-        coverType: coverType ?? this.coverType,
-        costPrice: costPrice ?? this.costPrice,
-        recommended: recommended ?? this.recommended,
-        createdAt: createdAt ?? this.createdAt,
-      );
+  }) => Book(
+    id: id ?? this.id,
+    legacyId: legacyId ?? this.legacyId,
+    title: title ?? this.title,
+    author: author ?? this.author,
+    category: category ?? this.category,
+    description: description ?? this.description,
+    price: price ?? this.price,
+    stock: stock ?? this.stock,
+    discountPercent: discountPercent ?? this.discountPercent,
+    imageUrl: imageUrl ?? this.imageUrl,
+    isActive: isActive ?? this.isActive,
+    coverType: coverType ?? this.coverType,
+    costPrice: costPrice ?? this.costPrice,
+    recommended: recommended ?? this.recommended,
+    createdAt: createdAt ?? this.createdAt,
+  );
 }
 
 class CartLine {
@@ -189,45 +188,46 @@ class ShopOrder {
   bool get isApp => !isTelegram;
 
   factory ShopOrder.fromMap(Map<String, dynamic> map) => ShopOrder(
-        id: (map['id'] ?? '').toString(),
-        customerName: (map['customer_name'] ?? '').toString(),
-        phone: (map['phone'] ?? '').toString(),
-        address: (map['address'] ?? '').toString(),
-        deliveryType: (map['delivery_type'] ?? '').toString(),
-        deliveryFee: (map['delivery_fee'] as num?)?.toInt() ?? 0,
-        subtotal: (map['subtotal'] as num?)?.toInt() ?? 0,
-        total: (map['total'] as num?)?.toInt() ?? 0,
-        status: (map['status'] ?? 'new').toString(),
-        source: (map['source'] ?? 'app').toString(),
-        items: ((map['items'] as List?) ?? const [])
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList(),
-        createdAt: DateTime.tryParse((map['created_at'] ?? '').toString()) ??
-            DateTime.now(),
-        paymentProofPath: (map['payment_proof_path'] ?? '').toString(),
-        paymentSubmittedAt: DateTime.tryParse(
-          (map['payment_submitted_at'] ?? '').toString(),
-        ),
-        stockReserved: map['stock_reserved'] as bool? ?? false,
-      );
+    id: (map['id'] ?? '').toString(),
+    customerName: (map['customer_name'] ?? '').toString(),
+    phone: (map['phone'] ?? '').toString(),
+    address: (map['address'] ?? '').toString(),
+    deliveryType: (map['delivery_type'] ?? '').toString(),
+    deliveryFee: (map['delivery_fee'] as num?)?.toInt() ?? 0,
+    subtotal: (map['subtotal'] as num?)?.toInt() ?? 0,
+    total: (map['total'] as num?)?.toInt() ?? 0,
+    status: (map['status'] ?? 'new').toString(),
+    source: (map['source'] ?? 'app').toString(),
+    items: ((map['items'] as List?) ?? const [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList(),
+    createdAt:
+        DateTime.tryParse((map['created_at'] ?? '').toString()) ??
+        DateTime.now(),
+    paymentProofPath: (map['payment_proof_path'] ?? '').toString(),
+    paymentSubmittedAt: DateTime.tryParse(
+      (map['payment_submitted_at'] ?? '').toString(),
+    ),
+    stockReserved: map['stock_reserved'] as bool? ?? false,
+  );
 
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'customer_name': customerName,
-        'phone': phone,
-        'address': address,
-        'delivery_type': deliveryType,
-        'delivery_fee': deliveryFee,
-        'subtotal': subtotal,
-        'total': total,
-        'status': status,
-        'source': source,
-        'items': items,
-        'created_at': createdAt.toIso8601String(),
-        'payment_proof_path': paymentProofPath,
-        'payment_submitted_at': paymentSubmittedAt?.toIso8601String(),
-        'stock_reserved': stockReserved,
-      };
+    'id': id,
+    'customer_name': customerName,
+    'phone': phone,
+    'address': address,
+    'delivery_type': deliveryType,
+    'delivery_fee': deliveryFee,
+    'subtotal': subtotal,
+    'total': total,
+    'status': status,
+    'source': source,
+    'items': items,
+    'created_at': createdAt.toIso8601String(),
+    'payment_proof_path': paymentProofPath,
+    'payment_submitted_at': paymentSubmittedAt?.toIso8601String(),
+    'stock_reserved': stockReserved,
+  };
 
   ShopOrder copyWith({
     String? status,
@@ -235,24 +235,23 @@ class ShopOrder {
     String? paymentProofPath,
     DateTime? paymentSubmittedAt,
     bool? stockReserved,
-  }) =>
-      ShopOrder(
-        id: id,
-        customerName: customerName,
-        phone: phone,
-        address: address,
-        deliveryType: deliveryType,
-        deliveryFee: deliveryFee,
-        subtotal: subtotal,
-        total: total,
-        status: status ?? this.status,
-        source: source ?? this.source,
-        items: items,
-        createdAt: createdAt,
-        paymentProofPath: paymentProofPath ?? this.paymentProofPath,
-        paymentSubmittedAt: paymentSubmittedAt ?? this.paymentSubmittedAt,
-        stockReserved: stockReserved ?? this.stockReserved,
-      );
+  }) => ShopOrder(
+    id: id,
+    customerName: customerName,
+    phone: phone,
+    address: address,
+    deliveryType: deliveryType,
+    deliveryFee: deliveryFee,
+    subtotal: subtotal,
+    total: total,
+    status: status ?? this.status,
+    source: source ?? this.source,
+    items: items,
+    createdAt: createdAt,
+    paymentProofPath: paymentProofPath ?? this.paymentProofPath,
+    paymentSubmittedAt: paymentSubmittedAt ?? this.paymentSubmittedAt,
+    stockReserved: stockReserved ?? this.stockReserved,
+  );
 }
 
 class BackendService {
@@ -287,7 +286,8 @@ class BackendService {
   Future<void> applyDiscountToAll(int percent) async {
     await client
         .from('books')
-        .update({'discount_percent': percent}).eq('is_active', true);
+        .update({'discount_percent': percent})
+        .eq('is_active', true);
   }
 
   Future<void> clearAllDiscounts() async {
@@ -301,7 +301,9 @@ class BackendService {
         : 'jpg';
     final cleanName = file.name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
     final path = 'covers/${DateTime.now().millisecondsSinceEpoch}_$cleanName';
-    await client.storage.from('book-covers').uploadBinary(
+    await client.storage
+        .from('book-covers')
+        .uploadBinary(
           path,
           bytes,
           fileOptions: FileOptions(
@@ -347,8 +349,8 @@ class BackendService {
     final contentType = lower.endsWith('.png')
         ? 'image/png'
         : lower.endsWith('.webp')
-            ? 'image/webp'
-            : 'image/jpeg';
+        ? 'image/webp'
+        : 'image/jpeg';
 
     final response = await client.functions.invoke(
       'payment-proof',
@@ -360,8 +362,9 @@ class BackendService {
       },
     );
     final raw = response.data;
-    final data =
-        raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+    final data = raw is Map
+        ? Map<String, dynamic>.from(raw)
+        : <String, dynamic>{};
     final path = (data['path'] ?? '').toString();
     if (path.isEmpty) {
       throw StateError(
@@ -394,11 +397,15 @@ class BackendService {
       'source': 'app',
       'items': lines.map(_lineToMap).toList(),
       'payment_proof_path': paymentProofPath,
-      'payment_submitted_at':
-          paymentProofPath.isEmpty ? null : DateTime.now().toIso8601String(),
+      'payment_submitted_at': paymentProofPath.isEmpty
+          ? null
+          : DateTime.now().toIso8601String(),
     };
-    final data =
-        await client.from('orders').insert(payload).select('id').single();
+    final data = await client
+        .from('orders')
+        .insert(payload)
+        .select('id')
+        .single();
     return data['id'].toString();
   }
 
@@ -433,12 +440,12 @@ class BackendService {
   }
 
   static Map<String, dynamic> _lineToMap(CartLine line) => {
-        'book_id': line.book.id,
-        'title': line.book.title,
-        'price': line.book.currentPrice,
-        'quantity': line.quantity,
-        'line_total': line.total,
-      };
+    'book_id': line.book.id,
+    'title': line.book.title,
+    'price': line.book.currentPrice,
+    'quantity': line.quantity,
+    'line_total': line.total,
+  };
 }
 
 class _LocalStore {
@@ -509,13 +516,8 @@ class _LocalStore {
     }
   }
 
-  Future<void> saveCustomerNotices(
-    List<Map<String, dynamic>> notices,
-  ) async {
-    await (await _prefs).setString(
-      _customerNoticesKey,
-      jsonEncode(notices),
-    );
+  Future<void> saveCustomerNotices(List<Map<String, dynamic>> notices) async {
+    await (await _prefs).setString(_customerNoticesKey, jsonEncode(notices));
   }
 
   Future<Set<String>> loadFavorites() async =>
@@ -1253,10 +1255,10 @@ class AppState extends ChangeNotifier {
               'status': newStatus,
               'title': newStatus == 'accepted'
                   ? '✅ Buyurtmangiz qabul qilindi'
-                  : '🚚 Buyurtmangiz jo‘natildi',
+                  : '🚚 Buyurtmangiz pochtaga topshirildi',
               'message': newStatus == 'accepted'
                   ? 'Buyurtmangiz tasdiqlandi va tayyorlanmoqda.'
-                  : 'Buyurtmangiz jo‘natildi. Yetkazib berish 1–3 ish kuni.',
+                  : 'Buyurtmangiz pochtaga topshirildi. 1–3 ish kunida yetkaziladi.',
               'created_at': DateTime.now().toIso8601String(),
               'read': false,
             });

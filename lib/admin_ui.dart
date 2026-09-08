@@ -2135,6 +2135,14 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
   }
 
   Future<void> changeStatus(ShopOrder order, String status) async {
+    if (order.isTelegram) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Telegram buyurtmasi botdan boshqariladi.')),
+        );
+      }
+      return;
+    }
     if (busy.contains(order.id)) return;
     if (status == 'accepted') {
       final yes = await showDialog<bool>(
@@ -2445,6 +2453,19 @@ class _ProfessionalOrderCard extends StatelessWidget {
           padding: const EdgeInsets.only(top: 4),
           child: Row(
             children: [
+              if (order.isTelegram) ...[
+                const Icon(Icons.send_rounded, size: 15, color: Color(0xFF229ED9)),
+                const SizedBox(width: 4),
+                const Text(
+                  'Telegramdan zakas',
+                  style: TextStyle(
+                    color: Color(0xFF1976A3),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const Text(' • '),
+              ],
               Text(
                 _won(order.total),
                 style: const TextStyle(fontWeight: FontWeight.w800),
@@ -2559,6 +2580,15 @@ class _OrderActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (order.isTelegram) {
+      return const AppInfoPill(
+        icon: Icons.send_rounded,
+        label: 'Telegram buyurtmasi — botdan boshqariladi',
+        foreground: Color(0xFF1976A3),
+        background: Color(0xFFEAF7FD),
+        border: Color(0xFFC8E8F6),
+      );
+    }
     if (order.status == 'cancelled' || order.status == 'done')
       return const SizedBox.shrink();
     String? primaryStatus;

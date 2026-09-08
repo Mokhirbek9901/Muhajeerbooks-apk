@@ -159,6 +159,7 @@ class ShopOrder {
     required this.subtotal,
     required this.total,
     required this.status,
+    this.source = 'app',
     required this.items,
     required this.createdAt,
     this.paymentProofPath = '',
@@ -175,6 +176,7 @@ class ShopOrder {
   final int subtotal;
   final int total;
   final String status;
+  final String source;
   final List<Map<String, dynamic>> items;
   final DateTime createdAt;
   final String paymentProofPath;
@@ -182,6 +184,8 @@ class ShopOrder {
   final bool stockReserved;
 
   bool get hasPaymentProof => paymentProofPath.trim().isNotEmpty;
+  bool get isTelegram => source == 'telegram';
+  bool get isApp => !isTelegram;
 
   factory ShopOrder.fromMap(Map<String, dynamic> map) => ShopOrder(
     id: (map['id'] ?? '').toString(),
@@ -193,6 +197,7 @@ class ShopOrder {
     subtotal: (map['subtotal'] as num?)?.toInt() ?? 0,
     total: (map['total'] as num?)?.toInt() ?? 0,
     status: (map['status'] ?? 'new').toString(),
+    source: (map['source'] ?? 'app').toString(),
     items: ((map['items'] as List?) ?? const [])
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList(),
@@ -216,6 +221,7 @@ class ShopOrder {
     'subtotal': subtotal,
     'total': total,
     'status': status,
+    'source': source,
     'items': items,
     'created_at': createdAt.toIso8601String(),
     'payment_proof_path': paymentProofPath,
@@ -225,6 +231,7 @@ class ShopOrder {
 
   ShopOrder copyWith({
     String? status,
+    String? source,
     String? paymentProofPath,
     DateTime? paymentSubmittedAt,
     bool? stockReserved,
@@ -238,6 +245,7 @@ class ShopOrder {
     subtotal: subtotal,
     total: total,
     status: status ?? this.status,
+    source: source ?? this.source,
     items: items,
     createdAt: createdAt,
     paymentProofPath: paymentProofPath ?? this.paymentProofPath,
@@ -386,6 +394,7 @@ class BackendService {
       'subtotal': subtotal,
       'total': total,
       'status': 'new',
+      'source': 'app',
       'items': lines.map(_lineToMap).toList(),
       'payment_proof_path': paymentProofPath,
       'payment_submitted_at': paymentProofPath.isEmpty

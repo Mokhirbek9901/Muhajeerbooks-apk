@@ -1,0 +1,44 @@
+name: Final app quality fixes
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/final_quality_fixes.py'
+      - '.github/workflows/final_quality_fixes.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Apply quality fixes
+        run: python3 tools/final_quality_fixes.py
+      - name: Format
+        run: dart format lib/app_state.dart lib/store_ui.dart
+      - name: Dependencies
+        run: flutter pub get
+      - name: Analyze
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+      - name: Test
+        run: flutter test
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin main
+          git add lib/app_state.dart lib/store_ui.dart
+          git diff --cached --quiet && exit 0
+          git commit -m 'Polish guest profile and checkout phone validation'
+          git push origin main

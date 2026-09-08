@@ -1,0 +1,47 @@
+name: Fix customer shipping status
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix_customer_shipping_status.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Apply customer shipping UI fix
+        run: python3 tools/fix_customer_shipping_status.py
+
+      - name: Format
+        run: dart format lib/store_ui.dart lib/app_state.dart
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+
+      - name: Test
+        run: flutter test
+
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lib/store_ui.dart lib/app_state.dart
+          git diff --cached --quiet && exit 0
+          git commit -m 'Make shipped final customer order stage'
+          git push origin main

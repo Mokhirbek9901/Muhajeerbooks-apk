@@ -38,3 +38,4 @@ jobs:
           git diff --cached --quiet && exit 0
           git commit -m 'Add sold books history to admin panel'
           git push origin main
+# retry after color fix

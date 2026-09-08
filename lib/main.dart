@@ -7,7 +7,7 @@ import 'auth_gate.dart';
 import 'design_system.dart';
 import 'store_ui.dart';
 
-// Web va APK aynan shu bir xil storefront kodidan build qilinadi.
+// Live Railway web va APK aynan shu bir xil storefront kodidan build qilinadi.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 

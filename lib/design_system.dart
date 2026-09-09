@@ -2,31 +2,31 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 abstract final class AppColors {
-  static const navy = Color(0xFF10213D);
-  static const navy2 = Color(0xFF19345B);
-  static const orange = Color(0xFFFF8A00);
-  static const gold = Color(0xFFFFC928);
-  static const background = Color(0xFFF5F7FA);
-  static const surface = Colors.white;
-  static const surfaceSoft = Color(0xFFF8FAFC);
-  static const border = Color(0xFFE5E9F0);
-  static const text = Color(0xFF142033);
-  static const muted = Color(0xFF667085);
-  static const success = Color(0xFF16834A);
-  static const successSoft = Color(0xFFEAF7EF);
-  static const warning = Color(0xFFB96B00);
-  static const warningSoft = Color(0xFFFFF5DF);
-  static const danger = Color(0xFFD73A49);
-  static const dangerSoft = Color(0xFFFFECEE);
-  static const info = Color(0xFF246BCE);
-  static const infoSoft = Color(0xFFEBF3FF);
+  static const navy = Color(0xFF082F49);
+  static const navy2 = Color(0xFF0C4A6E);
+  static const orange = Color(0xFFB7791F);
+  static const gold = Color(0xFFD9A441);
+  static const background = Color(0xFFF4EBDD);
+  static const surface = Color(0xFFFFFCF6);
+  static const surfaceSoft = Color(0xFFFFF7E7);
+  static const border = Color(0xFFD8C3A3);
+  static const text = Color(0xFF20353D);
+  static const muted = Color(0xFF74695D);
+  static const success = Color(0xFF2E7D5B);
+  static const successSoft = Color(0xFFE8F3EA);
+  static const warning = Color(0xFFA66416);
+  static const warningSoft = Color(0xFFFFF1D4);
+  static const danger = Color(0xFFB85042);
+  static const dangerSoft = Color(0xFFFBEAE6);
+  static const info = Color(0xFF0F766E);
+  static const infoSoft = Color(0xFFE7F3EF);
 }
 
 abstract final class AppRadii {
-  static const small = 12.0;
-  static const medium = 16.0;
-  static const large = 22.0;
-  static const xl = 28.0;
+  static const small = 14.0;
+  static const medium = 18.0;
+  static const large = 24.0;
+  static const xl = 30.0;
 }
 
 abstract final class AppSpacing {
@@ -128,7 +128,7 @@ abstract final class MuhajeerDesign {
         centerTitle: false,
       ),
       cardTheme: CardThemeData(
-        color: Colors.white,
+        color: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         margin: EdgeInsets.zero,
@@ -139,7 +139,7 @@ abstract final class MuhajeerDesign {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        fillColor: AppColors.surface,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 15,
@@ -199,10 +199,10 @@ abstract final class MuhajeerDesign {
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        height: 70,
-        backgroundColor: Colors.white,
+        height: 72,
+        backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: const Color(0xFFFFE8CF),
+        indicatorColor: const Color(0xFFF8E7BE),
         elevation: 0,
         labelTextStyle: WidgetStateProperty.resolveWith(
           (states) => TextStyle(
@@ -217,8 +217,8 @@ abstract final class MuhajeerDesign {
         ),
       ),
       navigationRailTheme: const NavigationRailThemeData(
-        backgroundColor: Colors.white,
-        indicatorColor: Color(0xFFFFE8CF),
+        backgroundColor: AppColors.surface,
+        indicatorColor: Color(0xFFF8E7BE),
         selectedIconTheme: IconThemeData(color: AppColors.navy),
         selectedLabelTextStyle: TextStyle(
           fontWeight: FontWeight.w900,
@@ -230,8 +230,8 @@ abstract final class MuhajeerDesign {
         ),
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: Colors.white,
-        selectedColor: const Color(0xFFFFE8CF),
+        backgroundColor: AppColors.surface,
+        selectedColor: const Color(0xFFF8E7BE),
         side: const BorderSide(color: AppColors.border),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
         labelStyle: const TextStyle(
@@ -257,19 +257,19 @@ abstract final class MuhajeerDesign {
         ),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.xl),
         ),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         showDragHandle: true,
       ),
       progressIndicatorTheme: const ProgressIndicatorThemeData(
-        color: AppColors.orange,
+        color: AppColors.navy2,
       ),
     );
   }
@@ -280,7 +280,7 @@ class AppSurface extends StatelessWidget {
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(16),
-    this.backgroundColor = Colors.white,
+    this.backgroundColor = AppColors.surface,
     this.radius = AppRadii.large,
     this.borderColor = AppColors.border,
     this.shadow = false,

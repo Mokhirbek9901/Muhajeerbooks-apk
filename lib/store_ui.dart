@@ -85,20 +85,27 @@ class _StoreShellState extends State<StoreShell> {
       backgroundColor: UzbekCustomerColors.background,
       body: IndexedStack(index: index, children: pages),
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: UzbekCustomerColors.border)),
-          boxShadow: [
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [UzbekCustomerColors.surface, UzbekCustomerColors.ivory],
+          ),
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: UzbekCustomerColors.gold, width: 1.15),
+          boxShadow: const [
             BoxShadow(
-              color: Color(0x140B2942),
-              blurRadius: 20,
-              offset: Offset(0, -5),
+              color: Color(0x26123C4A),
+              blurRadius: 28,
+              offset: Offset(0, 10),
             ),
           ],
         ),
         child: NavigationBar(
-          height: 70,
-          backgroundColor: Colors.white,
+          height: 72,
+          backgroundColor: Colors.transparent,
           indicatorColor: UzbekCustomerColors.goldSoft,
           selectedIndex: index,
           onDestinationSelected: (value) => setState(() => index = value),
@@ -480,11 +487,21 @@ class _HomePageState extends State<HomePage> {
                         height: 56,
                         width: 56,
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFE6E8EC)),
+                          color: UzbekCustomerColors.surface,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: UzbekCustomerColors.gold),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x12123C4A),
+                              blurRadius: 14,
+                              offset: Offset(0, 5),
+                            ),
+                          ],
                         ),
-                        child: const Icon(Icons.tune_rounded),
+                        child: const Icon(
+                          Icons.tune_rounded,
+                          color: UzbekCustomerColors.navy,
+                        ),
                       ),
                     ),
                   ],
@@ -678,9 +695,20 @@ class _StoreHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
       decoration: BoxDecoration(
-        color: UzbekCustomerColors.surface,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: UzbekCustomerColors.border),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [UzbekCustomerColors.surface, UzbekCustomerColors.ivory],
+        ),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: UzbekCustomerColors.gold, width: 1.05),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x15123C4A),
+            blurRadius: 20,
+            offset: Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -911,11 +939,27 @@ class _QuickCategoryStrip extends StatelessWidget {
                     vertical: 9,
                   ),
                   decoration: BoxDecoration(
-                    color: active ? UzbekCustomerColors.goldSoft : Colors.white,
-                    borderRadius: BorderRadius.circular(18),
+                    gradient: active
+                        ? const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              UzbekCustomerColors.navy,
+                              UzbekCustomerColors.tealDark,
+                            ],
+                          )
+                        : const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              UzbekCustomerColors.surface,
+                              UzbekCustomerColors.ivory,
+                            ],
+                          ),
+                    borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: active
-                          ? UzbekCustomerColors.goldDeep
+                          ? UzbekCustomerColors.gold
                           : UzbekCustomerColors.border,
                     ),
                     boxShadow: const [
@@ -934,7 +978,7 @@ class _QuickCategoryStrip extends StatelessWidget {
                             ? Icons.grid_view_rounded
                             : _categoryIcon(c),
                         color: active
-                            ? UzbekCustomerColors.goldDeep
+                            ? UzbekCustomerColors.gold
                             : UzbekCustomerColors.teal,
                         size: 25,
                       ),
@@ -945,7 +989,9 @@ class _QuickCategoryStrip extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: UzbekCustomerColors.navy,
+                          color: active
+                              ? Colors.white
+                              : UzbekCustomerColors.navy,
                           fontSize: 10.5,
                           fontWeight: active
                               ? FontWeight.w900
@@ -1177,14 +1223,18 @@ class BookCard extends StatelessWidget {
     final state = context.read<AppState>();
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: UzbekCustomerColors.border),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [UzbekCustomerColors.surface, UzbekCustomerColors.ivory],
+        ),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: UzbekCustomerColors.border, width: 1.05),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x100F4C5C),
-            blurRadius: 18,
-            offset: Offset(0, 7),
+            color: Color(0x1A123C4A),
+            blurRadius: 22,
+            offset: Offset(0, 9),
           ),
         ],
       ),

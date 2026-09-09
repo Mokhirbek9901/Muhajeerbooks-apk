@@ -12,7 +12,7 @@ import 'store_ui.dart';
 // Live Railway web va APK aynan shu bir xil storefront kodidan build qilinadi.
 // Mijoz uchun majburiy Supabase login yo'q; eski sessiya katalog/admin RPC'larini
 // buzmasligi uchun startupda tozalanadi.
-// 2026-09-09: 10-rasmli kitob galereyasi va same-origin web backend buildi.
+// 2026-09-09: Supabase legacy anon JWT o'rniga aktiv publishable key ishlatiladi.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -22,7 +22,7 @@ Future<void> main() async {
   );
   const supabaseAnonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
-    defaultValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ5dGZoanZoanhuYmhnaXRvd2hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2MzIzNjMsImV4cCI6MjEwNDIwODM2M30.JYcxkDTJ0ChS34Id_6UI-vxPXjKnWc5rTjH0IampVjs',
+    defaultValue: 'sb_publishable_5lDr_sw4bu8g3x8LCVzp4g_sHSTMBiO',
   );
   final effectiveSupabaseUrl = kIsWeb
       ? '${Uri.base.origin}/supabase'

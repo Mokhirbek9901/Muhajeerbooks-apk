@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -22,11 +23,17 @@ Future<void> main() async {
     'SUPABASE_ANON_KEY',
     defaultValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYXNlIiwicmVmIjoicnl0ZmhqdmhqeG5iaGdpdG93aG8iLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc4ODYzMjM2MywiZXhwIjoyMTA0MjA4MzYzfQ.JYcxkDTJ0ChS34Id_6UI-vxPXjKnWc5rTjH0IampVjs',
   );
+  final effectiveSupabaseUrl = kIsWeb
+      ? '${Uri.base.origin}/supabase'
+      : supabaseUrl;
   final backendConfigured =
-      supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
+      effectiveSupabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
 
   if (backendConfigured) {
-    await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+    await Supabase.initialize(
+      url: effectiveSupabaseUrl,
+      anonKey: supabaseAnonKey,
+    );
     // Ilgari SMS/login bo'lgan davrdan brauzerda qolgan sessiya eskirgan bo'lsa,
     // Supabase so'rovlariga noto'g'ri JWT qo'shib katalog va admin tekshiruvini
     // buzishi mumkin. Hozir customer login ishlatilmaydi, shuning uchun xavfsiz

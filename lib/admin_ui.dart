@@ -59,7 +59,10 @@ class _AdminApi {
           'price': book.price,
           'stock': book.stock,
           'discount_percent': book.discountPercent,
-          'image_url': book.imageUrl,
+          'image_url': book.galleryImages.isEmpty
+              ? ''
+              : book.galleryImages.first,
+          'image_urls': book.galleryImages,
           'is_active': book.isActive,
           'cover': book.coverType,
           'cost_price': book.costPrice,
@@ -1728,6 +1731,7 @@ class _BookFormState extends State<_BookForm> {
   bool recommended = false;
   bool saving = false;
   bool uploadingImage = false;
+  List<String> gallery = [];
 
   @override
   void initState() {
@@ -1744,7 +1748,10 @@ class _BookFormState extends State<_BookForm> {
     discount = TextEditingController(
       text: b == null ? '0' : '${b.discountPercent}',
     );
-    image = TextEditingController(text: b?.imageUrl ?? '');
+    gallery = b?.galleryImages.toList() ?? <String>[];
+    image = TextEditingController(
+      text: gallery.isNotEmpty ? gallery.first : b?.imageUrl ?? '',
+    );
     cost = TextEditingController(
       text: b == null || b.costPrice == 0 ? '' : '${b.costPrice}',
     );
@@ -1893,22 +1900,43 @@ class _BookFormState extends State<_BookForm> {
     ),
   );
 
-  Future<void> pickAndUploadImage() async {
+  void _syncCoverController() {
+    final first = gallery.isEmpty ? '' : gallery.first;
+    if (image.text != first) image.text = first;
+  }
+
+  Future<void> pickAndUploadImages() async {
     if (uploadingImage) return;
-    try {
-      final picked = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 82,
-        maxWidth: 1200,
+    final slots = 10 - gallery.length;
+    if (slots <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bitta kitobga maksimal 10 ta rasm qo‘yiladi.'),
+        ),
       );
-      if (picked == null) return;
+      return;
+    }
+    try {
+      final picked = await picker.pickMultiImage(
+        imageQuality: 82,
+        maxWidth: 1600,
+      );
+      if (picked.isEmpty) return;
+      final selected = picked.take(slots).toList();
       setState(() => uploadingImage = true);
-      final url = await widget.api.uploadCover(picked);
+      final uploaded = <String>[];
+      for (final file in selected) {
+        final url = await widget.api.uploadCover(file);
+        if (url.trim().isNotEmpty && !gallery.contains(url)) uploaded.add(url);
+      }
       if (!mounted) return;
-      image.text = url;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Kitob rasmi yuklandi ✅')));
+      setState(() {
+        gallery = [...gallery, ...uploaded].take(10).toList();
+        _syncCoverController();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${uploaded.length} ta rasm yuklandi ✅')),
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -1918,6 +1946,23 @@ class _BookFormState extends State<_BookForm> {
     } finally {
       if (mounted) setState(() => uploadingImage = false);
     }
+  }
+
+  void _makeCover(int index) {
+    if (index <= 0 || index >= gallery.length) return;
+    setState(() {
+      final selected = gallery.removeAt(index);
+      gallery.insert(0, selected);
+      _syncCoverController();
+    });
+  }
+
+  void _removeGalleryImage(int index) {
+    if (index < 0 || index >= gallery.length) return;
+    setState(() {
+      gallery.removeAt(index);
+      _syncCoverController();
+    });
   }
 
   Future<void> save() async {
@@ -1934,6 +1979,14 @@ class _BookFormState extends State<_BookForm> {
       );
       return;
     }
+    var urls = gallery
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .take(10)
+        .toList();
+    final manualCover = image.text.trim();
+    if (urls.isEmpty && manualCover.isNotEmpty) urls = [manualCover];
     setState(() => saving = true);
     try {
       await widget.api.saveBook(
@@ -1953,7 +2006,8 @@ class _BookFormState extends State<_BookForm> {
           price: p,
           stock: s,
           discountPercent: d,
-          imageUrl: image.text.trim(),
+          imageUrl: urls.isEmpty ? '' : urls.first,
+          imageUrls: urls,
           isActive: active,
           coverType: cover,
           costPrice: c,
@@ -1973,7 +2027,7 @@ class _BookFormState extends State<_BookForm> {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = image.text.trim();
+    final imageUrl = gallery.isNotEmpty ? gallery.first : image.text.trim();
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -2023,7 +2077,9 @@ class _BookFormState extends State<_BookForm> {
             const SizedBox(height: 10),
             Center(
               child: FilledButton.tonalIcon(
-                onPressed: uploadingImage ? null : pickAndUploadImage,
+                onPressed: uploadingImage || gallery.length >= 10
+                    ? null
+                    : pickAndUploadImages,
                 icon: uploadingImage
                     ? const SizedBox(
                         width: 18,
@@ -2034,24 +2090,90 @@ class _BookFormState extends State<_BookForm> {
                 label: Text(
                   uploadingImage
                       ? 'Yuklanmoqda...'
-                      : imageUrl.isEmpty
-                      ? 'Rasm tanlash'
-                      : 'Rasmni almashtirish',
+                      : 'Rasmlar tanlash (${gallery.length}/10)',
                 ),
               ),
             ),
-            if (imageUrl.isNotEmpty)
-              Center(
-                child: TextButton.icon(
-                  onPressed: uploadingImage ? null : () => image.clear(),
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('Rasmni olib tashlash'),
+            const SizedBox(height: 10),
+            if (gallery.isNotEmpty)
+              SizedBox(
+                height: 116,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: gallery.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (_, i) => Container(
+                    width: 78,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: i == 0 ? AppColors.orange : AppColors.border,
+                        width: i == 0 ? 2 : 1,
+                      ),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: Image.network(
+                            gallery[i],
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                const Icon(Icons.broken_image_outlined),
+                          ),
+                        ),
+                        SizedBox(
+                          height: 34,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints.tightFor(
+                                  width: 32,
+                                  height: 32,
+                                ),
+                                tooltip: i == 0
+                                    ? 'Muqova rasmi'
+                                    : 'Muqova qilish',
+                                onPressed: i == 0 ? null : () => _makeCover(i),
+                                icon: Icon(
+                                  i == 0
+                                      ? Icons.star_rounded
+                                      : Icons.star_border_rounded,
+                                  size: 18,
+                                  color: i == 0
+                                      ? AppColors.orange
+                                      : AppColors.muted,
+                                ),
+                              ),
+                              IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints.tightFor(
+                                  width: 32,
+                                  height: 32,
+                                ),
+                                tooltip: 'Olib tashlash',
+                                onPressed: () => _removeGalleryImage(i),
+                                icon: const Icon(
+                                  Icons.delete_outline_rounded,
+                                  size: 17,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             const Padding(
-              padding: EdgeInsets.only(bottom: 14),
+              padding: EdgeInsets.only(top: 8, bottom: 14),
               child: Text(
-                'Telefon galereyasidan JPG, PNG yoki WEBP rasm tanlang. Maksimal hajm: 7 MB.',
+                '1-rasm — kitob muqovasi. U ilovada ham, Telegram botda ham asosiy rasm bo‘ladi. Qolgan rasmlar kitob ichini ko‘rsatish uchun. Maksimal 10 ta.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: Colors.black54),
               ),

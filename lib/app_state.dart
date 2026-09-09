@@ -20,6 +20,7 @@ class Book {
     required this.stock,
     required this.discountPercent,
     required this.imageUrl,
+    this.imageUrls = const [],
     required this.isActive,
     this.coverType = 'Ko‘rsatilmagan',
     this.costPrice = 0,
@@ -37,6 +38,7 @@ class Book {
   final int stock;
   final int discountPercent;
   final String imageUrl;
+  final List<String> imageUrls;
   final bool isActive;
   final String coverType;
   final int costPrice;
@@ -46,6 +48,17 @@ class Book {
   int get currentPrice => (price * (100 - discountPercent) / 100).round();
   bool get isDiscounted => discountPercent > 0;
   bool get inStock => stock > 0 && price > 0;
+
+  List<String> get galleryImages {
+    final result = <String>[];
+    for (final raw in [imageUrl, ...imageUrls]) {
+      final url = raw.trim();
+      if (url.isEmpty || result.contains(url)) continue;
+      result.add(url);
+      if (result.length == 10) break;
+    }
+    return result;
+  }
 
   factory Book.fromMap(Map<String, dynamic> map) => Book(
     id: (map['id'] ?? '').toString(),
@@ -58,6 +71,11 @@ class Book {
     stock: (map['stock'] as num?)?.toInt() ?? 0,
     discountPercent: (map['discount_percent'] as num?)?.toInt() ?? 0,
     imageUrl: (map['image_url'] ?? '').toString(),
+    imageUrls: ((map['image_urls'] as List?) ?? const [])
+        .map((e) => e.toString().trim())
+        .where((e) => e.isNotEmpty)
+        .take(10)
+        .toList(),
     isActive: map['is_active'] as bool? ?? true,
     coverType: (map['cover_type'] ?? map['cover'] ?? 'Ko‘rsatilmagan')
         .toString(),
@@ -93,7 +111,8 @@ class Book {
     'price': price,
     'stock': stock,
     'discount_percent': discountPercent,
-    'image_url': imageUrl,
+    'image_url': galleryImages.isEmpty ? '' : galleryImages.first,
+    'image_urls': galleryImages,
     'is_active': isActive,
     'cover_type': coverType,
     'cost_price': costPrice,
@@ -117,6 +136,7 @@ class Book {
     int? stock,
     int? discountPercent,
     String? imageUrl,
+    List<String>? imageUrls,
     bool? isActive,
     String? coverType,
     int? costPrice,
@@ -133,6 +153,7 @@ class Book {
     stock: stock ?? this.stock,
     discountPercent: discountPercent ?? this.discountPercent,
     imageUrl: imageUrl ?? this.imageUrl,
+    imageUrls: imageUrls ?? this.imageUrls,
     isActive: isActive ?? this.isActive,
     coverType: coverType ?? this.coverType,
     costPrice: costPrice ?? this.costPrice,
@@ -769,6 +790,7 @@ class AppState extends ChangeNotifier {
           b.stock,
           b.discountPercent,
           b.imageUrl,
+          b.galleryImages.join('↕'),
           b.isActive,
           b.coverType,
           b.costPrice,
@@ -882,6 +904,16 @@ class AppState extends ChangeNotifier {
             ..clear()
             ..addAll(cached);
           _sanitizeCart();
+        } else {
+          try {
+            final seed = await _loadTelegramSeed();
+            if (seed.isNotEmpty) {
+              _books
+                ..clear()
+                ..addAll(seed);
+              _sanitizeCart();
+            }
+          } catch (_) {}
         }
       }
     } finally {

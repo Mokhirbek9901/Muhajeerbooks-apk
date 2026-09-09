@@ -1479,22 +1479,7 @@ class BookDetailPage extends StatelessWidget {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final desktop = constraints.maxWidth >= 760;
-          final cover = Container(
-            width: desktop ? 300 : 235,
-            height: desktop ? 420 : 330,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x220F172A),
-                  blurRadius: 28,
-                  offset: Offset(0, 14),
-                ),
-              ],
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: _BookCover(book: b),
-          );
+          final cover = _BookGallery(book: b, desktop: desktop);
           final info = _BookDetailInfo(book: b);
           return SingleChildScrollView(
             padding: EdgeInsets.fromLTRB(
@@ -1585,6 +1570,130 @@ class BookDetailPage extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _BookGallery extends StatefulWidget {
+  const _BookGallery({required this.book, required this.desktop});
+  final Book book;
+  final bool desktop;
+
+  @override
+  State<_BookGallery> createState() => _BookGalleryState();
+}
+
+class _BookGalleryState extends State<_BookGallery> {
+  late final PageController controller;
+  int index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = PageController();
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final images = widget.book.galleryImages;
+    final width = widget.desktop ? 300.0 : 235.0;
+    final coverHeight = widget.desktop ? 420.0 : 330.0;
+    if (images.isEmpty) {
+      return SizedBox(
+        width: width,
+        height: coverHeight,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(28),
+          child: _BookCover(book: widget.book),
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: width,
+      child: Column(
+        children: [
+          Container(
+            width: width,
+            height: coverHeight,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x220F172A),
+                  blurRadius: 28,
+                  offset: Offset(0, 14),
+                ),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: PageView.builder(
+              controller: controller,
+              itemCount: images.length,
+              onPageChanged: (value) => setState(() => index = value),
+              itemBuilder: (_, i) => Image.network(
+                images[i],
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.medium,
+                errorBuilder: (_, __, ___) => _BookCover(book: widget.book),
+              ),
+            ),
+          ),
+          if (images.length > 1) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 58,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: images.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 6),
+                itemBuilder: (_, i) => InkWell(
+                  borderRadius: BorderRadius.circular(9),
+                  onTap: () => controller.animateToPage(
+                    i,
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOut,
+                  ),
+                  child: Container(
+                    width: 42,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(9),
+                      border: Border.all(
+                        color: i == index
+                            ? UzbekCustomerColors.goldDeep
+                            : UzbekCustomerColors.border,
+                        width: i == index ? 2 : 1,
+                      ),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Image.network(
+                      images[i],
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          const Icon(Icons.broken_image_outlined),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${index + 1}/${images.length}',
+              style: const TextStyle(
+                color: AppColors.muted,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

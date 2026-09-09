@@ -13,6 +13,7 @@ import 'store_ui.dart';
 // Mijoz uchun majburiy Supabase login yo'q; eski sessiya katalog/admin RPC'larini
 // buzmasligi uchun startupda tozalanadi.
 // 2026-09-09: Supabase legacy anon JWT o'rniga aktiv publishable key ishlatiladi.
+// 2026-09-09: yangi o'zbekona UI uchun web va APK buildini bir xil manbadan yangilash.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 

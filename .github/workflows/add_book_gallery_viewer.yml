@@ -1,0 +1,56 @@
+name: Add book gallery viewer
+
+on:
+  push:
+    paths:
+      - '.github/workflows/add_book_gallery_viewer.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Apply gallery patch
+        run: python3 tools/add_book_gallery_viewer.py
+      - name: Format
+        run: dart format lib/store_ui.dart lib/book_image_viewer.dart
+      - name: Packages
+        run: flutter pub get
+      - name: Analyze
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+      - name: Test
+        run: flutter test
+      - name: Verify multi-image support
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          store = Path('lib/store_ui.dart').read_text(encoding='utf-8')
+          admin = Path('lib/admin_ui.dart').read_text(encoding='utf-8')
+          state = Path('lib/app_state.dart').read_text(encoding='utf-8')
+          viewer = Path('lib/book_image_viewer.dart').read_text(encoding='utf-8')
+          assert "BookImageViewerPage" in store
+          assert "InteractiveViewer" in viewer
+          assert "pickMultiImage" in admin
+          assert "gallery.length >= 10" in admin
+          assert "imageUrls" in state
+          assert "if (result.length == 10) break" in state
+          print('Gallery and 10-image admin support OK')
+          PY
+      - name: Commit app changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lib/store_ui.dart lib/book_image_viewer.dart
+          git diff --cached --quiet && exit 0
+          git commit -m 'Add fullscreen zoomable book gallery'
+          git push origin main

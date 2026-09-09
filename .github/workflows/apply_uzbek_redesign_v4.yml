@@ -1,0 +1,46 @@
+name: Apply full Uzbek customer redesign
+
+on:
+  push:
+    paths:
+      - '.github/redesign_v4.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  redesign:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Apply full redesign
+        run: python3 tools/apply_uzbek_redesign.py
+
+      - name: Format customer UI
+        run: dart format lib/design_system.dart lib/uzbek_customer_style.dart lib/store_ui.dart
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze app
+        run: flutter analyze --no-fatal-infos
+
+      - name: Commit redesign
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/design_system.dart lib/uzbek_customer_style.dart lib/store_ui.dart
+          if git diff --cached --quiet; then
+            echo "No redesign changes to commit"
+            exit 0
+          fi
+          git commit -m "Completely redesign customer app in Uzbek style"
+          git push

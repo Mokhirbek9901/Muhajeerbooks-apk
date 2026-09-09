@@ -2,31 +2,31 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 abstract final class AppColors {
-  static const navy = Color(0xFF082F49);
-  static const navy2 = Color(0xFF0C4A6E);
-  static const orange = Color(0xFFB7791F);
-  static const gold = Color(0xFFD9A441);
-  static const background = Color(0xFFF4EBDD);
-  static const surface = Color(0xFFFFFCF6);
-  static const surfaceSoft = Color(0xFFFFF7E7);
-  static const border = Color(0xFFD8C3A3);
-  static const text = Color(0xFF20353D);
-  static const muted = Color(0xFF74695D);
+  static const navy = Color(0xFF173F4A);
+  static const navy2 = Color(0xFF0D625B);
+  static const orange = Color(0xFFB85E3F);
+  static const gold = Color(0xFFC99B45);
+  static const background = Color(0xFFF7F3EA);
+  static const surface = Color(0xFFFFFEFA);
+  static const surfaceSoft = Color(0xFFF5EBD7);
+  static const border = Color(0xFFE4D7BC);
+  static const text = Color(0xFF20332F);
+  static const muted = Color(0xFF756D62);
   static const success = Color(0xFF2E7D5B);
-  static const successSoft = Color(0xFFE8F3EA);
-  static const warning = Color(0xFFA66416);
-  static const warningSoft = Color(0xFFFFF1D4);
-  static const danger = Color(0xFFB85042);
-  static const dangerSoft = Color(0xFFFBEAE6);
-  static const info = Color(0xFF0F766E);
-  static const infoSoft = Color(0xFFE7F3EF);
+  static const successSoft = Color(0xFFE7F3EC);
+  static const warning = Color(0xFFA76B20);
+  static const warningSoft = Color(0xFFFFF2D8);
+  static const danger = Color(0xFFB64E4E);
+  static const dangerSoft = Color(0xFFFBEAEA);
+  static const info = Color(0xFF0D6E68);
+  static const infoSoft = Color(0xFFE5F3F0);
 }
 
 abstract final class AppRadii {
-  static const small = 14.0;
+  static const small = 12.0;
   static const medium = 18.0;
   static const large = 24.0;
-  static const xl = 30.0;
+  static const xl = 32.0;
 }
 
 abstract final class AppSpacing {
@@ -40,39 +40,38 @@ abstract final class AppSpacing {
 abstract final class MuhajeerDesign {
   static ThemeData get theme {
     final base = ThemeData(useMaterial3: true, brightness: Brightness.light);
-    final scheme =
-        ColorScheme.fromSeed(
-          seedColor: AppColors.orange,
-          brightness: Brightness.light,
-        ).copyWith(
-          primary: AppColors.navy,
-          onPrimary: Colors.white,
-          secondary: AppColors.orange,
-          onSecondary: Colors.white,
-          tertiary: AppColors.gold,
-          surface: AppColors.surface,
-          onSurface: AppColors.text,
-          outline: AppColors.border,
-          error: AppColors.danger,
-        );
+    final scheme = ColorScheme.fromSeed(
+      seedColor: AppColors.navy2,
+      brightness: Brightness.light,
+    ).copyWith(
+      primary: AppColors.navy2,
+      onPrimary: Colors.white,
+      secondary: AppColors.orange,
+      onSecondary: Colors.white,
+      tertiary: AppColors.gold,
+      surface: AppColors.surface,
+      onSurface: AppColors.text,
+      outline: AppColors.border,
+      error: AppColors.danger,
+    );
 
     final text = base.textTheme.copyWith(
       headlineLarge: const TextStyle(
-        fontSize: 32,
+        fontSize: 31,
         fontWeight: FontWeight.w900,
-        letterSpacing: -0.8,
-        height: 1.12,
+        letterSpacing: -0.75,
+        height: 1.10,
         color: AppColors.text,
       ),
       headlineMedium: const TextStyle(
-        fontSize: 26,
+        fontSize: 25,
         fontWeight: FontWeight.w900,
-        letterSpacing: -0.45,
-        height: 1.16,
+        letterSpacing: -0.4,
+        height: 1.14,
         color: AppColors.text,
       ),
       titleLarge: const TextStyle(
-        fontSize: 20,
+        fontSize: 19.5,
         fontWeight: FontWeight.w900,
         letterSpacing: -0.2,
         color: AppColors.text,
@@ -84,7 +83,7 @@ abstract final class MuhajeerDesign {
       ),
       bodyLarge: const TextStyle(
         fontSize: 15.5,
-        height: 1.5,
+        height: 1.48,
         color: AppColors.text,
       ),
       bodyMedium: const TextStyle(
@@ -126,6 +125,12 @@ abstract final class MuhajeerDesign {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
+        titleTextStyle: TextStyle(
+          color: AppColors.text,
+          fontSize: 20,
+          fontWeight: FontWeight.w900,
+          letterSpacing: -.25,
+        ),
       ),
       cardTheme: CardThemeData(
         color: AppColors.surface,
@@ -140,16 +145,13 @@ abstract final class MuhajeerDesign {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.surface,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 15,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 17, vertical: 16),
         labelStyle: const TextStyle(
           color: AppColors.muted,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
         ),
-        hintStyle: const TextStyle(color: Color(0xFF98A2B3)),
-        prefixIconColor: AppColors.muted,
+        hintStyle: const TextStyle(color: Color(0xFF9A9389)),
+        prefixIconColor: AppColors.navy2,
         suffixIconColor: AppColors.muted,
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.medium),
@@ -157,7 +159,7 @@ abstract final class MuhajeerDesign {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.medium),
-          borderSide: const BorderSide(color: AppColors.navy, width: 1.4),
+          borderSide: const BorderSide(color: AppColors.navy2, width: 1.7),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.medium),
@@ -165,15 +167,16 @@ abstract final class MuhajeerDesign {
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.medium),
-          borderSide: const BorderSide(color: AppColors.danger, width: 1.4),
+          borderSide: const BorderSide(color: AppColors.danger, width: 1.5),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: AppColors.navy,
+          backgroundColor: AppColors.navy2,
           foregroundColor: Colors.white,
-          minimumSize: const Size(44, 50),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+          minimumSize: const Size(44, 52),
+          padding: const EdgeInsets.symmetric(horizontal: 19, vertical: 14),
+          elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.medium),
           ),
@@ -182,9 +185,9 @@ abstract final class MuhajeerDesign {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.navy,
-          minimumSize: const Size(44, 48),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          foregroundColor: AppColors.navy2,
+          minimumSize: const Size(44, 50),
+          padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 13),
           side: const BorderSide(color: AppColors.border),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.medium),
@@ -194,49 +197,57 @@ abstract final class MuhajeerDesign {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.navy,
+          foregroundColor: AppColors.navy2,
           textStyle: const TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        height: 72,
-        backgroundColor: AppColors.surface,
+        height: 74,
+        backgroundColor: AppColors.navy,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: const Color(0xFFF8E7BE),
+        indicatorColor: AppColors.gold,
         elevation: 0,
+        iconTheme: WidgetStateProperty.resolveWith(
+          (states) => IconThemeData(
+            color: states.contains(WidgetState.selected)
+                ? AppColors.navy
+                : Colors.white.withValues(alpha: .72),
+          ),
+        ),
         labelTextStyle: WidgetStateProperty.resolveWith(
           (states) => TextStyle(
-            fontSize: 11.5,
+            fontSize: 11.3,
             fontWeight: states.contains(WidgetState.selected)
                 ? FontWeight.w900
                 : FontWeight.w600,
             color: states.contains(WidgetState.selected)
-                ? AppColors.navy
-                : AppColors.muted,
+                ? Colors.white
+                : Colors.white.withValues(alpha: .68),
           ),
         ),
       ),
       navigationRailTheme: const NavigationRailThemeData(
-        backgroundColor: AppColors.surface,
-        indicatorColor: Color(0xFFF8E7BE),
+        backgroundColor: AppColors.navy,
+        indicatorColor: AppColors.gold,
         selectedIconTheme: IconThemeData(color: AppColors.navy),
+        unselectedIconTheme: IconThemeData(color: Colors.white70),
         selectedLabelTextStyle: TextStyle(
           fontWeight: FontWeight.w900,
-          color: AppColors.navy,
+          color: Colors.white,
         ),
         unselectedLabelTextStyle: TextStyle(
           fontWeight: FontWeight.w600,
-          color: AppColors.muted,
+          color: Colors.white70,
         ),
       ),
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.surface,
-        selectedColor: const Color(0xFFF8E7BE),
+        selectedColor: AppColors.gold,
         side: const BorderSide(color: AppColors.border),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         labelStyle: const TextStyle(
           fontSize: 12,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w800,
           color: AppColors.text,
         ),
       ),
@@ -247,10 +258,10 @@ abstract final class MuhajeerDesign {
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.text,
+        backgroundColor: AppColors.navy,
         contentTextStyle: const TextStyle(
           color: Colors.white,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.medium),
@@ -303,8 +314,8 @@ class AppSurface extends StatelessWidget {
       boxShadow: shadow
           ? const [
               BoxShadow(
-                color: Color(0x100F172A),
-                blurRadius: 24,
+                color: Color(0x12173F4A),
+                blurRadius: 26,
                 offset: Offset(0, 10),
               ),
             ]
@@ -334,15 +345,16 @@ class AppSectionHeader extends StatelessWidget {
     children: [
       if (icon != null) ...[
         Container(
-          width: 38,
-          height: 38,
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
-            color: const Color(0xFFFFF1E2),
-            borderRadius: BorderRadius.circular(12),
+            color: AppColors.surfaceSoft,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
           ),
-          child: Icon(icon, color: AppColors.orange, size: 20),
+          child: Icon(icon, color: AppColors.navy2, size: 20),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 11),
       ],
       Expanded(
         child: Column(
@@ -379,10 +391,10 @@ class AppInfoPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
     decoration: BoxDecoration(
       color: background,
-      borderRadius: BorderRadius.circular(100),
+      borderRadius: BorderRadius.circular(14),
       border: Border.all(color: border),
     ),
     child: Row(
@@ -390,7 +402,7 @@ class AppInfoPill extends StatelessWidget {
       children: [
         if (icon != null) ...[
           Icon(icon, size: 15, color: foreground),
-          const SizedBox(width: 5),
+          const SizedBox(width: 6),
         ],
         Text(
           label,
@@ -430,8 +442,9 @@ class AppPageHeading extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 subtitle!,
-                style: Theme.of(context).textTheme.bodyMedium
-                    ?.copyWith(color: AppColors.muted),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.muted,
+                ),
               ),
             ],
           ],
@@ -461,6 +474,7 @@ class AppMetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => AppSurface(
     padding: const EdgeInsets.all(15),
+    shadow: true,
     child: Row(
       children: [
         Container(
@@ -468,7 +482,8 @@ class AppMetricCard extends StatelessWidget {
           height: 46,
           decoration: BoxDecoration(
             color: accent.withValues(alpha: .10),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: accent.withValues(alpha: .14)),
           ),
           child: Icon(icon, color: accent),
         ),
@@ -486,8 +501,9 @@ class AppMetricCard extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 label,
-                style: Theme.of(context).textTheme.bodySmall
-                    ?.copyWith(fontWeight: FontWeight.w700),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               if (note != null) ...[
                 const SizedBox(height: 2),

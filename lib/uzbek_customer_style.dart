@@ -74,9 +74,7 @@ class UzbekPatternPanel extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: dark
-                ? const Color(0x30103B44)
-                : const Color(0x140F3F47),
+            color: dark ? const Color(0x30103B44) : const Color(0x140F3F47),
             blurRadius: strongPattern ? 28 : 18,
             offset: const Offset(0, 9),
           ),
@@ -87,10 +85,7 @@ class UzbekPatternPanel extends StatelessWidget {
           Positioned.fill(
             child: IgnorePointer(
               child: CustomPaint(
-                painter: _ModernAtlasPainter(
-                  dark: dark,
-                  strong: strongPattern,
-                ),
+                painter: _ModernAtlasPainter(dark: dark, strong: strongPattern),
               ),
             ),
           ),
@@ -122,7 +117,9 @@ class UzbekPatternPanel extends StatelessWidget {
                   child: CustomPaint(
                     painter: _SuzaniRosettePainter(
                       color: UzbekCustomerColors.gold.withValues(alpha: .08),
-                      lineColor: UzbekCustomerColors.teal.withValues(alpha: .05),
+                      lineColor: UzbekCustomerColors.teal.withValues(
+                        alpha: .05,
+                      ),
                     ),
                   ),
                 ),
@@ -364,8 +361,9 @@ class UzbekMedallion extends StatelessWidget {
       painter: _SuzaniRosettePainter(
         color: (dark ? UzbekCustomerColors.goldSoft : UzbekCustomerColors.gold)
             .withValues(alpha: dark ? .30 : .22),
-        lineColor: (dark ? Colors.white : UzbekCustomerColors.teal)
-            .withValues(alpha: dark ? .23 : .18),
+        lineColor: (dark ? Colors.white : UzbekCustomerColors.teal).withValues(
+          alpha: dark ? .23 : .18,
+        ),
       ),
     ),
   );
@@ -399,17 +397,13 @@ class _ModernAtlasPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = strong ? 1.0 : .75
       ..color = (dark ? Colors.white : UzbekCustomerColors.teal).withValues(
-        alpha: dark
-            ? (strong ? .085 : .055)
-            : (strong ? .065 : .040),
+        alpha: dark ? (strong ? .085 : .055) : (strong ? .065 : .040),
       );
     final accent = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = .8
       ..color = UzbekCustomerColors.gold.withValues(
-        alpha: dark
-            ? (strong ? .15 : .10)
-            : (strong ? .10 : .06),
+        alpha: dark ? (strong ? .15 : .10) : (strong ? .10 : .06),
       );
 
     const stepX = 58.0;
@@ -455,7 +449,11 @@ class _AtlasRibbonPainter extends CustomPainter {
     ];
 
     var i = 0;
-    for (double x = -segmentWidth; x < size.width + segmentWidth; x += segmentWidth) {
+    for (
+      double x = -segmentWidth;
+      x < size.width + segmentWidth;
+      x += segmentWidth
+    ) {
       final path = Path()
         ..moveTo(x, size.height)
         ..lineTo(x + segmentWidth * .48, 0)
@@ -477,10 +475,7 @@ class _AtlasRibbonPainter extends CustomPainter {
 }
 
 class _SuzaniRosettePainter extends CustomPainter {
-  const _SuzaniRosettePainter({
-    required this.color,
-    required this.lineColor,
-  });
+  const _SuzaniRosettePainter({required this.color, required this.lineColor});
 
   final Color color;
   final Color lineColor;

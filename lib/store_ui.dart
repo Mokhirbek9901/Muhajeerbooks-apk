@@ -85,28 +85,28 @@ class _StoreShellState extends State<StoreShell> {
       backgroundColor: UzbekCustomerColors.background,
       body: IndexedStack(index: index, children: pages),
       bottomNavigationBar: Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+        margin: const EdgeInsets.fromLTRB(10, 0, 10, 8),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [UzbekCustomerColors.surface, UzbekCustomerColors.ivory],
+            colors: [UzbekCustomerColors.navy, UzbekCustomerColors.tealDark],
           ),
-          borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: UzbekCustomerColors.gold, width: 1.15),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: UzbekCustomerColors.gold, width: 1.05),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x26123C4A),
-              blurRadius: 28,
-              offset: Offset(0, 10),
+              color: Color(0x33113D43),
+              blurRadius: 24,
+              offset: Offset(0, 9),
             ),
           ],
         ),
         child: NavigationBar(
           height: 72,
           backgroundColor: Colors.transparent,
-          indicatorColor: UzbekCustomerColors.goldSoft,
+          indicatorColor: UzbekCustomerColors.gold,
           selectedIndex: index,
           onDestinationSelected: (value) => setState(() => index = value),
           destinations: [
@@ -114,7 +114,7 @@ class _StoreShellState extends State<StoreShell> {
               icon: Icon(Icons.home_outlined),
               selectedIcon: Icon(
                 Icons.home_rounded,
-                color: UzbekCustomerColors.goldDeep,
+                color: UzbekCustomerColors.navy,
               ),
               label: 'Bosh sahifa',
             ),
@@ -122,7 +122,7 @@ class _StoreShellState extends State<StoreShell> {
               icon: Icon(Icons.grid_view_rounded),
               selectedIcon: Icon(
                 Icons.grid_view_rounded,
-                color: UzbekCustomerColors.goldDeep,
+                color: UzbekCustomerColors.navy,
               ),
               label: 'Kategoriya',
             ),
@@ -137,7 +137,7 @@ class _StoreShellState extends State<StoreShell> {
                 label: Text('${cartCount}'),
                 child: const Icon(
                   Icons.shopping_cart_rounded,
-                  color: UzbekCustomerColors.goldDeep,
+                  color: UzbekCustomerColors.navy,
                 ),
               ),
               label: 'Savatcha',
@@ -146,7 +146,7 @@ class _StoreShellState extends State<StoreShell> {
               icon: Icon(Icons.favorite_border_rounded),
               selectedIcon: Icon(
                 Icons.favorite_rounded,
-                color: UzbekCustomerColors.goldDeep,
+                color: UzbekCustomerColors.navy,
               ),
               label: 'Sevimlilar',
             ),
@@ -154,7 +154,7 @@ class _StoreShellState extends State<StoreShell> {
               icon: Icon(Icons.person_outline_rounded),
               selectedIcon: Icon(
                 Icons.person_rounded,
-                color: UzbekCustomerColors.goldDeep,
+                color: UzbekCustomerColors.navy,
               ),
               label: 'Profil',
             ),
@@ -487,20 +487,27 @@ class _HomePageState extends State<HomePage> {
                         height: 56,
                         width: 56,
                         decoration: BoxDecoration(
-                          color: UzbekCustomerColors.surface,
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              UzbekCustomerColors.navy,
+                              UzbekCustomerColors.tealDark,
+                            ],
+                          ),
                           borderRadius: BorderRadius.circular(18),
                           border: Border.all(color: UzbekCustomerColors.gold),
                           boxShadow: const [
                             BoxShadow(
-                              color: Color(0x12123C4A),
-                              blurRadius: 14,
-                              offset: Offset(0, 5),
+                              color: Color(0x22173F4A),
+                              blurRadius: 16,
+                              offset: Offset(0, 6),
                             ),
                           ],
                         ),
                         child: const Icon(
                           Icons.tune_rounded,
-                          color: UzbekCustomerColors.navy,
+                          color: UzbekCustomerColors.goldSoft,
                         ),
                       ),
                     ),
@@ -577,7 +584,7 @@ class _HomePageState extends State<HomePage> {
                         crossAxisCount: count,
                         mainAxisSpacing: 12,
                         crossAxisSpacing: 12,
-                        childAspectRatio: width < 450 ? .57 : .62,
+                        childAspectRatio: width < 450 ? .60 : .66,
                       ),
                     );
                   },
@@ -693,20 +700,16 @@ class _StoreHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+      padding: const EdgeInsets.fromLTRB(14, 11, 10, 10),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [UzbekCustomerColors.surface, UzbekCustomerColors.ivory],
-        ),
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: UzbekCustomerColors.gold, width: 1.05),
+        color: UzbekCustomerColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: UzbekCustomerColors.border),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x15123C4A),
-            blurRadius: 20,
-            offset: Offset(0, 8),
+            color: Color(0x10173F4A),
+            blurRadius: 16,
+            offset: Offset(0, 6),
           ),
         ],
       ),
@@ -920,7 +923,7 @@ class _QuickCategoryStrip extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 88,
+          height: 78,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: visible.length,
@@ -933,10 +936,10 @@ class _QuickCategoryStrip extends StatelessWidget {
                 onTap: () => onSelected(c),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
-                  width: 78,
+                  width: 86,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 7,
-                    vertical: 9,
+                    vertical: 7,
                   ),
                   decoration: BoxDecoration(
                     gradient: active
@@ -956,7 +959,7 @@ class _QuickCategoryStrip extends StatelessWidget {
                               UzbekCustomerColors.ivory,
                             ],
                           ),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(17),
                     border: Border.all(
                       color: active
                           ? UzbekCustomerColors.gold
@@ -980,7 +983,7 @@ class _QuickCategoryStrip extends StatelessWidget {
                         color: active
                             ? UzbekCustomerColors.gold
                             : UzbekCustomerColors.teal,
-                        size: 25,
+                        size: 23,
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -1223,18 +1226,14 @@ class BookCard extends StatelessWidget {
     final state = context.read<AppState>();
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [UzbekCustomerColors.surface, UzbekCustomerColors.ivory],
-        ),
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: UzbekCustomerColors.border, width: 1.05),
+        color: UzbekCustomerColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: UzbekCustomerColors.border),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x1A123C4A),
-            blurRadius: 22,
-            offset: Offset(0, 9),
+            color: Color(0x12173F4A),
+            blurRadius: 16,
+            offset: Offset(0, 6),
           ),
         ],
       ),
@@ -1263,9 +1262,9 @@ class BookCard extends StatelessWidget {
                     left: 8,
                     child: Material(
                       color: Colors.white.withValues(alpha: .94),
-                      borderRadius: BorderRadius.circular(100),
+                      borderRadius: BorderRadius.circular(12),
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(100),
+                        borderRadius: BorderRadius.circular(12),
                         onTap: () => state.toggleFavorite(book),
                         child: Padding(
                           padding: const EdgeInsets.all(8),

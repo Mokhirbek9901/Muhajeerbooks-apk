@@ -40,20 +40,21 @@ abstract final class AppSpacing {
 abstract final class MuhajeerDesign {
   static ThemeData get theme {
     final base = ThemeData(useMaterial3: true, brightness: Brightness.light);
-    final scheme = ColorScheme.fromSeed(
-      seedColor: AppColors.navy2,
-      brightness: Brightness.light,
-    ).copyWith(
-      primary: AppColors.navy2,
-      onPrimary: Colors.white,
-      secondary: AppColors.orange,
-      onSecondary: Colors.white,
-      tertiary: AppColors.gold,
-      surface: AppColors.surface,
-      onSurface: AppColors.text,
-      outline: AppColors.border,
-      error: AppColors.danger,
-    );
+    final scheme =
+        ColorScheme.fromSeed(
+          seedColor: AppColors.navy2,
+          brightness: Brightness.light,
+        ).copyWith(
+          primary: AppColors.navy2,
+          onPrimary: Colors.white,
+          secondary: AppColors.orange,
+          onSecondary: Colors.white,
+          tertiary: AppColors.gold,
+          surface: AppColors.surface,
+          onSurface: AppColors.text,
+          outline: AppColors.border,
+          error: AppColors.danger,
+        );
 
     final text = base.textTheme.copyWith(
       headlineLarge: const TextStyle(
@@ -145,7 +146,10 @@ abstract final class MuhajeerDesign {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 17, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 17,
+          vertical: 16,
+        ),
         labelStyle: const TextStyle(
           color: AppColors.muted,
           fontWeight: FontWeight.w700,
@@ -442,9 +446,8 @@ class AppPageHeading extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 subtitle!,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.muted,
-                ),
+                style: Theme.of(context).textTheme.bodyMedium
+                    ?.copyWith(color: AppColors.muted),
               ),
             ],
           ],
@@ -501,9 +504,8 @@ class AppMetricCard extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 label,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(fontWeight: FontWeight.w700),
               ),
               if (note != null) ...[
                 const SizedBox(height: 2),

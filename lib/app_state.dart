@@ -450,7 +450,7 @@ class BackendService {
 }
 
 class _LocalStore {
-  static const _booksKey = 'muhajeer_books_v3';
+  static const _booksKey = 'muhajeer_books_v4';
   static const _ordersKey = 'muhajeer_orders_v4';
   static const _customerNoticesKey = 'muhajeer_customer_notices_v2';
   static const _favoritesKey = 'muhajeer_favorites_v2';
@@ -786,6 +786,7 @@ class AppState extends ChangeNotifier {
       _books
         ..clear()
         ..addAll(fresh);
+      await _local.saveBooks(_books);
       _sanitizeCart();
       notifyListeners();
     } catch (_) {
@@ -859,11 +860,13 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       if (_backend != null) {
+        final fresh = await _backend!.fetchBooks(
+          includeInactive: includeInactive,
+        );
         _books
           ..clear()
-          ..addAll(
-            await _backend!.fetchBooks(includeInactive: includeInactive),
-          );
+          ..addAll(fresh);
+        await _local.saveBooks(_books);
       } else {
         _books
           ..clear()
@@ -872,6 +875,15 @@ class AppState extends ChangeNotifier {
       _sanitizeCart();
     } catch (e) {
       error = e.toString();
+      if (_books.isEmpty) {
+        final cached = await _local.loadBooks();
+        if (cached.isNotEmpty) {
+          _books
+            ..clear()
+            ..addAll(cached);
+          _sanitizeCart();
+        }
+      }
     } finally {
       loading = false;
       notifyListeners();

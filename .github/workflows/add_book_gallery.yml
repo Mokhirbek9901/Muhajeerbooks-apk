@@ -1,0 +1,61 @@
+name: Add book gallery and web reliability
+
+on:
+  push:
+    paths:
+      - 'tools/add_book_gallery_and_web_proxy.py'
+      - '.github/workflows/add_book_gallery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Apply patch
+        run: python3 tools/add_book_gallery_and_web_proxy.py
+      - name: Format
+        run: dart format lib/main.dart lib/app_state.dart lib/admin_ui.dart lib/store_ui.dart
+      - name: Packages
+        run: flutter pub get
+      - name: Analyze
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+      - name: Tests
+        run: flutter test
+      - name: Build web
+        run: flutter build web --release
+      - name: Invariants
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          a = Path('lib/app_state.dart').read_text(encoding='utf-8')
+          u = Path('lib/admin_ui.dart').read_text(encoding='utf-8')
+          s = Path('lib/store_ui.dart').read_text(encoding='utf-8')
+          m = Path('lib/main.dart').read_text(encoding='utf-8')
+          n = Path('nginx.conf').read_text(encoding='utf-8')
+          assert 'List<String> get galleryImages' in a
+          assert "'image_urls': galleryImages" in a
+          assert 'pickAndUploadImages' in u
+          assert 'gallery.length >= 10' in u
+          assert 'class _BookGallery extends StatefulWidget' in s
+          assert "'${Uri.base.origin}/supabase'" in m
+          assert 'location /supabase/' in n
+          print('Gallery and web proxy invariants OK')
+          PY
+      - name: Commit runtime changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lib/main.dart lib/app_state.dart lib/admin_ui.dart lib/store_ui.dart nginx.conf
+          git diff --cached --quiet && exit 0
+          git commit -m 'Add 10-image book gallery and stabilize live web backend'
+          git push origin main

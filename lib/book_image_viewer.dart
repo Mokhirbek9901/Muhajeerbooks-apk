@@ -69,7 +69,8 @@ class _BookImageViewerPageState extends State<BookImageViewerPage> {
             controller: _pageController,
             itemCount: widget.images.length,
             onPageChanged: (value) => setState(() => _index = value),
-            itemBuilder: (context, i) => _ZoomableNetworkImage(url: widget.images[i]),
+            itemBuilder: (context, i) =>
+                _ZoomableNetworkImage(url: widget.images[i]),
           ),
           Positioned(
             left: 0,
@@ -79,7 +80,10 @@ class _BookImageViewerPageState extends State<BookImageViewerPage> {
               top: false,
               child: Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 7,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: .55),
                     borderRadius: BorderRadius.circular(100),
@@ -87,7 +91,11 @@ class _BookImageViewerPageState extends State<BookImageViewerPage> {
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.zoom_in_rounded, color: Colors.white70, size: 18),
+                      Icon(
+                        Icons.zoom_in_rounded,
+                        color: Colors.white70,
+                        size: 18,
+                      ),
                       SizedBox(width: 6),
                       Text(
                         'Kattalashtirish uchun ikki barmoq bilan yoying',
@@ -147,9 +155,16 @@ class _ZoomableNetworkImageState extends State<_ZoomableNetworkImage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.broken_image_outlined, color: Colors.white70, size: 52),
+                Icon(
+                  Icons.broken_image_outlined,
+                  color: Colors.white70,
+                  size: 52,
+                ),
                 SizedBox(height: 10),
-                Text('Rasmni ochib bo‘lmadi', style: TextStyle(color: Colors.white70)),
+                Text(
+                  'Rasmni ochib bo‘lmadi',
+                  style: TextStyle(color: Colors.white70),
+                ),
               ],
             ),
           ),

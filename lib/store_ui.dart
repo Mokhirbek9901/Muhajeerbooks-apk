@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'admin_ui.dart';
 import 'app_state.dart';
 import 'brand.dart';
+import 'book_image_viewer.dart';
 import 'design_system.dart';
 import 'uzbek_customer_style.dart';
 
@@ -1638,11 +1639,46 @@ class _BookGalleryState extends State<_BookGallery> {
               controller: controller,
               itemCount: images.length,
               onPageChanged: (value) => setState(() => index = value),
-              itemBuilder: (_, i) => Image.network(
-                images[i],
-                fit: BoxFit.cover,
-                filterQuality: FilterQuality.medium,
-                errorBuilder: (_, __, ___) => _BookCover(book: widget.book),
+              itemBuilder: (_, i) => GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => BookImageViewerPage(
+                      images: images,
+                      initialIndex: i,
+                      title: widget.book.title,
+                    ),
+                  ),
+                ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.network(
+                      images[i],
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.medium,
+                      errorBuilder: (_, __, ___) =>
+                          _BookCover(book: widget.book),
+                    ),
+                    Positioned(
+                      right: 10,
+                      bottom: 10,
+                      child: Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: .55),
+                          borderRadius: BorderRadius.circular(100),
+                        ),
+                        child: const Icon(
+                          Icons.zoom_out_map_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1685,7 +1721,8 @@ class _BookGalleryState extends State<_BookGallery> {
             ),
             const SizedBox(height: 4),
             Text(
-              '${index + 1}/${images.length}',
+              '${index + 1}/${images.length} • Kattalashtirish uchun rasmni bosing',
+              textAlign: TextAlign.center,
               style: const TextStyle(
                 color: AppColors.muted,
                 fontSize: 11,

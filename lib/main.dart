@@ -9,9 +9,8 @@ import 'design_system.dart';
 import 'store_ui.dart';
 
 // Live Railway web va APK aynan shu bir xil storefront kodidan build qilinadi.
-// Customer logout local ma'lumotlarni darhol tozalaydi.
-// Admin fon yangilanishi jim ishlaydi; mijoz buyurtma holatini ilova ichida ko'radi.
-// Sotilgan kitoblar tarixi Ilova, Telegram va Instagram savdolarini birlashtiradi.
+// Mijoz uchun majburiy Supabase login yo'q; eski sessiya katalog/admin RPC'larini
+// buzmasligi uchun startupda tozalanadi.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -28,6 +27,17 @@ Future<void> main() async {
 
   if (backendConfigured) {
     await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+    // Ilgari SMS/login bo'lgan davrdan brauzerda qolgan sessiya eskirgan bo'lsa,
+    // Supabase so'rovlariga noto'g'ri JWT qo'shib katalog va admin tekshiruvini
+    // buzishi mumkin. Hozir customer login ishlatilmaydi, shuning uchun xavfsiz
+    // tarzda eski sessiyani startupda olib tashlaymiz.
+    try {
+      if (Supabase.instance.client.auth.currentSession != null) {
+        await Supabase.instance.client.auth.signOut();
+      }
+    } catch (_) {
+      // Sessiya tozalashdagi vaqtinchalik tarmoq xatosi do'konni bloklamasin.
+    }
   }
 
   runApp(MuhajeerBooksApp(backendConfigured: backendConfigured));

@@ -115,4 +115,4 @@ jobs:
           path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 30
 
-# customer shipping flow build: final stage is Jo‘natildi
+# 2026-09-09: gallery-enabled release build; customer shipping final stage is Jo‘natildi

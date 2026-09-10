@@ -1,0 +1,83 @@
+name: Fix cart total with delivery
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix_cart_total.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix-cart-total:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update cart grand total
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('lib/store_ui.dart')
+          text = path.read_text(encoding='utf-8')
+
+          old_header = """    final state = context.watch<AppState>();
+    final lines = state.cartLines;
+    return Scaffold(
+"""
+          new_header = """    final state = context.watch<AppState>();
+    final lines = state.cartLines;
+    final deliveryFee = state.cartCount >= 4 ? 0 : AppState.deliveryFee;
+    final grandTotal = state.cartSubtotal + deliveryFee;
+    return Scaffold(
+"""
+
+          if old_header in text:
+              text = text.replace(old_header, new_header, 1)
+          elif 'final grandTotal = state.cartSubtotal + deliveryFee;' not in text:
+              raise SystemExit('CartPage header pattern not found')
+
+          old_total = """                        const Text(
+                          'Kitoblar jami',
+                          style: TextStyle(
+                            color: AppColors.muted,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          won(state.cartSubtotal),
+"""
+          new_total = """                        const Text(
+                          'Jami',
+                          style: TextStyle(
+                            color: AppColors.muted,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          won(grandTotal),
+"""
+
+          if old_total in text:
+              text = text.replace(old_total, new_total, 1)
+          elif "won(grandTotal)" not in text:
+              raise SystemExit('Cart total display pattern not found')
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit fix
+        run: |
+          if git diff --quiet; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/store_ui.dart
+          git commit -m "Include delivery fee in cart total"
+          git push

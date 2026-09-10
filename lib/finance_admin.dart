@@ -7,6 +7,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'design_system.dart';
 
 final _financeMoney = NumberFormat('#,###', 'en_US');
+final _financeDisplayDate = DateFormat('dd.MM.yyyy');
+final _financeServerDate = DateFormat('yyyy-MM-dd');
+
 String _financeWon(num value) => '₩${_financeMoney.format(value.round())}';
 String _financeSignedWon(num value) {
   final amount = value.round();
@@ -80,6 +83,55 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
     return _int('net_profit');
   }
 
+  DateTime _expenseDate(dynamic raw) {
+    final parsed = DateTime.tryParse((raw ?? '').toString());
+    if (parsed == null) return DateTime.now();
+    return DateTime(parsed.year, parsed.month, parsed.day);
+  }
+
+  Future<DateTime?> _pickExpenseDate(
+    BuildContext context,
+    DateTime current,
+  ) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final firstDate = DateTime(2020, 1, 1);
+    var initial = DateTime(current.year, current.month, current.day);
+    if (initial.isAfter(today)) initial = today;
+    if (initial.isBefore(firstDate)) initial = firstDate;
+
+    return showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: firstDate,
+      lastDate: today,
+      helpText: 'Xarajat sanasini tanlang',
+      cancelText: 'Bekor qilish',
+      confirmText: 'Tanlash',
+    );
+  }
+
+  Widget _dateButton({
+    required BuildContext dialogContext,
+    required DateTime value,
+    required ValueChanged<DateTime> onChanged,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: () async {
+          final picked = await _pickExpenseDate(dialogContext, value);
+          if (picked != null) onChanged(picked);
+        },
+        icon: const Icon(Icons.calendar_month_outlined),
+        label: Align(
+          alignment: Alignment.centerLeft,
+          child: Text('Xarajat sanasi: ${_financeDisplayDate.format(value)}'),
+        ),
+      ),
+    );
+  }
+
   Future<void> _load({bool quiet = false}) async {
     if (!quiet && mounted) setState(() => loading = true);
     try {
@@ -123,6 +175,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
     final amount = TextEditingController();
     final note = TextEditingController();
     var category = 'postage';
+    var expenseDate = DateTime.now();
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -151,6 +204,14 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                   },
                 ),
                 const SizedBox(height: 12),
+                _dateButton(
+                  dialogContext: dialogContext,
+                  value: expenseDate,
+                  onChanged: (value) {
+                    setDialogState(() => expenseDate = value);
+                  },
+                ),
+                const SizedBox(height: 12),
                 TextField(
                   controller: amount,
                   keyboardType: TextInputType.number,
@@ -166,7 +227,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                   decoration: InputDecoration(
                     labelText: 'Izoh (ixtiyoriy)',
                     hintText: category == 'inventory_purchase'
-                        ? 'Masalan: Sentabr yangi kitoblar partiyasi'
+                        ? 'Masalan: Toshkent yangi kitoblar partiyasi'
                         : 'Masalan: CJ pochta, reklama yoki qadoqlash',
                   ),
                 ),
@@ -216,6 +277,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
           'p_amount': value,
           'p_category': category,
           'p_note': noteText,
+          'p_expense_date': _financeServerDate.format(expenseDate),
         },
       );
       await _load();
@@ -235,6 +297,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
     );
     var category = (expense['category'] ?? 'other').toString();
     if (!categoryLabels.containsKey(category)) category = 'other';
+    var expenseDate = _expenseDate(expense['expense_date']);
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -260,6 +323,14 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                     if (value != null) {
                       setDialogState(() => category = value);
                     }
+                  },
+                ),
+                const SizedBox(height: 12),
+                _dateButton(
+                  dialogContext: dialogContext,
+                  value: expenseDate,
+                  onChanged: (value) {
+                    setDialogState(() => expenseDate = value);
                   },
                 ),
                 const SizedBox(height: 12),
@@ -323,6 +394,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
           'p_amount': value,
           'p_category': category,
           'p_note': noteText,
+          'p_expense_date': _financeServerDate.format(expenseDate),
         },
       );
       await _load();
@@ -372,6 +444,23 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('O‘chirilmadi: $e')),
       );
+    }
+  }
+
+  IconData _expenseIcon(String category) {
+    switch (category) {
+      case 'inventory_purchase':
+        return Icons.library_books_outlined;
+      case 'postage':
+        return Icons.local_shipping_outlined;
+      case 'packaging':
+        return Icons.inventory_2_outlined;
+      case 'ads':
+        return Icons.campaign_outlined;
+      case 'transport':
+        return Icons.directions_car_outlined;
+      default:
+        return Icons.receipt_long_outlined;
     }
   }
 
@@ -582,70 +671,70 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
             )
           else
             ...expenses.map(
-              (e) => Card(
-                child: ListTile(
-                  leading: CircleAvatar(
-                    child: Icon(
-                      e['category'] == 'inventory_purchase'
-                          ? Icons.library_books_outlined
-                          : Icons.remove_rounded,
+              (e) {
+                final category = (e['category'] ?? 'other').toString();
+                final date = _expenseDate(e['expense_date']);
+                return Card(
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      child: Icon(_expenseIcon(category)),
+                    ),
+                    title: Text(
+                      '${categoryLabels[category] ?? 'Boshqa'} — ${_financeWon((e['amount'] as num?) ?? 0)}',
+                    ),
+                    subtitle: Text(
+                      [
+                        _financeDisplayDate.format(date),
+                        if ((e['note'] ?? '').toString().trim().isNotEmpty)
+                          (e['note'] ?? '').toString(),
+                        (e['source'] ?? '').toString() == 'telegram'
+                            ? 'Telegramdan kiritilgan'
+                            : 'Admin ilovadan kiritilgan',
+                      ].join(' • '),
+                    ),
+                    trailing: PopupMenuButton<String>(
+                      tooltip: 'Amallar',
+                      icon: const Icon(Icons.more_vert_rounded),
+                      onSelected: (action) {
+                        if (action == 'edit') {
+                          unawaited(_editExpense(e));
+                        } else if (action == 'delete') {
+                          unawaited(_deleteExpense(e));
+                        }
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem<String>(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit_outlined),
+                              SizedBox(width: 10),
+                              Text('Tahrirlash'),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem<String>(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete_outline_rounded),
+                              SizedBox(width: 10),
+                              Text('O‘chirish'),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  title: Text(
-                    '${categoryLabels[e['category']] ?? 'Boshqa'} — ${_financeWon((e['amount'] as num?) ?? 0)}',
-                  ),
-                  subtitle: Text(
-                    [
-                      (e['expense_date'] ?? '').toString(),
-                      if ((e['note'] ?? '').toString().trim().isNotEmpty)
-                        (e['note'] ?? '').toString(),
-                      (e['source'] ?? '').toString() == 'telegram'
-                          ? 'Telegramdan kiritilgan'
-                          : 'Admin ilovadan kiritilgan',
-                    ].join(' • '),
-                  ),
-                  trailing: PopupMenuButton<String>(
-                    tooltip: 'Amallar',
-                    icon: const Icon(Icons.more_vert_rounded),
-                    onSelected: (action) {
-                      if (action == 'edit') {
-                        unawaited(_editExpense(e));
-                      } else if (action == 'delete') {
-                        unawaited(_deleteExpense(e));
-                      }
-                    },
-                    itemBuilder: (context) => const [
-                      PopupMenuItem<String>(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit_outlined),
-                            SizedBox(width: 10),
-                            Text('Tahrirlash'),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem<String>(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete_outline_rounded),
-                            SizedBox(width: 10),
-                            Text('O‘chirish'),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+                );
+              },
             ),
           const SizedBox(height: 12),
           const Card(
             child: Padding(
               padding: EdgeInsets.all(16),
               child: Text(
-                'Hisob formulasi: KITOB SAVDOSI − YANGI PARTIYA KITOBLAR − DO‘KON HISOBIDAN POCHTA − BOSHQA XARAJATLAR. Mijoz yetkazish uchun to‘lagan pul foyda sifatida qo‘shilmaydi. Masalan, kitob xarajati ₩100,000 va kitob savdosi ₩17,000 bo‘lsa natija −₩83,000, marja −83.0%. Keyin qo‘shimcha xarajat kiritsangiz, natija yana kamayadi.',
+                'Hisob formulasi: KITOB SAVDOSI − YANGI PARTIYA KITOBLAR − DO‘KON HISOBIDAN POCHTA − BOSHQA XARAJATLAR. Xarajatlar Bugun, Shu hafta va Shu oy bo‘limlarida kiritilgan vaqtga emas, tanlangan xarajat sanasiga qarab hisoblanadi. Mijoz yetkazish uchun to‘lagan pul foyda sifatida qo‘shilmaydi.',
                 style: TextStyle(color: AppColors.muted, height: 1.45),
               ),
             ),

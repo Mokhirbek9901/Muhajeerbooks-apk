@@ -1988,6 +1988,8 @@ class CartPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final lines = state.cartLines;
+    final deliveryFee = state.cartCount >= 4 ? 0 : AppState.deliveryFee;
+    final grandTotal = state.cartSubtotal + deliveryFee;
     return Scaffold(
       backgroundColor: UzbekCustomerColors.background,
       appBar: AppBar(
@@ -2154,7 +2156,7 @@ class CartPage extends StatelessWidget {
                     Row(
                       children: [
                         const Text(
-                          'Kitoblar jami',
+                          'Jami',
                           style: TextStyle(
                             color: AppColors.muted,
                             fontWeight: FontWeight.w600,
@@ -2162,7 +2164,7 @@ class CartPage extends StatelessWidget {
                         ),
                         const Spacer(),
                         Text(
-                          won(state.cartSubtotal),
+                          won(grandTotal),
                           style: const TextStyle(
                             fontWeight: FontWeight.w900,
                             fontSize: 21,

@@ -1,8 +1,10 @@
 name: Fix image upload linking
 
 on:
+  workflow_dispatch:
   push:
     paths:
+      - 'tools/fix_image_upload_linking.py'
       - '.github/workflows/fix-image-upload-linking.yml'
 
 permissions:
@@ -16,207 +18,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Patch image upload flow
+      - name: Apply image upload fix
+        run: python3 tools/fix_image_upload_linking.py
+
+      - name: Commit source changes
         shell: bash
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-
-          admin = Path('lib/admin_ui.dart')
-          text = admin.read_text()
-
-          old_parser = """    final raw = response.data;
-    final data = raw is Map
-        ? Map<String, dynamic>.from(raw)
-        : <String, dynamic>{};
-    final url = (data['url'] ?? '').toString();
-"""
-          new_parser = """    final raw = response.data;
-    Map<String, dynamic> data = <String, dynamic>{};
-    if (raw is Map) {
-      data = Map<String, dynamic>.from(raw);
-    } else if (raw is String && raw.trim().isNotEmpty) {
-      try {
-        final decoded = jsonDecode(raw);
-        if (decoded is Map) data = Map<String, dynamic>.from(decoded);
-      } catch (_) {
-        // Ba'zi web/proxy javoblari JSON string bo'lib kelishi mumkin.
-      }
-    }
-    final url = (data['url'] ?? '').toString();
-"""
-          if old_parser not in text:
-              raise SystemExit('admin upload response parser block not found')
-          text = text.replace(old_parser, new_parser, 1)
-
-          pattern = re.compile(r"  Future<void> pickAndUploadImages\(\) async \{.*?\n  \}\n\n  void _makeCover", re.S)
-          replacement = """  Future<void> pickAndUploadImages() async {
-    if (uploadingImage) return;
-    final slots = 20 - gallery.length;
-    if (slots <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Bitta kitobga maksimal 20 ta rasm qo‘yiladi.'),
-        ),
-      );
-      return;
-    }
-
-    try {
-      final picked = await picker.pickMultiImage(
-        imageQuality: 82,
-        maxWidth: 1600,
-        maxHeight: 2200,
-      );
-      if (picked.isEmpty) return;
-
-      final selected = picked.take(slots).toList();
-      setState(() => uploadingImage = true);
-      final uploaded = <String>[];
-      final errors = <String>[];
-
-      // Har bir rasm alohida yuklanadi. Bitta rasmda xato bo‘lsa,
-      // oldin muvaffaqiyatli yuklangan rasmlar yo‘qolib ketmaydi.
-      for (final file in selected) {
-        try {
-          final url = await widget.api.uploadCover(file);
-          final clean = url.trim();
-          if (clean.isEmpty) {
-            errors.add('${file.name}: bo‘sh manzil qaytdi');
-            continue;
-          }
-          if (!mounted) return;
-          if (!gallery.contains(clean)) {
-            setState(() {
-              gallery = [...gallery, clean].take(20).toList();
-            });
-            _syncCoverController();
-            uploaded.add(clean);
-          }
-        } catch (e) {
-          errors.add('${file.name}: $e');
-        }
-      }
-
-      if (!mounted) return;
-
-      // Mavjud kitob tahrirlanayotgan bo‘lsa, rasmni alohida "Saqlash"
-      // bosilishini kutmasdan darhol kitobga biriktiramiz. Shu bilan storage'ga
-      // yuklangan, lekin kitobda ko‘rinmay qoladigan orphan rasm muammosi yo‘qoladi.
-      if (uploaded.isNotEmpty && widget.book != null && gallery.isNotEmpty) {
-        try {
-          final urls = gallery
-              .map((e) => e.trim())
-              .where((e) => e.isNotEmpty)
-              .toSet()
-              .take(20)
-              .toList();
-          await widget.api.saveBook(
-            widget.book!.copyWith(
-              imageUrl: urls.first,
-              imageUrls: urls,
-            ),
-          );
-        } catch (e) {
-          errors.add('Kitobga biriktirish: $e');
-        }
-      }
-
-      if (!mounted) return;
-      final messenger = ScaffoldMessenger.of(context);
-      if (uploaded.isEmpty) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              errors.isEmpty
-                  ? 'Rasm yuklanmadi.'
-                  : 'Rasm yuklanmadi: ${errors.first}',
-            ),
-          ),
-        );
-      } else if (errors.isEmpty) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              widget.book == null
-                  ? '${uploaded.length} ta rasm yuklandi ✅ Kitobni saqlashni unutmang.'
-                  : '${uploaded.length} ta rasm yuklandi va kitobga biriktirildi ✅',
-            ),
-          ),
-        );
-      } else {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              '${uploaded.length} ta rasm yuklandi, ${errors.length} ta rasmda xato bo‘ldi.',
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Rasm tanlashda xatolik: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => uploadingImage = false);
-    }
-  }
-
-  void _makeCover"""
-          text, count = pattern.subn(replacement, text, count=1)
-          if count != 1:
-              raise SystemExit(f'pickAndUploadImages patch count={count}')
-          admin.write_text(text)
-
-          app = Path('lib/app_state.dart')
-          text = app.read_text()
-          old_payment = """    final raw = response.data;
-    final data = raw is Map
-        ? Map<String, dynamic>.from(raw)
-        : <String, dynamic>{};
-    final path = (data['path'] ?? '').toString();
-"""
-          new_payment = """    final raw = response.data;
-    Map<String, dynamic> data = <String, dynamic>{};
-    if (raw is Map) {
-      data = Map<String, dynamic>.from(raw);
-    } else if (raw is String && raw.trim().isNotEmpty) {
-      try {
-        final decoded = jsonDecode(raw);
-        if (decoded is Map) data = Map<String, dynamic>.from(decoded);
-      } catch (_) {
-        // Web proxy ayrim hollarda JSON javobni string ko‘rinishida qaytarishi mumkin.
-      }
-    }
-    final path = (data['path'] ?? '').toString();
-"""
-          if old_payment not in text:
-              raise SystemExit('payment proof response parser block not found')
-          text = text.replace(old_payment, new_payment, 1)
-          app.write_text(text)
-
-          nginx = Path('nginx.conf')
-          text = nginx.read_text()
-          marker = '  server_name _;\n'
-          if 'client_max_body_size 12m;' not in text:
-              if marker not in text:
-                  raise SystemExit('nginx server marker not found')
-              text = text.replace(
-                  marker,
-                  marker + '  client_max_body_size 12m;\n',
-                  1,
-              )
-          nginx.write_text(text)
-          PY
-
           git diff --check
-
-      - name: Commit fix
-        shell: bash
-        run: |
           if git diff --quiet; then
             echo "No changes needed"
             exit 0
@@ -224,5 +32,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add lib/admin_ui.dart lib/app_state.dart nginx.conf
-          git commit -m "Fix image uploads and persist book covers"
+          git commit -m "Fix image upload reliability"
           git push

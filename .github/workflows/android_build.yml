@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'lib/**'
+      - 'web/**'
       - 'pubspec.yaml'
       - 'assets/**'
       - '.github/workflows/android_build.yml'
@@ -159,3 +160,4 @@ jobs:
 # 2026-09-10: release build includes support for up to 20 book images
 # 2026-09-11: every successful main build publishes a stable latest APK + update manifest
 # 2026-09-11: Android release host supports Face ID / biometric admin unlock
+# 2026-09-11: web passkey files trigger the same verified web + APK pipeline

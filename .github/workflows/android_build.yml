@@ -71,6 +71,10 @@ jobs:
           manifest.write_text(m, encoding='utf-8')
           PY
 
+      - name: Prepare Android biometrics
+        run: |
+          python3 tools/prepare_android_biometrics.py
+
       - name: Apply official Muhajeer launcher icon
         run: |
           sudo apt-get -qq update
@@ -154,3 +158,4 @@ jobs:
 # 2026-09-09: gallery-enabled release build; customer shipping final stage is Jo‘natildi
 # 2026-09-10: release build includes support for up to 20 book images
 # 2026-09-11: every successful main build publishes a stable latest APK + update manifest
+# 2026-09-11: Android release host supports Face ID / biometric admin unlock

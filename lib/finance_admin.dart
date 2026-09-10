@@ -45,7 +45,8 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
   void initState() {
     super.initState();
     unawaited(_load());
-    timer = Timer.periodic(const Duration(seconds: 20), (_) => unawaited(_load(quiet: true)));
+    timer = Timer.periodic(
+        const Duration(seconds: 20), (_) => unawaited(_load(quiet: true)));
   }
 
   @override
@@ -112,7 +113,8 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                 initialValue: category,
                 decoration: const InputDecoration(labelText: 'Xarajat turi'),
                 items: categoryLabels.entries
-                    .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
+                    .map((e) =>
+                        DropdownMenuItem(value: e.key, child: Text(e.value)))
                     .toList(),
                 onChanged: (value) {
                   if (value != null) setDialogState(() => category = value);
@@ -158,7 +160,8 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
       return;
     }
 
-    final value = int.tryParse(amount.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    final value =
+        int.tryParse(amount.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
     final noteText = note.text.trim();
     amount.dispose();
     note.dispose();
@@ -196,8 +199,12 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
           '${categoryLabels[expense['category']] ?? 'Xarajat'} — ${_financeWon((expense['amount'] as num?) ?? 0)} o‘chirilsinmi?',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Yo‘q')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('O‘chirish')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Yo‘q')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('O‘chirish')),
         ],
       ),
     );
@@ -210,7 +217,8 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('O‘chirilmadi: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('O‘chirilmadi: $e')));
     }
   }
 
@@ -229,7 +237,8 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Moliya va sof foyda', style: Theme.of(context).textTheme.headlineSmall),
+                    Text('Moliya va sof foyda',
+                        style: Theme.of(context).textTheme.headlineSmall),
                     const SizedBox(height: 4),
                     const Text(
                       'Web, APK, Telegram va Instagram savdolari bitta server hisobotida.',
@@ -262,25 +271,62 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
           ),
           const SizedBox(height: 16),
           if (loading)
-            const Center(child: Padding(padding: EdgeInsets.all(28), child: CircularProgressIndicator()))
+            const Center(
+                child: Padding(
+                    padding: EdgeInsets.all(28),
+                    child: CircularProgressIndicator()))
           else ...[
             LayoutBuilder(
               builder: (context, constraints) {
                 final width = constraints.maxWidth;
-                final columns = width >= 1000 ? 3 : width >= 650 ? 2 : 1;
+                final columns = width >= 1000
+                    ? 3
+                    : width >= 650
+                        ? 2
+                        : 1;
                 final itemWidth = (width - (columns - 1) * 12) / columns;
                 final cards = <Widget>[
-                  _FinanceCard(title: 'Jami tushum', value: _financeWon(_int('total_revenue')), subtitle: 'Kitob + yetkazib berish', icon: Icons.payments_outlined),
-                  _FinanceCard(title: 'Kitob tannarxi', value: _financeWon(_int('cost_of_goods')), subtitle: 'Sotilgan kitoblarning kelish narxi', icon: Icons.inventory_2_outlined),
-                  _FinanceCard(title: 'Kitobdan foyda', value: _financeWon(_int('book_profit')), subtitle: 'Kitob savdosi − tannarx', icon: Icons.menu_book_rounded),
-                  _FinanceCard(title: 'Pochta xarajati', value: _financeWon(_int('postage_expense')), subtitle: postageEstimated ? 'Hozircha taxmin: jo‘natma × ₩4,000' : 'Kiritilgan haqiqiy pochta xarajati', icon: Icons.local_shipping_outlined),
-                  _FinanceCard(title: 'Boshqa chiqimlar', value: _financeWon(_int('other_expenses')), subtitle: 'Qadoqlash, reklama, transport va boshqa', icon: Icons.receipt_long_outlined),
-                  _FinanceCard(title: 'SOF FOYDA', value: _financeWon(_int('net_profit')), subtitle: 'Marja ${_double('margin_percent').toStringAsFixed(1)}%', icon: Icons.trending_up_rounded, strong: true),
+                  _FinanceCard(
+                      title: 'Jami tushum',
+                      value: _financeWon(_int('total_revenue')),
+                      subtitle: 'Kitob + yetkazib berish',
+                      icon: Icons.payments_outlined),
+                  _FinanceCard(
+                      title: 'Kitob tannarxi',
+                      value: _financeWon(_int('cost_of_goods')),
+                      subtitle: 'Sotilgan kitoblarning kelish narxi',
+                      icon: Icons.inventory_2_outlined),
+                  _FinanceCard(
+                      title: 'Kitobdan foyda',
+                      value: _financeWon(_int('book_profit')),
+                      subtitle: 'Kitob savdosi − tannarx',
+                      icon: Icons.menu_book_rounded),
+                  _FinanceCard(
+                      title: 'Pochta xarajati',
+                      value: _financeWon(_int('postage_expense')),
+                      subtitle: postageEstimated
+                          ? 'Hozircha taxmin: jo‘natma × ₩4,000'
+                          : 'Kiritilgan haqiqiy pochta xarajati',
+                      icon: Icons.local_shipping_outlined),
+                  _FinanceCard(
+                      title: 'Boshqa chiqimlar',
+                      value: _financeWon(_int('other_expenses')),
+                      subtitle: 'Qadoqlash, reklama, transport va boshqa',
+                      icon: Icons.receipt_long_outlined),
+                  _FinanceCard(
+                      title: 'SOF FOYDA',
+                      value: _financeWon(_int('net_profit')),
+                      subtitle:
+                          'Marja ${_double('margin_percent').toStringAsFixed(1)}%',
+                      icon: Icons.trending_up_rounded,
+                      strong: true),
                 ];
                 return Wrap(
                   spacing: 12,
                   runSpacing: 12,
-                  children: cards.map((card) => SizedBox(width: itemWidth, child: card)).toList(),
+                  children: cards
+                      .map((card) => SizedBox(width: itemWidth, child: card))
+                      .toList(),
                 );
               },
             ),
@@ -293,9 +339,12 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                   runSpacing: 10,
                   children: [
                     Text('📚 Sotilgan: ${_int('sold_books')} dona'),
-                    Text('📦 Jo‘natilgan buyurtma: ${_int('shipped_orders')} ta'),
-                    Text('📚 Kitob savdosi: ${_financeWon(_int('books_revenue'))}'),
-                    Text('🚚 Yetkazish tushumi: ${_financeWon(_int('delivery_revenue'))}'),
+                    Text(
+                        '📦 Jo‘natilgan buyurtma: ${_int('shipped_orders')} ta'),
+                    Text(
+                        '📚 Kitob savdosi: ${_financeWon(_int('books_revenue'))}'),
+                    Text(
+                        '🚚 Yetkazish tushumi: ${_financeWon(_int('delivery_revenue'))}'),
                   ],
                 ),
               ),
@@ -304,8 +353,13 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
           const SizedBox(height: 22),
           Row(
             children: [
-              Expanded(child: Text('Chiqimlar tarixi', style: Theme.of(context).textTheme.titleLarge)),
-              IconButton(onPressed: () => _load(), icon: const Icon(Icons.refresh_rounded), tooltip: 'Yangilash'),
+              Expanded(
+                  child: Text('Chiqimlar tarixi',
+                      style: Theme.of(context).textTheme.titleLarge)),
+              IconButton(
+                  onPressed: () => _load(),
+                  icon: const Icon(Icons.refresh_rounded),
+                  tooltip: 'Yangilash'),
             ],
           ),
           const SizedBox(height: 8),
@@ -319,12 +373,17 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
           else
             ...expenses.map((e) => Card(
                   child: ListTile(
-                    leading: const CircleAvatar(child: Icon(Icons.remove_rounded)),
-                    title: Text('${categoryLabels[e['category']] ?? 'Boshqa'} — ${_financeWon((e['amount'] as num?) ?? 0)}'),
+                    leading:
+                        const CircleAvatar(child: Icon(Icons.remove_rounded)),
+                    title: Text(
+                        '${categoryLabels[e['category']] ?? 'Boshqa'} — ${_financeWon((e['amount'] as num?) ?? 0)}'),
                     subtitle: Text([
                       (e['expense_date'] ?? '').toString(),
-                      if ((e['note'] ?? '').toString().trim().isNotEmpty) (e['note'] ?? '').toString(),
-                      (e['source'] ?? '').toString() == 'telegram' ? 'Telegramdan kiritilgan' : 'Admin ilovadan kiritilgan',
+                      if ((e['note'] ?? '').toString().trim().isNotEmpty)
+                        (e['note'] ?? '').toString(),
+                      (e['source'] ?? '').toString() == 'telegram'
+                          ? 'Telegramdan kiritilgan'
+                          : 'Admin ilovadan kiritilgan',
                     ].join(' • ')),
                     trailing: IconButton(
                       onPressed: () => _deleteExpense(e),
@@ -377,11 +436,18 @@ class _FinanceCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700)),
+                  Text(title,
+                      style: const TextStyle(
+                          color: AppColors.muted, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 4),
-                  Text(value, style: TextStyle(fontSize: strong ? 23 : 20, fontWeight: FontWeight.w900)),
+                  Text(value,
+                      style: TextStyle(
+                          fontSize: strong ? 23 : 20,
+                          fontWeight: FontWeight.w900)),
                   const SizedBox(height: 3),
-                  Text(subtitle, style: const TextStyle(color: AppColors.muted, fontSize: 11.5)),
+                  Text(subtitle,
+                      style: const TextStyle(
+                          color: AppColors.muted, fontSize: 11.5)),
                 ],
               ),
             ),

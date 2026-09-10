@@ -1,11 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_state.dart';
@@ -215,15 +219,197 @@ class AdminGatePage extends StatefulWidget {
 }
 
 class _AdminGatePageState extends State<AdminGatePage> {
+  static const _biometricPreferenceKey = 'muhajeer_admin_biometrics_v1';
+  static const _secureAdminCodeKey = 'muhajeer_admin_code_v1';
+
   final code = TextEditingController();
+  final LocalAuthentication _localAuth = LocalAuthentication();
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   bool loading = false;
+  bool biometricLoading = false;
+  bool biometricAvailable = false;
+  bool biometricEnabled = false;
   bool obscure = true;
   String? error;
+
+  bool get _nativeBiometrics {
+    if (kIsWeb) return false;
+    return defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_prepareBiometric());
+  }
 
   @override
   void dispose() {
     code.dispose();
     super.dispose();
+  }
+
+  Future<bool> _deviceHasBiometrics() async {
+    if (!_nativeBiometrics) return false;
+    try {
+      final supported = await _localAuth.isDeviceSupported();
+      final canCheck = await _localAuth.canCheckBiometrics;
+      final available = await _localAuth.getAvailableBiometrics();
+      return supported && canCheck && available.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _prepareBiometric() async {
+    if (!_nativeBiometrics) return;
+    final available = await _deviceHasBiometrics();
+    final prefs = await SharedPreferences.getInstance();
+    final enabled =
+        available && (prefs.getBool(_biometricPreferenceKey) ?? false);
+    if (!mounted) return;
+    setState(() {
+      biometricAvailable = available;
+      biometricEnabled = enabled;
+    });
+    if (enabled) {
+      unawaited(Future<void>.delayed(const Duration(milliseconds: 450), () async {
+        if (mounted) await _biometricLogin();
+      }));
+    }
+  }
+
+  Future<void> _openDashboard(String secret) async {
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => AdminDashboardPage(secret: secret)),
+    );
+  }
+
+  Future<void> _saveBiometricSecret(String secret) async {
+    if (!_nativeBiometrics) return;
+    final available = await _deviceHasBiometrics();
+    if (!available) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final alreadyEnabled = prefs.getBool(_biometricPreferenceKey) ?? false;
+    if (alreadyEnabled) {
+      await _secureStorage.write(key: _secureAdminCodeKey, value: secret);
+      if (mounted) {
+        setState(() {
+          biometricAvailable = true;
+          biometricEnabled = true;
+        });
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    final enable = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Face ID / biometrik kirish'),
+        content: const Text(
+          'Keyingi safar admin kodini yozmasdan Face ID yoki barmoq izi bilan kirishni yoqasizmi?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Hozir emas'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            icon: const Icon(Icons.fingerprint_rounded),
+            label: const Text('Yoqish'),
+          ),
+        ],
+      ),
+    );
+    if (enable != true) return;
+
+    try {
+      final authenticated = await _localAuth.authenticate(
+        localizedReason: 'Admin panel uchun biometrik kirishni tasdiqlang',
+        options: const AuthenticationOptions(
+          biometricOnly: true,
+          stickyAuth: true,
+        ),
+      );
+      if (!authenticated) return;
+      await _secureStorage.write(key: _secureAdminCodeKey, value: secret);
+      await prefs.setBool(_biometricPreferenceKey, true);
+      if (mounted) {
+        setState(() {
+          biometricAvailable = true;
+          biometricEnabled = true;
+        });
+      }
+    } catch (_) {
+      // Kod bilan kirish har doim zaxira usul bo‘lib qoladi.
+    }
+  }
+
+  Future<void> _biometricLogin() async {
+    if (!_nativeBiometrics || biometricLoading || loading) return;
+    setState(() {
+      biometricLoading = true;
+      error = null;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!(prefs.getBool(_biometricPreferenceKey) ?? false)) return;
+
+      final storedSecret = await _secureStorage.read(key: _secureAdminCodeKey);
+      if (storedSecret == null || storedSecret.trim().isEmpty) {
+        await prefs.setBool(_biometricPreferenceKey, false);
+        if (mounted) {
+          setState(() {
+            biometricEnabled = false;
+            error = 'Biometrik kirishni qayta yoqish uchun avval admin kodi bilan kiring.';
+          });
+        }
+        return;
+      }
+
+      final authenticated = await _localAuth.authenticate(
+        localizedReason: 'Muhajeer Books admin paneliga kirish',
+        options: const AuthenticationOptions(
+          biometricOnly: true,
+          stickyAuth: true,
+        ),
+      );
+      if (!authenticated) return;
+
+      final api = _AdminApi(storedSecret.trim());
+      if (!await api.verify()) {
+        await _secureStorage.delete(key: _secureAdminCodeKey);
+        await prefs.setBool(_biometricPreferenceKey, false);
+        if (mounted) {
+          setState(() {
+            biometricEnabled = false;
+            error = 'Admin kodi o‘zgargan. Yangi kod bilan bir marta kiring.';
+          });
+        }
+        return;
+      }
+      await _openDashboard(storedSecret.trim());
+    } on PlatformException {
+      if (mounted) {
+        setState(() {
+          error = 'Face ID / biometrik tekshiruv ishlamadi. Kod bilan kiring.';
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          error = 'Biometrik kirishda xatolik. Kod bilan kiring.';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => biometricLoading = false);
+    }
   }
 
   Future<void> _login() async {
@@ -239,14 +425,12 @@ class _AdminGatePageState extends State<AdminGatePage> {
         if (mounted) setState(() => error = 'Admin kodi noto‘g‘ri.');
         return;
       }
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => AdminDashboardPage(secret: value)),
-      );
+      await _saveBiometricSecret(value);
+      await _openDashboard(value);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() => error = 'Kirishda xatolik. Internetni tekshiring.');
+      }
     } finally {
       if (mounted) setState(() => loading = false);
     }
@@ -331,6 +515,27 @@ class _AdminGatePageState extends State<AdminGatePage> {
                         ),
                       ),
                     ),
+                    if (biometricAvailable && biometricEnabled) ...[
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: biometricLoading ? null : _biometricLogin,
+                          icon: biometricLoading
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.fingerprint_rounded),
+                          label: Text(
+                            biometricLoading
+                                ? 'Tekshirilmoqda...'
+                                : 'Face ID / biometrika bilan kirish',
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 14),
                     const Row(
                       mainAxisAlignment: MainAxisAlignment.center,

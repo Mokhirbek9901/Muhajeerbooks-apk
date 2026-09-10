@@ -566,7 +566,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                     value: _financeSignedWon(_int('book_profit')),
                     subtitle: 'Kitob savdosi − sotilgan kitob tannarxi',
                     icon: _int('book_profit') >= 0
-                        ? Icons.savings_outlined
+                        ? Icons.account_balance_wallet_outlined
                         : Icons.trending_down_rounded,
                   ),
                   _FinanceCard(

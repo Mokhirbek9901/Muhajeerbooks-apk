@@ -8,6 +8,12 @@ import 'design_system.dart';
 
 final _financeMoney = NumberFormat('#,###', 'en_US');
 String _financeWon(num value) => '₩${_financeMoney.format(value.round())}';
+String _financeSignedWon(num value) {
+  final amount = value.round();
+  if (amount > 0) return '+₩${_financeMoney.format(amount)}';
+  if (amount < 0) return '−₩${_financeMoney.format(amount.abs())}';
+  return '₩0';
+}
 
 class FinanceAdminPage extends StatefulWidget {
   const FinanceAdminPage({super.key, required this.secret});
@@ -59,7 +65,11 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
   }
 
   int _int(String key) => (report[key] as num?)?.round() ?? 0;
-  double _double(String key) => (report[key] as num?)?.toDouble() ?? 0;
+  int get _cashResult {
+    final raw = report['cash_result'];
+    if (raw is num) return raw.round();
+    return _int('net_profit');
+  }
 
   Future<void> _load({bool quiet = false}) async {
     if (!quiet && mounted) setState(() => loading = true);
@@ -156,7 +166,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                   const Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Bu summa yangi kitoblar partiyasiga sarflangan pul sifatida alohida ko‘rinadi.',
+                      'Bu summa yangi kitoblar partiyasiga sarflangan pul sifatida umumiy chiqimga kiradi.',
                       style: TextStyle(
                         color: AppColors.muted,
                         fontSize: 12,
@@ -261,6 +271,8 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
   @override
   Widget build(BuildContext context) {
     final postageEstimated = report['postage_is_estimated'] == true;
+    final result = _cashResult;
+    final resultPositive = result >= 0;
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -280,7 +292,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'Web, APK, Telegram va Instagram savdolari bitta server hisobotida.',
+                      'Web, APK, Telegram va Instagram moliyasi bitta server hisobotida.',
                       style: TextStyle(color: AppColors.muted),
                     ),
                   ],
@@ -348,7 +360,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                   _FinanceCard(
                     title: 'Kitobdan foyda',
                     value: _financeWon(_int('book_profit')),
-                    subtitle: 'Kitob savdosi − tannarx',
+                    subtitle: 'Kitob savdosi − sotilgan kitob tannarxi',
                     icon: Icons.menu_book_rounded,
                   ),
                   _FinanceCard(
@@ -366,11 +378,12 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                     icon: Icons.receipt_long_outlined,
                   ),
                   _FinanceCard(
-                    title: 'SOF FOYDA',
-                    value: _financeWon(_int('net_profit')),
-                    subtitle:
-                        'Marja ${_double('margin_percent').toStringAsFixed(1)}%',
-                    icon: Icons.trending_up_rounded,
+                    title: resultPositive ? 'SOF FOYDA' : 'SOF ZARAR',
+                    value: _financeSignedWon(result),
+                    subtitle: 'Jami tushum − barcha kiritilgan xarajatlar',
+                    icon: resultPositive
+                        ? Icons.trending_up_rounded
+                        : Icons.trending_down_rounded,
                     strong: true,
                   ),
                 ];
@@ -378,9 +391,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                   spacing: 12,
                   runSpacing: 12,
                   children: cards
-                      .map(
-                        (card) => SizedBox(width: itemWidth, child: card),
-                      )
+                      .map((card) => SizedBox(width: itemWidth, child: card))
                       .toList(),
                 );
               },
@@ -402,8 +413,9 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                       '🚚 Yetkazish tushumi: ${_financeWon(_int('delivery_revenue'))}',
                     ),
                     Text(
-                      '💸 Jami pul chiqimi: ${_financeWon(_int('cash_outflow_total'))}',
+                      '💸 Jami xarajat: ${_financeWon(_int('cash_outflow_total'))}',
                     ),
+                    Text('📊 Natija: ${_financeSignedWon(result)}'),
                   ],
                 ),
               ),
@@ -470,7 +482,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
             child: Padding(
               padding: EdgeInsets.all(16),
               child: Text(
-                'Hisob: Sof foyda = kitob savdosi + yetkazish tushumi − sotilgan kitoblar tannarxi − pochta − boshqa chiqimlar. “Yangi partiya kitoblar” kassa chiqimi sifatida alohida ko‘rsatiladi, lekin sof foydadan ikkinchi marta ayrilmaydi: sotilgan kitobning tannarxi foyda hisobida allaqachon ayriladi.',
+                'Pastdagi sof natija kassa usulida hisoblanadi: jami tushum − pochta − yangi partiya kitoblar − qadoqlash, reklama, transport va boshqa kiritilgan xarajatlar. “Kitob tannarxi” esa kitobdan foydani ko‘rsatish uchun alohida turadi va yangi partiya xarajati bilan birga ikkinchi marta ayrilmaydi.',
                 style: TextStyle(color: AppColors.muted, height: 1.45),
               ),
             ),

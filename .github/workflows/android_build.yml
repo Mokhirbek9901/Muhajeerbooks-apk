@@ -14,6 +14,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: muhajeer-unified-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -127,7 +131,20 @@ jobs:
           }
           EOF
 
+      - name: Confirm this run is still latest main
+        id: latest_main
+        run: |
+          git fetch origin main --depth=1
+          LATEST_SHA="$(git rev-parse origin/main)"
+          if [ "$LATEST_SHA" = "$GITHUB_SHA" ]; then
+            echo "is_latest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_latest=false" >> "$GITHUB_OUTPUT"
+            echo "Newer main commit exists; this run must not replace the latest APK."
+          fi
+
       - name: Publish stable latest APK for installed users
+        if: steps.latest_main.outputs.is_latest == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -161,3 +178,4 @@ jobs:
 # 2026-09-11: every successful main build publishes a stable latest APK + update manifest
 # 2026-09-11: Android release host supports Face ID / biometric admin unlock
 # 2026-09-11: web passkey files trigger the same verified web + APK pipeline
+# 2026-09-11: concurrent/stale builds cannot overwrite the latest APK release

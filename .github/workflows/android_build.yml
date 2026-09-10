@@ -11,7 +11,7 @@ on:
       - '.github/workflows/android_build.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -98,8 +98,44 @@ jobs:
         run: |
           flutter build apk --release \
             --build-number="${{ github.run_number }}" \
+            --dart-define=APP_BUILD_NUMBER="${{ github.run_number }}" \
             --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
             --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
+
+      - name: Prepare latest APK update files
+        run: |
+          mkdir -p build/latest-apk
+          cp build/app/outputs/flutter-apk/app-release.apk build/latest-apk/muhajeer-books.apk
+          VERSION_NAME=$(python3 - <<'PY'
+          import re
+          text = open('pubspec.yaml', encoding='utf-8').read()
+          m = re.search(r'^version:\s*([^+\s]+)', text, re.M)
+          print(m.group(1) if m else 'latest')
+          PY
+          )
+          cat > build/latest-apk/app-version.json <<EOF
+          {
+            "build_number": ${{ github.run_number }},
+            "version": "$VERSION_NAME",
+            "download_url": "https://github.com/Mokhirbek9901/Muhajeerbooks-apk/releases/download/apk-latest/muhajeer-books.apk",
+            "message": "Muhajeer Books yangilandi. Yangi imkoniyatlar va tuzatishlarni olish uchun yangilang."
+          }
+          EOF
+
+      - name: Publish stable latest APK for installed users
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view apk-latest >/dev/null 2>&1; then
+            gh release create apk-latest \
+              --target "$GITHUB_SHA" \
+              --title "Muhajeer Books APK" \
+              --notes "Android uchun eng so‘nggi Muhajeer Books APK. Ilova yangi versiya chiqqanda shu release orqali yangilanishni taklif qiladi."
+          fi
+          gh release upload apk-latest \
+            build/latest-apk/muhajeer-books.apk \
+            build/latest-apk/app-version.json \
+            --clobber
 
       - name: Upload Web build
         uses: actions/upload-artifact@v4
@@ -112,8 +148,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: muhajeer-books-installable-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: build/latest-apk/muhajeer-books.apk
           retention-days: 30
 
 # 2026-09-09: gallery-enabled release build; customer shipping final stage is Jo‘natildi
 # 2026-09-10: release build includes support for up to 20 book images
+# 2026-09-11: every successful main build publishes a stable latest APK + update manifest

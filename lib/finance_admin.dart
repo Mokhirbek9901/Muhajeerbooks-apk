@@ -398,12 +398,16 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                   children: [
                     Text('📚 Sotilgan: ${_int('sold_books')} dona'),
                     Text('📦 Jo‘natilgan: ${_int('shipped_orders')} ta'),
-                    Text('📚 Kitob savdosi: ${_financeWon(_int('books_revenue'))}'),
-                    Text('🚚 Mijoz to‘lagan pochta: ${_financeWon(_int('delivery_revenue'))}'),
-                    Text('📮 Jami pochta${postageEstimated ? ' (taxmin)' : ''}: ${_financeWon(grossPostage)}'),
+                    Text(
+                        '📚 Kitob savdosi: ${_financeWon(_int('books_revenue'))}'),
+                    Text(
+                        '🚚 Mijoz to‘lagan pochta: ${_financeWon(_int('delivery_revenue'))}'),
+                    Text(
+                        '📮 Jami pochta${postageEstimated ? ' (taxmin)' : ''}: ${_financeWon(grossPostage)}'),
                     Text('✅ Mijoz qoplagan: ${_financeWon(coveredPostage)}'),
                     Text('🏪 Do‘kon hisobidan: ${_financeWon(storePostage)}'),
-                    Text('💸 Natijaga kiradigan xarajat: ${_financeWon(_int('cash_outflow_total'))}'),
+                    Text(
+                        '💸 Natijaga kiradigan xarajat: ${_financeWon(_int('cash_outflow_total'))}'),
                     Text('📊 Natija: ${_financeSignedWon(result)}'),
                     Text('📈 Marja: ${margin.toStringAsFixed(1)}%'),
                   ],

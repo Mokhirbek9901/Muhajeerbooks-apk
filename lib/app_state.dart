@@ -8,7 +8,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-String normalizePublisher(String value) => value.trim().replaceAll(RegExp(r'\s+'), ' ');
+String normalizePublisher(String value) =>
+    value.trim().replaceAll(RegExp(r'\s+'), ' ');
 
 String publisherKey(String value) => normalizePublisher(value).toLowerCase();
 
@@ -230,6 +231,12 @@ class ShopOrder {
   bool get isTelegram => source == 'telegram';
   bool get isInstagram => source == 'instagram';
   bool get isApp => source == 'app';
+
+  String get recoveryCode {
+    final compact = id.replaceAll('-', '').toLowerCase();
+    if (compact.length <= 12) return compact;
+    return compact.substring(compact.length - 12);
+  }
 
   factory ShopOrder.fromMap(Map<String, dynamic> map) => ShopOrder(
     id: (map['id'] ?? '').toString(),
@@ -509,6 +516,21 @@ class BackendService {
     return result;
   }
 
+  Future<List<ShopOrder>> restoreOrders({
+    required String phone,
+    required String recoveryCode,
+  }) async {
+    final raw = await client.rpc(
+      'customer_restore_orders',
+      params: {'p_phone': phone.trim(), 'p_recovery_code': recoveryCode.trim()},
+    );
+    if (raw is! List) return [];
+    return raw
+        .whereType<Map>()
+        .map((e) => ShopOrder.fromMap(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
   Future<List<ShopOrder>> fetchOrders() async {
     final data = await client
         .from('orders')
@@ -779,7 +801,7 @@ class AppState extends ChangeNotifier {
       await _refreshCustomerOrderStatusesQuietly();
       _orderStatusTimer?.cancel();
       _orderStatusTimer = Timer.periodic(
-        const Duration(seconds: 8),
+        const Duration(seconds: 30),
         (_) => _refreshCustomerOrderStatusesQuietly(),
       );
     }
@@ -850,7 +872,7 @@ class AppState extends ChangeNotifier {
         .subscribe();
 
     // Realtime uzilib qolgan holat uchun yengil zaxira tekshiruv.
-    _booksFallbackTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+    _booksFallbackTimer = Timer.periodic(const Duration(seconds: 60), (_) {
       unawaited(_refreshBooksQuietly());
       unawaited(_checkRestockNotificationsQuietly());
     });
@@ -1264,7 +1286,7 @@ class AppState extends ChangeNotifier {
         createdAt: now,
         paymentProofPath: paymentProofPath,
         paymentSubmittedAt: paymentProofPath.isEmpty ? null : now,
-        stockReserved: false,
+        stockReserved: true,
       );
       _localOrders.removeWhere((o) => o.id == id);
       _localOrders.insert(0, receipt);
@@ -1404,6 +1426,48 @@ class AppState extends ChangeNotifier {
         .toList();
   }
 
+  Future<int> restoreCustomerOrders({
+    required String phone,
+    required String recoveryCode,
+  }) async {
+    if (_backend == null) {
+      throw StateError('Buyurtmalarni tiklash uchun internet kerak.');
+    }
+
+    final restored = await _backend!.restoreOrders(
+      phone: phone,
+      recoveryCode: recoveryCode,
+    );
+    if (restored.isEmpty) return 0;
+
+    final merged = <String, ShopOrder>{
+      for (final order in _localOrders) order.id: order,
+      for (final order in restored) order.id: order,
+    };
+    final sorted = merged.values.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    _localOrders
+      ..clear()
+      ..addAll(sorted.take(100));
+
+    final cleanPhone = phone.trim();
+    savedCustomer = {
+      'name': savedCustomer['name'] ?? '',
+      'phone': cleanPhone,
+      'address': savedCustomer['address'] ?? '',
+    };
+    await Future.wait([
+      _local.saveOrders(_localOrders),
+      _local.saveCustomer(
+        savedCustomer['name'] ?? '',
+        cleanPhone,
+        savedCustomer['address'] ?? '',
+      ),
+    ]);
+    notifyListeners();
+    return restored.length;
+  }
+
   Future<void> markCustomerNoticesRead() async {
     var changed = false;
     for (final notice in _customerNotices) {
@@ -1449,7 +1513,12 @@ class AppState extends ChangeNotifier {
         ordersChanged = true;
 
         if (newStatus != oldOrder.status &&
-            (newStatus == 'accepted' || newStatus == 'shipping')) {
+            const {
+              'accepted',
+              'paid',
+              'shipping',
+              'cancelled',
+            }.contains(newStatus)) {
           final noticeId = '${oldOrder.id}:$newStatus';
           final exists = _customerNotices.any(
             (n) => (n['id'] ?? '').toString() == noticeId,
@@ -1459,12 +1528,20 @@ class AppState extends ChangeNotifier {
               'id': noticeId,
               'order_id': oldOrder.id,
               'status': newStatus,
-              'title': newStatus == 'accepted'
-                  ? '✅ Buyurtmangiz qabul qilindi'
-                  : '🚚 Buyurtmangiz pochtaga topshirildi',
-              'message': newStatus == 'accepted'
-                  ? 'Buyurtmangiz tasdiqlandi va tayyorlanmoqda.'
-                  : 'Buyurtmangiz pochtaga topshirildi. 1–3 ish kunida yetkaziladi.',
+              'title': switch (newStatus) {
+                'accepted' => '✅ Buyurtmangiz qabul qilindi',
+                'paid' => '💳 To‘lovingiz tasdiqlandi',
+                'shipping' => '🚚 Buyurtmangiz pochtaga topshirildi',
+                'cancelled' => '❌ Buyurtmangiz bekor qilindi',
+                _ => 'Buyurtma yangilandi',
+              },
+              'message': switch (newStatus) {
+                'accepted' => 'Buyurtmangiz tasdiqlandi va tayyorlanmoqda.',
+                'paid' => 'To‘lov tekshirildi. Buyurtmangiz tayyorlanmoqda.',
+                'shipping' => 'Buyurtmangiz pochtaga topshirildi. 1–3 ish kunida yetkaziladi.',
+                'cancelled' => 'Buyurtma bekor qilindi. Savol bo‘lsa Muhajeer Books bilan bog‘laning.',
+                _ => 'Buyurtmangiz holati yangilandi.',
+              },
               'created_at': DateTime.now().toIso8601String(),
               'read': false,
             });

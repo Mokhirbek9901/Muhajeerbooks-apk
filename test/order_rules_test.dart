@@ -47,4 +47,25 @@ void main() {
     expect(order('instagram').isInstagram, isTrue);
     expect(order('instagram').isApp, isFalse);
   });
+
+  test('recovery code is stable and short enough to share', () {
+    final order = ShopOrder(
+      id: '677ae40f-7c44-4420-acb6-fef72c6b1641',
+      customerName: 'Test',
+      phone: '01012345678',
+      address: 'Test address',
+      deliveryType: '택배',
+      deliveryFee: 4000,
+      subtotal: 10000,
+      total: 14000,
+      status: 'new',
+      source: 'app',
+      items: const [],
+      createdAt: DateTime(2026, 9, 10),
+      stockReserved: true,
+    );
+
+    expect(order.recoveryCode, 'fef72c6b1641');
+    expect(order.stockReserved, isTrue);
+  });
 }

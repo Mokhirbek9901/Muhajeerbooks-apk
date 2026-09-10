@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'admin_ui.dart';
 import 'app_state.dart';
@@ -20,6 +21,33 @@ const _green = UzbekCustomerColors.success;
 
 final _money = NumberFormat('#,###', 'en_US');
 String won(int value) => '₩${_money.format(value)}';
+
+Future<void> _openTelegramRestock(BuildContext context, Book book) async {
+  final telegramId = book.legacyId;
+  if (telegramId == null || telegramId <= 0) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Bu kitob uchun Telegram xabari hali ulanmagan.'),
+      ),
+    );
+    return;
+  }
+
+  final uri = Uri.parse(
+    'https://t.me/muhajeerbooks_bot?start=restock_$telegramId',
+  );
+  final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+  if (!context.mounted) return;
+  if (!opened) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Telegram ochilmadi. @muhajeerbooks_bot orqali kirishingiz mumkin.',
+        ),
+      ),
+    );
+  }
+}
 
 bool _isSupportedCustomerPhone(String raw) {
   var digits = raw.replaceAll(RegExp(r'\D'), '');
@@ -334,17 +362,26 @@ class PublishersPage extends StatelessWidget {
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 final name = publishers[index];
-                final count = books.where((b) => b.isActive &&
-                    publisherKey(b.publisher) == publisherKey(name)).length;
+                final count = books
+                    .where(
+                      (b) =>
+                          b.isActive &&
+                          publisherKey(b.publisher) == publisherKey(name),
+                    )
+                    .length;
                 return Card(
                   child: ListTile(
                     leading: const Icon(Icons.business_outlined),
                     title: Text(name),
                     subtitle: Text('$count ta kitob'),
                     trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => CategoryBrowsePage(category: name, publisher: name),
-                    )),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            CategoryBrowsePage(category: name, publisher: name),
+                      ),
+                    ),
                   ),
                 );
               },
@@ -363,9 +400,13 @@ class CategoryBrowsePage extends StatelessWidget {
     final books = context
         .watch<AppState>()
         .books
-        .where((b) => b.isActive && (publisher == null
-            ? b.category == category
-            : publisherKey(b.publisher) == publisherKey(publisher!)))
+        .where(
+          (b) =>
+              b.isActive &&
+              (publisher == null
+                  ? b.category == category
+                  : publisherKey(b.publisher) == publisherKey(publisher!)),
+        )
         .toList();
     return Scaffold(
       backgroundColor: UzbekCustomerColors.background,
@@ -377,16 +418,16 @@ class CategoryBrowsePage extends StatelessWidget {
       body: books.isEmpty
           ? const Center(child: Text('Hozircha kitoblar mavjud emas.'))
           : GridView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-        itemCount: books.length,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: .57,
-        ),
-        itemBuilder: (_, i) => BookCard(book: books[i]),
-      ),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+              itemCount: books.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: .57,
+              ),
+              itemBuilder: (_, i) => BookCard(book: books[i]),
+            ),
     );
   }
 }
@@ -484,9 +525,12 @@ class _HomePageState extends State<HomePage> {
                   selected: category,
                   onSelected: (value) {
                     if (value == 'Nashriyotlar') {
-                      Navigator.push(context, MaterialPageRoute(
-                        builder: (_) => const PublishersPage(),
-                      ));
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const PublishersPage(),
+                        ),
+                      );
                     } else {
                       setState(() => category = value);
                     }
@@ -1710,6 +1754,14 @@ class BookDetailPage extends StatelessWidget {
                       : 'Kelganda xabar berish',
                 ),
               ),
+              if (!b.inStock && b.legacyId != null) ...[
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () => _openTelegramRestock(context, b),
+                  icon: const Icon(Icons.send_rounded),
+                  label: const Text('Telegramda xabar olish'),
+                ),
+              ],
             ],
           ),
         ),
@@ -1912,7 +1964,10 @@ class _BookDetailInfo extends StatelessWidget {
         children: [
           AppInfoPill(icon: Icons.category_outlined, label: book.category),
           if (book.publisher.isNotEmpty)
-            AppInfoPill(icon: Icons.business_outlined, label: 'Nashriyot: ${book.publisher}'),
+            AppInfoPill(
+              icon: Icons.business_outlined,
+              label: 'Nashriyot: ${book.publisher}',
+            ),
           AppInfoPill(
             icon: Icons.inventory_2_outlined,
             label: book.inStock ? '${book.stock} dona mavjud' : 'Mavjud emas',
@@ -3154,6 +3209,94 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
     future = state.customerOrdersByPhone(state.savedCustomer['phone'] ?? '');
   }
 
+  Future<void> _restoreOrders() async {
+    final state = context.read<AppState>();
+    final phoneController = TextEditingController(
+      text: state.savedCustomer['phone'] ?? '',
+    );
+    final codeController = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Eski buyurtmalarni tiklash'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Oldingi buyurtmadagi 12 belgili tiklash kodi va telefon raqamingizni kiriting.',
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: phoneController,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                labelText: 'Telefon raqami',
+                hintText: '010-1234-5678',
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: codeController,
+              autocorrect: false,
+              enableSuggestions: false,
+              decoration: const InputDecoration(
+                labelText: 'Tiklash kodi',
+                hintText: '12 belgi',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Bekor qilish'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Tiklash'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) {
+      phoneController.dispose();
+      codeController.dispose();
+      return;
+    }
+
+    try {
+      final count = await state.restoreCustomerOrders(
+        phone: phoneController.text,
+        recoveryCode: codeController.text,
+      );
+      if (!mounted) return;
+      setState(_reload);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            count > 0
+                ? '$count ta buyurtma tiklandi ✅'
+                : 'Tiklanadigan buyurtma topilmadi.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final message = e
+          .toString()
+          .replaceFirst('Exception: ', '')
+          .replaceFirst('PostgrestException(message: ', '');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Tiklash amalga oshmadi: $message')),
+      );
+    } finally {
+      phoneController.dispose();
+      codeController.dispose();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -3164,6 +3307,12 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
         title: const Text('Mening buyurtmalarim'),
         actions: [
           IconButton(
+            tooltip: 'Eski buyurtmalarni tiklash',
+            onPressed: _restoreOrders,
+            icon: const Icon(Icons.restore_rounded),
+          ),
+          IconButton(
+            tooltip: 'Yangilash',
             onPressed: () => setState(_reload),
             icon: const Icon(Icons.refresh_rounded),
           ),
@@ -3201,7 +3350,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Buyurtma № ${order.id}',
+                                'Buyurtma № ${order.recoveryCode}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(

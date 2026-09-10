@@ -235,7 +235,7 @@ class CategoriesPage extends StatelessWidget {
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: categories.length,
+            itemCount: categories.length + 1,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
               mainAxisSpacing: 12,
@@ -243,7 +243,8 @@ class CategoriesPage extends StatelessWidget {
               childAspectRatio: 1.55,
             ),
             itemBuilder: (context, i) {
-              final c = categories[i];
+              final isPublishers = i == 0;
+              final c = isPublishers ? 'Nashriyotlar' : categories[i - 1];
               final count = state.books
                   .where((b) => b.isActive && b.category == c)
                   .length;
@@ -252,7 +253,9 @@ class CategoriesPage extends StatelessWidget {
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => CategoryBrowsePage(category: c),
+                    builder: (_) => isPublishers
+                        ? const PublishersPage()
+                        : CategoryBrowsePage(category: c),
                   ),
                 ),
                 child: UzbekPatternPanel(
@@ -290,7 +293,9 @@ class CategoriesPage extends StatelessWidget {
                             ),
                             const SizedBox(height: 3),
                             Text(
-                              '$count ta kitob',
+                              isPublishers
+                                  ? '${bookPublishers(state.books).length} ta nashriyot'
+                                  : '$count ta kitob',
                               style: const TextStyle(
                                 color: UzbekCustomerColors.textMuted,
                                 fontSize: 11.5,
@@ -311,16 +316,56 @@ class CategoriesPage extends StatelessWidget {
   }
 }
 
+class PublishersPage extends StatelessWidget {
+  const PublishersPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final books = context.watch<AppState>().books;
+    final publishers = bookPublishers(books);
+    return Scaffold(
+      backgroundColor: UzbekCustomerColors.background,
+      appBar: AppBar(title: const Text('Nashriyotlar')),
+      body: publishers.isEmpty
+          ? const Center(child: Text('Hozircha nashriyotlar kiritilmagan.'))
+          : ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: publishers.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                final name = publishers[index];
+                final count = books.where((b) => b.isActive &&
+                    publisherKey(b.publisher) == publisherKey(name)).length;
+                return Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.business_outlined),
+                    title: Text(name),
+                    subtitle: Text('$count ta kitob'),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => CategoryBrowsePage(category: name, publisher: name),
+                    )),
+                  ),
+                );
+              },
+            ),
+    );
+  }
+}
+
 class CategoryBrowsePage extends StatelessWidget {
-  const CategoryBrowsePage({super.key, required this.category});
+  const CategoryBrowsePage({super.key, required this.category, this.publisher});
   final String category;
+  final String? publisher;
 
   @override
   Widget build(BuildContext context) {
     final books = context
         .watch<AppState>()
         .books
-        .where((b) => b.isActive && b.category == category)
+        .where((b) => b.isActive && (publisher == null
+            ? b.category == category
+            : publisherKey(b.publisher) == publisherKey(publisher!)))
         .toList();
     return Scaffold(
       backgroundColor: UzbekCustomerColors.background,
@@ -329,7 +374,9 @@ class CategoryBrowsePage extends StatelessWidget {
         surfaceTintColor: Colors.transparent,
         title: Text(category),
       ),
-      body: GridView.builder(
+      body: books.isEmpty
+          ? const Center(child: Text('Hozircha kitoblar mavjud emas.'))
+          : GridView.builder(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
         itemCount: books.length,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -345,6 +392,7 @@ class CategoryBrowsePage extends StatelessWidget {
 }
 
 IconData _categoryIcon(String value) {
+  if (value == 'Nashriyotlar') return Icons.business_outlined;
   final v = value.toLowerCase();
   if (v.contains('badi')) return Icons.menu_book_rounded;
   if (v.contains('tarix')) return Icons.account_balance_rounded;
@@ -372,6 +420,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final categories = <String>{
+      'Nashriyotlar',
       'Barchasi',
       ...state.books.where((b) => b.isActive).map((b) => b.category),
     }.toList();
@@ -387,6 +436,7 @@ class _HomePageState extends State<HomePage> {
           q.isEmpty ||
           book.title.toLowerCase().contains(q) ||
           book.author.toLowerCase().contains(q) ||
+          book.publisher.toLowerCase().contains(q) ||
           book.category.toLowerCase().contains(q);
       final matchesCategory =
           category == 'Barchasi' || book.category == category;
@@ -432,7 +482,15 @@ class _HomePageState extends State<HomePage> {
                 child: _QuickCategoryStrip(
                   categories: categories,
                   selected: category,
-                  onSelected: (value) => setState(() => category = value),
+                  onSelected: (value) {
+                    if (value == 'Nashriyotlar') {
+                      Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => const PublishersPage(),
+                      ));
+                    } else {
+                      setState(() => category = value);
+                    }
+                  },
                 ),
               ),
             ),
@@ -1853,6 +1911,8 @@ class _BookDetailInfo extends StatelessWidget {
         runSpacing: 8,
         children: [
           AppInfoPill(icon: Icons.category_outlined, label: book.category),
+          if (book.publisher.isNotEmpty)
+            AppInfoPill(icon: Icons.business_outlined, label: 'Nashriyot: ${book.publisher}'),
           AppInfoPill(
             icon: Icons.inventory_2_outlined,
             label: book.inStock ? '${book.stock} dona mavjud' : 'Mavjud emas',

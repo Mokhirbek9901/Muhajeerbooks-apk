@@ -8,12 +8,29 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+String normalizePublisher(String value) => value.trim().replaceAll(RegExp(r'\s+'), ' ');
+
+String publisherKey(String value) => normalizePublisher(value).toLowerCase();
+
+List<String> bookPublishers(Iterable<Book> books) {
+  final names = <String, String>{};
+  for (final book in books) {
+    final name = normalizePublisher(book.publisher);
+    if (book.isActive && name.isNotEmpty) {
+      names.putIfAbsent(publisherKey(name), () => name);
+    }
+  }
+  return names.values.toList()
+    ..sort((a, b) => publisherKey(a).compareTo(publisherKey(b)));
+}
+
 class Book {
   const Book({
     required this.id,
     this.legacyId,
     required this.title,
     required this.author,
+    this.publisher = '',
     required this.category,
     required this.description,
     required this.price,
@@ -32,6 +49,7 @@ class Book {
   final int? legacyId;
   final String title;
   final String author;
+  final String publisher;
   final String category;
   final String description;
   final int price;
@@ -65,6 +83,7 @@ class Book {
     legacyId: (map['legacy_id'] as num?)?.toInt(),
     title: (map['title'] ?? map['name'] ?? '').toString(),
     author: (map['author'] ?? 'Ko‘rsatilmagan').toString(),
+    publisher: normalizePublisher((map['publisher'] ?? '').toString()),
     category: (map['category'] ?? 'Boshqalar').toString(),
     description: (map['description'] ?? '').toString(),
     price: (map['price'] as num?)?.toInt() ?? 0,
@@ -106,6 +125,7 @@ class Book {
     'legacy_id': legacyId,
     'title': title,
     'author': author,
+    'publisher': normalizePublisher(publisher),
     'category': category,
     'description': description,
     'price': price,
@@ -130,6 +150,7 @@ class Book {
     int? legacyId,
     String? title,
     String? author,
+    String? publisher,
     String? category,
     String? description,
     int? price,
@@ -147,6 +168,7 @@ class Book {
     legacyId: legacyId ?? this.legacyId,
     title: title ?? this.title,
     author: author ?? this.author,
+    publisher: publisher ?? this.publisher,
     category: category ?? this.category,
     description: description ?? this.description,
     price: price ?? this.price,
@@ -840,6 +862,7 @@ class AppState extends ChangeNotifier {
           b.id,
           b.title,
           b.author,
+          b.publisher,
           b.category,
           b.description,
           b.price,

@@ -54,6 +54,7 @@ class _AdminApi {
         'p_data': {
           'title': book.title,
           'author': book.author,
+          'publisher': normalizePublisher(book.publisher),
           'category': book.category,
           'description': book.description,
           'price': book.price,
@@ -1801,6 +1802,7 @@ class _BookFormState extends State<_BookForm> {
   final key = GlobalKey<FormState>();
   late final TextEditingController title;
   late final TextEditingController author;
+  late final TextEditingController publisher;
   late final TextEditingController category;
   late final TextEditingController description;
   late final TextEditingController price;
@@ -1824,6 +1826,7 @@ class _BookFormState extends State<_BookForm> {
     author = TextEditingController(
       text: b?.author == 'Ko‘rsatilmagan' ? '' : b?.author ?? '',
     );
+    publisher = TextEditingController(text: b?.publisher ?? '');
     category = TextEditingController(text: b?.category ?? 'Boshqalar');
     description = TextEditingController(text: b?.description ?? '');
     price = TextEditingController(text: b == null ? '' : '${b.price}');
@@ -1854,6 +1857,7 @@ class _BookFormState extends State<_BookForm> {
     for (final c in [
       title,
       author,
+      publisher,
       category,
       description,
       price,
@@ -2124,6 +2128,7 @@ class _BookFormState extends State<_BookForm> {
           author: author.text.trim().isEmpty
               ? 'Ko‘rsatilmagan'
               : author.text.trim(),
+          publisher: normalizePublisher(publisher.text),
           category: category.text.trim().isEmpty
               ? 'Boshqalar'
               : category.text.trim(),
@@ -2307,6 +2312,7 @@ class _BookFormState extends State<_BookForm> {
             ),
             field(title, 'Kitob nomi', required: true),
             field(author, 'Muallif'),
+            field(publisher, 'Nashriyot'),
             field(category, 'Kategoriya'),
             _descriptionEditor(),
             Row(

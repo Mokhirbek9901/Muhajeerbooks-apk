@@ -19,54 +19,20 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-
           path = Path('lib/store_ui.dart')
           text = path.read_text(encoding='utf-8')
-
-          old_header = """    final state = context.watch<AppState>();
-    final lines = state.cartLines;
-    return Scaffold(
-"""
-          new_header = """    final state = context.watch<AppState>();
-    final lines = state.cartLines;
-    final deliveryFee = state.cartCount >= 4 ? 0 : AppState.deliveryFee;
-    final grandTotal = state.cartSubtotal + deliveryFee;
-    return Scaffold(
-"""
-
+          old_header = "    final state = context.watch<AppState>();\n    final lines = state.cartLines;\n    return Scaffold(\n"
+          new_header = "    final state = context.watch<AppState>();\n    final lines = state.cartLines;\n    final deliveryFee = state.cartCount >= 4 ? 0 : AppState.deliveryFee;\n    final grandTotal = state.cartSubtotal + deliveryFee;\n    return Scaffold(\n"
           if old_header in text:
               text = text.replace(old_header, new_header, 1)
           elif 'final grandTotal = state.cartSubtotal + deliveryFee;' not in text:
               raise SystemExit('CartPage header pattern not found')
-
-          old_total = """                        const Text(
-                          'Kitoblar jami',
-                          style: TextStyle(
-                            color: AppColors.muted,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          won(state.cartSubtotal),
-"""
-          new_total = """                        const Text(
-                          'Jami',
-                          style: TextStyle(
-                            color: AppColors.muted,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          won(grandTotal),
-"""
-
+          old_total = "                        const Text(\n                          'Kitoblar jami',\n                          style: TextStyle(\n                            color: AppColors.muted,\n                            fontWeight: FontWeight.w600,\n                          ),\n                        ),\n                        const Spacer(),\n                        Text(\n                          won(state.cartSubtotal),\n"
+          new_total = "                        const Text(\n                          'Jami',\n                          style: TextStyle(\n                            color: AppColors.muted,\n                            fontWeight: FontWeight.w600,\n                          ),\n                        ),\n                        const Spacer(),\n                        Text(\n                          won(grandTotal),\n"
           if old_total in text:
               text = text.replace(old_total, new_total, 1)
-          elif "won(grandTotal)" not in text:
+          elif 'won(grandTotal)' not in text:
               raise SystemExit('Cart total display pattern not found')
-
           path.write_text(text, encoding='utf-8')
           PY
 

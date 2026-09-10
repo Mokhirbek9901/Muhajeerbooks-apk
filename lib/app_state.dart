@@ -55,7 +55,7 @@ class Book {
       final url = raw.trim();
       if (url.isEmpty || result.contains(url)) continue;
       result.add(url);
-      if (result.length == 10) break;
+      if (result.length == 20) break;
     }
     return result;
   }
@@ -74,7 +74,7 @@ class Book {
     imageUrls: ((map['image_urls'] as List?) ?? const [])
         .map((e) => e.toString().trim())
         .where((e) => e.isNotEmpty)
-        .take(10)
+        .take(20)
         .toList(),
     isActive: map['is_active'] as bool? ?? true,
     coverType: (map['cover_type'] ?? map['cover'] ?? 'Ko‘rsatilmagan')

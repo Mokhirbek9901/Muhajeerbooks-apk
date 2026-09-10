@@ -1907,11 +1907,11 @@ class _BookFormState extends State<_BookForm> {
 
   Future<void> pickAndUploadImages() async {
     if (uploadingImage) return;
-    final slots = 10 - gallery.length;
+    final slots = 20 - gallery.length;
     if (slots <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Bitta kitobga maksimal 10 ta rasm qo‘yiladi.'),
+          content: Text('Bitta kitobga maksimal 20 ta rasm qo‘yiladi.'),
         ),
       );
       return;
@@ -1931,7 +1931,7 @@ class _BookFormState extends State<_BookForm> {
       }
       if (!mounted) return;
       setState(() {
-        gallery = [...gallery, ...uploaded].take(10).toList();
+        gallery = [...gallery, ...uploaded].take(20).toList();
         _syncCoverController();
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1983,7 +1983,7 @@ class _BookFormState extends State<_BookForm> {
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toSet()
-        .take(10)
+        .take(20)
         .toList();
     final manualCover = image.text.trim();
     if (urls.isEmpty && manualCover.isNotEmpty) urls = [manualCover];
@@ -2077,7 +2077,7 @@ class _BookFormState extends State<_BookForm> {
             const SizedBox(height: 10),
             Center(
               child: FilledButton.tonalIcon(
-                onPressed: uploadingImage || gallery.length >= 10
+                onPressed: uploadingImage || gallery.length >= 20
                     ? null
                     : pickAndUploadImages,
                 icon: uploadingImage
@@ -2090,7 +2090,7 @@ class _BookFormState extends State<_BookForm> {
                 label: Text(
                   uploadingImage
                       ? 'Yuklanmoqda...'
-                      : 'Rasmlar tanlash (${gallery.length}/10)',
+                      : 'Rasmlar tanlash (${gallery.length}/20)',
                 ),
               ),
             ),
@@ -2173,7 +2173,7 @@ class _BookFormState extends State<_BookForm> {
             const Padding(
               padding: EdgeInsets.only(top: 8, bottom: 14),
               child: Text(
-                '1-rasm — kitob muqovasi. U ilovada ham, Telegram botda ham asosiy rasm bo‘ladi. Qolgan rasmlar kitob ichini ko‘rsatish uchun. Maksimal 10 ta.',
+                '1-rasm — kitob muqovasi. U ilovada ham, Telegram botda ham asosiy rasm bo‘ladi. Qolgan rasmlar kitob ichini ko‘rsatish uchun. Maksimal 20 ta.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: Colors.black54),
               ),

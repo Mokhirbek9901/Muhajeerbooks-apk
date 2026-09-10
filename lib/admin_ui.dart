@@ -381,7 +381,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   final _ordersKey = GlobalKey<_OrdersAdminState>();
   final _salesKey = GlobalKey<_SalesAdminState>();
   final _customersKey = GlobalKey<_CustomersAdminState>();
-  final _restockKey = GlobalKey<_RestockAdminState>();
 
   static const titles = [
     'Boshqaruv markazi',
@@ -390,7 +389,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     'Buyurtmalar',
     'Sotilgan kitoblar',
     'Mijozlar',
-    'Kutayotganlar',
     'Chegirmalar',
   ];
   static const icons = [
@@ -400,7 +398,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     Icons.receipt_long_rounded,
     Icons.sell_rounded,
     Icons.people_alt_rounded,
-    Icons.notifications_active_rounded,
     Icons.percent_rounded,
   ];
 
@@ -423,8 +420,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           unawaited(_salesKey.currentState?.reloadQuietly());
         case 5:
           unawaited(_customersKey.currentState?.reloadQuietly());
-        case 6:
-          unawaited(_restockKey.currentState?.reloadQuietly());
       }
     });
   }
@@ -444,7 +439,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       _OrdersAdmin(key: _ordersKey, api: api),
       _SalesAdmin(key: _salesKey, api: api),
       _CustomersAdmin(key: _customersKey, api: api),
-      _RestockAdmin(key: _restockKey, api: api),
       _DiscountAdmin(api: api),
     ];
     const railDestinations = [
@@ -477,11 +471,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         icon: Icon(Icons.people_alt_outlined),
         selectedIcon: Icon(Icons.people_alt_rounded),
         label: Text('Mijozlar'),
-      ),
-      NavigationRailDestination(
-        icon: Icon(Icons.notifications_none_rounded),
-        selectedIcon: Icon(Icons.notifications_active_rounded),
-        label: Text('Kutayotganlar'),
       ),
       NavigationRailDestination(
         icon: Icon(Icons.percent_rounded),
@@ -765,6 +754,71 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
               ),
             ),
             const SizedBox(height: 18),
+            InkWell(
+              borderRadius: BorderRadius.circular(AppRadii.large),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => Scaffold(
+                      appBar: AppBar(
+                        title: const Text('Kutayotganlar'),
+                      ),
+                      body: _RestockAdmin(api: widget.api),
+                    ),
+                  ),
+                );
+              },
+              child: AppSurface(
+                backgroundColor: AppColors.surfaceSoft,
+                shadow: true,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: const Icon(
+                        Icons.notifications_active_rounded,
+                        color: AppColors.navy,
+                      ),
+                    ),
+                    const SizedBox(width: 13),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Kutayotganlar',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Sotuvga qaytishini kutish so‘rovlarini ko‘rish',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.muted,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppColors.navy,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
             LayoutBuilder(
               builder: (context, c) {
                 final cardWidth = c.maxWidth >= 1200

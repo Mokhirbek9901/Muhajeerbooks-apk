@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#113D43">
+  <meta name="referrer" content="no-referrer">
+  <title>Muhajeer Books Admin — Face ID</title>
+  <style>
+    :root{color-scheme:light;background:#f4f6f4;color:#10213d;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    *{box-sizing:border-box} body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;background:#f4f6f4}
+    .card{width:min(100%,460px);background:#fff;border:1px solid #e3e8e5;border-radius:24px;padding:28px;box-shadow:0 16px 44px rgba(16,33,61,.09)}
+    .logo{width:72px;height:72px;border-radius:20px;display:grid;place-items:center;background:#113d43;color:#fff;font-size:34px;margin:0 auto 16px}
+    h1{font-size:24px;text-align:center;margin:0 0 8px}.sub{color:#66736d;text-align:center;line-height:1.5;margin:0 0 22px}
+    label{display:block;font-size:13px;font-weight:700;margin:10px 0 7px} input{width:100%;font-size:17px;padding:14px 15px;border:1px solid #ccd6d1;border-radius:14px;outline:none}
+    input:focus{border-color:#113d43;box-shadow:0 0 0 3px rgba(17,61,67,.08)}
+    button{width:100%;border:0;border-radius:14px;padding:14px 16px;font-size:16px;font-weight:750;cursor:pointer;margin-top:14px;background:#113d43;color:#fff}
+    button.secondary{background:#fff;color:#113d43;border:1px solid #cbd6d1} button:disabled{opacity:.55;cursor:default}
+    .status{margin-top:16px;padding:12px 14px;border-radius:14px;background:#f2f5f3;color:#43524b;font-size:14px;line-height:1.45;display:none}
+    .status.show{display:block}.status.error{background:#fff0f1;color:#a0232f}.status.ok{background:#edf8f1;color:#1f7445}
+    .small{text-align:center;color:#7b8781;font-size:12px;margin-top:16px;line-height:1.45}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="logo">🔐</div>
+    <h1 id="title">Face ID / Passkey</h1>
+    <p class="sub" id="subtitle">Muhajeer Books admin paneliga xavfsiz kirish.</p>
+    <div id="registerBox" hidden>
+      <label for="adminCode">Admin kodi</label>
+      <input id="adminCode" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Admin kodini kiriting">
+    </div>
+    <button id="mainBtn">Face ID bilan kirish</button>
+    <button class="secondary" id="backBtn">Kod bilan kirishga qaytish</button>
+    <div id="status" class="status"></div>
+    <div class="small">Face ID yoki barmoq izi qurilmangizning o‘zida tekshiriladi. Biometrik ma’lumot serverga yuborilmaydi.</div>
+  </main>
+<script>
+const API='/supabase/functions/v1/web-admin-passkey';
+const params=new URLSearchParams(location.search);
+const mode=params.get('mode')==='register'?'register':'login';
+const title=document.getElementById('title');
+const subtitle=document.getElementById('subtitle');
+const box=document.getElementById('registerBox');
+const code=document.getElementById('adminCode');
+const btn=document.getElementById('mainBtn');
+const back=document.getElementById('backBtn');
+const status=document.getElementById('status');
+if(mode==='register'){
+  title.textContent='Face ID / Passkey ni yoqish';
+  subtitle.textContent='Birinchi marta admin kodini tasdiqlang, keyin Face ID ni ro‘yxatdan o‘tkazing.';
+  box.hidden=false; btn.textContent='Face ID / Passkey ni yoqish';
+}
+back.onclick=()=>location.replace('/');
+function show(msg,type=''){status.className='status show '+type;status.textContent=msg}
+function b64urlToBuf(value){
+  const s=value.replace(/-/g,'+').replace(/_/g,'/');
+  const pad='='.repeat((4-s.length%4)%4);
+  const raw=atob(s+pad); return Uint8Array.from(raw,c=>c.charCodeAt(0));
+}
+function bufToB64url(buf){
+  const bytes=new Uint8Array(buf); let s=''; bytes.forEach(b=>s+=String.fromCharCode(b));
+  return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function prepCreate(o){
+  o.challenge=b64urlToBuf(o.challenge); o.user.id=b64urlToBuf(o.user.id);
+  if(o.excludeCredentials) o.excludeCredentials=o.excludeCredentials.map(x=>({...x,id:b64urlToBuf(x.id)}));
+  return o;
+}
+function prepGet(o){
+  o.challenge=b64urlToBuf(o.challenge);
+  if(o.allowCredentials) o.allowCredentials=o.allowCredentials.map(x=>({...x,id:b64urlToBuf(x.id)}));
+  return o;
+}
+function registrationJSON(c){
+  return {id:c.id,rawId:bufToB64url(c.rawId),type:c.type,response:{attestationObject:bufToB64url(c.response.attestationObject),clientDataJSON:bufToB64url(c.response.clientDataJSON),transports:c.response.getTransports?c.response.getTransports():[]},clientExtensionResults:c.getClientExtensionResults?c.getClientExtensionResults():{}};
+}
+function authJSON(c){
+  return {id:c.id,rawId:bufToB64url(c.rawId),type:c.type,response:{authenticatorData:bufToB64url(c.response.authenticatorData),clientDataJSON:bufToB64url(c.response.clientDataJSON),signature:bufToB64url(c.response.signature),userHandle:c.response.userHandle?bufToB64url(c.response.userHandle):null},clientExtensionResults:c.getClientExtensionResults?c.getClientExtensionResults():{}};
+}
+async function call(body){
+  const r=await fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),cache:'no-store'});
+  const data=await r.json().catch(()=>({})); if(!r.ok) throw new Error(data.error||'Server xatosi'); return data;
+}
+async function run(){
+  if(!window.PublicKeyCredential || !navigator.credentials){show('Bu brauzer Passkey ni qo‘llamaydi. Safari/Chrome yangilangan versiyasidan foydalaning.','error');return}
+  btn.disabled=true; show('Tekshirilmoqda...');
+  try{
+    if(mode==='register'){
+      if(!code.value.trim()){throw new Error('Admin kodini kiriting')}
+      const begin=await call({action:'register_begin',admin_code:code.value.trim()});
+      const cred=await navigator.credentials.create({publicKey:prepCreate(begin.options)});
+      if(!cred) throw new Error('Face ID tasdiqlanmadi');
+      const done=await call({action:'register_finish',challenge_id:begin.challenge_id,response:registrationJSON(cred)});
+      show('Face ID / Passkey yoqildi. Admin panel ochilmoqda…','ok');
+      location.replace('/#admin_session='+encodeURIComponent(done.token));
+    }else{
+      const begin=await call({action:'authenticate_begin'});
+      const cred=await navigator.credentials.get({publicKey:prepGet(begin.options)});
+      if(!cred) throw new Error('Face ID tasdiqlanmadi');
+      const done=await call({action:'authenticate_finish',challenge_id:begin.challenge_id,response:authJSON(cred)});
+      show('Tasdiqlandi. Admin panel ochilmoqda…','ok');
+      location.replace('/#admin_session='+encodeURIComponent(done.token));
+    }
+  }catch(e){
+    const msg=e?.name==='NotAllowedError'?'Face ID bekor qilindi yoki vaqt tugadi.':(e?.message||String(e)); show(msg,'error');
+  }finally{btn.disabled=false}
+}
+btn.onclick=run;
+</script>
+</body>
+</html>

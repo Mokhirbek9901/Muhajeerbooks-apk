@@ -116,3 +116,4 @@ jobs:
           retention-days: 30
 
 # 2026-09-09: gallery-enabled release build; customer shipping final stage is Jo‘natildi
+# 2026-09-10: release build includes support for up to 20 book images

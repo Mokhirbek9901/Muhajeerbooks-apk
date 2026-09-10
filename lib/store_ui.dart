@@ -1678,7 +1678,7 @@ class BookDetailPage extends StatelessWidget {
       ),
       bottomNavigationBar: SafeArea(
         child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 11, 16, 14),
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
           decoration: const BoxDecoration(
             color: Colors.white,
             border: Border(top: BorderSide(color: AppColors.border)),
@@ -1690,78 +1690,103 @@ class BookDetailPage extends StatelessWidget {
               ),
             ],
           ),
-          child: Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Narxi',
-                      style: TextStyle(fontSize: 11, color: AppColors.muted),
-                    ),
-                    if (b.isDiscounted)
-                      Text(
-                        won(b.price),
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          color: AppColors.muted,
-                          decoration: TextDecoration.lineThrough,
-                        ),
-                      ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Text(
+                    'Narxi',
+                    style: TextStyle(fontSize: 12, color: AppColors.muted),
+                  ),
+                  const SizedBox(width: 10),
+                  if (b.isDiscounted) ...[
                     Text(
-                      won(b.currentPrice),
+                      won(b.price),
+                      maxLines: 1,
+                      softWrap: false,
                       style: const TextStyle(
-                        fontSize: 21,
+                        fontSize: 12,
+                        color: AppColors.muted,
+                        decoration: TextDecoration.lineThrough,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Flexible(
+                    child: Text(
+                      won(b.currentPrice),
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 22,
                         fontWeight: FontWeight.w900,
                         color: AppColors.navy,
                       ),
                     ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 9),
+              if (b.inStock)
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      state.addToCart(b);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Savatchaga qo‘shildi ✅')),
+                      );
+                    },
+                    icon: const Icon(Icons.shopping_bag_rounded),
+                    label: const Text('Savatchaga qo‘shish'),
+                  ),
+                )
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () async {
+                          final message = await state.toggleRestockNotification(b);
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(message)),
+                          );
+                        },
+                        icon: Icon(
+                          state.isRestockSubscribed(b)
+                              ? Icons.notifications_active_rounded
+                              : Icons.notifications_none_rounded,
+                        ),
+                        label: Text(
+                          state.isRestockSubscribed(b)
+                              ? 'Xabar beramiz ✅'
+                              : 'Kelganda xabar berish',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    if (b.legacyId != null) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _openTelegramRestock(context, b),
+                          icon: const Icon(Icons.send_rounded),
+                          label: const Text(
+                            'Telegramda xabar olish',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
-              ),
-              FilledButton.icon(
-                onPressed: b.inStock
-                    ? () {
-                        state.addToCart(b);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Savatchaga qo‘shildi ✅'),
-                          ),
-                        );
-                      }
-                    : () async {
-                        final message = await state.toggleRestockNotification(
-                          b,
-                        );
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context)
-                            .showSnackBar(SnackBar(content: Text(message)));
-                      },
-                icon: Icon(
-                  b.inStock
-                      ? Icons.shopping_bag_rounded
-                      : state.isRestockSubscribed(b)
-                      ? Icons.notifications_active_rounded
-                      : Icons.notifications_none_rounded,
-                ),
-                label: Text(
-                  b.inStock
-                      ? 'Savatchaga qo‘shish'
-                      : state.isRestockSubscribed(b)
-                      ? 'Xabar beramiz ✅'
-                      : 'Kelganda xabar berish',
-                ),
-              ),
-              if (!b.inStock && b.legacyId != null) ...[
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: () => _openTelegramRestock(context, b),
-                  icon: const Icon(Icons.send_rounded),
-                  label: const Text('Telegramda xabar olish'),
-                ),
-              ],
             ],
           ),
         ),

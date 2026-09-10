@@ -196,6 +196,16 @@ class _AdminApi {
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
   }
+
+  Future<List<Map<String, dynamic>>> restockWaitlist() async {
+    final raw = await client.rpc(
+      'admin_restock_waitlist',
+      params: {'p_secret': secret},
+    );
+    return ((raw as List?) ?? const [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
 }
 
 class AdminGatePage extends StatefulWidget {
@@ -371,6 +381,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   final _ordersKey = GlobalKey<_OrdersAdminState>();
   final _salesKey = GlobalKey<_SalesAdminState>();
   final _customersKey = GlobalKey<_CustomersAdminState>();
+  final _restockKey = GlobalKey<_RestockAdminState>();
 
   static const titles = [
     'Boshqaruv markazi',
@@ -379,6 +390,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     'Buyurtmalar',
     'Sotilgan kitoblar',
     'Mijozlar',
+    'Kutayotganlar',
     'Chegirmalar',
   ];
   static const icons = [
@@ -388,6 +400,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     Icons.receipt_long_rounded,
     Icons.sell_rounded,
     Icons.people_alt_rounded,
+    Icons.notifications_active_rounded,
     Icons.percent_rounded,
   ];
 
@@ -410,6 +423,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           unawaited(_salesKey.currentState?.reloadQuietly());
         case 5:
           unawaited(_customersKey.currentState?.reloadQuietly());
+        case 6:
+          unawaited(_restockKey.currentState?.reloadQuietly());
       }
     });
   }
@@ -429,6 +444,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       _OrdersAdmin(key: _ordersKey, api: api),
       _SalesAdmin(key: _salesKey, api: api),
       _CustomersAdmin(key: _customersKey, api: api),
+      _RestockAdmin(key: _restockKey, api: api),
       _DiscountAdmin(api: api),
     ];
     const railDestinations = [
@@ -461,6 +477,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         icon: Icon(Icons.people_alt_outlined),
         selectedIcon: Icon(Icons.people_alt_rounded),
         label: Text('Mijozlar'),
+      ),
+      NavigationRailDestination(
+        icon: Icon(Icons.notifications_none_rounded),
+        selectedIcon: Icon(Icons.notifications_active_rounded),
+        label: Text('Kutayotganlar'),
       ),
       NavigationRailDestination(
         icon: Icon(Icons.percent_rounded),
@@ -1991,9 +2012,9 @@ class _BookFormState extends State<_BookForm> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Rasm tanlashda xatolik: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Rasm tanlashda xatolik: $e')));
       }
     } finally {
       if (mounted) setState(() => uploadingImage = false);
@@ -3031,6 +3052,266 @@ class _PaymentProofPanel extends StatelessWidget {
       ],
     ),
   );
+}
+
+class _RestockAdmin extends StatefulWidget {
+  const _RestockAdmin({super.key, required this.api});
+  final _AdminApi api;
+
+  @override
+  State<_RestockAdmin> createState() => _RestockAdminState();
+}
+
+class _RestockAdminState extends State<_RestockAdmin> {
+  late Future<List<Map<String, dynamic>>> future;
+
+  @override
+  void initState() {
+    super.initState();
+    future = widget.api.restockWaitlist();
+  }
+
+  int _asInt(dynamic value) {
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  String _when(dynamic value) {
+    final dt = DateTime.tryParse(value?.toString() ?? '')?.toLocal();
+    if (dt == null) return '';
+    return DateFormat('dd.MM.yyyy HH:mm').format(dt);
+  }
+
+  void reload() {
+    if (!mounted) return;
+    setState(() => future = widget.api.restockWaitlist());
+  }
+
+  Future<void> reloadQuietly() async {
+    try {
+      final data = await widget.api.restockWaitlist();
+      if (!mounted) return;
+      setState(() => future = Future.value(data));
+    } catch (_) {
+      // Fon yangilanishi eski ma'lumotni ekranda qoldiradi.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: future,
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting &&
+            snap.data == null) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snap.hasError) {
+          return Center(
+            child: AppSurface(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.notifications_off_outlined,
+                    size: 42,
+                    color: AppColors.danger,
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Kutayotganlar ro‘yxatini yuklab bo‘lmadi',
+                    style: TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 10),
+                  FilledButton.tonalIcon(
+                    onPressed: reload,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Qayta urinish'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final rows = snap.data ?? const <Map<String, dynamic>>[];
+        final totalWaiting = rows.fold<int>(
+          0,
+          (sum, row) => sum + _asInt(row['waiting_count']),
+        );
+
+        return ListView(
+          padding: const EdgeInsets.all(18),
+          children: [
+            const AppPageHeading(
+              title: 'Sotuvga qaytishini kutayotganlar',
+              subtitle: 'Mavjud bo‘lmagan qaysi kitobni nechta mijoz kutayotganini shu yerda ko‘rasiz.',
+            ),
+            const SizedBox(height: 16),
+            AppSurface(
+              backgroundColor: AppColors.surfaceSoft,
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: const Icon(
+                      Icons.notifications_active_rounded,
+                      color: _navy,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '$totalWaiting ta kutish so‘rovi',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        Text(
+                          '${rows.length} ta kitob bo‘yicha',
+                          style: const TextStyle(
+                            color: AppColors.muted,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Yangilash',
+                    onPressed: reload,
+                    icon: const Icon(Icons.refresh_rounded),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            if (rows.isEmpty)
+              AppSurface(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 28),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.notifications_none_rounded,
+                        size: 50,
+                        color: Colors.grey.shade400,
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Hozircha kutayotgan mijoz yo‘q',
+                        style: TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Mijoz “Kelganda xabar berish”ni bossa, shu yerda chiqadi.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: AppColors.muted),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              ...rows.map((row) {
+                final count = _asInt(row['waiting_count']);
+                final stock = _asInt(row['stock']);
+                final lastRequest = _when(row['last_requested_at']);
+                final title = (row['title'] ?? 'Nomsiz kitob').toString();
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: AppSurface(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF4E6),
+                            borderRadius: BorderRadius.circular(13),
+                          ),
+                          child: const Icon(
+                            Icons.menu_book_rounded,
+                            color: _orange,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                stock <= 0
+                                    ? 'Hozir sotuvda mavjud emas'
+                                    : 'Omborda: $stock ta',
+                                style: const TextStyle(
+                                  color: AppColors.muted,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              if (lastRequest.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Oxirgi so‘rov: $lastRequest',
+                                  style: const TextStyle(
+                                    color: AppColors.muted,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF4E6),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: const Color(0xFFFFD6A3)),
+                          ),
+                          child: Text(
+                            '$count kishi kutyapti',
+                            style: const TextStyle(
+                              color: _navy,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+          ],
+        );
+      },
+    );
+  }
 }
 
 class _DiscountAdmin extends StatefulWidget {

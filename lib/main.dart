@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_state.dart';
@@ -17,8 +18,20 @@ import 'store_ui.dart';
 // 2026-09-11: Android APK doim Muhajeer Books'ning live Supabase loyihasiga
 // ulanadi. GitHub build secret eski/bo'sh bo'lsa ham APK offline eski seedga
 // tushmaydi. Web esa o'z originidagi /supabase proxy orqali ishlaydi.
+// 2026-09-11: Android ishga tushganda eski lokal katalog cache'i o'chiriladi;
+// katalog faqat live Supabase'dan qayta yuklanadi.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  if (!kIsWeb) {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('muhajeer_books_v4');
+      await prefs.remove('muhajeer_seed_version');
+    } catch (_) {
+      // Cache tozalash muvaffaqiyatsiz bo'lsa ham app ishga tushishi kerak.
+    }
+  }
 
   const definedSupabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
   const liveSupabaseUrl = 'https://rytfhjvhjxnbhgitowho.supabase.co';

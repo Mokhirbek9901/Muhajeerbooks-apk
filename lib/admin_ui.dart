@@ -97,9 +97,17 @@ class _AdminApi {
     );
 
     final raw = response.data;
-    final data = raw is Map
-        ? Map<String, dynamic>.from(raw)
-        : <String, dynamic>{};
+    Map<String, dynamic> data = <String, dynamic>{};
+    if (raw is Map) {
+      data = Map<String, dynamic>.from(raw);
+    } else if (raw is String && raw.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) data = Map<String, dynamic>.from(decoded);
+      } catch (_) {
+        // Web/proxy ayrim hollarda JSON javobni string ko‘rinishida qaytaradi.
+      }
+    }
     final url = (data['url'] ?? '').toString();
     if (url.isEmpty) {
       throw StateError((data['error'] ?? 'Rasm yuklanmadi.').toString());
@@ -1916,32 +1924,76 @@ class _BookFormState extends State<_BookForm> {
       );
       return;
     }
+
     try {
       final picked = await picker.pickMultiImage(
         imageQuality: 82,
         maxWidth: 1600,
+        maxHeight: 2200,
       );
       if (picked.isEmpty) return;
+
       final selected = picked.take(slots).toList();
       setState(() => uploadingImage = true);
-      final uploaded = <String>[];
+      var uploadedCount = 0;
+      final errors = <String>[];
+
+      // Har bir rasm alohida yuklanadi. Bitta rasmda xato bo‘lsa ham
+      // oldin muvaffaqiyatli yuklangan rasmlar yo‘qolib ketmaydi.
       for (final file in selected) {
-        final url = await widget.api.uploadCover(file);
-        if (url.trim().isNotEmpty && !gallery.contains(url)) uploaded.add(url);
+        try {
+          final url = (await widget.api.uploadCover(file)).trim();
+          if (url.isEmpty) {
+            errors.add('${file.name}: bo‘sh manzil qaytdi');
+            continue;
+          }
+          if (!mounted) return;
+          if (!gallery.contains(url)) {
+            setState(() {
+              gallery = [...gallery, url].take(20).toList();
+              _syncCoverController();
+            });
+            uploadedCount++;
+          }
+        } catch (e) {
+          errors.add('${file.name}: $e');
+        }
       }
+
       if (!mounted) return;
-      setState(() {
-        gallery = [...gallery, ...uploaded].take(20).toList();
-        _syncCoverController();
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${uploaded.length} ta rasm yuklandi ✅')),
-      );
+      final messenger = ScaffoldMessenger.of(context);
+      if (uploadedCount == 0) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              errors.isEmpty
+                  ? 'Rasm yuklanmadi.'
+                  : 'Rasm yuklanmadi: ${errors.first}',
+            ),
+          ),
+        );
+      } else if (errors.isEmpty) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              '$uploadedCount ta rasm yuklandi ✅ Saqlash tugmasini bosing.',
+            ),
+          ),
+        );
+      } else {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              '$uploadedCount ta rasm yuklandi, ${errors.length} ta rasmda xato bo‘ldi.',
+            ),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Rasm yuklashda xatolik: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Rasm tanlashda xatolik: $e')),
+        );
       }
     } finally {
       if (mounted) setState(() => uploadingImage = false);

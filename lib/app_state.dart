@@ -384,9 +384,17 @@ class BackendService {
       },
     );
     final raw = response.data;
-    final data = raw is Map
-        ? Map<String, dynamic>.from(raw)
-        : <String, dynamic>{};
+    Map<String, dynamic> data = <String, dynamic>{};
+    if (raw is Map) {
+      data = Map<String, dynamic>.from(raw);
+    } else if (raw is String && raw.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) data = Map<String, dynamic>.from(decoded);
+      } catch (_) {
+        // Web proxy ayrim hollarda JSON javobni string ko‘rinishida qaytarishi mumkin.
+      }
+    }
     final path = (data['path'] ?? '').toString();
     if (path.isEmpty) {
       throw StateError(

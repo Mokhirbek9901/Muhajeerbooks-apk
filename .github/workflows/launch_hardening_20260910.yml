@@ -1,0 +1,41 @@
+name: Apply launch hardening 2026-09-10
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/launch_hardening_20260910.py'
+      - '.github/workflows/launch_hardening_20260910.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Apply fixes
+        run: python3 tools/launch_hardening_20260910.py
+      - name: Format and verify
+        run: |
+          dart format lib/app_state.dart lib/store_ui.dart test/order_rules_test.dart
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+      - name: Commit hardened app
+        run: |
+          if git diff --quiet; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pubspec.yaml pubspec.lock lib/app_state.dart lib/store_ui.dart web/index.html test/order_rules_test.dart
+          git commit -m "Harden launch ordering, recovery, notifications and SEO"
+          git push

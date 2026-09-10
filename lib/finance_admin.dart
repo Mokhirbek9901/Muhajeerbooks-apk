@@ -556,6 +556,20 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                     icon: Icons.menu_book_rounded,
                   ),
                   _FinanceCard(
+                    title: 'Kitob tannarxi',
+                    value: _financeWon(_int('cost_of_goods')),
+                    subtitle: 'Sotilgan kitoblarning umumiy tannarxi',
+                    icon: Icons.price_check_outlined,
+                  ),
+                  _FinanceCard(
+                    title: 'Kitobdan qolgan sof foyda',
+                    value: _financeSignedWon(_int('book_profit')),
+                    subtitle: 'Kitob savdosi − sotilgan kitob tannarxi',
+                    icon: _int('book_profit') >= 0
+                        ? Icons.savings_outlined
+                        : Icons.trending_down_rounded,
+                  ),
+                  _FinanceCard(
                     title: 'Yangi partiya kitoblar',
                     value: _financeWon(_int('inventory_purchases')),
                     subtitle: 'Kitoblar uchun kiritilgan umumiy xarajat',
@@ -638,7 +652,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                       'ℹ️ Sotilgan kitob tannarxi: ${_financeWon(_int('cost_of_goods'))}',
                     ),
                     Text(
-                      '📖 Sotilgan kitoblar savdo foydasi: ${_financeWon(_int('book_profit'))}',
+                      '📖 Kitobdan qolgan sof foyda: ${_financeSignedWon(_int('book_profit'))}',
                     ),
                   ],
                 ),

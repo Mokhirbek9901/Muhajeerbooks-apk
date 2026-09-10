@@ -227,6 +227,118 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
     }
   }
 
+  Future<void> _editExpense(Map<String, dynamic> expense) async {
+    final currentAmount = (expense['amount'] as num?)?.round() ?? 0;
+    final amount = TextEditingController(text: currentAmount.toString());
+    final note = TextEditingController(
+      text: (expense['note'] ?? '').toString(),
+    );
+    var category = (expense['category'] ?? 'other').toString();
+    if (!categoryLabels.containsKey(category)) category = 'other';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Xarajatni tahrirlash'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: category,
+                  decoration: const InputDecoration(labelText: 'Xarajat turi'),
+                  items: categoryLabels.entries
+                      .map(
+                        (e) => DropdownMenuItem<String>(
+                          value: e.key,
+                          child: Text(e.value),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setDialogState(() => category = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: amount,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Summa (₩)'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: note,
+                  maxLength: 120,
+                  decoration: const InputDecoration(
+                    labelText: 'Izoh (ixtiyoriy)',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Bekor qilish'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Saqlash'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true) {
+      amount.dispose();
+      note.dispose();
+      return;
+    }
+
+    final value =
+        int.tryParse(amount.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    final noteText = note.text.trim();
+    amount.dispose();
+    note.dispose();
+
+    if (value <= 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Xarajat summasini to‘g‘ri kiriting.')),
+        );
+      }
+      return;
+    }
+
+    try {
+      await client.rpc(
+        'admin_update_finance_expense',
+        params: {
+          'p_secret': widget.secret,
+          'p_id': expense['id'],
+          'p_amount': value,
+          'p_category': category,
+          'p_note': noteText,
+        },
+      );
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Xarajat yangilandi.')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Xarajat tahrirlanmadi: $e')),
+      );
+    }
+  }
+
   Future<void> _deleteExpense(Map<String, dynamic> expense) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -492,10 +604,38 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                           : 'Admin ilovadan kiritilgan',
                     ].join(' • '),
                   ),
-                  trailing: IconButton(
-                    onPressed: () => _deleteExpense(e),
-                    icon: const Icon(Icons.delete_outline_rounded),
-                    tooltip: 'O‘chirish',
+                  trailing: PopupMenuButton<String>(
+                    tooltip: 'Amallar',
+                    icon: const Icon(Icons.more_vert_rounded),
+                    onSelected: (action) {
+                      if (action == 'edit') {
+                        unawaited(_editExpense(e));
+                      } else if (action == 'delete') {
+                        unawaited(_deleteExpense(e));
+                      }
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem<String>(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit_outlined),
+                            SizedBox(width: 10),
+                            Text('Tahrirlash'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem<String>(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete_outline_rounded),
+                            SizedBox(width: 10),
+                            Text('O‘chirish'),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

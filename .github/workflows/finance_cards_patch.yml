@@ -1,0 +1,54 @@
+name: Apply finance cards patch
+
+on:
+  push:
+    paths:
+      - 'tools/finance_cards_patch.marker'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Add book cost and book profit cards without removing existing cards
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('lib/finance_admin.dart')
+          text = path.read_text(encoding='utf-8')
+
+          anchor = """                  _FinanceCard(\n                    title: 'Hisobga kiradigan kitob savdosi',\n                    value: _financeWon(_int('books_revenue')),\n                    subtitle: 'Sof natijaga aynan shu summa qo‘shiladi',\n                    icon: Icons.menu_book_rounded,\n                  ),\n"""
+
+          addition = """                  _FinanceCard(\n                    title: 'Kitob tannarxi',\n                    value: _financeWon(_int('cost_of_goods')),\n                    subtitle: 'Sotilgan kitoblarning umumiy tannarxi',\n                    icon: Icons.price_check_outlined,\n                  ),\n                  _FinanceCard(\n                    title: 'Kitobdan qolgan sof foyda',\n                    value: _financeSignedWon(_int('book_profit')),\n                    subtitle: 'Kitob savdosi − sotilgan kitob tannarxi',\n                    icon: _int('book_profit') >= 0\n                        ? Icons.savings_outlined\n                        : Icons.trending_down_rounded,\n                  ),\n"""
+
+          if "title: 'Kitob tannarxi'" not in text:
+              if anchor not in text:
+                  raise SystemExit('Finance card anchor not found')
+              text = text.replace(anchor, anchor + addition, 1)
+
+          text = text.replace(
+              "'📖 Sotilgan kitoblar savdo foydasi: ${_financeWon(_int('book_profit'))}'",
+              "'📖 Kitobdan qolgan sof foyda: ${_financeSignedWon(_int('book_profit'))}'",
+          )
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit finance UI patch
+        run: |
+          git config user.name 'Muhajeer Books Automation'
+          git config user.email 'actions@users.noreply.github.com'
+          if git diff --quiet -- lib/finance_admin.dart; then
+            echo 'No finance UI changes needed.'
+            exit 0
+          fi
+          git add lib/finance_admin.dart
+          git commit -m 'Show book cost and book net profit in finance'
+          git push origin HEAD:main

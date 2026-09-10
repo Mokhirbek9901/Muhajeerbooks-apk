@@ -1,0 +1,53 @@
+name: Raise book gallery limit to 20
+
+on:
+  push:
+    paths:
+      - 'tools/raise_book_gallery_limit_20.py'
+      - '.github/workflows/raise_book_gallery_limit_20.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Apply 20-image limit
+        run: python3 tools/raise_book_gallery_limit_20.py
+      - name: Format
+        run: dart format lib/app_state.dart lib/admin_ui.dart
+      - name: Packages
+        run: flutter pub get
+      - name: Analyze
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+      - name: Verify limit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          a = Path('lib/app_state.dart').read_text(encoding='utf-8')
+          u = Path('lib/admin_ui.dart').read_text(encoding='utf-8')
+          assert 'if (result.length == 20) break;' in a
+          assert '.take(20)' in a
+          assert 'final slots = 20 - gallery.length;' in u
+          assert 'gallery.length >= 20' in u
+          assert '${gallery.length}/20' in u
+          assert 'Maksimal 20 ta.' in u
+          print('20-image gallery invariants OK')
+          PY
+      - name: Commit runtime changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lib/app_state.dart lib/admin_ui.dart
+          git diff --cached --quiet && exit 0
+          git commit -m 'Allow up to 20 book images'
+          git push origin main

@@ -11,6 +11,7 @@ import 'package:local_auth/local_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'app_state.dart';
 import 'brand.dart';
@@ -241,13 +242,56 @@ class _AdminGatePageState extends State<AdminGatePage> {
   @override
   void initState() {
     super.initState();
-    unawaited(_prepareBiometric());
+    if (kIsWeb) {
+      unawaited(_checkWebAdminSession());
+    } else {
+      unawaited(_prepareBiometric());
+    }
   }
 
   @override
   void dispose() {
     code.dispose();
     super.dispose();
+  }
+
+  Future<void> _checkWebAdminSession() async {
+    if (!kIsWeb) return;
+    final fragment = Uri.base.fragment;
+    if (!fragment.startsWith('admin_session=')) return;
+    final token = Uri.decodeComponent(fragment.substring('admin_session='.length));
+    if (token.trim().isEmpty) return;
+    if (mounted) {
+      setState(() {
+        loading = true;
+        error = null;
+      });
+    }
+    try {
+      final api = _AdminApi(token.trim());
+      if (!await api.verify()) {
+        if (mounted) {
+          setState(() => error = 'Face ID / Passkey sessiyasi eskirgan. Qayta kiring.');
+        }
+        return;
+      }
+      await _openDashboard(token.trim());
+    } catch (_) {
+      if (mounted) {
+        setState(() => error = 'Face ID / Passkey bilan kirishda xatolik.');
+      }
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> _openWebPasskey(String mode) async {
+    if (!kIsWeb) return;
+    final uri = Uri.base.resolve('passkey.html?mode=$mode');
+    final ok = await launchUrl(uri, webOnlyWindowName: '_self');
+    if (!ok && mounted) {
+      setState(() => error = 'Face ID / Passkey oynasi ochilmadi.');
+    }
   }
 
   Future<bool> _deviceHasBiometrics() async {
@@ -515,6 +559,23 @@ class _AdminGatePageState extends State<AdminGatePage> {
                         ),
                       ),
                     ),
+                    if (kIsWeb) ...[
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: loading ? null : () => _openWebPasskey('login'),
+                          icon: const Icon(Icons.face_rounded),
+                          label: const Text('Face ID / Passkey bilan kirish'),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        onPressed: loading ? null : () => _openWebPasskey('register'),
+                        icon: const Icon(Icons.add_moderator_outlined, size: 19),
+                        label: const Text('Face ID / Passkey ni yoqish'),
+                      ),
+                    ],
                     if (biometricAvailable && biometricEnabled) ...[
                       const SizedBox(height: 10),
                       SizedBox(

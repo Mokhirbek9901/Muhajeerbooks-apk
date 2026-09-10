@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app_state.dart';
 import 'app_state_fixed.dart';
 import 'app_update_gate.dart';
+import 'admin_ui.dart';
 import 'auth_gate.dart';
 import 'design_system.dart';
 import 'store_ui.dart';
@@ -74,7 +75,9 @@ class MuhajeerBooksApp extends StatelessWidget {
           child: child ?? const SizedBox.shrink(),
         ),
         home: AppUpdateGate(
-          child: backendConfigured ? const CustomerAuthGate() : const StoreShell(),
+          child: kIsWeb && Uri.base.fragment.startsWith('admin_session=')
+              ? const AdminGatePage()
+              : (backendConfigured ? const CustomerAuthGate() : const StoreShell()),
         ),
       ),
     );

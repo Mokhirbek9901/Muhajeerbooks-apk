@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_state.dart';
 import 'app_state_fixed.dart';
+import 'app_update_gate.dart';
 import 'auth_gate.dart';
 import 'design_system.dart';
 import 'store_ui.dart';
@@ -15,6 +16,7 @@ import 'store_ui.dart';
 // 2026-09-09: Supabase legacy anon JWT o'rniga aktiv publishable key ishlatiladi.
 // 2026-09-09: yangi o'zbekona UI uchun web va APK buildini bir xil manbadan yangilash.
 // 2026-09-10: rasm yuklash ishonchliligi tuzatmasini web va APKga bir xil build qilish.
+// 2026-09-11: Android APK yangi release chiqsa ilova ichida yangilash oynasini ko'rsatadi.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -71,7 +73,9 @@ class MuhajeerBooksApp extends StatelessWidget {
           color: AppColors.background,
           child: child ?? const SizedBox.shrink(),
         ),
-        home: backendConfigured ? const CustomerAuthGate() : const StoreShell(),
+        home: AppUpdateGate(
+          child: backendConfigured ? const CustomerAuthGate() : const StoreShell(),
+        ),
       ),
     );
   }

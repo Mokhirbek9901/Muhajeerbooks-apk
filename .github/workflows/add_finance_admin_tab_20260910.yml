@@ -1,0 +1,42 @@
+name: Add finance admin tab 2026-09-10
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/add_finance_admin_tab_20260910.py'
+      - '.github/workflows/add_finance_admin_tab_20260910.yml'
+      - 'lib/finance_admin.dart'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Patch admin UI
+        run: python3 tools/add_finance_admin_tab_20260910.py
+      - name: Verify Flutter
+        run: |
+          flutter create . --platforms=web,android
+          flutter pub get
+          dart format lib/admin_ui.dart lib/finance_admin.dart
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+      - name: Commit finance UI
+        run: |
+          if git diff --quiet; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/admin_ui.dart lib/finance_admin.dart
+          git commit -m "Add finance and expense reporting to admin app"
+          git push

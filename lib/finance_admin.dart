@@ -335,8 +335,8 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                 final columns = width >= 1000
                     ? 3
                     : width >= 650
-                    ? 2
-                    : 1;
+                        ? 2
+                        : 1;
                 final itemWidth = (width - (columns - 1) * 12) / columns;
                 final cards = <Widget>[
                   _FinanceCard(
@@ -405,7 +405,8 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                   runSpacing: 10,
                   children: [
                     Text('📚 Sotilgan: ${_int('sold_books')} dona'),
-                    Text('📦 Jo‘natilgan buyurtma: ${_int('shipped_orders')} ta'),
+                    Text(
+                        '📦 Jo‘natilgan buyurtma: ${_int('shipped_orders')} ta'),
                     Text(
                       '📚 Kitob savdosi: ${_financeWon(_int('books_revenue'))}',
                     ),

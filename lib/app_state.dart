@@ -360,6 +360,38 @@ class BackendService {
     );
   }
 
+  Future<Map<String, dynamic>> subscribeRestock(
+    String installId,
+    String bookId,
+  ) async {
+    final raw = await client.rpc(
+      'customer_restock_subscribe',
+      params: {'p_install_id': installId, 'p_book_id': bookId},
+    );
+    return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+  }
+
+  Future<void> unsubscribeRestock(String installId, String bookId) async {
+    await client.rpc(
+      'customer_restock_unsubscribe',
+      params: {'p_install_id': installId, 'p_book_id': bookId},
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> fetchRestockNotifications(
+    String installId,
+  ) async {
+    final raw = await client.rpc(
+      'customer_restock_notifications',
+      params: {'p_install_id': installId},
+    );
+    if (raw is! List) return [];
+    return raw
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+
   Future<String> uploadPaymentProof(XFile file) async {
     final bytes = await file.readAsBytes();
     if (bytes.isEmpty) throw StateError('Chek rasmi bo‘sh.');
@@ -490,6 +522,7 @@ class _LocalStore {
   static const _customerAddressKey = 'muhajeer_customer_address';
   static const _customerVerifiedKey = 'muhajeer_customer_verified_v1';
   static const _installIdKey = 'muhajeer_install_id_v1';
+  static const _restockSubscriptionsKey = 'muhajeer_restock_subscriptions_v1';
 
   Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
 
@@ -614,6 +647,13 @@ class _LocalStore {
     await prefs.setString(_installIdKey, generated);
     return generated;
   }
+
+  Future<Set<String>> loadRestockSubscriptions() async =>
+      (await _prefs).getStringList(_restockSubscriptionsKey)?.toSet() ??
+      <String>{};
+
+  Future<void> saveRestockSubscriptions(Set<String> ids) async =>
+      (await _prefs).setStringList(_restockSubscriptionsKey, ids.toList());
 }
 
 class AppState extends ChangeNotifier {
@@ -633,11 +673,13 @@ class AppState extends ChangeNotifier {
   final List<Map<String, dynamic>> _customerNotices = [];
   final Map<String, int> _cart = {};
   final Set<String> _favorites = {};
+  final Set<String> _restockSubscriptions = {};
   RealtimeChannel? _booksChannel;
   Timer? _booksRealtimeDebounce;
   Timer? _booksFallbackTimer;
   Timer? _orderStatusTimer;
   bool _orderStatusRefreshing = false;
+  bool _restockRefreshing = false;
 
   List<Map<String, dynamic>> get customerNotices =>
       List.unmodifiable(_customerNotices);
@@ -662,6 +704,8 @@ class AppState extends ChangeNotifier {
 
   List<Book> get books => List.unmodifiable(_books);
   Set<String> get favorites => Set.unmodifiable(_favorites);
+  bool isRestockSubscribed(Book book) =>
+      _restockSubscriptions.contains(book.id);
   BackendService? get backend => _backend;
   bool get isOnlineBackend => _backend != null;
   String get dataModeLabel =>
@@ -671,6 +715,9 @@ class AppState extends ChangeNotifier {
     _favorites
       ..clear()
       ..addAll(await _local.loadFavorites());
+    _restockSubscriptions
+      ..clear()
+      ..addAll(await _local.loadRestockSubscriptions());
     _cart
       ..clear()
       ..addAll(await _local.loadCart());
@@ -706,6 +753,7 @@ class AppState extends ChangeNotifier {
       unawaited(_registerInstallation());
       await refreshBooks();
       _startLiveBooksSync();
+      await _checkRestockNotificationsQuietly();
       await _refreshCustomerOrderStatusesQuietly();
       _orderStatusTimer?.cancel();
       _orderStatusTimer = Timer.periodic(
@@ -780,10 +828,10 @@ class AppState extends ChangeNotifier {
         .subscribe();
 
     // Realtime uzilib qolgan holat uchun yengil zaxira tekshiruv.
-    _booksFallbackTimer = Timer.periodic(
-      const Duration(seconds: 20),
-      (_) => _refreshBooksQuietly(),
-    );
+    _booksFallbackTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      unawaited(_refreshBooksQuietly());
+      unawaited(_checkRestockNotificationsQuietly());
+    });
   }
 
   String _catalogStamp(Iterable<Book> items) => items
@@ -823,6 +871,83 @@ class AppState extends ChangeNotifier {
       // Oddiy internet uzilishida ekrandagi oxirgi katalog saqlanadi.
     } finally {
       _quietBooksRefreshing = false;
+    }
+  }
+
+  Future<String> toggleRestockNotification(Book book) async {
+    if (book.inStock) return 'Kitob hozir sotuvda mavjud.';
+    if (_backend == null) return 'Xabar berish uchun internet kerak.';
+
+    final installId = await _local.installId();
+    if (_restockSubscriptions.contains(book.id)) {
+      await _backend!.unsubscribeRestock(installId, book.id);
+      _restockSubscriptions.remove(book.id);
+      await _local.saveRestockSubscriptions(_restockSubscriptions);
+      notifyListeners();
+      return 'Xabar berish bekor qilindi.';
+    }
+
+    final result = await _backend!.subscribeRestock(installId, book.id);
+    if (result['already_available'] == true) {
+      await refreshBooks();
+      return 'Kitob hozir sotuvda mavjud.';
+    }
+
+    _restockSubscriptions.add(book.id);
+    await _local.saveRestockSubscriptions(_restockSubscriptions);
+    notifyListeners();
+    return 'Kitob kelganda sizga xabar beramiz ✅';
+  }
+
+  Future<void> _checkRestockNotificationsQuietly() async {
+    if (_backend == null ||
+        _restockRefreshing ||
+        _restockSubscriptions.isEmpty) {
+      return;
+    }
+    _restockRefreshing = true;
+    try {
+      final installId = await _local.installId();
+      final rows = await _backend!.fetchRestockNotifications(installId);
+      if (rows.isEmpty) return;
+
+      var changed = false;
+      for (final row in rows) {
+        final bookId = (row['book_id'] ?? '').toString();
+        final title = (row['title'] ?? 'Kitob').toString();
+        final at = (row['notified_at'] ?? DateTime.now().toIso8601String())
+            .toString();
+        final noticeId = 'restock:$bookId:$at';
+        if (_customerNotices.any(
+          (n) => (n['id'] ?? '').toString() == noticeId,
+        )) {
+          continue;
+        }
+        _customerNotices.insert(0, {
+          'id': noticeId,
+          'status': 'restock',
+          'book_id': bookId,
+          'title': '📚 Kitob yana sotuvda!',
+          'message': '$title yana mavjud. Hozir buyurtma berishingiz mumkin.',
+          'created_at': at,
+          'read': false,
+        });
+        _restockSubscriptions.remove(bookId);
+        changed = true;
+      }
+      if (!changed) return;
+      if (_customerNotices.length > 50) {
+        _customerNotices.removeRange(50, _customerNotices.length);
+      }
+      await Future.wait([
+        _local.saveCustomerNotices(_customerNotices),
+        _local.saveRestockSubscriptions(_restockSubscriptions),
+      ]);
+      notifyListeners();
+    } catch (_) {
+      // Network error should not block shopping.
+    } finally {
+      _restockRefreshing = false;
     }
   }
 

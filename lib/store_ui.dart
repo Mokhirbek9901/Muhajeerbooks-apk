@@ -1223,6 +1223,9 @@ class BookCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final favorite = context.select<AppState, bool>((s) => s.isFavorite(book));
+    final restockSubscribed = context.select<AppState, bool>(
+      (s) => s.isRestockSubscribed(book),
+    );
     final state = context.read<AppState>();
     return Container(
       decoration: BoxDecoration(
@@ -1396,13 +1399,26 @@ class BookCard extends StatelessWidget {
                                       ),
                                     );
                                 }
-                              : null,
+                              : () async {
+                                  final message = await state
+                                      .toggleRestockNotification(book);
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context)
+                                    ..hideCurrentSnackBar()
+                                    ..showSnackBar(
+                                      SnackBar(content: Text(message)),
+                                    );
+                                },
                           style: FilledButton.styleFrom(
                             padding: EdgeInsets.zero,
                             minimumSize: const Size(38, 38),
                           ),
-                          child: const Icon(
-                            Icons.add_shopping_cart_rounded,
+                          child: Icon(
+                            book.inStock
+                                ? Icons.add_shopping_cart_rounded
+                                : restockSubscribed
+                                ? Icons.notifications_active_rounded
+                                : Icons.notifications_none_rounded,
                             size: 18,
                           ),
                         ),
@@ -1613,9 +1629,28 @@ class BookDetailPage extends StatelessWidget {
                           ),
                         );
                       }
-                    : null,
-                icon: const Icon(Icons.shopping_bag_rounded),
-                label: Text(b.inStock ? 'Savatchaga qo‘shish' : 'Mavjud emas'),
+                    : () async {
+                        final message = await state.toggleRestockNotification(
+                          b,
+                        );
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context)
+                            .showSnackBar(SnackBar(content: Text(message)));
+                      },
+                icon: Icon(
+                  b.inStock
+                      ? Icons.shopping_bag_rounded
+                      : state.isRestockSubscribed(b)
+                      ? Icons.notifications_active_rounded
+                      : Icons.notifications_none_rounded,
+                ),
+                label: Text(
+                  b.inStock
+                      ? 'Savatchaga qo‘shish'
+                      : state.isRestockSubscribed(b)
+                      ? 'Xabar beramiz ✅'
+                      : 'Kelganda xabar berish',
+                ),
               ),
             ],
           ),

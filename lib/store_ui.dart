@@ -420,8 +420,8 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final categories = <String>{
-      'Nashriyotlar',
       'Barchasi',
+      'Nashriyotlar',
       ...state.books.where((b) => b.isActive).map((b) => b.category),
     }.toList();
     final featured = state.books

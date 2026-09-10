@@ -1,0 +1,46 @@
+name: Add admin restock waitlist
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/add_admin_restock_waitlist.yml'
+      - 'tools/add_admin_restock_waitlist.py'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Apply admin waitlist UI
+        run: python tools/add_admin_restock_waitlist.py
+
+      - name: Format
+        run: dart format lib/admin_ui.dart
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Commit generated app changes
+        run: |
+          if git diff --quiet; then
+            echo "No app changes needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/admin_ui.dart
+          git commit -m "Show restock demand in admin panel"
+          git push

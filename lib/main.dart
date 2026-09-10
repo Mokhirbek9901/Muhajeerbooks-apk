@@ -18,17 +18,24 @@ import 'store_ui.dart';
 // 2026-09-09: yangi o'zbekona UI uchun web va APK buildini bir xil manbadan yangilash.
 // 2026-09-10: rasm yuklash ishonchliligi tuzatmasini web va APKga bir xil build qilish.
 // 2026-09-11: Android APK yangi release chiqsa ilova ichida yangilash oynasini ko'rsatadi.
+// 2026-09-11: bo'sh GitHub build secret APKni offline eski katalogga tushirmasligi uchun
+// live Supabase URL/publishable key xavfsiz fallback sifatida ishlatiladi.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  const supabaseUrl = String.fromEnvironment(
-    'SUPABASE_URL',
-    defaultValue: 'https://rytfhjvhjxnbhgitowho.supabase.co',
-  );
-  const supabaseAnonKey = String.fromEnvironment(
-    'SUPABASE_ANON_KEY',
-    defaultValue: 'sb_publishable_5lDr_sw4bu8g3x8LCVzp4g_sHSTMBiO',
-  );
+  const definedSupabaseUrl = String.fromEnvironment('SUPABASE_URL');
+  const definedSupabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+  const defaultSupabaseUrl = 'https://rytfhjvhjxnbhgitowho.supabase.co';
+  const defaultSupabaseAnonKey =
+      'sb_publishable_5lDr_sw4bu8g3x8LCVzp4g_sHSTMBiO';
+
+  final supabaseUrl = definedSupabaseUrl.trim().isEmpty
+      ? defaultSupabaseUrl
+      : definedSupabaseUrl.trim();
+  final supabaseAnonKey = definedSupabaseAnonKey.trim().isEmpty
+      ? defaultSupabaseAnonKey
+      : definedSupabaseAnonKey.trim();
+
   final effectiveSupabaseUrl = kIsWeb
       ? '${Uri.base.origin}/supabase'
       : supabaseUrl;

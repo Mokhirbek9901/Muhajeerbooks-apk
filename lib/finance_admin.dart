@@ -15,6 +15,13 @@ String _financeSignedWon(num value) {
   return '₩0';
 }
 
+String _financeSignedPercent(num value) {
+  final amount = value.toDouble();
+  if (amount > 0) return '+${amount.toStringAsFixed(1)}%';
+  if (amount < 0) return '−${amount.abs().toStringAsFixed(1)}%';
+  return '0.0%';
+}
+
 class FinanceAdminPage extends StatefulWidget {
   const FinanceAdminPage({super.key, required this.secret});
 
@@ -160,7 +167,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                     labelText: 'Izoh (ixtiyoriy)',
                     hintText: category == 'inventory_purchase'
                         ? 'Masalan: Sentabr yangi kitoblar partiyasi'
-                        : 'Masalan: CJ pochta, 3 ta jo‘natma',
+                        : 'Masalan: CJ pochta, reklama yoki qadoqlash',
                   ),
                 ),
               ],
@@ -259,12 +266,16 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
   @override
   Widget build(BuildContext context) {
     final result = _cashResult;
-    final resultPositive = result >= 0;
     final margin = _double('margin_percent');
     final grossPostage = _int('postage_expense');
     final coveredPostage = _int('postage_covered_by_customers');
     final storePostage = _int('store_postage_expense');
     final postageEstimated = report['postage_is_estimated'] == true;
+    final resultTitle = result > 0
+        ? 'SOF FOYDA'
+        : result < 0
+            ? 'SOF ZARAR'
+            : 'SOF NATIJA';
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -334,26 +345,20 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                   _FinanceCard(
                     title: 'Jami tushum',
                     value: _financeWon(_int('total_revenue')),
-                    subtitle: 'Kitob + mijoz to‘lagan yetkazish puli',
+                    subtitle: 'Kitob + mijoz to‘lagan pochta',
                     icon: Icons.payments_outlined,
                   ),
                   _FinanceCard(
-                    title: 'Kitob tannarxi',
-                    value: _financeWon(_int('cost_of_goods')),
-                    subtitle: 'Faqat sotilgan kitoblarning kelish narxi',
-                    icon: Icons.inventory_2_outlined,
+                    title: 'Hisobga kiradigan kitob savdosi',
+                    value: _financeWon(_int('books_revenue')),
+                    subtitle: 'Sof natijaga aynan shu summa qo‘shiladi',
+                    icon: Icons.menu_book_rounded,
                   ),
                   _FinanceCard(
                     title: 'Yangi partiya kitoblar',
                     value: _financeWon(_int('inventory_purchases')),
-                    subtitle: 'Yangi kitoblar uchun sarflangan pul',
+                    subtitle: 'Kitoblar uchun kiritilgan umumiy xarajat',
                     icon: Icons.library_books_outlined,
-                  ),
-                  _FinanceCard(
-                    title: 'Kitobdan foyda',
-                    value: _financeWon(_int('book_profit')),
-                    subtitle: 'Kitob savdosi − sotilgan kitob tannarxi',
-                    icon: Icons.menu_book_rounded,
                   ),
                   _FinanceCard(
                     title: 'Do‘kon hisobidan pochta',
@@ -370,12 +375,14 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                     icon: Icons.receipt_long_outlined,
                   ),
                   _FinanceCard(
-                    title: resultPositive ? 'SOF FOYDA' : 'SOF ZARAR',
+                    title: resultTitle,
                     value: _financeSignedWon(result),
-                    subtitle: 'Marja ${margin.toStringAsFixed(1)}%',
-                    icon: resultPositive
+                    subtitle: 'Marja ${_financeSignedPercent(margin)}',
+                    icon: result > 0
                         ? Icons.trending_up_rounded
-                        : Icons.trending_down_rounded,
+                        : result < 0
+                            ? Icons.trending_down_rounded
+                            : Icons.horizontal_rule_rounded,
                     strong: true,
                   ),
                 ];
@@ -399,17 +406,39 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                     Text('📚 Sotilgan: ${_int('sold_books')} dona'),
                     Text('📦 Jo‘natilgan: ${_int('shipped_orders')} ta'),
                     Text(
-                        '📚 Kitob savdosi: ${_financeWon(_int('books_revenue'))}'),
+                      '📚 Kitob savdosi: ${_financeWon(_int('books_revenue'))}',
+                    ),
                     Text(
-                        '🚚 Mijoz to‘lagan pochta: ${_financeWon(_int('delivery_revenue'))}'),
+                      '🚚 Mijoz to‘lagan pochta: ${_financeWon(_int('delivery_revenue'))}',
+                    ),
                     Text(
-                        '📮 Jami pochta${postageEstimated ? ' (taxmin)' : ''}: ${_financeWon(grossPostage)}'),
+                      '📮 Jami pochta${postageEstimated ? ' (taxmin)' : ''}: ${_financeWon(grossPostage)}',
+                    ),
                     Text('✅ Mijoz qoplagan: ${_financeWon(coveredPostage)}'),
                     Text('🏪 Do‘kon hisobidan: ${_financeWon(storePostage)}'),
                     Text(
-                        '💸 Natijaga kiradigan xarajat: ${_financeWon(_int('cash_outflow_total'))}'),
+                      '💸 Jami hisobga kiradigan xarajat: ${_financeWon(_int('cash_outflow_total'))}',
+                    ),
                     Text('📊 Natija: ${_financeSignedWon(result)}'),
-                    Text('📈 Marja: ${margin.toStringAsFixed(1)}%'),
+                    Text('📈 Marja: ${_financeSignedPercent(margin)}'),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Wrap(
+                  spacing: 24,
+                  runSpacing: 10,
+                  children: [
+                    Text(
+                      'ℹ️ Sotilgan kitob tannarxi: ${_financeWon(_int('cost_of_goods'))}',
+                    ),
+                    Text(
+                      '📖 Sotilgan kitoblar savdo foydasi: ${_financeWon(_int('book_profit'))}',
+                    ),
                   ],
                 ),
               ),
@@ -476,7 +505,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
             child: Padding(
               padding: EdgeInsets.all(16),
               child: Text(
-                'Pochta hisobi: mijoz yetkazish uchun to‘lagan pul pochta xarajatini qoplaydi va foyda/zararni kamaytirmaydi. 4+ kitobda yetkazish bepul bo‘lsa yoki mijoz puli yetmasa, faqat do‘kon hisobidan qolgan pochta qismi ayriladi. Marja sotilgan kitoblar foydasi va do‘kon hisobidan qolgan operatsion chiqimlar bo‘yicha hisoblanadi; yangi partiyadagi hali sotilmagan kitoblar marjani buzmaydi.',
+                'Hisob formulasi: KITOB SAVDOSI − YANGI PARTIYA KITOBLAR − DO‘KON HISOBIDAN POCHTA − BOSHQA XARAJATLAR. Mijoz yetkazish uchun to‘lagan pul foyda sifatida qo‘shilmaydi. Masalan, kitob xarajati ₩100,000 va kitob savdosi ₩17,000 bo‘lsa natija −₩83,000, marja −83.0%. Keyin qo‘shimcha xarajat kiritsangiz, natija yana kamayadi.',
                 style: TextStyle(color: AppColors.muted, height: 1.45),
               ),
             ),

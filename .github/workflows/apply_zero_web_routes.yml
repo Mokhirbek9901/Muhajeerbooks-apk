@@ -1,0 +1,78 @@
+name: Apply zero-duration web routes
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply_zero_web_routes.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Make web customer routes truly instant
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          design = Path('lib/design_system.dart')
+          s = design.read_text(encoding='utf-8')
+          marker = 'abstract final class AppColors {'
+          helper = '''Route<T> muhajeerPageRoute<T>({
+            required WidgetBuilder builder,
+            RouteSettings? settings,
+            bool fullscreenDialog = false,
+          }) {
+            if (kIsWeb) {
+              return PageRouteBuilder<T>(
+                settings: settings,
+                pageBuilder: (context, animation, secondaryAnimation) => builder(context),
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+                maintainState: true,
+                opaque: true,
+                fullscreenDialog: fullscreenDialog,
+              );
+            }
+            return MaterialPageRoute<T>(
+              settings: settings,
+              builder: builder,
+              fullscreenDialog: fullscreenDialog,
+            );
+          }
+
+          '''
+          if 'Route<T> muhajeerPageRoute<T>' not in s:
+            if marker not in s:
+              raise SystemExit('design_system marker not found')
+            s = s.replace(marker, helper + marker, 1)
+            design.write_text(s, encoding='utf-8')
+
+          store = Path('lib/store_ui.dart')
+          t = store.read_text(encoding='utf-8')
+          count = t.count('MaterialPageRoute')
+          if count == 0:
+            raise SystemExit('No customer MaterialPageRoute calls found')
+          t = t.replace('MaterialPageRoute', 'muhajeerPageRoute')
+          store.write_text(t, encoding='utf-8')
+          print(f'Replaced {count} customer routes with zero-duration web routes')
+          PY
+
+      - name: Commit route fix
+        run: |
+          git config user.name "Mokhirbek9901"
+          git config user.email "ismoilovmokhirbek@gmail.com"
+          git add lib/design_system.dart lib/store_ui.dart
+          if git diff --cached --quiet; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git commit -m "Make Safari back routes truly instant"
+          git push origin main

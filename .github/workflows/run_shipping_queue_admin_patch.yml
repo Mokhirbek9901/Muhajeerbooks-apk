@@ -1,0 +1,41 @@
+name: Run shipping queue admin patch
+
+on:
+  push:
+    paths:
+      - 'shipping_queue_admin_trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply shipping queue admin patch
+        run: python apply_shipping_queue_admin_patch.py
+      - name: Flutter setup
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Pub get
+        run: flutter pub get
+      - name: Analyze
+        run: flutter analyze
+      - name: Test
+        run: flutter test
+      - name: Commit patched app
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/admin_ui.dart
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            git commit -m "Add shared postal queue to admin dashboard"
+            git push
+          fi

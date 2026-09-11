@@ -1,5 +1,19 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
+class _WebNoPageTransitionsBuilder extends PageTransitionsBuilder {
+  const _WebNoPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) => child;
+}
 
 abstract final class AppColors {
   static const navy = Color(0xFF173F4A);
@@ -109,15 +123,29 @@ abstract final class MuhajeerDesign {
       textTheme: text,
       visualDensity: VisualDensity.standard,
       canvasColor: AppColors.background,
-      pageTransitionsTheme: const PageTransitionsTheme(
-        builders: {
-          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
-          TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
-          TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
-          TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
-        },
-      ),
+      // Safari/iPhone browser edge-swipe already animates the page itself.
+      // Flutter web must not add a second route transition on top of it;
+      // otherwise the previous screen visibly slides twice / snaps back.
+      // Native Android/iOS keep their normal platform transitions.
+      pageTransitionsTheme: kIsWeb
+          ? const PageTransitionsTheme(
+              builders: {
+                TargetPlatform.iOS: _WebNoPageTransitionsBuilder(),
+                TargetPlatform.macOS: _WebNoPageTransitionsBuilder(),
+                TargetPlatform.android: _WebNoPageTransitionsBuilder(),
+                TargetPlatform.linux: _WebNoPageTransitionsBuilder(),
+                TargetPlatform.windows: _WebNoPageTransitionsBuilder(),
+              },
+            )
+          : const PageTransitionsTheme(
+              builders: {
+                TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+                TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+                TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+                TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+                TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+              },
+            ),
       splashFactory: InkSparkle.splashFactory,
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.background,

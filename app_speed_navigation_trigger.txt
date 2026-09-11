@@ -1,1 +1,1 @@
-2026-09-11T15:39+09:00 apply storefront speed + iPhone swipe-back patch
+2026-09-11T16:04+09:00 preserve Home scroll position after iPhone browser back

@@ -1,37 +1,24 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'admin_ui.dart';
 import 'app_state.dart';
 import 'app_state_fixed.dart';
 import 'app_update_gate.dart';
-import 'admin_ui.dart';
 import 'auth_gate.dart';
 import 'design_system.dart';
+import 'navigation_sync.dart';
 import 'store_ui.dart';
 
 // Live Railway web va APK aynan shu bir xil storefront kodidan build qilinadi.
-// Mijoz uchun majburiy Supabase login yo'q; eski sessiya katalog/admin RPC'larini
-// buzmasligi uchun startupda tozalanadi.
-// 2026-09-11: Android APK doim Muhajeer Books'ning live Supabase loyihasiga
-// ulanadi. GitHub build secret eski/bo'sh bo'lsa ham APK offline eski seedga
-// tushmaydi. Web esa o'z originidagi /supabase proxy orqali ishlaydi.
-// 2026-09-11: Android ishga tushganda eski lokal katalog cache'i o'chiriladi;
-// katalog faqat live Supabase'dan qayta yuklanadi.
+// Mijoz uchun majburiy Supabase login yo'q. Katalog cache'i tez start uchun
+// saqlanadi, live baza esa AppState ichida fon rejimida yangilanadi.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  if (!kIsWeb) {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('muhajeer_books_v4');
-      await prefs.remove('muhajeer_seed_version');
-    } catch (_) {
-      // Cache tozalash muvaffaqiyatsiz bo'lsa ham app ishga tushishi kerak.
-    }
-  }
 
   const definedSupabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
   const liveSupabaseUrl = 'https://rytfhjvhjxnbhgitowho.supabase.co';
@@ -49,16 +36,14 @@ Future<void> main() async {
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
 
   if (backendConfigured) {
-    await Supabase.initialize(
-      url: supabaseUrl,
-      anonKey: supabaseAnonKey,
-    );
-    try {
-      if (Supabase.instance.client.auth.currentSession != null) {
-        await Supabase.instance.client.auth.signOut();
-      }
-    } catch (_) {
-      // Sessiya tozalashdagi vaqtinchalik tarmoq xatosi do'konni bloklamasin.
+    await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+
+    // Eski admin/auth sessiyasi storefrontni bloklamasin, lekin tarmoqdagi
+    // signOut javobini kutib app startini sekinlashtirmaymiz.
+    if (Supabase.instance.client.auth.currentSession != null) {
+      unawaited(
+        Supabase.instance.client.auth.signOut().catchError((_) {}),
+      );
     }
   }
 
@@ -66,9 +51,12 @@ Future<void> main() async {
 }
 
 class MuhajeerBooksApp extends StatelessWidget {
-  const MuhajeerBooksApp({super.key, required this.backendConfigured});
+  MuhajeerBooksApp({super.key, required this.backendConfigured});
 
   final bool backendConfigured;
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  final MuhajeerNavigatorObserver _navigatorObserver =
+      MuhajeerNavigatorObserver();
 
   @override
   Widget build(BuildContext context) {
@@ -76,17 +64,25 @@ class MuhajeerBooksApp extends StatelessWidget {
       create: (_) =>
           AppStateFixed(backendConfigured: backendConfigured)..initialize(),
       child: MaterialApp(
+        navigatorKey: _navigatorKey,
+        navigatorObservers: [_navigatorObserver],
         title: 'Muhajeer Books',
         debugShowCheckedModeBanner: false,
         theme: MuhajeerDesign.theme,
-        builder: (context, child) => ColoredBox(
-          color: AppColors.background,
-          child: child ?? const SizedBox.shrink(),
+        builder: (context, child) => BrowserBackSync(
+          navigatorKey: _navigatorKey,
+          observer: _navigatorObserver,
+          child: ColoredBox(
+            color: AppColors.background,
+            child: child ?? const SizedBox.shrink(),
+          ),
         ),
         home: AppUpdateGate(
           child: kIsWeb && Uri.base.fragment.startsWith('admin_session=')
               ? const AdminGatePage()
-              : (backendConfigured ? const CustomerAuthGate() : const StoreShell()),
+              : (backendConfigured
+                    ? const CustomerAuthGate()
+                    : const StoreShell()),
         ),
       ),
     );

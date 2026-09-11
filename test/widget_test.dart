@@ -4,7 +4,7 @@ import 'package:muhajeerbooks/main.dart';
 
 void main() {
   test('Muhajeer Books app can be created in demo mode', () {
-    const app = MuhajeerBooksApp(backendConfigured: false);
+    final app = MuhajeerBooksApp(backendConfigured: false);
     expect(app, isA<Widget>());
   });
 }

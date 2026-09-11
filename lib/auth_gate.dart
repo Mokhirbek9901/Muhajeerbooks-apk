@@ -68,7 +68,11 @@ class _CustomerAuthGateState extends State<CustomerAuthGate> {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
 
-    if (state.loading) {
+    // Faqat birinchi ochilishda, hali ko‘rsatishga katalog bo‘lmaganda loading
+    // ekranini ko‘rsatamiz. Fon refresh/realtime yangilanish vaqtida StoreShellni
+    // unmount qilsak HomePage ScrollController yo‘qolib, foydalanuvchi tepaga
+    // qaytib ketadi. Mavjud katalog bor ekan, shell va scroll holati joyida qoladi.
+    if (state.loading && state.books.isEmpty) {
       return const _CustomerLoadingScreen();
     }
 

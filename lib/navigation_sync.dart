@@ -6,7 +6,6 @@ import 'browser_history.dart';
 
 class MuhajeerNavigatorObserver extends NavigatorObserver {
   bool _handlingBrowserPop = false;
-  int _ignoredBrowserPops = 0;
 
   bool _managed(Route<dynamic> route) =>
       (route.settings.name ?? '').startsWith('mb:');
@@ -15,6 +14,8 @@ class MuhajeerNavigatorObserver extends NavigatorObserver {
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPush(route, previousRoute);
     if (_managed(route) && browserHistorySupported) {
+      // One lightweight Safari guard is enough for all Flutter route depth.
+      // This prevents the browser document itself from navigating/reloading.
       pushBrowserHistoryEntry();
     }
   }
@@ -22,28 +23,22 @@ class MuhajeerNavigatorObserver extends NavigatorObserver {
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPop(route, previousRoute);
-    if (_managed(route) && browserHistorySupported && !_handlingBrowserPop) {
-      // Flutter ichidagi back tugmasi bosilganda browser history ham bir qadam
-      // orqaga yuradi. Keladigan popstate eventini yana Navigator.pop qilmaslik
-      // uchun bir martalik ignore qilamiz.
-      _ignoredBrowserPops += 1;
-      backBrowserHistoryEntry();
-    }
+    // Important: do NOT call browser history.back() here.
+    // Flutter's own back button must only pop the Flutter route. Moving browser
+    // history too caused iPhone Safari to reload and reset the catalogue scroll.
   }
 
   Future<void> handleBrowserPop(NavigatorState navigator) async {
     if (!browserHistorySupported) return;
-    if (_ignoredBrowserPops > 0) {
-      _ignoredBrowserPops -= 1;
-      return;
-    }
     if (_handlingBrowserPop || !navigator.canPop()) return;
 
     _handlingBrowserPop = true;
     try {
-      // Safari/iPhone edge-swipe route'ni zo‘rlab removeRoute qilish o‘rniga
-      // oddiy pop qiladi. Shunda oldingi Flutter sahifasi mounted holatda qoladi,
-      // uning ScrollController pozitsiyasi saqlanadi va sahifa qayta yaratilmaydi.
+      // Safari has consumed the guard entry. Re-arm it immediately while the
+      // current document is still mounted, then pop only the Flutter route.
+      // The previous page therefore remains the same widget instance and keeps
+      // its exact ScrollController offset.
+      restoreBrowserHistoryGuard();
       await navigator.maybePop();
       await Future<void>.delayed(Duration.zero);
     } finally {

@@ -19,33 +19,16 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Muhajeer Books">
+  <link rel="preconnect" href="https://rytfhjvhjxnbhgitowho.supabase.co" crossorigin>
+  <link rel="dns-prefetch" href="https://rytfhjvhjxnbhgitowho.supabase.co">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
   <link rel="icon" type="image/png" href="favicon.png"/>
   <title>Muhajeer Books</title>
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-  <script>
-    // Old Flutter PWA cache caused iPhone/Safari to keep an outdated app after
-    // a successful Railway deploy. This storefront now prefers the live build.
-    (async function () {
-      try {
-        if ('serviceWorker' in navigator) {
-          const registrations = await navigator.serviceWorker.getRegistrations();
-          await Promise.all(registrations.map((registration) => registration.unregister()));
-        }
-        if ('caches' in window) {
-          const keys = await caches.keys();
-          await Promise.all(keys.map((key) => caches.delete(key)));
-        }
-      } catch (_) {
-        // Cache cleanup must never block the shop.
-      }
-      const script = document.createElement('script');
-      script.src = 'flutter_bootstrap.js?v=20260910-2';
-      script.async = true;
-      document.body.appendChild(script);
-    })();
-  </script>
+  <!-- Flutter service-worker/browser cache saqlanadi: qayta kirishda app fayllari
+       boshidan yuklanmaydi. Yangi deploy versiyasini Flutter o‘zi yangilaydi. -->
+  <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

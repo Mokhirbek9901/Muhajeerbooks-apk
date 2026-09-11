@@ -15,6 +15,29 @@ class _WebNoPageTransitionsBuilder extends PageTransitionsBuilder {
   ) => child;
 }
 
+Route<T> muhajeerPageRoute<T>({
+  required WidgetBuilder builder,
+  RouteSettings? settings,
+  bool fullscreenDialog = false,
+}) {
+  if (kIsWeb) {
+    return PageRouteBuilder<T>(
+      settings: settings,
+      pageBuilder: (context, animation, secondaryAnimation) => builder(context),
+      transitionDuration: Duration.zero,
+      reverseTransitionDuration: Duration.zero,
+      maintainState: true,
+      opaque: true,
+      fullscreenDialog: fullscreenDialog,
+    );
+  }
+  return MaterialPageRoute<T>(
+    settings: settings,
+    builder: builder,
+    fullscreenDialog: fullscreenDialog,
+  );
+}
+
 abstract final class AppColors {
   static const navy = Color(0xFF173F4A);
   static const navy2 = Color(0xFF0D625B);

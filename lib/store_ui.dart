@@ -143,7 +143,7 @@ Future<void> _openBookDetail(BuildContext context, Book book) async {
   }
   await Navigator.push<void>(
     context,
-    MaterialPageRoute<void>(
+    muhajeerPageRoute<void>(
       settings: RouteSettings(name: 'mb:book:${book.id}'),
       builder: (_) => BookDetailPage(bookId: book.id),
     ),
@@ -408,7 +408,7 @@ class CategoriesPage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(22),
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(
+                  muhajeerPageRoute(
                     settings: RouteSettings(
                       name: isPublishers ? 'mb:publishers' : 'mb:category:$c',
                     ),
@@ -508,7 +508,7 @@ class PublishersPage extends StatelessWidget {
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(
+                      muhajeerPageRoute(
                         settings: RouteSettings(name: 'mb:publisher:$name'),
                         builder: (_) =>
                             CategoryBrowsePage(category: name, publisher: name),
@@ -699,7 +699,7 @@ class _HomePageState extends State<HomePage> {
                     if (value == 'Nashriyotlar') {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
+                        muhajeerPageRoute(
                           settings: const RouteSettings(name: 'mb:publishers'),
                           builder: (_) => const PublishersPage(),
                         ),
@@ -1026,7 +1026,7 @@ class _StoreHeader extends StatelessWidget {
                   tooltip: 'Bildirishnomalar',
                   onPressed: () => Navigator.push(
                     context,
-                    MaterialPageRoute(
+                    muhajeerPageRoute(
                       settings: const RouteSettings(name: 'mb:notifications'),
                       builder: (_) => const CustomerNotificationsPage(),
                     ),
@@ -2029,7 +2029,7 @@ class _BookGalleryState extends State<_BookGallery> {
                 behavior: HitTestBehavior.opaque,
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(
+                  muhajeerPageRoute(
                     settings: RouteSettings(
                       name: 'mb:image:${widget.book.id}:$i',
                     ),
@@ -2555,7 +2555,7 @@ class CartPage extends StatelessWidget {
                       child: FilledButton.icon(
                         onPressed: () => Navigator.push(
                           context,
-                          MaterialPageRoute(
+                          muhajeerPageRoute(
                             settings: const RouteSettings(name: 'mb:checkout'),
                             builder: (_) => const CheckoutPage(),
                           ),
@@ -3179,7 +3179,7 @@ class ProfilePage extends StatelessWidget {
                   behavior: HitTestBehavior.opaque,
                   onLongPress: () => Navigator.push(
                     context,
-                    MaterialPageRoute(
+                    muhajeerPageRoute(
                       settings: const RouteSettings(name: 'mb:admin'),
                       builder: (_) => const AdminGatePage(),
                     ),
@@ -3279,7 +3279,7 @@ class ProfilePage extends StatelessWidget {
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(
+                    muhajeerPageRoute(
                       settings: const RouteSettings(name: 'mb:orders'),
                       builder: (_) => const MyOrdersPage(),
                     ),
@@ -3299,7 +3299,7 @@ class ProfilePage extends StatelessWidget {
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(
+                    muhajeerPageRoute(
                       settings: const RouteSettings(name: 'mb:favorites'),
                       builder: (_) => const FavoritesPage(),
                     ),

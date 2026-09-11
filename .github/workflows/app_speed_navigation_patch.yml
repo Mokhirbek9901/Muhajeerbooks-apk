@@ -1,0 +1,30 @@
+name: Apply app speed navigation patch
+
+on:
+  push:
+    paths:
+      - 'app_speed_navigation_trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply speed and navigation patch
+        run: python3 tools/app_speed_navigation_patch.py
+      - name: Commit source update
+        run: |
+          git config user.name "Mokhirbek9901"
+          git config user.email "ismoilovmokhirbek@gmail.com"
+          git add lib/app_state.dart lib/store_ui.dart pubspec.yaml
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Speed up storefront and fix iPhone swipe back"
+          git push origin main

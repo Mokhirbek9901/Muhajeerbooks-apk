@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -21,6 +23,21 @@ const _green = UzbekCustomerColors.success;
 
 final _money = NumberFormat('#,###', 'en_US');
 String won(int value) => '₩${_money.format(value)}';
+
+Future<void> _openBookDetail(BuildContext context, Book book) async {
+  if (book.imageUrl.trim().isNotEmpty) {
+    unawaited(
+      precacheImage(NetworkImage(book.imageUrl), context).catchError((_) {}),
+    );
+  }
+  await Navigator.push<void>(
+    context,
+    MaterialPageRoute<void>(
+      settings: RouteSettings(name: 'mb:book:${book.id}'),
+      builder: (_) => BookDetailPage(bookId: book.id),
+    ),
+  );
+}
 
 Future<void> _openTelegramRestock(BuildContext context, Book book) async {
   final telegramId = book.legacyId;
@@ -281,6 +298,9 @@ class CategoriesPage extends StatelessWidget {
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
+                    settings: RouteSettings(
+                      name: isPublishers ? 'mb:publishers' : 'mb:category:$c',
+                    ),
                     builder: (_) => isPublishers
                         ? const PublishersPage()
                         : CategoryBrowsePage(category: c),
@@ -378,6 +398,7 @@ class PublishersPage extends StatelessWidget {
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
+                        settings: RouteSettings(name: 'mb:publisher:$name'),
                         builder: (_) =>
                             CategoryBrowsePage(category: name, publisher: name),
                       ),
@@ -528,6 +549,7 @@ class _HomePageState extends State<HomePage> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
+                          settings: const RouteSettings(name: 'mb:publishers'),
                           builder: (_) => const PublishersPage(),
                         ),
                       );
@@ -854,6 +876,7 @@ class _StoreHeader extends StatelessWidget {
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
+                      settings: const RouteSettings(name: 'mb:notifications'),
                       builder: (_) => const CustomerNotificationsPage(),
                     ),
                   ),
@@ -1226,12 +1249,7 @@ class _FeaturedBooksStrip extends StatelessWidget {
                 ],
               ),
               child: InkWell(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => BookDetailPage(bookId: b.id),
-                  ),
-                ),
+                onTap: () => _openBookDetail(context, b),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1344,10 +1362,7 @@ class BookCard extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => BookDetailPage(bookId: book.id)),
-        ),
+        onTap: () => _openBookDetail(context, book),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1547,7 +1562,8 @@ class _BookCover extends StatelessWidget {
       return Image.network(
         book.imageUrl,
         fit: BoxFit.cover,
-        filterQuality: FilterQuality.medium,
+        cacheWidth: 420,
+        filterQuality: FilterQuality.low,
         gaplessPlayback: true,
         errorBuilder: (_, __, ___) => _placeholder(),
       );
@@ -1863,6 +1879,9 @@ class _BookGalleryState extends State<_BookGallery> {
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
+                    settings: RouteSettings(
+                      name: 'mb:image:${widget.book.id}:$i',
+                    ),
                     builder: (_) => BookImageViewerPage(
                       images: images,
                       initialIndex: i,
@@ -1876,6 +1895,7 @@ class _BookGalleryState extends State<_BookGallery> {
                     Image.network(
                       images[i],
                       fit: BoxFit.cover,
+                      cacheWidth: widget.desktop ? 900 : 700,
                       filterQuality: FilterQuality.medium,
                       errorBuilder: (_, __, ___) =>
                           _BookCover(book: widget.book),
@@ -1931,6 +1951,7 @@ class _BookGalleryState extends State<_BookGallery> {
                     child: Image.network(
                       images[i],
                       fit: BoxFit.cover,
+                      cacheWidth: 160,
                       errorBuilder: (_, __, ___) =>
                           const Icon(Icons.broken_image_outlined),
                     ),
@@ -2384,6 +2405,7 @@ class CartPage extends StatelessWidget {
                         onPressed: () => Navigator.push(
                           context,
                           MaterialPageRoute(
+                            settings: const RouteSettings(name: 'mb:checkout'),
                             builder: (_) => const CheckoutPage(),
                           ),
                         ),
@@ -3006,7 +3028,10 @@ class ProfilePage extends StatelessWidget {
                   behavior: HitTestBehavior.opaque,
                   onLongPress: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const AdminGatePage()),
+                    MaterialPageRoute(
+                      settings: const RouteSettings(name: 'mb:admin'),
+                      builder: (_) => const AdminGatePage(),
+                    ),
                   ),
                   child: Padding(
                     padding: EdgeInsets.symmetric(vertical: 4),
@@ -3103,7 +3128,10 @@ class ProfilePage extends StatelessWidget {
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const MyOrdersPage()),
+                    MaterialPageRoute(
+                      settings: const RouteSettings(name: 'mb:orders'),
+                      builder: (_) => const MyOrdersPage(),
+                    ),
                   ),
                 ),
                 const Divider(),
@@ -3120,7 +3148,10 @@ class ProfilePage extends StatelessWidget {
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const FavoritesPage()),
+                    MaterialPageRoute(
+                      settings: const RouteSettings(name: 'mb:favorites'),
+                      builder: (_) => const FavoritesPage(),
+                    ),
                   ),
                 ),
                 const Divider(),

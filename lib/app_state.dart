@@ -794,11 +794,27 @@ class AppState extends ChangeNotifier {
     if (_backend == null) {
       await _initializeLocalCatalog();
     } else {
+      // Oldingi live katalog bo‘lsa, internet javobini kutmasdan darhol ko‘rsatamiz.
+      // Narx/qoldiq keyin fon rejimida Supabase'dan yangilanadi.
+      final cachedBooks = await _local.loadBooks();
+      if (cachedBooks.isNotEmpty) {
+        _books
+          ..clear()
+          ..addAll(cachedBooks);
+        _sanitizeCart();
+        loading = false;
+        notifyListeners();
+      }
+
       unawaited(_registerInstallation());
-      await refreshBooks();
+      if (_books.isEmpty) {
+        await refreshBooks();
+      } else {
+        unawaited(_refreshBooksQuietly());
+      }
       _startLiveBooksSync();
-      await _checkRestockNotificationsQuietly();
-      await _refreshCustomerOrderStatusesQuietly();
+      unawaited(_checkRestockNotificationsQuietly());
+      unawaited(_refreshCustomerOrderStatusesQuietly());
       _orderStatusTimer?.cancel();
       _orderStatusTimer = Timer.periodic(
         const Duration(seconds: 30),
@@ -909,9 +925,10 @@ class AppState extends ChangeNotifier {
       _books
         ..clear()
         ..addAll(fresh);
-      await _local.saveBooks(_books);
       _sanitizeCart();
       notifyListeners();
+      // Diskka yozish UI ni kutib turmasin.
+      unawaited(_local.saveBooks(_books));
     } catch (_) {
       // Oddiy internet uzilishida ekrandagi oxirgi katalog saqlanadi.
     } finally {

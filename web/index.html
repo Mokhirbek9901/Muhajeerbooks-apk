@@ -27,8 +27,13 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-  <!-- Flutter service-worker/browser cache saqlanadi: qayta kirishda app fayllari
-       boshidan yuklanmaydi. Yangi deploy versiyasini Flutter o‘zi yangilaydi. -->
+  <script>
+    // Safari browser-history o‘zi sahifani tepaga/pastga siljitib Flutter'ning
+    // ichki scroll holati bilan urishmasin. Flutter scrollni o‘zi tiklaydi.
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual';
+    }
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

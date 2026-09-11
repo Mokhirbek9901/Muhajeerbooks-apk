@@ -3,152 +3,204 @@ from pathlib import Path
 path = Path('lib/store_ui.dart')
 text = path.read_text(encoding='utf-8')
 
-if 'muhajeer_home_scroll_offset_v1' in text:
-    print('iPhone scroll restore already applied.')
-    raise SystemExit(0)
-
 provider_import = "import 'package:provider/provider.dart';\n"
-if "package:shared_preferences/shared_preferences.dart" not in text:
+shared_import = "import 'package:shared_preferences/shared_preferences.dart';\n"
+if shared_import not in text:
     if provider_import not in text:
         raise SystemExit('provider import marker not found')
-    text = text.replace(
-        provider_import,
-        provider_import + "import 'package:shared_preferences/shared_preferences.dart';\n",
-        1,
-    )
+    text = text.replace(provider_import, provider_import + shared_import, 1)
 
-old = """class _HomePageState extends State<HomePage> {
-  String query = '';
-  String category = 'Barchasi';
-  String sort = 'new';
+if 'class _PersistentScrollController extends ScrollController' not in text:
+    marker = "String won(int value) => '₩${_money.format(value)}';\n"
+    helper = r'''
 
-  @override
-  Widget build(BuildContext context) {
-"""
+final Map<String, double> _scrollMemory = <String, double>{};
 
-new = """class _HomePageState extends State<HomePage> {
-  static const _homeScrollKey = 'muhajeer_home_scroll_offset_v1';
+/// iPhone/Safari browser-back yoki web sahifa qayta tiklanganda foydalanuvchini
+/// ro‘yxat boshiga tashlamaydi. Xotirada darhol, SharedPreferences'da esa
+/// reload'lar orasida scroll joyini saqlaydi.
+class _PersistentScrollController extends ScrollController {
+  _PersistentScrollController(this.storageKey)
+      : super(initialScrollOffset: _scrollMemory[storageKey] ?? 0) {
+    addListener(_capture);
+    unawaited(_loadSaved());
+  }
 
-  String query = '';
-  String category = 'Barchasi';
-  String sort = 'new';
-
-  final ScrollController _scrollController = ScrollController();
-  Timer? _scrollSaveTimer;
-  double? _pendingScrollOffset;
+  final String storageKey;
+  Timer? _saveTimer;
+  double? _pendingRestore;
   int _restoreAttempts = 0;
-  bool _restoringScroll = false;
+  bool _restoring = false;
+  bool _userMoved = false;
+  bool _disposed = false;
+
+  void _capture() {
+    if (_disposed || _restoring || !hasClients) return;
+    final value = offset < 0 ? 0.0 : offset;
+    _userMoved = true;
+    _scrollMemory[storageKey] = value;
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(milliseconds: 90), () {
+      unawaited(_write(value));
+    });
+  }
+
+  Future<void> _write(double value) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble('scroll:$storageKey', value);
+    } catch (_) {
+      // Scroll xotirasi asosiy ilovani bloklamaydi.
+    }
+  }
+
+  Future<void> _loadSaved() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getDouble('scroll:$storageKey');
+      if (_disposed || _userMoved || saved == null || saved <= 0) return;
+      _scrollMemory[storageKey] = saved;
+      _pendingRestore = saved;
+      _scheduleRestore();
+    } catch (_) {
+      // Browser storage ishlamasa in-memory holatning o‘zi ishlaydi.
+    }
+  }
 
   @override
-  void initState() {
-    super.initState();
-    _scrollController.addListener(_rememberScrollPosition);
-    unawaited(_loadSavedScrollPosition());
+  void attach(ScrollPosition position) {
+    super.attach(position);
+    _scheduleRestore();
   }
 
-  void _rememberScrollPosition() {
-    if (_restoringScroll || !_scrollController.hasClients) return;
-    final offset = _scrollController.offset;
-    _scrollSaveTimer?.cancel();
-    _scrollSaveTimer = Timer(const Duration(milliseconds: 60), () {
-      unawaited(_saveScrollPosition(offset));
-    });
-  }
-
-  Future<void> _saveScrollPosition(double offset) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setDouble(_homeScrollKey, offset < 0 ? 0 : offset);
-    } catch (_) {
-      // Scroll saqlash asosiy ilovani hech qachon to‘xtatmasin.
-    }
-  }
-
-  Future<void> _loadSavedScrollPosition() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getDouble(_homeScrollKey) ?? 0;
-      if (!mounted || saved <= 0) return;
-      _pendingScrollOffset = saved;
-      _restoreSavedScrollPosition();
-    } catch (_) {
-      // Xotira ishlamasa oddiy scroll davom etadi.
-    }
-  }
-
-  void _restoreSavedScrollPosition() {
-    if (!mounted || _pendingScrollOffset == null) return;
+  void _scheduleRestore() {
+    if (_disposed || _pendingRestore == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _pendingScrollOffset == null) return;
-      if (!_scrollController.hasClients) {
-        if (_restoreAttempts++ < 12) {
-          Future<void>.delayed(
-            const Duration(milliseconds: 120),
-            _restoreSavedScrollPosition,
-          );
-        }
+      if (_disposed || _pendingRestore == null) return;
+      if (!hasClients || !position.hasContentDimensions) {
+        _retryRestore();
         return;
       }
 
-      final target = _pendingScrollOffset!;
-      final max = _scrollController.position.maxScrollExtent;
-      if (max <= 0 && target > 0 && _restoreAttempts++ < 12) {
-        Future<void>.delayed(
-          const Duration(milliseconds: 120),
-          _restoreSavedScrollPosition,
-        );
+      final target = _pendingRestore!;
+      final max = position.maxScrollExtent;
+      // Katalog hali fon rejimida kelayotgan bo‘lsa, kontent yetarlicha
+      // uzunlashguncha tepaga clamp qilib yubormasdan biroz kutamiz.
+      if (max + 4 < target && _restoreAttempts < 30) {
+        _retryRestore();
         return;
       }
 
-      _restoringScroll = true;
-      _scrollController.jumpTo(target.clamp(0.0, max).toDouble());
-      _restoringScroll = false;
-
-      if (max + 2 >= target || _restoreAttempts++ >= 12) {
-        _pendingScrollOffset = null;
-      } else {
-        Future<void>.delayed(
-          const Duration(milliseconds: 120),
-          _restoreSavedScrollPosition,
-        );
-      }
+      _restoring = true;
+      jumpTo(target.clamp(0.0, max).toDouble());
+      _restoring = false;
+      _pendingRestore = null;
+      _restoreAttempts = 0;
     });
+  }
+
+  void _retryRestore() {
+    if (_disposed || _pendingRestore == null || _restoreAttempts++ >= 30) {
+      return;
+    }
+    Future<void>.delayed(
+      const Duration(milliseconds: 100),
+      _scheduleRestore,
+    );
   }
 
   @override
   void dispose() {
-    _scrollSaveTimer?.cancel();
-    if (_scrollController.hasClients) {
-      unawaited(_saveScrollPosition(_scrollController.offset));
+    _disposed = true;
+    _saveTimer?.cancel();
+    if (hasClients) {
+      final value = offset < 0 ? 0.0 : offset;
+      _scrollMemory[storageKey] = value;
+      unawaited(_write(value));
     }
-    _scrollController
-      ..removeListener(_rememberScrollPosition)
-      ..dispose();
+    removeListener(_capture);
+    super.dispose();
+  }
+}
+'''
+    if marker not in text:
+        raise SystemExit('money marker not found')
+    text = text.replace(marker, marker + helper, 1)
+
+old_home = "final ScrollController _scrollController = ScrollController();"
+new_home = "final ScrollController _scrollController = _PersistentScrollController('home');"
+if old_home in text:
+    text = text.replace(old_home, new_home, 1)
+elif new_home not in text:
+    raise SystemExit('home controller marker not found')
+
+# Category/publisher kitob ro‘yxatidan detailga kirib qaytganda ham ayni joyda
+# qolishi uchun GridView'ga alohida persistent controller qo‘shamiz.
+old_grid = """          : GridView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+              itemCount: books.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: .57,
+              ),
+              itemBuilder: (_, i) => BookCard(book: books[i]),
+            ),
+"""
+new_grid = """          : _PersistentBookGrid(
+              storageKey: 'browse:${publisher ?? category}',
+              books: books,
+            ),
+"""
+if old_grid in text:
+    text = text.replace(old_grid, new_grid, 1)
+elif "storageKey: 'browse:${publisher ?? category}'" not in text:
+    raise SystemExit('category grid marker not found')
+
+if 'class _PersistentBookGrid extends StatefulWidget' not in text:
+    marker = "\nIconData _categoryIcon(String value) {"
+    widget = r'''
+
+class _PersistentBookGrid extends StatefulWidget {
+  const _PersistentBookGrid({required this.storageKey, required this.books});
+
+  final String storageKey;
+  final List<Book> books;
+
+  @override
+  State<_PersistentBookGrid> createState() => _PersistentBookGridState();
+}
+
+class _PersistentBookGridState extends State<_PersistentBookGrid> {
+  late final ScrollController _controller =
+      _PersistentScrollController(widget.storageKey);
+
+  @override
+  void dispose() {
+    _controller.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) {
-    if (_pendingScrollOffset != null) {
-      _restoreSavedScrollPosition();
-    }
-"""
-
-if old not in text:
-    raise SystemExit('HomePageState marker not found')
-text = text.replace(old, new, 1)
-
-old_scroll = """        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-"""
-new_scroll = """        child: CustomScrollView(
-          controller: _scrollController,
-          key: const PageStorageKey<String>('muhajeer-home-scroll'),
-          physics: const AlwaysScrollableScrollPhysics(),
-"""
-if old_scroll not in text:
-    raise SystemExit('Home CustomScrollView marker not found')
-text = text.replace(old_scroll, new_scroll, 1)
+  Widget build(BuildContext context) => GridView.builder(
+        controller: _controller,
+        key: PageStorageKey<String>('grid:${widget.storageKey}'),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+        itemCount: widget.books.length,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: .57,
+        ),
+        itemBuilder: (_, i) => BookCard(book: widget.books[i]),
+      );
+}
+'''
+    if marker not in text:
+        raise SystemExit('category icon marker not found')
+    text = text.replace(marker, widget + marker, 1)
 
 path.write_text(text, encoding='utf-8')
-print('iPhone scroll restore patch applied.')
+print('Persistent iPhone/web scroll restoration applied.')

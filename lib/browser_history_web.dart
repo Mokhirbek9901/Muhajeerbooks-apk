@@ -3,7 +3,6 @@ import 'dart:html' as html;
 
 final StreamController<void> _popController = StreamController<void>.broadcast();
 bool _initialized = false;
-int _historySerial = 0;
 
 bool get browserHistorySupported => true;
 
@@ -23,16 +22,10 @@ Stream<void> get browserPopEvents {
 void pushBrowserHistoryEntry() {
   _ensureInitialized();
   try {
-    _historySerial += 1;
-    final uri = Uri.parse(html.window.location.href);
-    final base = uri.replace(fragment: '').toString();
     html.window.history.pushState(
-      <String, dynamic>{
-        'muhajeer_internal': true,
-        'muhajeer_serial': _historySerial,
-      },
+      <String, dynamic>{'muhajeer_internal': true},
       html.document.title,
-      '$base#mb-$_historySerial',
+      html.window.location.href,
     );
   } catch (_) {
     // History sync must never block navigation.

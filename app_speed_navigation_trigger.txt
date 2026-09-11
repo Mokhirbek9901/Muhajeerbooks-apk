@@ -1,0 +1,1 @@
+2026-09-11T15:39+09:00 apply storefront speed + iPhone swipe-back patch

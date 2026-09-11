@@ -7,19 +7,13 @@ import 'browser_history.dart';
 class MuhajeerNavigatorObserver extends NavigatorObserver {
   bool _handlingBrowserPop = false;
   int _ignoredBrowserPops = 0;
-  final List<Route<dynamic>> _routeStack = <Route<dynamic>>[];
 
   bool _managed(Route<dynamic> route) =>
       (route.settings.name ?? '').startsWith('mb:');
 
-  Route<dynamic>? get _topRoute =>
-      _routeStack.isEmpty ? null : _routeStack.last;
-
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPush(route, previousRoute);
-    _routeStack.remove(route);
-    _routeStack.add(route);
     if (_managed(route) && browserHistorySupported) {
       pushBrowserHistoryEntry();
     }
@@ -28,41 +22,12 @@ class MuhajeerNavigatorObserver extends NavigatorObserver {
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPop(route, previousRoute);
-    _routeStack.remove(route);
-    if (previousRoute != null && !_routeStack.contains(previousRoute)) {
-      _routeStack.add(previousRoute);
-    }
     if (_managed(route) && browserHistorySupported && !_handlingBrowserPop) {
+      // Flutter ichidagi back tugmasi bosilganda browser history ham bir qadam
+      // orqaga yuradi. Keladigan popstate eventini yana Navigator.pop qilmaslik
+      // uchun bir martalik ignore qilamiz.
       _ignoredBrowserPops += 1;
       backBrowserHistoryEntry();
-    }
-  }
-
-  @override
-  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    super.didRemove(route, previousRoute);
-    _routeStack.remove(route);
-    if (previousRoute != null && !_routeStack.contains(previousRoute)) {
-      _routeStack.add(previousRoute);
-    }
-  }
-
-  @override
-  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
-    super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
-    if (oldRoute == null) {
-      if (newRoute != null) _routeStack.add(newRoute);
-      return;
-    }
-    final index = _routeStack.indexOf(oldRoute);
-    if (index >= 0) {
-      if (newRoute == null) {
-        _routeStack.removeAt(index);
-      } else {
-        _routeStack[index] = newRoute;
-      }
-    } else if (newRoute != null) {
-      _routeStack.add(newRoute);
     }
   }
 
@@ -72,22 +37,14 @@ class MuhajeerNavigatorObserver extends NavigatorObserver {
       _ignoredBrowserPops -= 1;
       return;
     }
-    if (!navigator.canPop()) return;
+    if (_handlingBrowserPop || !navigator.canPop()) return;
 
     _handlingBrowserPop = true;
     try {
-      final route = _topRoute;
-
-      // iPhone/Safari chapdan swipe qilganda brauzerning o‘zi allaqachon
-      // orqaga qaytish animatsiyasini ko‘rsatadi. Shu payt Navigator.pop()
-      // ishlatilsa Flutter ham ikkinchi reverse animatsiyani bajaradi va sahifa
-      // "yangilangandek" lipillaydi. Managed storefront route'ni darhol olib
-      // tashlash browser gesture'dan keyingi ikkinchi animatsiyani yo‘q qiladi.
-      if (route != null && _managed(route)) {
-        navigator.removeRoute(route);
-      } else {
-        navigator.pop();
-      }
+      // Safari/iPhone edge-swipe route'ni zo‘rlab removeRoute qilish o‘rniga
+      // oddiy pop qiladi. Shunda oldingi Flutter sahifasi mounted holatda qoladi,
+      // uning ScrollController pozitsiyasi saqlanadi va sahifa qayta yaratilmaydi.
+      await navigator.maybePop();
       await Future<void>.delayed(Duration.zero);
     } finally {
       _handlingBrowserPop = false;
@@ -113,15 +70,21 @@ class BrowserBackSync extends StatefulWidget {
 
 class _BrowserBackSyncState extends State<BrowserBackSync> {
   StreamSubscription<void>? _subscription;
+  bool _popInFlight = false;
 
   @override
   void initState() {
     super.initState();
     if (browserHistorySupported) {
-      _subscription = browserPopEvents.listen((_) {
+      _subscription = browserPopEvents.listen((_) async {
+        if (_popInFlight) return;
         final navigator = widget.navigatorKey.currentState;
-        if (navigator != null) {
-          unawaited(widget.observer.handleBrowserPop(navigator));
+        if (navigator == null) return;
+        _popInFlight = true;
+        try {
+          await widget.observer.handleBrowserPop(navigator);
+        } finally {
+          _popInFlight = false;
         }
       });
     }

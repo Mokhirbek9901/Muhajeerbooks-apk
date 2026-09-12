@@ -1,0 +1,65 @@
+name: Apply finance sold cost total subtitle
+
+on:
+  push:
+    paths:
+      - '.github/workflows/finance_sold_cost_total_patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch finance card
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('lib/finance_admin.dart')
+          text = path.read_text(encoding='utf-8')
+
+          old = "  int inventoryStockCost = 0;\n"
+          new = "  int inventoryStockCost = 0;\n  int allTimeSoldCost = 0;\n"
+          if old not in text:
+              raise SystemExit('inventoryStockCost anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = """        client.rpc(\n          'admin_list_books',\n          params: {'p_secret': widget.secret},\n        ),\n      ]);\n"""
+          new = """        client.rpc(\n          'admin_list_books',\n          params: {'p_secret': widget.secret},\n        ),\n        client.rpc(\n          'admin_finance_report',\n          params: {'p_secret': widget.secret, 'p_period': 'all'},\n        ),\n      ]);\n"""
+          if old not in text:
+              raise SystemExit('Future.wait anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = """      final rawBooks = result[2];\n      var stockCost = 0;\n"""
+          new = """      final rawBooks = result[2];\n      final rawAllReport = result[3];\n      final soldCostAll = rawAllReport is Map\n          ? ((rawAllReport['cost_of_goods'] as num?)?.round() ?? 0)\n          : 0;\n      var stockCost = 0;\n"""
+          if old not in text:
+              raise SystemExit('rawBooks anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = """        inventoryStockCost = stockCost;\n        loading = false;\n"""
+          new = """        inventoryStockCost = stockCost;\n        allTimeSoldCost = soldCostAll;\n        loading = false;\n"""
+          if old not in text:
+              raise SystemExit('setState anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = """                  _FinanceCard(\n                    title: 'Ombor tan narxi',\n                    value: _financeWon(inventoryStockCost),\n                    subtitle: 'Hozir omborda bor kitoblarning jami tannarxi',\n                    icon: Icons.inventory_2_outlined,\n                  ),\n"""
+          new = """                  _FinanceCard(\n                    title: 'Ombor tan narxi',\n                    value: _financeWon(inventoryStockCost),\n                    subtitle:\n                        'Hozir omborda bor kitoblarning jami tannarxi\\n'\n                        'Sotilgan kitoblar bilan birga jami: ${_financeWon(inventoryStockCost + allTimeSoldCost)}',\n                    icon: Icons.inventory_2_outlined,\n                  ),\n"""
+          if old not in text:
+              raise SystemExit('finance card anchor not found')
+          text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+          rm -f .github/workflows/finance_sold_cost_total_patch.yml
+          git config user.name "Mokhirbek9901"
+          git config user.email "ismoilovmokhirbek@gmail.com"
+          git add lib/finance_admin.dart .github/workflows/finance_sold_cost_total_patch.yml
+          git commit -m "Show inventory plus sold cost total"
+          git push

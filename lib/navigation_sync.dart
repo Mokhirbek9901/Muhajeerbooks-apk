@@ -11,21 +11,37 @@ class MuhajeerNavigatorObserver extends NavigatorObserver {
   bool _managed(Route<dynamic> route) =>
       (route.settings.name ?? '').startsWith('mb:');
 
+  void _syncSwipeStateAfterFrame() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      setBrowserBackSwipeEnabled(navigator?.canPop() ?? false);
+    });
+  }
+
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPush(route, previousRoute);
     if (_managed(route) && browserHistorySupported) {
-      // One lightweight Safari guard is enough for all Flutter route depth.
-      // This prevents the browser document itself from navigating/reloading.
       pushBrowserHistoryEntry();
     }
+    _syncSwipeStateAfterFrame();
   }
 
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPop(route, previousRoute);
-    // Flutter's own back button only pops Flutter. Browser history is moved only
-    // by Safari's native edge swipe, never by the in-app back button.
+    _syncSwipeStateAfterFrame();
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didRemove(route, previousRoute);
+    _syncSwipeStateAfterFrame();
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
+    _syncSwipeStateAfterFrame();
   }
 
   Future<void> handleBrowserPop(NavigatorState navigator) async {
@@ -34,18 +50,15 @@ class MuhajeerNavigatorObserver extends NavigatorObserver {
 
     _handlingBrowserPop = true;
     try {
-      // Show the previous Flutter screen immediately when Safari finishes the
-      // edge swipe. Do NOT push a new history entry while Safari is still
-      // completing its native interactive animation: on iPhone that can expose
-      // Safari's blank page snapshot for a moment (white/cream flash).
       await navigator.maybePop();
+      await WidgetsBinding.instance.endOfFrame;
+      setBrowserBackSwipeEnabled(navigator.canPop());
 
-      // Re-arm the single guard only after Safari's own animation has settled.
-      // pushState itself is invisible once the gesture is over, so the user sees
-      // the previous screen continuously instead of a blank frame first.
+      // Only a native browser pop consumes the fallback guard. For the custom
+      // iPhone edge swipe this call is a no-op because the guard is still armed.
       _guardRestoreTimer?.cancel();
       _guardRestoreTimer = Timer(
-        const Duration(milliseconds: 320),
+        const Duration(milliseconds: 360),
         restoreBrowserHistoryGuard,
       );
     } finally {

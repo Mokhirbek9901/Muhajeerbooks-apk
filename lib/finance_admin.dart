@@ -41,6 +41,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
   String period = 'month';
   Map<String, dynamic> report = <String, dynamic>{};
   List<Map<String, dynamic>> expenses = <Map<String, dynamic>>[];
+  int inventoryStockCost = 0;
 
   static const periodLabels = <String, String>{
     'today': 'Bugun',
@@ -144,10 +145,25 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
           'admin_finance_expenses',
           params: {'p_secret': widget.secret, 'p_limit': 100},
         ),
+        client.rpc(
+          'admin_list_books',
+          params: {'p_secret': widget.secret},
+        ),
       ]);
       if (!mounted) return;
       final rawReport = result[0];
       final rawExpenses = result[1];
+      final rawBooks = result[2];
+      var stockCost = 0;
+      if (rawBooks is List) {
+        for (final row in rawBooks.whereType<Map>()) {
+          final stock = (row['stock'] as num?)?.round() ?? 0;
+          final costPrice = (row['cost_price'] as num?)?.round() ?? 0;
+          if (stock > 0 && costPrice > 0) {
+            stockCost += stock * costPrice;
+          }
+        }
+      }
       setState(() {
         report = rawReport is Map
             ? Map<String, dynamic>.from(rawReport)
@@ -158,6 +174,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                 .map((e) => Map<String, dynamic>.from(e))
                 .toList()
             : <Map<String, dynamic>>[];
+        inventoryStockCost = stockCost;
         loading = false;
       });
     } catch (e) {
@@ -588,6 +605,12 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                     value: _financeWon(_int('other_expenses')),
                     subtitle: 'Qadoqlash, reklama, transport va boshqa',
                     icon: Icons.receipt_long_outlined,
+                  ),
+                  _FinanceCard(
+                    title: 'Ombor tan narxi',
+                    value: _financeWon(inventoryStockCost),
+                    subtitle: 'Hozir omborda bor kitoblarning jami tannarxi',
+                    icon: Icons.inventory_2_outlined,
                   ),
                   _FinanceCard(
                     title: resultTitle,

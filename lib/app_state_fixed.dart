@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -10,6 +11,33 @@ import 'app_state.dart';
 /// remote Supabase sign-out is allowed to finish in the background.
 class AppStateFixed extends AppState {
   AppStateFixed({required super.backendConfigured});
+
+  bool _checkoutChangingCart = false;
+  bool get suppressCartStockAlert => _checkoutChangingCart;
+
+  @override
+  Future<String> placeOrder({
+    required String customerName,
+    required String phone,
+    required String address,
+    required String deliveryType,
+    required int deliveryFee,
+    XFile? paymentProof,
+  }) async {
+    _checkoutChangingCart = true;
+    try {
+      return await super.placeOrder(
+        customerName: customerName,
+        phone: phone,
+        address: address,
+        deliveryType: deliveryType,
+        deliveryFee: deliveryFee,
+        paymentProof: paymentProof,
+      );
+    } finally {
+      _checkoutChangingCart = false;
+    }
+  }
 
   @override
   Future<void> signOutCustomer() async {

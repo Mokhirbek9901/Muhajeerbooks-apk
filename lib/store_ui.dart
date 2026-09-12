@@ -638,10 +638,21 @@ class _HomePageState extends State<HomePage> {
   String sort = 'new';
 
   final ScrollController _scrollController = _PersistentScrollController('home');
+  final TextEditingController _searchController = TextEditingController();
+
+  void _showAllBooks() {
+    _searchController.clear();
+    FocusScope.of(context).unfocus();
+    setState(() {
+      query = '';
+      category = 'Barchasi';
+    });
+  }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -743,6 +754,7 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     Expanded(
                       child: TextField(
+                        controller: _searchController,
                         onChanged: (value) => setState(() => query = value),
                         decoration: const InputDecoration(
                           hintText: 'Kitob yoki muallif qidiring...',
@@ -808,6 +820,35 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
+            if (query.trim().isNotEmpty)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                sliver: SliverToBoxAdapter(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: UzbekCustomerColors.ivory,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: UzbekCustomerColors.gold),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          '“${query.trim()}” bo‘yicha ${books.length} ta kitob topildi',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: _showAllBooks,
+                          icon: const Icon(Icons.apps_rounded),
+                          label: const Text('Barcha kitoblarni ko‘rish'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             const SliverToBoxAdapter(child: SizedBox(height: 2)),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),

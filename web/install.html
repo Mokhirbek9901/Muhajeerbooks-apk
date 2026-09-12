@@ -14,14 +14,15 @@
   <title>Muhajeer Books — Install</title>
   <style>
     :root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans KR",Arial,sans-serif;color:#173834;background:#f7f3ea}
-    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:#f7f3ea;padding:calc(20px + env(safe-area-inset-top)) 16px calc(26px + env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:center}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;background:#f7f3ea;padding:calc(20px + env(safe-area-inset-top)) 16px calc(26px + env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:center}
     .card{width:min(100%,480px);background:#fff;border:1px solid #e8d8b7;border-radius:28px;padding:26px 22px;box-shadow:0 18px 48px rgba(28,56,51,.09)}
     .brand{display:flex;align-items:center;gap:14px;margin-bottom:24px}.icon{width:68px;height:68px;border-radius:19px;border:1px solid #e7d4ad;overflow:hidden}.icon img{width:100%;height:100%;object-fit:cover}.brand h1{font-size:24px;margin:0}.brand p{margin:5px 0 0;color:#746d61;font-size:14px;font-weight:650}
     .device{text-align:center;font-size:13px;font-weight:850;color:#0f6e65;margin-bottom:12px}h2{text-align:center;font-size:24px;margin:0 0 8px}.lead{text-align:center;color:#60645f;font-size:15px;line-height:1.5;margin:0 0 20px}
     .install{width:100%;border:0;border-radius:18px;padding:19px;background:#0f6e65;color:#fff;font-size:18px;font-weight:900;cursor:pointer;box-shadow:0 10px 24px rgba(15,110,101,.18)}
     .open{display:block;margin-top:10px;text-align:center;text-decoration:none;background:#edf5f2;color:#0f6e65;border-radius:15px;padding:12px 14px;font-weight:800}
     .status{margin-top:14px;padding:12px;border-radius:14px;background:#edf7f3;color:#285b52;font-size:13.5px;line-height:1.45;text-align:center}.status.warn{background:#fff4e8;color:#7c4d17}.status.ok{background:#eaf8f1;color:#176a50;font-weight:800}
-    .guide{display:none;margin-top:15px;border:2px solid #0f6e65;background:#fbf8f1;border-radius:20px;padding:17px}.guide.show{display:block}.guide h3{margin:0 0 12px;font-size:18px;text-align:center}.step{display:flex;gap:11px;align-items:flex-start;margin:12px 0;font-size:15px;line-height:1.45;color:#343d39}.n{flex:0 0 32px;height:32px;border-radius:50%;display:grid;place-items:center;background:#dca83e;color:#173834;font-weight:900}.more{padding:2px 7px;border-radius:8px;background:#ece9e2;font-weight:900}.bigmenu{font-size:20px;font-weight:900;color:#0f6e65}.copy{display:none;width:100%;margin-top:12px;border:0;border-radius:14px;padding:14px;background:#173f3a;color:#fff;font-size:15px;font-weight:900}.copy.show{display:block}
+    .guide{display:none;margin-top:15px;border:2px solid #0f6e65;background:#fbf8f1;border-radius:20px;padding:17px}.guide.show{display:block}.guide h3{margin:0 0 12px;font-size:18px;text-align:center}.step{display:flex;gap:11px;align-items:flex-start;margin:12px 0;font-size:15px;line-height:1.45;color:#343d39}.n{flex:0 0 32px;height:32px;border-radius:50%;display:grid;place-items:center;background:#dca83e;color:#173834;font-weight:900}.big{font-size:20px;font-weight:900;color:#0f6e65}.more{padding:2px 7px;border-radius:8px;background:#ece9e2;font-weight:900}
     .langs{display:flex;justify-content:center;gap:5px;flex-wrap:wrap;margin-top:17px}.lang{border:0;background:transparent;color:#8a8378;padding:5px 7px;font-size:12px;font-weight:800;cursor:pointer}.lang.active{color:#0f6e65;text-decoration:underline;text-underline-offset:3px}.small{text-align:center;color:#989188;font-size:12px;margin:11px 0 0}
   </style>
 </head>
@@ -33,52 +34,51 @@
   <button class="install" id="installBtn"></button>
   <a class="open" href="/" id="openBtn"></a>
   <div class="status" id="status"></div>
-  <section class="guide" id="guide"><h3 id="guideTitle"></h3><div id="steps"></div><button class="copy" id="copyBtn"></button></section>
+  <section class="guide" id="guide"><h3 id="guideTitle"></h3><div id="steps"></div></section>
   <div class="langs"><button class="lang" data-lang="uz">O‘zbekcha</button><button class="lang" data-lang="ru">Русский</button><button class="lang" data-lang="en">English</button><button class="lang" data-lang="ko">한국어</button></div>
   <p class="small" id="small"></p>
 </main>
 <script>
 (()=>{
- if('serviceWorker' in navigator) navigator.serviceWorker.register('/flutter_service_worker.js').catch(()=>{});
- const T={
-  uz:{tag:"Koreyadagi o‘zbek kitob do‘koni",androidDevice:"🤖 Android telefon aniqlandi",iosDevice:" iPhone aniqlandi",androidTitle:"Android’ga o‘rnatish",iosTitle:"iPhone’ga o‘rnatish",androidLead:"Bitta tugmani bosing — o‘rnatish oynasi chiqadi.",iosLead:"Tugmani bosing. Qayerdan kirganingizga qarab eng qisqa yo‘lni o‘zi ko‘rsatadi.",androidBtn:"📲 ANDROID’GA O‘RNATISH",iosBtn:" iPHONE’GA O‘RNATISH",open:"Hozir ilovani ochish",prep:"O‘rnatish tayyorlanmoqda…",ready:"Tayyor — tugmani bosing.",iosSafariReady:"Tugmani bosing — Safari uchun 2 qadam ko‘rinadi.",iosInAppReady:"Instagram/Telegram ichida ochilgan. Tugmani bosing — Safari’da ochish yo‘li chiqadi.",installed:"Muhajeer Books allaqachon o‘rnatilgan ✅",installedBtn:"✅ O‘RNATILGAN — OCHISH",androidGuide:"Agar o‘rnatish oynasi chiqmasa",androidSteps:["Chrome menyusidagi <b>⋮</b> ni bosing.","<b>Install app / Add to Home screen</b> ni tanlang."],iosSafariGuide:"iPhone’da atigi 2 qadam",iosSafariSteps:["Safari menyusini oching: <span class='bigmenu'>□↑</span> yoki <span class='bigmenu'>•••</span>.","<b>Add to Home Screen / 홈 화면에 추가 / На экран «Домой»</b> ni bosing. Ko‘rinmasa <span class='more'>더 보기 / More / Ещё</span> ni bosing, keyin <b>Add / 추가 / Добавить</b>."],iosInAppGuide:"Avval Safari’da oching",iosInAppSteps:["Instagram/Telegram oynasidagi <span class='bigmenu'>•••</span> menyuni bosing va <b>Open in Safari / Safari’da ochish</b> ni tanlang.","Safari ochilgach yashil <b>iPHONE’GA O‘RNATISH</b> tugmasini yana bir marta bosing."],copy:"🔗 LINKNI NUSXALASH",copied:"Link nusxalandi ✅ Safari’ni ochib qo‘ying.",small:"Telefon va til avtomatik aniqlanadi."},
-  ru:{tag:"Узбекский книжный магазин в Корее",androidDevice:"🤖 Обнаружен Android",iosDevice:" Обнаружен iPhone",androidTitle:"Установить на Android",iosTitle:"Установить на iPhone",androidLead:"Нажмите одну кнопку — откроется окно установки.",iosLead:"Нажмите кнопку. Страница сама покажет самый короткий путь для текущего браузера.",androidBtn:"📲 УСТАНОВИТЬ НА ANDROID",iosBtn:" УСТАНОВИТЬ НА iPHONE",open:"Открыть приложение",prep:"Подготовка установки…",ready:"Готово — нажмите кнопку.",iosSafariReady:"Нажмите кнопку — покажем 2 шага для Safari.",iosInAppReady:"Открыто внутри Instagram/Telegram. Нажмите кнопку — покажем как открыть в Safari.",installed:"Muhajeer Books уже установлен ✅",installedBtn:"✅ УСТАНОВЛЕНО — ОТКРЫТЬ",androidGuide:"Если окно установки не появилось",androidSteps:["Откройте меню Chrome <b>⋮</b>.","Выберите <b>Установить приложение / Добавить на главный экран</b>."],iosSafariGuide:"На iPhone всего 2 шага",iosSafariSteps:["Откройте меню Safari: <span class='bigmenu'>□↑</span> или <span class='bigmenu'>•••</span>.","Нажмите <b>На экран «Домой» / Add to Home Screen / 홈 화면에 추가</b>. Если не видно — <span class='more'>Ещё / More / 더 보기</span>, затем <b>Добавить</b>."],iosInAppGuide:"Сначала откройте в Safari",iosInAppSteps:["В Instagram/Telegram нажмите <span class='bigmenu'>•••</span> и выберите <b>Открыть в Safari / Open in Safari</b>.","В Safari снова нажмите зелёную кнопку <b>УСТАНОВИТЬ НА iPHONE</b>."],copy:"🔗 СКОПИРОВАТЬ ССЫЛКУ",copied:"Ссылка скопирована ✅ Откройте Safari.",small:"Телефон и язык определяются автоматически."},
-  en:{tag:"Uzbek bookstore in Korea",androidDevice:"🤖 Android detected",iosDevice:" iPhone detected",androidTitle:"Install on Android",iosTitle:"Install on iPhone",androidLead:"Tap one button — the install window will appear.",iosLead:"Tap the button. The page will show the shortest path for the browser you are using.",androidBtn:"📲 INSTALL ON ANDROID",iosBtn:" INSTALL ON iPHONE",open:"Open app now",prep:"Preparing install…",ready:"Ready — tap the button.",iosSafariReady:"Tap the button — only 2 Safari steps.",iosInAppReady:"Opened inside Instagram/Telegram. Tap the button to see how to open in Safari.",installed:"Muhajeer Books is already installed ✅",installedBtn:"✅ INSTALLED — OPEN",androidGuide:"If the install window does not appear",androidSteps:["Open Chrome menu <b>⋮</b>.","Choose <b>Install app / Add to Home screen</b>."],iosSafariGuide:"Only 2 steps on iPhone",iosSafariSteps:["Open Safari menu: <span class='bigmenu'>□↑</span> or <span class='bigmenu'>•••</span>.","Tap <b>Add to Home Screen</b>. If it is hidden, tap <span class='more'>More / 더 보기 / Ещё</span>, then <b>Add</b>."],iosInAppGuide:"First open in Safari",iosInAppSteps:["In Instagram/Telegram tap <span class='bigmenu'>•••</span> and choose <b>Open in Safari</b>.","In Safari tap the green <b>INSTALL ON iPHONE</b> button once more."],copy:"🔗 COPY LINK",copied:"Link copied ✅ Open Safari.",small:"Phone and language are detected automatically."},
-  ko:{tag:"한국의 우즈베크어 서점",androidDevice:"🤖 Android가 감지되었습니다",iosDevice:" iPhone이 감지되었습니다",androidTitle:"Android에 설치",iosTitle:"iPhone에 설치",androidLead:"버튼 한 번만 누르면 설치 창이 열립니다.",iosLead:"버튼을 누르면 현재 브라우저에 맞는 가장 짧은 방법만 보여줍니다.",androidBtn:"📲 ANDROID에 설치",iosBtn:" iPHONE에 설치",open:"지금 앱 열기",prep:"설치를 준비하고 있습니다…",ready:"준비 완료 — 버튼을 누르세요.",iosSafariReady:"버튼을 누르면 Safari에서 2단계만 안내합니다.",iosInAppReady:"Instagram/Telegram 안에서 열렸습니다. 버튼을 눌러 Safari에서 여는 방법을 확인하세요.",installed:"Muhajeer Books가 이미 설치되어 있습니다 ✅",installedBtn:"✅ 설치됨 — 열기",androidGuide:"설치 창이 뜨지 않으면",androidSteps:["Chrome 메뉴 <b>⋮</b>를 누르세요.","<b>앱 설치 / 홈 화면에 추가</b>를 선택하세요."],iosSafariGuide:"iPhone은 2단계만 하면 됩니다",iosSafariSteps:["Safari 메뉴를 여세요: <span class='bigmenu'>□↑</span> 또는 <span class='bigmenu'>•••</span>.","<b>홈 화면에 추가</b>를 누르세요. 안 보이면 <span class='more'>더 보기 / More / Ещё</span> → <b>추가</b>."],iosInAppGuide:"먼저 Safari에서 여세요",iosInAppSteps:["Instagram/Telegram에서 <span class='bigmenu'>•••</span>를 누르고 <b>Safari에서 열기 / Open in Safari</b>를 선택하세요.","Safari에서 초록색 <b>iPHONE에 설치</b> 버튼을 한 번 더 누르세요."],copy:"🔗 링크 복사",copied:"링크가 복사되었습니다 ✅ Safari를 여세요.",small:"휴대폰과 언어가 자동으로 감지됩니다."}
- };
- const ua=navigator.userAgent||'';
- const isIOS=/iPhone|iPad|iPod/i.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
- const isInApp=isIOS&&/Instagram|FBAN|FBAV|Telegram|KAKAOTALK|NAVER|Line/i.test(ua);
- const isSafari=isIOS&&/Safari/i.test(ua)&&!/CriOS|FxiOS|EdgiOS|OPiOS/i.test(ua)&&!isInApp;
- const standalone=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
- const lp=(navigator.language||'uz').toLowerCase().slice(0,2);let lang=['uz','ru','en','ko'].includes(lp)?lp:'uz';let promptEvent=null;
- const $=x=>document.getElementById(x),btn=$('installBtn'),status=$('status'),guide=$('guide'),copyBtn=$('copyBtn');
- const rows=a=>a.map((x,i)=>`<div class="step"><span class="n">${i+1}</span><span>${x}</span></div>`).join('');
- function render(){
-   const t=T[lang];document.documentElement.lang=lang;$('tag').textContent=t.tag;$('device').textContent=isIOS?t.iosDevice:t.androidDevice;$('title').textContent=isIOS?t.iosTitle:t.androidTitle;$('lead').textContent=isIOS?t.iosLead:t.androidLead;$('openBtn').textContent=t.open;$('small').textContent=t.small;btn.textContent=standalone?t.installedBtn:(isIOS?t.iosBtn:t.androidBtn);status.className='status';guide.classList.remove('show');copyBtn.classList.remove('show');
-   if(standalone){status.className='status ok';status.textContent=t.installed;return;}
-   if(isIOS){
-     if(isSafari){status.textContent=t.iosSafariReady;$('guideTitle').textContent=t.iosSafariGuide;$('steps').innerHTML=rows(t.iosSafariSteps);}
-     else{status.className='status warn';status.textContent=t.iosInAppReady;$('guideTitle').textContent=t.iosInAppGuide;$('steps').innerHTML=rows(t.iosInAppSteps);copyBtn.textContent=t.copy;copyBtn.classList.add('show');}
-   }else{status.textContent=promptEvent?t.ready:t.prep;$('guideTitle').textContent=t.androidGuide;$('steps').innerHTML=rows(t.androidSteps);}
-   document.querySelectorAll('.lang').forEach(x=>x.classList.toggle('active',x.dataset.lang===lang));
- }
- addEventListener('beforeinstallprompt',e=>{e.preventDefault();promptEvent=e;render();});
- addEventListener('appinstalled',()=>{promptEvent=null;render();});
- document.querySelectorAll('.lang').forEach(x=>x.onclick=()=>{lang=x.dataset.lang;render();});
- copyBtn.onclick=async()=>{const t=T[lang];try{await navigator.clipboard.writeText(location.href);status.className='status ok';status.textContent=t.copied;}catch(_){}};
- btn.onclick=async()=>{
-   if(standalone){location.href='/';return;}
-   if(isIOS){
-     guide.classList.add('show');
-     if(!isSafari){try{await navigator.clipboard.writeText(location.href);}catch(_){}}
-     guide.scrollIntoView({behavior:'smooth',block:'center'});
-     return;
-   }
-   if(promptEvent){const p=promptEvent;promptEvent=null;await p.prompt();const c=await p.userChoice.catch(()=>null);if(!c||c.outcome!=='accepted'){guide.classList.add('show');guide.scrollIntoView({behavior:'smooth',block:'center'});}return;}
-   guide.classList.add('show');guide.scrollIntoView({behavior:'smooth',block:'center'});
- };
- render();setTimeout(()=>{if(!isIOS&&!standalone&&!promptEvent)status.textContent=T[lang].androidGuide;},1800);
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('/flutter_service_worker.js').catch(()=>{});
+  const T={
+    uz:{tag:"Koreyadagi o‘zbek kitob do‘koni",androidDevice:"🤖 Android telefon aniqlandi",iosDevice:" iPhone aniqlandi",androidTitle:"Android’ga o‘rnatish",iosTitle:"iPhone’ga o‘rnatish",androidLead:"Bitta tugmani bosing — o‘rnatish oynasi chiqadi.",iosLead:"Qayerdan kirgan bo‘lsangiz ham shu bitta tugmani bosing.",androidBtn:"📲 ANDROID’GA O‘RNATISH",iosBtn:" iPHONE’GA O‘RNATISH",open:"Hozir ilovani ochish",prep:"O‘rnatish tayyorlanmoqda…",ready:"Tayyor — tugmani bosing.",iosReady:"Bitta tugma: kerak bo‘lsa Safari’ni o‘zi ochishga urinadi.",installed:"Muhajeer Books allaqachon o‘rnatilgan ✅",installedBtn:"✅ O‘RNATILGAN — OCHISH",androidGuide:"Agar o‘rnatish oynasi chiqmasa",androidSteps:["Chrome menyusidagi <b>⋮</b> ni bosing.","<b>Install app / Add to Home screen</b> ni tanlang."],iosGuide:"Oxirgi qadam",iosSteps:["Safari’da <span class='big'>□↑</span> yoki <span class='big'>•••</span> ni bosing.","<b>Add to Home Screen / 홈 화면에 추가 / На экран «Домой»</b> ni tanlang. Ko‘rinmasa <span class='more'>더 보기 / More / Ещё</span> ni bosing.","Oxirida <b>Add / 추가 / Добавить</b> ni bosing."],safariOpening:"Safari ochilmoqda… ochilmasa pastdagi qadam chiqadi.",small:"Telefon va til avtomatik aniqlanadi."},
+    ru:{tag:"Узбекский книжный магазин в Корее",androidDevice:"🤖 Обнаружен Android",iosDevice:" Обнаружен iPhone",androidTitle:"Установить на Android",iosTitle:"Установить на iPhone",androidLead:"Нажмите одну кнопку — откроется окно установки.",iosLead:"Где бы ни открыли ссылку, нажмите одну и ту же кнопку.",androidBtn:"📲 УСТАНОВИТЬ НА ANDROID",iosBtn:" УСТАНОВИТЬ НА iPHONE",open:"Открыть приложение",prep:"Подготовка установки…",ready:"Готово — нажмите кнопку.",iosReady:"Одна кнопка: при необходимости попробуем сразу открыть Safari.",installed:"Muhajeer Books уже установлен ✅",installedBtn:"✅ УСТАНОВЛЕНО — ОТКРЫТЬ",androidGuide:"Если окно установки не появилось",androidSteps:["Откройте меню Chrome <b>⋮</b>.","Выберите <b>Установить приложение / Добавить на главный экран</b>."],iosGuide:"Последний шаг",iosSteps:["В Safari нажмите <span class='big'>□↑</span> или <span class='big'>•••</span>.","Выберите <b>На экран «Домой» / Add to Home Screen / 홈 화면에 추가</b>. Если не видно — <span class='more'>Ещё / More / 더 보기</span>.","Затем нажмите <b>Добавить / Add / 추가</b>."],safariOpening:"Открываем Safari… если не откроется, ниже появится подсказка.",small:"Телефон и язык определяются автоматически."},
+    en:{tag:"Uzbek bookstore in Korea",androidDevice:"🤖 Android detected",iosDevice:" iPhone detected",androidTitle:"Install on Android",iosTitle:"Install on iPhone",androidLead:"Tap one button — the install window will appear.",iosLead:"No matter where you opened the link, tap the same single button.",androidBtn:"📲 INSTALL ON ANDROID",iosBtn:" INSTALL ON iPHONE",open:"Open app now",prep:"Preparing install…",ready:"Ready — tap the button.",iosReady:"One button: if needed, we’ll try to open Safari automatically.",installed:"Muhajeer Books is already installed ✅",installedBtn:"✅ INSTALLED — OPEN",androidGuide:"If the install window does not appear",androidSteps:["Open Chrome menu <b>⋮</b>.","Choose <b>Install app / Add to Home screen</b>."],iosGuide:"Final step",iosSteps:["In Safari tap <span class='big'>□↑</span> or <span class='big'>•••</span>.","Choose <b>Add to Home Screen</b>. If hidden, tap <span class='more'>More / 더 보기 / Ещё</span>.","Finally tap <b>Add</b>."],safariOpening:"Opening Safari… if it cannot open, the final step will appear below.",small:"Phone and language are detected automatically."},
+    ko:{tag:"한국의 우즈베크어 서점",androidDevice:"🤖 Android가 감지되었습니다",iosDevice:" iPhone이 감지되었습니다",androidTitle:"Android에 설치",iosTitle:"iPhone에 설치",androidLead:"버튼 한 번만 누르면 설치 창이 열립니다.",iosLead:"어디에서 링크를 열었든 같은 버튼 하나만 누르세요.",androidBtn:"📲 ANDROID에 설치",iosBtn:" iPHONE에 설치",open:"지금 앱 열기",prep:"설치를 준비하고 있습니다…",ready:"준비 완료 — 버튼을 누르세요.",iosReady:"버튼 하나로 필요하면 Safari를 자동으로 열어봅니다.",installed:"Muhajeer Books가 이미 설치되어 있습니다 ✅",installedBtn:"✅ 설치됨 — 열기",androidGuide:"설치 창이 뜨지 않으면",androidSteps:["Chrome 메뉴 <b>⋮</b>를 누르세요.","<b>앱 설치 / 홈 화면에 추가</b>를 선택하세요."],iosGuide:"마지막 단계",iosSteps:["Safari에서 <span class='big'>□↑</span> 또는 <span class='big'>•••</span>를 누르세요.","<b>홈 화면에 추가 / Add to Home Screen</b>를 선택하세요. 안 보이면 <span class='more'>더 보기 / More / Ещё</span>를 누르세요.","마지막으로 <b>추가</b>를 누르세요."],safariOpening:"Safari를 여는 중입니다… 열리지 않으면 아래에 마지막 단계가 표시됩니다.",small:"휴대폰과 언어가 자동으로 감지됩니다."}
+  };
+  const ua=navigator.userAgent||'';
+  const isIOS=/iPhone|iPad|iPod/i.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  const isSafari=isIOS&&/Safari/i.test(ua)&&!/CriOS|FxiOS|EdgiOS|OPiOS|Instagram|FBAN|FBAV|Telegram|KAKAOTALK|NAVER|Line/i.test(ua);
+  const standalone=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+  const lp=(navigator.language||'uz').toLowerCase().slice(0,2);
+  let lang=['uz','ru','en','ko'].includes(lp)?lp:'uz';
+  let promptEvent=null;
+  const $=x=>document.getElementById(x),btn=$('installBtn'),status=$('status'),guide=$('guide');
+  const rows=a=>a.map((x,i)=>`<div class="step"><span class="n">${i+1}</span><span>${x}</span></div>`).join('');
+  function showGuide(){const t=T[lang];$('guideTitle').textContent=isIOS?t.iosGuide:t.androidGuide;$('steps').innerHTML=rows(isIOS?t.iosSteps:t.androidSteps);guide.classList.add('show');guide.scrollIntoView({behavior:'smooth',block:'center'});}
+  function render(){const t=T[lang];document.documentElement.lang=lang;$('tag').textContent=t.tag;$('device').textContent=isIOS?t.iosDevice:t.androidDevice;$('title').textContent=isIOS?t.iosTitle:t.androidTitle;$('lead').textContent=isIOS?t.iosLead:t.androidLead;$('openBtn').textContent=t.open;$('small').textContent=t.small;btn.textContent=standalone?t.installedBtn:(isIOS?t.iosBtn:t.androidBtn);status.className='status';guide.classList.remove('show');if(standalone){status.className='status ok';status.textContent=t.installed;}else if(isIOS){status.textContent=t.iosReady;}else{status.textContent=promptEvent?t.ready:t.prep;}document.querySelectorAll('.lang').forEach(x=>x.classList.toggle('active',x.dataset.lang===lang));}
+  addEventListener('beforeinstallprompt',e=>{e.preventDefault();promptEvent=e;render();});
+  addEventListener('appinstalled',()=>{promptEvent=null;render();});
+  document.querySelectorAll('.lang').forEach(x=>x.onclick=()=>{lang=x.dataset.lang;render();});
+  btn.onclick=async()=>{
+    const t=T[lang];
+    if(standalone){location.href='/';return;}
+    if(isIOS){
+      if(isSafari){showGuide();return;}
+      status.className='status';status.textContent=t.safariOpening;
+      try{await navigator.clipboard.writeText(location.origin+'/install?ios=1');}catch(_){ }
+      const target=location.host+location.pathname+'?ios=1';
+      setTimeout(()=>{showGuide();status.className='status warn';status.textContent=t.iosReady;},1200);
+      location.href='x-safari-https://'+target;
+      return;
+    }
+    if(promptEvent){const p=promptEvent;promptEvent=null;await p.prompt();const c=await p.userChoice.catch(()=>null);if(!c||c.outcome!=='accepted')showGuide();return;}
+    showGuide();
+  };
+  render();
+  if(isIOS&&isSafari&&new URLSearchParams(location.search).get('ios')==='1') setTimeout(showGuide,250);
+  setTimeout(()=>{if(!isIOS&&!standalone&&!promptEvent)status.textContent=T[lang].androidGuide;},1800);
 })();
 </script>
 </body>

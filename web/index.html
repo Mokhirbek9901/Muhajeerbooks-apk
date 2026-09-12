@@ -15,6 +15,7 @@
       overflow: hidden;
       background: #F7F3EA;
       color-scheme: light;
+      overscroll-behavior-x: none;
     }
     body, flutter-view, flt-glass-pane, flt-scene-host {
       background-color: #F7F3EA !important;
@@ -42,11 +43,88 @@
 </head>
 <body>
   <script>
-    // Safari browser-history o‘zi sahifani tepaga/pastga siljitib Flutter'ning
-    // ichki scroll holati bilan urishmasin. Flutter scrollni o‘zi tiklaydi.
     if ('scrollRestoration' in history) {
       history.scrollRestoration = 'manual';
     }
+
+    // iOS Safari draws its own cached history snapshot while the user swipes
+    // from the left edge. Flutter Web canvases can appear blank/white in that
+    // snapshot. While Flutter has a route to pop, claim only the tiny left-edge
+    // gesture area and dispatch an app-level back request instead. Normal page
+    // scrolling and touches outside the edge remain untouched.
+    (() => {
+      const EDGE_WIDTH = 28;
+      const TRIGGER_DISTANCE = 58;
+      const HORIZONTAL_BIAS = 1.15;
+      let active = false;
+      let fired = false;
+      let startX = 0;
+      let startY = 0;
+      let lastX = 0;
+      let lastY = 0;
+
+      const canPop = () =>
+        document.documentElement.getAttribute('data-muhajeer-can-pop') === '1';
+
+      const reset = () => {
+        active = false;
+        fired = false;
+        startX = 0;
+        startY = 0;
+        lastX = 0;
+        lastY = 0;
+      };
+
+      const maybeFire = () => {
+        if (!active || fired) return;
+        const dx = lastX - startX;
+        const dy = Math.abs(lastY - startY);
+        if (dx >= TRIGGER_DISTANCE && dx > dy * HORIZONTAL_BIAS) {
+          fired = true;
+          window.dispatchEvent(new CustomEvent('muhajeer-swipe-back'));
+        }
+      };
+
+      window.addEventListener('touchstart', (event) => {
+        if (!canPop() || event.touches.length !== 1) return;
+        const touch = event.touches[0];
+        if (touch.clientX > EDGE_WIDTH) return;
+
+        active = true;
+        fired = false;
+        startX = lastX = touch.clientX;
+        startY = lastY = touch.clientY;
+
+        // On iOS this prevents Safari from starting its native back/forward
+        // snapshot gesture. The event still propagates to Flutter.
+        event.preventDefault();
+      }, { passive: false, capture: true });
+
+      window.addEventListener('touchmove', (event) => {
+        if (!active || event.touches.length !== 1) return;
+        const touch = event.touches[0];
+        lastX = touch.clientX;
+        lastY = touch.clientY;
+        event.preventDefault();
+        maybeFire();
+      }, { passive: false, capture: true });
+
+      window.addEventListener('touchend', (event) => {
+        if (!active) return;
+        if (event.changedTouches.length > 0) {
+          const touch = event.changedTouches[0];
+          lastX = touch.clientX;
+          lastY = touch.clientY;
+        }
+        event.preventDefault();
+        maybeFire();
+        reset();
+      }, { passive: false, capture: true });
+
+      window.addEventListener('touchcancel', () => {
+        reset();
+      }, { capture: true });
+    })();
   </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>

@@ -56,6 +56,10 @@
   </main>
 <script>
 (() => {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/flutter_service_worker.js').catch(() => {});
+  }
+
   const ua = navigator.userAgent || '';
   const isIOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const isAndroid = /Android/i.test(ua);
@@ -112,7 +116,7 @@
   } else if (isAndroid) {
     btn.textContent = 'Android’ga o‘rnatish';
     hint.textContent = 'O‘rnatish tugmasi tayyorlanmoqda…';
-    setTimeout(() => { if (!deferredPrompt) showAndroidHelp(); }, 1600);
+    setTimeout(() => { if (!deferredPrompt) showAndroidHelp(); }, 1800);
   } else {
     hint.textContent = 'Android Chrome’da bir bosishda o‘rnatish ishlaydi. iPhone’da Safari → Ulashish → Home Screen orqali qo‘shiladi.';
   }

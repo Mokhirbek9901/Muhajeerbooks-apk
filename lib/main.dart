@@ -11,6 +11,7 @@ import 'catalog_resume.dart';
 import 'app_state_fixed.dart';
 import 'app_update_gate.dart';
 import 'auth_gate.dart';
+import 'cart_stock_alert.dart';
 import 'design_system.dart';
 import 'navigation_sync.dart';
 import 'store_ui.dart';
@@ -71,12 +72,14 @@ class MuhajeerBooksApp extends StatelessWidget {
         title: 'Muhajeer Books',
         debugShowCheckedModeBanner: false,
         theme: MuhajeerDesign.theme,
-        builder: (context, child) => BrowserBackSync(
-          navigatorKey: _navigatorKey,
-          observer: _navigatorObserver,
-          child: ColoredBox(
-            color: AppColors.background,
-            child: child ?? const SizedBox.shrink(),
+        builder: (context, child) => CartStockAlertBridge(
+          child: BrowserBackSync(
+            navigatorKey: _navigatorKey,
+            observer: _navigatorObserver,
+            child: ColoredBox(
+              color: AppColors.background,
+              child: child ?? const SizedBox.shrink(),
+            ),
           ),
         ),
         home: AppUpdateGate(

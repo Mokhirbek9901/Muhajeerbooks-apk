@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#F7F3EA">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="Muhajeer Books ilovasini telefon bosh ekraniga o‘rnating">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Muhajeer Books">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/icons/Icon-192.png">
+  <title>Muhajeer Books — Ilovani o‘rnatish</title>
+  <style>
+    :root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#173834;background:#f7f3ea}
+    *{box-sizing:border-box} body{margin:0;min-height:100vh;background:#f7f3ea;padding:calc(24px + env(safe-area-inset-top)) 18px calc(28px + env(safe-area-inset-bottom))}
+    .wrap{width:min(100%,520px);margin:0 auto}.card{background:#fff;border:1px solid #e8d8b7;border-radius:28px;padding:26px 22px;box-shadow:0 16px 44px rgba(28,56,51,.08)}
+    .brand{display:flex;align-items:center;gap:15px;margin-bottom:24px}.icon{width:72px;height:72px;border-radius:20px;border:1px solid #e7d4ad;background:#fff;display:grid;place-items:center;overflow:hidden}.icon img{width:100%;height:100%;object-fit:cover}.brand h1{font-size:25px;line-height:1.05;margin:0}.brand p{margin:6px 0 0;color:#746d61;font-weight:600}
+    h2{font-size:24px;margin:0 0 9px;line-height:1.22}.lead{font-size:16px;line-height:1.55;color:#5f625e;margin:0 0 22px}.btn{width:100%;border:0;border-radius:17px;padding:16px 18px;font-size:17px;font-weight:800;cursor:pointer;background:#0f6e65;color:#fff}.btn:disabled{opacity:.55}.secondary{display:block;margin-top:11px;text-align:center;text-decoration:none;background:#edf5f2;color:#0f6e65;border-radius:17px;padding:14px 16px;font-weight:800}
+    .steps{display:none;margin-top:20px;padding:18px;background:#fbf8f1;border:1px solid #eadfc8;border-radius:20px}.steps.show{display:block}.steps h3{margin:0 0 12px;font-size:18px}.step{display:flex;gap:12px;align-items:flex-start;margin:12px 0;color:#434a46;line-height:1.45}.n{flex:0 0 30px;height:30px;border-radius:50%;background:#dca83e;color:#173834;display:grid;place-items:center;font-weight:900}.hint{margin-top:16px;padding:12px 14px;border-radius:14px;background:#edf7f3;color:#275b51;font-size:14px;line-height:1.45}.warn{background:#fff4e8;color:#7c4d17}.small{text-align:center;color:#85837d;font-size:13px;line-height:1.45;margin:18px 8px 0}.ok{font-weight:800;color:#17765f}.share{font-size:21px;font-weight:900}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <div class="brand">
+        <div class="icon"><img src="/icons/Icon-192.png" alt="Muhajeer Books"></div>
+        <div><h1>Muhajeer Books</h1><p>Koreyadagi o‘zbek kitob do‘koni</p></div>
+      </div>
+      <h2 id="title">Ilovani bosh ekranga qo‘shing</h2>
+      <p class="lead" id="lead">Keyingi safar brauzerdan qidirmaysiz — Muhajeer Books telefoningizda oddiy ilovadek ochiladi.</p>
+      <button class="btn" id="installBtn">Bosh ekranga o‘rnatish</button>
+      <a class="secondary" href="/">Hozir ilovani ochish</a>
+
+      <div class="steps" id="iosSteps">
+        <h3>iPhone / iPad</h3>
+        <div class="step"><span class="n">1</span><span>Bu sahifani <b>Safari</b>da oching.</span></div>
+        <div class="step"><span class="n">2</span><span>Pastdagi <span class="share">□↑</span> <b>Ulashish</b> tugmasini bosing.</span></div>
+        <div class="step"><span class="n">3</span><span><b>“홈 화면에 추가” / “Add to Home Screen”</b> ni bosing.</span></div>
+        <div class="step"><span class="n">4</span><span>Yuqoridagi <b>“추가” / “Add”</b> ni bosing — tayyor.</span></div>
+      </div>
+
+      <div class="steps" id="androidSteps">
+        <h3>Android</h3>
+        <div class="step"><span class="n">1</span><span>Linkni <b>Chrome</b>da oching.</span></div>
+        <div class="step"><span class="n">2</span><span>Yuqoridagi <b>⋮</b> menyuni bosing.</span></div>
+        <div class="step"><span class="n">3</span><span><b>“앱 설치” / “Install app”</b> yoki <b>“홈 화면에 추가”</b> ni tanlang.</span></div>
+      </div>
+
+      <div class="hint" id="hint">Telefon turini aniqlayapman…</div>
+      <p class="small">Bir marta o‘rnatilgach, bosh ekrandagi Muhajeer Books belgisi orqali to‘g‘ridan-to‘g‘ri kirishingiz mumkin.</p>
+    </section>
+  </main>
+<script>
+(() => {
+  const ua = navigator.userAgent || '';
+  const isIOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = /Android/i.test(ua);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const btn = document.getElementById('installBtn');
+  const hint = document.getElementById('hint');
+  const iosSteps = document.getElementById('iosSteps');
+  const androidSteps = document.getElementById('androidSteps');
+  let deferredPrompt = null;
+
+  const showIOS = () => {
+    iosSteps.classList.add('show');
+    androidSteps.classList.remove('show');
+    btn.textContent = 'iPhone’da o‘rnatish yo‘li';
+    hint.className = 'hint';
+    hint.innerHTML = 'iPhone xavfsizlik qoidasi sabab sayt <b>bir bosishda</b> bosh ekranga qo‘sha olmaydi. Pastdagi 4 qadam bilan 10 soniyada qo‘shasiz.';
+  };
+
+  const showAndroidHelp = () => {
+    androidSteps.classList.add('show');
+    iosSteps.classList.remove('show');
+    hint.className = 'hint warn';
+    hint.innerHTML = 'Agar o‘rnatish oynasi avtomatik chiqmasa, Chrome menyusidagi <b>“Install app / 앱 설치”</b> ni bosing.';
+  };
+
+  if (isStandalone) {
+    btn.textContent = 'Ilova o‘rnatilgan — ochish';
+    hint.className = 'hint ok';
+    hint.textContent = 'Muhajeer Books allaqachon bosh ekranga o‘rnatilgan ✅';
+    btn.onclick = () => location.replace('/');
+    return;
+  }
+
+  window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    deferredPrompt = event;
+    if (isAndroid) {
+      btn.textContent = 'Android’ga o‘rnatish';
+      hint.className = 'hint';
+      hint.textContent = 'Tayyor. Pastdagi tugmani bosing — o‘rnatish oynasi ochiladi.';
+    }
+  });
+
+  window.addEventListener('appinstalled', () => {
+    deferredPrompt = null;
+    btn.textContent = 'O‘rnatildi ✅ — ilovani ochish';
+    hint.className = 'hint ok';
+    hint.textContent = 'Muhajeer Books bosh ekranga o‘rnatildi.';
+    btn.onclick = () => location.replace('/');
+  });
+
+  if (isIOS) {
+    showIOS();
+  } else if (isAndroid) {
+    btn.textContent = 'Android’ga o‘rnatish';
+    hint.textContent = 'O‘rnatish tugmasi tayyorlanmoqda…';
+    setTimeout(() => { if (!deferredPrompt) showAndroidHelp(); }, 1600);
+  } else {
+    hint.textContent = 'Android Chrome’da bir bosishda o‘rnatish ishlaydi. iPhone’da Safari → Ulashish → Home Screen orqali qo‘shiladi.';
+  }
+
+  btn.addEventListener('click', async () => {
+    if (isIOS) {
+      showIOS();
+      iosSteps.scrollIntoView({behavior:'smooth', block:'center'});
+      return;
+    }
+    if (deferredPrompt) {
+      const prompt = deferredPrompt;
+      deferredPrompt = null;
+      await prompt.prompt();
+      const choice = await prompt.userChoice.catch(() => null);
+      if (!choice || choice.outcome !== 'accepted') showAndroidHelp();
+      return;
+    }
+    showAndroidHelp();
+    androidSteps.scrollIntoView({behavior:'smooth', block:'center'});
+  });
+})();
+</script>
+</body>
+</html>

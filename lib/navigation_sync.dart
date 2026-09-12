@@ -34,13 +34,14 @@ class MuhajeerNavigatorObserver extends NavigatorObserver {
 
     _handlingBrowserPop = true;
     try {
-      // Safari has consumed the guard entry. Re-arm it immediately while the
-      // current document is still mounted, then pop only the Flutter route.
-      // The previous page therefore remains the same widget instance and keeps
-      // its exact ScrollController offset.
-      restoreBrowserHistoryGuard();
+      // Safari edge-swipe has already consumed the lightweight guard entry.
+      // Pop Flutter first, then wait until the resulting frame is painted before
+      // pushing the guard back. Re-arming history inside Safari's popstate turn
+      // can fight the native interactive swipe animation and cause a small
+      // freeze/snap on iPhone.
       await navigator.maybePop();
-      await Future<void>.delayed(Duration.zero);
+      await WidgetsBinding.instance.endOfFrame;
+      restoreBrowserHistoryGuard();
     } finally {
       _handlingBrowserPop = false;
     }

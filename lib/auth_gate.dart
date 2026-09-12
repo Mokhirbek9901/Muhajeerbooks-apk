@@ -5,7 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app_state.dart';
 import 'brand.dart';
 import 'design_system.dart';
-import 'store_ui.dart';
+import 'fast_store_shell.dart';
 
 class CustomerAuthGate extends StatefulWidget {
   const CustomerAuthGate({super.key});
@@ -69,7 +69,7 @@ class _CustomerAuthGateState extends State<CustomerAuthGate> {
     final state = context.watch<AppState>();
 
     // Faqat birinchi ochilishda, hali ko‘rsatishga katalog bo‘lmaganda loading
-    // ekranini ko‘rsatamiz. Fon refresh/realtime yangilanish vaqtida StoreShellni
+    // ekranini ko‘rsatamiz. Fon refresh/realtime yangilanish vaqtida shellni
     // unmount qilsak HomePage ScrollController yo‘qolib, foydalanuvchi tepaga
     // qaytib ketadi. Mavjud katalog bor ekan, shell va scroll holati joyida qoladi.
     if (state.loading && state.books.isEmpty) {
@@ -79,9 +79,9 @@ class _CustomerAuthGateState extends State<CustomerAuthGate> {
     _syncSavedCustomer(state);
 
     // Majburiy login yo‘q. Mijoz do‘konni darhol ko‘radi.
-    // Ism, telefon va manzil buyurtma paytida saqlanadi va keyingi safar
-    // shu qurilma/brauzerda avtomatik to‘ldiriladi.
-    return const StoreShell();
+    // FastStoreShell esa hali ochilmagan pastki bo‘limlarni birinchi paintda
+    // build qilmaydi; Android brauzerda start yengilroq bo‘ladi.
+    return const FastStoreShell();
   }
 }
 

@@ -13,14 +13,16 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/favicon.png">
   <link rel="apple-touch-icon" href="/icons/Icon-192.png">
-  <title>Muhajeer Books — Ilovani o‘rnatish</title>
+  <link rel="canonical" href="https://muhajeer-books-live-production.up.railway.app/install">
+  <title>Muhajeer Books — Install</title>
   <style>
-    :root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#173834;background:#f7f3ea}
-    *{box-sizing:border-box} body{margin:0;min-height:100vh;background:#f7f3ea;padding:calc(24px + env(safe-area-inset-top)) 18px calc(28px + env(safe-area-inset-bottom))}
-    .wrap{width:min(100%,520px);margin:0 auto}.card{background:#fff;border:1px solid #e8d8b7;border-radius:28px;padding:26px 22px;box-shadow:0 16px 44px rgba(28,56,51,.08)}
-    .brand{display:flex;align-items:center;gap:15px;margin-bottom:24px}.icon{width:72px;height:72px;border-radius:20px;border:1px solid #e7d4ad;background:#fff;display:grid;place-items:center;overflow:hidden}.icon img{width:100%;height:100%;object-fit:cover}.brand h1{font-size:25px;line-height:1.05;margin:0}.brand p{margin:6px 0 0;color:#746d61;font-weight:600}
-    h2{font-size:24px;margin:0 0 9px;line-height:1.22}.lead{font-size:16px;line-height:1.55;color:#5f625e;margin:0 0 22px}.btn{width:100%;border:0;border-radius:17px;padding:16px 18px;font-size:17px;font-weight:800;cursor:pointer;background:#0f6e65;color:#fff}.btn:disabled{opacity:.55}.secondary{display:block;margin-top:11px;text-align:center;text-decoration:none;background:#edf5f2;color:#0f6e65;border-radius:17px;padding:14px 16px;font-weight:800}
-    .steps{display:none;margin-top:20px;padding:18px;background:#fbf8f1;border:1px solid #eadfc8;border-radius:20px}.steps.show{display:block}.steps h3{margin:0 0 12px;font-size:18px}.step{display:flex;gap:12px;align-items:flex-start;margin:12px 0;color:#434a46;line-height:1.45}.n{flex:0 0 30px;height:30px;border-radius:50%;background:#dca83e;color:#173834;display:grid;place-items:center;font-weight:900}.hint{margin-top:16px;padding:12px 14px;border-radius:14px;background:#edf7f3;color:#275b51;font-size:14px;line-height:1.45}.warn{background:#fff4e8;color:#7c4d17}.small{text-align:center;color:#85837d;font-size:13px;line-height:1.45;margin:18px 8px 0}.ok{font-weight:800;color:#17765f}.share{font-size:21px;font-weight:900}
+    :root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans KR",Arial,sans-serif;color:#173834;background:#f7f3ea}
+    *{box-sizing:border-box} body{margin:0;min-height:100vh;background:#f7f3ea;padding:calc(18px + env(safe-area-inset-top)) 14px calc(24px + env(safe-area-inset-bottom))}
+    .wrap{width:min(100%,540px);margin:0 auto}.card{background:#fff;border:1px solid #e8d8b7;border-radius:26px;padding:22px 18px;box-shadow:0 16px 44px rgba(28,56,51,.08)}
+    .brand{display:flex;align-items:center;gap:14px}.icon{width:66px;height:66px;border-radius:18px;border:1px solid #e7d4ad;background:#fff;display:grid;place-items:center;overflow:hidden;flex:0 0 66px}.icon img{width:100%;height:100%;object-fit:cover}.brand h1{font-size:24px;line-height:1.05;margin:0}.brand p{margin:5px 0 0;color:#746d61;font-weight:600;font-size:14px}
+    .selectors{display:grid;gap:10px;margin:20px 0 18px}.selector-title{font-size:12px;font-weight:800;color:#8b8376;text-transform:uppercase;letter-spacing:.04em;margin-bottom:7px}.chips{display:flex;gap:7px;flex-wrap:wrap}.chip{border:1px solid #ded7ca;background:#f8f7f3;color:#34534f;border-radius:999px;padding:9px 12px;font-size:14px;font-weight:800;cursor:pointer}.chip.active{background:#173f3a;color:#fff;border-color:#173f3a}
+    h2{font-size:23px;margin:0 0 8px;line-height:1.2}.lead{font-size:15px;line-height:1.5;color:#5f625e;margin:0 0 18px}.btn{width:100%;border:0;border-radius:16px;padding:16px 18px;font-size:17px;font-weight:850;cursor:pointer;background:#0f6e65;color:#fff}.btn:disabled{opacity:.55}.secondary{display:block;margin-top:10px;text-align:center;text-decoration:none;background:#edf5f2;color:#0f6e65;border-radius:16px;padding:13px 16px;font-weight:800}
+    .steps{margin-top:18px;padding:16px;background:#fbf8f1;border:1px solid #eadfc8;border-radius:19px}.steps h3{margin:0 0 10px;font-size:18px}.step{display:flex;gap:11px;align-items:flex-start;margin:11px 0;color:#434a46;line-height:1.42;font-size:15px}.n{flex:0 0 28px;height:28px;border-radius:50%;background:#dca83e;color:#173834;display:grid;place-items:center;font-weight:900}.hint{margin-top:14px;padding:12px 13px;border-radius:14px;background:#edf7f3;color:#275b51;font-size:13.5px;line-height:1.42}.warn{background:#fff4e8;color:#7c4d17}.ok{font-weight:800;color:#17765f}.small{text-align:center;color:#85837d;font-size:12.5px;line-height:1.45;margin:16px 6px 0}.share{font-size:19px;font-weight:900}.device-note{display:flex;align-items:center;gap:8px;font-size:13px;color:#71695e;margin-top:10px}.dot{width:8px;height:8px;border-radius:50%;background:#36a37d;box-shadow:0 0 0 4px #e5f5ef}
   </style>
 </head>
 <body>
@@ -28,103 +30,157 @@
     <section class="card">
       <div class="brand">
         <div class="icon"><img src="/icons/Icon-192.png" alt="Muhajeer Books"></div>
-        <div><h1>Muhajeer Books</h1><p>Koreyadagi o‘zbek kitob do‘koni</p></div>
-      </div>
-      <h2 id="title">Ilovani bosh ekranga qo‘shing</h2>
-      <p class="lead" id="lead">Keyingi safar brauzerdan qidirmaysiz — Muhajeer Books telefoningizda oddiy ilovadek ochiladi.</p>
-      <button class="btn" id="installBtn">Bosh ekranga o‘rnatish</button>
-      <a class="secondary" href="/">Hozir ilovani ochish</a>
-
-      <div class="steps" id="iosSteps">
-        <h3>iPhone / iPad</h3>
-        <div class="step"><span class="n">1</span><span>Bu sahifani <b>Safari</b>da oching.</span></div>
-        <div class="step"><span class="n">2</span><span>Pastdagi <span class="share">□↑</span> <b>Ulashish</b> tugmasini bosing.</span></div>
-        <div class="step"><span class="n">3</span><span><b>“홈 화면에 추가” / “Add to Home Screen”</b> ni bosing.</span></div>
-        <div class="step"><span class="n">4</span><span>Yuqoridagi <b>“추가” / “Add”</b> ni bosing — tayyor.</span></div>
+        <div><h1>Muhajeer Books</h1><p id="tagline">Koreyadagi o‘zbek kitob do‘koni</p></div>
       </div>
 
-      <div class="steps" id="androidSteps">
-        <h3>Android</h3>
-        <div class="step"><span class="n">1</span><span>Linkni <b>Chrome</b>da oching.</span></div>
-        <div class="step"><span class="n">2</span><span>Yuqoridagi <b>⋮</b> menyuni bosing.</span></div>
-        <div class="step"><span class="n">3</span><span><b>“앱 설치” / “Install app”</b> yoki <b>“홈 화면에 추가”</b> ni tanlang.</span></div>
+      <div class="selectors">
+        <div>
+          <div class="selector-title" id="languageLabel">Til</div>
+          <div class="chips" id="languageChips">
+            <button class="chip" data-lang="uz">O‘zbekcha</button>
+            <button class="chip" data-lang="ru">Русский</button>
+            <button class="chip" data-lang="en">English</button>
+            <button class="chip" data-lang="ko">한국어</button>
+          </div>
+        </div>
+        <div>
+          <div class="selector-title" id="phoneLabel">Telefon</div>
+          <div class="chips" id="deviceChips">
+            <button class="chip" data-device="ios"> iPhone</button>
+            <button class="chip" data-device="android">Android</button>
+          </div>
+          <div class="device-note"><span class="dot"></span><span id="detectedText"></span></div>
+        </div>
       </div>
 
-      <div class="hint" id="hint">Telefon turini aniqlayapman…</div>
-      <p class="small">Bir marta o‘rnatilgach, bosh ekrandagi Muhajeer Books belgisi orqali to‘g‘ridan-to‘g‘ri kirishingiz mumkin.</p>
+      <h2 id="title"></h2>
+      <p class="lead" id="lead"></p>
+      <button class="btn" id="installBtn"></button>
+      <a class="secondary" href="/" id="openBtn"></a>
+
+      <div class="steps" id="steps">
+        <h3 id="stepsTitle"></h3>
+        <div id="stepsBody"></div>
+      </div>
+
+      <div class="hint" id="hint"></div>
+      <p class="small" id="small"></p>
     </section>
   </main>
 <script>
 (() => {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/flutter_service_worker.js').catch(() => {});
-  }
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/flutter_service_worker.js').catch(() => {});
+
+  const copy = {
+    uz: {
+      tagline:"Koreyadagi o‘zbek kitob do‘koni", language:"Til", phone:"Telefon", detected:"Telefon avtomatik aniqlandi:",
+      title:"Ilovani bosh ekranga qo‘shing", lead:"Bir marta o‘rnating — keyingi safar Muhajeer Books oddiy ilovadek bosh ekrandan ochiladi.",
+      open:"Hozir ilovani ochish", install:"Ilovani o‘rnatish", iosButton:"iPhone’da o‘rnatish yo‘li", installed:"O‘rnatilgan ✅ — ilovani ochish",
+      iosTitle:"iPhone / iPad", androidTitle:"Android",
+      iosSteps:["Bu sahifani <b>Safari</b>da oching.","<span class='share'>□↑</span> <b>Ulashish / Share</b> tugmasini bosing.","<b>“Add to Home Screen”</b> ni bosing.","Yuqoridagi <b>“Add”</b> ni bosing — tayyor."],
+      androidSteps:["Bu sahifani <b>Chrome</b>da oching.","Pastdagi <b>“Ilovani o‘rnatish”</b> tugmasini bosing.","Agar oyna chiqmasa: <b>⋮ → Install app / Add to Home screen</b> ni tanlang."],
+      iosHint:"iPhone xavfsizlik qoidasi sabab sayt o‘zini bir bosishda bosh ekranga qo‘sha olmaydi. Yuqoridagi 4 qadam bilan tez qo‘shiladi.",
+      androidReady:"Tayyor. “Ilovani o‘rnatish” tugmasini bosing.", androidHelp:"Agar o‘rnatish oynasi chiqmasa, Chrome menyusidan <b>Install app / Add to Home screen</b> ni tanlang.",
+      already:"Muhajeer Books allaqachon bosh ekranga o‘rnatilgan ✅", small:"Bosh ekranga qo‘shilgach, Muhajeer Books belgisi orqali to‘g‘ridan-to‘g‘ri kirishingiz mumkin."
+    },
+    ru: {
+      tagline:"Узбекский книжный магазин в Корее", language:"Язык", phone:"Телефон", detected:"Телефон определён автоматически:",
+      title:"Добавьте приложение на главный экран", lead:"Установите один раз — затем Muhajeer Books будет открываться с главного экрана как обычное приложение.",
+      open:"Открыть приложение", install:"Установить приложение", iosButton:"Как установить на iPhone", installed:"Установлено ✅ — открыть",
+      iosTitle:"iPhone / iPad", androidTitle:"Android",
+      iosSteps:["Откройте эту страницу в <b>Safari</b>.","Нажмите <span class='share'>□↑</span> <b>«Поделиться»</b>.","Выберите <b>«На экран «Домой»»</b>.","Нажмите <b>«Добавить»</b> — готово."],
+      androidSteps:["Откройте эту страницу в <b>Chrome</b>.","Нажмите кнопку <b>«Установить приложение»</b> ниже.","Если окно не появилось: <b>⋮ → «Установить приложение» / «Добавить на главный экран»</b>."],
+      iosHint:"iPhone не разрешает сайту автоматически добавить себя на главный экран. Используйте 4 шага выше.",
+      androidReady:"Готово. Нажмите «Установить приложение».", androidHelp:"Если окно установки не появилось, откройте меню Chrome и выберите <b>«Установить приложение»</b> или <b>«Добавить на главный экран»</b>.",
+      already:"Muhajeer Books уже установлен на главном экране ✅", small:"После установки открывайте Muhajeer Books прямо с иконки на главном экране."
+    },
+    en: {
+      tagline:"Uzbek bookstore in Korea", language:"Language", phone:"Phone", detected:"Phone detected automatically:",
+      title:"Add the app to your Home Screen", lead:"Install it once — next time Muhajeer Books opens from your Home Screen like a regular app.",
+      open:"Open app now", install:"Install app", iosButton:"How to install on iPhone", installed:"Installed ✅ — open app",
+      iosTitle:"iPhone / iPad", androidTitle:"Android",
+      iosSteps:["Open this page in <b>Safari</b>.","Tap <span class='share'>□↑</span> <b>Share</b>.","Tap <b>Add to Home Screen</b>.","Tap <b>Add</b> — done."],
+      androidSteps:["Open this page in <b>Chrome</b>.","Tap <b>Install app</b> below.","If no prompt appears: <b>⋮ → Install app / Add to Home screen</b>."],
+      iosHint:"iPhone does not allow a website to add itself to the Home Screen automatically. Use the 4 steps above.",
+      androidReady:"Ready. Tap “Install app”.", androidHelp:"If the install prompt does not appear, open the Chrome menu and choose <b>Install app</b> or <b>Add to Home screen</b>.",
+      already:"Muhajeer Books is already installed on your Home Screen ✅", small:"After installation, open Muhajeer Books directly from its Home Screen icon."
+    },
+    ko: {
+      tagline:"한국의 우즈베크어 서점", language:"언어", phone:"휴대폰", detected:"휴대폰이 자동으로 감지되었습니다:",
+      title:"홈 화면에 앱을 추가하세요", lead:"한 번 설치하면 다음부터 Muhajeer Books를 일반 앱처럼 홈 화면에서 바로 열 수 있습니다.",
+      open:"지금 앱 열기", install:"앱 설치", iosButton:"iPhone 설치 방법", installed:"설치됨 ✅ — 앱 열기",
+      iosTitle:"iPhone / iPad", androidTitle:"Android",
+      iosSteps:["이 페이지를 <b>Safari</b>에서 여세요.","<span class='share'>□↑</span> <b>공유</b> 버튼을 누르세요.","<b>“홈 화면에 추가”</b>를 누르세요.","오른쪽 위의 <b>“추가”</b>를 누르면 완료됩니다."],
+      androidSteps:["이 페이지를 <b>Chrome</b>에서 여세요.","아래의 <b>“앱 설치”</b> 버튼을 누르세요.","설치 창이 안 뜨면 <b>⋮ → 앱 설치 / 홈 화면에 추가</b>를 선택하세요."],
+      iosHint:"iPhone에서는 웹사이트가 자동으로 홈 화면에 추가될 수 없습니다. 위 4단계를 따라 주세요.",
+      androidReady:"준비되었습니다. “앱 설치” 버튼을 누르세요.", androidHelp:"설치 창이 안 뜨면 Chrome 메뉴에서 <b>앱 설치</b> 또는 <b>홈 화면에 추가</b>를 선택하세요.",
+      already:"Muhajeer Books가 이미 홈 화면에 설치되어 있습니다 ✅", small:"설치 후 홈 화면의 Muhajeer Books 아이콘으로 바로 들어갈 수 있습니다."
+    }
+  };
 
   const ua = navigator.userAgent || '';
-  const isIOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const isAndroid = /Android/i.test(ua);
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-  const btn = document.getElementById('installBtn');
-  const hint = document.getElementById('hint');
-  const iosSteps = document.getElementById('iosSteps');
-  const androidSteps = document.getElementById('androidSteps');
+  const detectedDevice = (/iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) ? 'ios' : 'android';
+  const langPrefix = (navigator.language || 'uz').toLowerCase().slice(0,2);
+  let lang = ['uz','ru','en','ko'].includes(langPrefix) ? langPrefix : 'uz';
+  let device = detectedDevice;
   let deferredPrompt = null;
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 
-  const showIOS = () => {
-    iosSteps.classList.add('show');
-    androidSteps.classList.remove('show');
-    btn.textContent = 'iPhone’da o‘rnatish yo‘li';
-    hint.className = 'hint';
-    hint.innerHTML = 'iPhone xavfsizlik qoidasi sabab sayt <b>bir bosishda</b> bosh ekranga qo‘sha olmaydi. Pastdagi 4 qadam bilan 10 soniyada qo‘shasiz.';
+  const $ = id => document.getElementById(id);
+  const render = () => {
+    const t = copy[lang];
+    document.documentElement.lang = lang;
+    $('tagline').textContent = t.tagline;
+    $('languageLabel').textContent = t.language;
+    $('phoneLabel').textContent = t.phone;
+    $('detectedText').textContent = `${t.detected} ${detectedDevice === 'ios' ? 'iPhone' : 'Android'}`;
+    $('title').textContent = t.title;
+    $('lead').textContent = t.lead;
+    $('openBtn').textContent = t.open;
+    $('small').textContent = t.small;
+    document.querySelectorAll('[data-lang]').forEach(el => el.classList.toggle('active', el.dataset.lang === lang));
+    document.querySelectorAll('[data-device]').forEach(el => el.classList.toggle('active', el.dataset.device === device));
+
+    const steps = device === 'ios' ? t.iosSteps : t.androidSteps;
+    $('stepsTitle').textContent = device === 'ios' ? t.iosTitle : t.androidTitle;
+    $('stepsBody').innerHTML = steps.map((s,i)=>`<div class="step"><span class="n">${i+1}</span><span>${s}</span></div>`).join('');
+
+    if (isStandalone) {
+      $('installBtn').textContent = t.installed;
+      $('hint').className = 'hint ok';
+      $('hint').textContent = t.already;
+      return;
+    }
+    if (device === 'ios') {
+      $('installBtn').textContent = t.iosButton;
+      $('hint').className = 'hint';
+      $('hint').textContent = t.iosHint;
+    } else {
+      $('installBtn').textContent = t.install;
+      $('hint').className = deferredPrompt ? 'hint' : 'hint warn';
+      $('hint').innerHTML = deferredPrompt ? t.androidReady : t.androidHelp;
+    }
   };
 
-  const showAndroidHelp = () => {
-    androidSteps.classList.add('show');
-    iosSteps.classList.remove('show');
-    hint.className = 'hint warn';
-    hint.innerHTML = 'Agar o‘rnatish oynasi avtomatik chiqmasa, Chrome menyusidagi <b>“Install app / 앱 설치”</b> ni bosing.';
-  };
+  document.querySelectorAll('[data-lang]').forEach(el => el.addEventListener('click', () => { lang = el.dataset.lang; render(); }));
+  document.querySelectorAll('[data-device]').forEach(el => el.addEventListener('click', () => { device = el.dataset.device; render(); }));
 
-  if (isStandalone) {
-    btn.textContent = 'Ilova o‘rnatilgan — ochish';
-    hint.className = 'hint ok';
-    hint.textContent = 'Muhajeer Books allaqachon bosh ekranga o‘rnatilgan ✅';
-    btn.onclick = () => location.replace('/');
-    return;
-  }
-
-  window.addEventListener('beforeinstallprompt', (event) => {
+  window.addEventListener('beforeinstallprompt', event => {
     event.preventDefault();
     deferredPrompt = event;
-    if (isAndroid) {
-      btn.textContent = 'Android’ga o‘rnatish';
-      hint.className = 'hint';
-      hint.textContent = 'Tayyor. Pastdagi tugmani bosing — o‘rnatish oynasi ochiladi.';
-    }
+    if (device === 'android') render();
   });
 
   window.addEventListener('appinstalled', () => {
     deferredPrompt = null;
-    btn.textContent = 'O‘rnatildi ✅ — ilovani ochish';
-    hint.className = 'hint ok';
-    hint.textContent = 'Muhajeer Books bosh ekranga o‘rnatildi.';
-    btn.onclick = () => location.replace('/');
+    render();
   });
 
-  if (isIOS) {
-    showIOS();
-  } else if (isAndroid) {
-    btn.textContent = 'Android’ga o‘rnatish';
-    hint.textContent = 'O‘rnatish tugmasi tayyorlanmoqda…';
-    setTimeout(() => { if (!deferredPrompt) showAndroidHelp(); }, 1800);
-  } else {
-    hint.textContent = 'Android Chrome’da bir bosishda o‘rnatish ishlaydi. iPhone’da Safari → Ulashish → Home Screen orqali qo‘shiladi.';
-  }
-
-  btn.addEventListener('click', async () => {
-    if (isIOS) {
-      showIOS();
-      iosSteps.scrollIntoView({behavior:'smooth', block:'center'});
+  $('installBtn').addEventListener('click', async () => {
+    const t = copy[lang];
+    if (isStandalone) { location.replace('/'); return; }
+    if (device === 'ios') {
+      $('steps').scrollIntoView({behavior:'smooth', block:'center'});
       return;
     }
     if (deferredPrompt) {
@@ -132,12 +188,16 @@
       deferredPrompt = null;
       await prompt.prompt();
       const choice = await prompt.userChoice.catch(() => null);
-      if (!choice || choice.outcome !== 'accepted') showAndroidHelp();
-      return;
+      if (!choice || choice.outcome !== 'accepted') {
+        $('hint').className = 'hint warn';
+        $('hint').innerHTML = t.androidHelp;
+      }
+    } else {
+      $('steps').scrollIntoView({behavior:'smooth', block:'center'});
     }
-    showAndroidHelp();
-    androidSteps.scrollIntoView({behavior:'smooth', block:'center'});
   });
+
+  render();
 })();
 </script>
 </body>

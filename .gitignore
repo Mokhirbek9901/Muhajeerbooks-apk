@@ -16,6 +16,34 @@ android/.gradle/
 ios/Pods/
 macos/Pods/
 
+# Local environment / secrets
+.env
+.env.*
+!.env.example
+*.secret
+*.secrets
+secrets/
+**/secrets/
+
+# Private keys / certificates
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+
+# Android signing files
+key.properties
+android/key.properties
+*.jks
+*.keystore
+
+# Service account / credential files
+service-account*.json
+service_account*.json
+credentials*.json
+
 # OS
 .DS_Store
 Thumbs.db

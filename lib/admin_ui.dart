@@ -2290,7 +2290,23 @@ class _BooksAdmin extends StatefulWidget {
 
 class _BooksAdminState extends State<_BooksAdmin> {
   String query = '';
+  String filter = 'all';
   late Future<List<Book>> future;
+
+  bool _matchesFilter(Book book) {
+    switch (filter) {
+      case 'missing_image':
+        return book.galleryImages.isEmpty;
+      case 'missing_cost':
+        return book.costPrice <= 0;
+      case 'active':
+        return book.isActive;
+      case 'hidden':
+        return !book.isActive;
+      default:
+        return true;
+    }
+  }
 
   @override
   void initState() {
@@ -2360,12 +2376,17 @@ class _BooksAdminState extends State<_BooksAdmin> {
         final books = all
             .where(
               (b) =>
-                  q.isEmpty ||
-                  b.title.toLowerCase().contains(q) ||
-                  b.author.toLowerCase().contains(q),
+                  _matchesFilter(b) &&
+                  (q.isEmpty ||
+                      b.title.toLowerCase().contains(q) ||
+                      b.author.toLowerCase().contains(q)),
             )
             .toList();
         final totalStock = all.fold<int>(0, (s, b) => s + b.stock);
+        final missingImages = all.where((b) => b.galleryImages.isEmpty).length;
+        final missingCost = all.where((b) => b.costPrice <= 0).length;
+        final activeBooks = all.where((b) => b.isActive).length;
+        final hiddenBooks = all.where((b) => !b.isActive).length;
         return Column(
           children: [
             Padding(
@@ -2376,16 +2397,36 @@ class _BooksAdminState extends State<_BooksAdmin> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _MiniStat(label: 'Kitob', value: '${all.length}'),
+                      _MiniStat(
+                        label: 'Kitob',
+                        value: '${all.length}',
+                        selected: filter == 'all',
+                        onTap: () => setState(() => filter = 'all'),
+                      ),
                       _MiniStat(label: 'Ombor', value: '$totalStock dona'),
                       _MiniStat(
-                        label: 'Rasmli',
-                        value:
-                            '${all.where((b) => b.imageUrl.isNotEmpty).length}',
+                        label: 'Rasm yuklanmagan',
+                        value: '$missingImages',
+                        selected: filter == 'missing_image',
+                        onTap: () => setState(() => filter = 'missing_image'),
                       ),
                       _MiniStat(
-                        label: 'Kam qolgan',
-                        value: '${all.where((b) => b.stock <= 2).length}',
+                        label: 'Tan narxi kiritilmagan',
+                        value: '$missingCost',
+                        selected: filter == 'missing_cost',
+                        onTap: () => setState(() => filter = 'missing_cost'),
+                      ),
+                      _MiniStat(
+                        label: 'Sotuvda ko‘rsatilgan',
+                        value: '$activeBooks',
+                        selected: filter == 'active',
+                        onTap: () => setState(() => filter = 'active'),
+                      ),
+                      _MiniStat(
+                        label: 'Sotuvda ko‘rsatilmagan',
+                        value: '$hiddenBooks',
+                        selected: filter == 'hidden',
+                        onTap: () => setState(() => filter = 'hidden'),
                       ),
                     ],
                   ),
@@ -2424,6 +2465,15 @@ class _BooksAdminState extends State<_BooksAdmin> {
               const Expanded(child: Center(child: CircularProgressIndicator()))
             else if (snap.hasError)
               Expanded(child: Center(child: Text('Xatolik: ${snap.error}')))
+            else if (books.isEmpty)
+              const Expanded(
+                child: Center(
+                  child: Text(
+                    'Bu bo‘limda kitob topilmadi.',
+                    style: TextStyle(color: AppColors.muted),
+                  ),
+                ),
+              )
             else
               Expanded(
                 child: ListView.separated(
@@ -2506,23 +2556,47 @@ class _AdminBookThumb extends StatelessWidget {
 }
 
 class _MiniStat extends StatelessWidget {
-  const _MiniStat({required this.label, required this.value});
+  const _MiniStat({
+    required this.label,
+    required this.value,
+    this.onTap,
+    this.selected = false,
+  });
   final String label;
   final String value;
+  final VoidCallback? onTap;
+  final bool selected;
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE7E9ED)),
+  Widget build(BuildContext context) {
+    final child = AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: selected ? AppColors.navy : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: selected ? AppColors.navy : const Color(0xFFE7E9ED),
         ),
-        child: Text(
-          '$label: $value',
-          style: const TextStyle(fontWeight: FontWeight.w800),
+      ),
+      child: Text(
+        '$label: $value',
+        style: TextStyle(
+          fontWeight: FontWeight.w800,
+          color: selected ? Colors.white : null,
         ),
-      );
+      ),
+    );
+    if (onTap == null) return child;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: child,
+      ),
+    );
+  }
 }
 
 class _BookForm extends StatefulWidget {

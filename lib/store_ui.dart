@@ -2685,10 +2685,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Future<void> _pickPaymentProof() async {
+    // To‘lov skrinshotini tanlash paytida avtomatik yengillashtiramiz.
+    // Matn o‘qiladigan darajada qoladi, lekin odatiy telefon skrinshotlari
+    // 7 MB yuklash limitidan ancha past bo‘lib qoladi.
     final file = await picker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 88,
-      maxWidth: 1800,
+      imageQuality: 76,
+      maxWidth: 1440,
+      maxHeight: 2400,
     );
     if (file == null || !mounted) return;
     setState(() => paymentProof = file);

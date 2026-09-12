@@ -3,9 +3,7 @@ WORKDIR /app
 COPY . .
 RUN flutter create . --platforms=web
 RUN flutter pub get
-# Wasm gives modern Android Chrome a faster renderer. Flutter also emits the
-# JavaScript fallback, so browsers without WasmGC keep working normally.
-RUN flutter build web --release --wasm
+RUN flutter build web --release
 
 FROM nginx:alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf

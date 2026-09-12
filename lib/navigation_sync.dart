@@ -6,6 +6,7 @@ import 'browser_history.dart';
 
 class MuhajeerNavigatorObserver extends NavigatorObserver {
   bool _handlingBrowserPop = false;
+  Timer? _guardRestoreTimer;
 
   bool _managed(Route<dynamic> route) =>
       (route.settings.name ?? '').startsWith('mb:');
@@ -23,9 +24,8 @@ class MuhajeerNavigatorObserver extends NavigatorObserver {
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPop(route, previousRoute);
-    // Important: do NOT call browser history.back() here.
-    // Flutter's own back button must only pop the Flutter route. Moving browser
-    // history too caused iPhone Safari to reload and reset the catalogue scroll.
+    // Flutter's own back button only pops Flutter. Browser history is moved only
+    // by Safari's native edge swipe, never by the in-app back button.
   }
 
   Future<void> handleBrowserPop(NavigatorState navigator) async {
@@ -34,14 +34,20 @@ class MuhajeerNavigatorObserver extends NavigatorObserver {
 
     _handlingBrowserPop = true;
     try {
-      // Safari edge-swipe has already consumed the lightweight guard entry.
-      // Pop Flutter first, then wait until the resulting frame is painted before
-      // pushing the guard back. Re-arming history inside Safari's popstate turn
-      // can fight the native interactive swipe animation and cause a small
-      // freeze/snap on iPhone.
+      // Show the previous Flutter screen immediately when Safari finishes the
+      // edge swipe. Do NOT push a new history entry while Safari is still
+      // completing its native interactive animation: on iPhone that can expose
+      // Safari's blank page snapshot for a moment (white/cream flash).
       await navigator.maybePop();
-      await WidgetsBinding.instance.endOfFrame;
-      restoreBrowserHistoryGuard();
+
+      // Re-arm the single guard only after Safari's own animation has settled.
+      // pushState itself is invisible once the gesture is over, so the user sees
+      // the previous screen continuously instead of a blank frame first.
+      _guardRestoreTimer?.cancel();
+      _guardRestoreTimer = Timer(
+        const Duration(milliseconds: 320),
+        restoreBrowserHistoryGuard,
+      );
     } finally {
       _handlingBrowserPop = false;
     }

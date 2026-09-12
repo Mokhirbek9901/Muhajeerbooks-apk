@@ -1,0 +1,30 @@
+name: Apply finance inventory cost card
+
+on:
+  push:
+    paths:
+      - 'finance_inventory_cost_trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply finance inventory cost patch
+        run: python3 tools/finance_inventory_cost_patch.py
+      - name: Commit source update
+        run: |
+          git config user.name "Mokhirbek9901"
+          git config user.email "ismoilovmokhirbek@gmail.com"
+          git add lib/finance_admin.dart
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Show current inventory cost in finance"
+          git push origin main

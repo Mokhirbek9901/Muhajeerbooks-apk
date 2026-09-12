@@ -42,6 +42,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
   Map<String, dynamic> report = <String, dynamic>{};
   List<Map<String, dynamic>> expenses = <Map<String, dynamic>>[];
   int inventoryStockCost = 0;
+  int allTimeSoldCost = 0;
 
   static const periodLabels = <String, String>{
     'today': 'Bugun',
@@ -149,11 +150,19 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
           'admin_list_books',
           params: {'p_secret': widget.secret},
         ),
+        client.rpc(
+          'admin_finance_report',
+          params: {'p_secret': widget.secret, 'p_period': 'all'},
+        ),
       ]);
       if (!mounted) return;
       final rawReport = result[0];
       final rawExpenses = result[1];
       final rawBooks = result[2];
+      final rawAllReport = result[3];
+      final soldCostAll = rawAllReport is Map
+          ? ((rawAllReport['cost_of_goods'] as num?)?.round() ?? 0)
+          : 0;
       var stockCost = 0;
       if (rawBooks is List) {
         for (final row in rawBooks.whereType<Map>()) {
@@ -175,6 +184,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                 .toList()
             : <Map<String, dynamic>>[];
         inventoryStockCost = stockCost;
+        allTimeSoldCost = soldCostAll;
         loading = false;
       });
     } catch (e) {
@@ -609,7 +619,9 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                   _FinanceCard(
                     title: 'Ombor tan narxi',
                     value: _financeWon(inventoryStockCost),
-                    subtitle: 'Hozir omborda bor kitoblarning jami tannarxi',
+                    subtitle:
+                        'Hozir omborda bor kitoblarning jami tannarxi\n'
+                        'Sotilgan kitoblar bilan birga jami: ${_financeWon(inventoryStockCost + allTimeSoldCost)}',
                     icon: Icons.inventory_2_outlined,
                   ),
                   _FinanceCard(

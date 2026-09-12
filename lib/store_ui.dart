@@ -12,6 +12,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'admin_ui.dart';
 import 'app_state.dart';
 import 'brand.dart';
+import 'catalog_resume.dart';
 import 'book_image_viewer.dart';
 import 'design_system.dart';
 import 'uzbek_customer_style.dart';
@@ -33,8 +34,10 @@ final Map<String, double> _scrollMemory = <String, double>{};
 /// reload'lar orasida scroll joyini saqlaydi.
 class _PersistentScrollController extends ScrollController {
   _PersistentScrollController(this.storageKey)
-      : super(initialScrollOffset: _scrollMemory[storageKey] ?? 0) {
+      : super(initialScrollOffset: _scrollMemory[storageKey] ?? 0,
+              keepScrollOffset: false) {
     addListener(_capture);
+    CatalogResume.instance.addListener(_resetAfterAbsence);
     unawaited(_loadSaved());
   }
 
@@ -45,6 +48,20 @@ class _PersistentScrollController extends ScrollController {
   bool _restoring = false;
   bool _userMoved = false;
   bool _disposed = false;
+
+  void _resetAfterAbsence() {
+    _saveTimer?.cancel();
+    _pendingRestore = null;
+    _userMoved = true;
+    _scrollMemory.clear();
+    if (hasClients) {
+      _restoring = true;
+      for (final position in positions) {
+        position.jumpTo(0);
+      }
+      _restoring = false;
+    }
+  }
 
   void _capture() {
     if (_disposed || _restoring || !hasClients) return;
@@ -123,6 +140,7 @@ class _PersistentScrollController extends ScrollController {
 
   @override
   void dispose() {
+    CatalogResume.instance.removeListener(_resetAfterAbsence);
     _disposed = true;
     _saveTimer?.cancel();
     if (hasClients) {

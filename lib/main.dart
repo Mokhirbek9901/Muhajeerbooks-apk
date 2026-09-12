@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'admin_ui.dart';
 import 'app_state.dart';
+import 'catalog_resume.dart';
 import 'app_state_fixed.dart';
 import 'app_update_gate.dart';
 import 'auth_gate.dart';
@@ -19,6 +20,7 @@ import 'store_ui.dart';
 // saqlanadi, live baza esa AppState ichida fon rejimida yangilanadi.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await CatalogResume.instance.initialize();
 
   const definedSupabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
   const liveSupabaseUrl = 'https://rytfhjvhjxnbhgitowho.supabase.co';

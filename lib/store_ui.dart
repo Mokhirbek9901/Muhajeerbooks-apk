@@ -13,6 +13,7 @@ import 'admin_ui.dart';
 import 'app_state.dart';
 import 'brand.dart';
 import 'book_links.dart';
+import 'book_story_page.dart';
 import 'book_share_platform.dart';
 import 'catalog_resume.dart';
 import 'book_image_viewer.dart';
@@ -1840,13 +1841,24 @@ Future<void> _shareBook(BuildContext context, Book book) async {
     builder: (sheetContext) => SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-        child: Column(
+        child: SingleChildScrollView(child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(book.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             const SizedBox(height: 8),
             const Text('Havolani ochgan odam aynan shu kitobni ko‘radi.'),
+            ListTile(
+              leading: const Icon(Icons.add_photo_alternate_outlined),
+              title: const Text('Instagram story tayyorlash'),
+              subtitle: const Text('Kitob rasmi, narxi va buyurtma havolasi'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                Navigator.of(context).push(muhajeerPageRoute<void>(
+                  builder: (_) => BookStoryPage(book: book),
+                ));
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.copy_rounded),
               title: const Text('Havolani nusxalash'),
@@ -1894,7 +1906,7 @@ Future<void> _shareBook(BuildContext context, Book book) async {
               },
             ),
           ],
-        ),
+        )),
       ),
     ),
   );

@@ -19,3 +19,11 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze --no-fatal-warnings --no-fatal-infos
       - run: flutter test
+      - name: Upload story previews and resolved dependencies
+        uses: actions/upload-artifact@v4
+        with:
+          name: story-preview
+          path: |
+            build/test-artifacts/*.png
+            pubspec.lock
+          retention-days: 7

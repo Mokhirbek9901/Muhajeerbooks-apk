@@ -49,6 +49,7 @@ void main() {
     await tester.tap(find.byTooltip('Kitobni ulashish'));
     await tester.pumpAndSettle();
     expect(find.text('Havolani nusxalash'), findsOneWidget);
+    expect(find.text('Instagram story tayyorlash'), findsOneWidget);
     expect(find.text('Telegram orqali yuborish'), findsOneWidget);
     final navigator = tester.state<NavigatorState>(find.byType(Navigator));
     navigator.pop();

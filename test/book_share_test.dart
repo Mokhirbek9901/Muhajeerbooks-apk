@@ -23,9 +23,11 @@ void main() {
   test('shared link points to the public book without admin parameters', () {
     final link = bookShareLink(id);
     expect(link.scheme, 'https');
-    expect(link.queryParameters, {'book': id});
+    expect(link.path, '/share/$id');
+    expect(link.queryParameters, isEmpty);
     expect(link.fragment, isEmpty);
     expect(sharedBookId(link), id);
+    expect(sharedBookId(Uri.parse('$bookShareOrigin/?book=$id')), id);
     expect(sharedBookId(Uri.parse('$bookShareOrigin/?book=invalid')), isNull);
     expect(sharedBookId(Uri.parse(bookShareOrigin)), isNull);
   });

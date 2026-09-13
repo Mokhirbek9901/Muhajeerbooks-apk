@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'lib/**'
+      - 'test/**'
       - 'web/**'
       - 'pubspec.yaml'
       - 'assets/**'
@@ -179,3 +180,4 @@ jobs:
 # 2026-09-11: Android release host supports Face ID / biometric admin unlock
 # 2026-09-11: web passkey files trigger the same verified web + APK pipeline
 # 2026-09-11: concurrent/stale builds cannot overwrite the latest APK release
+# 2026-09-14: test changes also trigger the verified web + APK pipeline

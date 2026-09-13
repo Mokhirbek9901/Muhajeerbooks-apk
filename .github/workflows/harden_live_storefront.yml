@@ -1,0 +1,36 @@
+name: Harden live storefront
+
+on:
+  push:
+    paths:
+      - 'harden_live_storefront_trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply hardening patch
+        run: python3 tools/harden_live_storefront.py
+      - name: Validate patched source
+        run: |
+          grep -q "_storefrontBookColumns" lib/app_state.dart
+          grep -q "Duration(seconds: 15)" lib/admin_ui.dart
+          grep -q "book-share-preview" nginx.conf
+          ! grep -q "flutter create . --platforms=web" Dockerfile
+      - name: Commit source update
+        run: |
+          git config user.name "Mokhirbek9901"
+          git config user.email "ismoilovmokhirbek@gmail.com"
+          git add lib/app_state.dart lib/admin_ui.dart lib/book_links.dart web/index.html nginx.conf Dockerfile
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Harden storefront privacy and reduce admin load"
+          git push origin main

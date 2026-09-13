@@ -1,0 +1,7 @@
+verified_at=2026-09-13T14:57:26Z
+root=200
+apple_icon=200
+apple_precomposed=200
+share_preview=200
+public_catalog=200
+cost_price_public=401

@@ -2339,6 +2339,19 @@ class _BooksAdminState extends State<_BooksAdmin> {
 
   bool _missingImage(Book book) => book.galleryImages.isEmpty;
 
+  bool _missingDescription(Book book) {
+    final value = book.description
+        .trim()
+        .toLowerCase()
+        .replaceAll('’', "'")
+        .replaceAll('`', "'")
+        .replaceAll('.', '')
+        .replaceAll(RegExp(r'\s+'), ' ');
+    return value.isEmpty ||
+        value == "ma'lumot kiritilmagan" ||
+        value == 'tavsif kiritilmagan';
+  }
+
   bool _missingAuthor(Book book) {
     final value = book.author.trim().toLowerCase();
     return value.isEmpty ||
@@ -2380,6 +2393,7 @@ class _BooksAdminState extends State<_BooksAdmin> {
 
   bool _hasProblem(Book book) =>
       _missingImage(book) ||
+      _missingDescription(book) ||
       book.costPrice <= 0 ||
       _invalidImage(book) ||
       _missingAuthor(book) ||
@@ -2398,6 +2412,8 @@ class _BooksAdminState extends State<_BooksAdmin> {
     switch (filter) {
       case 'missing_image':
         return _missingImage(book);
+      case 'missing_description':
+        return _missingDescription(book);
       case 'missing_cost':
         return book.costPrice <= 0;
       case 'active':
@@ -2648,6 +2664,7 @@ class _BooksAdminState extends State<_BooksAdmin> {
             .toList();
         final totalStock = all.fold<int>(0, (s, b) => s + b.stock);
         final missingImages = all.where(_missingImage).length;
+        final missingDescriptions = all.where(_missingDescription).length;
         final missingCost = all.where((b) => b.costPrice <= 0).length;
         final activeBooks = all.where((b) => b.isActive).length;
         final hiddenBooks = all.where((b) => !b.isActive).length;
@@ -2677,6 +2694,12 @@ class _BooksAdminState extends State<_BooksAdmin> {
                         value: '$missingImages',
                         selected: filter == 'missing_image',
                         onTap: () => setState(() => filter = 'missing_image'),
+                      ),
+                      _MiniStat(
+                        label: 'Tarifsiz',
+                        value: '$missingDescriptions',
+                        selected: filter == 'missing_description',
+                        onTap: () => setState(() => filter = 'missing_description'),
                       ),
                       _MiniStat(
                         label: 'Tan narxi kiritilmagan',

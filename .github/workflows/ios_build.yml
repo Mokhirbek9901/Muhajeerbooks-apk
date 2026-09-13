@@ -50,10 +50,15 @@ jobs:
           )
           text = re.sub(
               r'IPHONEOS_DEPLOYMENT_TARGET = [^;]+;',
-              'IPHONEOS_DEPLOYMENT_TARGET = 13.0;',
+              'IPHONEOS_DEPLOYMENT_TARGET = 15.0;',
               text,
           )
           project.write_text(text, encoding='utf-8')
+
+          podfile = Path('ios/Podfile')
+          podtext = podfile.read_text(encoding='utf-8')
+          podtext = re.sub(r"^#?\\s*platform :ios, '[^']+'", "platform :ios, '15.0'", podtext, flags=re.M)
+          podfile.write_text(podtext, encoding='utf-8')
 
           plist_path = Path('ios/Runner/Info.plist')
           with plist_path.open('rb') as f:

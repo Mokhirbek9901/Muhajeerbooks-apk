@@ -3651,8 +3651,18 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
       builder: (context, snap) {
         final all = snap.data ?? const <ShopOrder>[];
         final q = query.trim().toLowerCase();
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final yesterday = today.subtract(const Duration(days: 1));
         final orders = all.where((o) {
-          final matchStatus = filter == 'all' || o.status == filter;
+          final created = o.createdAt.toLocal();
+          final orderDay = DateTime(created.year, created.month, created.day);
+          final matchStatus = switch (filter) {
+            'all' => o.status != 'cancelled',
+            'today' => o.status != 'cancelled' && orderDay == today,
+            'yesterday' => o.status != 'cancelled' && orderDay == yesterday,
+            _ => o.status == filter,
+          };
           final matchQuery = q.isEmpty ||
               o.customerName.toLowerCase().contains(q) ||
               o.phone.toLowerCase().contains(q) ||
@@ -3743,6 +3753,18 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
                         _OrderFilterChip(
                           label: 'Barchasi',
                           value: 'all',
+                          selected: filter,
+                          onTap: (v) => setState(() => filter = v),
+                        ),
+                        _OrderFilterChip(
+                          label: 'Bugun',
+                          value: 'today',
+                          selected: filter,
+                          onTap: (v) => setState(() => filter = v),
+                        ),
+                        _OrderFilterChip(
+                          label: 'Kecha',
+                          value: 'yesterday',
                           selected: filter,
                           onTap: (v) => setState(() => filter = v),
                         ),

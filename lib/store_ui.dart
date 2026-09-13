@@ -199,17 +199,8 @@ Future<void> _openTelegramRestock(BuildContext context, Book book) async {
 }
 
 bool _isSupportedCustomerPhone(String raw) {
-  var digits = raw.replaceAll(RegExp(r'\D'), '');
-  if (digits.startsWith('00')) digits = digits.substring(2);
-
-  // O‘zbekiston: +998 XX XXX XX XX, 998XXXXXXXXX yoki mahalliy 9 raqam.
-  if (digits.length == 12 && digits.startsWith('998')) return true;
-  if (digits.length == 9 && !digits.startsWith('0')) return true;
-
-  // Koreya: 010-XXXX-XXXX yoki +82 10-XXXX-XXXX.
-  if (digits.length == 11 && digits.startsWith('010')) return true;
-  if (digits.length == 12 && digits.startsWith('8210')) return true;
-  return false;
+  final digits = raw.replaceAll(RegExp(r'\D'), '');
+  return digits.length == 11 && digits.startsWith('010');
 }
 
 class StoreShell extends StatefulWidget {
@@ -2766,7 +2757,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
     super.initState();
     final saved = context.read<AppState>().savedCustomer;
     name = TextEditingController(text: saved['name'] ?? '');
-    phone = TextEditingController(text: saved['phone'] ?? '');
+    final savedPhone = (saved['phone'] ?? '').replaceAll(RegExp(r'\D'), '');
+    phone = TextEditingController(
+      text: _isSupportedCustomerPhone(savedPhone) ? savedPhone : '',
+    );
     address = TextEditingController(text: saved['address'] ?? '');
   }
 
@@ -2833,14 +2827,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       controller: phone,
                       keyboardType: TextInputType.phone,
                       textInputAction: TextInputAction.next,
+                      inputFormatters: const [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(11),
+                      ],
                       decoration: const InputDecoration(
                         labelText: 'Telefon raqam',
-                        hintText: '+998 90 123 45 67 yoki 010-1234-5678',
-                        helperText: 'O‘zbekiston +998 va Koreya 010 / +82 raqamlari qabul qilinadi.',
+                        hintText: '01024338600',
+                        helperText: 'Koreya raqamini 010 bilan 11 ta raqamda kiriting.',
                         prefixIcon: Icon(Icons.phone_outlined),
                       ),
                       validator: (v) => !_isSupportedCustomerPhone(v ?? '')
-                          ? 'O‘zbekiston (+998) yoki Koreya (010 / +82) raqamini to‘liq kiriting'
+                          ? 'Koreya 010 raqamini to‘liq kiriting. Masalan: 01024338600'
                           : null,
                     ),
                     const SizedBox(height: 12),

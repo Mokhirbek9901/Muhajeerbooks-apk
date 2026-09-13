@@ -173,6 +173,8 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
   const red = Color(0xFFB53B3B);
   const redSoft = Color(0xFFFBE8E8);
   const muted = Color(0xFF66787D);
+  const deliveryText = Color(0xFF49666E);
+  const deliverySoft = Color(0xFFEAF1F0);
 
   canvas.drawColor(cream, BlendMode.src);
   canvas.drawCircle(
@@ -286,10 +288,12 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
         )
       : const _TextMetrics(0, Size.zero);
 
+  const deliveryHeight = 44.0;
   const stockHeight = 58.0;
   const gapTitleAuthor = 13.0;
   const gapAuthorPrice = 3.0;
-  const gapPriceStock = 13.0;
+  const gapPriceDelivery = 6.0;
+  const gapDeliveryStock = 10.0;
   const gapStockPublisher = 11.0;
   const gapPublisherDescription = 16.0;
   const gapStockDescription = 18.0;
@@ -305,7 +309,9 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
       (hasAuthor ? gapTitleAuthor + author.size.height : 0) +
       gapAuthorPrice +
       price.size.height +
-      gapPriceStock +
+      gapPriceDelivery +
+      deliveryHeight +
+      gapDeliveryStock +
       stockHeight +
       (hasPublisher
           ? gapStockPublisher + publisherMetrics.size.height + gapPublisherDescription
@@ -370,7 +376,46 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
     lineHeight: 1,
     maxLines: 1,
   );
-  y += priceSize.height + gapPriceStock;
+  y += priceSize.height + gapPriceDelivery;
+
+  // Small delivery-fee sticker directly below the book price.
+  const deliveryLabel = '🚚 Yetkazib berish: ₩4,000';
+  final deliveryPainter = TextPainter(
+    text: const TextSpan(
+      text: deliveryLabel,
+      style: TextStyle(
+        fontFamily: 'Roboto',
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+        color: deliveryText,
+        height: 1,
+      ),
+    ),
+    textDirection: ui.TextDirection.ltr,
+    textAlign: TextAlign.center,
+    maxLines: 1,
+  )..layout(maxWidth: 700);
+  final deliveryWidth =
+      (deliveryPainter.width + 40).clamp(280.0, 620.0).toDouble();
+  final deliveryCenterY = y + deliveryHeight / 2;
+  final deliveryRect = RRect.fromRectAndRadius(
+    Rect.fromCenter(
+      center: Offset(540, deliveryCenterY),
+      width: deliveryWidth,
+      height: deliveryHeight,
+    ),
+    const Radius.circular(22),
+  );
+  canvas.drawRRect(deliveryRect, Paint()..color = deliverySoft);
+  deliveryPainter.paint(
+    canvas,
+    Offset(
+      (1080 - deliveryPainter.width) / 2,
+      deliveryCenterY - deliveryPainter.height / 2,
+    ),
+  );
+  deliveryPainter.dispose();
+  y += deliveryHeight + gapDeliveryStock;
 
   final stockLabel =
       book.stock > 0 ? 'Omborda: ${book.stock} dona' : 'Hozircha mavjud emas';

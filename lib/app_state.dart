@@ -309,14 +309,24 @@ class BackendService {
   BackendService(this.client);
   final SupabaseClient client;
 
+  static const String _storefrontBookColumns =
+      'id,legacy_id,title,author,publisher,category,description,price,stock,'
+      'discount_percent,image_url,image_urls,is_active,cover_type,recommended,'
+      'created_at';
+
   Future<List<Book>> fetchBooks({bool includeInactive = false}) async {
-    final data = await client
-        .from('books')
-        .select()
-        .order('created_at', ascending: false);
+    final data = includeInactive
+        ? await client
+              .from('books')
+              .select(_storefrontBookColumns)
+              .order('created_at', ascending: false)
+        : await client
+              .from('books')
+              .select(_storefrontBookColumns)
+              .eq('is_active', true)
+              .order('created_at', ascending: false);
     return (data as List)
         .map((e) => Book.fromMap(Map<String, dynamic>.from(e as Map)))
-        .where((b) => includeInactive || b.isActive)
         .toList();
   }
 
@@ -718,8 +728,6 @@ class AppState extends ChangeNotifier {
   final Map<String, int> _cart = {};
   final Set<String> _favorites = {};
   final Set<String> _restockSubscriptions = {};
-  RealtimeChannel? _booksChannel;
-  Timer? _booksRealtimeDebounce;
   Timer? _booksFallbackTimer;
   Timer? _orderStatusTimer;
   bool _orderStatusRefreshing = false;
@@ -869,26 +877,12 @@ class AppState extends ChangeNotifier {
   }
 
   void _startLiveBooksSync() {
-    if (_backend == null || _booksChannel != null) return;
+    if (_backend == null || _booksFallbackTimer != null) return;
 
-    _booksChannel = Supabase.instance.client
-        .channel('muhajeer-books-catalog-live')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'books',
-          callback: (_) {
-            _booksRealtimeDebounce?.cancel();
-            _booksRealtimeDebounce = Timer(
-              const Duration(milliseconds: 180),
-              _refreshBooksQuietly,
-            );
-          },
-        )
-        .subscribe();
-
-    // Realtime uzilib qolgan holat uchun yengil zaxira tekshiruv.
-    _booksFallbackTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+    // Mijoz roli tannarx (cost_price) ustunini o‘qimaydi. Katalogni faqat
+    // public ustunlar bilan muntazam yangilaymiz; checkout baribir buyurtma
+    // tugmasida live stockni serverdan qayta tekshiradi.
+    _booksFallbackTimer = Timer.periodic(const Duration(seconds: 20), (_) {
       unawaited(_refreshBooksQuietly());
       unawaited(_checkRestockNotificationsQuietly());
     });
@@ -1015,13 +1009,8 @@ class AppState extends ChangeNotifier {
 
   @override
   void dispose() {
-    _booksRealtimeDebounce?.cancel();
     _booksFallbackTimer?.cancel();
     _orderStatusTimer?.cancel();
-    final channel = _booksChannel;
-    if (channel != null) {
-      unawaited(Supabase.instance.client.removeChannel(channel));
-    }
     super.dispose();
   }
 

@@ -686,6 +686,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   final _ordersKey = GlobalKey<_OrdersAdminState>();
   final _salesKey = GlobalKey<_SalesAdminState>();
   final _customersKey = GlobalKey<_CustomersAdminState>();
+  final Set<int> _loadedTabs = <int>{0};
 
   static const titles = [
     'Boshqaruv markazi',
@@ -712,7 +713,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   void initState() {
     super.initState();
     api = _AdminApi(widget.secret);
-    _liveRefreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+    _liveRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       if (!mounted) return;
       switch (tab) {
         case 0:
@@ -737,17 +738,41 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     super.dispose();
   }
 
+  void _selectTab(int value) {
+    if (value == tab && _loadedTabs.contains(value)) return;
+    setState(() {
+      tab = value;
+      _loadedTabs.add(value);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final pages = [
-      _OverviewAdmin(key: _overviewKey, api: api),
-      _BooksAdmin(key: _booksKey, api: api),
-      _InventoryAdmin(key: _inventoryKey, api: api),
-      _OrdersAdmin(key: _ordersKey, api: api),
-      _SalesAdmin(key: _salesKey, api: api),
-      _CustomersAdmin(key: _customersKey, api: api),
-      FinanceAdminPage(secret: widget.secret),
-      _DiscountAdmin(api: api),
+    final pages = <Widget>[
+      _loadedTabs.contains(0)
+          ? _OverviewAdmin(key: _overviewKey, api: api)
+          : const SizedBox.shrink(),
+      _loadedTabs.contains(1)
+          ? _BooksAdmin(key: _booksKey, api: api)
+          : const SizedBox.shrink(),
+      _loadedTabs.contains(2)
+          ? _InventoryAdmin(key: _inventoryKey, api: api)
+          : const SizedBox.shrink(),
+      _loadedTabs.contains(3)
+          ? _OrdersAdmin(key: _ordersKey, api: api)
+          : const SizedBox.shrink(),
+      _loadedTabs.contains(4)
+          ? _SalesAdmin(key: _salesKey, api: api)
+          : const SizedBox.shrink(),
+      _loadedTabs.contains(5)
+          ? _CustomersAdmin(key: _customersKey, api: api)
+          : const SizedBox.shrink(),
+      _loadedTabs.contains(6)
+          ? FinanceAdminPage(secret: widget.secret)
+          : const SizedBox.shrink(),
+      _loadedTabs.contains(7)
+          ? _DiscountAdmin(api: api)
+          : const SizedBox.shrink(),
     ];
     const railDestinations = [
       NavigationRailDestination(
@@ -851,7 +876,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                     NavigationRail(
                       extended: extended,
                       selectedIndex: tab,
-                      onDestinationSelected: (v) => setState(() => tab = v),
+                      onDestinationSelected: _selectTab,
                       labelType: extended
                           ? NavigationRailLabelType.none
                           : NavigationRailLabelType.selected,
@@ -896,7 +921,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               ? null
               : NavigationBar(
                   selectedIndex: tab,
-                  onDestinationSelected: (v) => setState(() => tab = v),
+                  onDestinationSelected: _selectTab,
                   labelBehavior:
                       NavigationDestinationLabelBehavior.onlyShowSelected,
                   destinations: List.generate(
@@ -957,7 +982,7 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
         future: future,
         builder: (context, snap) {
           // Faqat birinchi yuklanishda katta spinner ko‘rsatamiz.
-          // 5 soniyalik fon yangilanishida oldingi ma’lumot ekranda qoladi.
+          // 15 soniyalik fon yangilanishida oldingi ma’lumot ekranda qoladi.
           if (snap.connectionState == ConnectionState.waiting &&
               snap.data == null) {
             return const Center(child: CircularProgressIndicator());
@@ -3751,7 +3776,7 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
                 ],
               ),
             ),
-            // Avtomatik 5 soniyalik refresh paytida eski ma'lumotni ekranda
+            // Avtomatik 15 soniyalik refresh paytida eski ma'lumotni ekranda
             // qoldiramiz. Katta loading faqat sahifa birinchi marta ochilganda chiqadi.
             if (snap.connectionState == ConnectionState.waiting &&
                 snap.data == null)
@@ -4718,7 +4743,7 @@ class _SalesAdminState extends State<_SalesAdmin> {
       if (!mounted) return;
       setState(() => future = Future.value(data));
     } catch (_) {
-      // 5 soniyalik fon yangilanishida eski ro‘yxat ekranda qoladi.
+      // 15 soniyalik fon yangilanishida eski ro‘yxat ekranda qoladi.
     }
   }
 
@@ -5035,7 +5060,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
       future: future,
       builder: (context, snapshot) {
         // Faqat birinchi yuklanishda katta spinner ko‘rsatamiz.
-        // Har 5 soniyadagi fon yangilanishida mijozlar ro‘yxati ekranda qoladi.
+        // Har 15 soniyadagi fon yangilanishida mijozlar ro‘yxati ekranda qoladi.
         if (snapshot.connectionState == ConnectionState.waiting &&
             snapshot.data == null) {
           return const Center(child: CircularProgressIndicator());

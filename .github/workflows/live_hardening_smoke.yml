@@ -1,0 +1,60 @@
+name: Verify live storefront hardening
+
+on:
+  push:
+    paths:
+      - 'live_hardening_smoke_trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Smoke test live production
+        env:
+          BASE: https://muhajeer-books-live-production.up.railway.app
+          BOOK_ID: a39643bc-cfe2-497c-9235-d86a478d84bd
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_5lDr_sw4bu8g3x8LCVzp4g_sHSTMBiO
+        run: |
+          set -euo pipefail
+          UA='MuhajeerHardeningSmoke/1.0'
+
+          ROOT_STATUS=$(curl --retry 3 --retry-delay 2 -sS -A "$UA" -o /tmp/root.html -w '%{http_code}' "$BASE/")
+          test "$ROOT_STATUS" = "200"
+
+          ICON_STATUS=$(curl --retry 3 --retry-delay 2 -sS -A "$UA" -o /tmp/icon.png -w '%{http_code}' "$BASE/apple-touch-icon.png")
+          test "$ICON_STATUS" = "200"
+          test -s /tmp/icon.png
+
+          PRECOMPOSED_STATUS=$(curl --retry 3 --retry-delay 2 -sS -A "$UA" -o /tmp/icon-pre.png -w '%{http_code}' "$BASE/apple-touch-icon-precomposed.png")
+          test "$PRECOMPOSED_STATUS" = "200"
+          test -s /tmp/icon-pre.png
+
+          SHARE_STATUS=$(curl --retry 3 --retry-delay 2 -sS -A 'facebookexternalhit/1.1 MuhajeerHardeningSmoke/1.0' -o /tmp/share.html -w '%{http_code}' "$BASE/share/$BOOK_ID")
+          test "$SHARE_STATUS" = "200"
+          grep -q 'property="og:title"' /tmp/share.html
+          grep -q 'property="og:image"' /tmp/share.html
+          grep -q 'Xonimlar kundaligi' /tmp/share.html
+
+          SAFE_STATUS=$(curl --retry 3 --retry-delay 2 -sS -A "$UA" -H "apikey: $SUPABASE_PUBLISHABLE_KEY" -o /tmp/safe.json -w '%{http_code}' "$BASE/supabase/rest/v1/books?select=id%2Ctitle%2Cprice%2Cstock%2Cis_active&is_active=eq.true&limit=1")
+          test "$SAFE_STATUS" = "200"
+          grep -q '"title"' /tmp/safe.json
+
+          COST_STATUS=$(curl --retry 2 --retry-delay 1 -sS -A "$UA" -H "apikey: $SUPABASE_PUBLISHABLE_KEY" -o /tmp/cost.json -w '%{http_code}' "$BASE/supabase/rest/v1/books?select=id%2Ccost_price&limit=1")
+          case "$COST_STATUS" in
+            2*) echo 'ERROR: cost_price is still publicly readable'; cat /tmp/cost.json; exit 1 ;;
+          esac
+
+          printf 'verified_at=%s\nroot=%s\napple_icon=%s\napple_precomposed=%s\nshare_preview=%s\npublic_catalog=%s\ncost_price_public=%s\n' \
+            "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$ROOT_STATUS" "$ICON_STATUS" "$PRECOMPOSED_STATUS" "$SHARE_STATUS" "$SAFE_STATUS" "$COST_STATUS" \
+            > live_hardening_smoke_result.txt
+      - name: Record successful verification
+        run: |
+          git config user.name "Mokhirbek9901"
+          git config user.email "ismoilovmokhirbek@gmail.com"
+          git add live_hardening_smoke_result.txt
+          git commit -m "Verify live storefront hardening"
+          git push origin main

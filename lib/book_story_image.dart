@@ -18,16 +18,7 @@ String storyPrice(Book book) => book.price > 0
 String _storyDescription(Book book) {
   final value = book.description.replaceAll(RegExp(r'\s+'), ' ').trim();
   if (value.isEmpty || value == 'Ma’lumot kiritilmagan.') {
-    final fallback = <String>[
-      if (book.category.trim().isNotEmpty) book.category.trim(),
-      if (book.publisher.trim().isNotEmpty) book.publisher.trim(),
-      if (book.coverType.trim().isNotEmpty &&
-          book.coverType != 'Ko‘rsatilmagan')
-        book.coverType.trim(),
-    ];
-    return fallback.isEmpty
-        ? 'Kitob haqida batafsil ma’lumotni ilovada ko‘ring.'
-        : fallback.join(' · ');
+    return 'Kitob haqida batafsil ma’lumotni ilovada ko‘ring.';
   }
   return value;
 }
@@ -75,8 +66,6 @@ _TextMetrics _fitText({
   int? maxLines,
   FontWeight weight = FontWeight.w500,
 }) {
-  // First use the normal readable range. If the description is exceptionally
-  // long, continue shrinking below minFontSize rather than cutting text.
   final hardFloor = maxLines == null ? 7.0 : minFontSize;
   var fontSize = maxFontSize;
 
@@ -172,8 +161,6 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
         .asUint8List();
   }
 
-  // Decode compressed JPEG/PNG/WebP into real RGBA pixels first. This avoids
-  // Safari/Flutter Web exporting some network-backed images as a black box.
   final cover = await _decodeStoryCover(bytes);
 
   final recorder = ui.PictureRecorder();
@@ -266,10 +253,10 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
       ? _fitText(
           value: book.author.trim(),
           maxWidth: 800,
-          maxHeight: 42,
-          maxFontSize: 29,
-          minFontSize: 20,
-          lineHeight: 1.05,
+          maxHeight: 34,
+          maxFontSize: 24,
+          minFontSize: 18,
+          lineHeight: 1.02,
           maxLines: 1,
         )
       : const _TextMetrics(0, Size.zero);
@@ -285,37 +272,31 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
     weight: FontWeight.w900,
   );
 
-  final info = <String>[
-    if (book.category.trim().isNotEmpty) book.category.trim(),
-    if (book.publisher.trim().isNotEmpty) book.publisher.trim(),
-  ].join(' · ');
-  final hasInfo = info.isNotEmpty;
-  final infoMetrics = hasInfo
+  final publisher = book.publisher.trim();
+  final hasPublisher = publisher.isNotEmpty && publisher != 'Ko‘rsatilmagan';
+  final publisherMetrics = hasPublisher
       ? _fitText(
-          value: info,
+          value: publisher,
           maxWidth: 850,
-          maxHeight: 58,
-          maxFontSize: 24,
-          minFontSize: 18,
-          lineHeight: 1.08,
-          maxLines: 2,
+          maxHeight: 40,
+          maxFontSize: 23,
+          minFontSize: 17,
+          lineHeight: 1.06,
+          maxLines: 1,
         )
       : const _TextMetrics(0, Size.zero);
 
   const stockHeight = 58.0;
-  const gapTitleAuthor = 7.0;
-  const gapAuthorPrice = 9.0;
+  const gapTitleAuthor = 13.0;
+  const gapAuthorPrice = 3.0;
   const gapPriceStock = 13.0;
-  const gapStockInfo = 11.0;
-  const gapInfoAbout = 12.0;
-  const aboutHeight = 25.0;
-  const gapAboutDescription = 8.0;
+  const gapStockPublisher = 11.0;
+  const gapPublisherDescription = 16.0;
+  const gapStockDescription = 18.0;
   const gapDescriptionCta = 22.0;
   const ctaHeight = 46.0;
   const arrowArea = 62.0;
 
-  // Lower content may occupy this whole zone. The description gets whatever
-  // space remains after title/author/price/stock/meta/CTA are accounted for.
   const minBlockTop = 976.0;
   const maxBlockTop = 1015.0;
   const blockBottom = 1762.0;
@@ -326,16 +307,15 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
       price.size.height +
       gapPriceStock +
       stockHeight +
-      (hasInfo ? gapStockInfo + infoMetrics.size.height : 0) +
-      gapInfoAbout +
-      aboutHeight +
-      gapAboutDescription +
+      (hasPublisher
+          ? gapStockPublisher + publisherMetrics.size.height + gapPublisherDescription
+          : gapStockDescription) +
       gapDescriptionCta +
       ctaHeight +
       arrowArea;
 
   final descriptionMaxHeight =
-      (blockBottom - minBlockTop - fixedHeight).clamp(120.0, 345.0).toDouble();
+      (blockBottom - minBlockTop - fixedHeight).clamp(130.0, 390.0).toDouble();
   final description = _storyDescription(book);
   final descriptionMetrics = _fitText(
     value: description,
@@ -344,14 +324,12 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
     maxFontSize: 27,
     minFontSize: 16,
     lineHeight: 1.18,
-    // null means no line cap: the complete description is always laid out.
     maxLines: null,
   );
 
   final totalHeight = fixedHeight + descriptionMetrics.size.height;
   var y = (blockBottom - totalHeight).clamp(minBlockTop, maxBlockTop).toDouble();
 
-  // TITLE
   final titleSize = _paintText(
     canvas,
     book.title,
@@ -365,8 +343,6 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
   );
   y += titleSize.height;
 
-  // AUTHOR. For long descriptions the whole block moves upward; for shorter
-  // descriptions it settles slightly lower, keeping the layout balanced.
   if (hasAuthor) {
     y += gapTitleAuthor;
     final authorSize = _paintText(
@@ -376,7 +352,7 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
       author,
       width: 800,
       color: const Color(0xFF52656B),
-      lineHeight: 1.05,
+      lineHeight: 1.02,
       maxLines: 1,
     );
     y += authorSize.height;
@@ -396,7 +372,6 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
   );
   y += priceSize.height + gapPriceStock;
 
-  // STOCK PILL
   final stockLabel =
       book.stock > 0 ? 'Omborda: ${book.stock} dona' : 'Hozircha mavjud emas';
   final stockForeground = book.stock > 0 ? green : red;
@@ -433,27 +408,23 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
   stockPainter.dispose();
   y += stockHeight;
 
-  if (hasInfo) {
-    y += gapStockInfo;
-    final metaSize = _paintText(
+  if (hasPublisher) {
+    y += gapStockPublisher;
+    final publisherSize = _paintText(
       canvas,
-      info,
+      publisher,
       y,
-      infoMetrics,
+      publisherMetrics,
       width: 850,
       color: muted,
-      lineHeight: 1.08,
-      maxLines: 2,
+      lineHeight: 1.06,
+      maxLines: 1,
     );
-    y += metaSize.height;
+    y += publisherSize.height + gapPublisherDescription;
+  } else {
+    y += gapStockDescription;
   }
 
-  y += gapInfoAbout;
-  simpleText('KITOB HAQIDA', y, 22, color: teal, weight: FontWeight.w800);
-  y += aboutHeight + gapAboutDescription;
-
-  // COMPLETE DESCRIPTION. No ellipsis and no max-lines cap. Font size adapts
-  // continuously to the amount of information so every word is visible.
   final descriptionSize = _paintText(
     canvas,
     description,
@@ -503,7 +474,6 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
     arrow,
   );
 
-  // Blank area below the arrow is reserved for Instagram's real Link sticker.
   simpleText('@muhajeerbooks', 1810, 28);
 
   final picture = recorder.endRecording();

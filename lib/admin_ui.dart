@@ -1024,13 +1024,15 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                 o.status != 'cancelled';
           }).toList();
           final monthRevenue = monthOrders
-              .where((o) => o.status == 'shipping')
+              .where((o) => o.status == 'shipping' ||
+                  (o.isApp && ['accepted', 'paid'].contains(o.status)))
               .fold<int>(0, (sum, o) => sum + o.total);
           final todayRevenue = orders.where((o) {
             return o.createdAt.year == now.year &&
                 o.createdAt.month == now.month &&
                 o.createdAt.day == now.day &&
-                o.status == 'shipping';
+                (o.status == 'shipping' ||
+                    (o.isApp && ['accepted', 'paid'].contains(o.status)));
           }).fold<int>(0, (sum, o) => sum + o.total);
           final averageOrder =
               activeOrders.isEmpty ? 0 : activeRevenue ~/ activeOrders.length;
@@ -3553,7 +3555,7 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
           ),
           title: const Text('Buyurtmani qabul qilasizmi?'),
           content: const Text(
-            'Qabul qilinganda buyurtmadagi kitoblar ombordagi qoldiqdan avtomatik ayriladi.',
+            'Qabul qilinganda buyurtma sotilgan kitoblar va statistikaga qo‘shiladi. Bepul yetkazishda pochta do‘kon xarajati sifatida hisoblanadi.',
           ),
           actions: [
             TextButton(
@@ -3601,7 +3603,7 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
       if (mounted) {
         reload();
         final message = status == 'accepted'
-            ? 'Buyurtma qabul qilindi. Ombor avtomatik kamaydi ✅'
+            ? 'Buyurtma qabul qilindi. Sotuv va statistika yangilandi ✅'
             : status == 'cancelled'
                 ? 'Buyurtma bekor qilindi.'
                 : 'Buyurtma holati yangilandi.';

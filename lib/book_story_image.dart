@@ -75,7 +75,11 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
   text(info, 1545, 27);
   text(book.inStock ? storyOrderLabel : 'Kitob haqida batafsil',
       1630, 39, color: teal, weight: FontWeight.w700);
-  text('↓', 1680, 44, color: teal);
+  final arrow = Paint()..color = teal..strokeWidth = 5
+      ..strokeCap = StrokeCap.round..style = PaintingStyle.stroke;
+  canvas.drawLine(const Offset(540, 1684), const Offset(540, 1718), arrow);
+  canvas.drawPath(Path()..moveTo(526, 1704)..lineTo(540, 1718)
+      ..lineTo(554, 1704), arrow);
   // Blank area below the arrow is reserved for Instagram's real Link sticker.
   text('@muhajeerbooks', 1810, 28);
 

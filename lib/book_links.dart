@@ -17,3 +17,5 @@ String? sharedBookId(Uri uri) {
           .hasMatch(id)) return null;
   return id.toLowerCase();
 }
+
+// Release marker: admin Kitoblar now includes the Tarifsiz description filter.

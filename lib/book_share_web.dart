@@ -1,11 +1,13 @@
-// ignore_for_file: deprecated_member_use, avoid_web_libraries_in_flutter
-import 'dart:html' as html;
-import 'dart:js_util' as js;
+import 'dart:js_interop';
 
-bool get nativeBookShareAvailable => js.hasProperty(html.window.navigator, 'share');
+@JS('navigator.share')
+external JSFunction? get _shareFunction;
+
+@JS('navigator.share')
+external JSPromise<JSAny?> _share(JSObject data);
+
+bool get nativeBookShareAvailable => _shareFunction != null;
 
 Future<void> nativeBookShare(String title, String url) async {
-  await js.promiseToFuture<Object?>(js.callMethod(
-    html.window.navigator, 'share', [js.jsify({'title': title, 'url': url})],
-  ));
+  await _share({'title': title, 'url': url}.jsify() as JSObject).toDart;
 }

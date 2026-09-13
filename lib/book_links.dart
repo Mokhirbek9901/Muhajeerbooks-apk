@@ -1,5 +1,7 @@
 const bookShareOrigin = 'https://muhajeer-books-live-production.up.railway.app';
 
+// /share/<id> gives social crawlers the book preview, while real users are
+// redirected by the share service to /?book=<id> so the exact book opens.
 Uri bookShareLink(String id) =>
     Uri.parse(bookShareOrigin).replace(path: '/share/$id');
 

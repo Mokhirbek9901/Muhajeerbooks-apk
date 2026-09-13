@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
 import 'app_state.dart';
 
@@ -30,6 +32,28 @@ String _storyDescription(Book book) {
   return value;
 }
 
+Future<ui.Image> _decodeStoryCover(Uint8List encoded) async {
+  final decoded = img.decodeImage(encoded);
+  if (decoded == null) throw StateError('Cover decode failed');
+
+  final resized = decoded.width > 700
+      ? img.copyResize(decoded, width: 700, interpolation: img.Interpolation.average)
+      : decoded;
+  final rgba = Uint8List.fromList(
+    resized.getBytes(order: img.ChannelOrder.rgba),
+  );
+
+  final completer = Completer<ui.Image>();
+  ui.decodeImageFromPixels(
+    rgba,
+    resized.width,
+    resized.height,
+    ui.PixelFormat.rgba8888,
+    completer.complete,
+  );
+  return completer.future;
+}
+
 /// A full-resolution 9:16 portrait image, independent of preview screen size.
 Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
   Uint8List bytes;
@@ -47,9 +71,9 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
         .asUint8List();
   }
 
-  final codec = await ui.instantiateImageCodec(bytes, targetWidth: 700);
-  final cover = (await codec.getNextFrame()).image;
-  codec.dispose();
+  // Decode compressed JPEG/PNG/WebP into real RGBA pixels first. This avoids
+  // Safari/Flutter Web exporting some network-backed images as a black box.
+  final cover = await _decodeStoryCover(bytes);
 
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);

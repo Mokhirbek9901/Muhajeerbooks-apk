@@ -47,7 +47,7 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
       text: TextSpan(text: value, style: TextStyle(
         fontFamily: 'Roboto', fontSize: size, fontWeight: weight, color: color, height: 1.12,
       )),
-      textDirection: TextDirection.ltr, textAlign: TextAlign.center,
+      textDirection: ui.TextDirection.ltr, textAlign: TextAlign.center,
       maxLines: lines, ellipsis: '…',
     )..layout(maxWidth: width);
     painter.paint(canvas, Offset((1080 - painter.width) / 2, y));

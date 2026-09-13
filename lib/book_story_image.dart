@@ -255,9 +255,9 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
       ? _fitText(
           value: book.author.trim(),
           maxWidth: 800,
-          maxHeight: 34,
-          maxFontSize: 24,
-          minFontSize: 18,
+          maxHeight: 30,
+          maxFontSize: 20,
+          minFontSize: 15,
           lineHeight: 1.02,
           maxLines: 1,
         )
@@ -378,8 +378,9 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
   );
   y += priceSize.height + gapPriceDelivery;
 
-  // Small delivery-fee sticker directly below the book price.
-  const deliveryLabel = '🚚 Yetkazib berish: ₩4,000';
+  // Delivery-fee sticker. The truck is drawn as vector lines so it renders
+  // reliably in exported PNGs on Safari/iPhone instead of depending on emoji.
+  const deliveryLabel = 'Yetkazib berish: ₩4,000';
   final deliveryPainter = TextPainter(
     text: const TextSpan(
       text: deliveryLabel,
@@ -395,8 +396,12 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
     textAlign: TextAlign.center,
     maxLines: 1,
   )..layout(maxWidth: 700);
+
+  const truckWidth = 27.0;
+  const truckGap = 10.0;
+  final deliveryContentWidth = truckWidth + truckGap + deliveryPainter.width;
   final deliveryWidth =
-      (deliveryPainter.width + 40).clamp(280.0, 620.0).toDouble();
+      (deliveryContentWidth + 42).clamp(300.0, 620.0).toDouble();
   final deliveryCenterY = y + deliveryHeight / 2;
   final deliveryRect = RRect.fromRectAndRadius(
     Rect.fromCenter(
@@ -407,10 +412,41 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
     const Radius.circular(22),
   );
   canvas.drawRRect(deliveryRect, Paint()..color = deliverySoft);
+
+  final contentLeft = (1080 - deliveryContentWidth) / 2;
+  final truckLeft = contentLeft;
+  final truckTop = deliveryCenterY - 10;
+  final truckPaint = Paint()
+    ..color = deliveryText
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2.4
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round;
+
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(
+      Rect.fromLTWH(truckLeft, truckTop + 3, 16, 11),
+      const Radius.circular(2),
+    ),
+    truckPaint,
+  );
+  canvas.drawPath(
+    Path()
+      ..moveTo(truckLeft + 16, truckTop + 6)
+      ..lineTo(truckLeft + 21, truckTop + 6)
+      ..lineTo(truckLeft + 26, truckTop + 11)
+      ..lineTo(truckLeft + 26, truckTop + 14)
+      ..lineTo(truckLeft + 16, truckTop + 14)
+      ..close(),
+    truckPaint,
+  );
+  canvas.drawCircle(Offset(truckLeft + 6, truckTop + 16), 3, truckPaint);
+  canvas.drawCircle(Offset(truckLeft + 21, truckTop + 16), 3, truckPaint);
+
   deliveryPainter.paint(
     canvas,
     Offset(
-      (1080 - deliveryPainter.width) / 2,
+      contentLeft + truckWidth + truckGap,
       deliveryCenterY - deliveryPainter.height / 2,
     ),
   );

@@ -19,16 +19,13 @@
     .card{width:min(100%,480px);background:#fff;border:1px solid #e8d8b7;border-radius:28px;padding:25px 22px;box-shadow:0 18px 48px rgba(28,56,51,.09)}
     .brand{display:flex;align-items:center;gap:14px;margin-bottom:22px}.icon{width:68px;height:68px;border-radius:19px;border:1px solid #e7d4ad;overflow:hidden}.icon img{width:100%;height:100%;object-fit:cover}.brand h1{font-size:24px;margin:0}.brand p{margin:5px 0 0;color:#746d61;font-size:14px;font-weight:650}
     .device{text-align:center;font-size:13px;font-weight:900;color:#0f6e65;margin-bottom:10px}h2{text-align:center;font-size:25px;margin:0 0 8px}.lead{text-align:center;color:#5f655f;font-size:15px;line-height:1.5;margin:0 0 18px}
-    .btn{width:100%;border:0;border-radius:18px;padding:19px 16px;font-size:17px;font-weight:950;cursor:pointer;margin-top:10px}.primary{background:#0f6e65;color:#fff;box-shadow:0 10px 24px rgba(15,110,101,.18)}.secondary{background:#edf5f2;color:#0f6e65;border:2px solid #cfe2dc}.dark{background:#173f3a;color:#fff}
-    .stepbadge{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#dca83e;color:#173834;margin-right:8px;font-size:14px;font-weight:950;vertical-align:middle}
+    .install{width:100%;border:0;border-radius:18px;padding:20px 16px;background:#0f6e65;color:#fff;font-size:18px;font-weight:950;cursor:pointer;box-shadow:0 10px 24px rgba(15,110,101,.18)}
     .status{margin-top:13px;padding:12px;border-radius:14px;background:#edf7f3;color:#285b52;font-size:13.5px;line-height:1.45;text-align:center}.status.warn{background:#fff4e8;color:#7c4d17}.status.ok{background:#eaf8f1;color:#176a50;font-weight:850}
     .open{display:block;margin-top:10px;text-align:center;text-decoration:none;background:#edf5f2;color:#0f6e65;border-radius:15px;padding:12px 14px;font-weight:850}
-    .iphoneActions{display:none}.androidActions{display:none}.readyNote{margin:12px 0 0;text-align:center;color:#737a74;font-size:13px;line-height:1.45}
     .langs{display:flex;justify-content:center;gap:5px;flex-wrap:wrap;margin-top:16px}.lang{border:0;background:transparent;color:#8a8378;padding:5px 7px;font-size:12px;font-weight:800}.lang.active{color:#0f6e65;text-decoration:underline;text-underline-offset:3px}.small{text-align:center;color:#989188;font-size:12px;margin:10px 0 0}
-    .overlay{position:fixed;inset:0;z-index:9999;background:rgba(9,29,26,.84);display:none;align-items:flex-end;justify-content:center;padding:14px calc(14px + env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left))}.overlay.show{display:flex}
-    .sheet{position:relative;width:min(100%,500px);background:#fff;border-radius:28px;padding:22px;box-shadow:0 18px 55px rgba(0,0,0,.3)}.sheet h3{font-size:23px;margin:0 42px 7px;text-align:center}.sheet p{text-align:center;margin:0 0 15px;color:#656b66;line-height:1.45}.close{position:absolute;right:16px;top:14px;border:0;background:#eef1ef;width:38px;height:38px;border-radius:50%;font-size:22px;font-weight:900}
-    .coach{display:flex;align-items:center;gap:12px;border:2px solid #d7e8e3;border-radius:18px;padding:14px;margin:10px 0;background:#f9fcfb}.num{flex:0 0 38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#dca83e;color:#173834;font-size:18px;font-weight:950}.glyph{font-size:30px;font-weight:900;color:#0f6e65;min-width:48px;text-align:center}.coach b{display:block;font-size:16px;margin-bottom:2px}.coach span{font-size:13px;color:#6d726e}.arrow{text-align:center;font-size:31px;line-height:1;color:#d09b30;margin:2px 0}
-    .toolbarCoach{position:fixed;left:16px;right:16px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:10001;display:none;pointer-events:none}.toolbarCoach.show{display:block}.toolbarBubble{margin:auto;width:min(100%,460px);background:#173f3a;color:white;border-radius:20px;padding:15px 16px;text-align:center;font-size:15px;font-weight:900;box-shadow:0 12px 35px rgba(0,0,0,.28)}.toolbarArrow{font-size:36px;line-height:1;margin-bottom:4px;animation:bounce 1s infinite}@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(7px)}}
+    .coach{position:fixed;inset:0;z-index:9999;background:rgba(7,26,23,.82);display:none;pointer-events:none}.coach.show{display:block}.coachBox{position:absolute;left:16px;right:16px;background:#fff;border-radius:24px;padding:18px;box-shadow:0 18px 55px rgba(0,0,0,.28);pointer-events:auto}.coach.top .coachBox{top:calc(92px + env(safe-area-inset-top))}.coach.bottom .coachBox{bottom:calc(88px + env(safe-area-inset-bottom))}.coach h3{margin:0 0 8px;text-align:center;font-size:22px}.coach p{margin:0;color:#5e655f;text-align:center;line-height:1.45;font-size:14px}.bigGlyph{text-align:center;font-size:44px;font-weight:950;color:#0f6e65;line-height:1;margin:8px 0}.arrowUp,.arrowDown{text-align:center;font-size:42px;font-weight:950;color:#dca83e;line-height:1;animation:bounce 1s infinite}.arrowUp{margin-bottom:8px}.arrowDown{margin-top:8px}@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(7px)}}
+    .closeCoach{width:100%;border:0;border-radius:15px;padding:14px;margin-top:13px;background:#173f3a;color:#fff;font-size:15px;font-weight:900;pointer-events:auto}
+    .steps{margin-top:12px;display:grid;gap:9px}.step{display:flex;align-items:center;gap:11px;padding:12px;border:2px solid #dcebe7;border-radius:16px;background:#fbfdfc}.n{flex:0 0 34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#dca83e;color:#173834;font-weight:950}.step b{font-size:15px}.step span{font-size:12.5px;color:#737973;display:block;margin-top:2px}
   </style>
 </head>
 <body>
@@ -37,49 +34,30 @@
   <div class="device" id="device"></div>
   <h2 id="title"></h2>
   <p class="lead" id="lead"></p>
-
-  <div class="iphoneActions" id="iphoneActions">
-    <button class="btn primary" id="safariBtn"><span class="stepbadge">1</span><span id="safariText"></span></button>
-    <button class="btn dark" id="homeBtn"><span class="stepbadge" id="homeStep">2</span><span id="homeText"></span></button>
-    <p class="readyNote" id="iphoneNote"></p>
-  </div>
-
-  <div class="androidActions" id="androidActions">
-    <button class="btn primary" id="androidBtn"></button>
-  </div>
-
+  <button class="install" id="installBtn"></button>
   <a class="open" id="openBtn" href="/"></a>
   <div class="status" id="status"></div>
   <div class="langs"><button class="lang" data-lang="uz">O‘zbekcha</button><button class="lang" data-lang="ru">Русский</button><button class="lang" data-lang="en">English</button><button class="lang" data-lang="ko">한국어</button></div>
   <p class="small" id="small"></p>
 </main>
 
-<div class="overlay" id="overlay">
-  <div class="sheet">
-    <button class="close" id="closeBtn">×</button>
-    <h3 id="sheetTitle"></h3>
-    <p id="sheetLead"></p>
-    <div id="sheetSteps"></div>
-  </div>
-</div>
-
-<div class="toolbarCoach" id="toolbarCoach"><div class="toolbarBubble"><div class="toolbarArrow">↓</div><div id="toolbarText"></div></div></div>
+<div class="coach top" id="inAppCoach"><div class="coachBox"><div class="arrowUp">↑</div><h3 id="inAppTitle"></h3><div class="bigGlyph">•••</div><p id="inAppText"></p><button class="closeCoach" id="closeInApp"></button></div></div>
+<div class="coach bottom" id="safariCoach"><div class="coachBox"><h3 id="safariTitle"></h3><p id="safariText"></p><div class="steps" id="safariSteps"></div><div class="arrowDown">↓</div><button class="closeCoach" id="closeSafari"></button></div></div>
 
 <script>
 (()=>{
   if('serviceWorker' in navigator) navigator.serviceWorker.register('/flutter_service_worker.js').catch(()=>{});
-
   const T={
-    uz:{tag:"Koreyadagi o‘zbek kitob do‘koni",iosDevice:" iPhone aniqlandi",androidDevice:"🤖 Android telefon aniqlandi",iosTitle:"iPhone’ga o‘rnatish",androidTitle:"Android’ga o‘rnatish",iosLeadInApp:"2 ta katta tugma xolos.",iosLeadSafari:"Bitta katta tugma xolos.",androidLead:"Bitta tugmani bosing — o‘rnatish oynasi chiqadi.",safari:"SAFARI’DA OCHISH",home:"BOSH EKRANGA QO‘SHISH",android:"📲 ANDROID’GA O‘RNATISH",open:"Hozir ilovani ochish",noteInApp:"Avval 1 ni bosing. Safari ochilgach 2 ni bosing.",noteSafari:"Tugmani bosing — qayerni bosish kerakligi ekranda ko‘rinadi.",opening:"Safari ochilmoqda…",blocked:"Safari avtomatik ochilmasa, Instagram tepasidagi ••• → Open in Safari ni bir marta bosing.",installed:"Muhajeer Books allaqachon o‘rnatilgan ✅",sheetTitle:"Bosh ekranga qo‘shish",sheetLead:"Safari panelini chiqarib, mana shu ketma-ketlikni bosing:",more:"••• More / Menyu",moreSub:"Safari pastki yoki yuqori panelida",share:"Share / Ulashish",shareSub:"□↑ belgisi",addHome:"Add to Home Screen",addHomeSub:"홈 화면에 추가 / На экран «Домой»",add:"Add",addSub:"Qo‘shish / 추가 / Добавить",toolbar:"Safari paneli ko‘rinmasa, ekranga bir marta teging yoki sahifani biroz yuqoriga suring. Keyin ••• ni bosing.",small:"Telefon va til avtomatik aniqlanadi."},
-    ru:{tag:"Узбекский книжный магазин в Корее",iosDevice:" Обнаружен iPhone",androidDevice:"🤖 Обнаружен Android",iosTitle:"Установить на iPhone",androidTitle:"Установить на Android",iosLeadInApp:"Всего 2 большие кнопки.",iosLeadSafari:"Всего одна большая кнопка.",androidLead:"Нажмите одну кнопку — откроется окно установки.",safari:"ОТКРЫТЬ В SAFARI",home:"ДОБАВИТЬ НА ГЛАВНЫЙ ЭКРАН",android:"📲 УСТАНОВИТЬ НА ANDROID",open:"Открыть приложение",noteInApp:"Сначала нажмите 1. После открытия Safari нажмите 2.",noteSafari:"Нажмите кнопку — покажем точное место на экране.",opening:"Открываем Safari…",blocked:"Если Safari не открылся автоматически: в Instagram нажмите ••• → Open in Safari один раз.",installed:"Muhajeer Books уже установлен ✅",sheetTitle:"Добавить на главный экран",sheetLead:"Покажите панель Safari и нажмите по порядку:",more:"••• More / Меню",moreSub:"В нижней или верхней панели Safari",share:"Share / Поделиться",shareSub:"Значок □↑",addHome:"На экран «Домой»",addHomeSub:"Add to Home Screen / 홈 화면에 추가",add:"Добавить",addSub:"Add / 추가",toolbar:"Если панель Safari скрыта, коснитесь экрана или немного прокрутите страницу вверх. Затем нажмите •••.",small:"Телефон и язык определяются автоматически."},
-    en:{tag:"Uzbek bookstore in Korea",iosDevice:" iPhone detected",androidDevice:"🤖 Android detected",iosTitle:"Install on iPhone",androidTitle:"Install on Android",iosLeadInApp:"Only 2 big buttons.",iosLeadSafari:"Only one big button.",androidLead:"Tap one button — the install window will appear.",safari:"OPEN IN SAFARI",home:"ADD TO HOME SCREEN",android:"📲 INSTALL ON ANDROID",open:"Open app now",noteInApp:"Tap 1 first. After Safari opens, tap 2.",noteSafari:"Tap the button — the exact place to press will appear.",opening:"Opening Safari…",blocked:"If Safari does not open automatically, tap Instagram ••• → Open in Safari once.",installed:"Muhajeer Books is already installed ✅",sheetTitle:"Add to Home Screen",sheetLead:"Show the Safari toolbar and tap these in order:",more:"••• More / Menu",moreSub:"On Safari’s bottom or top toolbar",share:"Share",shareSub:"The □↑ icon",addHome:"Add to Home Screen",addHomeSub:"홈 화면에 추가 / На экран «Домой»",add:"Add",addSub:"추가 / Добавить",toolbar:"If Safari’s toolbar is hidden, tap the page once or scroll slightly upward. Then tap •••.",small:"Phone and language are detected automatically."},
-    ko:{tag:"한국의 우즈베크어 서점",iosDevice:" iPhone이 감지되었습니다",androidDevice:"🤖 Android가 감지되었습니다",iosTitle:"iPhone에 설치",androidTitle:"Android에 설치",iosLeadInApp:"큰 버튼 2개만 사용하세요.",iosLeadSafari:"큰 버튼 하나만 사용하세요.",androidLead:"버튼 한 번만 누르면 설치 창이 열립니다.",safari:"SAFARI에서 열기",home:"홈 화면에 추가",android:"📲 ANDROID에 설치",open:"지금 앱 열기",noteInApp:"먼저 1을 누르고, Safari가 열리면 2를 누르세요.",noteSafari:"버튼을 누르면 정확히 어디를 눌러야 하는지 표시됩니다.",opening:"Safari를 여는 중…",blocked:"Safari가 자동으로 열리지 않으면 Instagram의 ••• → Safari에서 열기를 한 번 누르세요.",installed:"Muhajeer Books가 이미 설치되어 있습니다 ✅",sheetTitle:"홈 화면에 추가",sheetLead:"Safari 도구막대를 보이게 한 뒤 순서대로 누르세요:",more:"••• 더보기 / 메뉴",moreSub:"Safari 아래쪽 또는 위쪽 도구막대",share:"공유",shareSub:"□↑ 아이콘",addHome:"홈 화면에 추가",addHomeSub:"Add to Home Screen / На экран «Домой»",add:"추가",addSub:"Add / Добавить",toolbar:"Safari 도구막대가 숨겨져 있으면 화면을 한 번 누르거나 페이지를 조금 위로 스크롤하세요. 그런 다음 •••를 누르세요.",small:"휴대폰과 언어가 자동으로 감지됩니다."}
+    uz:{tag:"Koreyadagi o‘zbek kitob do‘koni",iosDevice:" iPhone aniqlandi",androidDevice:"🤖 Android telefon aniqlandi",iosTitle:"iPhone’ga o‘rnatish",androidTitle:"Android’ga o‘rnatish",iosLeadInApp:"Bitta tugmani bosing — Safari’da ochib, keyin o‘rnatishni davom ettirasiz.",iosLeadSafari:"Bitta tugmani bosing — qayerni bosish kerakligi darrov ko‘rinadi.",androidLead:"Bitta tugmani bosing — o‘rnatish oynasi chiqadi.",iosBtnInApp:" SAFARI’DA OCHIB O‘RNATISH",iosBtnSafari:"＋ BOSH EKRANGA QO‘SHISH",androidBtn:"📲 ANDROID’GA O‘RNATISH",open:"Hozir ilovani ochish",opening:"Safari ochilmoqda…",ready:"Tayyor — tugmani bosing.",installed:"Muhajeer Books allaqachon o‘rnatilgan ✅",installedBtn:"✅ O‘RNATILGAN — OCHISH",inAppTitle:"Safari’da ochish",inAppText:"Agar Safari avtomatik ochilmasa, aynan tepadagi ••• ni bosing va “Open in Safari / Safari’da ochish” ni tanlang.",safariTitle:"Bosh ekranga qo‘shish",safariText:"Safari paneli ko‘rinmasa ekranga bir marta teging. So‘ng quyidagilarni bosing:",steps:[["••• / Share","Safari pastki yoki yuqori panelida"],["Add to Home Screen","홈 화면에 추가 / На экран «Домой»"],["Add","Qo‘shish / 추가 / Добавить"]],close:"TUSHUNDIM",small:"Telefon va til avtomatik aniqlanadi."},
+    ru:{tag:"Узбекский книжный магазин в Корее",iosDevice:" Обнаружен iPhone",androidDevice:"🤖 Обнаружен Android",iosTitle:"Установить на iPhone",androidTitle:"Установить на Android",iosLeadInApp:"Нажмите одну кнопку — откройте Safari и продолжите установку.",iosLeadSafari:"Нажмите одну кнопку — сразу покажем, куда нажать.",androidLead:"Нажмите одну кнопку — откроется окно установки.",iosBtnInApp:" ОТКРЫТЬ В SAFARI И УСТАНОВИТЬ",iosBtnSafari:"＋ ДОБАВИТЬ НА ГЛАВНЫЙ ЭКРАН",androidBtn:"📲 УСТАНОВИТЬ НА ANDROID",open:"Открыть приложение",opening:"Открываем Safari…",ready:"Готово — нажмите кнопку.",installed:"Muhajeer Books уже установлен ✅",installedBtn:"✅ УСТАНОВЛЕНО — ОТКРЫТЬ",inAppTitle:"Открыть в Safari",inAppText:"Если Safari не открылся автоматически, нажмите именно верхние ••• и выберите “Open in Safari / Открыть в Safari”.",safariTitle:"Добавить на главный экран",safariText:"Если панель Safari скрыта, коснитесь экрана один раз. Затем нажмите:",steps:[["••• / Share","В нижней или верхней панели Safari"],["На экран «Домой»","Add to Home Screen / 홈 화면에 추가"],["Добавить","Add / 추가"]],close:"ПОНЯТНО",small:"Телефон и язык определяются автоматически."},
+    en:{tag:"Uzbek bookstore in Korea",iosDevice:" iPhone detected",androidDevice:"🤖 Android detected",iosTitle:"Install on iPhone",androidTitle:"Install on Android",iosLeadInApp:"Tap one button — open in Safari, then continue installation.",iosLeadSafari:"Tap one button — we’ll immediately show where to press.",androidLead:"Tap one button — the install window will appear.",iosBtnInApp:" OPEN IN SAFARI & INSTALL",iosBtnSafari:"＋ ADD TO HOME SCREEN",androidBtn:"📲 INSTALL ON ANDROID",open:"Open app now",opening:"Opening Safari…",ready:"Ready — tap the button.",installed:"Muhajeer Books is already installed ✅",installedBtn:"✅ INSTALLED — OPEN",inAppTitle:"Open in Safari",inAppText:"If Safari does not open automatically, tap the top ••• and choose “Open in Safari”.",safariTitle:"Add to Home Screen",safariText:"If Safari’s toolbar is hidden, tap the page once. Then tap:",steps:[["••• / Share","On Safari’s bottom or top toolbar"],["Add to Home Screen","홈 화면에 추가 / На экран «Домой»"],["Add","추가 / Добавить"]],close:"GOT IT",small:"Phone and language are detected automatically."},
+    ko:{tag:"한국의 우즈베크어 서점",iosDevice:" iPhone이 감지되었습니다",androidDevice:"🤖 Android가 감지되었습니다",iosTitle:"iPhone에 설치",androidTitle:"Android에 설치",iosLeadInApp:"버튼 하나를 눌러 Safari에서 연 뒤 설치를 계속하세요.",iosLeadSafari:"버튼 하나만 누르면 어디를 눌러야 하는지 바로 보여줍니다.",androidLead:"버튼 한 번만 누르면 설치 창이 열립니다.",iosBtnInApp:" SAFARI에서 열고 설치",iosBtnSafari:"＋ 홈 화면에 추가",androidBtn:"📲 ANDROID에 설치",open:"지금 앱 열기",opening:"Safari를 여는 중…",ready:"준비 완료 — 버튼을 누르세요.",installed:"Muhajeer Books가 이미 설치되어 있습니다 ✅",installedBtn:"✅ 설치됨 — 열기",inAppTitle:"Safari에서 열기",inAppText:"Safari가 자동으로 열리지 않으면 위쪽 •••를 누르고 “Safari에서 열기”를 선택하세요.",safariTitle:"홈 화면에 추가",safariText:"Safari 도구막대가 숨겨져 있으면 화면을 한 번 누르세요. 그 다음:",steps:[["••• / 공유","Safari 아래쪽 또는 위쪽 도구막대"],["홈 화면에 추가","Add to Home Screen / На экран «Домой»"],["추가","Add / Добавить"]],close:"확인",small:"휴대폰과 언어가 자동으로 감지됩니다."}
   };
 
   const ua=navigator.userAgent||'';
   const isIOS=/iPhone|iPad|iPod/i.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
-  const isInApp=isIOS&&/Instagram|FBAN|FBAV|Telegram|KAKAOTALK|NAVER|Line|Threads|Barcelona/i.test(ua);
-  const isSafari=isIOS&&/Safari/i.test(ua)&&!/CriOS|FxiOS|EdgiOS|OPiOS/i.test(ua)&&!isInApp;
+  const inApp=isIOS&&/Instagram|FBAN|FBAV|Telegram|KAKAOTALK|NAVER|Line|Threads|Barcelona/i.test(ua);
+  const isSafari=isIOS&&/Safari/i.test(ua)&&!/CriOS|FxiOS|EdgiOS|OPiOS/i.test(ua)&&!inApp;
   const standalone=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
   const lp=(navigator.language||'uz').toLowerCase().slice(0,2);
   let lang=['uz','ru','en','ko'].includes(lp)?lp:'uz';
@@ -92,90 +70,55 @@
     $('tag').textContent=t.tag;
     $('device').textContent=isIOS?t.iosDevice:t.androidDevice;
     $('title').textContent=isIOS?t.iosTitle:t.androidTitle;
+    $('lead').textContent=isIOS?(inApp?t.iosLeadInApp:t.iosLeadSafari):t.androidLead;
     $('openBtn').textContent=t.open;
     $('small').textContent=t.small;
+    $('installBtn').textContent=standalone?t.installedBtn:(isIOS?(inApp?t.iosBtnInApp:t.iosBtnSafari):t.androidBtn);
     $('status').className='status';
-    $('iphoneActions').style.display=isIOS?'block':'none';
-    $('androidActions').style.display=isIOS?'none':'block';
-
-    if(standalone){
-      $('lead').textContent=t.installed;
-      $('status').classList.add('ok');
-      $('status').textContent=t.installed;
-      $('iphoneActions').style.display='none';
-      $('androidActions').style.display='none';
-    }else if(isIOS){
-      const safariMode=isSafari||new URLSearchParams(location.search).get('iphone')==='1';
-      $('lead').textContent=safariMode?t.iosLeadSafari:t.iosLeadInApp;
-      $('safariBtn').style.display=safariMode?'none':'block';
-      $('homeStep').style.display=safariMode?'none':'inline-grid';
-      $('safariText').textContent=t.safari;
-      $('homeText').textContent=t.home;
-      $('iphoneNote').textContent=safariMode?t.noteSafari:t.noteInApp;
-      $('status').textContent=safariMode?t.noteSafari:t.noteInApp;
-    }else{
-      $('lead').textContent=t.androidLead;
-      $('androidBtn').textContent=t.android;
-      $('status').textContent=promptEvent?'Tayyor. Yashil tugmani bosing.':'O‘rnatish tayyorlanmoqda…';
-    }
+    $('status').textContent=standalone?t.installed:t.ready;
+    if(standalone)$('status').classList.add('ok');
+    $('inAppTitle').textContent=t.inAppTitle;$('inAppText').textContent=t.inAppText;$('closeInApp').textContent=t.close;
+    $('safariTitle').textContent=t.safariTitle;$('safariText').textContent=t.safariText;$('closeSafari').textContent=t.close;
+    $('safariSteps').innerHTML=t.steps.map((s,i)=>`<div class="step"><div class="n">${i+1}</div><div><b>${s[0]}</b><span>${s[1]}</span></div></div>`).join('');
     document.querySelectorAll('.lang').forEach(x=>x.classList.toggle('active',x.dataset.lang===lang));
   }
 
-  function copyInstall(){
-    const u=location.origin+'/install?iphone=1';
-    try{navigator.clipboard.writeText(u).catch(()=>{});}catch(_){ }
-    return u;
-  }
+  function showInAppCoach(){render();$('inAppCoach').classList.add('show');}
+  function showSafariCoach(){render();$('safariCoach').classList.add('show');}
+  function closeCoaches(){$('inAppCoach').classList.remove('show');$('safariCoach').classList.remove('show');}
+  function installUrl(){return location.origin+'/install?iphone=1';}
+  function copyInstall(){try{navigator.clipboard.writeText(installUrl()).catch(()=>{});}catch(_){}}
 
-  function openSafari(){
-    const t=T[lang],u=copyInstall(),stripped=u.replace(/^https?:\/\//,'');
+  function tryOpenSafari(){
+    const t=T[lang],u=installUrl(),stripped=u.replace(/^https?:\/\//,'');
+    copyInstall();
     $('status').className='status';$('status').textContent=t.opening;
-    let hidden=false;
-    const onVis=()=>{if(document.visibilityState==='hidden')hidden=true};
+    let left=false;
+    const onVis=()=>{if(document.visibilityState==='hidden')left=true;};
     document.addEventListener('visibilitychange',onVis,{once:true});
     try{location.href='x-safari-https://'+stripped;}catch(_){ }
-    setTimeout(()=>{if(!hidden){try{window.open(u,'_blank','noopener');}catch(_){ }}},550);
-    setTimeout(()=>{if(!hidden){$('status').className='status warn';$('status').textContent=t.blocked;}},1400);
-  }
-
-  function showHomeGuide(){
-    const t=T[lang];
-    try{window.scrollTo({top:0,behavior:'smooth'});}catch(_){window.scrollTo(0,0)}
-    $('sheetTitle').textContent=t.sheetTitle;
-    $('sheetLead').textContent=t.sheetLead;
-    $('sheetSteps').innerHTML=`
-      <div class="coach"><div class="num">1</div><div class="glyph">•••</div><div><b>${t.more}</b><span>${t.moreSub}</span></div></div>
-      <div class="arrow">↓</div>
-      <div class="coach"><div class="num">2</div><div class="glyph">□↑</div><div><b>${t.share}</b><span>${t.shareSub}</span></div></div>
-      <div class="arrow">↓</div>
-      <div class="coach"><div class="num">3</div><div class="glyph">＋</div><div><b>${t.addHome}</b><span>${t.addHomeSub}</span></div></div>
-      <div class="arrow">↓</div>
-      <div class="coach"><div class="num">4</div><div class="glyph">✓</div><div><b>${t.add}</b><span>${t.addSub}</span></div></div>`;
-    $('overlay').classList.add('show');
-    $('toolbarText').textContent=t.toolbar;
-    $('toolbarCoach').classList.add('show');
-    setTimeout(()=>$('toolbarCoach').classList.remove('show'),6500);
+    setTimeout(()=>{if(!left){try{location.href='com-apple-mobilesafari-tab:'+u;}catch(_){ }}},650);
+    setTimeout(()=>{if(!left)showInAppCoach();},1450);
   }
 
   addEventListener('beforeinstallprompt',e=>{e.preventDefault();promptEvent=e;render();});
   addEventListener('appinstalled',()=>{promptEvent=null;render();});
   document.querySelectorAll('.lang').forEach(x=>x.onclick=()=>{lang=x.dataset.lang;render();});
-  $('closeBtn').onclick=()=>{$('overlay').classList.remove('show');$('toolbarCoach').classList.remove('show');};
-  $('overlay').onclick=e=>{if(e.target===$('overlay')){$('overlay').classList.remove('show');$('toolbarCoach').classList.remove('show');}};
-  $('safariBtn').onclick=openSafari;
-  $('homeBtn').onclick=()=>{
-    if(isIOS&&!isSafari&&new URLSearchParams(location.search).get('iphone')!=='1'){
-      openSafari();
-      return;
+  $('closeInApp').onclick=closeCoaches;$('closeSafari').onclick=closeCoaches;
+
+  $('installBtn').onclick=async()=>{
+    if(standalone){location.href='/';return;}
+    if(isIOS){
+      if(inApp){tryOpenSafari();return;}
+      showSafariCoach();return;
     }
-    showHomeGuide();
-  };
-  $('androidBtn').onclick=async()=>{
     if(promptEvent){const p=promptEvent;promptEvent=null;await p.prompt();return;}
-    $('status').className='status warn';$('status').textContent='Chrome menyusi ⋮ → Install app / Add to Home screen';
+    $('status').className='status warn';
+    $('status').textContent='Chrome menyusi ⋮ → Install app / Add to Home screen';
   };
 
   render();
+  if(isIOS&&!inApp&&new URLSearchParams(location.search).get('iphone')==='1')setTimeout(showSafariCoach,300);
 })();
 </script>
 </body>

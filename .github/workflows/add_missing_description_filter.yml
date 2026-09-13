@@ -1,0 +1,84 @@
+name: Add Tarifsiz book filter
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/add_missing_description_filter.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Add Tarifsiz counter and filter
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('lib/admin_ui.dart')
+          text = path.read_text(encoding='utf-8')
+
+          def replace_once(old: str, new: str, label: str):
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly 1 match, found {count}')
+              text = text.replace(old, new, 1)
+
+          if "label: 'Tarifsiz'" in text and "case 'missing_description':" in text:
+              print('Tarifsiz filter already present; nothing to change.')
+              raise SystemExit(0)
+
+          replace_once(
+              "  bool _missingImage(Book book) => book.galleryImages.isEmpty;\n\n  bool _missingAuthor(Book book) {",
+              "  bool _missingImage(Book book) => book.galleryImages.isEmpty;\n\n  bool _missingDescription(Book book) {\n    final value = book.description\n        .trim()\n        .toLowerCase()\n        .replaceAll('’', \"'\")\n        .replaceAll('`', \"'\")\n        .replaceAll('.', '')\n        .replaceAll(RegExp(r'\\s+'), ' ');\n    return value.isEmpty ||\n        value == \"ma'lumot kiritilmagan\" ||\n        value == 'tavsif kiritilmagan';\n  }\n\n  bool _missingAuthor(Book book) {",
+              'missing-description helper',
+          )
+
+          replace_once(
+              "  bool _hasProblem(Book book) =>\n      _missingImage(book) ||\n      book.costPrice <= 0 ||",
+              "  bool _hasProblem(Book book) =>\n      _missingImage(book) ||\n      _missingDescription(book) ||\n      book.costPrice <= 0 ||",
+              'problem aggregation',
+          )
+
+          replace_once(
+              "      case 'missing_image':\n        return _missingImage(book);\n      case 'missing_cost':",
+              "      case 'missing_image':\n        return _missingImage(book);\n      case 'missing_description':\n        return _missingDescription(book);\n      case 'missing_cost':",
+              'filter switch',
+          )
+
+          replace_once(
+              "        final missingImages = all.where(_missingImage).length;\n        final missingCost = all.where((b) => b.costPrice <= 0).length;",
+              "        final missingImages = all.where(_missingImage).length;\n        final missingDescriptions = all.where(_missingDescription).length;\n        final missingCost = all.where((b) => b.costPrice <= 0).length;",
+              'counter',
+          )
+
+          replace_once(
+              "                      _MiniStat(\n                        label: 'Rasm yuklanmagan',\n                        value: '$missingImages',\n                        selected: filter == 'missing_image',\n                        onTap: () => setState(() => filter = 'missing_image'),\n                      ),\n                      _MiniStat(\n                        label: 'Tan narxi kiritilmagan',",
+              "                      _MiniStat(\n                        label: 'Rasm yuklanmagan',\n                        value: '$missingImages',\n                        selected: filter == 'missing_image',\n                        onTap: () => setState(() => filter = 'missing_image'),\n                      ),\n                      _MiniStat(\n                        label: 'Tarifsiz',\n                        value: '$missingDescriptions',\n                        selected: filter == 'missing_description',\n                        onTap: () => setState(() => filter = 'missing_description'),\n                      ),\n                      _MiniStat(\n                        label: 'Tan narxi kiritilmagan',",
+              'Tarifsiz stat card',
+          )
+
+          path.write_text(text, encoding='utf-8')
+          print('Tarifsiz filter added successfully.')
+          PY
+      - name: Commit patch
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/admin_ui.dart
+          git commit -m "Add Tarifsiz book filter"
+          git push origin HEAD:main

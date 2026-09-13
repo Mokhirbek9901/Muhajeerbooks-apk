@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
+
 import 'app_state.dart';
 
 const storyOrderLabel = 'Buyurtma berish uchun bosing';
@@ -14,9 +16,7 @@ String storyPrice(Book book) => book.price > 0
     : 'Narxi aniqlanmoqda';
 
 String _storyDescription(Book book) {
-  final value = book.description
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
+  final value = book.description.replaceAll(RegExp(r'\s+'), ' ').trim();
   if (value.isEmpty || value == 'Ma’lumot kiritilmagan.') {
     final fallback = <String>[
       if (book.category.trim().isNotEmpty) book.category.trim(),
@@ -37,7 +37,11 @@ Future<ui.Image> _decodeStoryCover(Uint8List encoded) async {
   if (decoded == null) throw StateError('Cover decode failed');
 
   final resized = decoded.width > 700
-      ? img.copyResize(decoded, width: 700, interpolation: img.Interpolation.average)
+      ? img.copyResize(
+          decoded,
+          width: 700,
+          interpolation: img.Interpolation.average,
+        )
       : decoded;
   final rgba = Uint8List.fromList(
     resized.getBytes(order: img.ChannelOrder.rgba),
@@ -52,6 +56,103 @@ Future<ui.Image> _decodeStoryCover(Uint8List encoded) async {
     completer.complete,
   );
   return completer.future;
+}
+
+class _TextMetrics {
+  const _TextMetrics(this.fontSize, this.size);
+
+  final double fontSize;
+  final Size size;
+}
+
+_TextMetrics _fitText({
+  required String value,
+  required double maxWidth,
+  required double maxHeight,
+  required double maxFontSize,
+  required double minFontSize,
+  required double lineHeight,
+  int? maxLines,
+  FontWeight weight = FontWeight.w500,
+}) {
+  // First use the normal readable range. If the description is exceptionally
+  // long, continue shrinking below minFontSize rather than cutting text.
+  final hardFloor = maxLines == null ? 7.0 : minFontSize;
+  var fontSize = maxFontSize;
+
+  while (fontSize >= hardFloor) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: value,
+        style: TextStyle(
+          fontFamily: 'Roboto',
+          fontSize: fontSize,
+          fontWeight: weight,
+          height: lineHeight,
+        ),
+      ),
+      textDirection: ui.TextDirection.ltr,
+      textAlign: TextAlign.center,
+      maxLines: maxLines,
+    )..layout(maxWidth: maxWidth);
+
+    final fits = painter.height <= maxHeight && !painter.didExceedMaxLines;
+    final size = Size(painter.width, painter.height);
+    painter.dispose();
+    if (fits) return _TextMetrics(fontSize, size);
+
+    fontSize -= fontSize > minFontSize ? 0.5 : 0.25;
+  }
+
+  final painter = TextPainter(
+    text: TextSpan(
+      text: value,
+      style: TextStyle(
+        fontFamily: 'Roboto',
+        fontSize: hardFloor,
+        fontWeight: weight,
+        height: lineHeight,
+      ),
+    ),
+    textDirection: ui.TextDirection.ltr,
+    textAlign: TextAlign.center,
+    maxLines: maxLines,
+  )..layout(maxWidth: maxWidth);
+  final size = Size(painter.width, painter.height);
+  painter.dispose();
+  return _TextMetrics(hardFloor, size);
+}
+
+Size _paintText(
+  Canvas canvas,
+  String value,
+  double y,
+  _TextMetrics metrics, {
+  required double width,
+  required Color color,
+  FontWeight weight = FontWeight.w500,
+  double lineHeight = 1.12,
+  int? maxLines,
+}) {
+  final painter = TextPainter(
+    text: TextSpan(
+      text: value,
+      style: TextStyle(
+        fontFamily: 'Roboto',
+        fontSize: metrics.fontSize,
+        fontWeight: weight,
+        color: color,
+        height: lineHeight,
+      ),
+    ),
+    textDirection: ui.TextDirection.ltr,
+    textAlign: TextAlign.center,
+    maxLines: maxLines,
+  )..layout(maxWidth: width);
+  painter.paint(canvas, Offset((1080 - painter.width) / 2, y));
+  final result = Size(painter.width, painter.height);
+  painter.dispose();
+  return result;
 }
 
 /// A full-resolution 9:16 portrait image, independent of preview screen size.
@@ -84,6 +185,7 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
   const greenSoft = Color(0xFFE4F4EC);
   const red = Color(0xFFB53B3B);
   const redSoft = Color(0xFFFBE8E8);
+  const muted = Color(0xFF66787D);
 
   canvas.drawColor(cream, BlendMode.src);
   canvas.drawCircle(
@@ -97,15 +199,13 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
     Paint()..color = const Color(0xFFF1E5CA),
   );
 
-  Size text(
+  void simpleText(
     String value,
     double y,
     double size, {
     Color color = ink,
     FontWeight weight = FontWeight.w500,
-    int lines = 1,
     double width = 900,
-    double height = 1.12,
   }) {
     final painter = TextPainter(
       text: TextSpan(
@@ -115,60 +215,19 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
           fontSize: size,
           fontWeight: weight,
           color: color,
-          height: height,
-        ),
-      ),
-      textDirection: ui.TextDirection.ltr,
-      textAlign: TextAlign.center,
-      maxLines: lines,
-      ellipsis: '…',
-    )..layout(maxWidth: width);
-    painter.paint(canvas, Offset((1080 - painter.width) / 2, y));
-    final result = Size(painter.width, painter.height);
-    painter.dispose();
-    return result;
-  }
-
-  void stockPill() {
-    final label = book.stock > 0
-        ? 'Omborda: ${book.stock} dona'
-        : 'Hozircha mavjud emas';
-    final foreground = book.stock > 0 ? green : red;
-    final background = book.stock > 0 ? greenSoft : redSoft;
-    final painter = TextPainter(
-      text: TextSpan(
-        text: label,
-        style: TextStyle(
-          fontFamily: 'Roboto',
-          fontSize: 29,
-          fontWeight: FontWeight.w800,
-          color: foreground,
+          height: 1.1,
         ),
       ),
       textDirection: ui.TextDirection.ltr,
       textAlign: TextAlign.center,
       maxLines: 1,
-    )..layout(maxWidth: 700);
-
-    final pillWidth = (painter.width + 58).clamp(290.0, 720.0).toDouble();
-    final pillRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: const Offset(540, 1322),
-        width: pillWidth,
-        height: 62,
-      ),
-      const Radius.circular(31),
-    );
-    canvas.drawRRect(pillRect, Paint()..color = background);
-    painter.paint(
-      canvas,
-      Offset((1080 - painter.width) / 2, 1322 - painter.height / 2),
-    );
+    )..layout(maxWidth: width);
+    painter.paint(canvas, Offset((1080 - painter.width) / 2, y));
     painter.dispose();
   }
 
-  text('MUHAJEER BOOKS', 120, 46, weight: FontWeight.w800);
-  text('Koreyadagi o‘zbek kitob do‘koni', 182, 28);
+  simpleText('MUHAJEER BOOKS', 120, 46, weight: FontWeight.w800);
+  simpleText('Koreyadagi o‘zbek kitob do‘koni', 182, 28);
 
   final frame = RRect.fromRectAndRadius(
     const Rect.fromLTWH(182, 270, 716, 700),
@@ -190,65 +249,262 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
   );
   cover.dispose();
 
-  text(book.title, 1012, 54, weight: FontWeight.w800, lines: 2, height: 1.08);
-  if (book.author.trim().isNotEmpty && book.author != 'Ko‘rsatilmagan') {
-    text(book.author, 1135, 29, color: const Color(0xFF52656B));
-  }
-
-  text(
-    storyPrice(book),
-    1190,
-    book.price > 0 ? 72 : 44,
-    color: teal,
-    weight: FontWeight.w900,
+  final title = _fitText(
+    value: book.title,
+    maxWidth: 900,
+    maxHeight: 112,
+    maxFontSize: 52,
+    minFontSize: 34,
+    lineHeight: 1.06,
+    maxLines: 2,
+    weight: FontWeight.w800,
   );
 
-  stockPill();
+  final hasAuthor =
+      book.author.trim().isNotEmpty && book.author != 'Ko‘rsatilmagan';
+  final author = hasAuthor
+      ? _fitText(
+          value: book.author.trim(),
+          maxWidth: 800,
+          maxHeight: 42,
+          maxFontSize: 29,
+          minFontSize: 20,
+          lineHeight: 1.05,
+          maxLines: 1,
+        )
+      : const _TextMetrics(0, Size.zero);
+
+  final price = _fitText(
+    value: storyPrice(book),
+    maxWidth: 760,
+    maxHeight: 78,
+    maxFontSize: book.price > 0 ? 70 : 43,
+    minFontSize: book.price > 0 ? 48 : 30,
+    lineHeight: 1,
+    maxLines: 1,
+    weight: FontWeight.w900,
+  );
 
   final info = <String>[
     if (book.category.trim().isNotEmpty) book.category.trim(),
     if (book.publisher.trim().isNotEmpty) book.publisher.trim(),
   ].join(' · ');
-  if (info.isNotEmpty) {
-    text(info, 1370, 25, color: const Color(0xFF66787D));
+  final hasInfo = info.isNotEmpty;
+  final infoMetrics = hasInfo
+      ? _fitText(
+          value: info,
+          maxWidth: 850,
+          maxHeight: 58,
+          maxFontSize: 24,
+          minFontSize: 18,
+          lineHeight: 1.08,
+          maxLines: 2,
+        )
+      : const _TextMetrics(0, Size.zero);
+
+  const stockHeight = 58.0;
+  const gapTitleAuthor = 7.0;
+  const gapAuthorPrice = 9.0;
+  const gapPriceStock = 13.0;
+  const gapStockInfo = 11.0;
+  const gapInfoAbout = 12.0;
+  const aboutHeight = 25.0;
+  const gapAboutDescription = 8.0;
+  const gapDescriptionCta = 22.0;
+  const ctaHeight = 46.0;
+  const arrowArea = 62.0;
+
+  // Lower content may occupy this whole zone. The description gets whatever
+  // space remains after title/author/price/stock/meta/CTA are accounted for.
+  const minBlockTop = 976.0;
+  const maxBlockTop = 1015.0;
+  const blockBottom = 1762.0;
+
+  final fixedHeight = title.size.height +
+      (hasAuthor ? gapTitleAuthor + author.size.height : 0) +
+      gapAuthorPrice +
+      price.size.height +
+      gapPriceStock +
+      stockHeight +
+      (hasInfo ? gapStockInfo + infoMetrics.size.height : 0) +
+      gapInfoAbout +
+      aboutHeight +
+      gapAboutDescription +
+      gapDescriptionCta +
+      ctaHeight +
+      arrowArea;
+
+  final descriptionMaxHeight =
+      (blockBottom - minBlockTop - fixedHeight).clamp(120.0, 345.0).toDouble();
+  final description = _storyDescription(book);
+  final descriptionMetrics = _fitText(
+    value: description,
+    maxWidth: 900,
+    maxHeight: descriptionMaxHeight,
+    maxFontSize: 27,
+    minFontSize: 16,
+    lineHeight: 1.18,
+    // null means no line cap: the complete description is always laid out.
+    maxLines: null,
+  );
+
+  final totalHeight = fixedHeight + descriptionMetrics.size.height;
+  var y = (blockBottom - totalHeight).clamp(minBlockTop, maxBlockTop).toDouble();
+
+  // TITLE
+  final titleSize = _paintText(
+    canvas,
+    book.title,
+    y,
+    title,
+    width: 900,
+    color: ink,
+    weight: FontWeight.w800,
+    lineHeight: 1.06,
+    maxLines: 2,
+  );
+  y += titleSize.height;
+
+  // AUTHOR. For long descriptions the whole block moves upward; for shorter
+  // descriptions it settles slightly lower, keeping the layout balanced.
+  if (hasAuthor) {
+    y += gapTitleAuthor;
+    final authorSize = _paintText(
+      canvas,
+      book.author.trim(),
+      y,
+      author,
+      width: 800,
+      color: const Color(0xFF52656B),
+      lineHeight: 1.05,
+      maxLines: 1,
+    );
+    y += authorSize.height;
   }
 
-  text('KITOB HAQIDA', 1425, 22, color: teal, weight: FontWeight.w800);
-  text(
-    _storyDescription(book),
-    1464,
-    27,
-    color: ink,
-    weight: FontWeight.w500,
-    lines: 3,
-    width: 890,
-    height: 1.22,
-  );
-
-  text(
-    book.inStock ? storyOrderLabel : 'Kitob haqida batafsil',
-    1615,
-    38,
+  y += gapAuthorPrice;
+  final priceSize = _paintText(
+    canvas,
+    storyPrice(book),
+    y,
+    price,
+    width: 760,
     color: teal,
+    weight: FontWeight.w900,
+    lineHeight: 1,
+    maxLines: 1,
+  );
+  y += priceSize.height + gapPriceStock;
+
+  // STOCK PILL
+  final stockLabel =
+      book.stock > 0 ? 'Omborda: ${book.stock} dona' : 'Hozircha mavjud emas';
+  final stockForeground = book.stock > 0 ? green : red;
+  final stockBackground = book.stock > 0 ? greenSoft : redSoft;
+  final stockPainter = TextPainter(
+    text: TextSpan(
+      text: stockLabel,
+      style: TextStyle(
+        fontFamily: 'Roboto',
+        fontSize: 28,
+        fontWeight: FontWeight.w800,
+        color: stockForeground,
+      ),
+    ),
+    textDirection: ui.TextDirection.ltr,
+    textAlign: TextAlign.center,
+    maxLines: 1,
+  )..layout(maxWidth: 700);
+  final pillWidth = (stockPainter.width + 58).clamp(290.0, 720.0).toDouble();
+  final pillCenterY = y + stockHeight / 2;
+  final pillRect = RRect.fromRectAndRadius(
+    Rect.fromCenter(
+      center: Offset(540, pillCenterY),
+      width: pillWidth,
+      height: stockHeight,
+    ),
+    const Radius.circular(30),
+  );
+  canvas.drawRRect(pillRect, Paint()..color = stockBackground);
+  stockPainter.paint(
+    canvas,
+    Offset((1080 - stockPainter.width) / 2, pillCenterY - stockPainter.height / 2),
+  );
+  stockPainter.dispose();
+  y += stockHeight;
+
+  if (hasInfo) {
+    y += gapStockInfo;
+    final metaSize = _paintText(
+      canvas,
+      info,
+      y,
+      infoMetrics,
+      width: 850,
+      color: muted,
+      lineHeight: 1.08,
+      maxLines: 2,
+    );
+    y += metaSize.height;
+  }
+
+  y += gapInfoAbout;
+  simpleText('KITOB HAQIDA', y, 22, color: teal, weight: FontWeight.w800);
+  y += aboutHeight + gapAboutDescription;
+
+  // COMPLETE DESCRIPTION. No ellipsis and no max-lines cap. Font size adapts
+  // continuously to the amount of information so every word is visible.
+  final descriptionSize = _paintText(
+    canvas,
+    description,
+    y,
+    descriptionMetrics,
+    width: 900,
+    color: ink,
+    lineHeight: 1.18,
+    maxLines: null,
+  );
+  y += descriptionSize.height + gapDescriptionCta;
+
+  final cta = _fitText(
+    value: book.inStock ? storyOrderLabel : 'Kitob haqida batafsil',
+    maxWidth: 820,
+    maxHeight: ctaHeight,
+    maxFontSize: 37,
+    minFontSize: 27,
+    lineHeight: 1,
+    maxLines: 1,
     weight: FontWeight.w800,
   );
+  final ctaSize = _paintText(
+    canvas,
+    book.inStock ? storyOrderLabel : 'Kitob haqida batafsil',
+    y,
+    cta,
+    width: 820,
+    color: teal,
+    weight: FontWeight.w800,
+    lineHeight: 1,
+    maxLines: 1,
+  );
+  y += ctaSize.height + 8;
 
   final arrow = Paint()
     ..color = teal
     ..strokeWidth = 5
     ..strokeCap = StrokeCap.round
     ..style = PaintingStyle.stroke;
-  canvas.drawLine(const Offset(540, 1672), const Offset(540, 1710), arrow);
+  canvas.drawLine(Offset(540, y), Offset(540, y + 38), arrow);
   canvas.drawPath(
     Path()
-      ..moveTo(526, 1696)
-      ..lineTo(540, 1710)
-      ..lineTo(554, 1696),
+      ..moveTo(526, y + 24)
+      ..lineTo(540, y + 38)
+      ..lineTo(554, y + 24),
     arrow,
   );
 
   // Blank area below the arrow is reserved for Instagram's real Link sticker.
-  text('@muhajeerbooks', 1810, 28);
+  simpleText('@muhajeerbooks', 1810, 28);
 
   final picture = recorder.endRecording();
   final image = await picture.toImage(1080, 1920);

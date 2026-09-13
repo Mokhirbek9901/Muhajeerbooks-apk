@@ -2827,13 +2827,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       controller: phone,
                       keyboardType: TextInputType.phone,
                       textInputAction: TextInputAction.next,
-                      inputFormatters: const [
+                      inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
                         LengthLimitingTextInputFormatter(11),
                       ],
                       decoration: const InputDecoration(
                         labelText: 'Telefon raqam',
-                        hintText: '01024338600',
+                        hintText: 'Masalan: 01024338600',
                         helperText: 'Koreya raqamini 010 bilan 11 ta raqamda kiriting.',
                         prefixIcon: Icon(Icons.phone_outlined),
                       ),

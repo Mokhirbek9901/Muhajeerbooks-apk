@@ -1,0 +1,131 @@
+name: Prepare and verify iOS app
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'test/**'
+      - 'pubspec.yaml'
+      - 'assets/**'
+      - 'ios/**'
+      - '.github/workflows/ios_build.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: muhajeer-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prepare-ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Create iOS platform files when missing
+        run: |
+          flutter create . --platforms=ios --project-name muhajeerbooks --org com.muhajeerbooks
+
+      - name: Configure Muhajeer Books for iPhone
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import plistlib
+          import re
+
+          project = Path('ios/Runner.xcodeproj/project.pbxproj')
+          text = project.read_text(encoding='utf-8')
+          text = re.sub(
+              r'PRODUCT_BUNDLE_IDENTIFIER = [^;]+;',
+              'PRODUCT_BUNDLE_IDENTIFIER = com.muhajeerbooks.app;',
+              text,
+          )
+          text = re.sub(
+              r'IPHONEOS_DEPLOYMENT_TARGET = [^;]+;',
+              'IPHONEOS_DEPLOYMENT_TARGET = 13.0;',
+              text,
+          )
+          project.write_text(text, encoding='utf-8')
+
+          plist_path = Path('ios/Runner/Info.plist')
+          with plist_path.open('rb') as f:
+              plist = plistlib.load(f)
+          plist['CFBundleDisplayName'] = 'Muhajeer Books'
+          plist['NSPhotoLibraryUsageDescription'] = (
+              'Kitob rasmi yoki to‘lov chekini tanlash uchun rasmlarga kirish kerak.'
+          )
+          plist['NSCameraUsageDescription'] = (
+              'Kitob rasmi yoki to‘lov chekini suratga olish uchun kamera kerak.'
+          )
+          plist['NSFaceIDUsageDescription'] = (
+              'Admin bo‘limiga xavfsiz kirish uchun Face ID ishlatiladi.'
+          )
+          with plist_path.open('wb') as f:
+              plistlib.dump(plist, f, sort_keys=False)
+          PY
+
+      - name: Apply official app icon
+        run: |
+          ICONSET="ios/Runner/Assets.xcassets/AppIcon.appiconset"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          iconset = Path('ios/Runner/Assets.xcassets/AppIcon.appiconset')
+          data = json.loads((iconset / 'Contents.json').read_text())
+          for image in data.get('images', []):
+              size = float(image['size'].split('x')[0])
+              scale = int(image['scale'].rstrip('x'))
+              pixels = int(round(size * scale))
+              image['filename'] = f'Icon-App-{pixels}.png'
+          (iconset / 'Contents.json').write_text(
+              json.dumps(data, ensure_ascii=False, indent=2) + '\n'
+          )
+          PY
+          for size in 20 29 40 58 60 76 80 87 120 152 167 180 1024; do
+            sips -s format png -z "$size" "$size" assets/images/muhajeer_logo.jpg               --out "$ICONSET/Icon-App-$size.png" >/dev/null
+          done
+
+      - name: Install dependencies
+        run: |
+          flutter pub get
+          cd ios
+          pod install
+          cd ..
+
+      - name: Analyze and test
+        run: |
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: Verify unsigned iPhone release build
+        run: |
+          flutter build ios --release --no-codesign             --build-number="${{ github.run_number }}"             --dart-define=APP_BUILD_NUMBER="${{ github.run_number }}"             --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}"             --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
+
+      - name: Commit generated iOS project
+        run: |
+          if git diff --quiet -- ios && git diff --cached --quiet -- ios &&              git ls-files --error-unmatch ios/Runner.xcodeproj/project.pbxproj >/dev/null 2>&1; then
+            echo "iOS project is already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ios
+          git commit -m "Prepare Muhajeer Books for iPhone"
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Upload unsigned iOS build for verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: muhajeer-books-ios-unsigned
+          path: build/ios/iphoneos/Runner.app
+          retention-days: 14

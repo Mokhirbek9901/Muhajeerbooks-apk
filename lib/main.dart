@@ -15,6 +15,7 @@ import 'cart_stock_alert.dart';
 import 'design_system.dart';
 import 'fast_store_shell.dart';
 import 'navigation_sync.dart';
+import 'shared_book_entry.dart';
 
 // Live Railway web va APK aynan shu bir xil storefront kodidan build qilinadi.
 // Mijoz uchun majburiy Supabase login yo'q. Katalog cache'i tez start uchun
@@ -67,6 +68,7 @@ class MuhajeerBooksApp extends StatelessWidget {
       create: (_) =>
           AppStateFixed(backendConfigured: backendConfigured)..initialize(),
       child: MaterialApp(
+        initialRoute: '/',
         navigatorKey: _navigatorKey,
         navigatorObservers: [_navigatorObserver],
         title: 'Muhajeer Books',
@@ -82,12 +84,15 @@ class MuhajeerBooksApp extends StatelessWidget {
             ),
           ),
         ),
-        home: AppUpdateGate(
+        home: SharedBookEntry(
+          uri: kIsWeb ? Uri.base : Uri(),
+          child: AppUpdateGate(
           child: kIsWeb && Uri.base.fragment.startsWith('admin_session=')
               ? const AdminGatePage()
               : (backendConfigured
                     ? const CustomerAuthGate()
                     : const FastStoreShell()),
+          ),
         ),
       ),
     );

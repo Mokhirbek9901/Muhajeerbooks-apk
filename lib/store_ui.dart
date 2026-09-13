@@ -12,6 +12,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'admin_ui.dart';
 import 'app_state.dart';
 import 'brand.dart';
+import 'book_links.dart';
+import 'book_share_platform.dart';
 import 'catalog_resume.dart';
 import 'book_image_viewer.dart';
 import 'design_system.dart';
@@ -1830,6 +1832,74 @@ class _Badge extends StatelessWidget {
   );
 }
 
+Future<void> _shareBook(BuildContext context, Book book) async {
+  final link = bookShareLink(book.id).toString();
+  await showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (sheetContext) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(book.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const SizedBox(height: 8),
+            const Text('Havolani ochgan odam aynan shu kitobni ko‘radi.'),
+            ListTile(
+              leading: const Icon(Icons.copy_rounded),
+              title: const Text('Havolani nusxalash'),
+              onTap: () async {
+                try {
+                  await Clipboard.setData(ClipboardData(text: link));
+                  if (!sheetContext.mounted) return;
+                  Navigator.pop(sheetContext);
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Kitob havolasi nusxalandi')),
+                  );
+                } catch (_) {
+                  if (sheetContext.mounted) {
+                    await showDialog<void>(context: sheetContext, builder: (_) => AlertDialog(
+                      title: const Text('Kitob havolasi'),
+                      content: SelectableText(link),
+                    ));
+                  }
+                }
+              },
+            ),
+            if (nativeBookShareAvailable)
+              ListTile(
+                leading: const Icon(Icons.ios_share_rounded),
+                title: const Text('Ulashish'),
+                onTap: () async {
+                  try { await nativeBookShare(book.title, link); } catch (_) {
+                    // Cancellation leaves the copy option available.
+                  }
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.send_rounded),
+              title: const Text('Telegram orqali yuborish'),
+              onTap: () async {
+                final uri = Uri.https('t.me', '/share/url', {'url': link, 'text': book.title});
+                try {
+                  final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  if (!opened) throw StateError('not opened');
+                } catch (_) {
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Havolani nusxalab, Telegram orqali yuboring.')),
+                  );
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
 class BookDetailPage extends StatelessWidget {
   const BookDetailPage({super.key, required this.bookId});
   final String bookId;
@@ -1845,9 +1915,16 @@ class BookDetailPage extends StatelessWidget {
       }
     }
     if (book == null) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: UzbekCustomerColors.background,
-        body: SafeArea(child: Center(child: Text('Kitob topilmadi'))),
+        appBar: AppBar(title: const Text('Kitob haqida')),
+        body: SafeArea(child: Center(child: state.loading
+            ? const CircularProgressIndicator()
+            : Column(mainAxisSize: MainAxisSize.min, children: [
+                const Text('Kitob topilmadi yoki katalogdan olib tashlangan.'),
+                TextButton(onPressed: () => Navigator.of(context).maybePop(),
+                    child: const Text('Katalogga qaytish')),
+              ]))),
       );
     }
     final b = book;
@@ -1858,6 +1935,11 @@ class BookDetailPage extends StatelessWidget {
         surfaceTintColor: Colors.transparent,
         title: const Text('Kitob haqida'),
         actions: [
+          IconButton(
+            onPressed: () => _shareBook(context, b),
+            tooltip: 'Kitobni ulashish',
+            icon: const Icon(Icons.ios_share_rounded),
+          ),
           IconButton.filledTonal(
             onPressed: () => state.toggleFavorite(b),
             tooltip: 'Sevimlilar',

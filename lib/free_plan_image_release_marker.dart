@@ -1,1 +1,1 @@
-// Build marker for the final free-plan image traffic optimization release.
+// Build marker for the complete free-plan gallery image optimization release.

@@ -825,7 +825,7 @@ class AppState extends ChangeNotifier {
       unawaited(_refreshCustomerOrderStatusesQuietly());
       _orderStatusTimer?.cancel();
       _orderStatusTimer = Timer.periodic(
-        const Duration(seconds: 30),
+        const Duration(seconds: 60),
         (_) => _refreshCustomerOrderStatusesQuietly(),
       );
     }
@@ -882,7 +882,7 @@ class AppState extends ChangeNotifier {
     // Mijoz roli tannarx (cost_price) ustunini o‘qimaydi. Katalogni faqat
     // public ustunlar bilan muntazam yangilaymiz; checkout baribir buyurtma
     // tugmasida live stockni serverdan qayta tekshiradi.
-    _booksFallbackTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+    _booksFallbackTimer = Timer.periodic(const Duration(seconds: 45), (_) {
       unawaited(_refreshBooksQuietly());
       unawaited(_checkRestockNotificationsQuietly());
     });

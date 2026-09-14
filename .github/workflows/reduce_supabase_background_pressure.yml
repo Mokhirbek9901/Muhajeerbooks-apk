@@ -1,0 +1,60 @@
+name: Reduce Supabase background pressure
+
+on:
+  push:
+    paths:
+      - '.github/workflows/reduce_supabase_background_pressure.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reduce background polling safely
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('lib/app_state.dart')
+          text = path.read_text(encoding='utf-8')
+
+          old_order = '''      _orderStatusTimer = Timer.periodic(
+                const Duration(seconds: 30),
+                (_) => _refreshCustomerOrderStatusesQuietly(),
+              );'''
+          new_order = '''      _orderStatusTimer = Timer.periodic(
+                const Duration(seconds: 60),
+                (_) => _refreshCustomerOrderStatusesQuietly(),
+              );'''
+
+          old_books = '''    _booksFallbackTimer = Timer.periodic(const Duration(seconds: 20), (_) {'''
+          new_books = '''    _booksFallbackTimer = Timer.periodic(const Duration(seconds: 45), (_) {'''
+
+          if text.count(old_order) != 1:
+              raise SystemExit('order status timer pattern not found exactly once')
+          if text.count(old_books) != 1:
+              raise SystemExit('books timer pattern not found exactly once')
+
+          text = text.replace(old_order, new_order, 1)
+          text = text.replace(old_books, new_books, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Validate patch
+        run: |
+          git diff --check
+          grep -q "const Duration(seconds: 60)" lib/app_state.dart
+          grep -q "Timer.periodic(const Duration(seconds: 45)" lib/app_state.dart
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/app_state.dart
+          git commit -m "Reduce Supabase background polling pressure"
+          git push

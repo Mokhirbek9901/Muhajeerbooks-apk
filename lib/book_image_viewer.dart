@@ -98,7 +98,7 @@ class _BookImageViewerPageState extends State<BookImageViewerPage> {
                       ),
                       SizedBox(width: 6),
                       Text(
-                        'Kattalashtirish uchun ikki barmoq bilan yoying',
+                        'Ikki barmoq bilan yoying yoki 2 marta bosing',
                         style: TextStyle(color: Colors.white70, fontSize: 11.5),
                       ),
                     ],
@@ -130,15 +130,31 @@ class _ZoomableNetworkImageState extends State<_ZoomableNetworkImage> {
     super.dispose();
   }
 
+  void _handleDoubleTap() {
+    final currentScale = _controller.value.getMaxScaleOnAxis();
+    if (currentScale > 1.15) {
+      _controller.value = Matrix4.identity();
+    } else {
+      _controller.value = Matrix4.identity()..scaleByDouble(2.5, 2.5, 1, 1);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return InteractiveViewer(
-      transformationController: _controller,
-      minScale: 1,
-      maxScale: 5,
-      boundaryMargin: const EdgeInsets.all(80),
-      clipBehavior: Clip.none,
-      child: Center(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onDoubleTap: _handleDoubleTap,
+      child: InteractiveViewer(
+        transformationController: _controller,
+        panEnabled: true,
+        scaleEnabled: true,
+        minScale: 0.9,
+        maxScale: 6,
+        scaleFactor: 120,
+        interactionEndFrictionCoefficient: 0.0000135,
+        boundaryMargin: const EdgeInsets.all(140),
+        clipBehavior: Clip.none,
+        child: Center(
         child: Image.network(
           widget.url,
           fit: BoxFit.contain,
@@ -169,6 +185,7 @@ class _ZoomableNetworkImageState extends State<_ZoomableNetworkImage> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

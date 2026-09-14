@@ -209,6 +209,8 @@ String isGyeongsanPickupAddress(String rawAddress, String deliveryType) {
   return value;
 }
 
+_StoreShellState? _activeStoreShellState;
+
 class StoreShell extends StatefulWidget {
   const StoreShell({super.key});
 
@@ -219,6 +221,20 @@ class StoreShell extends StatefulWidget {
 class _StoreShellState extends State<StoreShell> {
   int index = 0;
   String? _lastPresentedNoticeId;
+
+  @override
+  void initState() {
+    super.initState();
+    _activeStoreShellState = this;
+  }
+
+  @override
+  void dispose() {
+    if (identical(_activeStoreShellState, this)) {
+      _activeStoreShellState = null;
+    }
+    super.dispose();
+  }
 
   void showHome() {
     if (!mounted || index == 0) return;
@@ -2736,12 +2752,11 @@ class CartPage extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: () {
                           FocusManager.instance.primaryFocus?.unfocus();
-                          Navigator.of(context).push(
-                            muhajeerPageRoute<void>(
-                              settings: const RouteSettings(name: 'mb:continue-shopping'),
-                              builder: (_) => const HomePage(),
-                            ),
-                          );
+                          final navigator = Navigator.of(context);
+                          navigator.popUntil((route) => route.isFirst);
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            _activeStoreShellState?.showHome();
+                          });
                         },
                         icon: const Icon(Icons.add_rounded),
                         label: const Text('Yana kitob qo‘shish'),

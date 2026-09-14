@@ -257,35 +257,44 @@ class _AdminApi {
       return;
     }
 
-    final thumbBytes = await compute(
-      _prepareBookThumbnail,
+    final prepared = await compute(
+      _prepareBookImageVariants,
       Uint8List.fromList(downloaded.bodyBytes),
     );
-    if (thumbBytes == null || thumbBytes.isEmpty) return;
+    if (prepared == null) return;
+    final fullBytes = prepared['full'];
+    final thumbBytes = prepared['thumb'];
+    if (fullBytes == null ||
+        fullBytes.isEmpty ||
+        thumbBytes == null ||
+        thumbBytes.isEmpty) {
+      return;
+    }
 
     final response = await client.functions.invoke(
       'admin-cover-upload',
       body: {
         'admin_code': secret,
-        'action': 'thumbnail',
-        'file_name': 'thumb-${book.id}.jpg',
+        'file_name': 'optimized-${book.id}.jpg',
         'content_type': 'image/jpeg',
-        'data_base64': base64Encode(thumbBytes),
+        'data_base64': base64Encode(fullBytes),
+        'thumb_base64': base64Encode(thumbBytes),
       },
     );
     final data = _functionResponseMap(response.data);
-    final thumbUrl = (data['thumbnail_url'] ?? data['url'] ?? '')
-        .toString()
-        .trim();
-    if (thumbUrl.isEmpty) return;
+    final optimizedUrl = (data['url'] ?? '').toString().trim();
+    final thumbUrl = (data['thumbnail_url'] ?? '').toString().trim();
+    if (optimizedUrl.isEmpty || thumbUrl.isEmpty) return;
 
-    await client.rpc(
-      'admin_set_book_thumbnail',
-      params: {
-        'p_secret': secret,
-        'p_id': book.id,
-        'p_thumbnail_url': thumbUrl,
-      },
+    final oldGallery = book.galleryImages;
+    final optimizedGallery = <String>[optimizedUrl, ...oldGallery.skip(1)];
+
+    await saveBook(
+      book.copyWith(
+        imageUrl: optimizedUrl,
+        thumbnailUrl: thumbUrl,
+        imageUrls: optimizedGallery,
+      ),
     );
   }
 

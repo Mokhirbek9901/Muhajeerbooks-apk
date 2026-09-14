@@ -38,6 +38,7 @@ class Book {
     required this.stock,
     required this.discountPercent,
     required this.imageUrl,
+    this.thumbnailUrl = '',
     this.imageUrls = const [],
     required this.isActive,
     this.coverType = 'Ko‘rsatilmagan',
@@ -57,6 +58,7 @@ class Book {
   final int stock;
   final int discountPercent;
   final String imageUrl;
+  final String thumbnailUrl;
   final List<String> imageUrls;
   final bool isActive;
   final String coverType;
@@ -67,6 +69,8 @@ class Book {
   int get currentPrice => (price * (100 - discountPercent) / 100).round();
   bool get isDiscounted => discountPercent > 0;
   bool get inStock => stock > 0 && price > 0;
+  String get previewImageUrl =>
+      thumbnailUrl.trim().isNotEmpty ? thumbnailUrl.trim() : imageUrl;
 
   List<String> get galleryImages {
     final result = <String>[];
@@ -91,6 +95,7 @@ class Book {
     stock: (map['stock'] as num?)?.toInt() ?? 0,
     discountPercent: (map['discount_percent'] as num?)?.toInt() ?? 0,
     imageUrl: (map['image_url'] ?? '').toString(),
+    thumbnailUrl: (map['thumbnail_url'] ?? '').toString(),
     imageUrls: ((map['image_urls'] as List?) ?? const [])
         .map((e) => e.toString().trim())
         .where((e) => e.isNotEmpty)
@@ -133,6 +138,7 @@ class Book {
     'stock': stock,
     'discount_percent': discountPercent,
     'image_url': galleryImages.isEmpty ? '' : galleryImages.first,
+    'thumbnail_url': thumbnailUrl,
     'image_urls': galleryImages,
     'is_active': isActive,
     'cover_type': coverType,
@@ -158,6 +164,7 @@ class Book {
     int? stock,
     int? discountPercent,
     String? imageUrl,
+    String? thumbnailUrl,
     List<String>? imageUrls,
     bool? isActive,
     String? coverType,
@@ -176,6 +183,7 @@ class Book {
     stock: stock ?? this.stock,
     discountPercent: discountPercent ?? this.discountPercent,
     imageUrl: imageUrl ?? this.imageUrl,
+    thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
     imageUrls: imageUrls ?? this.imageUrls,
     isActive: isActive ?? this.isActive,
     coverType: coverType ?? this.coverType,
@@ -311,7 +319,7 @@ class BackendService {
 
   static const String _storefrontBookColumns =
       'id,legacy_id,title,author,publisher,category,description,price,stock,'
-      'discount_percent,image_url,image_urls,is_active,cover_type,recommended,'
+      'discount_percent,image_url,thumbnail_url,image_urls,is_active,cover_type,recommended,'
       'created_at';
 
   Future<List<Book>> fetchBooks({bool includeInactive = false}) async {

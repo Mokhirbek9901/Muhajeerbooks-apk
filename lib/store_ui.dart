@@ -29,7 +29,6 @@ const _green = UzbekCustomerColors.success;
 final _money = NumberFormat('#,###', 'en_US');
 String won(int value) => '₩${_money.format(value)}';
 
-
 final Map<String, double> _scrollMemory = <String, double>{};
 
 /// iPhone/Safari browser-back yoki web sahifa qayta tiklanganda foydalanuvchini
@@ -37,8 +36,10 @@ final Map<String, double> _scrollMemory = <String, double>{};
 /// reload'lar orasida scroll joyini saqlaydi.
 class _PersistentScrollController extends ScrollController {
   _PersistentScrollController(this.storageKey)
-      : super(initialScrollOffset: _scrollMemory[storageKey] ?? 0,
-              keepScrollOffset: false) {
+    : super(
+        initialScrollOffset: _scrollMemory[storageKey] ?? 0,
+        keepScrollOffset: false,
+      ) {
     addListener(_capture);
     CatalogResume.instance.addListener(_resetAfterAbsence);
     unawaited(_loadSaved());
@@ -135,10 +136,7 @@ class _PersistentScrollController extends ScrollController {
     if (_disposed || _pendingRestore == null || _restoreAttempts++ >= 30) {
       return;
     }
-    Future<void>.delayed(
-      const Duration(milliseconds: 100),
-      _scheduleRestore,
-    );
+    Future<void>.delayed(const Duration(milliseconds: 100), _scheduleRestore);
   }
 
   @override
@@ -577,7 +575,6 @@ class CategoryBrowsePage extends StatelessWidget {
   }
 }
 
-
 class _PersistentBookGrid extends StatefulWidget {
   const _PersistentBookGrid({required this.storageKey, required this.books});
 
@@ -589,8 +586,9 @@ class _PersistentBookGrid extends StatefulWidget {
 }
 
 class _PersistentBookGridState extends State<_PersistentBookGrid> {
-  late final ScrollController _controller =
-      _PersistentScrollController(widget.storageKey);
+  late final ScrollController _controller = _PersistentScrollController(
+    widget.storageKey,
+  );
 
   @override
   void dispose() {
@@ -600,18 +598,18 @@ class _PersistentBookGridState extends State<_PersistentBookGrid> {
 
   @override
   Widget build(BuildContext context) => GridView.builder(
-        controller: _controller,
-        key: PageStorageKey<String>('grid:${widget.storageKey}'),
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-        itemCount: widget.books.length,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: .57,
-        ),
-        itemBuilder: (_, i) => BookCard(book: widget.books[i]),
-      );
+    controller: _controller,
+    key: PageStorageKey<String>('grid:${widget.storageKey}'),
+    padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+    itemCount: widget.books.length,
+    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: 2,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: .57,
+    ),
+    itemBuilder: (_, i) => BookCard(book: widget.books[i]),
+  );
 }
 
 IconData _categoryIcon(String value) {
@@ -639,7 +637,9 @@ class _HomePageState extends State<HomePage> {
   String category = 'Barchasi';
   String sort = 'new';
 
-  final ScrollController _scrollController = _PersistentScrollController('home');
+  final ScrollController _scrollController = _PersistentScrollController(
+    'home',
+  );
   final TextEditingController _searchController = TextEditingController();
 
   void _showAllBooks() {
@@ -1770,9 +1770,10 @@ class _BookCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (book.imageUrl.isNotEmpty) {
+    final previewUrl = book.previewImageUrl;
+    if (previewUrl.isNotEmpty) {
       return Image.network(
-        book.imageUrl,
+        previewUrl,
         fit: BoxFit.cover,
         cacheWidth: 420,
         filterQuality: FilterQuality.low,
@@ -1840,72 +1841,101 @@ Future<void> _shareBook(BuildContext context, Book book) async {
     builder: (sheetContext) => SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-        child: SingleChildScrollView(child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(book.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            const SizedBox(height: 8),
-            const Text('Havolani ochgan odam aynan shu kitobni ko‘radi.'),
-            ListTile(
-              leading: const Icon(Icons.add_photo_alternate_outlined),
-              title: const Text('Instagram story tayyorlash'),
-              subtitle: const Text('Kitob rasmi, narxi va buyurtma havolasi'),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                Navigator.of(context).push(muhajeerPageRoute<void>(
-                  builder: (_) => BookStoryPage(book: book),
-                ));
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.copy_rounded),
-              title: const Text('Havolani nusxalash'),
-              onTap: () async {
-                try {
-                  await Clipboard.setData(ClipboardData(text: link));
-                  if (!sheetContext.mounted) return;
-                  Navigator.pop(sheetContext);
-                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Kitob havolasi nusxalandi')),
-                  );
-                } catch (_) {
-                  if (sheetContext.mounted) {
-                    await showDialog<void>(context: sheetContext, builder: (_) => AlertDialog(
-                      title: const Text('Kitob havolasi'),
-                      content: SelectableText(link),
-                    ));
-                  }
-                }
-              },
-            ),
-            if (nativeBookShareAvailable)
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                book.title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text('Havolani ochgan odam aynan shu kitobni ko‘radi.'),
               ListTile(
-                leading: const Icon(Icons.ios_share_rounded),
-                title: const Text('Ulashish'),
+                leading: const Icon(Icons.add_photo_alternate_outlined),
+                title: const Text('Instagram story tayyorlash'),
+                subtitle: const Text('Kitob rasmi, narxi va buyurtma havolasi'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  Navigator.of(context).push(
+                    muhajeerPageRoute<void>(
+                      builder: (_) => BookStoryPage(book: book),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.copy_rounded),
+                title: const Text('Havolani nusxalash'),
                 onTap: () async {
-                  try { await nativeBookShare(book.title, link); } catch (_) {
-                    // Cancellation leaves the copy option available.
+                  try {
+                    await Clipboard.setData(ClipboardData(text: link));
+                    if (!sheetContext.mounted) return;
+                    Navigator.pop(sheetContext);
+                    if (context.mounted)
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Kitob havolasi nusxalandi'),
+                        ),
+                      );
+                  } catch (_) {
+                    if (sheetContext.mounted) {
+                      await showDialog<void>(
+                        context: sheetContext,
+                        builder: (_) => AlertDialog(
+                          title: const Text('Kitob havolasi'),
+                          content: SelectableText(link),
+                        ),
+                      );
+                    }
                   }
                 },
               ),
-            ListTile(
-              leading: const Icon(Icons.send_rounded),
-              title: const Text('Telegram orqali yuborish'),
-              onTap: () async {
-                final uri = Uri.https('t.me', '/share/url', {'url': link, 'text': book.title});
-                try {
-                  final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  if (!opened) throw StateError('not opened');
-                } catch (_) {
-                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Havolani nusxalab, Telegram orqali yuboring.')),
-                  );
-                }
-              },
-            ),
-          ],
-        )),
+              if (nativeBookShareAvailable)
+                ListTile(
+                  leading: const Icon(Icons.ios_share_rounded),
+                  title: const Text('Ulashish'),
+                  onTap: () async {
+                    try {
+                      await nativeBookShare(book.title, link);
+                    } catch (_) {
+                      // Cancellation leaves the copy option available.
+                    }
+                  },
+                ),
+              ListTile(
+                leading: const Icon(Icons.send_rounded),
+                title: const Text('Telegram orqali yuborish'),
+                onTap: () async {
+                  final uri = Uri.https('t.me', '/share/url', {
+                    'url': link,
+                    'text': book.title,
+                  });
+                  try {
+                    final opened = await launchUrl(
+                      uri,
+                      mode: LaunchMode.externalApplication,
+                    );
+                    if (!opened) throw StateError('not opened');
+                  } catch (_) {
+                    if (context.mounted)
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Havolani nusxalab, Telegram orqali yuboring.',
+                          ),
+                        ),
+                      );
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
       ),
     ),
   );
@@ -1929,13 +1959,24 @@ class BookDetailPage extends StatelessWidget {
       return Scaffold(
         backgroundColor: UzbekCustomerColors.background,
         appBar: AppBar(title: const Text('Kitob haqida')),
-        body: SafeArea(child: Center(child: state.loading
-            ? const CircularProgressIndicator()
-            : Column(mainAxisSize: MainAxisSize.min, children: [
-                const Text('Kitob topilmadi yoki katalogdan olib tashlangan.'),
-                TextButton(onPressed: () => Navigator.of(context).maybePop(),
-                    child: const Text('Katalogga qaytish')),
-              ]))),
+        body: SafeArea(
+          child: Center(
+            child: state.loading
+                ? const CircularProgressIndicator()
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Kitob topilmadi yoki katalogdan olib tashlangan.',
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).maybePop(),
+                        child: const Text('Katalogga qaytish'),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
       );
     }
     final b = book;
@@ -2103,11 +2144,12 @@ class BookDetailPage extends StatelessWidget {
                     Expanded(
                       child: FilledButton.icon(
                         onPressed: () async {
-                          final message = await state.toggleRestockNotification(b);
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(message)),
+                          final message = await state.toggleRestockNotification(
+                            b,
                           );
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(SnackBar(content: Text(message)));
                         },
                         icon: Icon(
                           state.isRestockSubscribed(b)
@@ -2878,7 +2920,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       decoration: const InputDecoration(
                         labelText: 'Telefon raqam',
                         hintText: 'Masalan: 01024338600',
-                        helperText: 'Koreya raqamini 010 bilan 11 ta raqamda kiriting.',
+                        helperText:
+                            'Koreya raqamini 010 bilan 11 ta raqamda kiriting.',
                         prefixIcon: Icon(Icons.phone_outlined),
                       ),
                       validator: (v) => !_isSupportedCustomerPhone(v ?? '')

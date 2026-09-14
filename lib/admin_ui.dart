@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:local_auth/local_auth.dart';
@@ -22,6 +25,99 @@ const _navy = Color(0xFF10213D);
 const _orange = Color(0xFFFF8A00);
 final _money = NumberFormat('#,###', 'en_US');
 String _won(int value) => '₩${_money.format(value)}';
+
+class _UploadedBookImage {
+  const _UploadedBookImage({required this.url, required this.thumbnailUrl});
+  final String url;
+  final String thumbnailUrl;
+}
+
+img.Image _resizeWithin(img.Image source, int maxWidth, int maxHeight) {
+  if (source.width <= maxWidth && source.height <= maxHeight) return source;
+  final widthScale = maxWidth / source.width;
+  final heightScale = maxHeight / source.height;
+  final scale = widthScale < heightScale ? widthScale : heightScale;
+  return img.copyResize(
+    source,
+    width: (source.width * scale).round().clamp(1, maxWidth),
+    height: (source.height * scale).round().clamp(1, maxHeight),
+    interpolation: img.Interpolation.linear,
+  );
+}
+
+Uint8List _encodeJpegTarget(
+  img.Image source, {
+  required int targetBytes,
+  required int startQuality,
+  required int minQuality,
+}) {
+  var quality = startQuality;
+  var bytes = Uint8List.fromList(img.encodeJpg(source, quality: quality));
+  while (bytes.length > targetBytes && quality > minQuality) {
+    quality = (quality - 4).clamp(minQuality, 100);
+    bytes = Uint8List.fromList(img.encodeJpg(source, quality: quality));
+  }
+  return bytes;
+}
+
+Map<String, Uint8List>? _prepareBookImageVariants(Uint8List sourceBytes) {
+  final decoded = img.decodeImage(sourceBytes);
+  if (decoded == null) return null;
+  final oriented = img.bakeOrientation(decoded);
+
+  var fullImage = _resizeWithin(oriented, 1200, 1800);
+  var fullBytes = _encodeJpegTarget(
+    fullImage,
+    targetBytes: 220 * 1024,
+    startQuality: 76,
+    minQuality: 60,
+  );
+  if (fullBytes.length > 280 * 1024) {
+    fullImage = _resizeWithin(fullImage, 1050, 1575);
+    fullBytes = _encodeJpegTarget(
+      fullImage,
+      targetBytes: 240 * 1024,
+      startQuality: 72,
+      minQuality: 58,
+    );
+  }
+
+  final thumbImage = _resizeWithin(oriented, 360, 540);
+  final thumbBytes = _encodeJpegTarget(
+    thumbImage,
+    targetBytes: 34 * 1024,
+    startQuality: 70,
+    minQuality: 48,
+  );
+
+  return <String, Uint8List>{'full': fullBytes, 'thumb': thumbBytes};
+}
+
+Uint8List? _prepareBookThumbnail(Uint8List sourceBytes) {
+  final decoded = img.decodeImage(sourceBytes);
+  if (decoded == null) return null;
+  final oriented = img.bakeOrientation(decoded);
+  final thumbImage = _resizeWithin(oriented, 360, 540);
+  return _encodeJpegTarget(
+    thumbImage,
+    targetBytes: 34 * 1024,
+    startQuality: 70,
+    minQuality: 48,
+  );
+}
+
+Map<String, dynamic> _functionResponseMap(dynamic raw) {
+  if (raw is Map) return Map<String, dynamic>.from(raw);
+  if (raw is String && raw.trim().isNotEmpty) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    } catch (_) {
+      // Proxy ayrim hollarda JSON javobni string ko‘rinishida qaytaradi.
+    }
+  }
+  return <String, dynamic>{};
+}
 
 class _AdminApi {
   _AdminApi(this.secret);
@@ -69,6 +165,7 @@ class _AdminApi {
           'image_url': book.galleryImages.isEmpty
               ? ''
               : book.galleryImages.first,
+          'thumbnail_url': book.thumbnailUrl,
           'image_urls': book.galleryImages,
           'is_active': book.isActive,
           'cover': book.coverType,
@@ -79,47 +176,117 @@ class _AdminApi {
     );
   }
 
-  Future<String> uploadCover(XFile file) async {
-    final bytes = await file.readAsBytes();
-    if (bytes.isEmpty) throw StateError('Rasm bo‘sh.');
-    if (bytes.length > 7 * 1024 * 1024) {
-      throw StateError('Rasm hajmi 7 MB dan kichik bo‘lishi kerak.');
+  Future<_UploadedBookImage> uploadCover(XFile file) async {
+    final sourceBytes = await file.readAsBytes();
+    if (sourceBytes.isEmpty) throw StateError('Rasm bo‘sh.');
+    if (sourceBytes.length > 20 * 1024 * 1024) {
+      throw StateError('Rasm hajmi 20 MB dan kichik bo‘lishi kerak.');
     }
 
-    final lower = file.name.toLowerCase();
-    final contentType = lower.endsWith('.png')
-        ? 'image/png'
-        : lower.endsWith('.webp')
-        ? 'image/webp'
-        : 'image/jpeg';
+    final prepared = await compute(
+      _prepareBookImageVariants,
+      Uint8List.fromList(sourceBytes),
+    );
+
+    Uint8List uploadBytes;
+    Uint8List? thumbBytes;
+    String contentType;
+    String uploadName;
+
+    if (prepared != null) {
+      uploadBytes = prepared['full']!;
+      thumbBytes = prepared['thumb'];
+      contentType = 'image/jpeg';
+      final base = file.name.replaceFirst(RegExp(r'\.[^.]+$'), '');
+      uploadName = '${base.isEmpty ? 'cover' : base}.jpg';
+    } else {
+      if (sourceBytes.length > 7 * 1024 * 1024) {
+        throw StateError(
+          'Bu rasmni optimallashtirib bo‘lmadi. Boshqa JPG/PNG rasm tanlang.',
+        );
+      }
+      uploadBytes = Uint8List.fromList(sourceBytes);
+      final lower = file.name.toLowerCase();
+      contentType = lower.endsWith('.png')
+          ? 'image/png'
+          : lower.endsWith('.webp')
+          ? 'image/webp'
+          : 'image/jpeg';
+      uploadName = file.name;
+    }
+
+    final body = <String, dynamic>{
+      'admin_code': secret,
+      'file_name': uploadName,
+      'content_type': contentType,
+      'data_base64': base64Encode(uploadBytes),
+    };
+    if (thumbBytes != null && thumbBytes.isNotEmpty) {
+      body['thumb_base64'] = base64Encode(thumbBytes);
+    }
+
+    final response = await client.functions.invoke(
+      'admin-cover-upload',
+      body: body,
+    );
+    final data = _functionResponseMap(response.data);
+    final url = (data['url'] ?? '').toString().trim();
+    if (url.isEmpty) {
+      throw StateError((data['error'] ?? 'Rasm yuklanmadi.').toString());
+    }
+    return _UploadedBookImage(
+      url: url,
+      thumbnailUrl: (data['thumbnail_url'] ?? '').toString().trim(),
+    );
+  }
+
+  Future<void> backfillThumbnail(Book book) async {
+    if (book.id.isEmpty ||
+        book.thumbnailUrl.trim().isNotEmpty ||
+        book.imageUrl.trim().isEmpty) {
+      return;
+    }
+
+    final uri = Uri.tryParse(book.imageUrl.trim());
+    if (uri == null || !(uri.scheme == 'https' || uri.scheme == 'http')) return;
+
+    final downloaded = await http.get(uri).timeout(const Duration(seconds: 20));
+    if (downloaded.statusCode < 200 || downloaded.statusCode >= 300) return;
+    if (downloaded.bodyBytes.isEmpty ||
+        downloaded.bodyBytes.length > 10 * 1024 * 1024) {
+      return;
+    }
+
+    final thumbBytes = await compute(
+      _prepareBookThumbnail,
+      Uint8List.fromList(downloaded.bodyBytes),
+    );
+    if (thumbBytes == null || thumbBytes.isEmpty) return;
 
     final response = await client.functions.invoke(
       'admin-cover-upload',
       body: {
         'admin_code': secret,
-        'file_name': file.name,
-        'content_type': contentType,
-        'data_base64': base64Encode(bytes),
+        'action': 'thumbnail',
+        'file_name': 'thumb-${book.id}.jpg',
+        'content_type': 'image/jpeg',
+        'data_base64': base64Encode(thumbBytes),
       },
     );
+    final data = _functionResponseMap(response.data);
+    final thumbUrl = (data['thumbnail_url'] ?? data['url'] ?? '')
+        .toString()
+        .trim();
+    if (thumbUrl.isEmpty) return;
 
-    final raw = response.data;
-    Map<String, dynamic> data = <String, dynamic>{};
-    if (raw is Map) {
-      data = Map<String, dynamic>.from(raw);
-    } else if (raw is String && raw.trim().isNotEmpty) {
-      try {
-        final decoded = jsonDecode(raw);
-        if (decoded is Map) data = Map<String, dynamic>.from(decoded);
-      } catch (_) {
-        // Web/proxy ayrim hollarda JSON javobni string ko‘rinishida qaytaradi.
-      }
-    }
-    final url = (data['url'] ?? '').toString();
-    if (url.isEmpty) {
-      throw StateError((data['error'] ?? 'Rasm yuklanmadi.').toString());
-    }
-    return url;
+    await client.rpc(
+      'admin_set_book_thumbnail',
+      params: {
+        'p_secret': secret,
+        'p_id': book.id,
+        'p_thumbnail_url': thumbUrl,
+      },
+    );
   }
 
   Future<void> deleteBook(String id) async {
@@ -1412,7 +1579,9 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                               (b) => ListTile(
                                 dense: true,
                                 contentPadding: EdgeInsets.zero,
-                                leading: _AdminBookThumb(url: b.imageUrl),
+                                leading: _AdminBookThumb(
+                                  url: b.previewImageUrl,
+                                ),
                                 title: Text(
                                   b.title,
                                   maxLines: 1,
@@ -2308,7 +2477,7 @@ class _InventoryAdminState extends State<_InventoryAdmin> {
                     padding: const EdgeInsets.all(10),
                     child: Row(
                       children: [
-                        _AdminBookThumb(url: b.imageUrl),
+                        _AdminBookThumb(url: b.previewImageUrl),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -2594,7 +2763,39 @@ class _BooksAdminState extends State<_BooksAdmin> {
   void initState() {
     super.initState();
     future = widget.api.books();
+    unawaited(_startThumbnailBackfill(future));
     unawaited(_loadSales());
+  }
+
+  Future<void> _startThumbnailBackfill(Future<List<Book>> source) async {
+    try {
+      final books = await source;
+      await _backfillMissingThumbnails(books);
+    } catch (_) {
+      // Eski rasmlarni kichraytirish admin ishini hech qachon bloklamaydi.
+    }
+  }
+
+  Future<void> _backfillMissingThumbnails(List<Book> books) async {
+    final pending = books
+        .where(
+          (book) =>
+              book.id.isNotEmpty &&
+              book.thumbnailUrl.trim().isEmpty &&
+              book.imageUrl.trim().isNotEmpty,
+        )
+        .toList();
+    for (var i = 0; i < pending.length; i++) {
+      if (!mounted) return;
+      try {
+        await widget.api.backfillThumbnail(pending[i]);
+      } catch (_) {
+        // Bitta eski rasm xato bo‘lsa qolganlari davom etadi.
+      }
+      if (i + 1 < pending.length) {
+        await Future<void>.delayed(const Duration(milliseconds: 2300));
+      }
+    }
   }
 
   Future<void> _loadSales() async {
@@ -2953,7 +3154,7 @@ class _BooksAdminState extends State<_BooksAdmin> {
                         filter == 'missing_cost';
                     return Card(
                       child: ListTile(
-                        leading: _AdminBookThumb(url: b.imageUrl),
+                        leading: _AdminBookThumb(url: b.previewImageUrl),
                         title: Text(
                           b.title,
                           style: const TextStyle(fontWeight: FontWeight.w900),
@@ -3103,6 +3304,8 @@ class _BookFormState extends State<_BookForm> {
   bool saving = false;
   bool uploadingImage = false;
   List<String> gallery = [];
+  String thumbnailUrl = '';
+  final Map<String, String> thumbnailByUrl = <String, String>{};
 
   @override
   void initState() {
@@ -3121,6 +3324,10 @@ class _BookFormState extends State<_BookForm> {
       text: b == null ? '0' : '${b.discountPercent}',
     );
     gallery = b?.galleryImages.toList() ?? <String>[];
+    thumbnailUrl = b?.thumbnailUrl.trim() ?? '';
+    if (b != null && b.imageUrl.trim().isNotEmpty && thumbnailUrl.isNotEmpty) {
+      thumbnailByUrl[b.imageUrl.trim()] = thumbnailUrl;
+    }
     image = TextEditingController(
       text: gallery.isNotEmpty ? gallery.first : b?.imageUrl ?? '',
     );
@@ -3276,6 +3483,21 @@ class _BookFormState extends State<_BookForm> {
   void _syncCoverController() {
     final first = gallery.isEmpty ? '' : gallery.first;
     if (image.text != first) image.text = first;
+    if (first.isEmpty) {
+      thumbnailUrl = '';
+      return;
+    }
+    final mapped = thumbnailByUrl[first]?.trim() ?? '';
+    if (mapped.isNotEmpty) {
+      thumbnailUrl = mapped;
+      return;
+    }
+    final oldBook = widget.book;
+    if (oldBook != null && oldBook.imageUrl.trim() == first) {
+      thumbnailUrl = oldBook.thumbnailUrl.trim();
+    } else {
+      thumbnailUrl = '';
+    }
   }
 
   Future<void> pickAndUploadImages() async {
@@ -3292,9 +3514,9 @@ class _BookFormState extends State<_BookForm> {
 
     try {
       final picked = await picker.pickMultiImage(
-        imageQuality: 82,
-        maxWidth: 1600,
-        maxHeight: 2200,
+        imageQuality: 92,
+        maxWidth: 2200,
+        maxHeight: 3000,
       );
       if (picked.isEmpty) return;
 
@@ -3307,11 +3529,14 @@ class _BookFormState extends State<_BookForm> {
       // oldin muvaffaqiyatli yuklangan rasmlar yo‘qolib ketmaydi.
       for (final file in selected) {
         try {
-          final url = (await widget.api.uploadCover(file)).trim();
+          final uploaded = await widget.api.uploadCover(file);
+          final url = uploaded.url.trim();
           if (url.isEmpty) {
             errors.add('${file.name}: bo‘sh manzil qaytdi');
             continue;
           }
+          final thumb = uploaded.thumbnailUrl.trim();
+          if (thumb.isNotEmpty) thumbnailByUrl[url] = thumb;
           if (!mounted) return;
           if (!gallery.contains(url)) {
             setState(() {
@@ -3377,7 +3602,8 @@ class _BookFormState extends State<_BookForm> {
   void _removeGalleryImage(int index) {
     if (index < 0 || index >= gallery.length) return;
     setState(() {
-      gallery.removeAt(index);
+      final removed = gallery.removeAt(index);
+      thumbnailByUrl.remove(removed);
       _syncCoverController();
     });
   }
@@ -3425,6 +3651,7 @@ class _BookFormState extends State<_BookForm> {
           stock: s,
           discountPercent: d,
           imageUrl: urls.isEmpty ? '' : urls.first,
+          thumbnailUrl: urls.isEmpty ? '' : thumbnailUrl.trim(),
           imageUrls: urls,
           isActive: active,
           coverType: cover,

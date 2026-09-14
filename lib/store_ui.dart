@@ -220,6 +220,11 @@ class _StoreShellState extends State<StoreShell> {
   int index = 0;
   String? _lastPresentedNoticeId;
 
+  void showHome() {
+    if (!mounted || index == 0) return;
+    setState(() => index = 0);
+  }
+
   @override
   Widget build(BuildContext context) {
     final cartCount = context.select<AppState, int>((s) => s.cartCount);
@@ -251,7 +256,7 @@ class _StoreShellState extends State<StoreShell> {
     final pages = [
       const HomePage(),
       const CategoriesPage(),
-      CartPage(onContinueShopping: () => setState(() => index = 0)),
+      const CartPage(),
       const FavoritesPage(),
       const ProfilePage(),
     ];
@@ -2556,9 +2561,7 @@ class FavoritesPage extends StatelessWidget {
 }
 
 class CartPage extends StatelessWidget {
-  const CartPage({super.key, this.onContinueShopping});
-
-  final VoidCallback? onContinueShopping;
+  const CartPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -2733,10 +2736,12 @@ class CartPage extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: () {
                           FocusManager.instance.primaryFocus?.unfocus();
-                          final callback = onContinueShopping;
-                          if (callback != null) {
-                            callback();
-                          } else if (Navigator.of(context).canPop()) {
+                          final shell = context.findAncestorStateOfType<_StoreShellState>();
+                          if (shell != null) {
+                            shell.showHome();
+                            return;
+                          }
+                          if (Navigator.of(context).canPop()) {
                             Navigator.of(context).pop();
                           }
                         },

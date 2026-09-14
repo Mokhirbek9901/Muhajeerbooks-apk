@@ -22,6 +22,14 @@ class _FastStoreShellState extends State<FastStoreShell> {
   String? _lastPresentedNoticeId;
   final List<bool> _visited = <bool>[true, false, false, false, false];
 
+  void _showHome() {
+    if (!mounted) return;
+    setState(() {
+      _visited[0] = true;
+      index = 0;
+    });
+  }
+
   Widget _pageFor(int pageIndex) {
     if (!_visited[pageIndex]) return const SizedBox.shrink();
     switch (pageIndex) {
@@ -30,7 +38,7 @@ class _FastStoreShellState extends State<FastStoreShell> {
       case 1:
         return const CategoriesPage();
       case 2:
-        return const CartPage();
+        return CartPage(onContinueShopping: _showHome);
       case 3:
         return const FavoritesPage();
       case 4:

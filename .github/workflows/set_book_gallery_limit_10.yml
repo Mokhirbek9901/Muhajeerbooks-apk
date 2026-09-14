@@ -1,9 +1,9 @@
-name: Set book gallery upload limit to 10
+name: Optimize free-plan catalog sync
 
 on:
   push:
     paths:
-      - 'tools/set_book_gallery_limit_10.py'
+      - 'tools/optimize_free_plan_catalog_sync.py'
       - '.github/workflows/set_book_gallery_limit_10.yml'
   workflow_dispatch:
 
@@ -21,36 +21,33 @@ jobs:
         with:
           channel: stable
           cache: true
-      - name: Apply safe 10-image upload limit
-        run: python3 tools/set_book_gallery_limit_10.py
+      - name: Apply free-plan optimization
+        run: python3 tools/optimize_free_plan_catalog_sync.py
       - name: Format
-        run: dart format lib/admin_ui.dart
+        run: dart format lib/app_state.dart
       - name: Packages
         run: flutter pub get
       - name: Analyze
         run: flutter analyze --no-fatal-warnings --no-fatal-infos
-      - name: Verify limit and preservation
+      - name: Verify delta sync
         run: |
           python3 - <<'PY'
           from pathlib import Path
           a = Path('lib/app_state.dart').read_text(encoding='utf-8')
-          u = Path('lib/admin_ui.dart').read_text(encoding='utf-8')
-          assert 'final slots = 10 - gallery.length;' in u
-          assert 'gallery.length >= 10' in u
-          assert '${gallery.length}/10' in u
-          assert 'Maksimal 10 ta.' in u
-          assert 'gallery = [...gallery, url].take(10).toList();' in u
-          # Existing >10-image books must remain readable/saveable without silent deletion.
-          assert 'if (result.length == 20) break;' in a
-          assert '.take(20)' in a
-          assert ".toSet()\n        .take(20)\n        .toList();" in u
-          print('10-image new-upload limit OK; existing larger galleries preserved')
+          assert "customer_catalog_delta" in a
+          assert "Duration(minutes: 2)" in a
+          assert "loadCatalogCursor" in a
+          assert "saveCatalogCursor" in a
+          assert "deleted_ids" in a
+          assert "upserts" in a
+          assert "!const {'shipping', 'done', 'cancelled'}.contains(o.status)" in a
+          print('Delta catalog sync and active-order polling optimization verified')
           PY
       - name: Commit runtime changes
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add lib/admin_ui.dart
+          git add lib/app_state.dart
           git diff --cached --quiet && exit 0
-          git commit -m 'Limit new book galleries to 10 images'
+          git commit -m 'Reduce customer Supabase traffic with delta sync'
           git push origin main

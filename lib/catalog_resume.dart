@@ -10,7 +10,7 @@ class CatalogResume extends ChangeNotifier with WidgetsBindingObserver {
   final DateTime Function() _now;
   static final instance = CatalogResume();
   static const awayKey = 'catalog:awayAt';
-  static const timeout = Duration(minutes: 5);
+  static const timeout = Duration(seconds: 30);
   DateTime? _awayAt;
   late SharedPreferences _prefs;
 

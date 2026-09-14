@@ -1,0 +1,32 @@
+name: Add Gyeongsan pickup
+
+on:
+  push:
+    paths:
+      - '.github/workflows/add_gyeongsan_pickup.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply pickup patch
+        run: python tools/add_gyeongsan_pickup.py
+      - name: Validate patch
+        run: |
+          git diff --check
+          grep -q "경산 (Gyeongsan) — o‘zim olib ketaman" lib/store_ui.dart
+          grep -q "deliveryType == '경산 직접수령'" lib/app_state.dart
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/store_ui.dart lib/app_state.dart
+          git commit -m "Add Gyeongsan free pickup checkout option"
+          git push

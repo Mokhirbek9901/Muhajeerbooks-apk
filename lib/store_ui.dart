@@ -203,6 +203,14 @@ bool _isSupportedCustomerPhone(String raw) {
   return digits.length == 11 && digits.startsWith('010');
 }
 
+String isGyeongsanPickupAddress(String rawAddress, String deliveryType) {
+  final value = rawAddress.trim();
+  if (deliveryType == '경산 직접수령' && value.isEmpty) {
+    return '경산 직접수령';
+  }
+  return value;
+}
+
 class StoreShell extends StatefulWidget {
   const StoreShell({super.key});
 
@@ -2789,7 +2797,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final deliveryFee = state.cartCount >= 4 ? 0 : AppState.deliveryFee;
+    final isGyeongsanPickup = delivery == '경산 직접수령';
+    final deliveryFee = isGyeongsanPickup
+        ? 0
+        : (state.cartCount >= 4 ? 0 : AppState.deliveryFee);
     final total = state.cartSubtotal + deliveryFee;
 
     return Scaffold(
@@ -2845,16 +2856,22 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     TextFormField(
                       controller: address,
                       maxLines: 3,
-                      decoration: const InputDecoration(
-                        labelText: 'Manzil',
+                      decoration: InputDecoration(
+                        labelText: isGyeongsanPickup
+                            ? 'Manzil (ixtiyoriy)'
+                            : 'Manzil',
                         alignLabelWithHint: true,
                         helperMaxLines: 3,
-                        helperText: 'Manzil va xona raqamini to‘liq yozing.\nMasalan: 경상북도 경산시 계양로 37길 7-3, 808호',
-                        prefixIcon: Icon(Icons.location_on_outlined),
+                        helperText: isGyeongsanPickup
+                            ? '경산da o‘zingiz olib ketsangiz, to‘liq manzil kiritish shart emas.'
+                            : 'Manzil va xona raqamini to‘liq yozing.\nMasalan: 경상북도 경산시 계양로 37길 7-3, 808호',
+                        prefixIcon: const Icon(Icons.location_on_outlined),
                       ),
-                      validator: (v) => v == null || v.trim().length < 8
-                          ? 'To‘liq manzilni kiriting'
-                          : null,
+                      validator: (v) => isGyeongsanPickup
+                          ? null
+                          : (v == null || v.trim().length < 8
+                                ? 'To‘liq manzilni kiriting'
+                                : null),
                     ),
                   ],
                 ),
@@ -2871,7 +2888,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     groupValue: delivery,
                     onChanged: (v) => setState(() => delivery = v!),
                     title: const Text(
-                      'Koreya bo‘ylab 택배',
+                      'Koreya bo‘ylab pochta (택배)',
                       style: TextStyle(fontWeight: FontWeight.w800),
                     ),
                     subtitle: Text(
@@ -2879,6 +2896,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           ? '4+ kitob — BEPUL • 1–3 ish kuni'
                           : '₩4,000 • 1–3 ish kuni',
                     ),
+                  ),
+                  const Divider(height: 1),
+                  RadioListTile<String>(
+                    value: '경산 직접수령',
+                    groupValue: delivery,
+                    onChanged: (v) => setState(() => delivery = v!),
+                    title: const Text(
+                      '경산 (Gyeongsan) — o‘zim olib ketaman',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    subtitle: const Text('BEPUL • Pochta puli olinmaydi'),
+                    secondary: const Icon(Icons.storefront_outlined),
                   ),
                 ],
               ),
@@ -3088,7 +3117,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       final orderId = await state.placeOrder(
         customerName: name.text,
         phone: phone.text,
-        address: address.text,
+        address: isGyeongsanPickupAddress(address.text, delivery),
         deliveryType: delivery,
         deliveryFee: deliveryFee,
         paymentProof: proof,

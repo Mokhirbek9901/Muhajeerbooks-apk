@@ -1242,7 +1242,10 @@ class AppState extends ChangeNotifier {
     }
 
     final subtotal = cartSubtotal;
-    final safeDeliveryFee = cartCount >= 4 ? 0 : AppState.deliveryFee;
+    final isGyeongsanPickup = deliveryType == '경산 직접수령';
+    final safeDeliveryFee = isGyeongsanPickup
+        ? 0
+        : (cartCount >= 4 ? 0 : AppState.deliveryFee);
     final total = subtotal + safeDeliveryFee;
     await _local.saveCustomer(
       customerName.trim(),

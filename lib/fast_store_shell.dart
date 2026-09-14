@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'app_state.dart';
+import 'catalog_resume.dart';
 import 'store_ui.dart';
 import 'uzbek_customer_style.dart';
 
@@ -37,6 +38,33 @@ class _FastStoreShellState extends State<FastStoreShell> {
       default:
         return const SizedBox.shrink();
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    CatalogResume.instance.addListener(_resetAfterAbsence);
+  }
+
+  void _resetAfterAbsence() {
+    if (!mounted) return;
+
+    // 30+ soniya tashqarida qolinsa, ichki detail/checkout route'larini yopib,
+    // do'konni Bosh sahifaning tepasidan boshlaymiz.
+    setState(() {
+      index = 0;
+      _visited[0] = true;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    });
+  }
+
+  @override
+  void dispose() {
+    CatalogResume.instance.removeListener(_resetAfterAbsence);
+    super.dispose();
   }
 
   @override

@@ -2053,15 +2053,48 @@ class BookDetailPage extends StatelessWidget {
               if (b.inStock)
                 SizedBox(
                   width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: () {
-                      state.addToCart(b);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Savatchaga qo‘shildi ✅')),
-                      );
-                    },
-                    icon: const Icon(Icons.shopping_bag_rounded),
-                    label: const Text('Savatchaga qo‘shish'),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(58),
+                          ),
+                          onPressed: () {
+                            state.addToCart(b);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Savatchaga qo‘shildi ✅'),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.add_shopping_cart_rounded),
+                          label: const Text('Savatga solish'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(58),
+                          ),
+                          onPressed: () {
+                            state.addToCart(b);
+                            Navigator.push<void>(
+                              context,
+                              muhajeerPageRoute<void>(
+                                settings: const RouteSettings(
+                                  name: 'mb:cart-direct',
+                                ),
+                                builder: (_) => const CartPage(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.flash_on_rounded),
+                          label: const Text('Zakaz qilish'),
+                        ),
+                      ),
+                    ],
                   ),
                 )
               else

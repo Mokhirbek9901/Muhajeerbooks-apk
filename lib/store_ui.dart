@@ -1165,10 +1165,10 @@ class _DeliveryPromoCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   Image.network(
-                    'https://upload.wikimedia.org/wikipedia/commons/a/ab/Sunset_at_the_Registan%2C_Samarkand_%284934699224%29.jpg',
+                    'https://img-s1.onedio.com/id-6356dc75d45b3702693ac37e/rev-0/w-600/h-500/f-jpg/s-bfe288c8a4bea9b4e6531eb8b37636050547db48.jpg',
                     fit: BoxFit.cover,
                     alignment: Alignment.center,
-                    filterQuality: FilterQuality.medium,
+                    filterQuality: FilterQuality.high,
                     errorBuilder: (_, __, ___) => const ColoredBox(
                       color: Color(0xFF075B52),
                     ),
@@ -1179,10 +1179,10 @@ class _DeliveryPromoCard extends StatelessWidget {
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
                         colors: [
-                          Color(0xE608443E),
-                          Color(0xB608443E),
-                          Color(0x6508443E),
-                          Color(0x2608443E),
+                          Color(0xD608443E),
+                          Color(0xA808443E),
+                          Color(0x5008443E),
+                          Color(0x1808443E),
                         ],
                         stops: [0, .40, .70, 1],
                       ),

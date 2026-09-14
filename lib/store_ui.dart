@@ -30,6 +30,7 @@ final _money = NumberFormat('#,###', 'en_US');
 String won(int value) => '₩${_money.format(value)}';
 
 final Map<String, double> _scrollMemory = <String, double>{};
+final Future<SharedPreferences> _uiPrefs = SharedPreferences.getInstance();
 
 /// iPhone/Safari browser-back yoki web sahifa qayta tiklanganda foydalanuvchini
 /// ro‘yxat boshiga tashlamaydi. Xotirada darhol, SharedPreferences'da esa
@@ -73,14 +74,14 @@ class _PersistentScrollController extends ScrollController {
     _userMoved = true;
     _scrollMemory[storageKey] = value;
     _saveTimer?.cancel();
-    _saveTimer = Timer(const Duration(milliseconds: 90), () {
+    _saveTimer = Timer(const Duration(milliseconds: 500), () {
       unawaited(_write(value));
     });
   }
 
   Future<void> _write(double value) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _uiPrefs;
       await prefs.setDouble('scroll:$storageKey', value);
     } catch (_) {
       // Scroll xotirasi asosiy ilovani bloklamaydi.
@@ -89,7 +90,7 @@ class _PersistentScrollController extends ScrollController {
 
   Future<void> _loadSaved() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _uiPrefs;
       final saved = prefs.getDouble('scroll:$storageKey');
       if (_disposed || _userMoved || saved == null || saved <= 0) return;
       _scrollMemory[storageKey] = saved;
@@ -1141,67 +1142,54 @@ class _DeliveryPromoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return UzbekPatternPanel(
-      dark: true,
-      strongPattern: true,
-      padding: EdgeInsets.zero,
-      radius: 26,
-      child: Stack(
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 20, 18, 19),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [UzbekCustomerColors.navy, UzbekCustomerColors.tealDark],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: UzbekCustomerColors.gold.withValues(alpha: .55),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Positioned(
-            right: -24,
-            bottom: -22,
-            child: Icon(
-              Icons.auto_stories_rounded,
-              size: 150,
-              color: UzbekCustomerColors.gold.withValues(alpha: .22),
-            ),
-          ),
-          Positioned(
-            right: 18,
-            top: 18,
-            child: UzbekMedallion(size: 70, dark: true),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 118, 20),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const UzbekMiniPill(
-                  icon: Icons.auto_awesome_rounded,
-                  text: 'O‘zbekona ruh',
-                  dark: true,
-                ),
-                const SizedBox(height: 15),
                 const Text(
-                  'Kitob bilan\nyanada yaqinroq bo‘ling',
+                  'Kitob tanlash endi yanada oson',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 24,
-                    height: 1.08,
+                    fontSize: 22,
+                    height: 1.12,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: -.4,
+                    letterSpacing: -.35,
                   ),
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Bilim har doim siz bilan!',
+                const SizedBox(height: 7),
+                Text(
+                  'Koreya bo‘ylab tez va qulay buyurtma.',
                   style: TextStyle(
-                    color: Color(0xFFF8E6BF),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                    color: Colors.white.withValues(alpha: .78),
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 15),
                 const Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                  spacing: 7,
+                  runSpacing: 7,
                   children: [
                     _HeroFact(
                       icon: Icons.local_shipping_rounded,
                       text: '1–3 ish kuni',
                     ),
-                    _HeroFact(icon: Icons.payments_outlined, text: '택배 ₩4,000'),
                     _HeroFact(
                       icon: Icons.card_giftcard_rounded,
                       text: '4+ kitob — bepul',
@@ -1209,6 +1197,20 @@ class _DeliveryPromoCard extends StatelessWidget {
                   ],
                 ),
               ],
+            ),
+          ),
+          const SizedBox(width: 14),
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              color: Color(0x18FFFFFF),
+              borderRadius: BorderRadius.all(Radius.circular(18)),
+            ),
+            child: Icon(
+              Icons.menu_book_rounded,
+              color: UzbekCustomerColors.goldSoft,
+              size: 30,
             ),
           ),
         ],
@@ -1307,36 +1309,15 @@ class _QuickCategoryStrip extends StatelessWidget {
                     vertical: 7,
                   ),
                   decoration: BoxDecoration(
-                    gradient: active
-                        ? const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              UzbekCustomerColors.navy,
-                              UzbekCustomerColors.tealDark,
-                            ],
-                          )
-                        : const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              UzbekCustomerColors.surface,
-                              UzbekCustomerColors.ivory,
-                            ],
-                          ),
+                    color: active
+                        ? UzbekCustomerColors.navy
+                        : UzbekCustomerColors.surface,
                     borderRadius: BorderRadius.circular(17),
                     border: Border.all(
                       color: active
-                          ? UzbekCustomerColors.gold
+                          ? UzbekCustomerColors.navy
                           : UzbekCustomerColors.border,
                     ),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x0B0E2B45),
-                        blurRadius: 10,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -1594,9 +1575,9 @@ class BookCard extends StatelessWidget {
         border: Border.all(color: UzbekCustomerColors.border),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x12173F4A),
-            blurRadius: 16,
-            offset: Offset(0, 6),
+            color: Color(0x0A173F4A),
+            blurRadius: 8,
+            offset: Offset(0, 3),
           ),
         ],
       ),

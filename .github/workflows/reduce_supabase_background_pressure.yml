@@ -20,37 +20,37 @@ jobs:
         shell: bash
         run: |
           python - <<'PY'
+          import re
           from pathlib import Path
 
           path = Path('lib/app_state.dart')
           text = path.read_text(encoding='utf-8')
 
-          old_order = '''      _orderStatusTimer = Timer.periodic(
-                const Duration(seconds: 30),
-                (_) => _refreshCustomerOrderStatusesQuietly(),
-              );'''
-          new_order = '''      _orderStatusTimer = Timer.periodic(
-                const Duration(seconds: 60),
-                (_) => _refreshCustomerOrderStatusesQuietly(),
-              );'''
+          text, order_count = re.subn(
+              r'(_orderStatusTimer\s*=\s*Timer\.periodic\(\s*\n\s*)const Duration\(seconds:\s*30\)',
+              r'\1const Duration(seconds: 60)',
+              text,
+              count=1,
+          )
+          text, books_count = re.subn(
+              r'_booksFallbackTimer\s*=\s*Timer\.periodic\(const Duration\(seconds:\s*20\)',
+              '_booksFallbackTimer = Timer.periodic(const Duration(seconds: 45)',
+              text,
+              count=1,
+          )
 
-          old_books = '''    _booksFallbackTimer = Timer.periodic(const Duration(seconds: 20), (_) {'''
-          new_books = '''    _booksFallbackTimer = Timer.periodic(const Duration(seconds: 45), (_) {'''
+          if order_count != 1:
+              raise SystemExit(f'order status timer replacements: {order_count}')
+          if books_count != 1:
+              raise SystemExit(f'books timer replacements: {books_count}')
 
-          if text.count(old_order) != 1:
-              raise SystemExit('order status timer pattern not found exactly once')
-          if text.count(old_books) != 1:
-              raise SystemExit('books timer pattern not found exactly once')
-
-          text = text.replace(old_order, new_order, 1)
-          text = text.replace(old_books, new_books, 1)
           path.write_text(text, encoding='utf-8')
           PY
       - name: Validate patch
         run: |
           git diff --check
-          grep -q "const Duration(seconds: 60)" lib/app_state.dart
-          grep -q "Timer.periodic(const Duration(seconds: 45)" lib/app_state.dart
+          grep -A2 "_orderStatusTimer = Timer.periodic" lib/app_state.dart | grep -q "Duration(seconds: 60)"
+          grep -q "_booksFallbackTimer = Timer.periodic(const Duration(seconds: 45)" lib/app_state.dart
       - name: Commit patch
         run: |
           git config user.name "github-actions[bot]"

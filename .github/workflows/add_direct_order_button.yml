@@ -1,0 +1,51 @@
+name: Add direct order button
+
+on:
+  push:
+    paths:
+      - '.github/workflows/add_direct_order_button.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Add split cart and order buttons
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('lib/store_ui.dart')
+          text = path.read_text(encoding='utf-8')
+
+          pattern = re.compile(r"""child: FilledButton\.icon\(\n\s*onPressed: \(\) \{\n\s*state\.addToCart\(b\);\n\s*ScaffoldMessenger\.of\(context\)\.showSnackBar\(\n\s*const SnackBar\(content: Text\('Savatchaga qo‘shildi ✅'\)\),\n\s*\);\n\s*\},\n\s*icon: const Icon\(Icons\.shopping_bag_rounded\),\n\s*label: const Text\('Savatchaga qo‘shish'\),\n\s*\),""")
+
+          replacement = """child: Row(\n                    children: [\n                      Expanded(\n                        child: OutlinedButton.icon(\n                          style: OutlinedButton.styleFrom(\n                            minimumSize: const Size.fromHeight(58),\n                          ),\n                          onPressed: () {\n                            state.addToCart(b);\n                            ScaffoldMessenger.of(context).showSnackBar(\n                              const SnackBar(\n                                content: Text('Savatchaga qo‘shildi ✅'),\n                              ),\n                            );\n                          },\n                          icon: const Icon(Icons.add_shopping_cart_rounded),\n                          label: const Text('Savatga solish'),\n                        ),\n                      ),\n                      const SizedBox(width: 10),\n                      Expanded(\n                        child: FilledButton.icon(\n                          style: FilledButton.styleFrom(\n                            minimumSize: const Size.fromHeight(58),\n                          ),\n                          onPressed: () {\n                            state.addToCart(b);\n                            Navigator.push<void>(\n                              context,\n                              muhajeerPageRoute<void>(\n                                settings: const RouteSettings(\n                                  name: 'mb:cart-direct',\n                                ),\n                                builder: (_) => const CartPage(),\n                              ),\n                            );\n                          },\n                          icon: const Icon(Icons.flash_on_rounded),\n                          label: const Text('Zakaz qilish'),\n                        ),\n                      ),\n                    ],\n                  ),"""
+
+          text, count = pattern.subn(replacement, text)
+          if count != 2:
+              raise SystemExit(f'Expected 2 add-to-cart buttons, found {count}')
+
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Validate patch
+        run: |
+          git diff --check
+          test "$(grep -c "Savatga solish" lib/store_ui.dart)" -eq 2
+          test "$(grep -c "Zakaz qilish" lib/store_ui.dart)" -eq 2
+          test "$(grep -c "mb:cart-direct" lib/store_ui.dart)" -eq 2
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/store_ui.dart
+          git commit -m "Make book ordering one tap from detail page"
+          git push

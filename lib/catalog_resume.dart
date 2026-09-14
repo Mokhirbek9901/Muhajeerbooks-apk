@@ -29,9 +29,9 @@ class CatalogResume extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _clearSavedScroll() async {
-    for (final key in _prefs.getKeys().where((key) => key.startsWith('scroll:'))) {
-      await _prefs.remove(key);
-    }
+    final keys = _prefs.getKeys().where((key) => key.startsWith('scroll:')).toList();
+    if (keys.isEmpty) return;
+    await Future.wait(keys.map(_prefs.remove));
   }
 
   @override

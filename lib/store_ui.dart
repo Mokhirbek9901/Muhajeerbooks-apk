@@ -1374,10 +1374,10 @@ class _ApprovedOrnateBooks extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                book('BUXORO', const Color(0xFF6C431D), 27, 92),
-                book('SAMARQAND', const Color(0xFF123D5B), 29, 104),
-                book('XIVA', const Color(0xFF252522), 26, 97),
-                book('TURON', const Color(0xFF08726A), 30, 108),
+                book('O‘TKAN KUNLAR', const Color(0xFF315C43), 31, 100),
+                book('IKKI ESHIK ORASI', const Color(0xFF123D5B), 33, 110),
+                book('HALQA', const Color(0xFF6E2E22), 30, 103),
+                
               ],
             ),
           ),
@@ -1392,7 +1392,7 @@ class _ApprovedUzbekHeroPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Reference rasmdagidek fon: qoramtir yashil ustida Registon/minora silueti.
+    // Samarqand Registon maydoni: uch madrasa va minoralar silueti.
     final haze = Paint()..color = const Color(0x18001E1C);
     canvas.drawRect(Offset.zero & size, haze);
 
@@ -1458,6 +1458,21 @@ class _ApprovedUzbekHeroPainter extends CustomPainter {
 
     mosque(size.width * .76, size.height * .48, 92, 100);
     mosque(size.width * .47, size.height * .60, 70, 78);
+    mosque(size.width * .93, size.height * .53, 82, 92);
+
+    // Registon peshtoqlarini birlashtiruvchi madrasa fasadlari.
+    canvas.drawRect(
+      Rect.fromLTWH(size.width * .43, size.height * .66, size.width * .56, size.height * .22),
+      architecture,
+    );
+    for (final cx in [size.width * .50, size.width * .70, size.width * .91]) {
+      final arch = Path()
+        ..moveTo(cx - 18, base)
+        ..lineTo(cx - 18, size.height * .72)
+        ..quadraticBezierTo(cx, size.height * .62, cx + 18, size.height * .72)
+        ..lineTo(cx + 18, base);
+      canvas.drawPath(arch, detail);
+    }
 
     // Ikat/atlas to‘lqinlari — pastki o‘ng qismda.
     final cloth = Rect.fromLTWH(

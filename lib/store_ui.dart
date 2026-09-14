@@ -209,7 +209,7 @@ String isGyeongsanPickupAddress(String rawAddress, String deliveryType) {
   return value;
 }
 
-_StoreShellState? _activeStoreShellState;
+final ValueNotifier<int?> storefrontTabRequest = ValueNotifier<int?>(null);
 
 class StoreShell extends StatefulWidget {
   const StoreShell({super.key});
@@ -225,14 +225,18 @@ class _StoreShellState extends State<StoreShell> {
   @override
   void initState() {
     super.initState();
-    _activeStoreShellState = this;
+    storefrontTabRequest.addListener(_handleTabRequest);
+  }
+
+  void _handleTabRequest() {
+    final requested = storefrontTabRequest.value;
+    if (!mounted || requested == null || requested == index) return;
+    setState(() => index = requested.clamp(0, 4));
   }
 
   @override
   void dispose() {
-    if (identical(_activeStoreShellState, this)) {
-      _activeStoreShellState = null;
-    }
+    storefrontTabRequest.removeListener(_handleTabRequest);
     super.dispose();
   }
 
@@ -303,7 +307,10 @@ class _StoreShellState extends State<StoreShell> {
           backgroundColor: Colors.transparent,
           indicatorColor: UzbekCustomerColors.gold,
           selectedIndex: index,
-          onDestinationSelected: (value) => setState(() => index = value),
+          onDestinationSelected: (value) {
+            storefrontTabRequest.value = value;
+            if (value != index) setState(() => index = value);
+          },
           destinations: [
             const NavigationDestination(
               icon: Icon(Icons.home_outlined),
@@ -2752,11 +2759,11 @@ class CartPage extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: () {
                           FocusManager.instance.primaryFocus?.unfocus();
+                          storefrontTabRequest.value = 0;
                           final navigator = Navigator.of(context);
-                          navigator.popUntil((route) => route.isFirst);
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            _activeStoreShellState?.showHome();
-                          });
+                          if (navigator.canPop()) {
+                            navigator.popUntil((route) => route.isFirst);
+                          }
                         },
                         icon: const Icon(Icons.add_rounded),
                         label: const Text('Yana kitob qo‘shish'),

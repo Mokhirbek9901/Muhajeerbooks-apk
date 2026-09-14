@@ -28,8 +28,8 @@ s = replace_once(
 )
 s = replace_once(
     s,
-    '        gallery = [...gallery, ...uploaded].take(20).toList();',
-    '        gallery = [...gallery, ...uploaded].take(10).toList();',
+    '              gallery = [...gallery, url].take(20).toList();',
+    '              gallery = [...gallery, url].take(10).toList();',
     'uploaded gallery cap',
 )
 s = replace_once(

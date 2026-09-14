@@ -51,7 +51,8 @@ class _AdminApi {
       'admin_save_book',
       params: {
         'p_secret': secret,
-        'p_id': book.id.isEmpty ||
+        'p_id':
+            book.id.isEmpty ||
                 book.id.startsWith('local-') ||
                 book.id.startsWith('telegram-')
             ? null
@@ -65,8 +66,9 @@ class _AdminApi {
           'price': book.price,
           'stock': book.stock,
           'discount_percent': book.discountPercent,
-          'image_url':
-              book.galleryImages.isEmpty ? '' : book.galleryImages.first,
+          'image_url': book.galleryImages.isEmpty
+              ? ''
+              : book.galleryImages.first,
           'image_urls': book.galleryImages,
           'is_active': book.isActive,
           'cover': book.coverType,
@@ -88,8 +90,8 @@ class _AdminApi {
     final contentType = lower.endsWith('.png')
         ? 'image/png'
         : lower.endsWith('.webp')
-            ? 'image/webp'
-            : 'image/jpeg';
+        ? 'image/webp'
+        : 'image/jpeg';
 
     final response = await client.functions.invoke(
       'admin-cover-upload',
@@ -164,8 +166,9 @@ class _AdminApi {
       body: {'action': 'view', 'admin_code': secret, 'path': path},
     );
     final raw = response.data;
-    final data =
-        raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+    final data = raw is Map
+        ? Map<String, dynamic>.from(raw)
+        : <String, dynamic>{};
     final url = (data['url'] ?? '').toString();
     if (url.isEmpty)
       throw StateError((data['error'] ?? 'Chek ochilmadi.').toString());
@@ -299,7 +302,9 @@ class _AdminGatePageState extends State<AdminGatePage> {
     if (!kIsWeb) return;
     final fragment = Uri.base.fragment;
     if (!fragment.startsWith('admin_session=')) return;
-    final token = Uri.decodeComponent(fragment.substring('admin_session='.length));
+    final token = Uri.decodeComponent(
+      fragment.substring('admin_session='.length),
+    );
     if (token.trim().isEmpty) return;
     if (mounted) {
       setState(() {
@@ -311,7 +316,9 @@ class _AdminGatePageState extends State<AdminGatePage> {
       final api = _AdminApi(token.trim());
       if (!await api.verify()) {
         if (mounted) {
-          setState(() => error = 'Face ID / Passkey sessiyasi eskirgan. Qayta kiring.');
+          setState(
+            () => error = 'Face ID / Passkey sessiyasi eskirgan. Qayta kiring.',
+          );
         }
         return;
       }
@@ -358,9 +365,11 @@ class _AdminGatePageState extends State<AdminGatePage> {
       biometricEnabled = enabled;
     });
     if (enabled) {
-      unawaited(Future<void>.delayed(const Duration(milliseconds: 450), () async {
-        if (mounted) await _biometricLogin();
-      }));
+      unawaited(
+        Future<void>.delayed(const Duration(milliseconds: 450), () async {
+          if (mounted) await _biometricLogin();
+        }),
+      );
     }
   }
 
@@ -604,15 +613,22 @@ class _AdminGatePageState extends State<AdminGatePage> {
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
-                          onPressed: loading ? null : () => _openWebPasskey('login'),
+                          onPressed: loading
+                              ? null
+                              : () => _openWebPasskey('login'),
                           icon: const Icon(Icons.face_rounded),
                           label: const Text('Face ID / Passkey bilan kirish'),
                         ),
                       ),
                       const SizedBox(height: 8),
                       TextButton.icon(
-                        onPressed: loading ? null : () => _openWebPasskey('register'),
-                        icon: const Icon(Icons.add_moderator_outlined, size: 19),
+                        onPressed: loading
+                            ? null
+                            : () => _openWebPasskey('register'),
+                        icon: const Icon(
+                          Icons.add_moderator_outlined,
+                          size: 19,
+                        ),
                         label: const Text('Face ID / Passkey ni yoqish'),
                       ),
                     ],
@@ -626,7 +642,9 @@ class _AdminGatePageState extends State<AdminGatePage> {
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : const Icon(Icons.fingerprint_rounded),
                           label: Text(
@@ -979,485 +997,424 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
 
   @override
   Widget build(BuildContext context) => FutureBuilder<_OverviewData>(
-        future: future,
-        builder: (context, snap) {
-          // Faqat birinchi yuklanishda katta spinner ko‘rsatamiz.
-          // 15 soniyalik fon yangilanishida oldingi ma’lumot ekranda qoladi.
-          if (snap.connectionState == ConnectionState.waiting &&
-              snap.data == null) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snap.hasError) {
-            return Center(
-              child: AppSurface(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.cloud_off_rounded,
-                      size: 44,
-                      color: AppColors.danger,
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'Ma’lumotni yuklab bo‘lmadi',
-                      style: TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                    const SizedBox(height: 10),
-                    FilledButton.tonalIcon(
-                      onPressed: reload,
-                      icon: const Icon(Icons.refresh_rounded),
-                      label: const Text('Qayta urinish'),
-                    ),
-                  ],
+    future: future,
+    builder: (context, snap) {
+      // Faqat birinchi yuklanishda katta spinner ko‘rsatamiz.
+      // 15 soniyalik fon yangilanishida oldingi ma’lumot ekranda qoladi.
+      if (snap.connectionState == ConnectionState.waiting &&
+          snap.data == null) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      if (snap.hasError) {
+        return Center(
+          child: AppSurface(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.cloud_off_rounded,
+                  size: 44,
+                  color: AppColors.danger,
                 ),
-              ),
-            );
-          }
-          final data = snap.data ?? const _OverviewData([], []);
-          final books = data.books;
-          final orders = data.orders;
-          final now = DateTime.now();
-          final todayOrders = orders
-              .where(
-                (o) =>
-                    o.createdAt.year == now.year &&
-                    o.createdAt.month == now.month &&
-                    o.createdAt.day == now.day,
-              )
-              .length;
-          final newOrders = orders.where((o) => o.status == 'new').length;
-          final proofOrders = orders
-              .where((o) => o.status == 'new' && o.hasPaymentProof)
-              .length;
-          final activeRevenue = orders
-              .where((o) => ['accepted', 'paid', 'shipping'].contains(o.status))
-              .fold<int>(0, (sum, o) => sum + o.total);
-          final completedRevenue = orders
-              .where((o) => o.status == 'shipping')
-              .fold<int>(0, (sum, o) => sum + o.total);
-          final totalStock = books.fold<int>(0, (sum, b) => sum + b.stock);
-          final lowStock = books.where((b) => b.stock <= 2).toList()
-            ..sort((a, b) => a.stock.compareTo(b.stock));
-          final recent = orders.take(5).toList();
-          final activeStatuses = {'accepted', 'paid', 'shipping'};
-          final activeOrders =
-              orders.where((o) => activeStatuses.contains(o.status)).toList();
-          final monthOrders = orders.where((o) {
-            return o.createdAt.year == now.year &&
+                const SizedBox(height: 10),
+                const Text(
+                  'Ma’lumotni yuklab bo‘lmadi',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 10),
+                FilledButton.tonalIcon(
+                  onPressed: reload,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Qayta urinish'),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+      final data = snap.data ?? const _OverviewData([], []);
+      final books = data.books;
+      final orders = data.orders;
+      final now = DateTime.now();
+      final todayOrders = orders
+          .where(
+            (o) =>
+                o.createdAt.year == now.year &&
                 o.createdAt.month == now.month &&
-                o.status != 'cancelled';
-          }).toList();
-          final monthRevenue = monthOrders
-              .where((o) => o.status == 'shipping' ||
-                  (o.isApp && ['accepted', 'paid'].contains(o.status)))
-              .fold<int>(0, (sum, o) => sum + o.total);
-          final todayRevenue = orders.where((o) {
+                o.createdAt.day == now.day,
+          )
+          .length;
+      final newOrders = orders.where((o) => o.status == 'new').length;
+      final proofOrders = orders
+          .where((o) => o.status == 'new' && o.hasPaymentProof)
+          .length;
+      final activeRevenue = orders
+          .where((o) => ['accepted', 'paid', 'shipping'].contains(o.status))
+          .fold<int>(0, (sum, o) => sum + o.total);
+      final completedRevenue = orders
+          .where((o) => o.status == 'shipping')
+          .fold<int>(0, (sum, o) => sum + o.total);
+      final totalStock = books.fold<int>(0, (sum, b) => sum + b.stock);
+      final lowStock = books.where((b) => b.stock <= 2).toList()
+        ..sort((a, b) => a.stock.compareTo(b.stock));
+      final recent = orders.take(5).toList();
+      final activeStatuses = {'accepted', 'paid', 'shipping'};
+      final activeOrders = orders
+          .where((o) => activeStatuses.contains(o.status))
+          .toList();
+      final monthOrders = orders.where((o) {
+        return o.createdAt.year == now.year &&
+            o.createdAt.month == now.month &&
+            o.status != 'cancelled';
+      }).toList();
+      final monthRevenue = monthOrders
+          .where(
+            (o) =>
+                o.status == 'shipping' ||
+                (o.isApp && ['accepted', 'paid'].contains(o.status)),
+          )
+          .fold<int>(0, (sum, o) => sum + o.total);
+      final todayRevenue = orders
+          .where((o) {
             return o.createdAt.year == now.year &&
                 o.createdAt.month == now.month &&
                 o.createdAt.day == now.day &&
                 (o.status == 'shipping' ||
                     (o.isApp && ['accepted', 'paid'].contains(o.status)));
-          }).fold<int>(0, (sum, o) => sum + o.total);
-          final averageOrder =
-              activeOrders.isEmpty ? 0 : activeRevenue ~/ activeOrders.length;
-          final acceptedOrders =
-              orders.where((o) => o.status == 'accepted').length;
-          final shippingOrders =
-              orders.where((o) => o.status == 'shipping').length;
-          final cancelledOrders =
-              orders.where((o) => o.status == 'cancelled').length;
-          final outOfStock = books.where((b) => b.stock == 0).length;
-          final completionRate = orders.isEmpty
-              ? 0
-              : ((shippingOrders / orders.length) * 100).round();
-          final cancelRate = orders.isEmpty
-              ? 0
-              : ((cancelledOrders / orders.length) * 100).round();
+          })
+          .fold<int>(0, (sum, o) => sum + o.total);
+      final averageOrder = activeOrders.isEmpty
+          ? 0
+          : activeRevenue ~/ activeOrders.length;
+      final acceptedOrders = orders.where((o) => o.status == 'accepted').length;
+      final shippingOrders = orders.where((o) => o.status == 'shipping').length;
+      final cancelledOrders = orders
+          .where((o) => o.status == 'cancelled')
+          .length;
+      final outOfStock = books.where((b) => b.stock == 0).length;
+      final completionRate = orders.isEmpty
+          ? 0
+          : ((shippingOrders / orders.length) * 100).round();
+      final cancelRate = orders.isEmpty
+          ? 0
+          : ((cancelledOrders / orders.length) * 100).round();
 
-          return RefreshIndicator(
-            onRefresh: () async => reload(),
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(18),
-              children: [
-                AppPageHeading(
-                  title: 'Boshqaruv markazi',
-                  subtitle:
-                      'Savdo, buyurtmalar va ombor holati real vaqtga yaqin ko‘rinishda.',
-                  trailing: IconButton.filledTonal(
-                    onPressed: reload,
-                    tooltip: 'Yangilash',
-                    icon: const Icon(Icons.refresh_rounded),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                InkWell(
-                  borderRadius: BorderRadius.circular(AppRadii.large),
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => Scaffold(
-                          appBar: AppBar(
-                            title: const Text('Kutayotganlar'),
-                          ),
-                          body: _RestockAdmin(api: widget.api),
-                        ),
-                      ),
-                    );
-                  },
-                  child: AppSurface(
-                    backgroundColor: AppColors.surfaceSoft,
-                    shadow: true,
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(15),
-                            border: Border.all(color: AppColors.border),
-                          ),
-                          child: const Icon(
-                            Icons.notifications_active_rounded,
-                            color: AppColors.navy,
-                          ),
-                        ),
-                        const SizedBox(width: 13),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Kutayotganlar',
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Sotuvga qaytishini kutish so‘rovlarini ko‘rish',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.muted,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(
-                          Icons.chevron_right_rounded,
-                          color: AppColors.navy,
-                        ),
-                      ],
+      return RefreshIndicator(
+        onRefresh: () async => reload(),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(18),
+          children: [
+            AppPageHeading(
+              title: 'Boshqaruv markazi',
+              subtitle: 'Savdo, buyurtmalar va ombor holati real vaqtga yaqin ko‘rinishda.',
+              trailing: IconButton.filledTonal(
+                onPressed: reload,
+                tooltip: 'Yangilash',
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ),
+            const SizedBox(height: 18),
+            InkWell(
+              borderRadius: BorderRadius.circular(AppRadii.large),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => Scaffold(
+                      appBar: AppBar(title: const Text('Kutayotganlar')),
+                      body: _RestockAdmin(api: widget.api),
                     ),
                   ),
-                ),
-                const SizedBox(height: 14),
-                LayoutBuilder(
-                  builder: (context, c) {
-                    final cardWidth = c.maxWidth >= 1200
-                        ? (c.maxWidth - 36) / 4
-                        : c.maxWidth >= 760
-                            ? (c.maxWidth - 24) / 3
-                            : c.maxWidth >= 480
-                                ? (c.maxWidth - 12) / 2
-                                : c.maxWidth;
-                    return Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: [
-                        SizedBox(
-                          width: cardWidth,
-                          child: AppMetricCard(
-                            icon: Icons.new_releases_outlined,
-                            label: 'Yangi buyurtmalar',
-                            value: '$newOrders',
-                            accent: AppColors.orange,
-                            note: proofOrders > 0
-                                ? '$proofOrders ta chek kutilmoqda'
-                                : 'Tekshirish navbati',
-                          ),
-                        ),
-                        SizedBox(
-                          width: cardWidth,
-                          child: AppMetricCard(
-                            icon: Icons.today_outlined,
-                            label: 'Bugungi buyurtma',
-                            value: '$todayOrders',
-                            accent: AppColors.info,
-                            note: DateFormat('yyyy.MM.dd').format(now),
-                          ),
-                        ),
-                        SizedBox(
-                          width: cardWidth,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(AppRadii.large),
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => Scaffold(
-                                    appBar: AppBar(
-                                      title: const Text('Zakaslar'),
-                                    ),
-                                    body: _ShippingQueueAdmin(api: widget.api),
-                                  ),
-                                ),
-                              );
-                            },
-                            child: const AppMetricCard(
-                              icon: Icons.local_shipping_outlined,
-                              label: 'Zakaslar',
-                              value: 'Ochish',
-                              accent: AppColors.navy,
-                              note: 'Pochta uchun nusxa olish',
+                );
+              },
+              child: AppSurface(
+                backgroundColor: AppColors.surfaceSoft,
+                shadow: true,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: const Icon(
+                        Icons.notifications_active_rounded,
+                        color: AppColors.navy,
+                      ),
+                    ),
+                    const SizedBox(width: 13),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Kutayotganlar',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
-                        ),
-                        SizedBox(
-                          width: cardWidth,
-                          child: AppMetricCard(
-                            icon: Icons.inventory_2_outlined,
-                            label: 'Ombordagi dona',
-                            value: '$totalStock',
-                            accent: const Color(0xFF6B5DD3),
-                            note: '${books.length} xil kitob',
-                          ),
-                        ),
-                        SizedBox(
-                          width: cardWidth,
-                          child: AppMetricCard(
-                            icon: Icons.payments_outlined,
-                            label: 'Faol savdo',
-                            value: _won(activeRevenue),
-                            accent: AppColors.success,
-                            note: 'Qabul qilingan buyurtmalar',
-                          ),
-                        ),
-                        SizedBox(
-                          width: cardWidth,
-                          child: AppMetricCard(
-                            icon: Icons.task_alt_rounded,
-                            label: 'Jo‘natilgan savdo',
-                            value: _won(completedRevenue),
-                            accent: AppColors.navy,
-                            note: 'Jo‘natilgan buyurtmalar',
-                          ),
-                        ),
-                        SizedBox(
-                          width: cardWidth,
-                          child: AppMetricCard(
-                            icon: Icons.warning_amber_rounded,
-                            label: 'Kam qolgan kitob',
-                            value: '${lowStock.length}',
-                            accent: AppColors.warning,
-                            note: '2 dona yoki undan kam',
-                          ),
-                        ),
-                        SizedBox(
-                          width: cardWidth,
-                          child: AppMetricCard(
-                            icon: Icons.calendar_month_outlined,
-                            label: 'Bu oy savdo',
-                            value: _won(monthRevenue),
-                            accent: AppColors.info,
-                            note: '${monthOrders.length} ta buyurtma',
-                          ),
-                        ),
-                        SizedBox(
-                          width: cardWidth,
-                          child: AppMetricCard(
-                            icon: Icons.calculate_outlined,
-                            label: 'O‘rtacha buyurtma',
-                            value: _won(averageOrder),
-                            accent: const Color(0xFF7A5AF8),
-                            note: 'Faol buyurtmalar bo‘yicha',
-                          ),
-                        ),
-                        SizedBox(
-                          width: cardWidth,
-                          child: AppMetricCard(
-                            icon: Icons.point_of_sale_outlined,
-                            label: 'Bugungi savdo',
-                            value: _won(todayRevenue),
-                            accent: AppColors.success,
-                            note: '$todayOrders ta buyurtma',
-                          ),
-                        ),
-                        SizedBox(
-                          width: cardWidth,
-                          child: AppMetricCard(
-                            icon: Icons.remove_shopping_cart_outlined,
-                            label: 'Tugagan kitob',
-                            value: '$outOfStock',
-                            accent: AppColors.danger,
-                            note: 'Omborda 0 dona',
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-                const SizedBox(height: 20),
-                AppSurface(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const AppSectionHeader(
-                        title: 'Buyurtmalar statistikasi',
-                        subtitle: 'Holatlar va ishlov berish ko‘rsatkichlari',
-                        icon: Icons.analytics_outlined,
-                      ),
-                      const SizedBox(height: 14),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          AppInfoPill(
-                            icon: Icons.fiber_new_rounded,
-                            label: '$newOrders yangi',
-                            foreground: AppColors.orange,
-                            background: AppColors.warningSoft,
-                          ),
-                          AppInfoPill(
-                            icon: Icons.inventory_rounded,
-                            label: '$acceptedOrders qabul qilingan',
-                            foreground: AppColors.success,
-                            background: AppColors.successSoft,
-                          ),
-                          AppInfoPill(
-                            icon: Icons.local_shipping_rounded,
-                            label: '$shippingOrders jo‘natilgan',
-                            foreground: AppColors.info,
-                            background: const Color(0xFFEAF2FF),
-                          ),
-                          AppInfoPill(
-                            icon: Icons.cancel_outlined,
-                            label: '$cancelledOrders bekor',
-                            foreground: AppColors.danger,
-                            background: AppColors.dangerSoft,
-                          ),
-                          AppInfoPill(
-                            icon: Icons.receipt_long_outlined,
-                            label: '$proofOrders yangi chek',
-                            foreground: AppColors.success,
-                            background: AppColors.successSoft,
+                          SizedBox(height: 2),
+                          Text(
+                            'Sotuvga qaytishini kutish so‘rovlarini ko‘rish',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.muted,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 18),
-                      _AdminProgressStat(
-                        label: 'Jo‘natilgan buyurtmalar',
-                        value: completionRate,
-                        color: AppColors.success,
+                    ),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppColors.navy,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            LayoutBuilder(
+              builder: (context, c) {
+                final cardWidth = c.maxWidth >= 1200
+                    ? (c.maxWidth - 36) / 4
+                    : c.maxWidth >= 760
+                    ? (c.maxWidth - 24) / 3
+                    : c.maxWidth >= 480
+                    ? (c.maxWidth - 12) / 2
+                    : c.maxWidth;
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    SizedBox(
+                      width: cardWidth,
+                      child: AppMetricCard(
+                        icon: Icons.new_releases_outlined,
+                        label: 'Yangi buyurtmalar',
+                        value: '$newOrders',
+                        accent: AppColors.orange,
+                        note: proofOrders > 0
+                            ? '$proofOrders ta chek kutilmoqda'
+                            : 'Tekshirish navbati',
                       ),
-                      const SizedBox(height: 12),
-                      _AdminProgressStat(
-                        label: 'Bekor qilingan buyurtmalar',
-                        value: cancelRate,
-                        color: AppColors.danger,
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: AppMetricCard(
+                        icon: Icons.today_outlined,
+                        label: 'Bugungi buyurtma',
+                        value: '$todayOrders',
+                        accent: AppColors.info,
+                        note: DateFormat('yyyy.MM.dd').format(now),
+                      ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(AppRadii.large),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => Scaffold(
+                                appBar: AppBar(title: const Text('Zakaslar')),
+                                body: _ShippingQueueAdmin(api: widget.api),
+                              ),
+                            ),
+                          );
+                        },
+                        child: const AppMetricCard(
+                          icon: Icons.local_shipping_outlined,
+                          label: 'Zakaslar',
+                          value: 'Ochish',
+                          accent: AppColors.navy,
+                          note: 'Pochta uchun nusxa olish',
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: AppMetricCard(
+                        icon: Icons.inventory_2_outlined,
+                        label: 'Ombordagi dona',
+                        value: '$totalStock',
+                        accent: const Color(0xFF6B5DD3),
+                        note: '${books.length} xil kitob',
+                      ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: AppMetricCard(
+                        icon: Icons.payments_outlined,
+                        label: 'Faol savdo',
+                        value: _won(activeRevenue),
+                        accent: AppColors.success,
+                        note: 'Qabul qilingan buyurtmalar',
+                      ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: AppMetricCard(
+                        icon: Icons.task_alt_rounded,
+                        label: 'Jo‘natilgan savdo',
+                        value: _won(completedRevenue),
+                        accent: AppColors.navy,
+                        note: 'Jo‘natilgan buyurtmalar',
+                      ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: AppMetricCard(
+                        icon: Icons.warning_amber_rounded,
+                        label: 'Kam qolgan kitob',
+                        value: '${lowStock.length}',
+                        accent: AppColors.warning,
+                        note: '2 dona yoki undan kam',
+                      ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: AppMetricCard(
+                        icon: Icons.calendar_month_outlined,
+                        label: 'Bu oy savdo',
+                        value: _won(monthRevenue),
+                        accent: AppColors.info,
+                        note: '${monthOrders.length} ta buyurtma',
+                      ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: AppMetricCard(
+                        icon: Icons.calculate_outlined,
+                        label: 'O‘rtacha buyurtma',
+                        value: _won(averageOrder),
+                        accent: const Color(0xFF7A5AF8),
+                        note: 'Faol buyurtmalar bo‘yicha',
+                      ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: AppMetricCard(
+                        icon: Icons.point_of_sale_outlined,
+                        label: 'Bugungi savdo',
+                        value: _won(todayRevenue),
+                        accent: AppColors.success,
+                        note: '$todayOrders ta buyurtma',
+                      ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: AppMetricCard(
+                        icon: Icons.remove_shopping_cart_outlined,
+                        label: 'Tugagan kitob',
+                        value: '$outOfStock',
+                        accent: AppColors.danger,
+                        note: 'Omborda 0 dona',
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 20),
+            AppSurface(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const AppSectionHeader(
+                    title: 'Buyurtmalar statistikasi',
+                    subtitle: 'Holatlar va ishlov berish ko‘rsatkichlari',
+                    icon: Icons.analytics_outlined,
+                  ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      AppInfoPill(
+                        icon: Icons.fiber_new_rounded,
+                        label: '$newOrders yangi',
+                        foreground: AppColors.orange,
+                        background: AppColors.warningSoft,
+                      ),
+                      AppInfoPill(
+                        icon: Icons.inventory_rounded,
+                        label: '$acceptedOrders qabul qilingan',
+                        foreground: AppColors.success,
+                        background: AppColors.successSoft,
+                      ),
+                      AppInfoPill(
+                        icon: Icons.local_shipping_rounded,
+                        label: '$shippingOrders jo‘natilgan',
+                        foreground: AppColors.info,
+                        background: const Color(0xFFEAF2FF),
+                      ),
+                      AppInfoPill(
+                        icon: Icons.cancel_outlined,
+                        label: '$cancelledOrders bekor',
+                        foreground: AppColors.danger,
+                        background: AppColors.dangerSoft,
+                      ),
+                      AppInfoPill(
+                        icon: Icons.receipt_long_outlined,
+                        label: '$proofOrders yangi chek',
+                        foreground: AppColors.success,
+                        background: AppColors.successSoft,
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 20),
-                LayoutBuilder(
-                  builder: (context, c) {
-                    final wide = c.maxWidth >= 900;
-                    final lowCard = AppSurface(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          AppSectionHeader(
-                            title: 'Ombor nazorati',
-                            subtitle: 'Eng avval e’tibor beriladigan qoldiqlar',
-                            icon: Icons.warning_amber_rounded,
-                            trailing:
-                                AppInfoPill(label: '${lowStock.length} ta'),
-                          ),
-                          const SizedBox(height: 12),
-                          if (lowStock.isEmpty)
-                            const AppInfoPill(
-                              icon: Icons.check_circle_rounded,
-                              label: 'Hamma qoldiq yaxshi',
-                              foreground: AppColors.success,
-                              background: AppColors.successSoft,
-                              border: Color(0xFFCDEAD7),
-                            )
-                          else
-                            ...lowStock.take(6).map(
-                                  (b) => ListTile(
-                                    dense: true,
-                                    contentPadding: EdgeInsets.zero,
-                                    leading: _AdminBookThumb(url: b.imageUrl),
-                                    title: Text(
-                                      b.title,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                    subtitle: Text(
-                                      _won(b.currentPrice),
-                                      style: const TextStyle(fontSize: 11.5),
-                                    ),
-                                    trailing: AppInfoPill(
-                                      label: '${b.stock} dona',
-                                      foreground: b.stock == 0
-                                          ? AppColors.danger
-                                          : AppColors.warning,
-                                      background: b.stock == 0
-                                          ? AppColors.dangerSoft
-                                          : AppColors.warningSoft,
-                                      border: b.stock == 0
-                                          ? const Color(0xFFFFCCD1)
-                                          : const Color(0xFFFFDCA0),
-                                    ),
-                                  ),
-                                ),
-                        ],
+                  const SizedBox(height: 18),
+                  _AdminProgressStat(
+                    label: 'Jo‘natilgan buyurtmalar',
+                    value: completionRate,
+                    color: AppColors.success,
+                  ),
+                  const SizedBox(height: 12),
+                  _AdminProgressStat(
+                    label: 'Bekor qilingan buyurtmalar',
+                    value: cancelRate,
+                    color: AppColors.danger,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            LayoutBuilder(
+              builder: (context, c) {
+                final wide = c.maxWidth >= 900;
+                final lowCard = AppSurface(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AppSectionHeader(
+                        title: 'Ombor nazorati',
+                        subtitle: 'Eng avval e’tibor beriladigan qoldiqlar',
+                        icon: Icons.warning_amber_rounded,
+                        trailing: AppInfoPill(label: '${lowStock.length} ta'),
                       ),
-                    );
-                    final recentCard = AppSurface(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          AppSectionHeader(
-                            title: 'So‘nggi buyurtmalar',
-                            subtitle: 'Yaqinda kelgan mijoz buyurtmalari',
-                            icon: Icons.receipt_long_outlined,
-                            trailing: AppInfoPill(label: '${orders.length} ta'),
-                          ),
-                          const SizedBox(height: 12),
-                          if (recent.isEmpty)
-                            const Text(
-                              'Hozircha buyurtma yo‘q.',
-                              style: TextStyle(color: AppColors.muted),
-                            )
-                          else
-                            ...recent.map(
-                              (o) => ListTile(
+                      const SizedBox(height: 12),
+                      if (lowStock.isEmpty)
+                        const AppInfoPill(
+                          icon: Icons.check_circle_rounded,
+                          label: 'Hamma qoldiq yaxshi',
+                          foreground: AppColors.success,
+                          background: AppColors.successSoft,
+                          border: Color(0xFFCDEAD7),
+                        )
+                      else
+                        ...lowStock
+                            .take(6)
+                            .map(
+                              (b) => ListTile(
                                 dense: true,
                                 contentPadding: EdgeInsets.zero,
-                                leading: Container(
-                                  width: 38,
-                                  height: 38,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.surfaceSoft,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: AppColors.border),
-                                  ),
-                                  child: const Icon(
-                                    Icons.person_outline_rounded,
-                                    size: 19,
-                                  ),
-                                ),
+                                leading: _AdminBookThumb(url: b.imageUrl),
                                 title: Text(
-                                  o.customerName,
+                                  b.title,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
@@ -1465,55 +1422,112 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                                   ),
                                 ),
                                 subtitle: Text(
-                                  DateFormat('MM.dd • HH:mm')
-                                      .format(o.createdAt),
+                                  _won(b.currentPrice),
                                   style: const TextStyle(fontSize: 11.5),
                                 ),
-                                trailing: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    _AdminOrderStatusChip(status: o.status),
-                                    const SizedBox(height: 3),
-                                    Text(
-                                      _won(o.total),
-                                      style: const TextStyle(
-                                        fontSize: 11.5,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                  ],
+                                trailing: AppInfoPill(
+                                  label: '${b.stock} dona',
+                                  foreground: b.stock == 0
+                                      ? AppColors.danger
+                                      : AppColors.warning,
+                                  background: b.stock == 0
+                                      ? AppColors.dangerSoft
+                                      : AppColors.warningSoft,
+                                  border: b.stock == 0
+                                      ? const Color(0xFFFFCCD1)
+                                      : const Color(0xFFFFDCA0),
                                 ),
                               ),
                             ),
-                        ],
+                    ],
+                  ),
+                );
+                final recentCard = AppSurface(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AppSectionHeader(
+                        title: 'So‘nggi buyurtmalar',
+                        subtitle: 'Yaqinda kelgan mijoz buyurtmalari',
+                        icon: Icons.receipt_long_outlined,
+                        trailing: AppInfoPill(label: '${orders.length} ta'),
                       ),
-                    );
-                    if (!wide)
-                      return Column(
-                        children: [
-                          recentCard,
-                          const SizedBox(height: 12),
-                          lowCard
-                        ],
-                      );
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: recentCard),
-                        const SizedBox(width: 12),
-                        Expanded(child: lowCard),
-                      ],
-                    );
-                  },
-                ),
-              ],
+                      const SizedBox(height: 12),
+                      if (recent.isEmpty)
+                        const Text(
+                          'Hozircha buyurtma yo‘q.',
+                          style: TextStyle(color: AppColors.muted),
+                        )
+                      else
+                        ...recent.map(
+                          (o) => ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading: Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceSoft,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppColors.border),
+                              ),
+                              child: const Icon(
+                                Icons.person_outline_rounded,
+                                size: 19,
+                              ),
+                            ),
+                            title: Text(
+                              o.customerName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            subtitle: Text(
+                              DateFormat('MM.dd • HH:mm').format(o.createdAt),
+                              style: const TextStyle(fontSize: 11.5),
+                            ),
+                            trailing: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                _AdminOrderStatusChip(status: o.status),
+                                const SizedBox(height: 3),
+                                Text(
+                                  _won(o.total),
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+                if (!wide)
+                  return Column(
+                    children: [recentCard, const SizedBox(height: 12), lowCard],
+                  );
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: recentCard),
+                    const SizedBox(width: 12),
+                    Expanded(child: lowCard),
+                  ],
+                );
+              },
             ),
-          );
-        },
+          ],
+        ),
       );
+    },
+  );
 }
-
 
 class _ShippingQueueAdmin extends StatefulWidget {
   const _ShippingQueueAdmin({required this.api});
@@ -1536,7 +1550,11 @@ class _ShippingQueueAdminState extends State<_ShippingQueueAdmin> {
   }
 
   Future<void> reload() async {
-    if (mounted) setState(() { loading = true; error = null; });
+    if (mounted)
+      setState(() {
+        loading = true;
+        error = null;
+      });
     try {
       final data = await widget.api.shippingQueue();
       if (!mounted) return;
@@ -1551,24 +1569,34 @@ class _ShippingQueueAdminState extends State<_ShippingQueueAdmin> {
 
   List<Map<String, dynamic>> get visibleRows {
     if (filter == 'all') return rows;
-    return rows.where((row) => (row['source'] ?? '').toString() == filter).toList();
+    return rows
+        .where((row) => (row['source'] ?? '').toString() == filter)
+        .toList();
   }
 
   String sourceLabel(String source) {
     switch (source) {
-      case 'telegram': return 'Telegram bot';
-      case 'app': return 'Ilova / Web';
-      case 'manual': return 'Qo‘lda';
-      default: return 'Zakas';
+      case 'telegram':
+        return 'Telegram bot';
+      case 'app':
+        return 'Ilova / Web';
+      case 'manual':
+        return 'Qo‘lda';
+      default:
+        return 'Zakas';
     }
   }
 
   IconData sourceIcon(String source) {
     switch (source) {
-      case 'telegram': return Icons.send_rounded;
-      case 'app': return Icons.phone_iphone_rounded;
-      case 'manual': return Icons.edit_note_rounded;
-      default: return Icons.local_shipping_outlined;
+      case 'telegram':
+        return Icons.send_rounded;
+      case 'app':
+        return Icons.phone_iphone_rounded;
+      case 'manual':
+        return Icons.edit_note_rounded;
+      default:
+        return Icons.local_shipping_outlined;
     }
   }
 
@@ -1577,9 +1605,8 @@ class _ShippingQueueAdminState extends State<_ShippingQueueAdmin> {
     if (clean.isEmpty || clean == '—') return;
     await Clipboard.setData(ClipboardData(text: clean));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$label nusxalandi')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('$label nusxalandi')));
   }
 
   Future<void> addManual() async {
@@ -1643,40 +1670,51 @@ class _ShippingQueueAdminState extends State<_ShippingQueueAdmin> {
           ),
           actions: [
             TextButton(
-              onPressed: saving ? null : () => Navigator.pop(dialogContext, false),
+              onPressed: saving
+                  ? null
+                  : () => Navigator.pop(dialogContext, false),
               child: const Text('Bekor qilish'),
             ),
             FilledButton.icon(
-              onPressed: saving ? null : () async {
-                if (name.text.trim().isEmpty ||
-                    phone.text.trim().isEmpty ||
-                    address.text.trim().isEmpty ||
-                    books.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(dialogContext).showSnackBar(
-                    const SnackBar(content: Text('Barcha maydonlarni to‘ldiring.')),
-                  );
-                  return;
-                }
-                setDialogState(() => saving = true);
-                try {
-                  await widget.api.addShippingQueue(
-                    name: name.text.trim(),
-                    phone: phone.text.trim(),
-                    address: address.text.trim(),
-                    books: books.text.trim(),
-                  );
-                  if (dialogContext.mounted) Navigator.pop(dialogContext, true);
-                } catch (_) {
-                  setDialogState(() => saving = false);
-                  if (dialogContext.mounted) {
-                    ScaffoldMessenger.of(dialogContext).showSnackBar(
-                      const SnackBar(content: Text('Zakas saqlanmadi.')),
-                    );
-                  }
-                }
-              },
+              onPressed: saving
+                  ? null
+                  : () async {
+                      if (name.text.trim().isEmpty ||
+                          phone.text.trim().isEmpty ||
+                          address.text.trim().isEmpty ||
+                          books.text.trim().isEmpty) {
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                          const SnackBar(
+                            content: Text('Barcha maydonlarni to‘ldiring.'),
+                          ),
+                        );
+                        return;
+                      }
+                      setDialogState(() => saving = true);
+                      try {
+                        await widget.api.addShippingQueue(
+                          name: name.text.trim(),
+                          phone: phone.text.trim(),
+                          address: address.text.trim(),
+                          books: books.text.trim(),
+                        );
+                        if (dialogContext.mounted)
+                          Navigator.pop(dialogContext, true);
+                      } catch (_) {
+                        setDialogState(() => saving = false);
+                        if (dialogContext.mounted) {
+                          ScaffoldMessenger.of(dialogContext).showSnackBar(
+                            const SnackBar(content: Text('Zakas saqlanmadi.')),
+                          );
+                        }
+                      }
+                    },
               icon: saving
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : const Icon(Icons.save_outlined),
               label: Text(saving ? 'Saqlanmoqda...' : 'Saqlash'),
             ),
@@ -1684,13 +1722,15 @@ class _ShippingQueueAdminState extends State<_ShippingQueueAdmin> {
         ),
       ),
     );
-    name.dispose(); phone.dispose(); address.dispose(); books.dispose();
+    name.dispose();
+    phone.dispose();
+    address.dispose();
+    books.dispose();
     if (ok == true) {
       await reload();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Zakas saqlandi.')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Zakas saqlandi.')));
       }
     }
   }
@@ -1764,10 +1804,26 @@ class _ShippingQueueAdminState extends State<_ShippingQueueAdmin> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              ChoiceChip(label: Text('Barchasi (${rows.length})'), selected: filter == 'all', onSelected: (_) => setState(() => filter = 'all')),
-              ChoiceChip(label: const Text('Bot'), selected: filter == 'telegram', onSelected: (_) => setState(() => filter = 'telegram')),
-              ChoiceChip(label: const Text('Ilova'), selected: filter == 'app', onSelected: (_) => setState(() => filter = 'app')),
-              ChoiceChip(label: const Text('Qo‘lda'), selected: filter == 'manual', onSelected: (_) => setState(() => filter = 'manual')),
+              ChoiceChip(
+                label: Text('Barchasi (${rows.length})'),
+                selected: filter == 'all',
+                onSelected: (_) => setState(() => filter = 'all'),
+              ),
+              ChoiceChip(
+                label: const Text('Bot'),
+                selected: filter == 'telegram',
+                onSelected: (_) => setState(() => filter = 'telegram'),
+              ),
+              ChoiceChip(
+                label: const Text('Ilova'),
+                selected: filter == 'app',
+                onSelected: (_) => setState(() => filter = 'app'),
+              ),
+              ChoiceChip(
+                label: const Text('Qo‘lda'),
+                selected: filter == 'manual',
+                onSelected: (_) => setState(() => filter = 'manual'),
+              ),
             ],
           ),
           if (error != null) ...[
@@ -1785,7 +1841,10 @@ class _ShippingQueueAdminState extends State<_ShippingQueueAdmin> {
               child: Padding(
                 padding: EdgeInsets.symmetric(vertical: 34),
                 child: Center(
-                  child: Text('Hozircha zakas yo‘q.', style: TextStyle(color: AppColors.muted)),
+                  child: Text(
+                    'Hozircha zakas yo‘q.',
+                    style: TextStyle(color: AppColors.muted),
+                  ),
                 ),
               ),
             )
@@ -1795,7 +1854,8 @@ class _ShippingQueueAdminState extends State<_ShippingQueueAdmin> {
               final name = (row['name'] ?? '—').toString();
               final phone = (row['phone'] ?? '—').toString();
               final address = (row['address'] ?? '—').toString();
-              final books = (row['books'] ?? '• Kitob ma’lumoti yo‘q').toString();
+              final books = (row['books'] ?? '• Kitob ma’lumoti yo‘q')
+                  .toString();
               final orderNumber = row['order_number'];
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
@@ -1813,17 +1873,30 @@ class _ShippingQueueAdminState extends State<_ShippingQueueAdmin> {
                               color: AppColors.surfaceSoft,
                               borderRadius: BorderRadius.circular(13),
                             ),
-                            child: Icon(sourceIcon(source), color: AppColors.navy),
+                            child: Icon(
+                              sourceIcon(source),
+                              color: AppColors.navy,
+                            ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(name, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                                Text(
+                                  name,
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
                                 Text(
                                   '${sourceLabel(source)}${orderNumber == null ? '' : ' · №$orderNumber'}',
-                                  style: const TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w600),
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    color: AppColors.muted,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ],
                             ),
@@ -1831,7 +1904,10 @@ class _ShippingQueueAdminState extends State<_ShippingQueueAdmin> {
                           IconButton(
                             tooltip: 'Pochta ro‘yxatidan o‘chirish',
                             onPressed: () => removeRow(row),
-                            icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+                            icon: const Icon(
+                              Icons.delete_outline_rounded,
+                              color: AppColors.danger,
+                            ),
                           ),
                         ],
                       ),
@@ -1859,9 +1935,15 @@ class _ShippingQueueAdminState extends State<_ShippingQueueAdmin> {
                       const SizedBox(height: 14),
                       const Divider(),
                       const SizedBox(height: 8),
-                      const Text('📚 Kitoblar', style: TextStyle(fontWeight: FontWeight.w900)),
+                      const Text(
+                        '📚 Kitoblar',
+                        style: TextStyle(fontWeight: FontWeight.w900),
+                      ),
                       const SizedBox(height: 6),
-                      SelectableText(books, style: const TextStyle(height: 1.45)),
+                      SelectableText(
+                        books,
+                        style: const TextStyle(height: 1.45),
+                      ),
                     ],
                   ),
                 ),
@@ -1898,9 +1980,23 @@ class _ShippingCopyRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(fontSize: 11, color: AppColors.muted, fontWeight: FontWeight.w700)),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppColors.muted,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               const SizedBox(height: 2),
-              SelectableText(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, height: 1.35)),
+              SelectableText(
+                value,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                ),
+              ),
             ],
           ),
         ),
@@ -1974,54 +2070,54 @@ class _AdminStatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        width: 210,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE6E8EC)),
+    width: 210,
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: const Color(0xFFE6E8EC)),
+    ),
+    child: Row(
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: .10),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(icon, color: accent),
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: .10),
-                borderRadius: BorderRadius.circular(14),
+        const SizedBox(width: 11),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
-              child: Icon(icon, color: accent),
-            ),
-            const SizedBox(width: 11),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    label,
-                    maxLines: 2,
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      color: Colors.black54,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 2),
+              Text(
+                label,
+                maxLines: 2,
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  color: Colors.black54,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      );
+      ],
+    ),
+  );
 }
 
 class _InventoryAdmin extends StatefulWidget {
@@ -2122,8 +2218,7 @@ class _InventoryAdminState extends State<_InventoryAdmin> {
             children: [
               const AppPageHeading(
                 title: 'Ombor boshqaruvi',
-                subtitle:
-                    'Qoldiqni tez o‘zgartiring. +/− bosilganda kitob joyi o‘zgarmaydi.',
+                subtitle: 'Qoldiqni tez o‘zgartiring. +/− bosilganda kitob joyi o‘zgarmaydi.',
               ),
               const SizedBox(height: 12),
               Wrap(
@@ -2229,14 +2324,18 @@ class _InventoryAdminState extends State<_InventoryAdmin> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${_won(b.currentPrice)} • ${b.stock == 0 ? 'Tugagan' : b.stock <= 2 ? 'Kam qolgan' : 'Qoldiq yaxshi'}',
+                                '${_won(b.currentPrice)} • ${b.stock == 0
+                                    ? 'Tugagan'
+                                    : b.stock <= 2
+                                    ? 'Kam qolgan'
+                                    : 'Qoldiq yaxshi'}',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: b.stock == 0
                                       ? AppColors.danger
                                       : b.stock <= 2
-                                          ? AppColors.warning
-                                          : AppColors.success,
+                                      ? AppColors.warning
+                                      : AppColors.success,
                                 ),
                               ),
                             ],
@@ -2373,7 +2472,9 @@ class _BooksAdminState extends State<_BooksAdmin> {
   }
 
   bool _belowCost(Book book) =>
-      book.costPrice > 0 && book.currentPrice > 0 && book.currentPrice < book.costPrice;
+      book.costPrice > 0 &&
+      book.currentPrice > 0 &&
+      book.currentPrice < book.costPrice;
 
   bool _lowProfit(Book book) {
     if (book.costPrice <= 0 || book.currentPrice <= 0) return false;
@@ -2574,14 +2675,42 @@ class _BooksAdminState extends State<_BooksAdmin> {
 
   Future<void> _openProblemFilters(List<Book> all) async {
     final options = <({String key, String label, IconData icon})>[
-      (key: 'problems', label: 'Muammoli kitoblar', icon: Icons.warning_amber_rounded),
-      (key: 'low_profit', label: 'Foydasi past', icon: Icons.trending_down_rounded),
-      (key: 'below_cost', label: 'Narxi tannarxdan past', icon: Icons.money_off_csred_outlined),
-      (key: 'recent', label: 'Yaqinda qo‘shilgan', icon: Icons.fiber_new_rounded),
-      (key: 'out_of_stock', label: 'Omborda tugagan', icon: Icons.inventory_2_outlined),
+      (
+        key: 'problems',
+        label: 'Muammoli kitoblar',
+        icon: Icons.warning_amber_rounded,
+      ),
+      (
+        key: 'low_profit',
+        label: 'Foydasi past',
+        icon: Icons.trending_down_rounded,
+      ),
+      (
+        key: 'below_cost',
+        label: 'Narxi tannarxdan past',
+        icon: Icons.money_off_csred_outlined,
+      ),
+      (
+        key: 'recent',
+        label: 'Yaqinda qo‘shilgan',
+        icon: Icons.fiber_new_rounded,
+      ),
+      (
+        key: 'out_of_stock',
+        label: 'Omborda tugagan',
+        icon: Icons.inventory_2_outlined,
+      ),
       (key: 'low_stock', label: 'Kam qolgan', icon: Icons.low_priority_rounded),
-      (key: 'invalid_image', label: 'Rasmi bor, lekin xato', icon: Icons.broken_image_outlined),
-      (key: 'missing_author', label: 'Muallifi kiritilmagan', icon: Icons.person_off_outlined),
+      (
+        key: 'invalid_image',
+        label: 'Rasmi bor, lekin xato',
+        icon: Icons.broken_image_outlined,
+      ),
+      (
+        key: 'missing_author',
+        label: 'Muallifi kiritilmagan',
+        icon: Icons.person_off_outlined,
+      ),
     ];
 
     final selected = await showModalBottomSheet<String>(
@@ -2611,7 +2740,9 @@ class _BooksAdminState extends State<_BooksAdmin> {
                     children: options.map((option) {
                       final count = _countFor(all, option.key);
                       return ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                        ),
                         leading: Icon(option.icon, color: _navy),
                         title: Text(
                           option.label,
@@ -2622,11 +2753,16 @@ class _BooksAdminState extends State<_BooksAdmin> {
                           children: [
                             Text(
                               '$count',
-                              style: const TextStyle(fontWeight: FontWeight.w900),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                              ),
                             ),
                             if (filter == option.key) ...[
                               const SizedBox(width: 8),
-                              const Icon(Icons.check_circle_rounded, color: _orange),
+                              const Icon(
+                                Icons.check_circle_rounded,
+                                color: _orange,
+                              ),
                             ],
                           ],
                         ),
@@ -2699,7 +2835,8 @@ class _BooksAdminState extends State<_BooksAdmin> {
                         label: 'Tarifsiz',
                         value: '$missingDescriptions',
                         selected: filter == 'missing_description',
-                        onTap: () => setState(() => filter = 'missing_description'),
+                        onTap: () =>
+                            setState(() => filter = 'missing_description'),
                       ),
                       _MiniStat(
                         label: 'Tan narxi kiritilmagan',
@@ -2771,7 +2908,8 @@ class _BooksAdminState extends State<_BooksAdmin> {
                 ],
               ),
             ),
-            if (snap.connectionState == ConnectionState.waiting && snap.data == null)
+            if (snap.connectionState == ConnectionState.waiting &&
+                snap.data == null)
               const Expanded(child: Center(child: CircularProgressIndicator()))
             else if (snap.hasError)
               Expanded(child: Center(child: Text('Xatolik: ${snap.error}')))
@@ -2783,7 +2921,11 @@ class _BooksAdminState extends State<_BooksAdmin> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.search_off_rounded, size: 44, color: Colors.black38),
+                        const Icon(
+                          Icons.search_off_rounded,
+                          size: 44,
+                          color: Colors.black38,
+                        ),
                         const SizedBox(height: 10),
                         Text(
                           filter == 'unsold' && !salesLoaded
@@ -2806,7 +2948,8 @@ class _BooksAdminState extends State<_BooksAdmin> {
                   itemBuilder: (_, i) {
                     final b = books[i];
                     final profit = b.currentPrice - b.costPrice;
-                    final showCostLine = _problemFilterKeys.contains(filter) ||
+                    final showCostLine =
+                        _problemFilterKeys.contains(filter) ||
                         filter == 'missing_cost';
                     return Card(
                       child: ListTile(
@@ -3020,31 +3163,30 @@ class _BookFormState extends State<_BookForm> {
     bool number = false,
     bool required = false,
     int lines = 1,
-  }) =>
-      Padding(
-        padding: const EdgeInsets.only(bottom: 11),
-        child: TextFormField(
-          controller: c,
-          minLines: lines > 1 ? 4 : 1,
-          maxLines: lines,
-          keyboardType: number
-              ? TextInputType.number
-              : lines > 1
-                  ? TextInputType.multiline
-                  : TextInputType.text,
-          textInputAction: number
-              ? TextInputAction.next
-              : lines > 1
-                  ? TextInputAction.newline
-                  : TextInputAction.next,
-          enableSuggestions: !number,
-          autocorrect: !number,
-          decoration: InputDecoration(labelText: label),
-          validator: required
-              ? (v) => v == null || v.trim().isEmpty ? 'Majburiy' : null
-              : null,
-        ),
-      );
+  }) => Padding(
+    padding: const EdgeInsets.only(bottom: 11),
+    child: TextFormField(
+      controller: c,
+      minLines: lines > 1 ? 4 : 1,
+      maxLines: lines,
+      keyboardType: number
+          ? TextInputType.number
+          : lines > 1
+          ? TextInputType.multiline
+          : TextInputType.text,
+      textInputAction: number
+          ? TextInputAction.next
+          : lines > 1
+          ? TextInputAction.newline
+          : TextInputAction.next,
+      enableSuggestions: !number,
+      autocorrect: !number,
+      decoration: InputDecoration(labelText: label),
+      validator: required
+          ? (v) => v == null || v.trim().isEmpty ? 'Majburiy' : null
+          : null,
+    ),
+  );
 
   Future<void> _pasteDescription() async {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
@@ -3081,57 +3223,55 @@ class _BookFormState extends State<_BookForm> {
   }
 
   Widget _descriptionEditor() => Padding(
-        padding: const EdgeInsets.only(bottom: 11),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    padding: const EdgeInsets.only(bottom: 11),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextFormField(
+          controller: description,
+          minLines: 6,
+          maxLines: 10,
+          keyboardType: TextInputType.multiline,
+          textInputAction: TextInputAction.newline,
+          enableInteractiveSelection: true,
+          enableSuggestions: true,
+          autocorrect: true,
+          decoration: const InputDecoration(
+            labelText: 'Tavsif',
+            alignLabelWithHint: true,
+            hintText: 'Kitob haqida tavsifni yozing yoki pastdagi “Qo‘yish” tugmasidan foydalaning.',
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: [
-            TextFormField(
-              controller: description,
-              minLines: 6,
-              maxLines: 10,
-              keyboardType: TextInputType.multiline,
-              textInputAction: TextInputAction.newline,
-              enableInteractiveSelection: true,
-              enableSuggestions: true,
-              autocorrect: true,
-              decoration: const InputDecoration(
-                labelText: 'Tavsif',
-                alignLabelWithHint: true,
-                hintText:
-                    'Kitob haqida tavsifni yozing yoki pastdagi “Qo‘yish” tugmasidan foydalaning.',
-              ),
+            FilledButton.tonalIcon(
+              onPressed: _pasteDescription,
+              icon: const Icon(Icons.content_paste_rounded, size: 18),
+              label: const Text('Qo‘yish'),
             ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                FilledButton.tonalIcon(
-                  onPressed: _pasteDescription,
-                  icon: const Icon(Icons.content_paste_rounded, size: 18),
-                  label: const Text('Qo‘yish'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: description.text.isEmpty ? null : _copyDescription,
-                  icon: const Icon(Icons.copy_rounded, size: 18),
-                  label: const Text('Nusxa olish'),
-                ),
-                TextButton.icon(
-                  onPressed:
-                      description.text.isEmpty ? null : _clearDescription,
-                  icon: const Icon(Icons.backspace_outlined, size: 18),
-                  label: const Text('Tozalash'),
-                ),
-              ],
+            OutlinedButton.icon(
+              onPressed: description.text.isEmpty ? null : _copyDescription,
+              icon: const Icon(Icons.copy_rounded, size: 18),
+              label: const Text('Nusxa olish'),
             ),
-            const SizedBox(height: 5),
-            const Text(
-              '“Qo‘yish” clipboarddagi matnni aynan kursor turgan joyga qo‘shadi.',
-              style: TextStyle(fontSize: 11.5, color: AppColors.muted),
+            TextButton.icon(
+              onPressed: description.text.isEmpty ? null : _clearDescription,
+              icon: const Icon(Icons.backspace_outlined, size: 18),
+              label: const Text('Tozalash'),
             ),
           ],
         ),
-      );
+        const SizedBox(height: 5),
+        const Text(
+          '“Qo‘yish” clipboarddagi matnni aynan kursor turgan joyga qo‘shadi.',
+          style: TextStyle(fontSize: 11.5, color: AppColors.muted),
+        ),
+      ],
+    ),
+  );
 
   void _syncCoverController() {
     final first = gallery.isEmpty ? '' : gallery.first;
@@ -3140,11 +3280,11 @@ class _BookFormState extends State<_BookForm> {
 
   Future<void> pickAndUploadImages() async {
     if (uploadingImage) return;
-    final slots = 20 - gallery.length;
+    final slots = 10 - gallery.length;
     if (slots <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Bitta kitobga maksimal 20 ta rasm qo‘yiladi.'),
+          content: Text('Bitta kitobga maksimal 10 ta rasm qo‘yiladi.'),
         ),
       );
       return;
@@ -3175,7 +3315,7 @@ class _BookFormState extends State<_BookForm> {
           if (!mounted) return;
           if (!gallery.contains(url)) {
             setState(() {
-              gallery = [...gallery, url].take(20).toList();
+              gallery = [...gallery, url].take(10).toList();
               _syncCoverController();
             });
             uploadedCount++;
@@ -3275,8 +3415,9 @@ class _BookFormState extends State<_BookForm> {
               ? 'Ko‘rsatilmagan'
               : author.text.trim(),
           publisher: normalizePublisher(publisher.text),
-          category:
-              category.text.trim().isEmpty ? 'Boshqalar' : category.text.trim(),
+          category: category.text.trim().isEmpty
+              ? 'Boshqalar'
+              : category.text.trim(),
           description: description.text.trim().isEmpty
               ? 'Ma’lumot kiritilmagan.'
               : description.text.trim(),
@@ -3354,7 +3495,7 @@ class _BookFormState extends State<_BookForm> {
             const SizedBox(height: 10),
             Center(
               child: FilledButton.tonalIcon(
-                onPressed: uploadingImage || gallery.length >= 20
+                onPressed: uploadingImage || gallery.length >= 10
                     ? null
                     : pickAndUploadImages,
                 icon: uploadingImage
@@ -3367,7 +3508,7 @@ class _BookFormState extends State<_BookForm> {
                 label: Text(
                   uploadingImage
                       ? 'Yuklanmoqda...'
-                      : 'Rasmlar tanlash (${gallery.length}/20)',
+                      : 'Rasmlar tanlash (${gallery.length}/10)',
                 ),
               ),
             ),
@@ -3412,8 +3553,9 @@ class _BookFormState extends State<_BookForm> {
                                   width: 32,
                                   height: 32,
                                 ),
-                                tooltip:
-                                    i == 0 ? 'Muqova rasmi' : 'Muqova qilish',
+                                tooltip: i == 0
+                                    ? 'Muqova rasmi'
+                                    : 'Muqova qilish',
                                 onPressed: i == 0 ? null : () => _makeCover(i),
                                 icon: Icon(
                                   i == 0
@@ -3449,7 +3591,7 @@ class _BookFormState extends State<_BookForm> {
             const Padding(
               padding: EdgeInsets.only(top: 8, bottom: 14),
               child: Text(
-                '1-rasm — kitob muqovasi. U ilovada ham, Telegram botda ham asosiy rasm bo‘ladi. Qolgan rasmlar kitob ichini ko‘rsatish uchun. Maksimal 20 ta.',
+                '1-rasm — kitob muqovasi. U ilovada ham, Telegram botda ham asosiy rasm bo‘ladi. Qolgan rasmlar kitob ichini ko‘rsatish uchun. Maksimal 10 ta.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: Colors.black54),
               ),
@@ -3494,12 +3636,13 @@ class _BookFormState extends State<_BookForm> {
               children: [field(image, 'Muqova rasm URL')],
             ),
             DropdownButtonFormField<String>(
-              initialValue: [
-                'Qattiq',
-                'Yumshoq',
-                'Flexible',
-                'Ko‘rsatilmagan',
-              ].contains(cover)
+              initialValue:
+                  [
+                    'Qattiq',
+                    'Yumshoq',
+                    'Flexible',
+                    'Ko‘rsatilmagan',
+                  ].contains(cover)
                   ? cover
                   : 'Ko‘rsatilmagan',
               decoration: const InputDecoration(labelText: 'Muqova turi'),
@@ -3653,8 +3796,8 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
         final message = status == 'accepted'
             ? 'Buyurtma qabul qilindi. Sotuv va statistika yangilandi ✅'
             : status == 'cancelled'
-                ? 'Buyurtma bekor qilindi.'
-                : 'Buyurtma holati yangilandi.';
+            ? 'Buyurtma bekor qilindi.'
+            : 'Buyurtma holati yangilandi.';
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(message)));
       }
@@ -3686,15 +3829,17 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
             'yesterday' => o.status != 'cancelled' && orderDay == yesterday,
             _ => o.status == filter,
           };
-          final matchQuery = q.isEmpty ||
+          final matchQuery =
+              q.isEmpty ||
               o.customerName.toLowerCase().contains(q) ||
               o.phone.toLowerCase().contains(q) ||
               o.id.toLowerCase().contains(q);
           return matchStatus && matchQuery;
         }).toList();
         final newCount = all.where((o) => o.status == 'new').length;
-        final proofCount =
-            all.where((o) => o.status == 'new' && o.hasPaymentProof).length;
+        final proofCount = all
+            .where((o) => o.status == 'new' && o.hasPaymentProof)
+            .length;
 
         return Column(
           children: [
@@ -3867,13 +4012,13 @@ class _OrderFilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(right: 7),
-        child: ChoiceChip(
-          label: Text(label),
-          selected: selected == value,
-          onSelected: (_) => onTap(value),
-        ),
-      );
+    padding: const EdgeInsets.only(right: 7),
+    child: ChoiceChip(
+      label: Text(label),
+      selected: selected == value,
+      onSelected: (_) => onTap(value),
+    ),
+  );
 }
 
 class _ProfessionalOrderCard extends StatelessWidget {
@@ -4131,49 +4276,49 @@ class _AdminOrderStatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final (label, fg, bg, border, icon) = switch (status) {
       'accepted' => (
-          'Qabul qilindi',
-          AppColors.success,
-          AppColors.successSoft,
-          const Color(0xFFCDEAD7),
-          Icons.inventory_2_rounded,
-        ),
+        'Qabul qilindi',
+        AppColors.success,
+        AppColors.successSoft,
+        const Color(0xFFCDEAD7),
+        Icons.inventory_2_rounded,
+      ),
       'paid' => (
-          'To‘landi',
-          AppColors.info,
-          AppColors.infoSoft,
-          const Color(0xFFCFE0FA),
-          Icons.verified_rounded,
-        ),
+        'To‘landi',
+        AppColors.info,
+        AppColors.infoSoft,
+        const Color(0xFFCFE0FA),
+        Icons.verified_rounded,
+      ),
       'shipping' => (
-          'Jo‘natildi',
-          AppColors.success,
-          AppColors.successSoft,
-          const Color(0xFFCDEAD7),
-          Icons.local_shipping_rounded,
-        ),
+        'Jo‘natildi',
+        AppColors.success,
+        AppColors.successSoft,
+        const Color(0xFFCDEAD7),
+        Icons.local_shipping_rounded,
+      ),
       // Eski buildlardan qolgan 'done' yozuvi uchrasa ham alohida
       // bosqich ko‘rsatmaymiz: Jo‘natildi yakuniy holat.
       'done' => (
-          'Jo‘natildi',
-          AppColors.success,
-          AppColors.successSoft,
-          const Color(0xFFCDEAD7),
-          Icons.local_shipping_rounded,
-        ),
+        'Jo‘natildi',
+        AppColors.success,
+        AppColors.successSoft,
+        const Color(0xFFCDEAD7),
+        Icons.local_shipping_rounded,
+      ),
       'cancelled' => (
-          'Bekor',
-          AppColors.danger,
-          AppColors.dangerSoft,
-          const Color(0xFFFFCCD1),
-          Icons.cancel_rounded,
-        ),
+        'Bekor',
+        AppColors.danger,
+        AppColors.dangerSoft,
+        const Color(0xFFFFCCD1),
+        Icons.cancel_rounded,
+      ),
       _ => (
-          'Yangi',
-          AppColors.navy,
-          AppColors.surfaceSoft,
-          AppColors.border,
-          Icons.new_releases_rounded,
-        ),
+        'Yangi',
+        AppColors.navy,
+        AppColors.surfaceSoft,
+        AppColors.border,
+        Icons.new_releases_rounded,
+      ),
     };
     return AppInfoPill(
       icon: icon,
@@ -4242,39 +4387,39 @@ class _PaymentProofPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFEAF7EF),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFBDE2C9)),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.receipt_rounded, color: Color(0xFF138A4B)),
-            const SizedBox(width: 9),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'To‘lov cheki yuborilgan',
-                    style: TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                  Text(
-                    'Chek maxfiy saqlanadi.',
-                    style: TextStyle(fontSize: 11, color: Colors.black54),
-                  ),
-                ],
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: const Color(0xFFEAF7EF),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: const Color(0xFFBDE2C9)),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.receipt_rounded, color: Color(0xFF138A4B)),
+        const SizedBox(width: 9),
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'To‘lov cheki yuborilgan',
+                style: TextStyle(fontWeight: FontWeight.w900),
               ),
-            ),
-            FilledButton.tonalIcon(
-              onPressed: () => openProof(context),
-              icon: const Icon(Icons.visibility_outlined),
-              label: const Text('Ko‘rish'),
-            ),
-          ],
+              Text(
+                'Chek maxfiy saqlanadi.',
+                style: TextStyle(fontSize: 11, color: Colors.black54),
+              ),
+            ],
+          ),
         ),
-      );
+        FilledButton.tonalIcon(
+          onPressed: () => openProof(context),
+          icon: const Icon(Icons.visibility_outlined),
+          label: const Text('Ko‘rish'),
+        ),
+      ],
+    ),
+  );
 }
 
 class _RestockAdmin extends StatefulWidget {
@@ -4368,8 +4513,7 @@ class _RestockAdminState extends State<_RestockAdmin> {
           children: [
             const AppPageHeading(
               title: 'Sotuvga qaytishini kutayotganlar',
-              subtitle:
-                  'Mavjud bo‘lmagan qaysi kitobni nechta mijoz kutayotganini shu yerda ko‘rasiz.',
+              subtitle: 'Mavjud bo‘lmagan qaysi kitobni nechta mijoz kutayotganini shu yerda ko‘rasiz.',
             ),
             const SizedBox(height: 16),
             AppSurface(
@@ -4674,22 +4818,19 @@ class _DiscountAdminState extends State<_DiscountAdmin> {
                   _DiscountTip(
                     icon: Icons.visibility_outlined,
                     title: 'Eski narx ko‘rinadi',
-                    text:
-                        'Chegirma yoqilganda asl narx ustidan chiziq bilan ko‘rsatiladi.',
+                    text: 'Chegirma yoqilganda asl narx ustidan chiziq bilan ko‘rsatiladi.',
                   ),
                   SizedBox(height: 10),
                   _DiscountTip(
                     icon: Icons.calculate_outlined,
                     title: 'Yangi narx avtomatik',
-                    text:
-                        'Mijozga chegirmadan keyingi yakuniy narx ko‘rsatiladi.',
+                    text: 'Mijozga chegirmadan keyingi yakuniy narx ko‘rsatiladi.',
                   ),
                   SizedBox(height: 10),
                   _DiscountTip(
                     icon: Icons.restart_alt_rounded,
                     title: 'Bir tugmada bekor',
-                    text:
-                        'Aksiya tugaganda barcha chegirmalarni birdan o‘chira olasiz.',
+                    text: 'Aksiya tugaganda barcha chegirmalarni birdan o‘chira olasiz.',
                   ),
                 ],
               ),
@@ -4723,39 +4864,38 @@ class _DiscountTip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Icon(icon, size: 19, color: AppColors.navy),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+            const SizedBox(height: 2),
+            Text(
+              text,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.muted,
+                height: 1.4,
+              ),
             ),
-            child: Icon(icon, size: 19, color: AppColors.navy),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(fontWeight: FontWeight.w900)),
-                const SizedBox(height: 2),
-                Text(
-                  text,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.muted,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      );
+          ],
+        ),
+      ),
+    ],
+  );
 }
 
 class _SalesAdmin extends StatefulWidget {
@@ -4888,8 +5028,7 @@ class _SalesAdminState extends State<_SalesAdmin> {
                 children: [
                   AppPageHeading(
                     title: 'Sotilgan kitoblar',
-                    subtitle:
-                        'Ilova, Telegram va Instagram savdolari bitta tarixda saqlanadi.',
+                    subtitle: 'Ilova, Telegram va Instagram savdolari bitta tarixda saqlanadi.',
                     trailing: IconButton.filledTonal(
                       onPressed: reload,
                       tooltip: 'Yangilash',
@@ -5086,11 +5225,13 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
     future =
         Future.wait<dynamic>([widget.api.userStats(), widget.api.customers()])
             .then(
-      (v) => (
-        Map<String, dynamic>.from(v[0] as Map),
-        (v[1] as List).map((e) => Map<String, dynamic>.from(e as Map)).toList(),
-      ),
-    );
+              (v) => (
+                Map<String, dynamic>.from(v[0] as Map),
+                (v[1] as List)
+                    .map((e) => Map<String, dynamic>.from(e as Map))
+                    .toList(),
+              ),
+            );
   }
 
   String _date(dynamic value) {
@@ -5129,33 +5270,33 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
         }).toList();
 
         Widget metric(String label, dynamic value, IconData icon) => Expanded(
-              child: AppSurface(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(icon, color: AppColors.navy, size: 20),
-                    const SizedBox(height: 10),
-                    Text(
-                      '$value',
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.navy,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        color: AppColors.muted,
-                        fontSize: 11.5,
-                      ),
-                    ),
-                  ],
+          child: AppSurface(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, color: AppColors.navy, size: 20),
+                const SizedBox(height: 10),
+                Text(
+                  '$value',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.navy,
+                  ),
                 ),
-              ),
-            );
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 11.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
 
         return RefreshIndicator(
           onRefresh: () async {

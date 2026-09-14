@@ -1208,27 +1208,21 @@ class _DeliveryPromoCard extends StatelessWidget {
                 const SizedBox(height: 14),
                 const SizedBox(
                   width: 278,
-                  child: Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(
-                          text: 'Kitob tanlash endi\n',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                        TextSpan(
-                          text: 'yanada oson',
-                          style: TextStyle(
-                            color: Color(0xFFFFC95C),
-                            shadows: [Shadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 2))],
-                          ),
-                        ),
-                      ],
-                    ),
+                  child: Text(
+                    'Kitob tanlash endi\nyanada oson',
                     style: TextStyle(
+                      color: Colors.white,
                       fontSize: 25,
                       height: 1.08,
                       fontWeight: FontWeight.w900,
                       letterSpacing: -.45,
+                      shadows: [
+                        Shadow(
+                          color: Color(0x24000000),
+                          blurRadius: 3,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -1395,148 +1389,171 @@ class _ApprovedUzbekHeroPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Samarqand Registon maydoni: uch madrasa va minoralar silueti.
-    final haze = Paint()..color = const Color(0x18001E1C);
-    canvas.drawRect(Offset.zero & size, haze);
+    final skyGlow = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0x20FFD98A), Color(0x00065A52)],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height * .62));
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height * .62), skyGlow);
 
-    final architecture = Paint()..color = const Color(0x3B042A28);
-    final detail = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = .8
-      ..color = const Color(0x426BB3A4);
-    final gold = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = .7
-      ..color = UzbekCustomerColors.gold.withValues(alpha: .28);
-
+    final architecture = Paint()..color = const Color(0x43032125);
+    final architectureSoft = Paint()..color = const Color(0x290A3332);
+    final window = Paint()..color = const Color(0x2E88BCAF);
     final base = size.height * .90;
 
-    void tower(double x, double top, double w) {
+    void minaret(double x, double top, double w) {
       final body = RRect.fromRectAndRadius(
         Rect.fromLTWH(x, top, w, base - top),
-        Radius.circular(w * .16),
+        Radius.circular(w * .18),
       );
       canvas.drawRRect(body, architecture);
-      canvas.drawRRect(body, gold);
       canvas.drawOval(
         Rect.fromCenter(
-          center: Offset(x + w / 2, top),
-          width: w * 1.10,
-          height: w * .30,
+          center: Offset(x + w / 2, top + 1),
+          width: w * 1.13,
+          height: w * .34,
         ),
         architecture,
       );
-      canvas.drawLine(
-        Offset(x + w / 2, top - w * .15),
-        Offset(x + w / 2, top - w * .42),
-        gold,
+      canvas.drawRect(
+        Rect.fromLTWH(x + w * .47, top - w * .26, w * .06, w * .24),
+        architecture,
       );
-      for (var i = 1; i < 6; i++) {
-        final y = top + i * ((base - top) / 7);
-        canvas.drawLine(Offset(x + 3, y), Offset(x + w - 3, y), detail);
+      for (var i = 1; i <= 5; i++) {
+        final y = top + (base - top) * (i / 7);
+        canvas.drawRect(
+          Rect.fromLTWH(x + w * .18, y, w * .64, 1),
+          window,
+        );
       }
     }
 
-    tower(size.width * .63, size.height * .22, 26);
-    tower(size.width * .89, size.height * .29, 20);
-    tower(size.width * .54, size.height * .45, 17);
+    void madrasa(double left, double top, double width, double height) {
+      final facade = RRect.fromRectAndRadius(
+        Rect.fromLTWH(left, top, width, height),
+        const Radius.circular(3),
+      );
+      canvas.drawRRect(facade, architectureSoft);
 
-    void mosque(double cx, double y, double w, double h) {
-      final body = Rect.fromLTWH(cx - w / 2, y, w, h);
-      canvas.drawRect(body, architecture);
+      final cx = left + width / 2;
+      final portal = Path()
+        ..moveTo(cx - width * .15, top + height)
+        ..lineTo(cx - width * .15, top + height * .45)
+        ..quadraticBezierTo(
+          cx,
+          top + height * .16,
+          cx + width * .15,
+          top + height * .45,
+        )
+        ..lineTo(cx + width * .15, top + height)
+        ..close();
+      canvas.drawPath(portal, architecture);
+
       final dome = Path()
-        ..moveTo(cx - w * .32, y)
-        ..quadraticBezierTo(cx, y - h * .50, cx + w * .32, y)
+        ..moveTo(cx - width * .17, top)
+        ..quadraticBezierTo(
+          cx,
+          top - height * .26,
+          cx + width * .17,
+          top,
+        )
         ..close();
       canvas.drawPath(dome, architecture);
-      canvas.drawPath(dome, gold);
-      final portal = Path()
-        ..moveTo(cx - w * .15, y + h)
-        ..lineTo(cx - w * .15, y + h * .48)
-        ..quadraticBezierTo(cx, y + h * .20, cx + w * .15, y + h * .48)
-        ..lineTo(cx + w * .15, y + h)
-        ..close();
-      canvas.drawPath(portal, detail);
+
+      for (var row = 0; row < 2; row++) {
+        for (var col = 0; col < 4; col++) {
+          final wx = left + width * (.12 + col * .21);
+          final wy = top + height * (.55 + row * .18);
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromLTWH(wx, wy, width * .07, height * .08),
+              const Radius.circular(2),
+            ),
+            window,
+          );
+        }
+      }
     }
 
-    mosque(size.width * .76, size.height * .48, 92, 100);
-    mosque(size.width * .47, size.height * .60, 70, 78);
-    mosque(size.width * .93, size.height * .53, 82, 92);
+    // Uchta madrasa bir-birini takrorlamaydigan, yagona siluet sifatida.
+    madrasa(size.width * .43, size.height * .50, size.width * .22, size.height * .37);
+    madrasa(size.width * .64, size.height * .43, size.width * .22, size.height * .44);
+    madrasa(size.width * .84, size.height * .51, size.width * .18, size.height * .36);
 
-    // Registon peshtoqlarini birlashtiruvchi madrasa fasadlari.
-    canvas.drawRect(
-      Rect.fromLTWH(size.width * .43, size.height * .66, size.width * .56, size.height * .22),
-      architecture,
-    );
-    for (final cx in [size.width * .50, size.width * .70, size.width * .91]) {
-      final arch = Path()
-        ..moveTo(cx - 18, base)
-        ..lineTo(cx - 18, size.height * .72)
-        ..quadraticBezierTo(cx, size.height * .62, cx + 18, size.height * .72)
-        ..lineTo(cx + 18, base);
-      canvas.drawPath(arch, detail);
-    }
+    minaret(size.width * .42, size.height * .31, 18);
+    minaret(size.width * .61, size.height * .23, 24);
+    minaret(size.width * .84, size.height * .30, 19);
+    minaret(size.width * .95, size.height * .25, 22);
 
-    // Ikat/atlas to‘lqinlari — pastki o‘ng qismda.
+    // Registon maydoni old qismi — bitta tekis perspektiva shakli.
+    final plaza = Path()
+      ..moveTo(size.width * .39, base)
+      ..lineTo(size.width, size.height * .70)
+      ..lineTo(size.width, size.height)
+      ..lineTo(size.width * .35, size.height)
+      ..close();
+    canvas.drawPath(plaza, Paint()..color = const Color(0x1700A093));
+
+    // Pastki o‘ngda atlas/ikat to‘lqinlari.
     final cloth = Rect.fromLTWH(
-      size.width * .43,
-      size.height * .73,
-      size.width * .65,
-      size.height * .30,
+      size.width * .42,
+      size.height * .74,
+      size.width * .68,
+      size.height * .28,
     );
-    final clothBg = Paint()..color = const Color(0xE8E5D3AC);
     canvas.save();
     canvas.clipRRect(
-      RRect.fromRectAndRadius(cloth, const Radius.circular(24)),
+      RRect.fromRectAndRadius(cloth, const Radius.circular(26)),
     );
-    canvas.drawRect(cloth, clothBg);
+    canvas.drawRect(cloth, Paint()..color = const Color(0xE7E8D8B5));
     final stripes = [
-      const Color(0xFF0A6D66),
-      const Color(0xFFB34D37),
-      const Color(0xFF173D48),
-      const Color(0xFFC89C47),
+      const Color(0xFF0A6E67),
+      const Color(0xFFB4513B),
+      const Color(0xFF173E49),
+      const Color(0xFFC99A45),
     ];
     for (var i = -2; i < 12; i++) {
-      final p = Paint()..color = stripes[(i.abs()) % stripes.length];
-      final x = cloth.left + i * 26.0;
+      final color = stripes[i.abs() % stripes.length].withValues(alpha: .90);
+      final x = cloth.left + i * 27.0;
       final path = Path()
-        ..moveTo(x, cloth.top - 12)
+        ..moveTo(x, cloth.top - 10)
         ..cubicTo(
-          x + 34,
-          cloth.top + cloth.height * .28,
-          x - 20,
+          x + 35,
+          cloth.top + cloth.height * .25,
+          x - 17,
           cloth.top + cloth.height * .65,
           x + 28,
-          cloth.bottom + 12,
+          cloth.bottom + 10,
         )
-        ..lineTo(x + 40, cloth.bottom + 12)
+        ..lineTo(x + 42, cloth.bottom + 10)
         ..cubicTo(
-          x - 6,
-          cloth.top + cloth.height * .65,
+          x - 5,
+          cloth.top + cloth.height * .66,
           x + 47,
-          cloth.top + cloth.height * .28,
-          x + 13,
-          cloth.top - 12,
+          cloth.top + cloth.height * .25,
+          x + 14,
+          cloth.top - 10,
         )
         ..close();
-      canvas.drawPath(path, p..color = p.color.withValues(alpha: .88));
+      canvas.drawPath(path, Paint()..color = color);
     }
     canvas.restore();
 
-    // Juda yengil tile pattern, reference foniga chuqurlik beradi.
-    final tile = Paint()
+    // Juda yengil milliy naqsh: kontur emas, faqat fon teksturasi.
+    final motif = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = .65
-      ..color = Colors.white.withValues(alpha: .025);
-    for (double y = 18; y < size.height; y += 46) {
-      for (double x = 18; x < size.width; x += 58) {
-        final path = Path()
-          ..moveTo(x, y - 8)
-          ..lineTo(x + 10, y)
-          ..lineTo(x, y + 8)
-          ..lineTo(x - 10, y)
+      ..strokeWidth = .55
+      ..color = Colors.white.withValues(alpha: .022);
+    for (double y = 22; y < size.height; y += 52) {
+      for (double x = 22; x < size.width; x += 62) {
+        final p = Path()
+          ..moveTo(x, y - 7)
+          ..lineTo(x + 9, y)
+          ..lineTo(x, y + 7)
+          ..lineTo(x - 9, y)
           ..close();
-        canvas.drawPath(path, tile);
+        canvas.drawPath(p, motif);
       }
     }
   }

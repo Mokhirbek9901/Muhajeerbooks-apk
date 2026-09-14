@@ -2612,23 +2612,6 @@ class CartPage extends StatelessWidget {
                         : AppColors.border,
                   ),
                 ),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      FocusManager.instance.primaryFocus?.unfocus();
-                      final callback = onContinueShopping;
-                      if (callback != null) {
-                        callback();
-                      } else if (Navigator.of(context).canPop()) {
-                        Navigator.of(context).pop();
-                      }
-                    },
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('Yana kitob qo‘shish'),
-                  ),
-                ),
-                const SizedBox(height: 12),
                 ...lines.map(
                   (line) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
@@ -2745,6 +2728,23 @@ class CartPage extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          FocusManager.instance.primaryFocus?.unfocus();
+                          final callback = onContinueShopping;
+                          if (callback != null) {
+                            callback();
+                          } else if (Navigator.of(context).canPop()) {
+                            Navigator.of(context).pop();
+                          }
+                        },
+                        icon: const Icon(Icons.add_rounded),
+                        label: const Text('Yana kitob qo‘shish'),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
                     Row(
                       children: [
                         const Text(

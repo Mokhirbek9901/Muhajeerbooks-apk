@@ -630,7 +630,7 @@ class _LocalStore {
   static const _restockSubscriptionsKey = 'muhajeer_restock_subscriptions_v1';
   static const _catalogCursorKey = 'muhajeer_catalog_cursor_v1';
 
-  Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
+  final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
 
   Future<List<Book>> loadBooks() async {
     final raw = (await _prefs).getString(_booksKey);
@@ -823,66 +823,18 @@ class AppState extends ChangeNotifier {
       isOnlineBackend ? 'Onlayn baza' : 'Qurilmada saqlanadi';
 
   Future<void> initialize() async {
-    // Birinchi ochilishda local ma'lumotlarni ketma-ket emas, parallel o'qiymiz.
-    // Bu yangi qurilmada boshlang'ich ekran vaqtini sezilarli qisqartiradi.
-    final initial = await Future.wait<Object?>([
-      _local.loadFavorites(),
-      _local.loadRestockSubscriptions(),
-      _local.loadCart(),
-      _local.loadCustomer(),
-      _local.loadCustomerVerified(),
-      _local.loadOrders(),
-      _local.loadCustomerNotices(),
-      _local.loadBooks(),
-      _local.loadCatalogCursor(),
-    ]);
-
-    _favorites
-      ..clear()
-      ..addAll(initial[0] as Set<String>);
-    _restockSubscriptions
-      ..clear()
-      ..addAll(initial[1] as Set<String>);
-    _cart
-      ..clear()
-      ..addAll(initial[2] as Map<String, int>);
-    savedCustomer = initial[3] as Map<String, String>;
-    final storedVerification = initial[4] as bool?;
-    _localOrders
-      ..clear()
-      ..addAll(initial[5] as List<ShopOrder>);
-    _customerNotices
-      ..clear()
-      ..addAll(initial[6] as List<Map<String, dynamic>>);
-    final cachedBooks = initial[7] as List<Book>;
-    _catalogCursor = initial[8] as String;
-
-    if (storedVerification == null) {
-      final legacyName = (savedCustomer['name'] ?? '').trim();
-      final legacyPhone = (savedCustomer['phone'] ?? '').replaceAll(
-        RegExp(r'\D'),
-        '',
-      );
-      customerVerified = legacyName.length >= 2 && legacyPhone.length >= 9;
-      if (customerVerified) {
-        unawaited(_local.saveCustomerVerified(true));
-      }
-    } else {
-      customerVerified = storedVerification;
-    }
-
     if (backendConfigured) {
       _backend = BackendService(Supabase.instance.client);
     }
 
-    if (_backend == null) {
-      await _initializeLocalCatalog();
-      return;
-    }
+    // Eng muhim narsa — katalogni birinchi paint uchun imkon qadar tez tayyorlash.
+    // Avval faqat kitob cache'ini o‘qiymiz; qolgan profil/savat/bildirishnoma
+    // ma'lumotlari keyinroq parallel yuklanadi.
+    List<Book> cachedBooks = const <Book>[];
+    try {
+      cachedBooks = await _local.loadBooks();
+    } catch (_) {}
 
-    // Cache bo'lsa darhol ko'rsatamiz. Yangi foydalanuvchida cache bo'lmasa,
-    // internet katalogini kutib spinnerda ushlab turmaymiz: bundled seed
-    // katalog darhol ochiladi, live narx/qoldiq esa fon rejimida keladi.
     if (cachedBooks.isNotEmpty) {
       _books
         ..clear()
@@ -895,27 +847,71 @@ class AppState extends ChangeNotifier {
             ..clear()
             ..addAll(seed);
         }
-      } catch (_) {
-        // Seed o'qilmasa ham live refresh quyida katalogni olib keladi.
-      }
+      } catch (_) {}
     }
 
-    if (_books.isNotEmpty) {
-      _sanitizeCart();
-      loading = false;
-      notifyListeners();
+    loading = false;
+    notifyListeners();
+
+    // Qolgan lokal holat storefront allaqachon ko‘ringandan keyin yuklanadi.
+    final secondary = await Future.wait<Object?>([
+      _local.loadFavorites(),
+      _local.loadRestockSubscriptions(),
+      _local.loadCart(),
+      _local.loadCustomer(),
+      _local.loadCustomerVerified(),
+      _local.loadOrders(),
+      _local.loadCustomerNotices(),
+      _local.loadCatalogCursor(),
+    ]);
+
+    _favorites
+      ..clear()
+      ..addAll(secondary[0] as Set<String>);
+    _restockSubscriptions
+      ..clear()
+      ..addAll(secondary[1] as Set<String>);
+    _cart
+      ..clear()
+      ..addAll(secondary[2] as Map<String, int>);
+    savedCustomer = secondary[3] as Map<String, String>;
+    final storedVerification = secondary[4] as bool?;
+    _localOrders
+      ..clear()
+      ..addAll(secondary[5] as List<ShopOrder>);
+    _customerNotices
+      ..clear()
+      ..addAll(secondary[6] as List<Map<String, dynamic>>);
+    _catalogCursor = secondary[7] as String;
+
+    if (storedVerification == null) {
+      final legacyName = (savedCustomer['name'] ?? '').trim();
+      final legacyPhone = (savedCustomer['phone'] ?? '').replaceAll(
+        RegExp(r'\\D'),
+        '',
+      );
+      customerVerified = legacyName.length >= 2 && legacyPhone.length >= 9;
+      if (customerVerified) {
+        unawaited(_local.saveCustomerVerified(true));
+      }
+    } else {
+      customerVerified = storedVerification;
+    }
+
+    _sanitizeCart();
+    notifyListeners();
+
+    if (_backend == null) {
+      if (_books.isEmpty) {
+        await _initializeLocalCatalog();
+      }
+      return;
     }
 
     unawaited(_registerInstallation());
 
-    // Hech qanday local/seed katalog chiqmagan juda kam holatda remote fetchni
-    // kutamiz. Odatdagi yangi ochilishda esa UI allaqachon ishlayotgan bo'ladi.
-    if (_books.isEmpty) {
-      await refreshBooks();
-    } else {
-      unawaited(_refreshBooksQuietly());
-    }
-
+    // Live narx va qoldiqni UI'ni bloklamasdan yangilaymiz.
+    unawaited(_refreshBooksQuietly());
     _startLiveBooksSync();
     unawaited(_checkRestockNotificationsQuietly());
     unawaited(_refreshCustomerOrderStatusesQuietly());

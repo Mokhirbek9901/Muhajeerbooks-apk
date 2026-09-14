@@ -31,17 +31,17 @@ jobs:
           replacement = """child: Row(\n                    children: [\n                      Expanded(\n                        child: OutlinedButton.icon(\n                          style: OutlinedButton.styleFrom(\n                            minimumSize: const Size.fromHeight(58),\n                          ),\n                          onPressed: () {\n                            state.addToCart(b);\n                            ScaffoldMessenger.of(context).showSnackBar(\n                              const SnackBar(\n                                content: Text('Savatchaga qo‘shildi ✅'),\n                              ),\n                            );\n                          },\n                          icon: const Icon(Icons.add_shopping_cart_rounded),\n                          label: const Text('Savatga solish'),\n                        ),\n                      ),\n                      const SizedBox(width: 10),\n                      Expanded(\n                        child: FilledButton.icon(\n                          style: FilledButton.styleFrom(\n                            minimumSize: const Size.fromHeight(58),\n                          ),\n                          onPressed: () {\n                            state.addToCart(b);\n                            Navigator.push<void>(\n                              context,\n                              muhajeerPageRoute<void>(\n                                settings: const RouteSettings(\n                                  name: 'mb:cart-direct',\n                                ),\n                                builder: (_) => const CartPage(),\n                              ),\n                            );\n                          },\n                          icon: const Icon(Icons.flash_on_rounded),\n                          label: const Text('Zakaz qilish'),\n                        ),\n                      ),\n                    ],\n                  ),"""
 
           text, count = pattern.subn(replacement, text)
-          if count != 2:
-              raise SystemExit(f'Expected 2 add-to-cart buttons, found {count}')
+          if count != 1:
+              raise SystemExit(f'Expected 1 add-to-cart button, found {count}')
 
           path.write_text(text, encoding='utf-8')
           PY
       - name: Validate patch
         run: |
           git diff --check
-          test "$(grep -c "Savatga solish" lib/store_ui.dart)" -eq 2
-          test "$(grep -c "Zakaz qilish" lib/store_ui.dart)" -eq 2
-          test "$(grep -c "mb:cart-direct" lib/store_ui.dart)" -eq 2
+          test "$(grep -c "Savatga solish" lib/store_ui.dart)" -eq 1
+          test "$(grep -c "Zakaz qilish" lib/store_ui.dart)" -eq 1
+          test "$(grep -c "mb:cart-direct" lib/store_ui.dart)" -eq 1
       - name: Commit patch
         run: |
           git config user.name "github-actions[bot]"

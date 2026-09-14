@@ -1148,12 +1148,12 @@ class _DeliveryPromoCard extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF064E46), Color(0xFF006255), Color(0xFF0A665B)],
+          colors: [Color(0xFF043F3A), Color(0xFF075B52), Color(0xFF0B7063)],
         ),
         borderRadius: BorderRadius.circular(26),
         border: Border.all(
-          color: UzbekCustomerColors.gold.withValues(alpha: .78),
-          width: 1.1,
+          color: UzbekCustomerColors.gold.withValues(alpha: .88),
+          width: 1.35,
         ),
       ),
       clipBehavior: Clip.antiAlias,
@@ -1217,7 +1217,10 @@ class _DeliveryPromoCard extends StatelessWidget {
                         ),
                         TextSpan(
                           text: 'yanada oson',
-                          style: TextStyle(color: UzbekCustomerColors.goldSoft),
+                          style: TextStyle(
+                            color: Color(0xFFFFC95C),
+                            shadows: [Shadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 2))],
+                          ),
                         ),
                       ],
                     ),
@@ -1319,7 +1322,7 @@ class _ApprovedOrnateBooks extends StatelessWidget {
           color: color,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
           border: Border.all(
-            color: UzbekCustomerColors.goldSoft.withValues(alpha: .82),
+            color: const Color(0xFFFFD47A),
             width: .7,
           ),
         ),
@@ -1404,7 +1407,7 @@ class _ApprovedUzbekHeroPainter extends CustomPainter {
     final gold = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = .7
-      ..color = UzbekCustomerColors.gold.withValues(alpha: .20);
+      ..color = UzbekCustomerColors.gold.withValues(alpha: .28);
 
     final base = size.height * .90;
 

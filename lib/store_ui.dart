@@ -1164,11 +1164,20 @@ class _DeliveryPromoCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.asset(
-                    'assets/images/registan_painted.webp',
-                    fit: BoxFit.cover,
-                    alignment: Alignment.center,
-                    filterQuality: FilterQuality.high,
+                  ColorFiltered(
+                    colorFilter: const ColorFilter.mode(
+                      Color(0xFF78A99E),
+                      BlendMode.multiply,
+                    ),
+                    child: Image.network(
+                      'https://cdn.pixabay.com/photo/2015/11/06/12/14/registan-square-1026766_1280.jpg',
+                      fit: BoxFit.cover,
+                      alignment: Alignment.center,
+                      filterQuality: FilterQuality.high,
+                      errorBuilder: (_, __, ___) => const ColoredBox(
+                        color: Color(0xFF075B52),
+                      ),
+                    ),
                   ),
                   const DecoratedBox(
                     decoration: BoxDecoration(

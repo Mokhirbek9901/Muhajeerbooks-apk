@@ -764,36 +764,51 @@ class AppState extends ChangeNotifier {
       isOnlineBackend ? 'Onlayn baza' : 'Qurilmada saqlanadi';
 
   Future<void> initialize() async {
+    // Birinchi ochilishda local ma'lumotlarni ketma-ket emas, parallel o'qiymiz.
+    // Bu yangi qurilmada boshlang'ich ekran vaqtini sezilarli qisqartiradi.
+    final initial = await Future.wait<Object?>([
+      _local.loadFavorites(),
+      _local.loadRestockSubscriptions(),
+      _local.loadCart(),
+      _local.loadCustomer(),
+      _local.loadCustomerVerified(),
+      _local.loadOrders(),
+      _local.loadCustomerNotices(),
+      _local.loadBooks(),
+    ]);
+
     _favorites
       ..clear()
-      ..addAll(await _local.loadFavorites());
+      ..addAll(initial[0] as Set<String>);
     _restockSubscriptions
       ..clear()
-      ..addAll(await _local.loadRestockSubscriptions());
+      ..addAll(initial[1] as Set<String>);
     _cart
       ..clear()
-      ..addAll(await _local.loadCart());
-    savedCustomer = await _local.loadCustomer();
-    final storedVerification = await _local.loadCustomerVerified();
+      ..addAll(initial[2] as Map<String, int>);
+    savedCustomer = initial[3] as Map<String, String>;
+    final storedVerification = initial[4] as bool?;
+    _localOrders
+      ..clear()
+      ..addAll(initial[5] as List<ShopOrder>);
+    _customerNotices
+      ..clear()
+      ..addAll(initial[6] as List<Map<String, dynamic>>);
+    final cachedBooks = initial[7] as List<Book>;
+
     if (storedVerification == null) {
-      // Old installations were already registered before SMS verification was introduced.
-      // Keep them signed in; new registrations can be verified once when SMS is enabled.
       final legacyName = (savedCustomer['name'] ?? '').trim();
       final legacyPhone = (savedCustomer['phone'] ?? '').replaceAll(
         RegExp(r'\D'),
         '',
       );
       customerVerified = legacyName.length >= 2 && legacyPhone.length >= 9;
-      if (customerVerified) await _local.saveCustomerVerified(true);
+      if (customerVerified) {
+        unawaited(_local.saveCustomerVerified(true));
+      }
     } else {
       customerVerified = storedVerification;
     }
-    _localOrders
-      ..clear()
-      ..addAll(await _local.loadOrders());
-    _customerNotices
-      ..clear()
-      ..addAll(await _local.loadCustomerNotices());
 
     if (backendConfigured) {
       _backend = BackendService(Supabase.instance.client);
@@ -801,34 +816,53 @@ class AppState extends ChangeNotifier {
 
     if (_backend == null) {
       await _initializeLocalCatalog();
-    } else {
-      // Oldingi live katalog bo‘lsa, internet javobini kutmasdan darhol ko‘rsatamiz.
-      // Narx/qoldiq keyin fon rejimida Supabase'dan yangilanadi.
-      final cachedBooks = await _local.loadBooks();
-      if (cachedBooks.isNotEmpty) {
-        _books
-          ..clear()
-          ..addAll(cachedBooks);
-        _sanitizeCart();
-        loading = false;
-        notifyListeners();
-      }
-
-      unawaited(_registerInstallation());
-      if (_books.isEmpty) {
-        await refreshBooks();
-      } else {
-        unawaited(_refreshBooksQuietly());
-      }
-      _startLiveBooksSync();
-      unawaited(_checkRestockNotificationsQuietly());
-      unawaited(_refreshCustomerOrderStatusesQuietly());
-      _orderStatusTimer?.cancel();
-      _orderStatusTimer = Timer.periodic(
-        const Duration(seconds: 60),
-        (_) => _refreshCustomerOrderStatusesQuietly(),
-      );
+      return;
     }
+
+    // Cache bo'lsa darhol ko'rsatamiz. Yangi foydalanuvchida cache bo'lmasa,
+    // internet katalogini kutib spinnerda ushlab turmaymiz: bundled seed
+    // katalog darhol ochiladi, live narx/qoldiq esa fon rejimida keladi.
+    if (cachedBooks.isNotEmpty) {
+      _books
+        ..clear()
+        ..addAll(cachedBooks);
+    } else {
+      try {
+        final seed = await _loadTelegramSeed();
+        if (seed.isNotEmpty) {
+          _books
+            ..clear()
+            ..addAll(seed);
+        }
+      } catch (_) {
+        // Seed o'qilmasa ham live refresh quyida katalogni olib keladi.
+      }
+    }
+
+    if (_books.isNotEmpty) {
+      _sanitizeCart();
+      loading = false;
+      notifyListeners();
+    }
+
+    unawaited(_registerInstallation());
+
+    // Hech qanday local/seed katalog chiqmagan juda kam holatda remote fetchni
+    // kutamiz. Odatdagi yangi ochilishda esa UI allaqachon ishlayotgan bo'ladi.
+    if (_books.isEmpty) {
+      await refreshBooks();
+    } else {
+      unawaited(_refreshBooksQuietly());
+    }
+
+    _startLiveBooksSync();
+    unawaited(_checkRestockNotificationsQuietly());
+    unawaited(_refreshCustomerOrderStatusesQuietly());
+    _orderStatusTimer?.cancel();
+    _orderStatusTimer = Timer.periodic(
+      const Duration(seconds: 60),
+      (_) => _refreshCustomerOrderStatusesQuietly(),
+    );
   }
 
   Future<void> _registerInstallation() async {

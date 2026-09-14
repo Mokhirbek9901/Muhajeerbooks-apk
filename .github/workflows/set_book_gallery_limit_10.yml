@@ -39,7 +39,7 @@ jobs:
           assert 'gallery.length >= 10' in u
           assert '${gallery.length}/10' in u
           assert 'Maksimal 10 ta.' in u
-          assert 'gallery = [...gallery, ...uploaded].take(10).toList();' in u
+          assert 'gallery = [...gallery, url].take(10).toList();' in u
           # Existing >10-image books must remain readable/saveable without silent deletion.
           assert 'if (result.length == 20) break;' in a
           assert '.take(20)' in a

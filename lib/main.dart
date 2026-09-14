@@ -22,7 +22,7 @@ import 'shared_book_entry.dart';
 // saqlanadi, live baza esa AppState ichida fon rejimida yangilanadi.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await CatalogResume.instance.initialize();
+  final catalogResumeInit = CatalogResume.instance.initialize();
 
   const definedSupabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
   const liveSupabaseUrl = 'https://rytfhjvhjxnbhgitowho.supabase.co';
@@ -40,7 +40,10 @@ Future<void> main() async {
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
 
   if (backendConfigured) {
-    await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+    await Future.wait([
+      catalogResumeInit,
+      Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey),
+    ]);
 
     // Eski admin/auth sessiyasi storefrontni bloklamasin, lekin tarmoqdagi
     // signOut javobini kutib app startini sekinlashtirmaymiz.
@@ -49,6 +52,8 @@ Future<void> main() async {
         Supabase.instance.client.auth.signOut().catchError((_) {}),
       );
     }
+  } else {
+    await catalogResumeInit;
   }
 
   runApp(MuhajeerBooksApp(backendConfigured: backendConfigured));

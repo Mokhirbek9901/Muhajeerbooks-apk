@@ -123,6 +123,7 @@ class _ZoomableNetworkImage extends StatefulWidget {
 
 class _ZoomableNetworkImageState extends State<_ZoomableNetworkImage> {
   final TransformationController _controller = TransformationController();
+  Offset _doubleTapPosition = Offset.zero;
 
   @override
   void dispose() {
@@ -130,25 +131,36 @@ class _ZoomableNetworkImageState extends State<_ZoomableNetworkImage> {
     super.dispose();
   }
 
+  void _handleDoubleTapDown(TapDownDetails details) {
+    _doubleTapPosition = details.localPosition;
+  }
+
   void _handleDoubleTap() {
     final currentScale = _controller.value.getMaxScaleOnAxis();
     if (currentScale > 1.15) {
       _controller.value = Matrix4.identity();
-    } else {
-      _controller.value = Matrix4.identity()..scaleByDouble(2.5, 2.5, 1, 1);
+      return;
     }
+
+    const scale = 2.5;
+    final dx = (1 - scale) * _doubleTapPosition.dx;
+    final dy = (1 - scale) * _doubleTapPosition.dy;
+    _controller.value = Matrix4.identity()
+      ..translateByDouble(dx, dy, 0, 1)
+      ..scaleByDouble(scale, scale, 1, 1);
   }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
+      onDoubleTapDown: _handleDoubleTapDown,
       onDoubleTap: _handleDoubleTap,
       child: InteractiveViewer(
         transformationController: _controller,
         panEnabled: true,
         scaleEnabled: true,
-        minScale: 0.9,
+        minScale: 1,
         maxScale: 6,
         scaleFactor: 120,
         interactionEndFrictionCoefficient: 0.0000135,

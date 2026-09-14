@@ -276,7 +276,7 @@ class _StoreShellState extends State<StoreShell> {
     final pages = [
       const HomePage(),
       const CategoriesPage(),
-      const CartPage(),
+      CartPage(onContinueShopping: showHome),
       const FavoritesPage(),
       const ProfilePage(),
     ];
@@ -2584,7 +2584,9 @@ class FavoritesPage extends StatelessWidget {
 }
 
 class CartPage extends StatelessWidget {
-  const CartPage({super.key});
+  const CartPage({super.key, this.onContinueShopping});
+
+  final VoidCallback? onContinueShopping;
 
   @override
   Widget build(BuildContext context) {
@@ -2759,6 +2761,12 @@ class CartPage extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: () {
                           FocusManager.instance.primaryFocus?.unfocus();
+                          final callback = onContinueShopping;
+                          if (callback != null) {
+                            callback();
+                            return;
+                          }
+
                           storefrontTabRequest.value = 0;
                           final navigator = Navigator.of(context);
                           if (navigator.canPop()) {

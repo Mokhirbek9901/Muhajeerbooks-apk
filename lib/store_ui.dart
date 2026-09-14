@@ -1143,7 +1143,6 @@ class _DeliveryPromoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 20, 18, 19),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
@@ -1152,65 +1151,104 @@ class _DeliveryPromoCard extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: UzbekCustomerColors.gold.withValues(alpha: .55),
+          color: UzbekCustomerColors.gold.withValues(alpha: .58),
         ),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Kitob tanlash endi yanada oson',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    height: 1.12,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -.35,
-                  ),
-                ),
-                const SizedBox(height: 7),
-                Text(
-                  'Koreya bo‘ylab tez va qulay buyurtma.',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: .78),
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 15),
-                const Wrap(
-                  spacing: 7,
-                  runSpacing: 7,
-                  children: [
-                    _HeroFact(
-                      icon: Icons.local_shipping_rounded,
-                      text: '1–3 ish kuni',
-                    ),
-                    _HeroFact(
-                      icon: Icons.card_giftcard_rounded,
-                      text: '4+ kitob — bepul',
-                    ),
-                  ],
-                ),
-              ],
+          Positioned(
+            right: -18,
+            top: -18,
+            child: IgnorePointer(
+              child: Opacity(
+                opacity: .22,
+                child: UzbekMedallion(size: 92, dark: true),
+              ),
             ),
           ),
-          const SizedBox(width: 14),
-          Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-              color: Color(0x18FFFFFF),
-              borderRadius: BorderRadius.all(Radius.circular(18)),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: IgnorePointer(
+              child: Opacity(
+                opacity: .78,
+                child: UzbekAtlasBand(height: 4),
+              ),
             ),
-            child: Icon(
-              Icons.menu_book_rounded,
-              color: UzbekCustomerColors.goldSoft,
-              size: 30,
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 18, 22),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const UzbekMiniPill(
+                        icon: Icons.auto_awesome_rounded,
+                        text: 'O‘zbekona ruh',
+                        dark: true,
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Kitob tanlash endi yanada oson',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          height: 1.12,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -.35,
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      Text(
+                        'Koreya bo‘ylab tez va qulay buyurtma.',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: .80),
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 15),
+                      const Wrap(
+                        spacing: 7,
+                        runSpacing: 7,
+                        children: [
+                          _HeroFact(
+                            icon: Icons.local_shipping_rounded,
+                            text: '1–3 ish kuni',
+                          ),
+                          _HeroFact(
+                            icon: Icons.payments_outlined,
+                            text: '택배 ₩4,000',
+                          ),
+                          _HeroFact(
+                            icon: Icons.card_giftcard_rounded,
+                            text: '4+ kitob — bepul',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Container(
+                  width: 54,
+                  height: 54,
+                  decoration: const BoxDecoration(
+                    color: Color(0x18FFFFFF),
+                    borderRadius: BorderRadius.all(Radius.circular(17)),
+                  ),
+                  child: const Icon(
+                    Icons.menu_book_rounded,
+                    color: UzbekCustomerColors.goldSoft,
+                    size: 29,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

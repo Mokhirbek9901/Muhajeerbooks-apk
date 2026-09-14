@@ -1261,11 +1261,12 @@ class _DeliveryPromoCard extends StatelessWidget {
                     'Kitobdan bebahra millat\nkelajaksizdir',
                     style: TextStyle(
                       color: UzbekCustomerColors.goldSoft,
-                      fontSize: 10,
-                      height: 1.28,
-                      fontWeight: FontWeight.w600,
+                      fontFamily: 'Georgia',
+                      fontSize: 10.5,
+                      height: 1.34,
+                      fontWeight: FontWeight.w400,
                       fontStyle: FontStyle.italic,
-                      letterSpacing: .12,
+                      letterSpacing: .22,
                     ),
                   ),
                 ),
@@ -1389,113 +1390,164 @@ class _ApprovedUzbekHeroPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final skyGlow = Paint()
+    final sunset = Paint()
       ..shader = const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0x20FFD98A), Color(0x00065A52)],
+        colors: [Color(0x26FFD58A), Color(0x00065A52)],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height * .62));
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height * .62), skyGlow);
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height * .62), sunset);
 
-    final architecture = Paint()..color = const Color(0x43032125);
-    final architectureSoft = Paint()..color = const Color(0x290A3332);
-    final window = Paint()..color = const Color(0x2E88BCAF);
+    final dark = Paint()..color = const Color(0x50052224);
+    final mid = Paint()..color = const Color(0x360A3332);
+    final light = Paint()..color = const Color(0x328DC3B6);
+    final tile = Paint()..color = const Color(0x2AB68C48);
+    final blue = Paint()..color = const Color(0x554A9E99);
     final base = size.height * .90;
 
     void minaret(double x, double top, double w) {
       final body = RRect.fromRectAndRadius(
         Rect.fromLTWH(x, top, w, base - top),
-        Radius.circular(w * .18),
+        Radius.circular(w * .20),
       );
-      canvas.drawRRect(body, architecture);
+      canvas.drawRRect(body, dark);
       canvas.drawOval(
         Rect.fromCenter(
           center: Offset(x + w / 2, top + 1),
-          width: w * 1.13,
+          width: w * 1.12,
           height: w * .34,
         ),
-        architecture,
+        dark,
       );
       canvas.drawRect(
-        Rect.fromLTWH(x + w * .47, top - w * .26, w * .06, w * .24),
-        architecture,
+        Rect.fromLTWH(x + w * .47, top - w * .24, w * .06, w * .22),
+        dark,
       );
       for (var i = 1; i <= 5; i++) {
         final y = top + (base - top) * (i / 7);
         canvas.drawRect(
-          Rect.fromLTWH(x + w * .18, y, w * .64, 1),
-          window,
+          Rect.fromLTWH(x + w * .17, y, w * .66, 1),
+          light,
         );
       }
     }
 
-    void madrasa(double left, double top, double width, double height) {
-      final facade = RRect.fromRectAndRadius(
+    void facade({
+      required double left,
+      required double top,
+      required double width,
+      required double height,
+      required bool dominant,
+    }) {
+      final body = RRect.fromRectAndRadius(
         Rect.fromLTWH(left, top, width, height),
         const Radius.circular(3),
       );
-      canvas.drawRRect(facade, architectureSoft);
+      canvas.drawRRect(body, mid);
 
       final cx = left + width / 2;
-      final portal = Path()
-        ..moveTo(cx - width * .15, top + height)
-        ..lineTo(cx - width * .15, top + height * .45)
-        ..quadraticBezierTo(
-          cx,
-          top + height * .16,
-          cx + width * .15,
-          top + height * .45,
-        )
-        ..lineTo(cx + width * .15, top + height)
-        ..close();
-      canvas.drawPath(portal, architecture);
+      final portalWidth = dominant ? width * .52 : width * .45;
+      final portalTop = top + (dominant ? height * .08 : height * .14);
+      final portalBottom = top + height;
 
-      final dome = Path()
-        ..moveTo(cx - width * .17, top)
+      final portal = Path()
+        ..moveTo(cx - portalWidth / 2, portalBottom)
+        ..lineTo(cx - portalWidth / 2, portalTop + height * .30)
         ..quadraticBezierTo(
           cx,
-          top - height * .26,
-          cx + width * .17,
-          top,
+          portalTop - height * .08,
+          cx + portalWidth / 2,
+          portalTop + height * .30,
         )
+        ..lineTo(cx + portalWidth / 2, portalBottom)
         ..close();
-      canvas.drawPath(dome, architecture);
+      canvas.drawPath(portal, dark);
+
+      final inner = Path()
+        ..moveTo(cx - portalWidth * .23, portalBottom)
+        ..lineTo(cx - portalWidth * .23, portalTop + height * .34)
+        ..quadraticBezierTo(
+          cx,
+          portalTop + height * .10,
+          cx + portalWidth * .23,
+          portalTop + height * .34,
+        )
+        ..lineTo(cx + portalWidth * .23, portalBottom)
+        ..close();
+      canvas.drawPath(inner, light);
 
       for (var row = 0; row < 2; row++) {
         for (var col = 0; col < 4; col++) {
-          final wx = left + width * (.12 + col * .21);
-          final wy = top + height * (.55 + row * .18);
+          final wx = left + width * (.10 + col * .22);
+          final wy = top + height * (.62 + row * .16);
           canvas.drawRRect(
             RRect.fromRectAndRadius(
-              Rect.fromLTWH(wx, wy, width * .07, height * .08),
+              Rect.fromLTWH(wx, wy, width * .07, height * .07),
               const Radius.circular(2),
             ),
-            window,
+            light,
           );
         }
       }
+
+      canvas.drawRect(
+        Rect.fromLTWH(left, top + height * .50, width, 2),
+        tile,
+      );
     }
 
-    // Uchta madrasa bir-birini takrorlamaydigan, yagona siluet sifatida.
-    madrasa(size.width * .43, size.height * .50, size.width * .22, size.height * .37);
-    madrasa(size.width * .64, size.height * .43, size.width * .22, size.height * .44);
-    madrasa(size.width * .84, size.height * .51, size.width * .18, size.height * .36);
+    // Registonning tanish kompozitsiyasi: markazda Tilla-Qori,
+    // chap va o‘ngda Ulug‘bek/Sherdor madrasalari, to‘rt asosiy minora.
+    facade(
+      left: size.width * .63,
+      top: size.height * .34,
+      width: size.width * .24,
+      height: size.height * .53,
+      dominant: true,
+    );
+    facade(
+      left: size.width * .42,
+      top: size.height * .46,
+      width: size.width * .22,
+      height: size.height * .41,
+      dominant: false,
+    );
+    facade(
+      left: size.width * .84,
+      top: size.height * .45,
+      width: size.width * .19,
+      height: size.height * .42,
+      dominant: false,
+    );
 
-    minaret(size.width * .42, size.height * .31, 18);
-    minaret(size.width * .61, size.height * .23, 24);
-    minaret(size.width * .84, size.height * .30, 19);
-    minaret(size.width * .95, size.height * .25, 22);
+    minaret(size.width * .405, size.height * .31, 18);
+    minaret(size.width * .605, size.height * .24, 24);
+    minaret(size.width * .855, size.height * .28, 20);
+    minaret(size.width * .965, size.height * .25, 21);
 
-    // Registon maydoni old qismi — bitta tekis perspektiva shakli.
-    final plaza = Path()
-      ..moveTo(size.width * .39, base)
-      ..lineTo(size.width, size.height * .70)
-      ..lineTo(size.width, size.height)
-      ..lineTo(size.width * .35, size.height)
+    // Tilla-Qorining ko‘k gumbazi — Registon ko‘rinishini aniqroq qiladi.
+    final domeCx = size.width * .73;
+    final domeY = size.height * .43;
+    final dome = Path()
+      ..moveTo(domeCx - 30, domeY)
+      ..quadraticBezierTo(domeCx, domeY - 42, domeCx + 30, domeY)
       ..close();
-    canvas.drawPath(plaza, Paint()..color = const Color(0x1700A093));
+    canvas.drawPath(dome, blue);
+    canvas.drawRect(
+      Rect.fromLTWH(domeCx - 24, domeY, 48, 11),
+      blue,
+    );
 
-    // Pastki o‘ngda atlas/ikat to‘lqinlari.
+    // Maydonning old perspektivasi.
+    final plaza = Path()
+      ..moveTo(size.width * .38, base)
+      ..lineTo(size.width, size.height * .72)
+      ..lineTo(size.width, size.height)
+      ..lineTo(size.width * .34, size.height)
+      ..close();
+    canvas.drawPath(plaza, Paint()..color = const Color(0x18009788));
+
+    // Atlas/ikat matosi.
     final cloth = Rect.fromLTWH(
       size.width * .42,
       size.height * .74,
@@ -1540,11 +1592,10 @@ class _ApprovedUzbekHeroPainter extends CustomPainter {
     }
     canvas.restore();
 
-    // Juda yengil milliy naqsh: kontur emas, faqat fon teksturasi.
     final motif = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = .55
-      ..color = Colors.white.withValues(alpha: .022);
+      ..strokeWidth = .5
+      ..color = Colors.white.withValues(alpha: .018);
     for (double y = 22; y < size.height; y += 52) {
       for (double x = 22; x < size.width; x += 62) {
         final p = Path()

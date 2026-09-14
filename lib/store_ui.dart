@@ -1159,9 +1159,50 @@ class _DeliveryPromoCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          const Positioned.fill(
+          Positioned.fill(
             child: IgnorePointer(
-              child: CustomPaint(painter: _ApprovedUzbekHeroPainter()),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.network(
+                    'https://upload.wikimedia.org/wikipedia/commons/a/ab/Sunset_at_the_Registan%2C_Samarkand_%284934699224%29.jpg',
+                    fit: BoxFit.cover,
+                    alignment: Alignment.center,
+                    filterQuality: FilterQuality.medium,
+                    errorBuilder: (_, __, ___) => const ColoredBox(
+                      color: Color(0xFF075B52),
+                    ),
+                  ),
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          Color(0xE608443E),
+                          Color(0xB608443E),
+                          Color(0x6508443E),
+                          Color(0x2608443E),
+                        ],
+                        stops: [0, .40, .70, 1],
+                      ),
+                    ),
+                  ),
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color(0x16000000),
+                          Color(0x00000000),
+                          Color(0x4A002C29),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           Positioned(
@@ -1261,12 +1302,12 @@ class _DeliveryPromoCard extends StatelessWidget {
                     'Kitobdan bebahra millat\nkelajaksizdir',
                     style: TextStyle(
                       color: UzbekCustomerColors.goldSoft,
-                      fontFamily: 'Georgia',
-                      fontSize: 10.5,
-                      height: 1.34,
+                      fontFamily: 'Times New Roman',
+                      fontSize: 10.8,
+                      height: 1.30,
                       fontWeight: FontWeight.w400,
                       fontStyle: FontStyle.italic,
-                      letterSpacing: .22,
+                      letterSpacing: .15,
                     ),
                   ),
                 ),

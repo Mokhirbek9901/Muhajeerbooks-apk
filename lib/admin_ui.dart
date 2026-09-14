@@ -198,7 +198,7 @@ class _AdminApi {
       thumbBytes = prepared['thumb'];
       contentType = 'image/jpeg';
       final base = file.name.replaceFirst(RegExp(r'\.[^.]+$'), '');
-      uploadName = '${base.isEmpty ? 'cover' : base}.jpg';
+      uploadName = 'opt-${base.isEmpty ? 'cover' : base}.jpg';
     } else {
       if (sourceBytes.length > 7 * 1024 * 1024) {
         throw StateError(
@@ -241,58 +241,113 @@ class _AdminApi {
   }
 
   Future<void> backfillThumbnail(Book book) async {
-    if (book.id.isEmpty ||
-        book.thumbnailUrl.trim().isNotEmpty ||
-        book.imageUrl.trim().isEmpty) {
+    final sourceGallery = book.galleryImages;
+    if (book.id.isEmpty || sourceGallery.isEmpty) return;
+    if (book.thumbnailUrl.trim().isNotEmpty && book.galleryImagesOptimized) {
       return;
     }
 
-    final uri = Uri.tryParse(book.imageUrl.trim());
-    if (uri == null || !(uri.scheme == 'https' || uri.scheme == 'http')) return;
+    final optimizedGallery = <String>[];
+    var firstThumbnail = book.thumbnailUrl.trim();
+    var changed = false;
 
-    final downloaded = await http.get(uri).timeout(const Duration(seconds: 20));
-    if (downloaded.statusCode < 200 || downloaded.statusCode >= 300) return;
-    if (downloaded.bodyBytes.isEmpty ||
-        downloaded.bodyBytes.length > 10 * 1024 * 1024) {
-      return;
+    for (var index = 0; index < sourceGallery.length; index++) {
+      final sourceUrl = sourceGallery[index].trim();
+      if (sourceUrl.isEmpty) continue;
+
+      if (isOptimizedBookImageUrl(sourceUrl)) {
+        optimizedGallery.add(sourceUrl);
+        if (index == 0 && firstThumbnail.isEmpty) {
+          firstThumbnail = derivedBookThumbnailUrl(sourceUrl);
+        }
+        continue;
+      }
+
+      try {
+        final uri = Uri.tryParse(sourceUrl);
+        if (uri == null || !(uri.scheme == 'https' || uri.scheme == 'http')) {
+          optimizedGallery.add(sourceUrl);
+          continue;
+        }
+
+        final downloaded = await http
+            .get(uri)
+            .timeout(const Duration(seconds: 20));
+        if (downloaded.statusCode < 200 || downloaded.statusCode >= 300) {
+          optimizedGallery.add(sourceUrl);
+          continue;
+        }
+        if (downloaded.bodyBytes.isEmpty ||
+            downloaded.bodyBytes.length > 10 * 1024 * 1024) {
+          optimizedGallery.add(sourceUrl);
+          continue;
+        }
+
+        final prepared = await compute(
+          _prepareBookImageVariants,
+          Uint8List.fromList(downloaded.bodyBytes),
+        );
+        if (prepared == null) {
+          optimizedGallery.add(sourceUrl);
+          continue;
+        }
+        final fullBytes = prepared['full'];
+        final thumbBytes = prepared['thumb'];
+        if (fullBytes == null ||
+            fullBytes.isEmpty ||
+            thumbBytes == null ||
+            thumbBytes.isEmpty) {
+          optimizedGallery.add(sourceUrl);
+          continue;
+        }
+
+        final response = await client.functions.invoke(
+          'admin-cover-upload',
+          body: {
+            'admin_code': secret,
+            'file_name': 'optimized-${book.id}-$index.jpg',
+            'content_type': 'image/jpeg',
+            'data_base64': base64Encode(fullBytes),
+            'thumb_base64': base64Encode(thumbBytes),
+          },
+        );
+        final data = _functionResponseMap(response.data);
+        final optimizedUrl = (data['url'] ?? '').toString().trim();
+        final thumbUrl = (data['thumbnail_url'] ?? '').toString().trim();
+        if (optimizedUrl.isEmpty || thumbUrl.isEmpty) {
+          optimizedGallery.add(sourceUrl);
+          continue;
+        }
+
+        optimizedGallery.add(optimizedUrl);
+        if (index == 0) firstThumbnail = thumbUrl;
+        changed = true;
+
+        // Edge Function rate limitini oshirmaslik uchun rasmlarni navbat bilan o'tkazamiz.
+        if (index + 1 < sourceGallery.length) {
+          await Future<void>.delayed(const Duration(milliseconds: 2200));
+        }
+      } catch (_) {
+        optimizedGallery.add(sourceUrl);
+      }
     }
 
-    final prepared = await compute(
-      _prepareBookImageVariants,
-      Uint8List.fromList(downloaded.bodyBytes),
-    );
-    if (prepared == null) return;
-    final fullBytes = prepared['full'];
-    final thumbBytes = prepared['thumb'];
-    if (fullBytes == null ||
-        fullBytes.isEmpty ||
-        thumbBytes == null ||
-        thumbBytes.isEmpty) {
-      return;
+    if (optimizedGallery.isEmpty) return;
+    final first = optimizedGallery.first;
+    if (firstThumbnail.isEmpty) {
+      firstThumbnail = derivedBookThumbnailUrl(first);
     }
 
-    final response = await client.functions.invoke(
-      'admin-cover-upload',
-      body: {
-        'admin_code': secret,
-        'file_name': 'optimized-${book.id}.jpg',
-        'content_type': 'image/jpeg',
-        'data_base64': base64Encode(fullBytes),
-        'thumb_base64': base64Encode(thumbBytes),
-      },
-    );
-    final data = _functionResponseMap(response.data);
-    final optimizedUrl = (data['url'] ?? '').toString().trim();
-    final thumbUrl = (data['thumbnail_url'] ?? '').toString().trim();
-    if (optimizedUrl.isEmpty || thumbUrl.isEmpty) return;
-
-    final oldGallery = book.galleryImages;
-    final optimizedGallery = <String>[optimizedUrl, ...oldGallery.skip(1)];
+    if (!changed &&
+        firstThumbnail == book.thumbnailUrl.trim() &&
+        optimizedGallery.length == sourceGallery.length) {
+      return;
+    }
 
     await saveBook(
       book.copyWith(
-        imageUrl: optimizedUrl,
-        thumbnailUrl: thumbUrl,
+        imageUrl: first,
+        thumbnailUrl: firstThumbnail,
         imageUrls: optimizedGallery,
       ),
     );
@@ -2790,8 +2845,9 @@ class _BooksAdminState extends State<_BooksAdmin> {
         .where(
           (book) =>
               book.id.isNotEmpty &&
-              book.thumbnailUrl.trim().isEmpty &&
-              book.imageUrl.trim().isNotEmpty,
+              book.imageUrl.trim().isNotEmpty &&
+              (book.thumbnailUrl.trim().isEmpty ||
+                  !book.galleryImagesOptimized),
         )
         .toList();
     for (var i = 0; i < pending.length; i++) {

@@ -25,6 +25,28 @@ List<String> bookPublishers(Iterable<Book> books) {
     ..sort((a, b) => publisherKey(a).compareTo(publisherKey(b)));
 }
 
+bool isOptimizedBookImageUrl(String raw) {
+  final value = raw.trim();
+  if (value.isEmpty) return false;
+  final uri = Uri.tryParse(value);
+  final path = uri?.path ?? value;
+  return path.contains('/book-covers/covers/') &&
+      (path.contains('-opt-') || path.contains('-optimized-'));
+}
+
+String derivedBookThumbnailUrl(String raw) {
+  final value = raw.trim();
+  if (!isOptimizedBookImageUrl(value)) return '';
+  final uri = Uri.tryParse(value);
+  if (uri == null) return '';
+  var path = uri.path.replaceFirst(
+    '/book-covers/covers/',
+    '/book-covers/covers/thumbs/',
+  );
+  path = path.replaceFirst(RegExp(r'\.[^.\/]+$'), '.jpg');
+  return uri.replace(path: path).toString();
+}
+
 class Book {
   const Book({
     required this.id,
@@ -71,6 +93,19 @@ class Book {
   bool get inStock => stock > 0 && price > 0;
   String get previewImageUrl =>
       thumbnailUrl.trim().isNotEmpty ? thumbnailUrl.trim() : imageUrl;
+
+  bool get galleryImagesOptimized =>
+      galleryImages.every(isOptimizedBookImageUrl);
+
+  String galleryThumbnailUrlAt(int index) {
+    final images = galleryImages;
+    if (index < 0 || index >= images.length) return '';
+    if (index == 0 && thumbnailUrl.trim().isNotEmpty) {
+      return thumbnailUrl.trim();
+    }
+    final derived = derivedBookThumbnailUrl(images[index]);
+    return derived.isNotEmpty ? derived : images[index];
+  }
 
   List<String> get galleryImages {
     final result = <String>[];

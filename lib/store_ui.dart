@@ -2327,7 +2327,7 @@ class _BookGalleryState extends State<_BookGallery> {
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: Image.network(
-                      images[i],
+                      widget.book.galleryThumbnailUrlAt(i),
                       fit: BoxFit.cover,
                       cacheWidth: 160,
                       errorBuilder: (_, __, ___) =>

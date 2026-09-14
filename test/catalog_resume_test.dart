@@ -6,7 +6,7 @@ import 'package:muhajeerbooks/catalog_resume.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('reset only after more than five minutes outside the app', () async {
+  test('reset only after more than thirty seconds outside the app', () async {
     SharedPreferences.setMockInitialValues({});
     var now = DateTime(2026, 9, 12);
     final session = CatalogResume(now: () => now);
@@ -14,13 +14,13 @@ void main() {
     var resets = 0;
     session.addListener(() => resets++);
     session.didChangeAppLifecycleState(AppLifecycleState.hidden);
-    now = now.add(const Duration(minutes: 5));
+    now = now.add(const Duration(seconds: 30));
     session.didChangeAppLifecycleState(AppLifecycleState.resumed);
     expect(resets, 0);
     session.didChangeAppLifecycleState(AppLifecycleState.hidden);
-    now = now.add(const Duration(minutes: 4));
+    now = now.add(const Duration(seconds: 20));
     session.didChangeAppLifecycleState(AppLifecycleState.paused);
-    now = now.add(const Duration(minutes: 2));
+    now = now.add(const Duration(seconds: 11));
     session.didChangeAppLifecycleState(AppLifecycleState.resumed);
     expect(resets, 1);
     session.didChangeAppLifecycleState(AppLifecycleState.resumed);
@@ -44,17 +44,17 @@ void main() {
 
   test('cold restart expires scroll only and preserves customer data', () async {
     final now = DateTime(2026, 9, 12);
-    for (final minutes in [4, 6]) {
+    for (final seconds in [20, 40]) {
       SharedPreferences.setMockInitialValues({
         CatalogResume.awayKey:
-            now.subtract(Duration(minutes: minutes)).millisecondsSinceEpoch,
+            now.subtract(Duration(seconds: seconds)).millisecondsSinceEpoch,
         'scroll:home': 1200.0,
         'customer': 'kept',
       });
       final session = CatalogResume(now: () => now);
       await session.initialize();
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getDouble('scroll:home'), minutes == 4 ? 1200.0 : null);
+      expect(prefs.getDouble('scroll:home'), seconds == 20 ? 1200.0 : null);
       expect(prefs.getString('customer'), 'kept');
       session.dispose();
     }

@@ -251,7 +251,7 @@ class _StoreShellState extends State<StoreShell> {
     const pages = [
       const HomePage(),
       const CategoriesPage(),
-      const CartPage(),
+      CartPage(onContinueShopping: () => setState(() => index = 0)),
       const FavoritesPage(),
       const ProfilePage(),
     ];
@@ -2556,7 +2556,9 @@ class FavoritesPage extends StatelessWidget {
 }
 
 class CartPage extends StatelessWidget {
-  const CartPage({super.key});
+  const CartPage({super.key, this.onContinueShopping});
+
+  final VoidCallback? onContinueShopping;
 
   @override
   Widget build(BuildContext context) {
@@ -2608,6 +2610,22 @@ class CartPage extends StatelessWidget {
                     border: state.cartCount >= 4
                         ? const Color(0xFFCDEAD7)
                         : AppColors.border,
+                  ),
+                ),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      FocusManager.instance.primaryFocus?.unfocus();
+                      final callback = onContinueShopping;
+                      if (callback != null) {
+                        callback();
+                      } else if (Navigator.of(context).canPop()) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('Yana kitob qo‘shish'),
                   ),
                 ),
                 const SizedBox(height: 12),

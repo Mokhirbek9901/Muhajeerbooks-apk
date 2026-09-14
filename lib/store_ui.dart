@@ -248,7 +248,7 @@ class _StoreShellState extends State<StoreShell> {
           );
       });
     }
-    const pages = [
+    final pages = [
       const HomePage(),
       const CategoriesPage(),
       CartPage(onContinueShopping: () => setState(() => index = 0)),

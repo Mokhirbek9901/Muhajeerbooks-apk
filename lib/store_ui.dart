@@ -2736,14 +2736,12 @@ class CartPage extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: () {
                           FocusManager.instance.primaryFocus?.unfocus();
-                          final shell = context.findAncestorStateOfType<_StoreShellState>();
-                          if (shell != null) {
-                            shell.showHome();
-                            return;
-                          }
-                          if (Navigator.of(context).canPop()) {
-                            Navigator.of(context).pop();
-                          }
+                          Navigator.of(context).push(
+                            muhajeerPageRoute<void>(
+                              settings: const RouteSettings(name: 'mb:continue-shopping'),
+                              builder: (_) => const HomePage(),
+                            ),
+                          );
                         },
                         icon: const Icon(Icons.add_rounded),
                         label: const Text('Yana kitob qo‘shish'),

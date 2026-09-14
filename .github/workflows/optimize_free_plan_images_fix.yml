@@ -1,0 +1,41 @@
+name: Retry free-plan image optimization
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/optimize_free_plan_images_fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - run: python3 tools/optimize_free_plan_images.py
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: dart format lib/app_state.dart lib/admin_ui.dart lib/store_ui.dart
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-warnings --no-fatal-infos
+      - name: Keep only intended source changes
+        run: |
+          git checkout -- analysis_options.yaml pubspec.lock || true
+      - name: Commit optimized app
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/app_state.dart lib/admin_ui.dart lib/store_ui.dart
+          if git diff --cached --quiet; then
+            echo "No source changes needed"
+            exit 0
+          fi
+          git commit -m "Reduce image traffic for Supabase Free Plan"
+          git push origin main

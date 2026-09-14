@@ -44,6 +44,17 @@ class _FastStoreShellState extends State<FastStoreShell> {
   void initState() {
     super.initState();
     CatalogResume.instance.addListener(_resetAfterAbsence);
+    storefrontTabRequest.addListener(_handleTabRequest);
+  }
+
+  void _handleTabRequest() {
+    final requested = storefrontTabRequest.value;
+    if (!mounted || requested == null || requested < 0 || requested > 4) return;
+    if (requested == index && _visited[requested]) return;
+    setState(() {
+      _visited[requested] = true;
+      index = requested;
+    });
   }
 
   void _resetAfterAbsence() {
@@ -64,6 +75,7 @@ class _FastStoreShellState extends State<FastStoreShell> {
   @override
   void dispose() {
     CatalogResume.instance.removeListener(_resetAfterAbsence);
+    storefrontTabRequest.removeListener(_handleTabRequest);
     super.dispose();
   }
 
@@ -127,6 +139,7 @@ class _FastStoreShellState extends State<FastStoreShell> {
           indicatorColor: UzbekCustomerColors.gold,
           selectedIndex: index,
           onDestinationSelected: (value) {
+            storefrontTabRequest.value = value;
             if (value == index) return;
             setState(() {
               _visited[value] = true;

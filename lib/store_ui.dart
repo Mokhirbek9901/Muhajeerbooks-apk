@@ -1143,118 +1143,343 @@ class _DeliveryPromoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      height: 360,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [UzbekCustomerColors.navy, UzbekCustomerColors.tealDark],
+          colors: [
+            Color(0xFF123D46),
+            UzbekCustomerColors.tealDark,
+            Color(0xFF07594F),
+          ],
+          stops: [0, .55, 1],
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(26),
         border: Border.all(
-          color: UzbekCustomerColors.gold.withValues(alpha: .58),
+          color: UzbekCustomerColors.gold.withValues(alpha: .65),
+          width: 1.2,
         ),
       ),
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
+          const Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(painter: _UzbekHeritageScenePainter()),
+            ),
+          ),
+          const Positioned(
+            right: -14,
+            bottom: -4,
+            child: IgnorePointer(
+              child: SizedBox(
+                width: 185,
+                height: 122,
+                child: CustomPaint(painter: _IkatTextilePainter()),
+              ),
+            ),
+          ),
+          const Positioned(
+            right: 12,
+            bottom: 40,
+            child: IgnorePointer(child: _DecorativeBookStack()),
+          ),
           Positioned(
-            right: -18,
+            left: -18,
             top: -18,
             child: IgnorePointer(
               child: Opacity(
-                opacity: .22,
-                child: UzbekMedallion(size: 92, dark: true),
+                opacity: .82,
+                child: UzbekMedallion(size: 90, dark: true),
               ),
             ),
           ),
-          Positioned(
+          const Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: IgnorePointer(
-              child: Opacity(
-                opacity: .78,
-                child: UzbekAtlasBand(height: 4),
-              ),
-            ),
+            child: IgnorePointer(child: UzbekAtlasBand(height: 5)),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 18, 22),
-            child: Row(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const UzbekMiniPill(
-                        icon: Icons.auto_awesome_rounded,
-                        text: 'O‘zbekona ruh',
-                        dark: true,
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Kitob tanlash endi yanada oson',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          height: 1.12,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -.35,
-                        ),
-                      ),
-                      const SizedBox(height: 7),
-                      Text(
-                        'Koreya bo‘ylab tez va qulay buyurtma.',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: .80),
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 15),
-                      const Wrap(
-                        spacing: 7,
-                        runSpacing: 7,
-                        children: [
-                          _HeroFact(
-                            icon: Icons.local_shipping_rounded,
-                            text: '1–3 ish kuni',
-                          ),
-                          _HeroFact(
-                            icon: Icons.payments_outlined,
-                            text: '택배 ₩4,000',
-                          ),
-                          _HeroFact(
-                            icon: Icons.card_giftcard_rounded,
-                            text: '4+ kitob — bepul',
-                          ),
-                        ],
-                      ),
-                    ],
+                const UzbekMiniPill(
+                  icon: Icons.auto_awesome_rounded,
+                  text: 'O‘zbekona ruh',
+                  dark: true,
+                ),
+                const SizedBox(height: 16),
+                const SizedBox(
+                  width: 255,
+                  child: Text(
+                    'Kitob tanlash endi\nyanada oson',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 25,
+                      height: 1.08,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -.45,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(height: 9),
+                Text(
+                  'Koreya bo‘ylab tez va qulay buyurtma.',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: .82),
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Wrap(
+                  spacing: 7,
+                  runSpacing: 7,
+                  children: [
+                    _HeroFact(
+                      icon: Icons.local_shipping_rounded,
+                      text: '1–3 ish kuni',
+                    ),
+                    _HeroFact(
+                      icon: Icons.payments_outlined,
+                      text: '택배 ₩4,000',
+                    ),
+                    _HeroFact(
+                      icon: Icons.card_giftcard_rounded,
+                      text: '4+ kitob — bepul',
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                const SizedBox(
+                  width: 175,
+                  child: Text(
+                    'Kitobdan bebahra millat\nkelajaksizdir',
+                    style: TextStyle(
+                      color: UzbekCustomerColors.goldSoft,
+                      fontSize: 10.5,
+                      height: 1.32,
+                      fontWeight: FontWeight.w700,
+                      fontStyle: FontStyle.italic,
+                      letterSpacing: .15,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 5),
                 Container(
-                  width: 54,
-                  height: 54,
-                  decoration: const BoxDecoration(
-                    color: Color(0x18FFFFFF),
-                    borderRadius: BorderRadius.all(Radius.circular(17)),
-                  ),
-                  child: const Icon(
-                    Icons.menu_book_rounded,
-                    color: UzbekCustomerColors.goldSoft,
-                    size: 29,
-                  ),
+                  width: 58,
+                  height: 1,
+                  color: UzbekCustomerColors.gold.withValues(alpha: .72),
                 ),
               ],
+            ),
+          ),
+          Positioned(
+            top: 20,
+            right: 18,
+            child: Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: .08),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: .10),
+                ),
+              ),
+              child: const Icon(
+                Icons.menu_book_rounded,
+                color: UzbekCustomerColors.goldSoft,
+                size: 28,
+              ),
             ),
           ),
         ],
       ),
     );
   }
+}
+
+class _DecorativeBookStack extends StatelessWidget {
+  const _DecorativeBookStack();
+
+  @override
+  Widget build(BuildContext context) {
+    Widget spine(String label, Color color, double width) => Container(
+      width: width,
+      height: 112,
+      margin: const EdgeInsets.only(left: 3),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(
+          color: UzbekCustomerColors.gold.withValues(alpha: .75),
+          width: .8,
+        ),
+      ),
+      child: RotatedBox(
+        quarterTurns: 3,
+        child: Center(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: UzbekCustomerColors.goldSoft,
+              fontSize: 9,
+              letterSpacing: 1.2,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        spine('BUXORO', const Color(0xFF61451E), 28),
+        spine('SAMARQAND', const Color(0xFF153949), 31),
+        spine('XIVA', const Color(0xFF2E2A27), 27),
+        spine('TURON', const Color(0xFF0B6861), 30),
+      ],
+    );
+  }
+}
+
+class _UzbekHeritageScenePainter extends CustomPainter {
+  const _UzbekHeritageScenePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final faint = Paint()..color = const Color(0x1B071F22);
+    final line = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = const Color(0x244CC6B1);
+    final gold = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = .8
+      ..color = UzbekCustomerColors.gold.withValues(alpha: .18);
+
+    final ground = Path()
+      ..moveTo(size.width * .47, size.height * .75)
+      ..lineTo(size.width, size.height * .60)
+      ..lineTo(size.width, size.height)
+      ..lineTo(size.width * .42, size.height)
+      ..close();
+    canvas.drawPath(ground, faint);
+
+    void dome(double cx, double baseY, double radius, double bodyH) {
+      final body = Rect.fromLTWH(cx - radius, baseY, radius * 2, bodyH);
+      canvas.drawRect(body, faint);
+      final p = Path()
+        ..moveTo(cx - radius, baseY)
+        ..quadraticBezierTo(cx, baseY - radius * 1.55, cx + radius, baseY)
+        ..close();
+      canvas.drawPath(p, faint);
+      canvas.drawPath(p, gold);
+      canvas.drawLine(
+        Offset(cx, baseY - radius * 1.55),
+        Offset(cx, baseY - radius * 1.8),
+        gold,
+      );
+    }
+
+    dome(size.width * .69, size.height * .46, 34, 72);
+    dome(size.width * .88, size.height * .49, 42, 86);
+
+    final minaretX = size.width * .61;
+    final minaretTop = size.height * .23;
+    final minaret = RRect.fromRectAndRadius(
+      Rect.fromLTWH(minaretX, minaretTop, 28, size.height * .48),
+      const Radius.circular(8),
+    );
+    canvas.drawRRect(minaret, faint);
+    canvas.drawRRect(minaret, gold);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(minaretX + 14, minaretTop - 4),
+        width: 31,
+        height: 13,
+      ),
+      faint,
+    );
+
+    for (var i = 0; i < 5; i++) {
+      final y = minaretTop + 28 + i * 25;
+      canvas.drawLine(
+        Offset(minaretX + 3, y),
+        Offset(minaretX + 25, y),
+        line,
+      );
+    }
+
+    final motif = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = Colors.white.withValues(alpha: .035);
+    for (double y = 16; y < size.height; y += 46) {
+      for (double x = 20; x < size.width; x += 58) {
+        final p = Path()
+          ..moveTo(x, y - 8)
+          ..lineTo(x + 10, y)
+          ..lineTo(x, y + 8)
+          ..lineTo(x - 10, y)
+          ..close();
+        canvas.drawPath(p, motif);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _IkatTextilePainter extends CustomPainter {
+  const _IkatTextilePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final colors = [
+      const Color(0xFFEEE0BD),
+      const Color(0xFF0A746D),
+      const Color(0xFFA5523C),
+      const Color(0xFF102F3C),
+      const Color(0xFFCDA452),
+    ];
+    final h = size.height / 5;
+    for (var row = 0; row < 5; row++) {
+      final paint = Paint()..color = colors[row % colors.length].withValues(alpha: .88);
+      final y = row * h;
+      final path = Path()
+        ..moveTo(-10, y + h * .35)
+        ..cubicTo(
+          size.width * .20,
+          y - h * .10,
+          size.width * .35,
+          y + h * 1.15,
+          size.width * .55,
+          y + h * .48,
+        )
+        ..cubicTo(
+          size.width * .72,
+          y - h * .15,
+          size.width * .90,
+          y + h * .95,
+          size.width + 12,
+          y + h * .30,
+        )
+        ..lineTo(size.width + 12, y + h)
+        ..lineTo(-10, y + h)
+        ..close();
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _HeroFact extends StatelessWidget {

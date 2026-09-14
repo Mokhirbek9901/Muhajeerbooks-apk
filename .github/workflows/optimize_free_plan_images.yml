@@ -1,0 +1,65 @@
+name: Optimize free-plan images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/optimize_free_plan_images.py'
+      - '.github/workflows/optimize_free_plan_images.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Sync current main
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Apply image optimization patch
+        run: python3 tools/optimize_free_plan_images.py
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Format changed Dart files
+        run: dart format lib/app_state.dart lib/admin_ui.dart lib/store_ui.dart
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+
+      - name: Verify optimization markers
+        run: |
+          grep -q "thumbnail_url" lib/app_state.dart
+          grep -q "previewImageUrl" lib/store_ui.dart
+          grep -q "targetBytes: 220 \* 1024" lib/admin_ui.dart
+          grep -q "targetBytes: 34 \* 1024" lib/admin_ui.dart
+          grep -q "_backfillMissingThumbnails" lib/admin_ui.dart
+
+      - name: Commit optimized app
+        run: |
+          if git diff --quiet; then
+            echo "No source changes needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/app_state.dart lib/admin_ui.dart lib/store_ui.dart
+          git commit -m "Reduce image traffic for Supabase Free Plan"
+          git pull --rebase origin main
+          git push origin main

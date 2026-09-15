@@ -92,8 +92,12 @@ replace_once(
     'dispose without scroll timer',
 )
 
-# Grid rasmlarini yengilroq decode qilamiz. Detail sahifasi original rasmdan foydalanadi.
-text = text.replace('cacheWidth: 360,', 'cacheWidth: 300,')
+# Retina/iPhone ekranlarda 300px katalog rasmi xira ko'rinadi.
+# 480px ikki ustunli kartalar uchun tiniqroq, lekin original/full-size rasmni
+# dekod qilmaydi; shu sabab scroll optimizatsiyasi saqlanadi.
+text = text.replace('cacheWidth: 360,', 'cacheWidth: 480,')
+text = text.replace('cacheWidth: 300,', 'cacheWidth: 480,')
+text = text.replace('filterQuality: FilterQuality.low,', 'filterQuality: FilterQuality.medium,')
 
 # Stateless kitob kartalari keepAlive talab qilmaydi; bu uzun katalogda xotira va
 # element boshqaruvi xarajatini kamaytiradi.
@@ -142,4 +146,4 @@ replace_once(
 )
 
 path.write_text(text, encoding='utf-8')
-print('Strong scroll-jank fix applied.')
+print('Strong scroll-jank fix applied with sharper catalog covers.')

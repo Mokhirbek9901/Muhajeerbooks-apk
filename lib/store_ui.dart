@@ -1410,9 +1410,10 @@ class _ApprovedOrnateBooks extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                book('O‘TKAN KUNLAR', const Color(0xFF315C43), 31, 100),
-                book('IKKI ESHIK ORASI', const Color(0xFF123D5B), 33, 110),
-                book('HALQA', const Color(0xFF6E2E22), 30, 103),
+                book('O‘TKAN KUNLAR', const Color(0xFF7A4B25), 29, 100),
+                book('KECHA VA KUNDUZ', const Color(0xFF123D5B), 31, 110),
+                book('IKKI ESHIK ORASI', const Color(0xFF3D3026), 31, 104),
+                book('HALQA', const Color(0xFF0B6B5D), 29, 108),
                 
               ],
             ),

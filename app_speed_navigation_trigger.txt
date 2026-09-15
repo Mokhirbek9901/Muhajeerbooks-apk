@@ -1,1 +1,1 @@
-2026-09-11T17:27+09:00 launch hardening: preserve scroll after iPhone back and reload
+2026-09-15T18:57+09:00 smooth storefront hardening: lighter scrolling, fewer rebuilds, lower image decode cost

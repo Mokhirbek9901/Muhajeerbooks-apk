@@ -17,6 +17,8 @@ jobs:
           fetch-depth: 0
       - name: Apply speed and navigation patch
         run: python3 tools/app_speed_navigation_patch.py
+      - name: Apply stronger scroll jank fix
+        run: python3 tools/scroll_jank_fix.py
       - name: Commit source update
         run: |
           git config user.name "Mokhirbek9901"
@@ -26,5 +28,5 @@ jobs:
             echo "No changes to commit"
             exit 0
           fi
-          git commit -m "Improve app speed and resume behavior"
+          git commit -m "Eliminate storefront scroll jank"
           git push origin main

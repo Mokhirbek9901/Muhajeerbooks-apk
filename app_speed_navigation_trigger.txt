@@ -1,1 +1,1 @@
-2026-09-15T19:20+09:00 verify patched build: performance + 1-minute customer + 10-minute admin resume
+2026-09-15T19:58+09:00 stronger scroll jank fix: persist only when idle, lighter grid images and rendering

@@ -1,1 +1,1 @@
-2026-09-15T20:18+09:00 sharpen primary catalog covers: 480px decode + medium filter quality
+2026-09-15T20:21+09:00 retry sharpen primary catalog covers after making workflow rerunnable

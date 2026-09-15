@@ -73,12 +73,13 @@ class _PersistentScrollController extends ScrollController {
     final value = offset < 0 ? 0.0 : offset;
     _userMoved = true;
     _scrollMemory[storageKey] = value;
-    if (_saveTimer != null) return;
-    _saveTimer = Timer(const Duration(milliseconds: 900), () {
-      _saveTimer = null;
-      final latest = _scrollMemory[storageKey] ?? value;
-      unawaited(_write(latest));
-    });
+  }
+
+  void _persistWhenIdle() {
+    if (_disposed || !hasClients) return;
+    if (positions.any((p) => p.isScrollingNotifier.value)) return;
+    final latest = _scrollMemory[storageKey];
+    if (latest != null) unawaited(_write(latest));
   }
 
   Future<void> _write(double value) async {
@@ -106,7 +107,14 @@ class _PersistentScrollController extends ScrollController {
   @override
   void attach(ScrollPosition position) {
     super.attach(position);
+    position.isScrollingNotifier.addListener(_persistWhenIdle);
     _scheduleRestore();
+  }
+
+  @override
+  void detach(ScrollPosition position) {
+    position.isScrollingNotifier.removeListener(_persistWhenIdle);
+    super.detach(position);
   }
 
   void _scheduleRestore() {
@@ -146,7 +154,6 @@ class _PersistentScrollController extends ScrollController {
   void dispose() {
     CatalogResume.instance.removeListener(_resetAfterAbsence);
     _disposed = true;
-    _saveTimer?.cancel();
     if (hasClients) {
       final value = offset < 0 ? 0.0 : offset;
       _scrollMemory[storageKey] = value;
@@ -627,6 +634,8 @@ class _PersistentBookGridState extends State<_PersistentBookGrid> {
     controller: _controller,
     key: PageStorageKey<String>('grid:${widget.storageKey}'),
     padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+    addAutomaticKeepAlives: false,
+    addRepaintBoundaries: true,
     itemCount: widget.books.length,
     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
       crossAxisCount: 2,
@@ -754,7 +763,9 @@ class _HomePageState extends State<HomePage> {
             ),
             const SliverPadding(
               padding: EdgeInsets.fromLTRB(16, 8, 16, 6),
-              sliver: SliverToBoxAdapter(child: _DeliveryPromoCard()),
+              sliver: SliverToBoxAdapter(
+                child: RepaintBoundary(child: _DeliveryPromoCard()),
+              ),
             ),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 7, 16, 5),
@@ -951,6 +962,8 @@ class _HomePageState extends State<HomePage> {
                       delegate: SliverChildBuilderDelegate(
                         (context, i) => BookCard(book: books[i]),
                         childCount: books.length,
+                        addAutomaticKeepAlives: false,
+                        addRepaintBoundaries: true,
                       ),
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: count,
@@ -2061,7 +2074,7 @@ class _BookCover extends StatelessWidget {
       return Image.network(
         previewUrl,
         fit: BoxFit.cover,
-        cacheWidth: 360,
+        cacheWidth: 300,
         filterQuality: FilterQuality.low,
         gaplessPlayback: true,
         errorBuilder: (_, __, ___) => _placeholder(),

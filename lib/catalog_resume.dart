@@ -12,6 +12,9 @@ class CatalogResume extends ChangeNotifier with WidgetsBindingObserver {
   static const awayKey = 'catalog:awayAt';
   static const timeout = Duration(minutes: 1);
   DateTime? _awayAt;
+  bool _adminPanelActive = false;
+  bool get adminPanelActive => _adminPanelActive;
+  void setAdminPanelActive(bool value) => _adminPanelActive = value;
   late SharedPreferences _prefs;
 
   static bool expired(DateTime leftAt, DateTime now) =>

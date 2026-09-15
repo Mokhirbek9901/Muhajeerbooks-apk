@@ -67,6 +67,9 @@ class _FastStoreShellState extends State<FastStoreShell> {
 
   void _resetAfterAbsence() {
     if (!mounted) return;
+    // Admin panel o'zining alohida 10 daqiqalik resume qoidasi bilan boshqariladi.
+    // Storefront timeouti admin route'larini hech qachon pop qilmasin.
+    if (CatalogResume.instance.adminPanelActive) return;
 
     // 1+ daqiqa tashqarida qolinsa, ichki detail/checkout route'larini yopib,
     // do'konni Bosh sahifaning tepasidan boshlaymiz.

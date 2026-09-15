@@ -20,6 +20,7 @@ import 'app_state.dart';
 import 'brand.dart';
 import 'design_system.dart';
 import 'finance_admin.dart';
+import 'catalog_resume.dart';
 
 const _navy = Color(0xFF10213D);
 const _orange = Color(0xFFFF8A00);
@@ -965,6 +966,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
     super.initState();
     api = _AdminApi(widget.secret);
     WidgetsBinding.instance.addObserver(this);
+    CatalogResume.instance.setAdminPanelActive(true);
     _liveRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       if (!mounted) return;
       switch (tab) {
@@ -986,6 +988,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
 
   @override
   void dispose() {
+    CatalogResume.instance.setAdminPanelActive(false);
     WidgetsBinding.instance.removeObserver(this);
     _liveRefreshTimer?.cancel();
     super.dispose();
@@ -1008,13 +1011,16 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
     }
 
     if (mounted) {
+      // 10 daqiqagacha aynan turgan admin joyi saqlanadi. Faqat 10 daqiqadan
+      // oshgandagina adminning o'z bosh paneliga qaytamiz; storefrontga emas.
+      final dashboardRoute = ModalRoute.of(context);
       setState(() {
         tab = 0;
         _loadedTabs.add(0);
       });
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        if (!mounted || dashboardRoute == null) return;
+        Navigator.of(context).popUntil((route) => identical(route, dashboardRoute));
       });
     }
   }

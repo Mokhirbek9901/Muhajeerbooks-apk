@@ -1,1 +1,1 @@
-2026-09-15T19:58+09:00 stronger scroll jank fix: persist only when idle, lighter grid images and rendering
+2026-09-15T20:18+09:00 sharpen primary catalog covers: 480px decode + medium filter quality

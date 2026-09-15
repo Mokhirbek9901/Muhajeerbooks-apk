@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'admin_ui.dart';
+import 'admin_resume_session.dart';
 import 'app_state.dart';
 import 'catalog_resume.dart';
 import 'app_state_fixed.dart';
@@ -94,12 +95,57 @@ class MuhajeerBooksApp extends StatelessWidget {
           child: AppUpdateGate(
           child: kIsWeb && Uri.base.fragment.startsWith('admin_session=')
               ? const AdminGatePage()
-              : (backendConfigured
-                    ? const CustomerAuthGate()
-                    : const FastStoreShell()),
+              : _AdminResumeBootstrap(
+                  child: backendConfigured
+                      ? const CustomerAuthGate()
+                      : const FastStoreShell(),
+                ),
           ),
         ),
       ),
     );
   }
+}
+
+
+class _AdminResumeBootstrap extends StatefulWidget {
+  const _AdminResumeBootstrap({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_AdminResumeBootstrap> createState() => _AdminResumeBootstrapState();
+}
+
+class _AdminResumeBootstrapState extends State<_AdminResumeBootstrap> {
+  bool _restoreStarted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_restoreAdminIfNeeded());
+  }
+
+  Future<void> _restoreAdminIfNeeded() async {
+    if (_restoreStarted) return;
+    _restoreStarted = true;
+    final snapshot = await AdminResumeSession.restore();
+    if (!mounted || snapshot == null) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          settings: const RouteSettings(name: 'mb:admin-resume'),
+          builder: (_) => AdminDashboardPage(
+            secret: snapshot.secret,
+            initialTab: snapshot.tab,
+          ),
+        ),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

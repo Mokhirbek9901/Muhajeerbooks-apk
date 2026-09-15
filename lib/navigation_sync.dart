@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'browser_history.dart';
+import 'catalog_resume.dart';
 
 class MuhajeerNavigatorObserver extends NavigatorObserver {
   bool _handlingBrowserPop = false;
@@ -93,6 +94,12 @@ class _BrowserBackSyncState extends State<BrowserBackSync> {
     if (browserHistorySupported) {
       _subscription = browserPopEvents.listen((_) async {
         if (_popInFlight) return;
+        if (CatalogResume.instance.adminPanelActive) {
+          // iOS web-app resume ba'zan popstate yuboradi. Admin ochiq bo'lsa
+          // buni back deb qabul qilmaymiz va guardni qayta tiklaymiz.
+          scheduleMicrotask(restoreBrowserHistoryGuard);
+          return;
+        }
         final navigator = widget.navigatorKey.currentState;
         if (navigator == null) return;
         _popInFlight = true;

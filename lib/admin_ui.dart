@@ -21,6 +21,7 @@ import 'brand.dart';
 import 'design_system.dart';
 import 'finance_admin.dart';
 import 'catalog_resume.dart';
+import 'admin_resume_session.dart';
 
 const _navy = Color(0xFF10213D);
 const _orange = Color(0xFFFF8A00);
@@ -919,15 +920,20 @@ class _AdminGatePageState extends State<AdminGatePage> {
 }
 
 class AdminDashboardPage extends StatefulWidget {
-  const AdminDashboardPage({super.key, required this.secret});
+  const AdminDashboardPage({
+    super.key,
+    required this.secret,
+    this.initialTab = 0,
+  });
   final String secret;
+  final int initialTab;
 
   @override
   State<AdminDashboardPage> createState() => _AdminDashboardPageState();
 }
 
 class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBindingObserver {
-  int tab = 0;
+  late int tab;
   late final _AdminApi api;
   Timer? _liveRefreshTimer;
   final _overviewKey = GlobalKey<_OverviewAdminState>();
@@ -938,6 +944,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
   final _customersKey = GlobalKey<_CustomersAdminState>();
   final Set<int> _loadedTabs = <int>{0};
   DateTime? _awayAt;
+  AppLifecycleState _lastLifecycleState = AppLifecycleState.resumed;
   static const _resumeTimeout = Duration(minutes: 10);
 
   static const titles = [
@@ -964,10 +971,14 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
   @override
   void initState() {
     super.initState();
+    tab = widget.initialTab.clamp(0, titles.length - 1).toInt();
+    _loadedTabs.add(tab);
     api = _AdminApi(widget.secret);
     WidgetsBinding.instance.addObserver(this);
     CatalogResume.instance.setAdminPanelActive(true);
+    unawaited(AdminResumeSession.start(widget.secret, tab: tab));
     _liveRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      unawaited(AdminResumeSession.touch(tab: tab));
       if (!mounted) return;
       switch (tab) {
         case 0:
@@ -989,6 +1000,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
   @override
   void dispose() {
     CatalogResume.instance.setAdminPanelActive(false);
+    if (_lastLifecycleState == AppLifecycleState.resumed) {
+      // Foydalanuvchi adminni ataylab yopsa keyingi refreshda qayta ochilmasin.
+      unawaited(AdminResumeSession.clear());
+    }
     WidgetsBinding.instance.removeObserver(this);
     _liveRefreshTimer?.cancel();
     super.dispose();
@@ -996,10 +1011,12 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _lastLifecycleState = state;
     if (state == AppLifecycleState.hidden ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
       _awayAt ??= DateTime.now();
+      unawaited(AdminResumeSession.touch(tab: tab));
       return;
     }
     if (state != AppLifecycleState.resumed) return;
@@ -1007,6 +1024,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
     final leftAt = _awayAt;
     _awayAt = null;
     if (leftAt == null || DateTime.now().difference(leftAt) <= _resumeTimeout) {
+      unawaited(AdminResumeSession.touch(tab: tab));
       return;
     }
 
@@ -1018,6 +1036,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
         tab = 0;
         _loadedTabs.add(0);
       });
+      unawaited(AdminResumeSession.touch(tab: 0));
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || dashboardRoute == null) return;
         Navigator.of(context).popUntil((route) => identical(route, dashboardRoute));
@@ -1031,6 +1050,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
       tab = value;
       _loadedTabs.add(value);
     });
+    unawaited(AdminResumeSession.touch(tab: value));
   }
 
   @override

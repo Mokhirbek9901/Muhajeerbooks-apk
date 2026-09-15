@@ -1,1 +1,1 @@
-2026-09-15T21:06+09:00 keep admin exactly where it was for 10 minutes, then admin dashboard
+2026-09-15T21:18+09:00 robust admin resume across iPhone backgrounding, web reloads and popstate

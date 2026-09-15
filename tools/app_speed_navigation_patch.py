@@ -80,14 +80,12 @@ store = replace_once(
     'home selector',
 )
 
-store = replace_once(
-    store,
-    """                sliver: SliverToBoxAdapter(child: _StoreHeader(state: state)),
-""",
-    """                sliver: const SliverToBoxAdapter(child: _StoreHeader()),
-""",
-    'home header const',
-)
+old_header_call = 'SliverToBoxAdapter(child: _StoreHeader(state: state))'
+new_header_call = 'const SliverToBoxAdapter(child: _StoreHeader())'
+if new_header_call not in store:
+    if old_header_call not in store:
+        raise SystemExit('home header const: marker not found')
+    store = store.replace(old_header_call, new_header_call, 1)
 
 # Home'ning loading/error shartlari selector snapshotdan o‘qiladi.
 store = replace_once(
@@ -304,19 +302,18 @@ state = replace_once(
     'reset catalog revision',
 )
 
-# Local stock reserve/restore also changes visible stock counts.
-for fn_name in ('_reserveLocalStock', '_restoreLocalStock'):
-    start = state.find(f'  void {fn_name}(')
-    if start < 0:
-        raise SystemExit(f'{fn_name} not found')
-    end = state.find('\n  }', start)
-    if end < 0:
-        raise SystemExit(f'{fn_name} end not found')
-    end += len('\n  }')
-    seg = state[start:end]
-    if '_touchCatalog();' not in seg:
-        seg = seg[:-4] + "    _touchCatalog();\n  }"
-    state = state[:start] + seg + state[end:]
+# Mahalliy order statusi stockni o‘zgartirganda Home'dagi qoldiq ham yangilansin.
+state = replace_once(
+    state,
+    """    _localOrders[index] = old.copyWith(status: status, stockReserved: reserved);
+    await Future.wait([
+""",
+    """    _localOrders[index] = old.copyWith(status: status, stockReserved: reserved);
+    _touchCatalog();
+    await Future.wait([
+""",
+    'local order stock revision',
+)
 
 STORE.write_text(store, encoding='utf-8')
 STATE.write_text(state, encoding='utf-8')

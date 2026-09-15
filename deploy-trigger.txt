@@ -1,2 +1,3 @@
 free-plan-image-optimization-20260915
 cart-ui-fix 2026-09-15
+scroll-jank-fix 2026-09-15T20:07+09:00

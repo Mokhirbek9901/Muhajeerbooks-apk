@@ -1,206 +1,323 @@
 from pathlib import Path
 
-path = Path('lib/store_ui.dart')
-text = path.read_text(encoding='utf-8')
+STORE = Path('lib/store_ui.dart')
+STATE = Path('lib/app_state.dart')
 
-provider_import = "import 'package:provider/provider.dart';\n"
-shared_import = "import 'package:shared_preferences/shared_preferences.dart';\n"
-if shared_import not in text:
-    if provider_import not in text:
-        raise SystemExit('provider import marker not found')
-    text = text.replace(provider_import, provider_import + shared_import, 1)
 
-if 'class _PersistentScrollController extends ScrollController' not in text:
-    marker = "String won(int value) => '₩${_money.format(value)}';\n"
-    helper = r'''
+def replace_once(text: str, old: str, new: str, label: str) -> str:
+    if new in text:
+        return text
+    if old not in text:
+        raise SystemExit(f'{label}: marker not found')
+    return text.replace(old, new, 1)
 
-final Map<String, double> _scrollMemory = <String, double>{};
 
-/// iPhone/Safari browser-back yoki web sahifa qayta tiklanganda foydalanuvchini
-/// ro‘yxat boshiga tashlamaydi. Xotirada darhol, SharedPreferences'da esa
-/// reload'lar orasida scroll joyini saqlaydi.
-class _PersistentScrollController extends ScrollController {
-  _PersistentScrollController(this.storageKey)
-      : super(initialScrollOffset: _scrollMemory[storageKey] ?? 0) {
-    addListener(_capture);
-    unawaited(_loadSaved());
-  }
+store = STORE.read_text(encoding='utf-8')
+state = STATE.read_text(encoding='utf-8')
 
-  final String storageKey;
-  Timer? _saveTimer;
-  double? _pendingRestore;
-  int _restoreAttempts = 0;
-  bool _restoring = false;
-  bool _userMoved = false;
-  bool _disposed = false;
-
-  void _capture() {
-    if (_disposed || _restoring || !hasClients) return;
-    final value = offset < 0 ? 0.0 : offset;
-    _userMoved = true;
-    _scrollMemory[storageKey] = value;
-    _saveTimer?.cancel();
-    _saveTimer = Timer(const Duration(milliseconds: 90), () {
+# 1) Scroll paytida har frame Timer yaratib/o‘chirishni to‘xtatamiz.
+#    Bir vaqtning o‘zida faqat bitta kechiktirilgan disk yozuvi bo‘ladi.
+store = replace_once(
+    store,
+    """    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(milliseconds: 500), () {
       unawaited(_write(value));
     });
-  }
-
-  Future<void> _write(double value) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setDouble('scroll:$storageKey', value);
-    } catch (_) {
-      // Scroll xotirasi asosiy ilovani bloklamaydi.
-    }
-  }
-
-  Future<void> _loadSaved() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getDouble('scroll:$storageKey');
-      if (_disposed || _userMoved || saved == null || saved <= 0) return;
-      _scrollMemory[storageKey] = saved;
-      _pendingRestore = saved;
-      _scheduleRestore();
-    } catch (_) {
-      // Browser storage ishlamasa in-memory holatning o‘zi ishlaydi.
-    }
-  }
-
-  @override
-  void attach(ScrollPosition position) {
-    super.attach(position);
-    _scheduleRestore();
-  }
-
-  void _scheduleRestore() {
-    if (_disposed || _pendingRestore == null) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_disposed || _pendingRestore == null) return;
-      if (!hasClients || !position.hasContentDimensions) {
-        _retryRestore();
-        return;
-      }
-
-      final target = _pendingRestore!;
-      final max = position.maxScrollExtent;
-      // Katalog hali fon rejimida kelayotgan bo‘lsa, kontent yetarlicha
-      // uzunlashguncha tepaga clamp qilib yubormasdan biroz kutamiz.
-      if (max + 4 < target && _restoreAttempts < 30) {
-        _retryRestore();
-        return;
-      }
-
-      _restoring = true;
-      jumpTo(target.clamp(0.0, max).toDouble());
-      _restoring = false;
-      _pendingRestore = null;
-      _restoreAttempts = 0;
+""",
+    """    if (_saveTimer != null) return;
+    _saveTimer = Timer(const Duration(milliseconds: 900), () {
+      _saveTimer = null;
+      final latest = _scrollMemory[storageKey] ?? value;
+      unawaited(_write(latest));
     });
-  }
+""",
+    'scroll write throttle',
+)
 
-  void _retryRestore() {
-    if (_disposed || _pendingRestore == null || _restoreAttempts++ >= 30) {
-      return;
-    }
-    Future<void>.delayed(
-      const Duration(milliseconds: 100),
-      _scheduleRestore,
+# 2) Detailga bosilgan lahzada katta original rasmni decode/precache qilish
+#    navigatsiya animatsiyasi bilan raqobat qilmasin.
+store = replace_once(
+    store,
+    """Future<void> _openBookDetail(BuildContext context, Book book) async {
+  if (book.imageUrl.trim().isNotEmpty) {
+    unawaited(
+      precacheImage(NetworkImage(book.imageUrl), context).catchError((_) {}),
     );
   }
+  await Navigator.push<void>(
+""",
+    """Future<void> _openBookDetail(BuildContext context, Book book) async {
+  await Navigator.push<void>(
+""",
+    'remove eager detail precache',
+)
+
+# 3) Katalogga aloqasi bo‘lmagan cart/favorite/profile notify'lari butun Home
+#    sliver daraxtini qayta build qilmasin. Faqat katalog, loading yoki error
+#    o‘zgarsa HomePage qayta build bo‘ladi.
+store = replace_once(
+    store,
+    """  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final categories = <String>{
+""",
+    """  @override
+  Widget build(BuildContext context) {
+    final homeState = context.select<
+      AppState,
+      ({int catalogRevision, bool loading, String? error})
+    >(
+      (s) => (
+        catalogRevision: s.catalogRevision,
+        loading: s.loading,
+        error: s.error,
+      ),
+    );
+    final state = context.read<AppState>();
+    final categories = <String>{
+""",
+    'home selector',
+)
+
+store = replace_once(
+    store,
+    """                sliver: SliverToBoxAdapter(child: _StoreHeader(state: state)),
+""",
+    """                sliver: const SliverToBoxAdapter(child: _StoreHeader()),
+""",
+    'home header const',
+)
+
+# Home'ning loading/error shartlari selector snapshotdan o‘qiladi.
+store = replace_once(
+    store,
+    """            if (state.error != null)
+""",
+    """            if (homeState.error != null)
+""",
+    'home error selector',
+)
+store = replace_once(
+    store,
+    """            if (state.loading && state.books.isEmpty)
+""",
+    """            if (homeState.loading && state.books.isEmpty)
+""",
+    'home loading selector',
+)
+
+# Header o‘zi faqat unread notification sonini tinglaydi.
+store = replace_once(
+    store,
+    """class _StoreHeader extends StatelessWidget {
+  const _StoreHeader({required this.state});
+  final AppState state;
 
   @override
-  void dispose() {
-    _disposed = true;
-    _saveTimer?.cancel();
-    if (hasClients) {
-      final value = offset < 0 ? 0.0 : offset;
-      _scrollMemory[storageKey] = value;
-      unawaited(_write(value));
+  Widget build(BuildContext context) {
+    return Container(
+""",
+    """class _StoreHeader extends StatelessWidget {
+  const _StoreHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final unreadCount = context.select<AppState, int>(
+      (s) => s.unreadCustomerNoticeCount,
+    );
+    return Container(
+""",
+    'header local selector',
+)
+store = store.replace('state.unreadCustomerNoticeCount', 'unreadCount')
+
+# 4) Grid preview rasmlarini telefon uchun ortiqcha katta decode qilmaymiz.
+store = store.replace('cacheWidth: 420,', 'cacheWidth: 360,')
+
+# 5) Har bir grid kartasidagi blur shadow + antiAlias scroll GPU xarajatini
+#    oshiradi. Border saqlanadi, clipping esa hardEdge bo‘ladi.
+book_start = store.find('class BookCard extends StatelessWidget {')
+book_end = store.find('class _BookCover extends StatelessWidget {', book_start)
+if book_start < 0 or book_end < 0:
+    raise SystemExit('BookCard segment not found')
+book = store[book_start:book_end]
+shadow = """        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A173F4A),
+            blurRadius: 8,
+            offset: Offset(0, 3),
+          ),
+        ],
+"""
+if shadow in book:
+    book = book.replace(shadow, '', 1)
+book = book.replace('clipBehavior: Clip.antiAlias,', 'clipBehavior: Clip.hardEdge,', 1)
+store = store[:book_start] + book + store[book_end:]
+
+# 6) HomePage uchun arzon katalog revision signali.
+state = replace_once(
+    state,
+    """  final Set<String> _restockSubscriptions = {};
+  String _catalogCursor = '1970-01-01T00:00:00Z';
+""",
+    """  final Set<String> _restockSubscriptions = {};
+  int _catalogRevision = 0;
+  int get catalogRevision => _catalogRevision;
+  void _touchCatalog() => _catalogRevision++;
+  String _catalogCursor = '1970-01-01T00:00:00Z';
+""",
+    'catalog revision field',
+)
+
+# Initial cached/seed catalog becomes visible.
+state = replace_once(
+    state,
+    """    loading = false;
+    notifyListeners();
+
+    // Qolgan lokal holat storefront allaqachon ko‘ringandan keyin yuklanadi.
+""",
+    """    _touchCatalog();
+    loading = false;
+    notifyListeners();
+
+    // Qolgan lokal holat storefront allaqachon ko‘ringandan keyin yuklanadi.
+""",
+    'initial catalog revision',
+)
+
+# Quiet delta sync.
+state = replace_once(
+    state,
+    """      _books
+        ..clear()
+        ..addAll(merged);
+      _sanitizeCart();
+      notifyListeners();
+""",
+    """      _books
+        ..clear()
+        ..addAll(merged);
+      _sanitizeCart();
+      _touchCatalog();
+      notifyListeners();
+""",
+    'quiet catalog revision',
+)
+
+# Local catalog init.
+needle = "Future<void> _initializeLocalCatalog() async {"
+start = state.find(needle)
+end = state.find("\n  Future<List<Book>> _loadTelegramSeed()", start)
+if start < 0 or end < 0:
+    raise SystemExit('local catalog init segment not found')
+seg = state[start:end]
+old_finally = """    } finally {
+      loading = false;
+      notifyListeners();
     }
-    removeListener(_capture);
-    super.dispose();
-  }
-}
-'''
-    if marker not in text:
-        raise SystemExit('money marker not found')
-    text = text.replace(marker, marker + helper, 1)
-
-old_home = "final ScrollController _scrollController = ScrollController();"
-new_home = "final ScrollController _scrollController = _PersistentScrollController('home');"
-if old_home in text:
-    text = text.replace(old_home, new_home, 1)
-elif new_home not in text:
-    raise SystemExit('home controller marker not found')
-
-# Category/publisher kitob ro‘yxatidan detailga kirib qaytganda ham ayni joyda
-# qolishi uchun GridView'ga alohida persistent controller qo‘shamiz.
-old_grid = """          : GridView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-              itemCount: books.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: .57,
-              ),
-              itemBuilder: (_, i) => BookCard(book: books[i]),
-            ),
 """
-new_grid = """          : _PersistentBookGrid(
-              storageKey: 'browse:${publisher ?? category}',
-              books: books,
-            ),
+new_finally = """    } finally {
+      _touchCatalog();
+      loading = false;
+      notifyListeners();
+    }
 """
-if old_grid in text:
-    text = text.replace(old_grid, new_grid, 1)
-elif "storageKey: 'browse:${publisher ?? category}'" not in text:
-    raise SystemExit('category grid marker not found')
+if new_finally not in seg:
+    if old_finally not in seg:
+        raise SystemExit('local catalog finally marker not found')
+    seg = seg.replace(old_finally, new_finally, 1)
+state = state[:start] + seg + state[end:]
 
-if 'class _PersistentBookGrid extends StatefulWidget' not in text:
-    marker = "\nIconData _categoryIcon(String value) {"
-    widget = r'''
+# Manual/full refresh.
+start = state.find('  Future<void> refreshBooks({bool includeInactive = false}) async {')
+end = state.find('\n  List<CartLine> get cartLines', start)
+if start < 0 or end < 0:
+    raise SystemExit('refreshBooks segment not found')
+seg = state[start:end]
+if new_finally not in seg:
+    if old_finally not in seg:
+        raise SystemExit('refreshBooks finally marker not found')
+    seg = seg.replace(old_finally, new_finally, 1)
+state = state[:start] + seg + state[end:]
 
-class _PersistentBookGrid extends StatefulWidget {
-  const _PersistentBookGrid({required this.storageKey, required this.books});
+# Local admin mutations.
+state = replace_once(
+    state,
+    """    if (index == -1) {
+      _books.insert(0, saved);
+    } else {
+      _books[index] = saved;
+    }
+    await _local.saveBooks(_books);
+""",
+    """    if (index == -1) {
+      _books.insert(0, saved);
+    } else {
+      _books[index] = saved;
+    }
+    _touchCatalog();
+    await _local.saveBooks(_books);
+""",
+    'saveBook revision',
+)
+state = replace_once(
+    state,
+    """    _books.removeWhere((b) => b.id == book.id);
+    _cart.remove(book.id);
+""",
+    """    _books.removeWhere((b) => b.id == book.id);
+    _touchCatalog();
+    _cart.remove(book.id);
+""",
+    'deleteBook revision',
+)
+state = replace_once(
+    state,
+    """    for (var i = 0; i < _books.length; i++) {
+      _books[i] = _books[i].copyWith(discountPercent: safe);
+    }
+    await _local.saveBooks(_books);
+""",
+    """    for (var i = 0; i < _books.length; i++) {
+      _books[i] = _books[i].copyWith(discountPercent: safe);
+    }
+    _touchCatalog();
+    await _local.saveBooks(_books);
+""",
+    'discount revision',
+)
+state = replace_once(
+    state,
+    """    _books
+      ..clear()
+      ..addAll(await _loadTelegramSeed());
+    _cart.clear();
+""",
+    """    _books
+      ..clear()
+      ..addAll(await _loadTelegramSeed());
+    _touchCatalog();
+    _cart.clear();
+""",
+    'reset catalog revision',
+)
 
-  final String storageKey;
-  final List<Book> books;
+# Local stock reserve/restore also changes visible stock counts.
+for fn_name in ('_reserveLocalStock', '_restoreLocalStock'):
+    start = state.find(f'  void {fn_name}(')
+    if start < 0:
+        raise SystemExit(f'{fn_name} not found')
+    end = state.find('\n  }', start)
+    if end < 0:
+        raise SystemExit(f'{fn_name} end not found')
+    end += len('\n  }')
+    seg = state[start:end]
+    if '_touchCatalog();' not in seg:
+        seg = seg[:-4] + "    _touchCatalog();\n  }"
+    state = state[:start] + seg + state[end:]
 
-  @override
-  State<_PersistentBookGrid> createState() => _PersistentBookGridState();
-}
-
-class _PersistentBookGridState extends State<_PersistentBookGrid> {
-  late final ScrollController _controller =
-      _PersistentScrollController(widget.storageKey);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => GridView.builder(
-        controller: _controller,
-        key: PageStorageKey<String>('grid:${widget.storageKey}'),
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-        itemCount: widget.books.length,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: .57,
-        ),
-        itemBuilder: (_, i) => BookCard(book: widget.books[i]),
-      );
-}
-'''
-    if marker not in text:
-        raise SystemExit('category icon marker not found')
-    text = text.replace(marker, widget + marker, 1)
-
-path.write_text(text, encoding='utf-8')
-print('Persistent iPhone/web scroll restoration applied.')
+STORE.write_text(store, encoding='utf-8')
+STATE.write_text(state, encoding='utf-8')
+print('Storefront performance hardening applied.')

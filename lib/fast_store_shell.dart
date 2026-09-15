@@ -68,7 +68,7 @@ class _FastStoreShellState extends State<FastStoreShell> {
   void _resetAfterAbsence() {
     if (!mounted) return;
 
-    // 30+ soniya tashqarida qolinsa, ichki detail/checkout route'larini yopib,
+    // 1+ daqiqa tashqarida qolinsa, ichki detail/checkout route'larini yopib,
     // do'konni Bosh sahifaning tepasidan boshlaymiz.
     setState(() {
       index = 0;

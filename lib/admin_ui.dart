@@ -925,7 +925,7 @@ class AdminDashboardPage extends StatefulWidget {
   State<AdminDashboardPage> createState() => _AdminDashboardPageState();
 }
 
-class _AdminDashboardPageState extends State<AdminDashboardPage> {
+class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBindingObserver {
   int tab = 0;
   late final _AdminApi api;
   Timer? _liveRefreshTimer;
@@ -936,6 +936,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   final _salesKey = GlobalKey<_SalesAdminState>();
   final _customersKey = GlobalKey<_CustomersAdminState>();
   final Set<int> _loadedTabs = <int>{0};
+  DateTime? _awayAt;
+  static const _resumeTimeout = Duration(minutes: 10);
 
   static const titles = [
     'Boshqaruv markazi',
@@ -962,6 +964,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   void initState() {
     super.initState();
     api = _AdminApi(widget.secret);
+    WidgetsBinding.instance.addObserver(this);
     _liveRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       if (!mounted) return;
       switch (tab) {
@@ -983,8 +986,37 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _liveRefreshTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _awayAt ??= DateTime.now();
+      return;
+    }
+    if (state != AppLifecycleState.resumed) return;
+
+    final leftAt = _awayAt;
+    _awayAt = null;
+    if (leftAt == null || DateTime.now().difference(leftAt) <= _resumeTimeout) {
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        tab = 0;
+        _loadedTabs.add(0);
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      });
+    }
   }
 
   void _selectTab(int value) {

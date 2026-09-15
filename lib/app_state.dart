@@ -247,6 +247,7 @@ class ShopOrder {
     required this.total,
     required this.status,
     this.source = 'app',
+    this.displayOrderNumber = 0,
     required this.items,
     required this.createdAt,
     this.paymentProofPath = '',
@@ -264,6 +265,7 @@ class ShopOrder {
   final int total;
   final String status;
   final String source;
+  final int displayOrderNumber;
   final List<Map<String, dynamic>> items;
   final DateTime createdAt;
   final String paymentProofPath;
@@ -292,6 +294,7 @@ class ShopOrder {
     total: (map['total'] as num?)?.toInt() ?? 0,
     status: (map['status'] ?? 'new').toString(),
     source: (map['source'] ?? 'app').toString(),
+    displayOrderNumber: (map['display_order_number'] as num?)?.toInt() ?? 0,
     items: ((map['items'] as List?) ?? const [])
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList(),
@@ -316,6 +319,7 @@ class ShopOrder {
     'total': total,
     'status': status,
     'source': source,
+    'display_order_number': displayOrderNumber,
     'items': items,
     'created_at': createdAt.toIso8601String(),
     'payment_proof_path': paymentProofPath,
@@ -340,6 +344,7 @@ class ShopOrder {
     total: total,
     status: status ?? this.status,
     source: source ?? this.source,
+    displayOrderNumber: displayOrderNumber,
     items: items,
     createdAt: createdAt,
     paymentProofPath: paymentProofPath ?? this.paymentProofPath,

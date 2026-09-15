@@ -2147,17 +2147,13 @@ class _ShippingQueueAdminState extends State<_ShippingQueueAdmin> {
               final address = (row['address'] ?? '—').toString();
               final books = (row['books'] ?? '• Kitob ma’lumoti yo‘q')
                   .toString();
-              final rawOrderNumber = int.tryParse(
-                (row['order_number'] ?? '').toString(),
+              final displayOrderNumberValue = int.tryParse(
+                (row['display_order_number'] ?? '').toString(),
               );
-              final normalizedOrderNumber = rawOrderNumber == null
-                  ? null
-                  : (rawOrderNumber >= 9000000000000
-                        ? rawOrderNumber - 9000000000000
-                        : rawOrderNumber);
-              final displayOrderNumber = normalizedOrderNumber == null
+              final displayOrderNumber = displayOrderNumberValue == null ||
+                      displayOrderNumberValue <= 0
                   ? ''
-                  : normalizedOrderNumber.toString().padLeft(4, '0');
+                  : displayOrderNumberValue.toString().padLeft(4, '0');
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: AppSurface(
@@ -4487,7 +4483,7 @@ class _ProfessionalOrderCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  '№ ${order.id}',
+                  "№ ${order.displayOrderNumber > 0 ? order.displayOrderNumber.toString().padLeft(4, '0') : order.id}",
                   style: const TextStyle(fontSize: 11, color: Colors.black45),
                 ),
               ),

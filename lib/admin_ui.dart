@@ -2147,7 +2147,17 @@ class _ShippingQueueAdminState extends State<_ShippingQueueAdmin> {
               final address = (row['address'] ?? '—').toString();
               final books = (row['books'] ?? '• Kitob ma’lumoti yo‘q')
                   .toString();
-              final orderNumber = row['order_number'];
+              final rawOrderNumber = int.tryParse(
+                (row['order_number'] ?? '').toString(),
+              );
+              final normalizedOrderNumber = rawOrderNumber == null
+                  ? null
+                  : (rawOrderNumber >= 9000000000000
+                        ? rawOrderNumber - 9000000000000
+                        : rawOrderNumber);
+              final displayOrderNumber = normalizedOrderNumber == null
+                  ? ''
+                  : normalizedOrderNumber.toString().padLeft(4, '0');
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: AppSurface(
@@ -2182,7 +2192,7 @@ class _ShippingQueueAdminState extends State<_ShippingQueueAdmin> {
                                   ),
                                 ),
                                 Text(
-                                  '${sourceLabel(source)}${orderNumber == null ? '' : ' · №$orderNumber'}',
+                                  '${sourceLabel(source)}${displayOrderNumber.isEmpty ? '' : ' · №$displayOrderNumber'}',
                                   style: const TextStyle(
                                     fontSize: 11.5,
                                     color: AppColors.muted,

@@ -1403,15 +1403,8 @@ class _RegistanNightPainter extends CustomPainter {
     dome(size.width*.43,size.height*.46,size.width*.065);
     dome(size.width*.82,size.height*.48,size.width*.055);
 
-    final ground=Paint()..color=const Color(0xFF0A655C).withValues(alpha:.48);
-    canvas.drawRect(Rect.fromLTWH(0,baseY,size.width,size.height-baseY),ground);
-    final reflection=Paint()
-      ..color=const Color(0xFFFFD47A).withValues(alpha:.10)
-      ..strokeWidth=1;
-    for(int i=0;i<12;i++){
-      final y=baseY+(i+1)*(size.height-baseY)/14;
-      canvas.drawLine(Offset(size.width*.34,y),Offset(size.width*.92,y),reflection);
-    }
+    // Keep the lower part of the hero continuous and smooth.
+    // No separate ground rectangle or reflection lines: they caused visible seams/banding.
   }
 
   @override

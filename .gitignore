@@ -47,3 +47,8 @@ credentials*.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Android upload signing material
+*.jks
+*.keystore
+android/key.properties

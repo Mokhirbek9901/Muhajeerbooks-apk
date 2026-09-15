@@ -3891,6 +3891,35 @@ class ProfilePage extends StatelessWidget {
                 ListTile(
                   minTileHeight: 68,
                   leading: const _ProfileIcon(
+                    icon: Icons.storefront_outlined,
+                  ),
+                  title: const Text(
+                    'Do‘kon Instagram',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  subtitle: const Text('@muhajeerbooks'),
+                  trailing: const Icon(Icons.open_in_new_rounded),
+                  onTap: () async {
+                    final uri = Uri.parse(
+                      'https://www.instagram.com/muhajeerbooks?stkn=dmdpNHhuM3ZsN3U5',
+                    );
+                    final opened = await launchUrl(
+                      uri,
+                      mode: LaunchMode.externalApplication,
+                    );
+                    if (!opened && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Do‘kon Instagram ochilmadi.'),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                const Divider(),
+                ListTile(
+                  minTileHeight: 68,
+                  leading: const _ProfileIcon(
                     icon: Icons.camera_alt_outlined,
                   ),
                   title: const Text(

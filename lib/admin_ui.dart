@@ -4483,7 +4483,9 @@ class _ProfessionalOrderCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  "№ ${order.displayOrderNumber > 0 ? order.displayOrderNumber.toString().padLeft(4, '0') : order.id}",
+                  order.status == 'cancelled'
+                      ? ''
+                      : "№ ${order.displayOrderNumber > 0 ? order.displayOrderNumber.toString().padLeft(4, '0') : order.id}",
                   style: const TextStyle(fontSize: 11, color: Colors.black45),
                 ),
               ),

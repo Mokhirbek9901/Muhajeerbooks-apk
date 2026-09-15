@@ -15,18 +15,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Apply speed and navigation patch
-        run: python3 tools/app_speed_navigation_patch.py
-      - name: Apply stronger scroll jank fix
+      - name: Apply storefront rendering patch
         run: python3 tools/scroll_jank_fix.py
       - name: Commit source update
         run: |
           git config user.name "Mokhirbek9901"
           git config user.email "ismoilovmokhirbek@gmail.com"
-          git add lib/app_state.dart lib/store_ui.dart lib/catalog_resume.dart lib/admin_ui.dart lib/fast_store_shell.dart pubspec.yaml
+          git add lib/store_ui.dart
           if git diff --cached --quiet; then
             echo "No changes to commit"
             exit 0
           fi
-          git commit -m "Eliminate storefront scroll jank"
+          git commit -m "Sharpen catalog covers while keeping smooth scroll"
           git push origin main

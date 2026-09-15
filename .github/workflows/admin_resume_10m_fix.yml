@@ -16,7 +16,20 @@ jobs:
         with:
           fetch-depth: 0
       - name: Apply admin resume fix
-        run: python3 tools/admin_resume_10m_fix.py
+        run: |
+          python3 tools/admin_resume_10m_fix.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/admin_resume_session.dart')
+          s = p.read_text(encoding='utf-8').replace('tab.clamp(0, 7)', 'tab.clamp(0, 7).toInt()')
+          p.write_text(s, encoding='utf-8')
+          p = Path('lib/admin_ui.dart')
+          s = p.read_text(encoding='utf-8').replace(
+              'tab = widget.initialTab.clamp(0, titles.length - 1);',
+              'tab = widget.initialTab.clamp(0, titles.length - 1).toInt();',
+          )
+          p.write_text(s, encoding='utf-8')
+          PY
       - name: Commit source update
         run: |
           git config user.name "Mokhirbek9901"

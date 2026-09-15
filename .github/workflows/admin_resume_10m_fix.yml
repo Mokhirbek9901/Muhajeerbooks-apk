@@ -21,10 +21,10 @@ jobs:
         run: |
           git config user.name "Mokhirbek9901"
           git config user.email "ismoilovmokhirbek@gmail.com"
-          git add lib/admin_ui.dart lib/catalog_resume.dart lib/fast_store_shell.dart
+          git add lib/admin_ui.dart lib/catalog_resume.dart lib/navigation_sync.dart lib/main.dart lib/admin_resume_session.dart
           if git diff --cached --quiet; then
             echo "No changes to commit"
             exit 0
           fi
-          git commit -m "Keep admin panel position for ten minutes"
+          git commit -m "Make admin resume survive iPhone background reloads"
           git push origin main

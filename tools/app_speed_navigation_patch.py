@@ -2,6 +2,9 @@ from pathlib import Path
 
 STORE = Path('lib/store_ui.dart')
 STATE = Path('lib/app_state.dart')
+CATALOG = Path('lib/catalog_resume.dart')
+ADMIN = Path('lib/admin_ui.dart')
+FAST_SHELL = Path('lib/fast_store_shell.dart')
 
 
 def replace_once(text: str, old: str, new: str, label: str) -> str:
@@ -14,6 +17,9 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
 
 store = STORE.read_text(encoding='utf-8')
 state = STATE.read_text(encoding='utf-8')
+catalog = CATALOG.read_text(encoding='utf-8')
+admin = ADMIN.read_text(encoding='utf-8')
+fast_shell = FAST_SHELL.read_text(encoding='utf-8')
 
 # 1) Scroll paytida har frame Timer yaratib/o‘chirishni to‘xtatamiz.
 #    Bir vaqtning o‘zida faqat bitta kechiktirilgan disk yozuvi bo‘ladi.
@@ -87,7 +93,6 @@ if new_header_call not in store:
         raise SystemExit('home header const: marker not found')
     store = store.replace(old_header_call, new_header_call, 1)
 
-# Home'ning loading/error shartlari selector snapshotdan o‘qiladi.
 store = replace_once(
     store,
     """            if (state.error != null)
@@ -105,7 +110,6 @@ store = replace_once(
     'home loading selector',
 )
 
-# Header o‘zi faqat unread notification sonini tinglaydi.
 store = replace_once(
     store,
     """class _StoreHeader extends StatelessWidget {
@@ -168,7 +172,6 @@ state = replace_once(
     'catalog revision field',
 )
 
-# Initial cached/seed catalog becomes visible.
 state = replace_once(
     state,
     """    loading = false;
@@ -185,7 +188,6 @@ state = replace_once(
     'initial catalog revision',
 )
 
-# Quiet delta sync.
 state = replace_once(
     state,
     """      _books
@@ -204,7 +206,6 @@ state = replace_once(
     'quiet catalog revision',
 )
 
-# Local catalog init.
 needle = "Future<void> _initializeLocalCatalog() async {"
 start = state.find(needle)
 end = state.find("\n  Future<List<Book>> _loadTelegramSeed()", start)
@@ -228,7 +229,6 @@ if new_finally not in seg:
     seg = seg.replace(old_finally, new_finally, 1)
 state = state[:start] + seg + state[end:]
 
-# Manual/full refresh.
 start = state.find('  Future<void> refreshBooks({bool includeInactive = false}) async {')
 end = state.find('\n  List<CartLine> get cartLines', start)
 if start < 0 or end < 0:
@@ -240,7 +240,6 @@ if new_finally not in seg:
     seg = seg.replace(old_finally, new_finally, 1)
 state = state[:start] + seg + state[end:]
 
-# Local admin mutations.
 state = replace_once(
     state,
     """    if (index == -1) {
@@ -301,8 +300,6 @@ state = replace_once(
 """,
     'reset catalog revision',
 )
-
-# Mahalliy order statusi stockni o‘zgartirganda Home'dagi qoldiq ham yangilansin.
 state = replace_once(
     state,
     """    _localOrders[index] = old.copyWith(status: status, stockReserved: reserved);
@@ -315,6 +312,106 @@ state = replace_once(
     'local order stock revision',
 )
 
+# 7) Mijoz 1 daqiqagacha tashqarida bo‘lsa ayni joyida qoladi.
+catalog = replace_once(
+    catalog,
+    'static const timeout = Duration(seconds: 30);',
+    'static const timeout = Duration(minutes: 1);',
+    'catalog resume timeout',
+)
+fast_shell = fast_shell.replace(
+    '// 30+ soniya tashqarida qolinsa, ichki detail/checkout route\'larini yopib,',
+    '// 1+ daqiqa tashqarida qolinsa, ichki detail/checkout route\'larini yopib,',
+)
+
+# 8) Admin panel 10 daqiqagacha backgrounddan ayni joyiga qaytadi.
+#    10 daqiqadan oshsa xavfsiz va tushunarli tarzda admin bosh sahifasiga qaytadi.
+admin = replace_once(
+    admin,
+    'class _AdminDashboardPageState extends State<AdminDashboardPage> {',
+    'class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBindingObserver {',
+    'admin lifecycle observer class',
+)
+admin = replace_once(
+    admin,
+    """  final Set<int> _loadedTabs = <int>{0};
+
+  static const titles = [
+""",
+    """  final Set<int> _loadedTabs = <int>{0};
+  DateTime? _awayAt;
+  static const _resumeTimeout = Duration(minutes: 10);
+
+  static const titles = [
+""",
+    'admin lifecycle fields',
+)
+admin = replace_once(
+    admin,
+    """  void initState() {
+    super.initState();
+    api = _AdminApi(widget.secret);
+    _liveRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+""",
+    """  void initState() {
+    super.initState();
+    api = _AdminApi(widget.secret);
+    WidgetsBinding.instance.addObserver(this);
+    _liveRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+""",
+    'admin add lifecycle observer',
+)
+admin = replace_once(
+    admin,
+    """  void dispose() {
+    _liveRefreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _selectTab(int value) {
+""",
+    """  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _liveRefreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _awayAt ??= DateTime.now();
+      return;
+    }
+    if (state != AppLifecycleState.resumed) return;
+
+    final leftAt = _awayAt;
+    _awayAt = null;
+    if (leftAt == null || DateTime.now().difference(leftAt) <= _resumeTimeout) {
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        tab = 0;
+        _loadedTabs.add(0);
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      });
+    }
+  }
+
+  void _selectTab(int value) {
+""",
+    'admin lifecycle reset',
+)
+
 STORE.write_text(store, encoding='utf-8')
 STATE.write_text(state, encoding='utf-8')
-print('Storefront performance hardening applied.')
+CATALOG.write_text(catalog, encoding='utf-8')
+ADMIN.write_text(admin, encoding='utf-8')
+FAST_SHELL.write_text(fast_shell, encoding='utf-8')
+print('Storefront performance and resume behavior hardening applied.')

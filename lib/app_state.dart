@@ -358,16 +358,31 @@ class BackendService {
       'created_at';
 
   Future<List<Book>> fetchBooks({bool includeInactive = false}) async {
-    final data = includeInactive
-        ? await client
-              .from('books')
-              .select(_storefrontBookColumns)
-              .order('created_at', ascending: false)
-        : await client
-              .from('books')
-              .select(_storefrontBookColumns)
-              .eq('is_active', true)
-              .order('created_at', ascending: false);
+    // Public customers use the same read-only RPC for full and delta sync.
+    // Direct table reads are reserved for the authenticated admin path.
+    if (!includeInactive) {
+      final snapshot = await fetchCatalogDelta('1970-01-01T00:00:00Z');
+      final rows = snapshot['upserts'];
+      if (rows is! List ||
+          (snapshot['server_time'] ?? '').toString().trim().isEmpty) {
+        throw StateError('Katalog javobi noto‘g‘ri. Qayta urinib ko‘ring.');
+      }
+      final books = rows
+          .map((e) => Book.fromMap(Map<String, dynamic>.from(e as Map)))
+          .where((book) => book.id.isNotEmpty && book.isActive)
+          .toList();
+      books.sort((a, b) {
+        final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bTime.compareTo(aTime);
+      });
+      return books;
+    }
+
+    final data = await client
+        .from('books')
+        .select(_storefrontBookColumns)
+        .order('created_at', ascending: false);
     return (data as List)
         .map((e) => Book.fromMap(Map<String, dynamic>.from(e as Map)))
         .toList();

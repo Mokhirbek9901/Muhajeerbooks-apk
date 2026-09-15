@@ -3888,6 +3888,35 @@ class ProfilePage extends StatelessWidget {
                   ),
                 ),
                 const Divider(),
+                ListTile(
+                  minTileHeight: 68,
+                  leading: const _ProfileIcon(
+                    icon: Icons.camera_alt_outlined,
+                  ),
+                  title: const Text(
+                    'Admin Instagram',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  subtitle: const Text('@bek_ismoill'),
+                  trailing: const Icon(Icons.open_in_new_rounded),
+                  onTap: () async {
+                    final uri = Uri.parse(
+                      'https://www.instagram.com/bek_ismoill?stkn=MW9wbWl0djY5OGM1bA==',
+                    );
+                    final opened = await launchUrl(
+                      uri,
+                      mode: LaunchMode.externalApplication,
+                    );
+                    if (!opened && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Admin Instagram ochilmadi.'),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                const Divider(),
               ],
             ),
           ),

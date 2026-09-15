@@ -21,7 +21,12 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           p = Path('lib/admin_resume_session.dart')
-          s = p.read_text(encoding='utf-8').replace('tab.clamp(0, 7)', 'tab.clamp(0, 7).toInt()')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('tab.clamp(0, 7)', 'tab.clamp(0, 7).toInt()')
+          s = s.replace(
+              '(prefs.getInt(_tabKey) ?? 0).clamp(0, 7);',
+              '(prefs.getInt(_tabKey) ?? 0).clamp(0, 7).toInt();',
+          )
           p.write_text(s, encoding='utf-8')
           p = Path('lib/admin_ui.dart')
           s = p.read_text(encoding='utf-8').replace(

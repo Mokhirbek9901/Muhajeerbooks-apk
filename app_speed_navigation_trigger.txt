@@ -1,1 +1,1 @@
-2026-09-15T19:16+09:00 resume behavior: customer reset after 1 minute, admin reset after 10 minutes
+2026-09-15T19:20+09:00 verify patched build: performance + 1-minute customer + 10-minute admin resume

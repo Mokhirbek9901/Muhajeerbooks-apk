@@ -1871,6 +1871,8 @@ class _ShippingQueueAdminState extends State<_ShippingQueueAdmin> {
         return 'Telegram bot';
       case 'app':
         return 'Ilova / Web';
+      case 'instagram':
+        return 'Instagram';
       case 'manual':
         return 'Qo‘lda';
       default:
@@ -1884,6 +1886,8 @@ class _ShippingQueueAdminState extends State<_ShippingQueueAdmin> {
         return Icons.send_rounded;
       case 'app':
         return Icons.phone_iphone_rounded;
+      case 'instagram':
+        return Icons.camera_alt_outlined;
       case 'manual':
         return Icons.edit_note_rounded;
       default:
@@ -2109,6 +2113,11 @@ class _ShippingQueueAdminState extends State<_ShippingQueueAdmin> {
                 label: const Text('Ilova'),
                 selected: filter == 'app',
                 onSelected: (_) => setState(() => filter = 'app'),
+              ),
+              ChoiceChip(
+                label: const Text('Instagram'),
+                selected: filter == 'instagram',
+                onSelected: (_) => setState(() => filter = 'instagram'),
               ),
               ChoiceChip(
                 label: const Text('Qo‘lda'),

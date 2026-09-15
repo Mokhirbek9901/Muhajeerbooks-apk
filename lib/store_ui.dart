@@ -1164,11 +1164,8 @@ class _DeliveryPromoCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.asset(
-                    'assets/images/registan_illustrated.webp',
-                    fit: BoxFit.cover,
-                    alignment: Alignment.center,
-                    filterQuality: FilterQuality.high,
+                  const CustomPaint(
+                    painter: _RegistanNightPainter(),
                   ),
                   const DecoratedBox(
                     decoration: BoxDecoration(
@@ -1339,6 +1336,86 @@ class _DeliveryPromoCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _RegistanNightPainter extends CustomPainter {
+  const _RegistanNightPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final sky = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFF08766C), Color(0xFF075B52), Color(0xFF043F3A)],
+      ).createShader(Offset.zero & size);
+    canvas.drawRect(Offset.zero & size, sky);
+
+    final moon = Paint()..color = const Color(0xFFFFE4A5).withValues(alpha: .88);
+    canvas.drawCircle(Offset(size.width * .78, size.height * .19), size.width * .055, moon);
+
+    final cloud = Paint()..color = const Color(0xFFBFD2B7).withValues(alpha: .16);
+    for (final p in <Offset>[
+      Offset(size.width*.57,size.height*.14), Offset(size.width*.63,size.height*.12),
+      Offset(size.width*.69,size.height*.15), Offset(size.width*.48,size.height*.18)
+    ]) {
+      canvas.drawOval(Rect.fromCenter(center:p,width:size.width*.16,height:size.height*.07),cloud);
+    }
+
+    final silhouette = Paint()..color = const Color(0xFF063F3B).withValues(alpha:.78);
+    final line = Paint()
+      ..color = const Color(0xFFC89A4B).withValues(alpha:.38)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.15;
+
+    final baseY=size.height*.72;
+    final gate=Rect.fromLTWH(size.width*.55,size.height*.35,size.width*.25,size.height*.37);
+    canvas.drawRect(gate,silhouette);
+    canvas.drawRect(gate,line);
+    final arch=Path()
+      ..moveTo(size.width*.595,baseY)
+      ..lineTo(size.width*.595,size.height*.49)
+      ..quadraticBezierTo(size.width*.675,size.height*.39,size.width*.755,size.height*.49)
+      ..lineTo(size.width*.755,baseY);
+    canvas.drawPath(arch,line);
+
+    void minaret(double x,double top,double w) {
+      final r=Rect.fromLTWH(x,top,w,baseY-top);
+      canvas.drawRect(r,silhouette); canvas.drawRect(r,line);
+      canvas.drawOval(Rect.fromLTWH(x-w*.12,top-w*.35,w*1.24,w*.45),silhouette);
+      canvas.drawLine(Offset(x+w*.5,top-w*.35),Offset(x+w*.5,top-w*.72),line);
+      for(double y=top+w*.6;y<baseY;y+=w*.9) {
+        canvas.drawLine(Offset(x,y),Offset(x+w,y),line);
+      }
+    }
+    minaret(size.width*.47,size.height*.29,size.width*.045);
+    minaret(size.width*.84,size.height*.27,size.width*.045);
+    minaret(size.width*.38,size.height*.42,size.width*.035);
+
+    void dome(double cx,double y,double r) {
+      final p=Path()
+        ..moveTo(cx-r,y+r)
+        ..quadraticBezierTo(cx,y-r*.9,cx+r,y+r)
+        ..close();
+      canvas.drawPath(p,silhouette); canvas.drawPath(p,line);
+      canvas.drawLine(Offset(cx,y-r*.65),Offset(cx,y-r*1.05),line);
+    }
+    dome(size.width*.43,size.height*.46,size.width*.065);
+    dome(size.width*.82,size.height*.48,size.width*.055);
+
+    final ground=Paint()..color=const Color(0xFF0A655C).withValues(alpha:.48);
+    canvas.drawRect(Rect.fromLTWH(0,baseY,size.width,size.height-baseY),ground);
+    final reflection=Paint()
+      ..color=const Color(0xFFFFD47A).withValues(alpha:.10)
+      ..strokeWidth=1;
+    for(int i=0;i<12;i++){
+      final y=baseY+(i+1)*(size.height-baseY)/14;
+      canvas.drawLine(Offset(size.width*.34,y),Offset(size.width*.92,y),reflection);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _ApprovedOrnateBooks extends StatelessWidget {

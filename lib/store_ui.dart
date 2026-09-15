@@ -73,9 +73,11 @@ class _PersistentScrollController extends ScrollController {
     final value = offset < 0 ? 0.0 : offset;
     _userMoved = true;
     _scrollMemory[storageKey] = value;
-    _saveTimer?.cancel();
-    _saveTimer = Timer(const Duration(milliseconds: 500), () {
-      unawaited(_write(value));
+    if (_saveTimer != null) return;
+    _saveTimer = Timer(const Duration(milliseconds: 900), () {
+      _saveTimer = null;
+      final latest = _scrollMemory[storageKey] ?? value;
+      unawaited(_write(latest));
     });
   }
 
@@ -156,11 +158,6 @@ class _PersistentScrollController extends ScrollController {
 }
 
 Future<void> _openBookDetail(BuildContext context, Book book) async {
-  if (book.imageUrl.trim().isNotEmpty) {
-    unawaited(
-      precacheImage(NetworkImage(book.imageUrl), context).catchError((_) {}),
-    );
-  }
   await Navigator.push<void>(
     context,
     muhajeerPageRoute<void>(
@@ -689,7 +686,17 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
+    final homeState = context.select<
+      AppState,
+      ({int catalogRevision, bool loading, String? error})
+    >(
+      (s) => (
+        catalogRevision: s.catalogRevision,
+        loading: s.loading,
+        error: s.error,
+      ),
+    );
+    final state = context.read<AppState>();
     final categories = <String>{
       'Barchasi',
       'Nashriyotlar',
@@ -743,7 +750,7 @@ class _HomePageState extends State<HomePage> {
           slivers: [
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-              sliver: SliverToBoxAdapter(child: _StoreHeader(state: state)),
+              sliver: const SliverToBoxAdapter(child: _StoreHeader()),
             ),
             const SliverPadding(
               padding: EdgeInsets.fromLTRB(16, 8, 16, 6),
@@ -904,7 +911,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
-            if (state.error != null)
+            if (homeState.error != null)
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 sliver: SliverToBoxAdapter(
@@ -914,7 +921,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
-            if (state.loading && state.books.isEmpty)
+            if (homeState.loading && state.books.isEmpty)
               const SliverFillRemaining(
                 child: Center(child: CircularProgressIndicator()),
               )
@@ -1059,11 +1066,13 @@ class _CustomerNotificationsPageState extends State<CustomerNotificationsPage> {
 }
 
 class _StoreHeader extends StatelessWidget {
-  const _StoreHeader({required this.state});
-  final AppState state;
+  const _StoreHeader();
 
   @override
   Widget build(BuildContext context) {
+    final unreadCount = context.select<AppState, int>(
+      (s) => s.unreadCustomerNoticeCount,
+    );
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 11, 10, 10),
       decoration: BoxDecoration(
@@ -1110,8 +1119,8 @@ class _StoreHeader extends StatelessWidget {
                 ),
               ),
               Badge(
-                isLabelVisible: state.unreadCustomerNoticeCount > 0,
-                label: Text('${state.unreadCustomerNoticeCount}'),
+                isLabelVisible: unreadCount > 0,
+                label: Text('${unreadCount}'),
                 child: IconButton(
                   tooltip: 'Bildirishnomalar',
                   onPressed: () => Navigator.push(
@@ -1848,15 +1857,8 @@ class BookCard extends StatelessWidget {
         color: UzbekCustomerColors.surface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: UzbekCustomerColors.border),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A173F4A),
-            blurRadius: 8,
-            offset: Offset(0, 3),
-          ),
-        ],
       ),
-      clipBehavior: Clip.antiAlias,
+      clipBehavior: Clip.hardEdge,
       child: InkWell(
         onTap: () => _openBookDetail(context, book),
         child: Column(
@@ -2059,7 +2061,7 @@ class _BookCover extends StatelessWidget {
       return Image.network(
         previewUrl,
         fit: BoxFit.cover,
-        cacheWidth: 420,
+        cacheWidth: 360,
         filterQuality: FilterQuality.low,
         gaplessPlayback: true,
         errorBuilder: (_, __, ___) => _placeholder(),

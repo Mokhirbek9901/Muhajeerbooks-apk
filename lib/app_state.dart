@@ -801,6 +801,9 @@ class AppState extends ChangeNotifier {
   final Map<String, int> _cart = {};
   final Set<String> _favorites = {};
   final Set<String> _restockSubscriptions = {};
+  int _catalogRevision = 0;
+  int get catalogRevision => _catalogRevision;
+  void _touchCatalog() => _catalogRevision++;
   String _catalogCursor = '1970-01-01T00:00:00Z';
   Timer? _booksFallbackTimer;
   Timer? _orderStatusTimer;
@@ -865,6 +868,7 @@ class AppState extends ChangeNotifier {
       } catch (_) {}
     }
 
+    _touchCatalog();
     loading = false;
     notifyListeners();
 
@@ -1069,6 +1073,7 @@ class AppState extends ChangeNotifier {
         ..clear()
         ..addAll(merged);
       _sanitizeCart();
+      _touchCatalog();
       notifyListeners();
       // Diskka yozish UI ni kutib turmasin.
       unawaited(_local.saveBooks(_books));
@@ -1197,6 +1202,7 @@ class AppState extends ChangeNotifier {
         ..clear()
         ..addAll(await _loadTelegramSeed());
     } finally {
+      _touchCatalog();
       loading = false;
       notifyListeners();
     }
@@ -1250,6 +1256,7 @@ class AppState extends ChangeNotifier {
         }
       }
     } finally {
+      _touchCatalog();
       loading = false;
       notifyListeners();
     }
@@ -1326,6 +1333,7 @@ class AppState extends ChangeNotifier {
     } else {
       _books[index] = saved;
     }
+    _touchCatalog();
     await _local.saveBooks(_books);
     notifyListeners();
   }
@@ -1339,6 +1347,7 @@ class AppState extends ChangeNotifier {
       return;
     }
     _books.removeWhere((b) => b.id == book.id);
+    _touchCatalog();
     _cart.remove(book.id);
     _favorites.remove(book.id);
     await Future.wait([
@@ -1359,6 +1368,7 @@ class AppState extends ChangeNotifier {
     for (var i = 0; i < _books.length; i++) {
       _books[i] = _books[i].copyWith(discountPercent: safe);
     }
+    _touchCatalog();
     await _local.saveBooks(_books);
     notifyListeners();
   }
@@ -1528,6 +1538,7 @@ class AppState extends ChangeNotifier {
     }
 
     _localOrders[index] = old.copyWith(status: status, stockReserved: reserved);
+    _touchCatalog();
     await Future.wait([
       _local.saveOrders(_localOrders),
       _local.saveBooks(_books),
@@ -1540,6 +1551,7 @@ class AppState extends ChangeNotifier {
     _books
       ..clear()
       ..addAll(await _loadTelegramSeed());
+    _touchCatalog();
     _cart.clear();
     _favorites.clear();
     await Future.wait([

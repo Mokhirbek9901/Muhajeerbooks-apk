@@ -61,7 +61,7 @@ class AdminResumeSession {
         await clear();
         return null;
       }
-      final tab = (prefs.getInt(_tabKey) ?? 0).clamp(0, 7);
+      final tab = (prefs.getInt(_tabKey) ?? 0).clamp(0, 7).toInt();
       return AdminResumeSnapshot(secret: secret, tab: tab);
     } catch (_) {
       return null;

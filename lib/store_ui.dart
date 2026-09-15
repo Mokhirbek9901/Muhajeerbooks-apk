@@ -2074,8 +2074,8 @@ class _BookCover extends StatelessWidget {
       return Image.network(
         previewUrl,
         fit: BoxFit.cover,
-        cacheWidth: 300,
-        filterQuality: FilterQuality.low,
+        cacheWidth: 480,
+        filterQuality: FilterQuality.medium,
         gaplessPlayback: true,
         errorBuilder: (_, __, ___) => _placeholder(),
       );

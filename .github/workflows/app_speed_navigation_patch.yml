@@ -21,10 +21,10 @@ jobs:
         run: |
           git config user.name "Mokhirbek9901"
           git config user.email "ismoilovmokhirbek@gmail.com"
-          git add lib/app_state.dart lib/store_ui.dart pubspec.yaml
+          git add lib/app_state.dart lib/store_ui.dart lib/catalog_resume.dart lib/admin_ui.dart lib/fast_store_shell.dart pubspec.yaml
           if git diff --cached --quiet; then
             echo "No changes to commit"
             exit 0
           fi
-          git commit -m "Speed up storefront and fix iPhone swipe back"
+          git commit -m "Improve app speed and resume behavior"
           git push origin main

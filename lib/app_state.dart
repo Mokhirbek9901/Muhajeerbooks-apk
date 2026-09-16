@@ -573,12 +573,26 @@ class BackendService {
           ? null
           : DateTime.now().toIso8601String(),
     };
-    final data = await client
-        .from('orders')
-        .insert(payload)
-        .select('id')
-        .single();
-    return data['id'].toString();
+    // Mobil/Instagram webviewlarda qisqa tarmoq uzilishi bo'lsa, mijozni
+    // qayta boshidan buyurtma berishga majbur qilmaymiz. Faqat order yozuvini
+    // qayta urinib ko'ramiz; chek upload qayta bajarilmaydi.
+    Object? lastError;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        final data = await client
+            .from('orders')
+            .insert(payload)
+            .select('id')
+            .single()
+            .timeout(const Duration(seconds: 8));
+        return data['id'].toString();
+      } catch (error) {
+        lastError = error;
+        if (attempt == 2) rethrow;
+        await Future<void>.delayed(Duration(milliseconds: 450 * (attempt + 1)));
+      }
+    }
+    throw StateError('Buyurtma yuborilmadi: $lastError');
   }
 
   Future<Map<String, Map<String, dynamic>>> fetchOrderStatuses(

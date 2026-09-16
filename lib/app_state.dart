@@ -573,8 +573,8 @@ class BackendService {
           ? null
           : DateTime.now().toIso8601String(),
     };
-    // Checkoutni uzoq "Yuborilmoqda..." holatida ushlab turmaymiz.
-    // Odatda Supabase tez javob beradi; faqat bitta qisqa retry qilamiz.
+    // Checkoutni maksimal tez tutamiz: normal tarmoqda darhol tugaydi,
+    // uzilish bo'lsa esa foydalanuvchini uzoq kuttirmaymiz.
     Object? lastError;
     for (var attempt = 0; attempt < 2; attempt++) {
       try {
@@ -583,12 +583,12 @@ class BackendService {
             .insert(payload)
             .select('id')
             .single()
-            .timeout(const Duration(seconds: 4));
+            .timeout(const Duration(milliseconds: 2200));
         return data['id'].toString();
       } catch (error) {
         lastError = error;
         if (attempt == 1) rethrow;
-        await Future<void>.delayed(const Duration(milliseconds: 250));
+        await Future<void>.delayed(const Duration(milliseconds: 120));
       }
     }
     throw StateError('Buyurtma yuborilmadi: $lastError');

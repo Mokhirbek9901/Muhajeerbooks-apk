@@ -573,23 +573,22 @@ class BackendService {
           ? null
           : DateTime.now().toIso8601String(),
     };
-    // Mobil/Instagram webviewlarda qisqa tarmoq uzilishi bo'lsa, mijozni
-    // qayta boshidan buyurtma berishga majbur qilmaymiz. Faqat order yozuvini
-    // qayta urinib ko'ramiz; chek upload qayta bajarilmaydi.
+    // Checkoutni uzoq "Yuborilmoqda..." holatida ushlab turmaymiz.
+    // Odatda Supabase tez javob beradi; faqat bitta qisqa retry qilamiz.
     Object? lastError;
-    for (var attempt = 0; attempt < 3; attempt++) {
+    for (var attempt = 0; attempt < 2; attempt++) {
       try {
         final data = await client
             .from('orders')
             .insert(payload)
             .select('id')
             .single()
-            .timeout(const Duration(seconds: 8));
+            .timeout(const Duration(seconds: 4));
         return data['id'].toString();
       } catch (error) {
         lastError = error;
-        if (attempt == 2) rethrow;
-        await Future<void>.delayed(Duration(milliseconds: 450 * (attempt + 1)));
+        if (attempt == 1) rethrow;
+        await Future<void>.delayed(const Duration(milliseconds: 250));
       }
     }
     throw StateError('Buyurtma yuborilmadi: $lastError');

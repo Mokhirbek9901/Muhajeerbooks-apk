@@ -3490,6 +3490,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
+  String _shortOrderNumber(AppState state, String orderId) {
+    for (final order in state.localOrders) {
+      if (order.id == orderId && order.displayOrderNumber > 0) {
+        return order.displayOrderNumber.toString().padLeft(4, '0');
+      }
+    }
+    return orderId;
+  }
+
   Future<void> _copyAccount() async {
     await Clipboard.setData(const ClipboardData(text: AppState.bankAccount));
     if (!mounted) return;
@@ -3531,7 +3540,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Buyurtma raqami:\n$orderId',
+                'Buyurtma raqami:\n${_shortOrderNumber(state, orderId)}',
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontWeight: FontWeight.w900),
               ),

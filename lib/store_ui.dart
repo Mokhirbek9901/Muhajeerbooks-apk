@@ -3705,33 +3705,40 @@ class _ProfileMosaicPainter extends CustomPainter {
   const _ProfileMosaicPainter();
   @override
   void paint(Canvas canvas, Size size) {
-    final bg = Paint()..shader = const LinearGradient(colors: [Color(0xFF071B43), Color(0xFF063F5A), Color(0xFF08737A)]).createShader(Offset.zero & size);
-    canvas.drawRect(Offset.zero & size, bg);
-    final gold = Paint()..color = const Color(0xB8E8BE62)..style = PaintingStyle.stroke..strokeWidth = 1.15;
-    final cyan = Paint()..color = const Color(0x804BC8D3)..style = PaintingStyle.stroke..strokeWidth = 1;
-    final c = Offset(size.width / 2, size.height * .48);
-    for (final r in [42.0, 62.0, 84.0, 108.0, 136.0, 170.0, 210.0]) {
-      canvas.drawCircle(c, r, r.toInt().isEven ? gold : cyan);
+    final rect = Offset.zero & size;
+    canvas.drawRect(rect, Paint()..shader = const LinearGradient(
+      begin: Alignment.topLeft, end: Alignment.bottomRight,
+      colors: [Color(0xFF06234C), Color(0xFF074F6A), Color(0xFF061D43)],
+    ).createShader(rect));
+    final c = Offset(size.width * .5, size.height * .48);
+    final gold = Paint()..color=const Color(0xFFD9B45B)..style=PaintingStyle.stroke..strokeWidth=1.15;
+    final pale = Paint()..color=const Color(0xFF69B8C5)..style=PaintingStyle.stroke..strokeWidth=.8;
+    for (final rr in [44.0,57.0,71.0,87.0,106.0,128.0,151.0,178.0,208.0]) canvas.drawCircle(c,rr,rr.toInt().isEven?gold:pale);
+    for (var i=0;i<32;i++) {
+      final aa=i*3.141592653589793/16;
+      final p1=c+Offset(58*MathCos.cos(aa),58*MathCos.sin(aa));
+      final p2=c+Offset(210*MathCos.cos(aa),210*MathCos.sin(aa));
+      canvas.drawLine(p1,p2,i.isEven?gold:pale);
+      final q=c+Offset(146*MathCos.cos(aa),146*MathCos.sin(aa));
+      canvas.drawCircle(q,i%2==0?3.2:1.7,gold);
     }
-    for (var i = 0; i < 24; i++) {
-      final a = i * 3.1415926535 / 12;
-      final p1 = c + Offset(44 * MathCos.cos(a), 44 * MathCos.sin(a));
-      final p2 = c + Offset(210 * MathCos.cos(a), 210 * MathCos.sin(a));
-      canvas.drawLine(p1, p2, i.isEven ? gold : cyan);
+    for (final x in [22.0,48.0,size.width-48,size.width-22]) canvas.drawLine(Offset(x,0),Offset(x,size.height),gold);
+    for (var y=12.0;y<size.height;y+=25) for (final x in [35.0,size.width-35]) {
+      final d=Path()..moveTo(x,y-7)..lineTo(x+7,y)..lineTo(x,y+7)..lineTo(x-7,y)..close(); canvas.drawPath(d,gold);
     }
-    for (var x = -40.0; x < size.width + 40; x += 72) {
-      final path = Path()..moveTo(x, size.height)..lineTo(x + 18, size.height - 55)..lineTo(x + 36, size.height - 20)..lineTo(x + 54, size.height - 72)..lineTo(x + 72, size.height);
-      canvas.drawPath(path, gold);
+    final fill=Paint()..color=const Color(0xFF06334F); final roof=Paint()..color=const Color(0xFF0A7181);
+    for (var x=-5.0;x<size.width+20;x+=42) {
+      final h=20.0+((x.toInt().abs()%3)*7); canvas.drawRect(Rect.fromLTWH(x,size.height-h,31,h),fill);
+      final dome=Path()..moveTo(x,size.height-h)..quadraticBezierTo(x+15.5,size.height-h-18,x+31,size.height-h)..close(); canvas.drawPath(dome,roof); canvas.drawPath(dome,gold);
     }
-    final star = Paint()..color = const Color(0xBFFFF4C7);
-    for (var i = 0; i < 38; i++) {
-      final x = ((i * 83) % 997) / 997 * size.width;
-      final y = ((i * 47) % 311) / 311 * size.height * .72;
-      canvas.drawCircle(Offset(x, y), i % 5 == 0 ? 1.6 : .8, star);
+    for (final x in [24.0,72.0,size.width-72,size.width-24]) {
+      canvas.drawRect(Rect.fromLTWH(x-4,size.height-82,8,70),fill);
+      final top=Path()..moveTo(x-6,size.height-82)..lineTo(x,size.height-96)..lineTo(x+6,size.height-82)..close(); canvas.drawPath(top,roof); canvas.drawPath(top,gold);
     }
+    final stars=Paint()..color=const Color(0xFFFFF1B9);
+    for(var i=0;i<52;i++){ final x=((i*71)%997)/997*size.width; final y=((i*43)%311)/311*size.height*.72; canvas.drawCircle(Offset(x,y),i%7==0?1.35:.65,stars); }
   }
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  @override bool shouldRepaint(covariant CustomPainter oldDelegate)=>false;
 }
 
 class MathCos {
@@ -3836,7 +3843,7 @@ class ProfilePage extends StatelessWidget {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 35, 22, 22),
+                  padding: const EdgeInsets.fromLTRB(18, 20, 18, 12),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -3854,7 +3861,7 @@ class ProfilePage extends StatelessWidget {
                           textAlign: TextAlign.center,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Color(0xFFFFFBF1), fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: -.7, fontFamily: 'serif'),
+                          style: const TextStyle(color: Color(0xFFFFFBF1), fontSize: 29, fontWeight: FontWeight.w900, letterSpacing: -.7, fontFamily: 'serif'),
                         ),
                       ),
                       if (displayPhone.trim().isNotEmpty) ...[
@@ -4046,7 +4053,17 @@ class ProfilePage extends StatelessWidget {
   }
 }
 
-class _ProfileStat extends StatelessWidget {
+class _ProfileReferenceAction extends StatelessWidget {
+    const _ProfileReferenceAction({required this.icon, required this.label, required this.onTap});
+    final IconData icon; final String label; final VoidCallback onTap;
+    @override Widget build(BuildContext context) => Material(
+      color: const Color(0xFFFFFCF4),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: Color(0xFFE4D3AE))),
+      child: InkWell(onTap:onTap,borderRadius:BorderRadius.circular(20),child:Padding(padding:const EdgeInsets.symmetric(horizontal:9,vertical:13),child:Row(children:[Icon(icon,color:const Color(0xFF082B3D),size:25),const SizedBox(width:6),Expanded(child:Text(label,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Color(0xFF082B3D),fontWeight:FontWeight.w800,fontFamily:'serif',fontSize:12))),const Icon(Icons.chevron_right_rounded,color:Color(0xFF082B3D),size:18)]))),
+    );
+  }
+
+  class _ProfileStat extends StatelessWidget {
   const _ProfileStat({required this.value, required this.label});
   final String value;
   final String label;

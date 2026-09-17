@@ -1,0 +1,23 @@
+name: Apply exact profile reference design
+on:
+  push:
+    paths:
+      - 'profile_exact_trigger.txt'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply profile design
+        run: python3 tools/apply_exact_profile_reference.py
+      - name: Commit profile design
+        run: |
+          git config user.name "Mokhirbek9901"
+          git config user.email "ismoilovmokhirbek@gmail.com"
+          git add lib/store_ui.dart
+          git commit -m "Match profile card to supplied reference" || exit 0
+          git push origin main

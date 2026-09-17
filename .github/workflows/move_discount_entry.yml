@@ -1,0 +1,126 @@
+name: Move admin discount entry
+
+on:
+  push:
+    paths:
+      - 'move_discount_entry_trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Move discount entry into dashboard
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('lib/admin_ui.dart')
+          s = p.read_text(encoding='utf-8')
+
+          # Remove the separate top-level discount tab while keeping its page/widget intact.
+          old = "    'Chegirmalar',\n"
+          if old not in s:
+              raise SystemExit('Chegirmalar title entry not found')
+          s = s.replace(old, '', 1)
+
+          old = "    Icons.percent_rounded,\n"
+          if old not in s:
+              raise SystemExit('Discount navigation icon entry not found')
+          s = s.replace(old, '', 1)
+
+          page_block = """      _loadedTabs.contains(7)\n          ? _DiscountAdmin(api: api)\n          : const SizedBox.shrink(),\n"""
+          if page_block not in s:
+              raise SystemExit('Discount tab page entry not found')
+          s = s.replace(page_block, '', 1)
+
+          rail_pattern = re.compile(
+              r"\n\s*NavigationRailDestination\(\n"
+              r"\s*icon: Icon\(Icons\.percent_rounded\),\n"
+              r"(?:\s*selectedIcon: Icon\(Icons\.percent_rounded\),\n)?"
+              r"\s*label: Text\('Chegirma'\),\n"
+              r"\s*\),",
+              re.M,
+          )
+          s, count = rail_pattern.subn('', s, count=1)
+          if count != 1:
+              raise SystemExit(f'Discount rail entry removal count={count}')
+
+          if "title: const Text('Chegirma berish')" not in s:
+              metric_pattern = re.compile(
+                  r"(?P<block>\s+SizedBox\(\n"
+                  r"\s+width: cardWidth,\n"
+                  r"\s+child: AppMetricCard\(\n"
+                  r"\s+icon: Icons\.remove_shopping_cart_outlined,\n"
+                  r"\s+label: 'Tugagan kitob',\n"
+                  r"\s+value: '\$outOfStock',\n"
+                  r"\s+accent: AppColors\.danger,\n"
+                  r"\s+note: 'Omborda 0 dona',\n"
+                  r"\s+\),\n"
+                  r"\s+\),\n"
+                  r"\s+\],\n"
+                  r"\s+\);\n"
+                  r"\s+\},\n"
+                  r"\s+\),)"
+              )
+              match = metric_pattern.search(s)
+              if not match:
+                  raise SystemExit('Dashboard metric block not found')
+
+              entry = """
+            const SizedBox(height: 14),
+            Card(
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
+                minTileHeight: 72,
+                leading: Container(
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.warning.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(Icons.percent_rounded),
+                ),
+                title: const Text(
+                  'Chegirma berish',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: const Text('Kitoblarga aksiya foizini boshqaring'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => Scaffold(
+                        appBar: AppBar(
+                          title: const Text('Chegirma boshqaruvi'),
+                        ),
+                        body: _DiscountAdmin(api: widget.api),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),"""
+              s = s[:match.end()] + entry + s[match.end():]
+
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Commit admin layout change
+        run: |
+          git config user.name "Mokhirbek9901"
+          git config user.email "ismoilovmokhirbek@gmail.com"
+          git add lib/admin_ui.dart
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Move discount control into admin dashboard"
+          git push origin main

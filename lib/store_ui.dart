@@ -3806,11 +3806,11 @@ class ProfilePage extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
         children: [
           Container(
-            height: 292,
+            height: 300,
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: const Color(0xFFD7B35B), width: 1.4),
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(color: const Color(0xFFE3BC61), width: 1.6),
               boxShadow: const [
                 BoxShadow(color: Color(0x24113D43), blurRadius: 22, offset: Offset(0, 9)),
               ],
@@ -3818,13 +3818,20 @@ class ProfilePage extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
+                Image.asset(
+                  'assets/images/registan_illustrated.webp',
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                  filterQuality: FilterQuality.high,
+                ),
                 const CustomPaint(painter: _ProfileMosaicPainter()),
                 Container(
                   decoration: const BoxDecoration(
                     gradient: RadialGradient(
                       center: Alignment.center,
-                      radius: .62,
-                      colors: [Color(0xD90A3851), Color(0xB50A3851), Color(0x35101D43)],
+                      radius: .54,
+                      colors: [Color(0xE6073150), Color(0xB8073150), Color(0x28021931)],
+                      stops: [0, .56, 1],
                     ),
                   ),
                 ),
@@ -3847,12 +3854,12 @@ class ProfilePage extends StatelessWidget {
                           textAlign: TextAlign.center,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Color(0xFFFFF7E6), fontSize: 31, fontWeight: FontWeight.w900, letterSpacing: -.5),
+                          style: const TextStyle(color: Color(0xFFFFFBF1), fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: -.7, fontFamily: 'serif'),
                         ),
                       ),
                       if (displayPhone.trim().isNotEmpty) ...[
                         const SizedBox(height: 5),
-                        Text(displayPhone, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: .4)),
+                        Text(displayPhone, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: .5)),
                       ],
                       const SizedBox(height: 13),
                       Container(
@@ -3867,14 +3874,14 @@ class ProfilePage extends StatelessWidget {
                           children: [
                             Icon(Icons.menu_book_rounded, color: Color(0xFFFFD875), size: 20),
                             SizedBox(width: 8),
-                            Text('Muhajeer Books', style: TextStyle(color: Color(0xFFFFD875), fontSize: 16, fontWeight: FontWeight.w900)),
+                            Text('Muhajeer Books', style: TextStyle(color: Color(0xFFFFD875), fontSize: 17, fontWeight: FontWeight.w900, fontFamily: 'serif')),
                           ],
                         ),
                       ),
                       const SizedBox(height: 14),
                       const Row(children: [Expanded(child: Divider(color: Color(0xFFFFD875), thickness: 1)), Padding(padding: EdgeInsets.symmetric(horizontal: 10), child: Icon(Icons.filter_vintage_rounded, color: Color(0xFFFFD875), size: 18)), Expanded(child: Divider(color: Color(0xFFFFD875), thickness: 1))]),
                       const SizedBox(height: 10),
-                      const Text('Koreyadagi O‘zbek kitobxonlari uchun', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFFFFF7E6), fontSize: 14.5, fontWeight: FontWeight.w700)),
+                      const Text('Koreyadagi O‘zbek kitobxonlari uchun', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFFFFF7E6), fontSize: 15.5, fontWeight: FontWeight.w700, fontFamily: 'serif')),
                     ],
                   ),
                 ),

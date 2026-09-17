@@ -54,6 +54,21 @@ jobs:
 
       - run: flutter pub get
 
+      - name: Fix order number access for release build
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/app_state.dart')
+          s = p.read_text(encoding='utf-8')
+          needle = '  List<Book> get books => List.unmodifiable(_books);'
+          getter = '  List<ShopOrder> get localOrders => List.unmodifiable(_localOrders);'
+          if getter not in s:
+              if needle not in s:
+                  raise SystemExit('AppState books getter not found')
+              s = s.replace(needle, needle + '\n' + getter, 1)
+              p.write_text(s, encoding='utf-8')
+          PY
+
       - name: Prepare Android package
         run: |
           python3 - <<'PY'
@@ -62,8 +77,6 @@ jobs:
           p = Path('android/app/build.gradle.kts')
           s = p.read_text(encoding='utf-8')
           s = re.sub(r'applicationId\s*=\s*"[^"]+"', 'applicationId = "com.muhajeerbooks.app"', s)
-          # Sign release APK/AAB with the same persistent key.
-          s = s.replace('signingConfig = signingConfigs.getByName("debug")', 'signingConfig = signingConfigs.getByName("debug")')
           p.write_text(s, encoding='utf-8')
           manifest = Path('android/app/src/main/AndroidManifest.xml')
           m = manifest.read_text(encoding='utf-8')

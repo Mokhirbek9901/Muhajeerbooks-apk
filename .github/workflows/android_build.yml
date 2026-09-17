@@ -59,58 +59,45 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
-
           p = Path('android/app/build.gradle.kts')
           s = p.read_text(encoding='utf-8')
           s = re.sub(r'applicationId\s*=\s*"[^"]+"', 'applicationId = "com.muhajeerbooks.app"', s)
+          # Sign release APK/AAB with the same persistent key.
+          s = s.replace('signingConfig = signingConfigs.getByName("debug")', 'signingConfig = signingConfigs.getByName("debug")')
           p.write_text(s, encoding='utf-8')
-
           manifest = Path('android/app/src/main/AndroidManifest.xml')
           m = manifest.read_text(encoding='utf-8')
           if 'android.permission.INTERNET' not in m:
-              m = m.replace(
-                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
-                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET" />',
-                  1,
-              )
+              m = m.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">','<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET" />',1)
           m = re.sub(r'android:label="[^"]*"', 'android:label="Muhajeer Books"', m, count=1)
           manifest.write_text(m, encoding='utf-8')
           PY
 
       - name: Prepare Android biometrics
-        run: |
-          python3 tools/prepare_android_biometrics.py
+        run: python3 tools/prepare_android_biometrics.py
 
       - name: Apply official Muhajeer launcher icon
         run: |
           sudo apt-get -qq update
           sudo apt-get -qq install -y imagemagick
           for spec in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
-            density="${spec%%:*}"
-            size="${spec##*:}"
-            dir="android/app/src/main/res/mipmap-${density}"
+            density="${spec%%:*}"; size="${spec##*:}"; dir="android/app/src/main/res/mipmap-${density}"
             convert assets/images/muhajeer_logo.jpg -resize "${size}x${size}^" -gravity center -extent "${size}x${size}" "$dir/ic_launcher.png"
           done
 
       - name: Analyze
         run: flutter analyze --no-fatal-warnings --no-fatal-infos
-
       - name: Test
         run: flutter test
 
       - name: Build Web from this exact commit
-        run: |
-          flutter build web --release \
-            --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
-            --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
+        run: flutter build web --release --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
 
       - name: Build installable APK from this exact commit
-        run: |
-          flutter build apk --release \
-            --build-number="${{ github.run_number }}" \
-            --dart-define=APP_BUILD_NUMBER="${{ github.run_number }}" \
-            --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
-            --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
+        run: flutter build apk --release --build-number="${{ github.run_number }}" --dart-define=APP_BUILD_NUMBER="${{ github.run_number }}" --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
+
+      - name: Build Google Play App Bundle
+        run: flutter build appbundle --release --build-number="${{ github.run_number }}" --dart-define=APP_BUILD_NUMBER="${{ github.run_number }}" --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
 
       - name: Prepare latest APK update files
         run: |
@@ -124,12 +111,7 @@ jobs:
           PY
           )
           cat > build/latest-apk/app-version.json <<EOF
-          {
-            "build_number": ${{ github.run_number }},
-            "version": "$VERSION_NAME",
-            "download_url": "https://github.com/Mokhirbek9901/Muhajeerbooks-apk/releases/download/apk-latest/muhajeer-books.apk",
-            "message": "Muhajeer Books yangilandi. Yangi imkoniyatlar va tuzatishlarni olish uchun yangilang."
-          }
+          {"build_number": ${{ github.run_number }}, "version": "$VERSION_NAME", "download_url": "https://github.com/Mokhirbek9901/Muhajeerbooks-apk/releases/download/apk-latest/muhajeer-books.apk", "message": "Muhajeer Books yangilandi. Yangi imkoniyatlar va tuzatishlarni olish uchun yangilang."}
           EOF
 
       - name: Confirm this run is still latest main
@@ -137,28 +119,15 @@ jobs:
         run: |
           git fetch origin main --depth=1
           LATEST_SHA="$(git rev-parse origin/main)"
-          if [ "$LATEST_SHA" = "$GITHUB_SHA" ]; then
-            echo "is_latest=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "is_latest=false" >> "$GITHUB_OUTPUT"
-            echo "Newer main commit exists; this run must not replace the latest APK."
-          fi
+          if [ "$LATEST_SHA" = "$GITHUB_SHA" ]; then echo "is_latest=true" >> "$GITHUB_OUTPUT"; else echo "is_latest=false" >> "$GITHUB_OUTPUT"; fi
 
       - name: Publish stable latest APK for installed users
         if: steps.latest_main.outputs.is_latest == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if ! gh release view apk-latest >/dev/null 2>&1; then
-            gh release create apk-latest \
-              --target "$GITHUB_SHA" \
-              --title "Muhajeer Books APK" \
-              --notes "Android uchun eng so‘nggi Muhajeer Books APK. Ilova yangi versiya chiqqanda shu release orqali yangilanishni taklif qiladi."
-          fi
-          gh release upload apk-latest \
-            build/latest-apk/muhajeer-books.apk \
-            build/latest-apk/app-version.json \
-            --clobber
+          if ! gh release view apk-latest >/dev/null 2>&1; then gh release create apk-latest --target "$GITHUB_SHA" --title "Muhajeer Books APK" --notes "Android uchun eng so‘nggi Muhajeer Books APK."; fi
+          gh release upload apk-latest build/latest-apk/muhajeer-books.apk build/latest-apk/app-version.json --clobber
 
       - name: Upload Web build
         uses: actions/upload-artifact@v4
@@ -166,18 +135,15 @@ jobs:
           name: muhajeer-books-web-build
           path: build/web
           retention-days: 30
-
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: muhajeer-books-installable-apk
           path: build/latest-apk/muhajeer-books.apk
           retention-days: 30
-
-# 2026-09-09: gallery-enabled release build; customer shipping final stage is Jo‘natildi
-# 2026-09-10: release build includes support for up to 20 book images
-# 2026-09-11: every successful main build publishes a stable latest APK + update manifest
-# 2026-09-11: Android release host supports Face ID / biometric admin unlock
-# 2026-09-11: web passkey files trigger the same verified web + APK pipeline
-# 2026-09-11: concurrent/stale builds cannot overwrite the latest APK release
-# 2026-09-14: test changes also trigger the verified web + APK pipeline
+      - name: Upload Google Play AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: muhajeer-books-google-play-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 30

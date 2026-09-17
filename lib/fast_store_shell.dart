@@ -6,10 +6,14 @@ import 'catalog_resume.dart';
 import 'store_ui.dart';
 import 'uzbek_customer_style.dart';
 
-/// Store shell that keeps already-opened tabs alive, but does not build all
-/// five storefront pages on first paint. This is especially important on
-/// Android browsers where building hidden catalog/category/profile pages at
-/// startup adds avoidable layout and image work.
+/// Fast storefront shell.
+///
+/// The home page stays mounted so its search/scroll state is preserved, but
+/// only the currently visible secondary tab is kept in the tree. Previously
+/// every tab that had ever been opened stayed inside an IndexedStack, so a
+/// cart/favorite/order-state notification could rebuild several hidden pages
+/// at once. Keeping just Home + the active secondary page removes that hidden
+/// work while preserving the storefront behaviour users see.
 class FastStoreShell extends StatefulWidget {
   const FastStoreShell({super.key});
 
@@ -20,21 +24,14 @@ class FastStoreShell extends StatefulWidget {
 class _FastStoreShellState extends State<FastStoreShell> {
   int index = 0;
   String? _lastPresentedNoticeId;
-  final List<bool> _visited = <bool>[true, false, false, false, false];
 
   void _showHome() {
-    if (!mounted) return;
-    setState(() {
-      _visited[0] = true;
-      index = 0;
-    });
+    if (!mounted || index == 0) return;
+    setState(() => index = 0);
   }
 
-  Widget _pageFor(int pageIndex) {
-    if (!_visited[pageIndex]) return const SizedBox.shrink();
+  Widget _secondaryPageFor(int pageIndex) {
     switch (pageIndex) {
-      case 0:
-        return const HomePage();
       case 1:
         return const CategoriesPage();
       case 2:
@@ -58,11 +55,8 @@ class _FastStoreShellState extends State<FastStoreShell> {
   void _handleTabRequest() {
     final requested = storefrontTabRequest.value;
     if (!mounted || requested == null || requested < 0 || requested > 4) return;
-    if (requested == index && _visited[requested]) return;
-    setState(() {
-      _visited[requested] = true;
-      index = requested;
-    });
+    if (requested == index) return;
+    setState(() => index = requested);
   }
 
   void _resetAfterAbsence() {
@@ -71,12 +65,7 @@ class _FastStoreShellState extends State<FastStoreShell> {
     // Storefront timeouti admin route'larini hech qachon pop qilmasin.
     if (CatalogResume.instance.adminPanelActive) return;
 
-    // 1+ daqiqa tashqarida qolinsa, ichki detail/checkout route'larini yopib,
-    // do'konni Bosh sahifaning tepasidan boshlaymiz.
-    setState(() {
-      index = 0;
-      _visited[0] = true;
-    });
+    setState(() => index = 0);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       Navigator.of(context).popUntil((route) => route.isFirst);
@@ -121,9 +110,25 @@ class _FastStoreShellState extends State<FastStoreShell> {
 
     return Scaffold(
       backgroundColor: UzbekCustomerColors.background,
-      body: IndexedStack(
-        index: index,
-        children: List<Widget>.generate(5, _pageFor, growable: false),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Home is the only tab intentionally kept alive. It already listens
+          // only to catalog-specific revisions, so cart/favorite changes don't
+          // trigger an expensive hidden catalog rebuild.
+          Offstage(
+            offstage: index != 0,
+            child: TickerMode(
+              enabled: index == 0,
+              child: const HomePage(key: PageStorageKey<String>('home-tab')),
+            ),
+          ),
+          if (index != 0)
+            KeyedSubtree(
+              key: ValueKey<int>(index),
+              child: _secondaryPageFor(index),
+            ),
+        ],
       ),
       bottomNavigationBar: SafeArea(
         top: false,
@@ -173,10 +178,7 @@ class _FastStoreShellState extends State<FastStoreShell> {
               onDestinationSelected: (value) {
                 storefrontTabRequest.value = value;
                 if (value == index) return;
-                setState(() {
-                  _visited[value] = true;
-                  index = value;
-                });
+                setState(() => index = value);
               },
               destinations: [
                 const NavigationDestination(

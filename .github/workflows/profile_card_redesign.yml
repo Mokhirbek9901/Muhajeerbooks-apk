@@ -1,0 +1,23 @@
+name: Apply profile card redesign
+on:
+  push:
+    paths:
+      - '.github/profile_card_redesign.trigger'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply profile design
+        run: python3 tools/profile_card_redesign.py
+      - name: Commit
+        run: |
+          git config user.name "Mokhirbek9901"
+          git config user.email "ismoilovmokhirbek@gmail.com"
+          git add lib/store_ui.dart
+          git commit -m "Redesign profile card with Uzbek mosaic" || exit 0
+          git push origin main

@@ -849,6 +849,7 @@ class AppState extends ChangeNotifier {
     'address': '',
   };
 
+  List<ShopOrder> get localOrders => List.unmodifiable(_localOrders);
   List<Book> get books => List.unmodifiable(_books);
   Set<String> get favorites => Set.unmodifiable(_favorites);
   bool isRestockSubscribed(Book book) =>

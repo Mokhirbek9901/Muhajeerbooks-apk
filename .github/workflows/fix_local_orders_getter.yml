@@ -1,0 +1,42 @@
+name: Fix local orders getter
+
+on:
+  push:
+    paths:
+      - 'fix_local_orders_getter_trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Expose cached orders read-only
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/app_state.dart')
+          s = p.read_text(encoding='utf-8')
+          getter = '  List<ShopOrder> get localOrders => List.unmodifiable(_localOrders);'
+          anchor = '  List<Book> get books => List.unmodifiable(_books);'
+          if getter not in s:
+              if anchor not in s:
+                  raise SystemExit('AppState books getter anchor not found')
+              s = s.replace(anchor, getter + '\n' + anchor, 1)
+              p.write_text(s, encoding='utf-8')
+          PY
+      - name: Commit source fix
+        run: |
+          git config user.name "Mokhirbek9901"
+          git config user.email "ismoilovmokhirbek@gmail.com"
+          git add lib/app_state.dart
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Expose cached orders read-only for checkout display"
+          git push origin main

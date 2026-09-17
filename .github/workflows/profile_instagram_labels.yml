@@ -1,0 +1,115 @@
+name: Update profile Instagram labels
+
+on:
+  push:
+    paths:
+      - 'profile_instagram_labels_trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Update profile Instagram rows
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/store_ui.dart')
+          s = p.read_text(encoding='utf-8')
+
+          replacements = {
+              "'Do‘kon Instagram'": "'Do‘kon Instagrami'",
+              "'Admin Instagram'": "'Admin Instagrami'",
+              "leading: const _ProfileIcon(\n                    icon: Icons.storefront_outlined,\n                  ),": "leading: const _InstagramProfileIcon(),",
+              "leading: const _ProfileIcon(\n                    icon: Icons.camera_alt_outlined,\n                  ),": "leading: const _InstagramProfileIcon(),",
+          }
+          for old, new in replacements.items():
+              if old not in s:
+                  raise SystemExit(f'Expected profile fragment not found: {old!r}')
+              s = s.replace(old, new, 1)
+
+          marker = 'class _ProfileIcon extends StatelessWidget {'
+          widget = r'''class _InstagramProfileIcon extends StatelessWidget {
+  const _InstagramProfileIcon();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 42,
+    height: 42,
+    decoration: BoxDecoration(
+      color: UzbekCustomerColors.goldSoft,
+      borderRadius: BorderRadius.circular(13),
+      border: Border.all(color: UzbekCustomerColors.border),
+    ),
+    alignment: Alignment.center,
+    child: SizedBox(
+      width: 23,
+      height: 23,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(7),
+                border: Border.all(
+                  color: UzbekCustomerColors.navy,
+                  width: 2,
+                ),
+              ),
+            ),
+          ),
+          Center(
+            child: Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: UzbekCustomerColors.navy,
+                  width: 2,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 5,
+            right: 5,
+            child: Container(
+              width: 3.5,
+              height: 3.5,
+              decoration: const BoxDecoration(
+                color: UzbekCustomerColors.navy,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+'''
+          if 'class _InstagramProfileIcon extends StatelessWidget {' not in s:
+              if marker not in s:
+                  raise SystemExit('Profile icon class marker not found')
+              s = s.replace(marker, widget + marker, 1)
+
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Commit profile polish
+        run: |
+          git config user.name "Mokhirbek9901"
+          git config user.email "ismoilovmokhirbek@gmail.com"
+          git add lib/store_ui.dart
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Polish profile Instagram links"
+          git push origin main

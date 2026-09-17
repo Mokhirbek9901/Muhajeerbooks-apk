@@ -25,20 +25,38 @@ class AppStateFixed extends AppState {
     if (requested.isEmpty) {
       throw StateError('Savatcha bo‘sh.');
     }
-    if (!isOnlineBackend) return;
 
-    // Checkout vaqtida cache/realtime holatiga ishonib qolmaymiz. Aynan shu
-    // lahzada Supabase'dan eng yangi omborni qayta olib, savatni sanitizatsiya
-    // qilamiz. Telegram yoki Instagram savdosi qoldiqni o‘zgartirgan bo‘lsa,
-    // foydalanuvchi eski miqdor bilan buyurtma bera olmaydi.
-    await refreshBooks();
-    if (error != null) {
+    final service = backend;
+    if (service == null) return;
+
+    // Normal checkoutda global AppState.loading ni yoqib butun storefrontni
+    // rebuild qilmaymiz. Live katalog snapshotini jim o‘qib, faqat savatdagi
+    // kitoblarni tekshiramiz. Server INSERT trigger baribir oxirgi atomik
+    // himoya bo‘lib qoladi.
+    Map<String, dynamic> snapshot;
+    try {
+      snapshot = await service
+          .fetchCatalogDelta('1970-01-01T00:00:00Z')
+          .timeout(const Duration(seconds: 4));
+    } catch (_) {
       throw StateError(
         'Ombordagi oxirgi holatni tekshirib bo‘lmadi. Internetni tekshirib, qayta urinib ko‘ring.',
       );
     }
 
-    final liveBooks = {for (final book in books) book.id: book};
+    final rows = snapshot['upserts'];
+    if (rows is! List) {
+      throw StateError(
+        'Ombordagi oxirgi holatni tekshirib bo‘lmadi. Qayta urinib ko‘ring.',
+      );
+    }
+
+    final liveBooks = <String, Book>{};
+    for (final raw in rows.whereType<Map>()) {
+      final book = Book.fromMap(Map<String, dynamic>.from(raw));
+      if (book.id.isNotEmpty) liveBooks[book.id] = book;
+    }
+
     final soldOut = <String>[];
     final reduced = <String>[];
 
@@ -55,6 +73,10 @@ class AppStateFixed extends AppState {
 
     if (soldOut.isEmpty && reduced.isEmpty) return;
 
+    // Faqat haqiqiy stock farqi bo‘lsa katalog/savatni yangilaymiz. Normal
+    // buyurtmada bu qimmat rebuild umuman bajarilmaydi.
+    await refreshBooks();
+
     final parts = <String>[];
     if (soldOut.isNotEmpty) {
       parts.add(
@@ -66,7 +88,9 @@ class AppStateFixed extends AppState {
     if (reduced.isNotEmpty) {
       parts.add(reduced.join(', '));
     }
-    parts.add('Savatcha yangi ombor holatiga moslandi. Qayta tekshirib buyurtma bering.');
+    parts.add(
+      'Savatcha yangi ombor holatiga moslandi. Qayta tekshirib buyurtma bering.',
+    );
     throw StateError(parts.join(' '));
   }
 
@@ -90,7 +114,7 @@ class AppStateFixed extends AppState {
   }) async {
     _checkoutChangingCart = true;
     try {
-      // 1) Final tugma bosilgan lahzada live stockni qayta tekshiramiz.
+      // 1) Final tugma bosilgan lahzada live stockni UI'ni bloklamasdan tekshiramiz.
       await _verifyFreshCartStock();
 
       try {

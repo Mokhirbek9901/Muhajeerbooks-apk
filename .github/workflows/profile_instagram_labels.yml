@@ -19,9 +19,9 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import base64
           p = Path('lib/store_ui.dart')
           s = p.read_text(encoding='utf-8')
-
           replacements = {
               "'Do‘kon Instagram'": "'Do‘kon Instagrami'",
               "'Admin Instagram'": "'Admin Instagrami'",
@@ -32,74 +32,12 @@ jobs:
               if old not in s:
                   raise SystemExit(f'Expected profile fragment not found: {old!r}')
               s = s.replace(old, new, 1)
-
           marker = 'class _ProfileIcon extends StatelessWidget {'
-          widget = r'''class _InstagramProfileIcon extends StatelessWidget {
-  const _InstagramProfileIcon();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 42,
-    height: 42,
-    decoration: BoxDecoration(
-      color: UzbekCustomerColors.goldSoft,
-      borderRadius: BorderRadius.circular(13),
-      border: Border.all(color: UzbekCustomerColors.border),
-    ),
-    alignment: Alignment.center,
-    child: SizedBox(
-      width: 23,
-      height: 23,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(7),
-                border: Border.all(
-                  color: UzbekCustomerColors.navy,
-                  width: 2,
-                ),
-              ),
-            ),
-          ),
-          Center(
-            child: Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: UzbekCustomerColors.navy,
-                  width: 2,
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 5,
-            right: 5,
-            child: Container(
-              width: 3.5,
-              height: 3.5,
-              decoration: const BoxDecoration(
-                color: UzbekCustomerColors.navy,
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-'''
+          widget = base64.b64decode('Y2xhc3MgX0luc3RhZ3JhbVByb2ZpbGVJY29uIGV4dGVuZHMgU3RhdGVsZXNzV2lkZ2V0IHsKICBjb25zdCBfSW5zdGFncmFtUHJvZmlsZUljb24oKTsKCiAgQG92ZXJyaWRlCiAgV2lkZ2V0IGJ1aWxkKEJ1aWxkQ29udGV4dCBjb250ZXh0KSA9PiBDb250YWluZXIoCiAgICB3aWR0aDogNDIsCiAgICBoZWlnaHQ6IDQyLAogICAgZGVjb3JhdGlvbjogQm94RGVjb3JhdGlvbigKICAgICAgY29sb3I6IFV6YmVrQ3VzdG9tZXJDb2xvcnMuZ29sZFNvZnQsCiAgICAgIGJvcmRlclJhZGl1czogQm9yZGVyUmFkaXVzLmNpcmN1bGFyKDEzKSwKICAgICAgYm9yZGVyOiBCb3JkZXIuYWxsKGNvbG9yOiBVemJla0N1c3RvbWVyQ29sb3JzLmJvcmRlciksCiAgICApLAogICAgYWxpZ25tZW50OiBBbGlnbm1lbnQuY2VudGVyLAogICAgY2hpbGQ6IFNpemVkQm94KAogICAgICB3aWR0aDogMjMsCiAgICAgIGhlaWdodDogMjMsCiAgICAgIGNoaWxkOiBTdGFjaygKICAgICAgICBjaGlsZHJlbjogWwogICAgICAgICAgUG9zaXRpb25lZC5maWxsKAogICAgICAgICAgICBjaGlsZDogQ29udGFpbmVyKAogICAgICAgICAgICAgIGRlY29yYXRpb246IEJveERlY29yYXRpb24oCiAgICAgICAgICAgICAgICBib3JkZXJSYWRpdXM6IEJvcmRlclJhZGl1cy5jaXJjdWxhcig3KSwKICAgICAgICAgICAgICAgIGJvcmRlcjogQm9yZGVyLmFsbCgKICAgICAgICAgICAgICAgICAgY29sb3I6IFV6YmVrQ3VzdG9tZXJDb2xvcnMubmF2eSwKICAgICAgICAgICAgICAgICAgd2lkdGg6IDIsCiAgICAgICAgICAgICAgICApLAogICAgICAgICAgICAgICksCiAgICAgICAgICAgICksCiAgICAgICAgICApLAogICAgICAgICAgQ2VudGVyKAogICAgICAgICAgICBjaGlsZDogQ29udGFpbmVyKAogICAgICAgICAgICAgIHdpZHRoOiA4LAogICAgICAgICAgICAgIGhlaWdodDogOCwKICAgICAgICAgICAgICBkZWNvcmF0aW9uOiBCb3hEZWNvcmF0aW9uKAogICAgICAgICAgICAgICAgc2hhcGU6IEJveFNoYXBlLmNpcmNsZSwKICAgICAgICAgICAgICAgIGJvcmRlcjogQm9yZGVyLmFsbCgKICAgICAgICAgICAgICAgICAgY29sb3I6IFV6YmVrQ3VzdG9tZXJDb2xvcnMubmF2eSwKICAgICAgICAgICAgICAgICAgd2lkdGg6IDIsCiAgICAgICAgICAgICAgICApLAogICAgICAgICAgICAgICksCiAgICAgICAgICAgICksCiAgICAgICAgICApLAogICAgICAgICAgUG9zaXRpb25lZCgKICAgICAgICAgICAgdG9wOiA1LAogICAgICAgICAgICByaWdodDogNSwKICAgICAgICAgICAgY2hpbGQ6IENvbnRhaW5lcigKICAgICAgICAgICAgICB3aWR0aDogMy41LAogICAgICAgICAgICAgIGhlaWdodDogMy41LAogICAgICAgICAgICAgIGRlY29yYXRpb246IGNvbnN0IEJveERlY29yYXRpb24oCiAgICAgICAgICAgICAgICBjb2xvcjogVXpiZWtDdXN0b21lckNvbG9ycy5uYXZ5LAogICAgICAgICAgICAgICAgc2hhcGU6IEJveFNoYXBlLmNpcmNsZSwKICAgICAgICAgICAgICApLAogICAgICAgICAgICApLAogICAgICAgICAgKSwKICAgICAgICBdLAogICAgICApLAogICAgKSwKICApOwp9Cgo=').decode('utf-8')
           if 'class _InstagramProfileIcon extends StatelessWidget {' not in s:
               if marker not in s:
                   raise SystemExit('Profile icon class marker not found')
               s = s.replace(marker, widget + marker, 1)
-
           p.write_text(s, encoding='utf-8')
           PY
       - name: Commit profile polish

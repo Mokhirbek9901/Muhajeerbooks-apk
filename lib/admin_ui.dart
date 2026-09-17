@@ -955,7 +955,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
     'Sotilgan kitoblar',
     'Mijozlar',
     'Moliya',
-    'Chegirmalar',
   ];
   static const icons = [
     Icons.dashboard_rounded,
@@ -965,7 +964,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
     Icons.sell_rounded,
     Icons.people_alt_rounded,
     Icons.account_balance_wallet_rounded,
-    Icons.percent_rounded,
   ];
 
   @override
@@ -1077,9 +1075,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
       _loadedTabs.contains(6)
           ? FinanceAdminPage(secret: widget.secret)
           : const SizedBox.shrink(),
-      _loadedTabs.contains(7)
-          ? _DiscountAdmin(api: api)
-          : const SizedBox.shrink(),
     ];
     const railDestinations = [
       NavigationRailDestination(
@@ -1116,10 +1111,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
         icon: Icon(Icons.account_balance_wallet_outlined),
         selectedIcon: Icon(Icons.account_balance_wallet_rounded),
         label: Text('Moliya'),
-      ),
-      NavigationRailDestination(
-        icon: Icon(Icons.percent_rounded),
-        label: Text('Chegirma'),
       ),
     ];
 
@@ -1609,6 +1600,41 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                 );
               },
             ),
+  const SizedBox(height: 14),
+  Card(
+    clipBehavior: Clip.antiAlias,
+    child: ListTile(
+      minTileHeight: 72,
+      leading: Container(
+        width: 44,
+        height: 44,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: AppColors.warning.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const Icon(Icons.percent_rounded),
+      ),
+      title: const Text(
+        'Chegirma berish',
+        style: TextStyle(fontWeight: FontWeight.w800),
+      ),
+      subtitle: const Text('Kitoblarga aksiya foizini boshqaring'),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => Scaffold(
+              appBar: AppBar(
+                title: const Text('Chegirma boshqaruvi'),
+              ),
+              body: _DiscountAdmin(api: widget.api),
+            ),
+          ),
+        );
+      },
+    ),
+  ),
             const SizedBox(height: 20),
             AppSurface(
               child: Column(

@@ -3899,11 +3899,9 @@ class ProfilePage extends StatelessWidget {
                 const Divider(),
                 ListTile(
                   minTileHeight: 68,
-                  leading: const _ProfileIcon(
-                    icon: Icons.storefront_outlined,
-                  ),
+                  leading: const _InstagramProfileIcon(),
                   title: const Text(
-                    'Do‘kon Instagram',
+                    'Do‘kon Instagrami',
                     style: TextStyle(fontWeight: FontWeight.w800),
                   ),
                   subtitle: const Text('@muhajeerbooks'),
@@ -3928,11 +3926,9 @@ class ProfilePage extends StatelessWidget {
                 const Divider(),
                 ListTile(
                   minTileHeight: 68,
-                  leading: const _ProfileIcon(
-                    icon: Icons.camera_alt_outlined,
-                  ),
+                  leading: const _InstagramProfileIcon(),
                   title: const Text(
-                    'Admin Instagram',
+                    'Admin Instagrami',
                     style: TextStyle(fontWeight: FontWeight.w800),
                   ),
                   subtitle: const Text('@bek_ismoill'),
@@ -4024,6 +4020,66 @@ class _ProfileStat extends StatelessWidget {
           ),
         ),
       ],
+    ),
+  );
+}
+
+class _InstagramProfileIcon extends StatelessWidget {
+  const _InstagramProfileIcon();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 42,
+    height: 42,
+    decoration: BoxDecoration(
+      color: UzbekCustomerColors.goldSoft,
+      borderRadius: BorderRadius.circular(13),
+      border: Border.all(color: UzbekCustomerColors.border),
+    ),
+    alignment: Alignment.center,
+    child: SizedBox(
+      width: 23,
+      height: 23,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(7),
+                border: Border.all(
+                  color: UzbekCustomerColors.navy,
+                  width: 2,
+                ),
+              ),
+            ),
+          ),
+          Center(
+            child: Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: UzbekCustomerColors.navy,
+                  width: 2,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 5,
+            right: 5,
+            child: Container(
+              width: 3.5,
+              height: 3.5,
+              decoration: const BoxDecoration(
+                color: UzbekCustomerColors.navy,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+        ],
+      ),
     ),
   );
 }

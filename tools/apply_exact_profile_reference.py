@@ -1,39 +1,95 @@
 from pathlib import Path
-p=Path('lib/store_ui.dart')
-s=p.read_text()
-old="""                const CustomPaint(painter: _ProfileMosaicPainter()),
-                Container(
-                  decoration: const BoxDecoration(
-                    gradient: RadialGradient(
-                      center: Alignment.center,
-                      radius: .62,
-                      colors: [Color(0xD90A3851), Color(0xB50A3851), Color(0x35101D43)],
+
+p = Path("lib/store_ui.dart")
+s = p.read_text()
+
+# Card proportions and transparent ornamental overlay so the detailed
+# Registan/Uzbek background remains visible, matching the supplied reference.
+s = s.replace("height: 300,", "height: 205,", 1)
+s = s.replace(
+    "colors: [Color(0xFF06234C), Color(0xFF074F6A), Color(0xFF061D43)],",
+    "colors: [Color(0xB806234C), Color(0xA8074F6A), Color(0xB8061D43)],",
+    1,
+)
+
+# Compact the content vertically like the supplied profile reference.
+s = s.replace(
+    "fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: .5",
+    "fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: .5",
+    1,
+)
+s = s.replace(
+    "const SizedBox(height: 13),\n                      Container(",
+    "const SizedBox(height: 9),\n                      Container(",
+    1,
+)
+s = s.replace(
+    "const SizedBox(height: 14),\n                      const Row(children:",
+    "const SizedBox(height: 9),\n                      const Row(children:",
+    1,
+)
+s = s.replace(
+    "const SizedBox(height: 10),\n                      const Text('Koreyadagi O‘zbek kitobxonlari uchun'",
+    "const SizedBox(height: 6),\n                      const Text('Koreyadagi O‘zbek kitobxonlari uchun'",
+    1,
+)
+
+# Replace the old technical stats with the three reference action cards.
+start = s.find(
+    "          const SizedBox(height: 12),\n"
+    "          Row(\n"
+    "            children: [\n"
+    "              Expanded(\n"
+    "                child: _ProfileStat"
+)
+end_marker = "          const SizedBox(height: 19),"
+if start != -1:
+    end = s.find(end_marker, start)
+    if end == -1:
+        raise SystemExit("profile action block end not found")
+    replacement = """          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _ProfileReferenceAction(
+                  icon: Icons.shopping_bag_outlined,
+                  label: 'Buyurtmalarim',
+                  onTap: () => Navigator.push(
+                    context,
+                    muhajeerPageRoute(
+                      settings: const RouteSettings(name: 'mb:orders'),
+                      builder: (_) => const MyOrdersPage(),
                     ),
                   ),
-                ),"""
-new="""                Image.asset(
-                  'assets/images/registan_illustrated.webp',
-                  fit: BoxFit.cover,
-                  alignment: Alignment.center,
-                  filterQuality: FilterQuality.high,
                 ),
-                const CustomPaint(painter: _ProfileMosaicPainter()),
-                Container(
-                  decoration: const BoxDecoration(
-                    gradient: RadialGradient(
-                      center: Alignment.center,
-                      radius: .54,
-                      colors: [Color(0xE6073150), Color(0xB8073150), Color(0x28021931)],
-                      stops: [0, .56, 1],
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ProfileReferenceAction(
+                  icon: Icons.favorite_border_rounded,
+                  label: 'Sevimlilarim',
+                  onTap: () => Navigator.push(
+                    context,
+                    muhajeerPageRoute(
+                      settings: const RouteSettings(name: 'mb:favorites'),
+                      builder: (_) => const FavoritesPage(),
                     ),
                   ),
-                ),"""
-if old not in s: raise SystemExit('profile target not found')
-s=s.replace(old,new,1)
-s=s.replace("height: 292,","height: 300,",1)
-s=s.replace("borderRadius: BorderRadius.circular(28),\n              border: Border.all(color: const Color(0xFFD7B35B), width: 1.4),","borderRadius: BorderRadius.circular(30),\n              border: Border.all(color: const Color(0xFFE3BC61), width: 1.6),",1)
-s=s.replace("style: const TextStyle(color: Color(0xFFFFF7E6), fontSize: 31, fontWeight: FontWeight.w900, letterSpacing: -.5)","style: const TextStyle(color: Color(0xFFFFFBF1), fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: -.7, fontFamily: 'serif')",1)
-s=s.replace("Text(displayPhone, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: .4))","Text(displayPhone, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: .5))",1)
-s=s.replace("Text('Muhajeer Books', style: TextStyle(color: Color(0xFFFFD875), fontSize: 16, fontWeight: FontWeight.w900))","Text('Muhajeer Books', style: TextStyle(color: Color(0xFFFFD875), fontSize: 17, fontWeight: FontWeight.w900, fontFamily: 'serif'))",1)
-s=s.replace("fontSize: 14.5, fontWeight: FontWeight.w700","fontSize: 15.5, fontWeight: FontWeight.w700, fontFamily: 'serif'",1)
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ProfileReferenceAction(
+                  icon: Icons.settings_outlined,
+                  label: 'Sozlamalar',
+                  onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Sozlamalar pastdagi profil xizmatlarida.')),
+                  ),
+                ),
+              ),
+            ],
+          ),
+"""
+    s = s[:start] + replacement + s[end:]
+
 p.write_text(s)

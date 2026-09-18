@@ -5186,7 +5186,7 @@ class _DiscountAdminState extends State<_DiscountAdmin> {
             .showSnackBar(
               SnackBar(
                 content: Text(
-                  '$p% chegirma \${DateFormat('yyyy.MM.dd HH:mm').format(endsAt)} gacha qo‘llandi ✅',
+                  '$p% chegirma ${DateFormat('yyyy.MM.dd HH:mm').format(endsAt)} gacha qo‘llandi ✅',
                 ),
               ),
             );
@@ -5285,7 +5285,7 @@ class _DiscountAdminState extends State<_DiscountAdmin> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Aynan \${DateFormat('yyyy.MM.dd HH:mm').format(endsAt)} da chegirma avtomatik tugaydi.',
+                    'Aynan ${DateFormat('yyyy.MM.dd HH:mm').format(endsAt)} da chegirma avtomatik tugaydi.',
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.muted,

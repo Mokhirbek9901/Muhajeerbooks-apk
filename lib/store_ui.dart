@@ -767,6 +767,10 @@ class _HomePageState extends State<HomePage> {
                 child: RepaintBoundary(child: _DeliveryPromoCard()),
               ),
             ),
+            const SliverPadding(
+              padding: EdgeInsets.fromLTRB(16, 5, 16, 5),
+              sliver: SliverToBoxAdapter(child: _DiscountCountdownBanner()),
+            ),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 7, 16, 5),
               sliver: SliverToBoxAdapter(
@@ -977,6 +981,111 @@ class _HomePageState extends State<HomePage> {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _DiscountCountdownBanner extends StatefulWidget {
+  const _DiscountCountdownBanner();
+
+  @override
+  State<_DiscountCountdownBanner> createState() =>
+      _DiscountCountdownBannerState();
+}
+
+class _DiscountCountdownBannerState extends State<_DiscountCountdownBanner> {
+  Timer? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  String _remainingText(Duration remaining) {
+    final totalSeconds = remaining.inSeconds.clamp(0, 1 << 31);
+    final days = totalSeconds ~/ 86400;
+    final hours = (totalSeconds % 86400) ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final seconds = totalSeconds % 60;
+
+    if (days > 0) return '${days} kun ${hours} soat qoldi';
+    if (hours > 0) return '${hours} soat ${minutes} daqiqa qoldi';
+    if (minutes > 0) return '${minutes} daqiqa ${seconds} soniya qoldi';
+    return '${seconds} soniya qoldi';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final discount = context.select<AppState, ({DateTime? end, int percent})>(
+      (s) => (
+        end: s.activeDiscountEndsAt,
+        percent: s.activeGlobalDiscountPercent,
+      ),
+    );
+    final end = discount.end;
+    if (end == null || discount.percent <= 0) return const SizedBox.shrink();
+
+    final remaining = end.difference(DateTime.now());
+    if (remaining <= Duration.zero) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: UzbekCustomerColors.goldSoft,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: UzbekCustomerColors.gold),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: UzbekCustomerColors.navy,
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: const Icon(
+              Icons.timer_outlined,
+              color: UzbekCustomerColors.goldSoft,
+            ),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '🔥 ${discount.percent}% chegirma — ${_remainingText(remaining)}',
+                  style: const TextStyle(
+                    color: UzbekCustomerColors.navy,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Aksiya ${DateFormat('yyyy.MM.dd HH:mm').format(end)} da avtomatik tugaydi.',
+                  style: const TextStyle(
+                    color: UzbekCustomerColors.textMuted,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

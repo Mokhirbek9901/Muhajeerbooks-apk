@@ -34,4 +34,5 @@ flutter:
   assets:
     - assets/images/muhajeer_logo.jpg
     - assets/images/registan_illustrated.webp
+    - assets/images/profile_reference_bg.webp
     - assets/data/migrated_books.json

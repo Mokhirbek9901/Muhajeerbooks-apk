@@ -936,6 +936,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
   late int tab;
   late final _AdminApi api;
   Timer? _liveRefreshTimer;
+  bool _liveRefreshInFlight = false;
   final _overviewKey = GlobalKey<_OverviewAdminState>();
   final _booksKey = GlobalKey<_BooksAdminState>();
   final _inventoryKey = GlobalKey<_InventoryAdminState>();
@@ -975,24 +976,42 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
     WidgetsBinding.instance.addObserver(this);
     CatalogResume.instance.setAdminPanelActive(true);
     unawaited(AdminResumeSession.start(widget.secret, tab: tab));
-    _liveRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+    _liveRefreshTimer = Timer.periodic(const Duration(seconds: 20), (_) {
       unawaited(AdminResumeSession.touch(tab: tab));
-      if (!mounted) return;
+      unawaited(_refreshActiveTabQuietly());
+    });
+  }
+
+  Future<void> _refreshActiveTabQuietly() async {
+    if (!mounted || _liveRefreshInFlight) return;
+    _liveRefreshInFlight = true;
+    try {
       switch (tab) {
         case 0:
-          unawaited(_overviewKey.currentState?.reloadQuietly());
+          final state = _overviewKey.currentState;
+          if (state != null) await state.reloadQuietly();
         case 1:
-          unawaited(_booksKey.currentState?.reloadQuietly());
+          final state = _booksKey.currentState;
+          if (state != null) await state.reloadQuietly();
         case 2:
-          unawaited(_inventoryKey.currentState?.loadQuietly());
+          final state = _inventoryKey.currentState;
+          if (state != null) await state.loadQuietly();
         case 3:
-          unawaited(_ordersKey.currentState?.reloadQuietly());
+          final state = _ordersKey.currentState;
+          if (state != null) await state.reloadQuietly();
         case 4:
-          unawaited(_salesKey.currentState?.reloadQuietly());
+          final state = _salesKey.currentState;
+          if (state != null) await state.reloadQuietly();
         case 5:
-          unawaited(_customersKey.currentState?.reloadQuietly());
+          final state = _customersKey.currentState;
+          if (state != null) await state.reloadQuietly();
+        case 6:
+          // Moliya sahifasi o'zining siyraklashtirilgan refreshini boshqaradi.
+          break;
       }
-    });
+    } finally {
+      _liveRefreshInFlight = false;
+    }
   }
 
   @override

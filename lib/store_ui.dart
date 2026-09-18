@@ -2224,7 +2224,9 @@ class _BookCover extends StatelessWidget {
         Image.network(
           originalUrl,
           fit: BoxFit.cover,
-          cacheWidth: 720,
+          // Category covers prioritize maximum clarity. The lightweight
+          // thumbnail still appears first, so initial scrolling stays quick.
+          cacheWidth: 1080,
           filterQuality: FilterQuality.high,
           gaplessPlayback: true,
           frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {

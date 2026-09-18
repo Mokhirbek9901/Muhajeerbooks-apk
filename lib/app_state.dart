@@ -59,6 +59,7 @@ class Book {
     required this.price,
     required this.stock,
     required this.discountPercent,
+    this.discountEndsAt,
     required this.imageUrl,
     this.thumbnailUrl = '',
     this.imageUrls = const [],
@@ -79,6 +80,7 @@ class Book {
   final int price;
   final int stock;
   final int discountPercent;
+  final DateTime? discountEndsAt;
   final String imageUrl;
   final String thumbnailUrl;
   final List<String> imageUrls;
@@ -88,8 +90,22 @@ class Book {
   final bool recommended;
   final DateTime? createdAt;
 
-  int get currentPrice => (price * (100 - discountPercent) / 100).round();
-  bool get isDiscounted => discountPercent > 0;
+  bool get discountActive {
+    if (discountPercent <= 0) return false;
+    final endsAt = discountEndsAt;
+    return endsAt == null || endsAt.isAfter(DateTime.now());
+  }
+
+  int get effectiveDiscountPercent => discountActive ? discountPercent : 0;
+  int get currentPrice =>
+      (price * (100 - effectiveDiscountPercent) / 100).round();
+  bool get isDiscounted => discountActive;
+  Duration? get discountRemaining {
+    final endsAt = discountEndsAt;
+    if (!discountActive || endsAt == null) return null;
+    final remaining = endsAt.difference(DateTime.now());
+    return remaining.isNegative ? Duration.zero : remaining;
+  }
   bool get inStock => stock > 0 && price > 0;
   String get previewImageUrl =>
       thumbnailUrl.trim().isNotEmpty ? thumbnailUrl.trim() : imageUrl;
@@ -129,6 +145,9 @@ class Book {
     price: (map['price'] as num?)?.toInt() ?? 0,
     stock: (map['stock'] as num?)?.toInt() ?? 0,
     discountPercent: (map['discount_percent'] as num?)?.toInt() ?? 0,
+    discountEndsAt: DateTime.tryParse(
+      (map['discount_ends_at'] ?? '').toString(),
+    )?.toLocal(),
     imageUrl: (map['image_url'] ?? '').toString(),
     thumbnailUrl: (map['thumbnail_url'] ?? '').toString(),
     imageUrls: ((map['image_urls'] as List?) ?? const [])
@@ -172,6 +191,7 @@ class Book {
     'price': price,
     'stock': stock,
     'discount_percent': discountPercent,
+    'discount_ends_at': discountEndsAt?.toUtc().toIso8601String(),
     'image_url': galleryImages.isEmpty ? '' : galleryImages.first,
     'thumbnail_url': thumbnailUrl,
     'image_urls': galleryImages,
@@ -198,6 +218,8 @@ class Book {
     int? price,
     int? stock,
     int? discountPercent,
+    DateTime? discountEndsAt,
+    bool clearDiscountEndsAt = false,
     String? imageUrl,
     String? thumbnailUrl,
     List<String>? imageUrls,
@@ -217,6 +239,9 @@ class Book {
     price: price ?? this.price,
     stock: stock ?? this.stock,
     discountPercent: discountPercent ?? this.discountPercent,
+    discountEndsAt: clearDiscountEndsAt
+        ? null
+        : (discountEndsAt ?? this.discountEndsAt),
     imageUrl: imageUrl ?? this.imageUrl,
     thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
     imageUrls: imageUrls ?? this.imageUrls,
@@ -359,7 +384,7 @@ class BackendService {
 
   static const String _storefrontBookColumns =
       'id,legacy_id,title,author,publisher,category,description,price,stock,'
-      'discount_percent,image_url,thumbnail_url,image_urls,is_active,cover_type,recommended,'
+      'discount_percent,discount_ends_at,image_url,thumbnail_url,image_urls,is_active,cover_type,recommended,'
       'created_at';
 
   Future<List<Book>> fetchBooks({bool includeInactive = false}) async {
@@ -822,9 +847,48 @@ class AppState extends ChangeNotifier {
   int _catalogRevision = 0;
   int get catalogRevision => _catalogRevision;
   void _touchCatalog() => _catalogRevision++;
+
+  DateTime? get activeDiscountEndsAt {
+    DateTime? latest;
+    for (final book in _books) {
+      if (!book.discountActive || book.discountEndsAt == null) continue;
+      final end = book.discountEndsAt!;
+      if (latest == null || end.isAfter(latest)) latest = end;
+    }
+    return latest;
+  }
+
+  int get activeGlobalDiscountPercent {
+    for (final book in _books) {
+      if (book.discountActive) return book.discountPercent;
+    }
+    return 0;
+  }
+
+  void _scheduleDiscountExpiryRefresh() {
+    _discountExpiryTimer?.cancel();
+    DateTime? nextExpiry;
+    final now = DateTime.now();
+    for (final book in _books) {
+      final end = book.discountEndsAt;
+      if (book.discountPercent <= 0 || end == null || !end.isAfter(now)) {
+        continue;
+      }
+      if (nextExpiry == null || end.isBefore(nextExpiry)) nextExpiry = end;
+    }
+    if (nextExpiry == null) return;
+    final delay = nextExpiry.difference(now);
+    _discountExpiryTimer = Timer(delay, () {
+      _touchCatalog();
+      notifyListeners();
+      _scheduleDiscountExpiryRefresh();
+    });
+  }
+
   String _catalogCursor = '1970-01-01T00:00:00Z';
   Timer? _booksFallbackTimer;
   Timer? _orderStatusTimer;
+  Timer? _discountExpiryTimer;
   bool _orderStatusRefreshing = false;
   bool _restockRefreshing = false;
 
@@ -888,6 +952,7 @@ class AppState extends ChangeNotifier {
     }
 
     _touchCatalog();
+    _scheduleDiscountExpiryRefresh();
     loading = false;
     notifyListeners();
 
@@ -1032,6 +1097,7 @@ class AppState extends ChangeNotifier {
           b.price,
           b.stock,
           b.discountPercent,
+          b.discountEndsAt?.toUtc().toIso8601String() ?? '',
           b.imageUrl,
           b.galleryImages.join('↕'),
           b.isActive,
@@ -1093,6 +1159,7 @@ class AppState extends ChangeNotifier {
         ..addAll(merged);
       _sanitizeCart();
       _touchCatalog();
+      _scheduleDiscountExpiryRefresh();
       notifyListeners();
       // Diskka yozish UI ni kutib turmasin.
       unawaited(_local.saveBooks(_books));
@@ -1184,6 +1251,7 @@ class AppState extends ChangeNotifier {
   void dispose() {
     _booksFallbackTimer?.cancel();
     _orderStatusTimer?.cancel();
+    _discountExpiryTimer?.cancel();
     super.dispose();
   }
 
@@ -1276,6 +1344,7 @@ class AppState extends ChangeNotifier {
       }
     } finally {
       _touchCatalog();
+      _scheduleDiscountExpiryRefresh();
       loading = false;
       notifyListeners();
     }

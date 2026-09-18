@@ -12,111 +12,96 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Match supplied profile reference
+      - name: Apply exact profile layout
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          p=Path('lib/store_ui.dart')
-          s=p.read_text()
-          a=s.index('class _ProfileMosaicPainter extends CustomPainter {')
-          b=s.index('class MathCos {', a)
-          painter=r'''class _ProfileMosaicPainter extends CustomPainter {
-            const _ProfileMosaicPainter();
-            @override
-            void paint(Canvas canvas, Size size) {
-              final rect = Offset.zero & size;
-              canvas.drawRect(rect, Paint()..shader = const LinearGradient(
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
-                colors: [Color(0xFF06234C), Color(0xFF074F6A), Color(0xFF061D43)],
-              ).createShader(rect));
-              final c = Offset(size.width * .5, size.height * .48);
-              final gold = Paint()..color=const Color(0xFFD9B45B)..style=PaintingStyle.stroke..strokeWidth=1.15;
-              final pale = Paint()..color=const Color(0xFF69B8C5)..style=PaintingStyle.stroke..strokeWidth=.8;
-              for (final rr in [44.0,57.0,71.0,87.0,106.0,128.0,151.0,178.0,208.0]) canvas.drawCircle(c,rr,rr.toInt().isEven?gold:pale);
-              for (var i=0;i<32;i++) {
-                final aa=i*3.141592653589793/16;
-                final p1=c+Offset(58*MathCos.cos(aa),58*MathCos.sin(aa));
-                final p2=c+Offset(210*MathCos.cos(aa),210*MathCos.sin(aa));
-                canvas.drawLine(p1,p2,i.isEven?gold:pale);
-                final q=c+Offset(146*MathCos.cos(aa),146*MathCos.sin(aa));
-                canvas.drawCircle(q,i%2==0?3.2:1.7,gold);
-              }
-              for (final x in [22.0,48.0,size.width-48,size.width-22]) canvas.drawLine(Offset(x,0),Offset(x,size.height),gold);
-              for (var y=12.0;y<size.height;y+=25) for (final x in [35.0,size.width-35]) {
-                final d=Path()..moveTo(x,y-7)..lineTo(x+7,y)..lineTo(x,y+7)..lineTo(x-7,y)..close(); canvas.drawPath(d,gold);
-              }
-              final fill=Paint()..color=const Color(0xFF06334F); final roof=Paint()..color=const Color(0xFF0A7181);
-              for (var x=-5.0;x<size.width+20;x+=42) {
-                final h=20.0+((x.toInt().abs()%3)*7); canvas.drawRect(Rect.fromLTWH(x,size.height-h,31,h),fill);
-                final dome=Path()..moveTo(x,size.height-h)..quadraticBezierTo(x+15.5,size.height-h-18,x+31,size.height-h)..close(); canvas.drawPath(dome,roof); canvas.drawPath(dome,gold);
-              }
-              for (final x in [24.0,72.0,size.width-72,size.width-24]) {
-                canvas.drawRect(Rect.fromLTWH(x-4,size.height-82,8,70),fill);
-                final top=Path()..moveTo(x-6,size.height-82)..lineTo(x,size.height-96)..lineTo(x+6,size.height-82)..close(); canvas.drawPath(top,roof); canvas.drawPath(top,gold);
-              }
-              final stars=Paint()..color=const Color(0xFFFFF1B9);
-              for(var i=0;i<52;i++){ final x=((i*71)%997)/997*size.width; final y=((i*43)%311)/311*size.height*.72; canvas.drawCircle(Offset(x,y),i%7==0?1.35:.65,stars); }
-            }
-            @override bool shouldRepaint(covariant CustomPainter oldDelegate)=>false;
-          }
+          import re
+          p = Path('lib/store_ui.dart')
+          s = p.read_text()
 
-          '''
-          s=s[:a]+painter+s[b:]
-          s=s.replace('height: 292,','height: 205,')
-          s=s.replace('padding: const EdgeInsets.fromLTRB(22, 35, 22, 22),','padding: const EdgeInsets.fromLTRB(18, 20, 18, 12),')
-          s=s.replace('fontSize: 34, fontWeight: FontWeight.w900','fontSize: 29, fontWeight: FontWeight.w900')
-          old='''          Row(
+          # Match the supplied reference card proportions.
+          s = s.replace('height: 300,', 'height: 205,', 1)
+
+          # Keep the detailed background visible under the ornamental overlay.
+          s = s.replace(
+              "colors: [Color(0xFF06234C), Color(0xFF074F6A), Color(0xFF061D43)],",
+              "colors: [Color(0xB806234C), Color(0xA8074F6A), Color(0xB8061D43)],",
+              1,
+          )
+
+          # Reference has three action cards directly below the profile card.
+          start = s.find("          const SizedBox(height: 12),\n          Row(\n            children: [\n              Expanded(\n                child: _ProfileStat")
+          end_marker = "          const SizedBox(height: 19),"
+          if start != -1:
+              end = s.find(end_marker, start)
+              if end == -1:
+                  raise SystemExit('profile action block end not found')
+              replacement = """          const SizedBox(height: 12),
+          Row(
             children: [
               Expanded(
-                child: _ProfileStat(value: '$activeBooks', label: 'Kitoblar'),
+                child: _ProfileReferenceAction(
+                  icon: Icons.shopping_bag_outlined,
+                  label: 'Buyurtmalarim',
+                  onTap: () => Navigator.push(
+                    context,
+                    muhajeerPageRoute(
+                      settings: const RouteSettings(name: 'mb:orders'),
+                      builder: (_) => const MyOrdersPage(),
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _ProfileStat(value: '$availableBooks', label: 'Mavjud'),
+                child: _ProfileReferenceAction(
+                  icon: Icons.favorite_border_rounded,
+                  label: 'Sevimlilarim',
+                  onTap: () => Navigator.push(
+                    context,
+                    muhajeerPageRoute(
+                      settings: const RouteSettings(name: 'mb:favorites'),
+                      builder: (_) => const FavoritesPage(),
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _ProfileStat(
-                  value: state.isOnlineBackend ? 'Onlayn' : 'Local',
-                  label: 'Tizim',
+                child: _ProfileReferenceAction(
+                  icon: Icons.settings_outlined,
+                  label: 'Sozlamalar',
+                  onTap: () {
+                    final controller = PrimaryScrollController.maybeOf(context);
+                    controller?.animateTo(
+                      controller.position.maxScrollExtent,
+                      duration: const Duration(milliseconds: 350),
+                      curve: Curves.easeOutCubic,
+                    );
+                  },
                 ),
               ),
             ],
-          ),'''
-          new='''          Row(
-            children: [
-              Expanded(child: _ProfileReferenceAction(icon: Icons.shopping_bag_outlined, label: 'Buyurtmalarim', onTap: () => Navigator.push(context, muhajeerPageRoute(settings: const RouteSettings(name: 'mb:orders'), builder: (_) => const MyOrdersPage())))),
-              const SizedBox(width: 8),
-              Expanded(child: _ProfileReferenceAction(icon: Icons.favorite_border_rounded, label: 'Sevimlilarim', onTap: () => Navigator.push(context, muhajeerPageRoute(settings: const RouteSettings(name: 'mb:favorites'), builder: (_) => const FavoritesPage())))),
-              const SizedBox(width: 8),
-              Expanded(child: _ProfileReferenceAction(icon: Icons.settings_outlined, label: 'Sozlamalar', onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sozlamalar pastdagi profil xizmatlarida.'))))),
-            ],
-          ),'''
-          if old in s: s=s.replace(old,new,1)
-          marker='class _ProfileStat extends StatelessWidget {'
-          if 'class _ProfileReferenceAction extends StatelessWidget {' not in s:
-            widget=r'''class _ProfileReferenceAction extends StatelessWidget {
-              const _ProfileReferenceAction({required this.icon, required this.label, required this.onTap});
-              final IconData icon; final String label; final VoidCallback onTap;
-              @override Widget build(BuildContext context) => Material(
-                color: const Color(0xFFFFFCF4),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: Color(0xFFE4D3AE))),
-                child: InkWell(onTap:onTap,borderRadius:BorderRadius.circular(20),child:Padding(padding:const EdgeInsets.symmetric(horizontal:9,vertical:13),child:Row(children:[Icon(icon,color:const Color(0xFF082B3D),size:25),const SizedBox(width:6),Expanded(child:Text(label,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Color(0xFF082B3D),fontWeight:FontWeight.w800,fontFamily:'serif',fontSize:12))),const Icon(Icons.chevron_right_rounded,color:Color(0xFF082B3D),size:18)]))),
-              );
-            }
+          ),
+"""
+              s = s[:start] + replacement + s[end:]
 
-            '''
-            s=s.replace(marker,widget+marker,1)
+          # Tighten typography/gaps to the reference without changing dynamic user data.
+          s = s.replace("fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: .5", "fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: .5", 1)
+          s = s.replace("const SizedBox(height: 13),\n                      Container(", "const SizedBox(height: 9),\n                      Container(", 1)
+          s = s.replace("const SizedBox(height: 14),\n                      const Row(children:", "const SizedBox(height: 9),\n                      const Row(children:", 1)
+          s = s.replace("const SizedBox(height: 10),\n                      const Text('Koreyadagi O‘zbek kitobxonlari uchun'", "const SizedBox(height: 6),\n                      const Text('Koreyadagi O‘zbek kitobxonlari uchun'", 1)
           p.write_text(s)
           PY
-      - name: Commit profile UI
+      - name: Commit real app source
         run: |
           git config user.name 'Mokhirbek9901'
           git config user.email 'ismoilovmokhirbek@gmail.com'
           git add lib/store_ui.dart
-          git diff --cached --quiet && exit 0
-          git commit -m 'Match profile screen to supplied reference'
+          if git diff --cached --quiet; then
+            echo 'No source change'
+            exit 0
+          fi
+          git commit -m 'Apply supplied profile design to live app source'
           git push origin main
-# trigger 2026-09-18-0559
-
-# run-profile-patch-2026-09-18-0917

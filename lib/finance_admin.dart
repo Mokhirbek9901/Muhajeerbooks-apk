@@ -45,6 +45,24 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
   int inventoryStockCost = 0;
   int allTimeSoldCost = 0;
 
+  Future<dynamic> _rpc(
+    String name, {
+    Map<String, dynamic>? params,
+  }) async {
+    final response = await client.functions.invoke(
+      'admin-rpc',
+      body: {'name': name, 'params': params ?? <String, dynamic>{}},
+    );
+    final raw = response.data;
+    final data = raw is Map
+        ? Map<String, dynamic>.from(raw)
+        : <String, dynamic>{};
+    if (data['ok'] != true) {
+      throw StateError((data['error'] ?? 'Moliya amali bajarilmadi.').toString());
+    }
+    return data['data'];
+  }
+
   static const periodLabels = <String, String>{
     'today': 'Bugun',
     'week': 'Shu hafta',
@@ -143,19 +161,19 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
     if (!quiet && mounted) setState(() => loading = true);
     try {
       final result = await Future.wait<dynamic>([
-        client.rpc(
+        _rpc(
           'admin_finance_report',
           params: {'p_secret': widget.secret, 'p_period': period},
         ),
-        client.rpc(
+        _rpc(
           'admin_finance_expenses',
           params: {'p_secret': widget.secret, 'p_limit': 100},
         ),
-        client.rpc(
+        _rpc(
           'admin_list_books',
           params: {'p_secret': widget.secret},
         ),
-        client.rpc(
+        _rpc(
           'admin_finance_report',
           params: {'p_secret': widget.secret, 'p_period': 'all'},
         ),
@@ -304,7 +322,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
     }
 
     try {
-      await client.rpc(
+      await _rpc(
         'admin_add_finance_expense',
         params: {
           'p_secret': widget.secret,
@@ -420,7 +438,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
     }
 
     try {
-      await client.rpc(
+      await _rpc(
         'admin_update_finance_expense',
         params: {
           'p_secret': widget.secret,
@@ -468,7 +486,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
     if (ok != true) return;
 
     try {
-      await client.rpc(
+      await _rpc(
         'admin_delete_finance_expense',
         params: {'p_secret': widget.secret, 'p_id': expense['id']},
       );

@@ -126,8 +126,23 @@ class _AdminApi {
   final String secret;
   SupabaseClient get client => Supabase.instance.client;
 
+  Future<dynamic> _rpc(
+    String name, {
+    Map<String, dynamic>? params,
+  }) async {
+    final response = await client.functions.invoke(
+      'admin-rpc',
+      body: {'name': name, 'params': params ?? <String, dynamic>{}},
+    );
+    final data = _functionResponseMap(response.data);
+    if (data['ok'] != true) {
+      throw StateError((data['error'] ?? 'Admin amali bajarilmadi.').toString());
+    }
+    return data['data'];
+  }
+
   Future<bool> verify() async {
-    final result = await client.rpc(
+    final result = await _rpc(
       'admin_verify',
       params: {'p_secret': secret},
     );
@@ -135,7 +150,7 @@ class _AdminApi {
   }
 
   Future<List<Book>> books() async {
-    final data = await client.rpc(
+    final data = await _rpc(
       'admin_list_books',
       params: {'p_secret': secret},
     );
@@ -145,7 +160,7 @@ class _AdminApi {
   }
 
   Future<void> saveBook(Book book) async {
-    await client.rpc(
+    await _rpc(
       'admin_save_book',
       params: {
         'p_secret': secret,
@@ -356,14 +371,14 @@ class _AdminApi {
   }
 
   Future<void> deleteBook(String id) async {
-    await client.rpc(
+    await _rpc(
       'admin_delete_book',
       params: {'p_secret': secret, 'p_id': id},
     );
   }
 
   Future<void> applyDiscount(int percent, DateTime endsAt) async {
-    await client.rpc(
+    await _rpc(
       'admin_apply_discount_until',
       params: {
         'p_secret': secret,
@@ -374,11 +389,11 @@ class _AdminApi {
   }
 
   Future<void> clearDiscounts() async {
-    await client.rpc('admin_clear_discounts', params: {'p_secret': secret});
+    await _rpc('admin_clear_discounts', params: {'p_secret': secret});
   }
 
   Future<List<ShopOrder>> orders() async {
-    final data = await client.rpc(
+    final data = await _rpc(
       'admin_list_orders',
       params: {'p_secret': secret},
     );
@@ -388,7 +403,7 @@ class _AdminApi {
   }
 
   Future<List<Map<String, dynamic>>> sales() async {
-    final raw = await client.rpc(
+    final raw = await _rpc(
       'admin_list_sales',
       params: {'p_secret': secret, 'p_limit': 5000},
     );
@@ -417,14 +432,14 @@ class _AdminApi {
   }
 
   Future<void> updateOrderStatus(String id, String status) async {
-    await client.rpc(
+    await _rpc(
       'admin_update_order_status',
       params: {'p_secret': secret, 'p_id': id, 'p_status': status},
     );
   }
 
   Future<Map<String, dynamic>> userStats() async {
-    final raw = await client.rpc(
+    final raw = await _rpc(
       'admin_user_stats',
       params: {'p_secret': secret},
     );
@@ -432,7 +447,7 @@ class _AdminApi {
   }
 
   Future<List<Map<String, dynamic>>> customers() async {
-    final raw = await client.rpc(
+    final raw = await _rpc(
       'admin_list_customers',
       params: {'p_secret': secret},
     );
@@ -442,7 +457,7 @@ class _AdminApi {
   }
 
   Future<List<Map<String, dynamic>>> restockWaitlist() async {
-    final raw = await client.rpc(
+    final raw = await _rpc(
       'admin_restock_waitlist',
       params: {'p_secret': secret},
     );
@@ -452,7 +467,7 @@ class _AdminApi {
   }
 
   Future<List<Map<String, dynamic>>> shippingQueue() async {
-    final raw = await client.rpc(
+    final raw = await _rpc(
       'admin_shipping_queue_list',
       params: {'p_secret': secret},
     );
@@ -467,7 +482,7 @@ class _AdminApi {
     required String address,
     required String books,
   }) async {
-    final raw = await client.rpc(
+    final raw = await _rpc(
       'admin_shipping_queue_add',
       params: {
         'p_secret': secret,
@@ -485,7 +500,7 @@ class _AdminApi {
     required String kind,
     required String id,
   }) async {
-    await client.rpc(
+    await _rpc(
       'admin_shipping_queue_dismiss',
       params: {'p_secret': secret, 'p_kind': kind, 'p_id': id},
     );

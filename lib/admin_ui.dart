@@ -362,10 +362,14 @@ class _AdminApi {
     );
   }
 
-  Future<void> applyDiscount(int percent) async {
+  Future<void> applyDiscount(int percent, DateTime endsAt) async {
     await client.rpc(
-      'admin_apply_discount',
-      params: {'p_secret': secret, 'p_percent': percent},
+      'admin_apply_discount_until',
+      params: {
+        'p_secret': secret,
+        'p_percent': percent,
+        'p_ends_at': endsAt.toUtc().toIso8601String(),
+      },
     );
   }
 
@@ -5105,6 +5109,53 @@ class _DiscountAdmin extends StatefulWidget {
 class _DiscountAdminState extends State<_DiscountAdmin> {
   final percent = TextEditingController(text: '20');
   bool loading = false;
+  late DateTime endsAt;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    endsAt = DateTime(now.year, now.month, now.day + 1, 23, 59);
+  }
+
+  Future<void> pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: endsAt.isAfter(now) ? endsAt : now,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: DateTime(now.year + 2, 12, 31),
+      helpText: 'Chegirma tugash sanasi',
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      endsAt = DateTime(
+        picked.year,
+        picked.month,
+        picked.day,
+        endsAt.hour,
+        endsAt.minute,
+      );
+    });
+  }
+
+  Future<void> pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(endsAt),
+      helpText: 'Chegirma tugash vaqti',
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      endsAt = DateTime(
+        endsAt.year,
+        endsAt.month,
+        endsAt.day,
+        picked.hour,
+        picked.minute,
+      );
+    });
+  }
 
   @override
   void dispose() {
@@ -5120,13 +5171,25 @@ class _DiscountAdminState extends State<_DiscountAdmin> {
       );
       return;
     }
+    if (!endsAt.isAfter(DateTime.now())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tugash sanasi va soati kelajakda bo‘lsin.')),
+      );
+      return;
+    }
     setState(() => loading = true);
     try {
-      await widget.api.applyDiscount(p);
+      await widget.api.applyDiscount(p, endsAt);
       await context.read<AppState>().refreshBooks();
       if (mounted)
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$p% chegirma qo‘llandi ✅')));
+            .showSnackBar(
+              SnackBar(
+                content: Text(
+                  '$p% chegirma \${DateFormat('yyyy.MM.dd HH:mm').format(endsAt)} gacha qo‘llandi ✅',
+                ),
+              ),
+            );
     } finally {
       if (mounted) setState(() => loading = false);
     }
@@ -5196,6 +5259,40 @@ class _DiscountAdminState extends State<_DiscountAdmin> {
                     ),
                   ),
                   const SizedBox(height: 12),
+                  const Text(
+                    'Chegirma qachon tugaydi?',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: loading ? null : pickDate,
+                          icon: const Icon(Icons.calendar_month_rounded),
+                          label: Text(DateFormat('yyyy.MM.dd').format(endsAt)),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: loading ? null : pickTime,
+                          icon: const Icon(Icons.schedule_rounded),
+                          label: Text(DateFormat('HH:mm').format(endsAt)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Aynan \${DateFormat('yyyy.MM.dd HH:mm').format(endsAt)} da chegirma avtomatik tugaydi.',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.muted,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
@@ -5241,8 +5338,8 @@ class _DiscountAdminState extends State<_DiscountAdmin> {
                   SizedBox(height: 10),
                   _DiscountTip(
                     icon: Icons.restart_alt_rounded,
-                    title: 'Bir tugmada bekor',
-                    text: 'Aksiya tugaganda barcha chegirmalarni birdan o‘chira olasiz.',
+                    title: 'Avtomatik tugaydi',
+                    text: 'Belgilangan sana va soatda aksiya o‘zi to‘xtaydi; qo‘lda o‘chirish shart emas.',
                   ),
                 ],
               ),

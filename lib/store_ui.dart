@@ -3703,42 +3703,104 @@ Widget _priceRow(String label, int value, {bool bold = false}) => Row(
 
 class _ProfileMosaicPainter extends CustomPainter {
   const _ProfileMosaicPainter();
+
   @override
   void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    canvas.drawRect(rect, Paint()..shader = const LinearGradient(
-      begin: Alignment.topLeft, end: Alignment.bottomRight,
-      colors: [Color(0xB806234C), Color(0xA8074F6A), Color(0xB8061D43)],
-    ).createShader(rect));
-    final c = Offset(size.width * .5, size.height * .48);
-    final gold = Paint()..color=const Color(0xFFD9B45B)..style=PaintingStyle.stroke..strokeWidth=1.15;
-    final pale = Paint()..color=const Color(0xFF69B8C5)..style=PaintingStyle.stroke..strokeWidth=.8;
-    for (final rr in [44.0,57.0,71.0,87.0,106.0,128.0,151.0,178.0,208.0]) canvas.drawCircle(c,rr,rr.toInt().isEven?gold:pale);
-    for (var i=0;i<32;i++) {
-      final aa=i*3.141592653589793/16;
-      final p1=c+Offset(58*MathCos.cos(aa),58*MathCos.sin(aa));
-      final p2=c+Offset(210*MathCos.cos(aa),210*MathCos.sin(aa));
-      canvas.drawLine(p1,p2,i.isEven?gold:pale);
-      final q=c+Offset(146*MathCos.cos(aa),146*MathCos.sin(aa));
-      canvas.drawCircle(q,i%2==0?3.2:1.7,gold);
+    final gold = Paint()
+      ..color = const Color(0xBFE8C66A)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.05;
+    final teal = Paint()
+      ..color = const Color(0x8059B7C3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = .8;
+    final center = Offset(size.width * .5, size.height * .49);
+
+    // Dark central medallion exactly like the supplied reference.
+    final medallion = Rect.fromCenter(
+      center: center,
+      width: size.width * .52,
+      height: size.height * .98,
+    );
+    canvas.drawOval(
+      medallion,
+      Paint()
+        ..shader = const RadialGradient(
+          colors: [Color(0xF5052C45), Color(0xEB07344D), Color(0xB0052943), Color(0x00052943)],
+          stops: [0, .58, .82, 1],
+        ).createShader(medallion),
+    );
+
+    // Concentric Uzbek/Islamic arches around the central medallion.
+    void arch(double inset, Paint paint) {
+      final left = size.width * inset;
+      final right = size.width * (1 - inset);
+      final bottom = size.height * .98;
+      final shoulder = size.height * .37;
+      final top = size.height * .015;
+      final path = Path()
+        ..moveTo(left, bottom)
+        ..lineTo(left, shoulder)
+        ..quadraticBezierTo(left, size.height * .12, center.dx, top)
+        ..quadraticBezierTo(right, size.height * .12, right, shoulder)
+        ..lineTo(right, bottom);
+      canvas.drawPath(path, paint);
     }
-    for (final x in [22.0,48.0,size.width-48,size.width-22]) canvas.drawLine(Offset(x,0),Offset(x,size.height),gold);
-    for (var y=12.0;y<size.height;y+=25) for (final x in [35.0,size.width-35]) {
-      final d=Path()..moveTo(x,y-7)..lineTo(x+7,y)..lineTo(x,y+7)..lineTo(x-7,y)..close(); canvas.drawPath(d,gold);
+
+    arch(.035, gold);
+    arch(.085, teal);
+    arch(.135, gold);
+    arch(.19, teal);
+    arch(.245, gold);
+
+    // Fine geometric diamonds on both sides.
+    for (var y = 12.0; y < size.height - 8; y += 22) {
+      for (final x in [size.width * .055, size.width * .945]) {
+        final d = Path()
+          ..moveTo(x, y - 5)
+          ..lineTo(x + 5, y)
+          ..lineTo(x, y + 5)
+          ..lineTo(x - 5, y)
+          ..close();
+        canvas.drawPath(d, gold);
+        canvas.drawCircle(Offset(x, y), 1.1, teal);
+      }
     }
-    final fill=Paint()..color=const Color(0xFF06334F); final roof=Paint()..color=const Color(0xFF0A7181);
-    for (var x=-5.0;x<size.width+20;x+=42) {
-      final h=20.0+((x.toInt().abs()%3)*7); canvas.drawRect(Rect.fromLTWH(x,size.height-h,31,h),fill);
-      final dome=Path()..moveTo(x,size.height-h)..quadraticBezierTo(x+15.5,size.height-h-18,x+31,size.height-h)..close(); canvas.drawPath(dome,roof); canvas.drawPath(dome,gold);
+
+    // Subtle central rosette behind the customer's name.
+    for (var i = 0; i < 16; i++) {
+      final aa = i * 3.141592653589793 / 8;
+      final p1 = center + Offset(
+        size.width * .12 * MathCos.cos(aa),
+        size.height * .23 * MathCos.sin(aa),
+      );
+      final p2 = center + Offset(
+        size.width * .205 * MathCos.cos(aa),
+        size.height * .40 * MathCos.sin(aa),
+      );
+      canvas.drawLine(p1, p2, i.isEven ? gold : teal);
     }
-    for (final x in [24.0,72.0,size.width-72,size.width-24]) {
-      canvas.drawRect(Rect.fromLTWH(x-4,size.height-82,8,70),fill);
-      final top=Path()..moveTo(x-6,size.height-82)..lineTo(x,size.height-96)..lineTo(x+6,size.height-82)..close(); canvas.drawPath(top,roof); canvas.drawPath(top,gold);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: center,
+        width: size.width * .34,
+        height: size.height * .70,
+      ),
+      teal,
+    );
+
+    // Small star points like the reference.
+    final star = Paint()..color = const Color(0xBFFFF2B5);
+    for (var i = 0; i < 38; i++) {
+      final x = ((i * 83) % 997) / 997 * size.width;
+      final y = ((i * 47) % 311) / 311 * size.height * .72;
+      if ((x - center.dx).abs() < size.width * .27) continue;
+      canvas.drawCircle(Offset(x, y), i % 6 == 0 ? 1.15 : .55, star);
     }
-    final stars=Paint()..color=const Color(0xFFFFF1B9);
-    for(var i=0;i<52;i++){ final x=((i*71)%997)/997*size.width; final y=((i*43)%311)/311*size.height*.72; canvas.drawCircle(Offset(x,y),i%7==0?1.35:.65,stars); }
   }
-  @override bool shouldRepaint(covariant CustomPainter oldDelegate)=>false;
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class MathCos {
@@ -3813,7 +3875,7 @@ class ProfilePage extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
         children: [
           Container(
-            height: 205,
+            height: 162,
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(30),
@@ -3832,18 +3894,8 @@ class ProfilePage extends StatelessWidget {
                   filterQuality: FilterQuality.high,
                 ),
                 const CustomPaint(painter: _ProfileMosaicPainter()),
-                Container(
-                  decoration: const BoxDecoration(
-                    gradient: RadialGradient(
-                      center: Alignment.center,
-                      radius: .54,
-                      colors: [Color(0xE6073150), Color(0xB8073150), Color(0x28021931)],
-                      stops: [0, .56, 1],
-                    ),
-                  ),
-                ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 20, 18, 12),
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 7),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -3861,16 +3913,16 @@ class ProfilePage extends StatelessWidget {
                           textAlign: TextAlign.center,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Color(0xFFFFFBF1), fontSize: 29, fontWeight: FontWeight.w900, letterSpacing: -.7, fontFamily: 'serif'),
+                          style: const TextStyle(color: Color(0xFFFFFBF1), fontSize: 23, fontWeight: FontWeight.w900, letterSpacing: -.7, fontFamily: 'serif'),
                         ),
                       ),
                       if (displayPhone.trim().isNotEmpty) ...[
                         const SizedBox(height: 5),
-                        Text(displayPhone, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: .5)),
+                        Text(displayPhone, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: .45)),
                       ],
-                      const SizedBox(height: 9),
+                      const SizedBox(height: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 19, vertical: 9),
+                        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
                         decoration: BoxDecoration(
                           color: const Color(0xA6082D43),
                           borderRadius: BorderRadius.circular(24),
@@ -3879,16 +3931,16 @@ class ProfilePage extends StatelessWidget {
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.menu_book_rounded, color: Color(0xFFFFD875), size: 20),
+                            Icon(Icons.menu_book_rounded, color: Color(0xFFFFD875), size: 18),
                             SizedBox(width: 8),
-                            Text('Muhajeer Books', style: TextStyle(color: Color(0xFFFFD875), fontSize: 17, fontWeight: FontWeight.w900, fontFamily: 'serif')),
+                            Text('Muhajeer Books', style: TextStyle(color: Color(0xFFFFD875), fontSize: 15, fontWeight: FontWeight.w900, fontFamily: 'serif')),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 9),
-                      const Row(children: [Expanded(child: Divider(color: Color(0xFFFFD875), thickness: 1)), Padding(padding: EdgeInsets.symmetric(horizontal: 10), child: Icon(Icons.filter_vintage_rounded, color: Color(0xFFFFD875), size: 18)), Expanded(child: Divider(color: Color(0xFFFFD875), thickness: 1))]),
                       const SizedBox(height: 6),
-                      const Text('Koreyadagi O‘zbek kitobxonlari uchun', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFFFFF7E6), fontSize: 15.5, fontWeight: FontWeight.w700, fontFamily: 'serif')),
+                      const Row(children: [Expanded(child: Divider(color: Color(0xFFFFD875), thickness: 1)), Padding(padding: EdgeInsets.symmetric(horizontal: 10), child: Icon(Icons.filter_vintage_rounded, color: Color(0xFFFFD875), size: 18)), Expanded(child: Divider(color: Color(0xFFFFD875), thickness: 1))]),
+                      const SizedBox(height: 4),
+                      const Text('Koreyadagi O‘zbek kitobxonlari uchun', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFFFFF7E6), fontSize: 12.5, fontWeight: FontWeight.w700, fontFamily: 'serif')),
                     ],
                   ),
                 ),

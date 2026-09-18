@@ -43,7 +43,7 @@ img.Image _resizeWithin(img.Image source, int maxWidth, int maxHeight) {
     source,
     width: (source.width * scale).round().clamp(1, maxWidth),
     height: (source.height * scale).round().clamp(1, maxHeight),
-    interpolation: img.Interpolation.linear,
+    interpolation: img.Interpolation.cubic,
   );
 }
 
@@ -84,12 +84,14 @@ Map<String, Uint8List>? _prepareBookImageVariants(Uint8List sourceBytes) {
     );
   }
 
-  final thumbImage = _resizeWithin(oriented, 360, 540);
+  // 480px thumbnail stays light enough for the Free-plan catalog, while
+  // remaining crisp on modern 2x/3x phone screens.
+  final thumbImage = _resizeWithin(oriented, 480, 720);
   final thumbBytes = _encodeJpegTarget(
     thumbImage,
-    targetBytes: 34 * 1024,
-    startQuality: 70,
-    minQuality: 48,
+    targetBytes: 46 * 1024,
+    startQuality: 78,
+    minQuality: 60,
   );
 
   return <String, Uint8List>{'full': fullBytes, 'thumb': thumbBytes};
@@ -99,12 +101,12 @@ Uint8List? _prepareBookThumbnail(Uint8List sourceBytes) {
   final decoded = img.decodeImage(sourceBytes);
   if (decoded == null) return null;
   final oriented = img.bakeOrientation(decoded);
-  final thumbImage = _resizeWithin(oriented, 360, 540);
+  final thumbImage = _resizeWithin(oriented, 480, 720);
   return _encodeJpegTarget(
     thumbImage,
-    targetBytes: 34 * 1024,
-    startQuality: 70,
-    minQuality: 48,
+    targetBytes: 46 * 1024,
+    startQuality: 78,
+    minQuality: 60,
   );
 }
 

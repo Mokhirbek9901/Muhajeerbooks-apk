@@ -38,6 +38,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
   final SupabaseClient client = Supabase.instance.client;
   Timer? timer;
   bool loading = true;
+  bool _loadInFlight = false;
   String period = 'month';
   Map<String, dynamic> report = <String, dynamic>{};
   List<Map<String, dynamic>> expenses = <Map<String, dynamic>>[];
@@ -64,8 +65,10 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
   void initState() {
     super.initState();
     unawaited(_load());
+    // Moliya RPC'lari og'irroq: fon refreshni siyraklashtiramiz va
+    // oldingi yuklash tugamasdan yangi paketni boshlamaymiz.
     timer = Timer.periodic(
-      const Duration(seconds: 20),
+      const Duration(seconds: 45),
       (_) => unawaited(_load(quiet: true)),
     );
   }
@@ -135,6 +138,8 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
   }
 
   Future<void> _load({bool quiet = false}) async {
+    if (_loadInFlight) return;
+    _loadInFlight = true;
     if (!quiet && mounted) setState(() => loading = true);
     try {
       final result = await Future.wait<dynamic>([
@@ -195,6 +200,8 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
           SnackBar(content: Text('Moliya hisobotini yuklab bo‘lmadi: $e')),
         );
       }
+    } finally {
+      _loadInFlight = false;
     }
   }
 

@@ -3708,7 +3708,7 @@ class _ProfileMosaicPainter extends CustomPainter {
     final rect = Offset.zero & size;
     canvas.drawRect(rect, Paint()..shader = const LinearGradient(
       begin: Alignment.topLeft, end: Alignment.bottomRight,
-      colors: [Color(0xFF06234C), Color(0xFF074F6A), Color(0xFF061D43)],
+      colors: [Color(0xB806234C), Color(0xA8074F6A), Color(0xB8061D43)],
     ).createShader(rect));
     final c = Offset(size.width * .5, size.height * .48);
     final gold = Paint()..color=const Color(0xFFD9B45B)..style=PaintingStyle.stroke..strokeWidth=1.15;
@@ -3813,7 +3813,7 @@ class ProfilePage extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
         children: [
           Container(
-            height: 300,
+            height: 205,
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(30),
@@ -3866,9 +3866,9 @@ class ProfilePage extends StatelessWidget {
                       ),
                       if (displayPhone.trim().isNotEmpty) ...[
                         const SizedBox(height: 5),
-                        Text(displayPhone, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: .5)),
+                        Text(displayPhone, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: .5)),
                       ],
-                      const SizedBox(height: 13),
+                      const SizedBox(height: 9),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 19, vertical: 9),
                         decoration: BoxDecoration(
@@ -3885,9 +3885,9 @@ class ProfilePage extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 9),
                       const Row(children: [Expanded(child: Divider(color: Color(0xFFFFD875), thickness: 1)), Padding(padding: EdgeInsets.symmetric(horizontal: 10), child: Icon(Icons.filter_vintage_rounded, color: Color(0xFFFFD875), size: 18)), Expanded(child: Divider(color: Color(0xFFFFD875), thickness: 1))]),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 6),
                       const Text('Koreyadagi O‘zbek kitobxonlari uchun', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFFFFF7E6), fontSize: 15.5, fontWeight: FontWeight.w700, fontFamily: 'serif')),
                     ],
                   ),
@@ -3899,17 +3899,40 @@ class ProfilePage extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _ProfileStat(value: '$activeBooks', label: 'Kitoblar'),
+                child: _ProfileReferenceAction(
+                  icon: Icons.shopping_bag_outlined,
+                  label: 'Buyurtmalarim',
+                  onTap: () => Navigator.push(
+                    context,
+                    muhajeerPageRoute(
+                      settings: const RouteSettings(name: 'mb:orders'),
+                      builder: (_) => const MyOrdersPage(),
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _ProfileStat(value: '$availableBooks', label: 'Mavjud'),
+                child: _ProfileReferenceAction(
+                  icon: Icons.favorite_border_rounded,
+                  label: 'Sevimlilarim',
+                  onTap: () => Navigator.push(
+                    context,
+                    muhajeerPageRoute(
+                      settings: const RouteSettings(name: 'mb:favorites'),
+                      builder: (_) => const FavoritesPage(),
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _ProfileStat(
-                  value: state.isOnlineBackend ? 'Onlayn' : 'Local',
-                  label: 'Tizim',
+                child: _ProfileReferenceAction(
+                  icon: Icons.settings_outlined,
+                  label: 'Sozlamalar',
+                  onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Sozlamalar pastdagi profil xizmatlarida.')),
+                  ),
                 ),
               ),
             ],

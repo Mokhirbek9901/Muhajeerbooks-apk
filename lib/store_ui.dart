@@ -643,7 +643,10 @@ class _PersistentBookGridState extends State<_PersistentBookGrid> {
       crossAxisSpacing: 12,
       childAspectRatio: .57,
     ),
-    itemBuilder: (_, i) => BookCard(book: widget.books[i]),
+    itemBuilder: (_, i) => BookCard(
+      book: widget.books[i],
+      sharpCover: true,
+    ),
   );
 }
 
@@ -1964,8 +1967,13 @@ class _FeaturedBooksStrip extends StatelessWidget {
 }
 
 class BookCard extends StatelessWidget {
-  const BookCard({super.key, required this.book});
+  const BookCard({
+    super.key,
+    required this.book,
+    this.sharpCover = false,
+  });
   final Book book;
+  final bool sharpCover;
 
   @override
   Widget build(BuildContext context) {
@@ -1990,7 +1998,7 @@ class BookCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  _BookCover(book: book),
+                  _BookCover(book: book, sharp: sharpCover),
                   const Positioned(
                     left: 0,
                     right: 0,
@@ -2173,8 +2181,9 @@ class BookCard extends StatelessWidget {
 }
 
 class _BookCover extends StatelessWidget {
-  const _BookCover({required this.book});
+  const _BookCover({required this.book, this.sharp = false});
   final Book book;
+  final bool sharp;
 
   @override
   Widget build(BuildContext context) {
@@ -2184,7 +2193,9 @@ class _BookCover extends StatelessWidget {
         previewUrl,
         fit: BoxFit.cover,
         cacheWidth: 480,
-        filterQuality: FilterQuality.medium,
+        // Category grids use better sampling only; the same small thumbnail
+        // URL is kept, so network payload and catalog loading speed do not grow.
+        filterQuality: sharp ? FilterQuality.high : FilterQuality.medium,
         gaplessPlayback: true,
         errorBuilder: (_, __, ___) => _placeholder(),
       );

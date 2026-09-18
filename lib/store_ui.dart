@@ -2190,56 +2190,38 @@ class _BookCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final previewUrl = book.previewImageUrl;
-    if (previewUrl.isEmpty) return _placeholder();
-
+    // Use the optimized full cover everywhere in the customer catalog.
+    // Existing thumbnails are only ~360px and look soft on high-DPI phones.
+    // The grid is lazy, and cacheWidth limits decode memory so scrolling stays
+    // responsive instead of decoding full-resolution images in RAM.
     final originalUrl = book.imageUrl.trim();
-    final useProgressiveOriginal =
-        sharp && originalUrl.isNotEmpty && originalUrl != previewUrl;
+    final previewUrl = book.previewImageUrl;
+    final displayUrl = originalUrl.isNotEmpty ? originalUrl : previewUrl;
+    if (displayUrl.isEmpty) return _placeholder();
 
-    if (!useProgressiveOriginal) {
-      return Image.network(
-        previewUrl,
-        fit: BoxFit.cover,
-        cacheWidth: 480,
-        filterQuality: FilterQuality.medium,
-        gaplessPlayback: true,
-        errorBuilder: (_, __, ___) => _placeholder(),
-      );
-    }
-
-    // Category view stays fast: show the small thumbnail immediately, then
-    // replace it with the already-optimized original once it arrives.
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Image.network(
-          previewUrl,
-          fit: BoxFit.cover,
-          cacheWidth: 480,
-          filterQuality: FilterQuality.medium,
-          gaplessPlayback: true,
-          errorBuilder: (_, __, ___) => _placeholder(),
-        ),
-        Image.network(
-          originalUrl,
-          fit: BoxFit.cover,
-          // Category covers prioritize maximum clarity. The lightweight
-          // thumbnail still appears first, so initial scrolling stays quick.
-          cacheWidth: 1080,
-          filterQuality: FilterQuality.high,
-          gaplessPlayback: true,
-          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-            if (wasSynchronouslyLoaded) return child;
-            return AnimatedOpacity(
-              opacity: frame == null ? 0 : 1,
-              duration: const Duration(milliseconds: 120),
-              child: child,
-            );
-          },
-          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-        ),
-      ],
+    return Image.network(
+      displayUrl,
+      fit: BoxFit.cover,
+      cacheWidth: 640,
+      filterQuality: FilterQuality.high,
+      gaplessPlayback: true,
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (wasSynchronouslyLoaded || frame != null) return child;
+        return _placeholder();
+      },
+      errorBuilder: (_, __, ___) {
+        if (previewUrl.isNotEmpty && previewUrl != displayUrl) {
+          return Image.network(
+            previewUrl,
+            fit: BoxFit.cover,
+            cacheWidth: 480,
+            filterQuality: FilterQuality.high,
+            gaplessPlayback: true,
+            errorBuilder: (_, __, ___) => _placeholder(),
+          );
+        }
+        return _placeholder();
+      },
     );
   }
 
@@ -2733,7 +2715,8 @@ class _BookGalleryState extends State<_BookGallery> {
                       images[i],
                       fit: BoxFit.cover,
                       cacheWidth: widget.desktop ? 900 : 700,
-                      filterQuality: FilterQuality.medium,
+                      filterQuality: FilterQuality.high,
+                      gaplessPlayback: true,
                       errorBuilder: (_, __, ___) =>
                           _BookCover(book: widget.book),
                     ),

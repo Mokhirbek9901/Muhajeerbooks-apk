@@ -387,6 +387,30 @@ class BackendService {
       'discount_percent,discount_ends_at,image_url,thumbnail_url,image_urls,is_active,cover_type,recommended,'
       'created_at';
 
+  Future<dynamic> _customerRpc(
+    String name,
+    Map<String, dynamic> params,
+  ) async {
+    final response = await client.functions.invoke(
+      'customer-rpc',
+      body: {'name': name, 'params': params},
+    );
+    final raw = response.data;
+    Map<String, dynamic> envelope = <String, dynamic>{};
+    if (raw is Map) {
+      envelope = Map<String, dynamic>.from(raw);
+    } else if (raw is String && raw.trim().isNotEmpty) {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) envelope = Map<String, dynamic>.from(decoded);
+    }
+    if (envelope['ok'] != true) {
+      throw StateError(
+        (envelope['error'] ?? 'Server so‘rovni bajarmadi.').toString(),
+      );
+    }
+    return envelope['data'];
+  }
+
   Future<List<Book>> fetchBooks({bool includeInactive = false}) async {
     // Public customers use the same read-only RPC for full and delta sync.
     // Direct table reads are reserved for the authenticated admin path.
@@ -419,9 +443,9 @@ class BackendService {
   }
 
   Future<Map<String, dynamic>> fetchCatalogDelta(String since) async {
-    final raw = await client.rpc(
+    final raw = await _customerRpc(
       'customer_catalog_delta',
-      params: {'p_since': since},
+      {'p_since': since},
     );
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
@@ -489,9 +513,9 @@ class BackendService {
   Future<void> signOut() => client.auth.signOut();
 
   Future<void> registerInstallation(String installId, String platform) async {
-    await client.rpc(
+    await _customerRpc(
       'register_app_install',
-      params: {'p_install_id': installId, 'p_platform': platform},
+      {'p_install_id': installId, 'p_platform': platform},
     );
   }
 
@@ -499,26 +523,26 @@ class BackendService {
     String installId,
     String bookId,
   ) async {
-    final raw = await client.rpc(
+    final raw = await _customerRpc(
       'customer_restock_subscribe',
-      params: {'p_install_id': installId, 'p_book_id': bookId},
+      {'p_install_id': installId, 'p_book_id': bookId},
     );
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
 
   Future<void> unsubscribeRestock(String installId, String bookId) async {
-    await client.rpc(
+    await _customerRpc(
       'customer_restock_unsubscribe',
-      params: {'p_install_id': installId, 'p_book_id': bookId},
+      {'p_install_id': installId, 'p_book_id': bookId},
     );
   }
 
   Future<List<Map<String, dynamic>>> fetchRestockNotifications(
     String installId,
   ) async {
-    final raw = await client.rpc(
+    final raw = await _customerRpc(
       'customer_restock_notifications',
-      params: {'p_install_id': installId},
+      {'p_install_id': installId},
     );
     if (raw is! List) return [];
     return raw
@@ -623,9 +647,9 @@ class BackendService {
     List<String> ids,
   ) async {
     if (ids.isEmpty) return {};
-    final data = await client.rpc(
+    final data = await _customerRpc(
       'customer_order_statuses',
-      params: {'p_ids': ids.take(50).toList()},
+      {'p_ids': ids.take(50).toList()},
     );
     final result = <String, Map<String, dynamic>>{};
     for (final row in (data as List)) {
@@ -639,9 +663,9 @@ class BackendService {
     required String phone,
     required String recoveryCode,
   }) async {
-    final raw = await client.rpc(
+    final raw = await _customerRpc(
       'customer_restore_orders',
-      params: {'p_phone': phone.trim(), 'p_recovery_code': recoveryCode.trim()},
+      {'p_phone': phone.trim(), 'p_recovery_code': recoveryCode.trim()},
     );
     if (raw is! List) return [];
     return raw

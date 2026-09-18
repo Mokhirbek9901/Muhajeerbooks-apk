@@ -967,7 +967,10 @@ class _HomePageState extends State<HomePage> {
                         : 2;
                     return SliverGrid(
                       delegate: SliverChildBuilderDelegate(
-                        (context, i) => BookCard(book: books[i]),
+                        (context, i) => BookCard(
+                          book: books[i],
+                          sharpCover: category != 'Barchasi',
+                        ),
                         childCount: books.length,
                         addAutomaticKeepAlives: false,
                         addRepaintBoundaries: true,
@@ -2188,19 +2191,54 @@ class _BookCover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final previewUrl = book.previewImageUrl;
-    if (previewUrl.isNotEmpty) {
+    if (previewUrl.isEmpty) return _placeholder();
+
+    final originalUrl = book.imageUrl.trim();
+    final useProgressiveOriginal =
+        sharp && originalUrl.isNotEmpty && originalUrl != previewUrl;
+
+    if (!useProgressiveOriginal) {
       return Image.network(
         previewUrl,
         fit: BoxFit.cover,
         cacheWidth: 480,
-        // Category grids use better sampling only; the same small thumbnail
-        // URL is kept, so network payload and catalog loading speed do not grow.
-        filterQuality: sharp ? FilterQuality.high : FilterQuality.medium,
+        filterQuality: FilterQuality.medium,
         gaplessPlayback: true,
         errorBuilder: (_, __, ___) => _placeholder(),
       );
     }
-    return _placeholder();
+
+    // Category view stays fast: show the small thumbnail immediately, then
+    // replace it with the already-optimized original once it arrives.
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.network(
+          previewUrl,
+          fit: BoxFit.cover,
+          cacheWidth: 480,
+          filterQuality: FilterQuality.medium,
+          gaplessPlayback: true,
+          errorBuilder: (_, __, ___) => _placeholder(),
+        ),
+        Image.network(
+          originalUrl,
+          fit: BoxFit.cover,
+          cacheWidth: 720,
+          filterQuality: FilterQuality.high,
+          gaplessPlayback: true,
+          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+            if (wasSynchronouslyLoaded) return child;
+            return AnimatedOpacity(
+              opacity: frame == null ? 0 : 1,
+              duration: const Duration(milliseconds: 120),
+              child: child,
+            );
+          },
+          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+        ),
+      ],
+    );
   }
 
   Widget _placeholder() => Container(

@@ -3875,10 +3875,10 @@ class ProfilePage extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
         children: [
           Container(
-            height: 162,
+            height: 180,
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(30),
+              borderRadius: BorderRadius.circular(24),
               border: Border.all(color: const Color(0xFFE3BC61), width: 1.6),
               boxShadow: const [
                 BoxShadow(color: Color(0x24113D43), blurRadius: 22, offset: Offset(0, 9)),
@@ -3888,14 +3888,23 @@ class ProfilePage extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 Image.asset(
-                  'assets/images/registan_illustrated.webp',
+                  'assets/images/profile_reference_bg.webp',
                   fit: BoxFit.cover,
                   alignment: Alignment.center,
                   filterQuality: FilterQuality.high,
                 ),
-                const CustomPaint(painter: _ProfileMosaicPainter()),
+                Container(
+                  decoration: const BoxDecoration(
+                    gradient: RadialGradient(
+                      center: Alignment.center,
+                      radius: .46,
+                      colors: [Color(0xE9052D46), Color(0xC4052D46), Color(0x00052D46)],
+                      stops: [0, .58, 1],
+                    ),
+                  ),
+                ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 7),
+                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 10),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -3913,16 +3922,16 @@ class ProfilePage extends StatelessWidget {
                           textAlign: TextAlign.center,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Color(0xFFFFFBF1), fontSize: 23, fontWeight: FontWeight.w900, letterSpacing: -.7, fontFamily: 'serif'),
+                          style: const TextStyle(color: Color(0xFFFFFBF1), fontSize: 25, fontWeight: FontWeight.w900, letterSpacing: -.7, fontFamily: 'serif'),
                         ),
                       ),
                       if (displayPhone.trim().isNotEmpty) ...[
                         const SizedBox(height: 5),
-                        Text(displayPhone, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: .45)),
+                        Text(displayPhone, style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w700, letterSpacing: .45)),
                       ],
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 7),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 7),
                         decoration: BoxDecoration(
                           color: const Color(0xA6082D43),
                           borderRadius: BorderRadius.circular(24),
@@ -3933,14 +3942,14 @@ class ProfilePage extends StatelessWidget {
                           children: [
                             Icon(Icons.menu_book_rounded, color: Color(0xFFFFD875), size: 18),
                             SizedBox(width: 8),
-                            Text('Muhajeer Books', style: TextStyle(color: Color(0xFFFFD875), fontSize: 15, fontWeight: FontWeight.w900, fontFamily: 'serif')),
+                            Text('Muhajeer Books', style: TextStyle(color: Color(0xFFFFD875), fontSize: 16, fontWeight: FontWeight.w900, fontFamily: 'serif')),
                           ],
                         ),
                       ),
                       const SizedBox(height: 6),
                       const Row(children: [Expanded(child: Divider(color: Color(0xFFFFD875), thickness: 1)), Padding(padding: EdgeInsets.symmetric(horizontal: 10), child: Icon(Icons.filter_vintage_rounded, color: Color(0xFFFFD875), size: 18)), Expanded(child: Divider(color: Color(0xFFFFD875), thickness: 1))]),
                       const SizedBox(height: 4),
-                      const Text('Koreyadagi O‘zbek kitobxonlari uchun', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFFFFF7E6), fontSize: 12.5, fontWeight: FontWeight.w700, fontFamily: 'serif')),
+                      const Text('Koreyadagi O‘zbek kitobxonlari uchun', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFFFFF7E6), fontSize: 13, fontWeight: FontWeight.w700, fontFamily: 'serif')),
                     ],
                   ),
                 ),

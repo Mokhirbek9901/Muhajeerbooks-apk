@@ -3874,83 +3874,74 @@ class ProfilePage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
         children: [
-          Container(
-            height: 180,
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0xFFE3BC61), width: 1.6),
-              boxShadow: const [
-                BoxShadow(color: Color(0x24113D43), blurRadius: 22, offset: Offset(0, 9)),
-              ],
-            ),
-            child: Stack(
-              fit: StackFit.expand,
+          UzbekPatternPanel(
+            dark: true,
+            strongPattern: true,
+            padding: const EdgeInsets.fromLTRB(18, 20, 18, 20),
+            child: Column(
               children: [
-                Image.asset(
-                  'assets/images/profile_reference_bg.webp',
-                  fit: BoxFit.cover,
-                  alignment: Alignment.center,
-                  filterQuality: FilterQuality.high,
-                ),
-                Container(
-                  decoration: const BoxDecoration(
-                    gradient: RadialGradient(
-                      center: Alignment.center,
-                      radius: .46,
-                      colors: [Color(0xE9052D46), Color(0xC4052D46), Color(0x00052D46)],
-                      stops: [0, .58, 1],
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onLongPress: () => Navigator.push(
+                    context,
+                    muhajeerPageRoute(
+                      settings: const RouteSettings(name: 'mb:admin'),
+                      builder: (_) => const AdminGatePage(),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4),
+                    child: Text(
+                      displayName,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 23,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -.3,
+                      ),
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 10),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onLongPress: () => Navigator.push(
-                          context,
-                          muhajeerPageRoute(
-                            settings: const RouteSettings(name: 'mb:admin'),
-                            builder: (_) => const AdminGatePage(),
-                          ),
-                        ),
-                        child: Text(
-                          displayName,
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Color(0xFFFFFBF1), fontSize: 25, fontWeight: FontWeight.w900, letterSpacing: -.7, fontFamily: 'serif'),
-                        ),
+                if (displayPhone.trim().isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    displayPhone,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFFE5F1EE),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 4),
+                const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.menu_book_rounded, color: Color(0xFFF3D58B), size: 17),
+                    SizedBox(width: 7),
+                    Text(
+                      'Muhajeer Books',
+                      style: TextStyle(
+                        color: Color(0xFFF8E6BF),
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: .15,
                       ),
-                      if (displayPhone.trim().isNotEmpty) ...[
-                        const SizedBox(height: 5),
-                        Text(displayPhone, style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w700, letterSpacing: .45)),
-                      ],
-                      const SizedBox(height: 7),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 7),
-                        decoration: BoxDecoration(
-                          color: const Color(0xA6082D43),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: const Color(0xFFFFD875), width: 1.2),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.menu_book_rounded, color: Color(0xFFFFD875), size: 18),
-                            SizedBox(width: 8),
-                            Text('Muhajeer Books', style: TextStyle(color: Color(0xFFFFD875), fontSize: 16, fontWeight: FontWeight.w900, fontFamily: 'serif')),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Row(children: [Expanded(child: Divider(color: Color(0xFFFFD875), thickness: 1)), Padding(padding: EdgeInsets.symmetric(horizontal: 10), child: Icon(Icons.filter_vintage_rounded, color: Color(0xFFFFD875), size: 18)), Expanded(child: Divider(color: Color(0xFFFFD875), thickness: 1))]),
-                      const SizedBox(height: 4),
-                      const Text('Koreyadagi O‘zbek kitobxonlari uchun', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFFFFF7E6), fontSize: 13, fontWeight: FontWeight.w700, fontFamily: 'serif')),
-                    ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                const UzbekOrnamentDivider(),
+                const SizedBox(height: 10),
+                const Text(
+                  'Koreyadagi O‘zbek kitobxonlari uchun',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFFE5F1EE),
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -3960,40 +3951,17 @@ class ProfilePage extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _ProfileReferenceAction(
-                  icon: Icons.shopping_bag_outlined,
-                  label: 'Buyurtmalarim',
-                  onTap: () => Navigator.push(
-                    context,
-                    muhajeerPageRoute(
-                      settings: const RouteSettings(name: 'mb:orders'),
-                      builder: (_) => const MyOrdersPage(),
-                    ),
-                  ),
-                ),
+                child: _ProfileStat(value: '$activeBooks', label: 'Kitoblar'),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _ProfileReferenceAction(
-                  icon: Icons.favorite_border_rounded,
-                  label: 'Sevimlilarim',
-                  onTap: () => Navigator.push(
-                    context,
-                    muhajeerPageRoute(
-                      settings: const RouteSettings(name: 'mb:favorites'),
-                      builder: (_) => const FavoritesPage(),
-                    ),
-                  ),
-                ),
+                child: _ProfileStat(value: '$availableBooks', label: 'Mavjud'),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _ProfileReferenceAction(
-                  icon: Icons.settings_outlined,
-                  label: 'Sozlamalar',
-                  onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Sozlamalar pastdagi profil xizmatlarida.')),
-                  ),
+                child: _ProfileStat(
+                  value: state.isOnlineBackend ? 'Onlayn' : 'Local',
+                  label: 'Tizim',
                 ),
               ),
             ],

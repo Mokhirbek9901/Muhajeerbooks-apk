@@ -1,0 +1,6 @@
+# Customer storefront calls this function before Supabase Auth sign-in.
+# Authorization is enforced inside the function with a strict allowlist,
+# input validation, origin checks for web, and rate limiting. The underlying
+# SECURITY DEFINER RPCs remain executable only by service_role.
+[functions.customer-rpc]
+verify_jwt = false

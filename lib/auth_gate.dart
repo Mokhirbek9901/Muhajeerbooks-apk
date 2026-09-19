@@ -54,10 +54,22 @@ class _CustomerAuthGateState extends State<CustomerAuthGate> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
-        await client.rpc(
-          'customer_register_free',
-          params: {'p_name': savedName, 'p_phone': savedPhone},
+        final response = await client.functions.invoke(
+          'customer-rpc',
+          body: {
+            'name': 'customer_register_free',
+            'params': {'p_name': savedName, 'p_phone': savedPhone},
+          },
         );
+        final raw = response.data;
+        final envelope = raw is Map
+            ? Map<String, dynamic>.from(raw)
+            : <String, dynamic>{};
+        if (envelope['ok'] != true) {
+          throw StateError(
+            (envelope['error'] ?? 'Mijoz ma’lumoti sinxronlanmadi.').toString(),
+          );
+        }
       } catch (_) {
         // Xarid jarayoni serverdagi vaqtinchalik xatolik sabab bloklanmaydi.
       }

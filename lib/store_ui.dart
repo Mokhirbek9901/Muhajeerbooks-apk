@@ -1420,10 +1420,6 @@ class _DeliveryPromoCard extends StatelessWidget {
                       icon: Icons.payments_outlined,
                       text: '택배 ₩4,000',
                     ),
-                    _HeroFact(
-                      icon: Icons.card_giftcard_rounded,
-                      text: '4+ kitob — bepul',
-                    ),
                   ],
                 ),
                 const Spacer(),
@@ -1449,6 +1445,40 @@ class _DeliveryPromoCard extends StatelessWidget {
                   color: UzbekCustomerColors.gold.withValues(alpha: .75),
                 ),
               ],
+            ),
+          ),
+          Positioned(
+            left: 18,
+            bottom: 82,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+              decoration: BoxDecoration(
+                color: const Color(0x26000000),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: UzbekCustomerColors.gold.withValues(alpha: .72),
+                  width: 1.1,
+                ),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.local_shipping_rounded,
+                    size: 18,
+                    color: AppColors.gold,
+                  ),
+                  SizedBox(width: 7),
+                  Text(
+                    '4+ kitobda — pochta bepul',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           Positioned(

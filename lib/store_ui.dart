@@ -4725,7 +4725,7 @@ Future<void> _showMuhajeerReceipt(BuildContext context, ShopOrder order) async {
     final quantity = (item['quantity'] as num?)?.toInt() ?? 1;
     return sum + price * quantity;
   });
-  final discount = (itemTotal - order.subtotal).clamp(0, itemTotal);
+  final discount = (itemTotal - order.subtotal).clamp(0, itemTotal).toInt();
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,

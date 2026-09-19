@@ -4671,6 +4671,19 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                         ),
                       ),
                     ],
+                    if (order.status == 'paid' ||
+                        order.status == 'shipping' ||
+                        order.status == 'done') ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _showMuhajeerReceipt(context, order),
+                          icon: const Icon(Icons.receipt_long_rounded),
+                          label: const Text('🧾 Chekni ko‘rish'),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     const Divider(),
                     const SizedBox(height: 11),
@@ -4703,6 +4716,116 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
       ),
     );
   }
+}
+
+Future<void> _showMuhajeerReceipt(BuildContext context, ShopOrder order) async {
+  final itemTotal = order.items.fold<int>(0, (sum, item) {
+    final price = (item['price'] as num?)?.toInt() ??
+        (item['unit_price'] as num?)?.toInt() ?? 0;
+    final quantity = (item['quantity'] as num?)?.toInt() ?? 1;
+    return sum + price * quantity;
+  });
+  final discount = (itemTotal - order.subtotal).clamp(0, itemTotal);
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (sheetContext) => SafeArea(
+      child: Container(
+        margin: const EdgeInsets.all(14),
+        padding: const EdgeInsets.fromLTRB(20, 22, 20, 24),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFFCF5),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: UzbekCustomerColors.border),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.auto_stories_rounded,
+                  color: UzbekCustomerColors.navy, size: 34),
+              const SizedBox(height: 8),
+              const Text('MUHAJEER BOOKS',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+              const Text('Xaridingiz uchun rahmat!',
+                  style: TextStyle(color: AppColors.muted)),
+              const SizedBox(height: 18),
+              const Divider(),
+              _ReceiptRow(label: 'Buyurtma', value: '#${order.displayOrderNumber ?? order.recoveryCode}'),
+              _ReceiptRow(label: 'Sana', value: DateFormat('dd.MM.yyyy  HH:mm').format(order.createdAt)),
+              _ReceiptRow(label: 'Mijoz', value: order.customerName),
+              const Divider(),
+              ...order.items.map((item) {
+                final quantity = (item['quantity'] as num?)?.toInt() ?? 1;
+                final price = (item['price'] as num?)?.toInt() ??
+                    (item['unit_price'] as num?)?.toInt() ?? 0;
+                return _ReceiptRow(
+                  label: '${item['title']}  × ${quantity}',
+                  value: won(price * quantity),
+                );
+              }),
+              const Divider(),
+              _ReceiptRow(label: 'Kitoblar', value: won(itemTotal > 0 ? itemTotal : order.subtotal)),
+              if (discount > 0)
+                _ReceiptRow(label: 'Chegirma', value: '-${won(discount)}'),
+              _ReceiptRow(label: 'Yetkazib berish',
+                  value: order.deliveryFee == 0 ? 'Bepul' : won(order.deliveryFee)),
+              const SizedBox(height: 6),
+              _ReceiptRow(label: 'JAMI', value: won(order.total), strong: true),
+              const SizedBox(height: 18),
+              const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20),
+                  SizedBox(width: 7),
+                  Text('To‘lov qabul qilindi',
+                      style: TextStyle(fontWeight: FontWeight.w900, color: AppColors.success)),
+                ],
+              ),
+              const SizedBox(height: 18),
+              const Text('MUHAJEER BOOKS',
+                  style: TextStyle(fontWeight: FontWeight.w900)),
+              const Text('Koreya bo‘ylab kitoblar 📚',
+                  style: TextStyle(fontSize: 12, color: AppColors.muted)),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _ReceiptRow extends StatelessWidget {
+  const _ReceiptRow({required this.label, required this.value, this.strong = false});
+  final String label;
+  final String value;
+  final bool strong;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 5),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Text(label,
+              style: TextStyle(
+                fontWeight: strong ? FontWeight.w900 : FontWeight.w600,
+                color: strong ? AppColors.navy : AppColors.text,
+              )),
+        ),
+        const SizedBox(width: 12),
+        Text(value,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              fontSize: strong ? 18 : 14,
+              fontWeight: strong ? FontWeight.w900 : FontWeight.w700,
+              color: strong ? AppColors.navy : AppColors.text,
+            )),
+      ],
+    ),
+  );
 }
 
 class _OrderProgress extends StatelessWidget {

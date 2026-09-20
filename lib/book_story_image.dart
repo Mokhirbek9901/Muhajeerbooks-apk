@@ -24,21 +24,22 @@ String _storyDescription(Book book) {
 }
 
 Future<ui.Image> _decodeStoryCover(Uint8List encoded) async {
-  // iOS/Safari'da raw RGBA -> Canvas yo‘li ayrim qurilmalarda qora frame
-  // qaytaradi. Muqovani avval oddiy, alpha-siz RGB PNG ga normallashtirib,
-  // keyin Flutter'ning codec'i bilan ochamiz.
-  final decoded = img.decodeImage(encoded);
-  if (decoded == null) throw StateError('Cover decode failed');
+  // Set story generatorida ishlayotgan xavfsiz yo‘l bilan bir xil qilamiz.
+  // Katta iPhone rasmlarini 700–900px texture sifatida Canvas'ga berish ayrim
+  // Safari/iOS qurilmalarda qora cover qaytarardi. EXIF'ni bake qilib, 360px
+  // alpha-siz RGB PNG ga aylantiramiz — story uchun bu yetarli aniqlik.
+  final raw = img.decodeImage(encoded);
+  if (raw == null) throw StateError('Cover decode failed');
+  final decoded = img.bakeOrientation(raw);
 
-  final resized = decoded.width > 900
+  final resized = decoded.width > 360
       ? img.copyResize(
           decoded,
-          width: 900,
-          interpolation: img.Interpolation.linear,
+          width: 360,
+          interpolation: img.Interpolation.average,
         )
       : decoded;
 
-  // Shaffof/CMYK/WebP manbalarda ham yakuniy story uchun oq fonli RGB rasm.
   final safe = img.Image(
     width: resized.width,
     height: resized.height,
@@ -48,7 +49,7 @@ Future<ui.Image> _decodeStoryCover(Uint8List encoded) async {
   img.compositeImage(safe, resized);
 
   final safePng = Uint8List.fromList(img.encodePng(safe, level: 4));
-  final codec = await ui.instantiateImageCodec(safePng, targetWidth: 700);
+  final codec = await ui.instantiateImageCodec(safePng, targetWidth: 360);
   try {
     final frame = await codec.getNextFrame();
     return frame.image;

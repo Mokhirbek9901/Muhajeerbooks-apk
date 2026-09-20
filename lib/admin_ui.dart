@@ -373,6 +373,33 @@ class _AdminApi {
     );
   }
 
+  Uri _serverUri(String path) {
+    if (kIsWeb) return Uri.base.resolve(path);
+    return Uri.parse('https://muhajeer-books-live-production.up.railway.app' + path);
+  }
+
+  Future<String> aiAsk(String query) async {
+    final booksData = await books();
+    final salesData = await sales();
+    final ordersData = await orders();
+    final context = <String,dynamic>{
+      'books': booksData.take(300).map((b)=>{'title':b.title,'author':b.author,'publisher':b.publisher,'category':b.category,'price':b.currentPrice,'cost_price':b.costPrice,'stock':b.stock,'active':b.isActive}).toList(),
+      'sales': salesData.take(1000).toList(),
+      'orders': ordersData.take(500).map((o)=>o.toMap()).toList(),
+    };
+    final r=await http.post(_serverUri('/api/admin-ai'),headers:{'Content-Type':'application/json'},body:jsonEncode({'admin_code':secret,'query':query,'context':context})).timeout(const Duration(seconds:120));
+    final data=jsonDecode(r.body);
+    if(r.statusCode!=200) throw StateError((data['error']??'Admin AI ishlamadi').toString());
+    return (data['text']??'').toString();
+  }
+
+  Future<Map<String,dynamic>> researchBook({required String title, String author='', String publisher=''}) async {
+    final r=await http.post(_serverUri('/api/admin-ai/book-research'),headers:{'Content-Type':'application/json'},body:jsonEncode({'admin_code':secret,'title':title,'author':author,'publisher':publisher})).timeout(const Duration(seconds:120));
+    final data=jsonDecode(r.body);
+    if(r.statusCode!=200 || data is! Map) throw StateError(data is Map ? (data['error']??'Kitob topilmadi').toString() : 'Kitob topilmadi');
+    return Map<String,dynamic>.from(data);
+  }
+
   Future<void> deleteBook(String id) async {
     await _rpc(
       'admin_delete_book',
@@ -1035,6 +1062,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
     'Sotilgan kitoblar',
     'Mijozlar',
     'Moliya',
+    'Admin AI',
   ];
   static const icons = [
     Icons.dashboard_rounded,
@@ -1044,6 +1072,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
     Icons.sell_rounded,
     Icons.people_alt_rounded,
     Icons.account_balance_wallet_rounded,
+    Icons.auto_awesome_rounded,
   ];
 
   @override
@@ -1173,6 +1202,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
       _loadedTabs.contains(6)
           ? FinanceAdminPage(secret: widget.secret)
           : const SizedBox.shrink(),
+      _loadedTabs.contains(7) ? _AdminAiPage(api: api) : const SizedBox.shrink(),
     ];
     const railDestinations = [
       NavigationRailDestination(
@@ -1209,6 +1239,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
         icon: Icon(Icons.account_balance_wallet_outlined),
         selectedIcon: Icon(Icons.account_balance_wallet_rounded),
         label: Text('Moliya'),
+      ),
+      NavigationRailDestination(
+        icon: Icon(Icons.auto_awesome_outlined),
+        selectedIcon: Icon(Icons.auto_awesome_rounded),
+        label: Text('Admin AI'),
       ),
     ];
 
@@ -3594,6 +3629,7 @@ class _BookFormState extends State<_BookForm> {
   bool preorderEnabled = false;
   bool saving = false;
   bool uploadingImage = false;
+  bool researchingBook = false;
   List<String> gallery = [];
   String thumbnailUrl = '';
   final Map<String, String> thumbnailByUrl = <String, String>{};
@@ -3900,6 +3936,36 @@ class _BookFormState extends State<_BookForm> {
     });
   }
 
+  Future<void> _researchBook() async {
+    if (title.text.trim().isEmpty || researchingBook) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Avval kitob nomini kiriting.')));
+      return;
+    }
+    setState(()=>researchingBook=true);
+    try {
+      final data=await widget.api.researchBook(title:title.text.trim(),author:author.text.trim(),publisher:publisher.text.trim());
+      if(!mounted) return;
+      final proposed=<String,String>{'Nomi':(data['title']??'').toString(),'Muallif':(data['author']??'').toString(),'Nashriyot':(data['publisher']??'').toString(),'Kategoriya':(data['category']??'').toString(),'Muqova':(data['cover']??'').toString(),'Tavsif':(data['description']??'').toString()};
+      final ok=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
+        title:const Text('AI internetdan topdi'),
+        content:SizedBox(width:520,child:SingleChildScrollView(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          ...proposed.entries.where((item)=>item.value.trim().isNotEmpty).map((item)=>Padding(padding:const EdgeInsets.only(bottom:8),child:Text(item.key + ': ' + item.value))),
+          if((data['notes']??'').toString().trim().isNotEmpty) Text('Izoh: ' + data['notes'].toString()),
+          const SizedBox(height:8),const Text('Bu ma’lumotlar hali saqlanmaydi. Avval maydonlarga qo‘llashga ruxsat bering.',style:TextStyle(fontWeight:FontWeight.w700)),
+        ]))),
+        actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Bekor qilish')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Qo‘llash'))],
+      ));
+      if(ok!=true || !mounted) return;
+      void setIf(TextEditingController x,String name){final v=(data[name]??'').toString().trim();if(v.isNotEmpty)x.text=v;}
+      setIf(title,'title'); setIf(author,'author'); setIf(publisher,'publisher'); setIf(category,'category'); setIf(description,'description');
+      final cv=(data['cover']??'').toString().trim(); if(cv.isNotEmpty) cover=cv;
+      setState((){});
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Maydonlarga qo‘llandi. Bazaga yozish uchun “Saqlash”ni bosing.')));
+    } catch(e) {
+      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('AI qidiruvda xatolik: ' + e.toString())));
+    } finally { if(mounted) setState(()=>researchingBook=false); }
+  }
+
   Future<void> save() async {
     if (!key.currentState!.validate()) return;
     final p = int.tryParse(price.text.trim()) ?? -1;
@@ -3977,6 +4043,12 @@ class _BookFormState extends State<_BookForm> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            FilledButton.tonalIcon(
+              onPressed: researchingBook ? null : _researchBook,
+              icon: researchingBook ? const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2)) : const Icon(Icons.travel_explore_rounded),
+              label: Text(researchingBook ? 'Internetdan qidirilmoqda...' : 'AI bilan internetdan ma’lumot topish'),
+            ),
+            const SizedBox(height: 14),
             Center(
               child: Container(
                 width: 150,
@@ -6784,4 +6856,32 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
       },
     );
   }
+}
+
+
+class _AdminAiPage extends StatefulWidget {
+  const _AdminAiPage({required this.api});
+  final _AdminApi api;
+  @override State<_AdminAiPage> createState()=>_AdminAiPageState();
+}
+class _AdminAiPageState extends State<_AdminAiPage> {
+  final q=TextEditingController(); String answer=''; bool loading=false;
+  @override void dispose(){q.dispose();super.dispose();}
+  Future<void> ask() async {
+    final value=q.text.trim(); if(value.isEmpty||loading)return;
+    setState((){loading=true;answer='';});
+    try { final a=await widget.api.aiAsk(value); if(mounted)setState(()=>answer=a); }
+    catch(e){if(mounted)setState(()=>answer='Xatolik: ' + e.toString());}
+    finally{if(mounted)setState(()=>loading=false);}
+  }
+  @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.all(16),children:[
+    const Text('Muhajeer Admin AI',style:TextStyle(fontSize:24,fontWeight:FontWeight.w900)),
+    const SizedBox(height:6),
+    const Text('Savdo, ombor, tannarx, foyda, buyurtmalar va internetdagi joriy ma’lumotlarni tahlil qiladi. O‘zi ma’lumotni o‘zgartirmaydi.',style:TextStyle(color:AppColors.muted,height:1.4)),
+    const SizedBox(height:14),
+    TextField(controller:q,minLines:2,maxLines:5,onSubmitted:(_)=>ask(),decoration:const InputDecoration(hintText:'Masalan: Qaysi kitoblarni qayta olib kelish kerak? Bu oy savdo holati qanday?')),
+    const SizedBox(height:10),
+    FilledButton.icon(onPressed:loading?null:ask,icon:loading?const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2)):const Icon(Icons.auto_awesome_rounded),label:Text(loading?'Tahlil qilmoqda...':'AI dan so‘rash')),
+    if(answer.isNotEmpty)...[const SizedBox(height:16),AppSurface(padding:const EdgeInsets.all(16),child:SelectableText(answer,style:const TextStyle(fontSize:15.5,height:1.55,fontWeight:FontWeight.w500)))],
+  ]);
 }

@@ -60,15 +60,23 @@ class _BookStoryPageState extends State<BookStoryPage> {
     try {
       return await renderBookStory(widget.book, template: template);
     } catch (_) {
-      // iPhone/Safari ayrim payt 1080x1920 canvasni PNGga aylantirishda
-      // xotira/raster xatosi beradi. Boshqa dizaynga sakramaymiz:
-      // aynan tanlangan dizaynni yengil 720x1280 rejimida qayta chizamiz.
-      await Future<void>.delayed(const Duration(milliseconds: 80));
-      return renderBookStory(
-        widget.book,
-        template: template,
-        renderScale: 2 / 3,
-      );
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      try {
+        return await renderBookStory(
+          widget.book,
+          template: template,
+          renderScale: 2 / 3,
+        );
+      } catch (_) {
+        // Eski iPhone/Safari uchun oxirgi xavfsiz yo‘l: 540x960.
+        // Tanlangan dizayn o‘zgarmaydi.
+        await Future<void>.delayed(const Duration(milliseconds: 60));
+        return renderBookStory(
+          widget.book,
+          template: template,
+          renderScale: 0.5,
+        );
+      }
     }
   }
 

@@ -455,7 +455,7 @@ class CategoriesPage extends StatelessWidget {
               final isBundles = i == 1;
               final c = isPublishers
                   ? 'Nashriyotlar'
-                  : (isBundles ? 'Kitob setlari' : categories[i - 2]);
+                  : (isBundles ? 'Setlar' : categories[i - 2]);
               final count = isBundles
                   ? state.bundles.length
                   : state.books
@@ -1299,7 +1299,7 @@ class _HomePageState extends State<HomePage> {
     final categories = <String>{
       'Barchasi',
       'Nashriyotlar',
-      'Kitob setlari',
+      'Setlar',
       ...state.books.where((b) => b.isActive).map((b) => b.category),
     }.toList();
     final featured = state.books
@@ -1377,7 +1377,7 @@ class _HomePageState extends State<HomePage> {
                           builder: (_) => const PublishersPage(),
                         ),
                       );
-                    } else if (value == 'Kitob setlari') {
+                    } else if (value == 'Setlar') {
                       Navigator.push(
                         context,
                         muhajeerPageRoute(
@@ -1417,8 +1417,31 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(width: 8),
                     PopupMenuButton<String>(
                       tooltip: 'Saralash',
-                      onSelected: (value) => setState(() => sort = value),
+                      onSelected: (value) {
+                        if (value == 'sets') {
+                          Navigator.push(
+                            context,
+                            muhajeerPageRoute(
+                              settings: const RouteSettings(name: 'mb:bundles'),
+                              builder: (_) => const BookBundlesPage(),
+                            ),
+                          );
+                          return;
+                        }
+                        setState(() => sort = value);
+                      },
                       itemBuilder: (_) => const [
+                        PopupMenuItem(
+                          value: 'sets',
+                          child: Row(
+                            children: [
+                              Icon(Icons.auto_awesome_mosaic_rounded, size: 20),
+                              SizedBox(width: 9),
+                              Text('Setlar'),
+                            ],
+                          ),
+                        ),
+                        PopupMenuDivider(),
                         PopupMenuItem(
                           value: 'new',
                           child: Text('Yangi qo‘shilgan'),

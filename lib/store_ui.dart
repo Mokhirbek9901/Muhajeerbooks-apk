@@ -578,7 +578,13 @@ class _BookBundlesPageState extends State<BookBundlesPage> {
                   for (final item in items) {
                     final id = (item['book_id'] ?? '').toString();
                     final qty = (item['quantity'] as num?)?.toInt() ?? 1;
-                    final book = state.books.where((b) => b.id == id).firstOrNull;
+                    Book? book;
+                    for (final candidate in state.books) {
+                      if (candidate.id == id) {
+                        book = candidate;
+                        break;
+                      }
+                    }
                     if (book == null || book.stock < qty) {
                       available = false;
                     } else {

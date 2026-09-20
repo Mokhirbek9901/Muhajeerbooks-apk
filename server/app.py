@@ -122,8 +122,10 @@ def ai_assistant():
     if q in greetings or any(q.startswith(x+" ") for x in greetings):
       return jsonify(text="Assalomu alaykum! Muhajeer Books’ga xush kelibsiz. Kitob, narx, mavjudligi yoki yetkazib berish haqida so‘rashingiz mumkin.")
 
-    if any(x in q for x in ("yetkazib","pochta","dostavka","delivery","택배")):
-      return jsonify(text="Koreya bo‘ylab yetkazib berish ₩4,000. 4 ta yoki undan ko‘p kitob buyurtma qilsangiz, yetkazib berish bepul.")
+    if any(x in q for x in ("yetkazib","pochta","dostavka","delivery","택배","qachon bor","necha kunda")):
+      if any(x in q for x in ("qachon","necha kun","necha kunda","qancha vaqt","yetib")):
+        return jsonify(text="Ilovadagi ma’lumot bo‘yicha, buyurtma pochtaga topshirilgandan keyin odatda 1–3 ish kunida yetkaziladi.")
+      return jsonify(text="Koreya bo‘ylab yetkazib berish ₩4,000. Buyurtma pochtaga topshirilgandan keyin odatda 1–3 ish kunida yetkaziladi. 4 ta yoki undan ko‘p kitobda odatda yetkazib berish bepul; chegirma davridagi shartlar ilovadagi joriy aksiyaga qarab qo‘llanadi.")
 
     # Find books by title/author/category/description words. Public catalog only.
     import re

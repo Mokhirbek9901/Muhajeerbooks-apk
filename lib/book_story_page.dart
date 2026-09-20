@@ -26,24 +26,16 @@ class _BookStoryPageState extends State<BookStoryPage> {
   // Eng yangi dizaynlar tepada ko‘rinsin — foydalanuvchi ularni qidirib
   // pastga tushmasin. Qolganlari avvalgi tartibda saqlanadi.
   static const List<BookStoryTemplate> _templateOrder = [
-    BookStoryTemplate.editorialPage,
     BookStoryTemplate.lifestyle,
     BookStoryTemplate.cleanStudio,
     BookStoryTemplate.goldArch,
     BookStoryTemplate.scrapbook,
     BookStoryTemplate.current,
-    BookStoryTemplate.editorial,
-    BookStoryTemplate.library,
     BookStoryTemplate.arch,
-    BookStoryTemplate.emerald,
-    BookStoryTemplate.minimal,
-    BookStoryTemplate.sunset,
     BookStoryTemplate.magazine,
     BookStoryTemplate.classic,
     BookStoryTemplate.poster,
     BookStoryTemplate.noir,
-    BookStoryTemplate.geometric,
-    BookStoryTemplate.paper,
     BookStoryTemplate.split,
     BookStoryTemplate.polaroid,
     BookStoryTemplate.collage,
@@ -69,8 +61,13 @@ class _BookStoryPageState extends State<BookStoryPage> {
           break;
         }
       }
-      if (restored == null || !mounted || restored == _template) return;
-      final restoredTemplate = restored;
+      if (restored == null ||
+          !_templateOrder.contains(restored) ||
+          !mounted ||
+          restored == _template) {
+        return;
+      }
+      final restoredTemplate = restored!;
       setState(() {
         _template = restoredTemplate;
         _image = renderBookStory(widget.book, template: restoredTemplate);

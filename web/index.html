@@ -145,6 +145,48 @@
       });
     }
   </script>
+  <script>
+    // Home-screen web app uzoq vaqt ochiq qolsa iOS eski Flutter bundle'ni
+    // xotirada ushlab turishi mumkin. Serverdagi main.dart.js o‘zgarganini
+    // app qayta foregroundga kelganda tekshirib, yangi versiyani avtomatik
+    // yuklaymiz. Bu foydalanuvchi cache tozalashiga ehtiyoj qoldirmaydi.
+    (() => {
+      const key = 'muhajeer-main-etag-v1';
+      let checking = false;
+
+      async function checkForUpdate() {
+        if (checking) return;
+        checking = true;
+        try {
+          const response = await fetch('/main.dart.js', {
+            method: 'HEAD',
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-cache' }
+          });
+          const tag = response.headers.get('etag') ||
+              response.headers.get('last-modified');
+          if (!tag) return;
+
+          const previous = localStorage.getItem(key);
+          localStorage.setItem(key, tag);
+          if (previous && previous !== tag) {
+            location.reload();
+          }
+        } catch (_) {
+          // Offline/vaqtinchalik tarmoq xatosida ilova ishlashda davom etadi.
+        } finally {
+          checking = false;
+        }
+      }
+
+      window.addEventListener('load', checkForUpdate);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') checkForUpdate();
+      });
+      window.addEventListener('focus', checkForUpdate);
+      setInterval(checkForUpdate, 60000);
+    })();
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

@@ -141,6 +141,10 @@ class _CoverPalette {
     required this.accent,
     required this.softAccent,
     required this.softWarm,
+    required this.brightness,
+    required this.saturation,
+    required this.warmth,
+    required this.isPortrait,
   });
 
   final Color background;
@@ -148,6 +152,10 @@ class _CoverPalette {
   final Color accent;
   final Color softAccent;
   final Color softWarm;
+  final double brightness;
+  final double saturation;
+  final double warmth;
+  final bool isPortrait;
 }
 
 _CoverPalette _paletteFromCover(Uint8List encoded) {
@@ -159,6 +167,10 @@ _CoverPalette _paletteFromCover(Uint8List encoded) {
       accent: Color(0xFF0D625C),
       softAccent: Color(0xFFDFEEE7),
       softWarm: Color(0xFFF1E5CA),
+      brightness: 0.75,
+      saturation: 0.25,
+      warmth: 0.0,
+      isPortrait: true,
     );
   }
 
@@ -205,12 +217,19 @@ _CoverPalette _paletteFromCover(Uint8List encoded) {
   final warmHue = (hsl.hue + 34) % 360;
   final softWarm = HSLColor.fromAHSL(1, warmHue, 0.22, 0.89).toColor();
 
+  final brightness = ((r + g + b) / weight) / (255.0 * 3.0);
+  final saturation = hsl.saturation;
+  final warmth = (((r / weight) - (b / weight)) / 255.0).clamp(-1.0, 1.0);
   return _CoverPalette(
     background: background,
     ink: ink,
     accent: accent,
     softAccent: softAccent,
     softWarm: softWarm,
+    brightness: brightness,
+    saturation: saturation,
+    warmth: warmth,
+    isPortrait: decoded.height >= decoded.width,
   );
 }
 
@@ -470,66 +489,74 @@ Future<Uint8List> renderBookStory(
   const deliveryText = Color(0xFF49666E);
   const deliverySoft = Color(0xFFEAF1F0);
 
-  canvas.drawColor(cream, BlendMode.src);
-  canvas.drawCircle(
-    const Offset(1050, 150),
-    380,
-    Paint()..color = palette.softAccent,
-  );
-  canvas.drawCircle(
-    const Offset(30, 1100),
-    290,
-    Paint()..color = palette.softWarm,
-  );
+  // AVTO DIZAYN: muqovaning yorqinligi, rang to‘yinganligi, issiq/sovuq
+  // palitrasi va formatiga qarab nafaqat rang, balki kompozitsiya ham almashadi.
+  final autoVariant = palette.saturation > 0.48
+      ? 0 // rang-barang muqova: editorial split
+      : palette.brightness < 0.43
+          ? 1 // qoramtir muqova: kino/poster
+          : palette.warmth > 0.10
+              ? 2 // iliq muqova: klassik arka
+              : 3; // och/sovuq muqova: galereya
 
-  void simpleText(
-    String value,
-    double y,
-    double size, {
-    Color? color,
-    FontWeight weight = FontWeight.w500,
-    double width = 900,
-  }) {
-    final painter = TextPainter(
-      text: TextSpan(
-        text: value,
-        style: TextStyle(
-          fontFamily: 'Roboto',
-          fontSize: size,
-          fontWeight: weight,
-          color: color ?? ink,
-          height: 1.1,
-        ),
-      ),
-      textDirection: ui.TextDirection.ltr,
-      textAlign: TextAlign.center,
-      maxLines: 1,
-    )..layout(maxWidth: width);
-    painter.paint(canvas, Offset((1080 - painter.width) / 2, y));
-    painter.dispose();
+  late final Rect coverRect;
+  late final double contentStart;
+  if (autoVariant == 0) {
+    canvas.drawColor(cream, BlendMode.src);
+    canvas.drawRect(const Rect.fromLTWH(0, 0, 410, 1920), Paint()..color = ink);
+    canvas.drawCircle(const Offset(1020, 120), 330, Paint()..color = palette.softAccent);
+    canvas.drawRect(const Rect.fromLTWH(410, 0, 16, 1920), Paint()..color = teal);
+    simpleText('MUHAJEER', 82, 34, color: Colors.white, weight: FontWeight.w900, width: 330);
+    simpleText('BOOKS', 126, 25, color: palette.softWarm, weight: FontWeight.w700, width: 330);
+    coverRect = const Rect.fromLTWH(150, 245, 780, 680);
+    contentStart = 952;
+  } else if (autoVariant == 1) {
+    canvas.drawColor(ink, BlendMode.src);
+    canvas.drawCircle(const Offset(890, 220), 430, Paint()..color = teal.withAlpha(95));
+    canvas.drawCircle(const Offset(150, 780), 260, Paint()..color = palette.accent.withAlpha(70));
+    canvas.drawRect(const Rect.fromLTWH(0, 930, 1080, 990), Paint()..color = cream);
+    simpleText('MUHAJEER BOOKS', 90, 38, color: Colors.white, weight: FontWeight.w800);
+    simpleText('KITOB • MUTOLAA • ILM', 146, 18, color: palette.softWarm, weight: FontWeight.w700);
+    coverRect = const Rect.fromLTWH(245, 225, 590, 650);
+    contentStart = 966;
+  } else if (autoVariant == 2) {
+    canvas.drawColor(cream, BlendMode.src);
+    final arch = Path()
+      ..moveTo(115, 925)
+      ..lineTo(115, 430)
+      ..quadraticBezierTo(540, 60, 965, 430)
+      ..lineTo(965, 925)
+      ..close();
+    canvas.drawPath(arch, Paint()..color = palette.softWarm);
+    canvas.drawPath(arch, Paint()..style = PaintingStyle.stroke..strokeWidth = 9..color = teal);
+    canvas.drawCircle(const Offset(540, 145), 20, Paint()..color = teal);
+    simpleText('MUHAJEER BOOKS', 92, 36, weight: FontWeight.w800);
+    simpleText('Koreyadagi o‘zbek kitob do‘koni', 142, 21, color: teal);
+    coverRect = const Rect.fromLTWH(245, 245, 590, 640);
+    contentStart = 958;
+  } else {
+    canvas.drawColor(cream, BlendMode.src);
+    canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 220), Paint()..color = palette.softAccent);
+    canvas.drawRect(const Rect.fromLTWH(70, 255, 940, 650), Paint()..color = Colors.white);
+    canvas.drawLine(const Offset(70, 935), const Offset(1010, 935), Paint()..color = teal..strokeWidth = 3);
+    simpleText('MUHAJEER BOOKS', 72, 42, weight: FontWeight.w900);
+    simpleText('TANLANGAN KITOB', 132, 18, color: teal, weight: FontWeight.w700);
+    coverRect = const Rect.fromLTWH(170, 285, 740, 590);
+    contentStart = 968;
   }
 
-  simpleText('MUHAJEER BOOKS', 120, 46, weight: FontWeight.w800);
-  simpleText('Koreyadagi o‘zbek kitob do‘koni', 182, 28, color: palette.accent);
-
   final frame = RRect.fromRectAndRadius(
-    const Rect.fromLTWH(182, 270, 716, 700),
-    const Radius.circular(38),
+    coverRect.inflate(autoVariant == 0 ? 22 : 24),
+    Radius.circular(autoVariant == 0 ? 18 : 34),
   );
-  canvas.drawShadow(
-    Path()..addRRect(frame),
-    palette.ink.withAlpha(52),
-    18,
-    false,
-  );
+  canvas.drawShadow(Path()..addRRect(frame), palette.ink.withAlpha(58), 18, false);
   canvas.drawRRect(frame, Paint()..color = Colors.white);
-  const coverRect = Rect.fromLTWH(214, 300, 652, 640);
   canvas.drawRect(coverRect, Paint()..color = Colors.white);
   paintImage(
     canvas: canvas,
     rect: coverRect,
     image: cover,
-    fit: BoxFit.contain,
+    fit: autoVariant == 3 ? BoxFit.contain : BoxFit.cover,
     filterQuality: FilterQuality.high,
   );
 
@@ -596,8 +623,8 @@ Future<Uint8List> renderBookStory(
   const ctaHeight = 46.0;
   const arrowArea = 62.0;
 
-  const minBlockTop = 976.0;
-  const maxBlockTop = 1015.0;
+  final minBlockTop = contentStart;
+  final maxBlockTop = contentStart + 38;
   const blockBottom = 1762.0;
 
   final fixedHeight = title.size.height +

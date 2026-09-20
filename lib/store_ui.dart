@@ -14,6 +14,7 @@ import 'app_state.dart';
 import 'brand.dart';
 import 'book_links.dart';
 import 'book_story_page.dart';
+import 'bundle_story_page.dart';
 import 'book_share_platform.dart';
 import 'catalog_resume.dart';
 import 'book_image_viewer.dart';
@@ -442,7 +443,7 @@ class CategoriesPage extends StatelessWidget {
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: categories.length + 1,
+            itemCount: categories.length + 2,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
               mainAxisSpacing: 12,
@@ -451,21 +452,30 @@ class CategoriesPage extends StatelessWidget {
             ),
             itemBuilder: (context, i) {
               final isPublishers = i == 0;
-              final c = isPublishers ? 'Nashriyotlar' : categories[i - 1];
-              final count = state.books
-                  .where((b) => b.isActive && b.category == c)
-                  .length;
+              final isBundles = i == 1;
+              final c = isPublishers
+                  ? 'Nashriyotlar'
+                  : (isBundles ? 'Kitob setlari' : categories[i - 2]);
+              final count = isBundles
+                  ? state.bundles.length
+                  : state.books
+                      .where((b) => b.isActive && b.category == c)
+                      .length;
               return InkWell(
                 borderRadius: BorderRadius.circular(22),
                 onTap: () => Navigator.push(
                   context,
                   muhajeerPageRoute(
                     settings: RouteSettings(
-                      name: isPublishers ? 'mb:publishers' : 'mb:category:$c',
+                      name: isPublishers
+                          ? 'mb:publishers'
+                          : (isBundles ? 'mb:bundles' : 'mb:category:$c'),
                     ),
                     builder: (_) => isPublishers
                         ? const PublishersPage()
-                        : CategoryBrowsePage(category: c),
+                        : (isBundles
+                            ? const BookBundlesPage()
+                            : CategoryBrowsePage(category: c)),
                   ),
                 ),
                 child: UzbekPatternPanel(
@@ -505,7 +515,9 @@ class CategoriesPage extends StatelessWidget {
                             Text(
                               isPublishers
                                   ? '${bookPublishers(state.books).length} ta nashriyot'
-                                  : '$count ta kitob',
+                                  : (isBundles
+                                      ? '$count ta set'
+                                      : '$count ta kitob'),
                               style: const TextStyle(
                                 color: UzbekCustomerColors.textMuted,
                                 fontSize: 11.5,
@@ -611,46 +623,128 @@ class _BookBundlesPageState extends State<BookBundlesPage> {
                             ),
                             const SizedBox(width: 12),
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    (bundle['title'] ?? 'Kitob seti').toString(),
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w900,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () => Navigator.push(
+                                  context,
+                                  muhajeerPageRoute<void>(
+                                    settings: RouteSettings(
+                                      name: 'mb:bundle:${bundle['id']}',
+                                    ),
+                                    builder: (_) => BookBundleDetailPage(
+                                      bundleId: (bundle['id'] ?? '').toString(),
                                     ),
                                   ),
-                                  if ((bundle['description'] ?? '').toString().trim().isNotEmpty)
-                                    Text(
-                                      bundle['description'].toString(),
-                                      style: const TextStyle(
-                                        color: AppColors.muted,
-                                        fontSize: 12,
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        (bundle['title'] ?? 'Kitob seti').toString(),
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w900,
+                                        ),
                                       ),
-                                    ),
-                                ],
+                                      if ((bundle['description'] ?? '').toString().trim().isNotEmpty)
+                                        Text(
+                                          bundle['description'].toString(),
+                                          style: const TextStyle(
+                                            color: AppColors.muted,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
                               ),
+                            ),
+                            IconButton(
+                              tooltip: 'Setni ulashish',
+                              onPressed: () => Navigator.push(
+                                context,
+                                muhajeerPageRoute<void>(
+                                  builder: (_) => BundleStoryPage(
+                                    bundle: bundle,
+                                    books: state.books,
+                                  ),
+                                ),
+                              ),
+                              icon: const Icon(Icons.ios_share_rounded),
                             ),
                           ],
                         ),
                         const SizedBox(height: 12),
-                        ...items.map((item) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 3),
+                        ...items.map((item) {
+                          Book? itemBook;
+                          final itemId = (item['book_id'] ?? '').toString();
+                          for (final candidate in state.books) {
+                            if (candidate.id == itemId) {
+                              itemBook = candidate;
+                              break;
+                            }
+                          }
+                          final qty =
+                              (item['quantity'] as num?)?.toInt() ?? 1;
+                          final originalPrice = itemBook?.price ??
+                              (item['price'] as num?)?.toInt() ??
+                              0;
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: itemBook == null
+                                ? null
+                                : () => Navigator.push(
+                                      context,
+                                      muhajeerPageRoute<void>(
+                                        settings: RouteSettings(
+                                          name: 'mb:book:${itemBook!.id}',
+                                        ),
+                                        builder: (_) =>
+                                            BookDetailPage(bookId: itemBook!.id),
+                                      ),
+                                    ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 5),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.menu_book_rounded, size: 16),
-                                  const SizedBox(width: 7),
+                                  _BundleBookThumb(book: itemBook),
+                                  const SizedBox(width: 9),
                                   Expanded(
-                                    child: Text(
-                                      (item['title'] ?? 'Kitob').toString(),
-                                      style: const TextStyle(fontWeight: FontWeight.w700),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          (item['title'] ?? 'Kitob').toString(),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '${won(originalPrice)}${qty > 1 ? ' ×$qty' : ''}',
+                                          style: const TextStyle(
+                                            color: AppColors.muted,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  Text('×${(item['quantity'] as num?)?.toInt() ?? 1}'),
+                                  const Icon(
+                                    Icons.chevron_right_rounded,
+                                    color: AppColors.muted,
+                                  ),
                                 ],
                               ),
-                            )),
+                            ),
+                          );
+                        }),
                         const Divider(height: 24),
                         Builder(
                           builder: (context) {
@@ -734,6 +828,259 @@ class _BookBundlesPageState extends State<BookBundlesPage> {
                   );
                 },
               ),
+      ),
+    );
+  }
+}
+
+class _BundleBookThumb extends StatelessWidget {
+  const _BundleBookThumb({required this.book});
+  final Book? book;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 42,
+        height: 58,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceSoft,
+          borderRadius: BorderRadius.circular(7),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: book == null || book!.previewImageUrl.trim().isEmpty
+            ? const Icon(Icons.menu_book_rounded, size: 20)
+            : Image.network(
+                book!.previewImageUrl,
+                fit: BoxFit.cover,
+                cacheWidth: 180,
+                filterQuality: FilterQuality.medium,
+                errorBuilder: (_, __, ___) =>
+                    const Icon(Icons.menu_book_rounded, size: 20),
+              ),
+      );
+}
+
+class BookBundleDetailPage extends StatefulWidget {
+  const BookBundleDetailPage({super.key, required this.bundleId});
+  final String bundleId;
+
+  @override
+  State<BookBundleDetailPage> createState() => _BookBundleDetailPageState();
+}
+
+class _BookBundleDetailPageState extends State<BookBundleDetailPage> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() => context.read<AppState>().refreshBundles());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    Map<String, dynamic>? bundle;
+    for (final candidate in state.bundles) {
+      if ((candidate['id'] ?? '').toString() == widget.bundleId) {
+        bundle = candidate;
+        break;
+      }
+    }
+    if (bundle == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Kitob seti')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    final b = bundle;
+    final items = ((b['items'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+    var regularTotal = 0;
+    var available = true;
+    for (final item in items) {
+      final id = (item['book_id'] ?? '').toString();
+      final qty = (item['quantity'] as num?)?.toInt() ?? 1;
+      Book? book;
+      for (final candidate in state.books) {
+        if (candidate.id == id) { book = candidate; break; }
+      }
+      if (book == null || book.stock < qty) available = false;
+      if (book != null) regularTotal += book.price * qty;
+    }
+    final setPrice = (b['price'] as num?)?.toInt() ?? regularTotal;
+    final saving = (regularTotal - setPrice).clamp(0, regularTotal).toInt();
+    final percent =
+        regularTotal > 0 ? ((saving * 100) / regularTotal).round() : 0;
+    final deliveryIncluded = b['delivery_included'] == true;
+
+    return Scaffold(
+      backgroundColor: UzbekCustomerColors.background,
+      appBar: AppBar(
+        title: const Text('Kitob seti'),
+        actions: [
+          IconButton(
+            tooltip: 'Setni ulashish',
+            onPressed: () => Navigator.push(
+              context,
+              muhajeerPageRoute<void>(
+                builder: (_) => BundleStoryPage(
+                  bundle: b,
+                  books: state.books,
+                ),
+              ),
+            ),
+            icon: const Icon(Icons.ios_share_rounded),
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+        children: [
+          UzbekPatternPanel(
+            dark: true,
+            strongPattern: true,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const UzbekMiniPill(
+                  icon: Icons.auto_awesome_mosaic_rounded,
+                  text: 'Muhajeer Books seti',
+                  dark: true,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  (b['title'] ?? 'Kitoblar seti').toString(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                if ((b['description'] ?? '').toString().trim().isNotEmpty) ...[
+                  const SizedBox(height: 7),
+                  Text(
+                    b['description'].toString(),
+                    style: const TextStyle(
+                      color: Color(0xFFE6F2EF),
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          const UzbekSectionTitle(
+            title: 'Set ichidagi kitoblar',
+            subtitle: 'Har bir kitobning rasmi va asl narxi',
+            icon: Icons.collections_bookmark_outlined,
+          ),
+          const SizedBox(height: 8),
+          ...items.map((item) {
+            final id = (item['book_id'] ?? '').toString();
+            final qty = (item['quantity'] as num?)?.toInt() ?? 1;
+            Book? book;
+            for (final candidate in state.books) {
+              if (candidate.id == id) { book = candidate; break; }
+            }
+            final original =
+                book?.price ?? (item['price'] as num?)?.toInt() ?? 0;
+            return Card(
+              margin: const EdgeInsets.only(bottom: 9),
+              child: ListTile(
+                minTileHeight: 82,
+                leading: _BundleBookThumb(book: book),
+                title: Text(
+                  (item['title'] ?? book?.title ?? 'Kitob').toString(),
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+                subtitle: Text(
+                  qty > 1
+                      ? 'Asl narxi: ${won(original)} × $qty = ${won(original * qty)}'
+                      : 'Asl narxi: ${won(original)}',
+                ),
+                trailing: book == null
+                    ? null
+                    : const Icon(Icons.chevron_right_rounded),
+                onTap: book == null
+                    ? null
+                    : () => Navigator.push(
+                          context,
+                          muhajeerPageRoute<void>(
+                            settings:
+                                RouteSettings(name: 'mb:book:${book!.id}'),
+                            builder: (_) => BookDetailPage(bookId: book!.id),
+                          ),
+                        ),
+              ),
+            );
+          }),
+          const SizedBox(height: 8),
+          AppSurface(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (saving > 0) ...[
+                  Text(
+                    'Asl jami: ${won(regularTotal)}',
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      decoration: TextDecoration.lineThrough,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  AppInfoPill(
+                    icon: Icons.sell_rounded,
+                    label: '-$percent% • ${won(saving)} tejaysiz',
+                    foreground: AppColors.success,
+                    background: AppColors.successSoft,
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                Text(
+                  'Set narxi: ${won(setPrice)}',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.navy,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  deliveryIncluded
+                      ? 'Yetkazib berish set narxiga kiritilgan'
+                      : 'Yetkazib berish set narxidan alohida',
+                  style: TextStyle(
+                    color: deliveryIncluded
+                        ? AppColors.success
+                        : AppColors.muted,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: FilledButton.icon(
+            onPressed: available
+                ? () {
+                    final message = state.addBundleToCart(b);
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(SnackBar(content: Text(message)));
+                  }
+                : null,
+            icon: const Icon(Icons.add_shopping_cart_rounded),
+            label: Text(
+              available ? 'Setni savatchaga qo‘shish' : 'To‘liq mavjud emas',
+            ),
+          ),
+        ),
       ),
     );
   }

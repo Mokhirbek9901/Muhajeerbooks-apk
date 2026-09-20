@@ -14,7 +14,7 @@ const storyOrderLabel = 'Buyurtma berish uchun bosing';
 enum BookStoryTemplate { current, editorial, library, arch, emerald, minimal, sunset, magazine, classic, poster, noir, geometric, paper, split, polaroid, collage, coverFocus, editorialPage, lifestyle, cleanStudio, goldArch, scrapbook, silk, botanical, mosaic, midnight, gallery, atlas, marble, cinema, terracotta, royal, ornament, adras, kokand, khiva, turon, yurt, heritage }
 
 String bookStoryTemplateName(BookStoryTemplate value) => switch (value) {
-  BookStoryTemplate.current => 'Hozirgi',
+  BookStoryTemplate.current => 'Avto dizayn',
   BookStoryTemplate.editorial => 'Yorug‘',
   BookStoryTemplate.library => 'Kutubxona',
   BookStoryTemplate.arch => 'Sharqona',
@@ -132,6 +132,86 @@ Future<Uint8List> _exportStoryPng(ui.Image image) async {
     order: img.ChannelOrder.rgba,
   );
   return Uint8List.fromList(img.encodePng(raster, level: 4));
+}
+
+class _CoverPalette {
+  const _CoverPalette({
+    required this.background,
+    required this.ink,
+    required this.accent,
+    required this.softAccent,
+    required this.softWarm,
+  });
+
+  final Color background;
+  final Color ink;
+  final Color accent;
+  final Color softAccent;
+  final Color softWarm;
+}
+
+_CoverPalette _paletteFromCover(Uint8List encoded) {
+  final decoded = img.decodeImage(encoded);
+  if (decoded == null) {
+    return const _CoverPalette(
+      background: Color(0xFFF8F4E9),
+      ink: Color(0xFF174652),
+      accent: Color(0xFF0D625C),
+      softAccent: Color(0xFFDFEEE7),
+      softWarm: Color(0xFFF1E5CA),
+    );
+  }
+
+  final sample = img.copyResize(decoded, width: 28, height: 28);
+  var r = 0.0, g = 0.0, b = 0.0, weight = 0.0;
+  for (var y = 0; y < sample.height; y++) {
+    for (var x = 0; x < sample.width; x++) {
+      final p = sample.getPixel(x, y);
+      final pr = p.r.toDouble();
+      final pg = p.g.toDouble();
+      final pb = p.b.toDouble();
+      final maxC = [pr, pg, pb].reduce((a, b) => a > b ? a : b);
+      final minC = [pr, pg, pb].reduce((a, b) => a < b ? a : b);
+      final saturation = (maxC - minC) / 255.0;
+      // Oqartirilgan sahifa fonlari dominant bo‘lib ketmasin:
+      // rangli piksellarga biroz ko‘proq vazn beramiz.
+      final w = 0.35 + saturation * 1.65;
+      r += pr * w;
+      g += pg * w;
+      b += pb * w;
+      weight += w;
+    }
+  }
+
+  final base = Color.fromARGB(
+    255,
+    (r / weight).round().clamp(0, 255),
+    (g / weight).round().clamp(0, 255),
+    (b / weight).round().clamp(0, 255),
+  );
+  final hsl = HSLColor.fromColor(base);
+  final accentHsl = hsl.withSaturation((hsl.saturation * 1.35).clamp(0.38, 0.82))
+      .withLightness(hsl.lightness.clamp(0.28, 0.46));
+  final accent = accentHsl.toColor();
+  final ink = accentHsl.withLightness(0.20).withSaturation(
+    (accentHsl.saturation * 0.72).clamp(0.28, 0.70),
+  ).toColor();
+  final background = hsl.withSaturation(
+    (hsl.saturation * 0.28).clamp(0.06, 0.22),
+  ).withLightness(0.955).toColor();
+  final softAccent = accentHsl.withSaturation(
+    (accentHsl.saturation * 0.30).clamp(0.08, 0.24),
+  ).withLightness(0.90).toColor();
+  final warmHue = (hsl.hue + 34) % 360;
+  final softWarm = HSLColor.fromAHSL(1, warmHue, 0.22, 0.89).toColor();
+
+  return _CoverPalette(
+    background: background,
+    ink: ink,
+    accent: accent,
+    softAccent: softAccent,
+    softWarm: softWarm,
+  );
 }
 
 Future<ui.Image> _decodeStoryCover(Uint8List encoded) async {
@@ -375,12 +455,13 @@ Future<Uint8List> renderBookStory(
     cover = await _decodeStoryCover(fallback);
   }
 
+  final palette = _paletteFromCover(bytes);
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);
   canvas.scale(safeScale);
-  const ink = Color(0xFF174652);
-  const teal = Color(0xFF0D625C);
-  const cream = Color(0xFFF8F4E9);
+  final ink = palette.ink;
+  final teal = palette.accent;
+  final cream = palette.background;
   const green = Color(0xFF187A55);
   const greenSoft = Color(0xFFE4F4EC);
   const red = Color(0xFFB53B3B);
@@ -393,12 +474,12 @@ Future<Uint8List> renderBookStory(
   canvas.drawCircle(
     const Offset(1050, 150),
     380,
-    Paint()..color = const Color(0xFFDFEEE7),
+    Paint()..color = palette.softAccent,
   );
   canvas.drawCircle(
     const Offset(30, 1100),
     290,
-    Paint()..color = const Color(0xFFF1E5CA),
+    Paint()..color = palette.softWarm,
   );
 
   void simpleText(
@@ -429,7 +510,7 @@ Future<Uint8List> renderBookStory(
   }
 
   simpleText('MUHAJEER BOOKS', 120, 46, weight: FontWeight.w800);
-  simpleText('Koreyadagi o‘zbek kitob do‘koni', 182, 28);
+  simpleText('Koreyadagi o‘zbek kitob do‘koni', 182, 28, color: palette.accent);
 
   final frame = RRect.fromRectAndRadius(
     const Rect.fromLTWH(182, 270, 716, 700),
@@ -437,7 +518,7 @@ Future<Uint8List> renderBookStory(
   );
   canvas.drawShadow(
     Path()..addRRect(frame),
-    const Color(0x33174652),
+    palette.ink.withAlpha(52),
     18,
     false,
   );

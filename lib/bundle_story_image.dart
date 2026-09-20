@@ -329,8 +329,30 @@ Future<Uint8List> renderBundleStory(
     const Radius.circular(26),
   );
   canvas.drawRRect(setBanner, Paint()..color = const Color(0xFF07877E));
-  _bundleText(canvas, '🎁  SETDA  ${_wonBundle(setPrice)}',
-      Rect.fromLTWH(175, y + 14, 730, 78),
+
+  // Emoji shriftiga bog‘lanmaydigan sovg‘a ikonkasi — barcha qurilmada chiqadi.
+  final giftPaint = Paint()
+    ..color = Colors.white
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 6
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round;
+  final giftX = 188.0;
+  final giftY = y + 29;
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(
+      Rect.fromLTWH(giftX, giftY + 18, 52, 38),
+      const Radius.circular(4),
+    ),
+    giftPaint,
+  );
+  canvas.drawLine(Offset(giftX - 5, giftY + 18), Offset(giftX + 57, giftY + 18), giftPaint);
+  canvas.drawLine(Offset(giftX + 26, giftY + 18), Offset(giftX + 26, giftY + 56), giftPaint);
+  canvas.drawOval(Rect.fromLTWH(giftX + 5, giftY - 1, 22, 20), giftPaint);
+  canvas.drawOval(Rect.fromLTWH(giftX + 25, giftY - 1, 22, 20), giftPaint);
+
+  _bundleText(canvas, 'SETDA  ${_wonBundle(setPrice)}',
+      Rect.fromLTWH(255, y + 14, 635, 78),
       size: 50, weight: FontWeight.w900, color: Colors.white, maxLines: 1);
 
   if (saving > 0) {

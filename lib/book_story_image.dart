@@ -5,7 +5,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart';
 import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
 
@@ -414,7 +413,6 @@ Future<Uint8List?> _generateAiStoryBackground(Book book, Uint8List coverBytes) a
       'cover',
       aiCover,
       filename: 'cover.jpg',
-      contentType: MediaType('image', 'jpeg'),
     ));
     final streamed = await request.send().timeout(const Duration(minutes: 4));
     if (streamed.statusCode != 200) return null;

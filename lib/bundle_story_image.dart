@@ -249,41 +249,81 @@ Future<Uint8List> renderBundleStory(
   for (final image in covers) { image?.dispose(); }
 
   final afterGrid = gridTop + rows * cardH + (rows - 1) * gapY;
-  var y = afterGrid + 38;
+  var y = afterGrid + 34;
   if (entries.length > 6) {
     _bundleText(canvas, '+ yana ${entries.length - 6} turdagi kitob',
         Rect.fromLTWH(100, y, 880, 42), size: 23, weight: FontWeight.w800, color: muted);
-    y += 55;
+    y += 52;
   }
 
-  _bundleText(
-    canvas,
-    _wonBundle(comparisonTotal),
-    Rect.fromLTWH(100, y, 880, 52),
-    size: 31,
-    weight: FontWeight.w800,
-    color: muted,
-    decoration: TextDecoration.lineThrough,
-    maxLines: 1,
+  // Narx bloki: oddiy kitoblar + pochta = chizilgan jami, undan keyin set narxi.
+  // Storyda mijoz ₩22,000 qayerdan kelganini bir qarashda tushunadi.
+  final totalQty = entries.fold<int>(0, (sum, entry) => sum + entry.qty);
+  const priceBoxLeft = 105.0;
+  const priceBoxWidth = 870.0;
+  const priceBoxHeight = 218.0;
+  final priceBox = RRect.fromRectAndRadius(
+    Rect.fromLTWH(priceBoxLeft, y, priceBoxWidth, priceBoxHeight),
+    const Radius.circular(28),
   );
-  y += 55;
+  canvas.drawRRect(priceBox, Paint()..color = const Color(0xFFF5FAF7));
+  canvas.drawRRect(
+    priceBox,
+    Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..color = const Color(0xFFD6E7DF),
+  );
+
+  _bundleText(canvas, 'Kitoblar narxi ($totalQty ta)',
+      Rect.fromLTWH(145, y + 22, 560, 42),
+      size: 27, weight: FontWeight.w700, color: navy, align: TextAlign.left, maxLines: 1);
+  _bundleText(canvas, _wonBundle(regularTotal),
+      Rect.fromLTWH(700, y + 22, 225, 42),
+      size: 29, weight: FontWeight.w900, color: navy, align: TextAlign.right, maxLines: 1);
+
+  _bundleText(canvas,
+      deliveryIncluded ? 'Yetkazib berish (Koreya bo‘ylab)' : 'Yetkazib berish',
+      Rect.fromLTWH(145, y + 70, 560, 42),
+      size: 25, weight: FontWeight.w600, color: navy, align: TextAlign.left, maxLines: 1);
+  _bundleText(canvas,
+      deliveryIncluded ? _wonBundle(AppState.deliveryFee) : 'alohida',
+      Rect.fromLTWH(700, y + 70, 225, 42),
+      size: 28, weight: FontWeight.w900, color: navy, align: TextAlign.right, maxLines: 1);
+
+  canvas.drawLine(Offset(145, y + 128), Offset(935, y + 128),
+      Paint()..color = const Color(0xFFD6E7DF)..strokeWidth = 2);
+  _bundleText(canvas, deliveryIncluded ? 'Jami (pochta bilan)' : 'Jami',
+      Rect.fromLTWH(145, y + 145, 500, 45),
+      size: 28, weight: FontWeight.w900, color: navy, align: TextAlign.left, maxLines: 1);
+  _bundleText(canvas, _wonBundle(comparisonTotal),
+      Rect.fromLTWH(670, y + 145, 255, 45),
+      size: 31, weight: FontWeight.w900, color: muted, align: TextAlign.right,
+      decoration: TextDecoration.lineThrough, maxLines: 1);
+
+  y += priceBoxHeight + 28;
   _bundleText(
     canvas,
     'SETDA  ${_wonBundle(setPrice)}',
-    Rect.fromLTWH(100, y, 880, 82),
+    Rect.fromLTWH(150, y, 780, 82),
     size: 61,
     weight: FontWeight.w900,
     color: teal,
     maxLines: 1,
   );
   if (saving > 0) {
-    y += 82;
-    _bundleText(canvas, '-$percent%  •  ${_wonBundle(saving)} tejaysiz',
-        Rect.fromLTWH(100, y, 880, 52), size: 29, weight: FontWeight.w900, color: green, maxLines: 1);
+    final badge = RRect.fromRectAndRadius(
+      Rect.fromLTWH(825, y - 12, 130, 55),
+      const Radius.circular(24),
+    );
+    canvas.drawRRect(badge, Paint()..color = const Color(0xFFDDF0E7));
+    _bundleText(canvas, '-$percent%', Rect.fromLTWH(835, y - 7, 110, 43),
+        size: 26, weight: FontWeight.w900, color: green, maxLines: 1);
   }
-  y += 88;
-  _bundleText(canvas, deliveryIncluded ? 'Yetkazib berish set narxida' : 'Yetkazib berish alohida',
-      Rect.fromLTWH(100, y, 880, 48), size: 25, weight: FontWeight.w800,
+  y += 84;
+  _bundleText(canvas,
+      deliveryIncluded ? 'Yetkazib berish set narxida' : 'Yetkazib berish alohida',
+      Rect.fromLTWH(150, y, 780, 48), size: 25, weight: FontWeight.w800,
       color: deliveryIncluded ? green : muted, maxLines: 1);
 
   _bundleText(canvas, 'Setni ko‘rish va buyurtma berish uchun bosing',

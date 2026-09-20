@@ -1592,7 +1592,8 @@ class AppState extends ChangeNotifier {
   int get cartSubtotal =>
       cartLines.fold(0, (a, b) => a + b.total) - cartBundleDiscount;
   int get cartDeliveryFee =>
-      cartBundleDeliveryIncluded || (cartCount >= 4 && fourPlusFreeDeliveryEnabled)
+      cartBundleDeliveryIncluded ||
+              (cartDisplayCount >= 4 && fourPlusFreeDeliveryEnabled)
           ? 0
           : deliveryFee;
 
@@ -1754,7 +1755,7 @@ class AppState extends ChangeNotifier {
     final safeDeliveryFee = isGyeongsanPickup
         ? 0
         : (cartBundleDeliveryIncluded ||
-                (cartCount >= 4 && fourPlusFreeDeliveryEnabled)
+                (cartDisplayCount >= 4 && fourPlusFreeDeliveryEnabled)
             ? 0
             : AppState.deliveryFee);
     final total = subtotal + safeDeliveryFee;

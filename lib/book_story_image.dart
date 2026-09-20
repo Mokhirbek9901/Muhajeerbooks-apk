@@ -28,9 +28,8 @@ Future<ui.Image> _decodeStoryCover(Uint8List encoded) async {
   // Katta iPhone rasmlarini 700–900px texture sifatida Canvas'ga berish ayrim
   // Safari/iOS qurilmalarda qora cover qaytarardi. EXIF'ni bake qilib, 360px
   // alpha-siz RGB PNG ga aylantiramiz — story uchun bu yetarli aniqlik.
-  final raw = img.decodeImage(encoded);
-  if (raw == null) throw StateError('Cover decode failed');
-  final decoded = img.bakeOrientation(raw);
+  final decoded = img.decodeImage(encoded);
+  if (decoded == null) throw StateError('Cover decode failed');
 
   final resized = decoded.width > 360
       ? img.copyResize(
@@ -270,7 +269,6 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
     fit: BoxFit.contain,
     filterQuality: FilterQuality.high,
   );
-  cover.dispose();
 
   final title = _fitText(
     value: book.title,
@@ -593,6 +591,9 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
 
   final picture = recorder.endRecording();
   final image = await picture.toImage(1080, 1920);
+  // The recorded picture has now been rasterized, so the source cover can be
+  // released safely. Releasing it earlier can produce a black rectangle on iOS.
+  cover.dispose();
   picture.dispose();
   final png = await image.toByteData(format: ui.ImageByteFormat.png);
   image.dispose();

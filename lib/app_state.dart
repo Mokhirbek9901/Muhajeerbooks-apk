@@ -724,6 +724,7 @@ class BackendService {
     'book_id': line.book.id,
     'title': line.book.title,
     'price': line.book.currentPrice,
+    'original_price': line.book.price,
     'quantity': line.quantity,
     'line_total': line.total,
   };
@@ -900,6 +901,7 @@ class AppState extends ChangeNotifier {
   final Map<String, int> _cart = {};
   final Set<String> _favorites = {};
   final Set<String> _restockSubscriptions = {};
+  final List<Map<String, dynamic>> _bundles = [];
   int _catalogRevision = 0;
   int get catalogRevision => _catalogRevision;
   void _touchCatalog() => _catalogRevision++;
@@ -981,6 +983,7 @@ class AppState extends ChangeNotifier {
 
   List<ShopOrder> get localOrders => List.unmodifiable(_localOrders);
   List<Book> get books => List.unmodifiable(_books);
+  List<Map<String, dynamic>> get bundles => List.unmodifiable(_bundles);
   Set<String> get favorites => Set.unmodifiable(_favorites);
   bool isRestockSubscribed(Book book) =>
       _restockSubscriptions.contains(book.id);
@@ -1078,6 +1081,7 @@ class AppState extends ChangeNotifier {
     }
 
     unawaited(_registerInstallation());
+    unawaited(refreshBundles());
 
     // Live narx va qoldiqni UI'ni bloklamasdan yangilaymiz.
     unawaited(_refreshBooksQuietly());
@@ -1171,6 +1175,7 @@ class AppState extends ChangeNotifier {
           b.coverType,
           b.costPrice,
           b.recommended,
+          b.preorderEnabled,
         ].join('¦'),
       )
       .join('§');
@@ -1235,6 +1240,43 @@ class AppState extends ChangeNotifier {
     } finally {
       _quietBooksRefreshing = false;
     }
+  }
+
+  Future<void> refreshBundles() async {
+    if (_backend == null) return;
+    try {
+      final rows = await _backend!.fetchBundles();
+      _bundles
+        ..clear()
+        ..addAll(rows);
+      notifyListeners();
+    } catch (_) {
+      // Setlar vaqtincha yuklanmasa katalog ishlashda davom etadi.
+    }
+  }
+
+  String addBundleToCart(Map<String, dynamic> bundle) {
+    final rawItems = bundle['items'];
+    if (rawItems is! List || rawItems.isEmpty) return 'Set tarkibi bo‘sh.';
+    final additions = <String, int>{};
+    for (final raw in rawItems.whereType<Map>()) {
+      final item = Map<String, dynamic>.from(raw);
+      final id = (item['book_id'] ?? '').toString();
+      final qty = (item['quantity'] as num?)?.toInt() ?? 1;
+      final book = _books.where((b) => b.id == id).firstOrNull;
+      if (book == null || !book.inStock) {
+        return '${(item['title'] ?? 'Kitob')} hozir mavjud emas.';
+      }
+      final next = (_cart[id] ?? 0) + qty;
+      if (next > book.stock) return '${book.title} omborda yetarli emas.';
+      additions[id] = qty;
+    }
+    for (final entry in additions.entries) {
+      _cart[entry.key] = (_cart[entry.key] ?? 0) + entry.value;
+    }
+    _persistCart();
+    notifyListeners();
+    return 'Set savatchaga qo‘shildi ✅';
   }
 
   Future<String> submitPreorder(Book book) async {
@@ -1580,7 +1622,9 @@ class AppState extends ChangeNotifier {
     final isGyeongsanPickup = deliveryType == '경산 직접수령';
     final safeDeliveryFee = isGyeongsanPickup
         ? 0
-        : (cartCount >= 4 ? 0 : AppState.deliveryFee);
+        : (cartCount >= 4 && fourPlusFreeDeliveryEnabled
+            ? 0
+            : AppState.deliveryFee);
     final total = subtotal + safeDeliveryFee;
     await _local.saveCustomer(
       customerName.trim(),

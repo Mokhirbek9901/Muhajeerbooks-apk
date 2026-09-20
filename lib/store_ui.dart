@@ -526,6 +526,161 @@ class CategoriesPage extends StatelessWidget {
   }
 }
 
+class BookBundlesPage extends StatefulWidget {
+  const BookBundlesPage({super.key});
+
+  @override
+  State<BookBundlesPage> createState() => _BookBundlesPageState();
+}
+
+class _BookBundlesPageState extends State<BookBundlesPage> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() => context.read<AppState>().refreshBundles());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final bundles = state.bundles;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Kitob setlari')),
+      body: RefreshIndicator(
+        onRefresh: state.refreshBundles,
+        child: bundles.isEmpty
+            ? ListView(
+                padding: const EdgeInsets.all(24),
+                children: const [
+                  SizedBox(height: 100),
+                  Icon(Icons.auto_awesome_mosaic_rounded,
+                      size: 58, color: AppColors.muted),
+                  SizedBox(height: 14),
+                  Text(
+                    'Hozircha faol kitob seti yo‘q.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                  ),
+                ],
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: bundles.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (_, index) {
+                  final bundle = bundles[index];
+                  final items = ((bundle['items'] as List?) ?? const [])
+                      .whereType<Map>()
+                      .map((e) => Map<String, dynamic>.from(e))
+                      .toList();
+                  var liveTotal = 0;
+                  var available = true;
+                  for (final item in items) {
+                    final id = (item['book_id'] ?? '').toString();
+                    final qty = (item['quantity'] as num?)?.toInt() ?? 1;
+                    final book = state.books.where((b) => b.id == id).firstOrNull;
+                    if (book == null || book.stock < qty) {
+                      available = false;
+                    } else {
+                      liveTotal += book.currentPrice * qty;
+                    }
+                  }
+                  return AppSurface(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: UzbekCustomerColors.goldSoft,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Icon(
+                                Icons.auto_awesome_mosaic_rounded,
+                                color: UzbekCustomerColors.navy,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    (bundle['title'] ?? 'Kitob seti').toString(),
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                  if ((bundle['description'] ?? '').toString().trim().isNotEmpty)
+                                    Text(
+                                      bundle['description'].toString(),
+                                      style: const TextStyle(
+                                        color: AppColors.muted,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        ...items.map((item) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 3),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.menu_book_rounded, size: 16),
+                                  const SizedBox(width: 7),
+                                  Expanded(
+                                    child: Text(
+                                      (item['title'] ?? 'Kitob').toString(),
+                                      style: const TextStyle(fontWeight: FontWeight.w700),
+                                    ),
+                                  ),
+                                  Text('×${(item['quantity'] as num?)?.toInt() ?? 1}'),
+                                ],
+                              ),
+                            )),
+                        const Divider(height: 24),
+                        Row(
+                          children: [
+                            Text(
+                              liveTotal > 0 ? won(liveTotal) : '',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.navy,
+                              ),
+                            ),
+                            const Spacer(),
+                            FilledButton.icon(
+                              onPressed: available
+                                  ? () {
+                                      final message = state.addBundleToCart(bundle);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text(message)),
+                                      );
+                                    }
+                                  : null,
+                              icon: const Icon(Icons.add_shopping_cart_rounded),
+                              label: Text(available ? 'Setni savatga' : 'To‘liq mavjud emas'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+      ),
+    );
+  }
+}
+
 class PublishersPage extends StatelessWidget {
   const PublishersPage({super.key});
 
@@ -712,6 +867,7 @@ class _HomePageState extends State<HomePage> {
     final categories = <String>{
       'Barchasi',
       'Nashriyotlar',
+      'Kitob setlari',
       ...state.books.where((b) => b.isActive).map((b) => b.category),
     }.toList();
     final featured = state.books
@@ -787,6 +943,14 @@ class _HomePageState extends State<HomePage> {
                         muhajeerPageRoute(
                           settings: const RouteSettings(name: 'mb:publishers'),
                           builder: (_) => const PublishersPage(),
+                        ),
+                      );
+                    } else if (value == 'Kitob setlari') {
+                      Navigator.push(
+                        context,
+                        muhajeerPageRoute(
+                          settings: const RouteSettings(name: 'mb:bundles'),
+                          builder: (_) => const BookBundlesPage(),
                         ),
                       );
                     } else {
@@ -4846,10 +5010,11 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
 
 Future<void> _showMuhajeerReceipt(BuildContext context, ShopOrder order) async {
   final itemTotal = order.items.fold<int>(0, (sum, item) {
-    final price = (item['price'] as num?)?.toInt() ??
+    final original = (item['original_price'] as num?)?.toInt() ??
+        (item['price'] as num?)?.toInt() ??
         (item['unit_price'] as num?)?.toInt() ?? 0;
     final quantity = (item['quantity'] as num?)?.toInt() ?? 1;
-    return sum + price * quantity;
+    return sum + original * quantity;
   });
   final discount = (itemTotal - order.subtotal).clamp(0, itemTotal).toInt();
   await showModalBottomSheet<void>(
@@ -4886,9 +5051,44 @@ Future<void> _showMuhajeerReceipt(BuildContext context, ShopOrder order) async {
                 final quantity = (item['quantity'] as num?)?.toInt() ?? 1;
                 final price = (item['price'] as num?)?.toInt() ??
                     (item['unit_price'] as num?)?.toInt() ?? 0;
-                return _ReceiptRow(
-                  label: '${item['title']}  × ${quantity}',
-                  value: won(price * quantity),
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        (item['title'] ?? 'Kitob').toString(),
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Text(
+                            '$quantity × ${won(price)}',
+                            style: const TextStyle(
+                              color: AppColors.muted,
+                              fontSize: 12.5,
+                            ),
+                          ),
+                          const Expanded(
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 8),
+                              child: Text(
+                                '············',
+                                overflow: TextOverflow.clip,
+                                maxLines: 1,
+                                style: TextStyle(color: AppColors.border),
+                              ),
+                            ),
+                          ),
+                          Text(
+                            won(price * quantity),
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 );
               }),
               const Divider(),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as Math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -258,7 +259,9 @@ int _storyTheme(Book book) {
 
   if (has(['alloh', 'qur’on', 'quron', 'islom', 'musulmon', 'namoz', 'rasul',
            'payg‘ambar', 'paygambar', 'sahoba', 'tobein', 'hadis', 'duo',
-           'iymon', 'imon', 'halol', 'jannat', 'oxirat', 'diniy'])) return 1;
+           'iymon', 'imon', 'halol', 'jannat', 'oxirat', 'diniy', 'qiroat',
+           'qiraat', 'tajvid', 'arab tili', 'arabcha', 'mabda', 'mabdaul',
+           'fiqh', 'aqida', 'siyrat'])) return 1;
   if (has(['qotillik', 'jinoyat', 'sir', 'detektiv', 'o‘lim', 'olim',
            'qotil', 'tergov', 'mahbus', 'jinoyatchi'])) return 2;
   if (has(['sevgi', 'muhabbat', 'qalb', 'nikoh', 'oila', 'ayol', 'er-xotin',
@@ -674,18 +677,36 @@ Future<Uint8List> renderBookStory(
     coverRect = const Rect.fromLTWH(170, 285, 740, 590);
     contentStart = 968;
   } else if (autoVariant == 4) {
-    // Diniy: mihrab/masjid arkasidan ilhomlangan sokin kompozitsiya.
-    canvas.drawColor(const Color(0xFFF5F0E3), BlendMode.src);
-    canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 1920), Paint()..color = const Color(0xFFF5F0E3));
-    final arch = Path()..moveTo(150, 925)..lineTo(150, 420)
-      ..quadraticBezierTo(540, 35, 930, 420)..lineTo(930, 925)..close();
-    canvas.drawPath(arch, Paint()..color = const Color(0xFFE1D2AA));
-    canvas.drawPath(arch, Paint()..style = PaintingStyle.stroke..strokeWidth = 8..color = const Color(0xFF315D50));
-    canvas.drawCircle(const Offset(540, 112), 14, Paint()..color = const Color(0xFFB58A42));
-    simpleText('MUHAJEER BOOKS', 62, 32, color: const Color(0xFF315D50), weight: FontWeight.w800);
-    simpleText('ILM • MA’RIFAT • MUTOLAA', 112, 17, color: const Color(0xFF8B6A34), weight: FontWeight.w700);
-    coverRect = const Rect.fromLTWH(270, 235, 540, 630);
-    contentStart = 958;
+    // Diniy/qiroat: mihrab va islomiy geometrik ruh. Dekor matnga tegmaydi.
+    canvas.drawColor(const Color(0xFFF6F1E5), BlendMode.src);
+    canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 1920), Paint()..color = const Color(0xFFF6F1E5));
+    canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 188), Paint()..color = const Color(0xFF244F45));
+    simpleText('MUHAJEER BOOKS', 48, 34, color: Colors.white, weight: FontWeight.w900);
+    simpleText('ILM • QIROAT • MA’RIFAT', 105, 17, color: const Color(0xFFE5C987), weight: FontWeight.w700);
+
+    final arch = Path()
+      ..moveTo(185, 845)
+      ..lineTo(185, 420)
+      ..quadraticBezierTo(540, 105, 895, 420)
+      ..lineTo(895, 845)
+      ..close();
+    canvas.drawPath(arch, Paint()..color = const Color(0xFFE8DDC1));
+    canvas.drawPath(arch, Paint()..style = PaintingStyle.stroke..strokeWidth = 7..color = const Color(0xFFB08A48));
+
+    // Geometrik yulduzlar faqat bo‘sh yon zonalarda.
+    for (final center in [const Offset(105, 350), const Offset(975, 350), const Offset(105, 720), const Offset(975, 720)]) {
+      final star = Path();
+      for (var i = 0; i < 8; i++) {
+        final a = i * 3.141592653589793 / 4;
+        final rr = i.isEven ? 28.0 : 13.0;
+        final point = Offset(center.dx + rr * Math.cos(a), center.dy + rr * Math.sin(a));
+        if (i == 0) star.moveTo(point.dx, point.dy); else star.lineTo(point.dx, point.dy);
+      }
+      star.close();
+      canvas.drawPath(star, Paint()..style = PaintingStyle.stroke..strokeWidth = 3..color = const Color(0xFFB08A48));
+    }
+    coverRect = const Rect.fromLTWH(285, 245, 510, 555);
+    contentStart = 875;
   } else if (autoVariant == 5) {
     // Detektiv: kino afishasi kabi keskin qorong‘i kompozitsiya.
     canvas.drawColor(const Color(0xFF10141A), BlendMode.src);
@@ -813,7 +834,7 @@ Future<Uint8List> renderBookStory(
   const deliveryHeight = 44.0;
   const stockHeight = 58.0;
   const gapTitleAuthor = 13.0;
-  const gapAuthorPrice = 3.0;
+  const gapAuthorPrice = 13.0;
   const gapPriceDelivery = 6.0;
   const gapDeliveryStock = 10.0;
   const gapStockPublisher = 11.0;
@@ -1077,7 +1098,7 @@ Future<Uint8List> renderBookStory(
     arrow,
   );
 
-  simpleText('@muhajeerbooks', 1810, 28);
+  simpleText('@muhajeerbooks', 1748, 28);
 
   final picture = recorder.endRecording();
   final image = await picture.toImage(

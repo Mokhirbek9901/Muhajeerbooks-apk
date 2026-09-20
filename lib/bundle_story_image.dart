@@ -197,17 +197,31 @@ Future<Uint8List> renderBundleStory(
     y += 55;
   }
 
+  _bundleText(
+    canvas,
+    _wonBundle(regularTotal),
+    Rect.fromLTWH(100, y, 880, 52),
+    size: 31,
+    weight: FontWeight.w800,
+    color: muted,
+    decoration: TextDecoration.lineThrough,
+    maxLines: 1,
+  );
+  y += 55;
+  _bundleText(
+    canvas,
+    'SETDA  ${_wonBundle(setPrice)}',
+    Rect.fromLTWH(100, y, 880, 82),
+    size: 61,
+    weight: FontWeight.w900,
+    color: teal,
+    maxLines: 1,
+  );
   if (saving > 0) {
-    _bundleText(canvas, 'Oddiy narxi: ${_wonBundle(regularTotal)}',
-        Rect.fromLTWH(100, y, 880, 46), size: 26, color: muted,
-        decoration: TextDecoration.lineThrough, maxLines: 1);
-    y += 50;
+    y += 82;
     _bundleText(canvas, '-$percent%  •  ${_wonBundle(saving)} tejaysiz',
         Rect.fromLTWH(100, y, 880, 52), size: 29, weight: FontWeight.w900, color: green, maxLines: 1);
-    y += 62;
   }
-  _bundleText(canvas, _wonBundle(setPrice), Rect.fromLTWH(100, y, 880, 82),
-      size: 66, weight: FontWeight.w900, color: teal, maxLines: 1);
   y += 88;
   _bundleText(canvas, deliveryIncluded ? 'Yetkazib berish set narxida' : 'Yetkazib berish alohida',
       Rect.fromLTWH(100, y, 880, 48), size: 25, weight: FontWeight.w800,

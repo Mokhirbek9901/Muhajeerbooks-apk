@@ -5,6 +5,7 @@ import 'app_state.dart';
 import 'catalog_resume.dart';
 import 'store_ui.dart';
 import 'uzbek_customer_style.dart';
+import 'muhajeer_ai_page.dart';
 
 /// Fast storefront shell.
 ///
@@ -130,6 +131,14 @@ class _FastStoreShellState extends State<FastStoreShell> {
             ),
         ],
       ),
+      floatingActionButton: index == 0 ? FloatingActionButton.extended(
+        heroTag: 'muhajeer-ai',
+        onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => const MuhajeerAiPage(),
+        )),
+        icon: const Icon(Icons.auto_awesome_rounded),
+        label: const Text('Muhajeer AI'),
+      ) : null,
       bottomNavigationBar: SafeArea(
         top: false,
         child: Container(

@@ -160,7 +160,8 @@ class _BookStoryPageState extends State<BookStoryPage> {
                           color: item == BookStoryTemplate.library ||
                                   item == BookStoryTemplate.emerald ||
                                   item == BookStoryTemplate.noir ||
-                                  item == BookStoryTemplate.geometric
+                                  item == BookStoryTemplate.geometric ||
+                                  item == BookStoryTemplate.coverFocus
                               ? Colors.white : const Color(0xFF174652)),
                         const SizedBox(height: 6),
                         Text(bookStoryTemplateName(item), maxLines: 1, overflow: TextOverflow.ellipsis,
@@ -168,7 +169,8 @@ class _BookStoryPageState extends State<BookStoryPage> {
                             color: item == BookStoryTemplate.library ||
                                     item == BookStoryTemplate.emerald ||
                                     item == BookStoryTemplate.noir ||
-                                    item == BookStoryTemplate.geometric
+                                    item == BookStoryTemplate.geometric ||
+                                    item == BookStoryTemplate.coverFocus
                                 ? Colors.white : const Color(0xFF174652))),
                       ],
                     ),

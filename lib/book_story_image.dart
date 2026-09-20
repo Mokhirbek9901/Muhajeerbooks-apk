@@ -188,6 +188,66 @@ Future<Uint8List?> _downloadStoryCover(Book book) async {
   return null;
 }
 
+Future<Uint8List> renderBookStoryCpuFallback(
+  Book book, {
+  BookStoryTemplate template = BookStoryTemplate.current,
+}) async {
+  // Oxirgi xavfsiz yo‘l: Flutter Canvas/CanvasKit umuman ishlamasa ham
+  // Story'ni sof CPU raster orqali yaratamiz. Bu iPhone Safari GPU/raster
+  // xatolariga bog‘liq emas.
+  Uint8List? source = await _downloadStoryCover(book);
+  source ??= (await rootBundle.load('assets/images/muhajeer_logo.jpg'))
+      .buffer
+      .asUint8List();
+
+  img.Image? decoded = img.decodeImage(source);
+  if (decoded == null) {
+    final fallback = (await rootBundle.load('assets/images/muhajeer_logo.jpg'))
+        .buffer
+        .asUint8List();
+    decoded = img.decodeImage(fallback);
+  }
+  if (decoded == null) throw StateError('CPU story cover unavailable');
+
+  final out = img.Image(width: 540, height: 960, numChannels: 3);
+  img.fill(out, color: img.ColorRgb8(248, 244, 233));
+
+  // Milliy dizaynlar uchun yengil, GPU talab qilmaydigan ramka.
+  final accent = switch (template) {
+    BookStoryTemplate.adras => img.ColorRgb8(123, 36, 72),
+    BookStoryTemplate.kokand => img.ColorRgb8(142, 88, 42),
+    BookStoryTemplate.khiva => img.ColorRgb8(17, 106, 114),
+    BookStoryTemplate.turon => img.ColorRgb8(23, 59, 50),
+    BookStoryTemplate.yurt => img.ColorRgb8(171, 52, 45),
+    BookStoryTemplate.heritage => img.ColorRgb8(139, 61, 46),
+    _ => img.ColorRgb8(18, 63, 73),
+  };
+  img.drawRect(out, x1: 18, y1: 18, x2: 521, y2: 941, color: accent, thickness: 8);
+  img.drawRect(out, x1: 32, y1: 32, x2: 507, y2: 927, color: accent, thickness: 2);
+
+  final cover = img.copyResize(
+    decoded,
+    width: 300,
+    interpolation: img.Interpolation.average,
+  );
+  final maxH = 520;
+  final fitted = cover.height > maxH
+      ? img.copyResize(cover, height: maxH, interpolation: img.Interpolation.average)
+      : cover;
+  final x = ((540 - fitted.width) / 2).round();
+  final y = 155 + ((520 - fitted.height) / 2).round();
+  img.fillRect(out, x1: x - 10, y1: y - 10, x2: x + fitted.width + 9,
+      y2: y + fitted.height + 9, color: img.ColorRgb8(255, 255, 255));
+  img.compositeImage(out, fitted, dstX: x, dstY: y);
+
+  // Pastki bloklar dizaynning asosiy rangini saqlaydi; matn UI'dagi
+  // tanlangan kitob ma'lumotlarida baribir ko‘rinadi.
+  img.fillRect(out, x1: 70, y1: 735, x2: 469, y2: 805, color: accent);
+  img.fillRect(out, x1: 120, y1: 830, x2: 419, y2: 842, color: accent);
+
+  return Uint8List.fromList(img.encodePng(out, level: 4));
+}
+
 class _TextMetrics {
   const _TextMetrics(this.fontSize, this.size);
 

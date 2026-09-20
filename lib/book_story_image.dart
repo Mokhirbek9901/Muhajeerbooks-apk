@@ -11,7 +11,7 @@ import 'app_state.dart';
 
 const storyOrderLabel = 'Buyurtma berish uchun bosing';
 
-enum BookStoryTemplate { current, editorial, library, arch, emerald, minimal, sunset, magazine, classic, poster, noir, geometric, paper, split, polaroid, collage, coverFocus }
+enum BookStoryTemplate { current, editorial, library, arch, emerald, minimal, sunset, magazine, classic, poster, noir, geometric, paper, split, polaroid, collage, coverFocus, editorialPage, lifestyle, cleanStudio, goldArch, scrapbook }
 
 String bookStoryTemplateName(BookStoryTemplate value) => switch (value) {
   BookStoryTemplate.current => 'Hozirgi',
@@ -31,6 +31,11 @@ String bookStoryTemplateName(BookStoryTemplate value) => switch (value) {
   BookStoryTemplate.polaroid => 'Polaroid',
   BookStoryTemplate.collage => 'Kollaj',
   BookStoryTemplate.coverFocus => 'Muqova',
+  BookStoryTemplate.editorialPage => 'Sahifa',
+  BookStoryTemplate.lifestyle => 'Lifestyle',
+  BookStoryTemplate.cleanStudio => 'Clean',
+  BookStoryTemplate.goldArch => 'Premium',
+  BookStoryTemplate.scrapbook => 'Scrapbook',
 };
 
 Color bookStoryTemplateColor(BookStoryTemplate value) => switch (value) {
@@ -51,6 +56,11 @@ Color bookStoryTemplateColor(BookStoryTemplate value) => switch (value) {
   BookStoryTemplate.polaroid => const Color(0xFFCCD8C8),
   BookStoryTemplate.collage => const Color(0xFFF1C64B),
   BookStoryTemplate.coverFocus => const Color(0xFF242424),
+  BookStoryTemplate.editorialPage => const Color(0xFFF1E7D2),
+  BookStoryTemplate.lifestyle => const Color(0xFFB56E43),
+  BookStoryTemplate.cleanStudio => const Color(0xFFF4F4F0),
+  BookStoryTemplate.goldArch => const Color(0xFF17110D),
+  BookStoryTemplate.scrapbook => const Color(0xFFE9D8B9),
 };
 
 String storyPrice(Book book) => book.price > 0
@@ -677,7 +687,9 @@ Future<Uint8List> _renderAlternativeBookStory(
       template == BookStoryTemplate.emerald ||
       template == BookStoryTemplate.noir ||
       template == BookStoryTemplate.geometric ||
-      template == BookStoryTemplate.coverFocus;
+      template == BookStoryTemplate.coverFocus ||
+      template == BookStoryTemplate.lifestyle ||
+      template == BookStoryTemplate.goldArch;
   final fg = dark ? Colors.white : navy;
 
   void textBox(String value, Rect rect, double size, {FontWeight weight = FontWeight.w600,
@@ -798,6 +810,52 @@ Future<Uint8List> _renderAlternativeBookStory(
         const Offset(0, 0), const Offset(1080, 1920), [const Color(0xFF111111), const Color(0xFF34302B)]));
       canvas.drawRect(const Rect.fromLTWH(55, 70, 8, 1780), Paint()..color = const Color(0xFFCDAA63));
       break;
+    case BookStoryTemplate.editorialPage:
+      canvas.drawColor(const Color(0xFFF2E8D5), BlendMode.src);
+      canvas.drawRect(const Rect.fromLTWH(54, 54, 972, 1812),
+        Paint()..style = PaintingStyle.stroke..strokeWidth = 2..color = const Color(0xFFB9A88B));
+      canvas.drawLine(const Offset(92, 545), const Offset(500, 545),
+        Paint()..strokeWidth = 2..color = const Color(0xFF6D5B43));
+      canvas.drawCircle(const Offset(930, 1640), 145, Paint()..color = const Color(0x22A77D4F));
+      break;
+    case BookStoryTemplate.lifestyle:
+      canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 1920), Paint()..shader = ui.Gradient.linear(
+        const Offset(0, 0), const Offset(1080, 1920),
+        [const Color(0xFF6A3C25), const Color(0xFFD39A62), const Color(0xFF302018)]));
+      canvas.drawRect(const Rect.fromLTWH(620, 120, 330, 680), Paint()..color = const Color(0x557BC5D0));
+      canvas.drawRect(const Rect.fromLTWH(650, 150, 270, 620), Paint()..color = const Color(0x55F4D28B));
+      canvas.drawLine(const Offset(785, 150), const Offset(785, 770), Paint()..strokeWidth = 12..color = const Color(0x9970462E));
+      canvas.drawLine(const Offset(650, 455), const Offset(920, 455), Paint()..strokeWidth = 12..color = const Color(0x9970462E));
+      canvas.drawCircle(const Offset(155, 1480), 230, Paint()..color = const Color(0x3325140E));
+      break;
+    case BookStoryTemplate.cleanStudio:
+      canvas.drawColor(const Color(0xFFF7F7F3), BlendMode.src);
+      canvas.drawCircle(const Offset(955, 690), 250, Paint()..color = const Color(0xFFE2EEE2));
+      canvas.drawCircle(const Offset(1020, 930), 135, Paint()..color = const Color(0xFFCADDC9));
+      canvas.drawRect(const Rect.fromLTWH(0, 1240, 1080, 680), Paint()..color = const Color(0xFFF0F1EC));
+      break;
+    case BookStoryTemplate.goldArch:
+      canvas.drawColor(const Color(0xFF120E0B), BlendMode.src);
+      canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 1920), Paint()..shader = ui.Gradient.radial(
+        const Offset(540, 700), 900, [const Color(0xFF49341F), const Color(0xFF0D0A08)]));
+      final premiumArch = Path()
+        ..moveTo(165, 1110)
+        ..lineTo(165, 520)
+        ..quadraticBezierTo(540, 115, 915, 520)
+        ..lineTo(915, 1110);
+      canvas.drawPath(premiumArch, Paint()..style = PaintingStyle.stroke..strokeWidth = 14..color = const Color(0xFFD7A947));
+      canvas.drawPath(premiumArch, Paint()..style = PaintingStyle.stroke..strokeWidth = 3..color = const Color(0xFFFFE3A0));
+      break;
+    case BookStoryTemplate.scrapbook:
+      canvas.drawColor(const Color(0xFFEAD9B9), BlendMode.src);
+      for (var y = 40.0; y < 1920; y += 85) {
+        canvas.drawLine(Offset(0, y), Offset(1080, y + 35), Paint()..strokeWidth = 1..color = const Color(0x22906F45));
+      }
+      canvas.drawRect(const Rect.fromLTWH(80, 215, 390, 420), Paint()..color = const Color(0x55FFFFFF));
+      canvas.drawRect(const Rect.fromLTWH(720, 230, 230, 300), Paint()..color = const Color(0x66F8E9C7));
+      canvas.drawCircle(const Offset(160, 1540), 115, Paint()..color = const Color(0x55718D5D));
+      canvas.drawCircle(const Offset(920, 1460), 170, Paint()..color = const Color(0x33A56C46));
+      break;
     case BookStoryTemplate.current:
       canvas.drawColor(cream, BlendMode.src);
       break;
@@ -805,10 +863,13 @@ Future<Uint8List> _renderAlternativeBookStory(
 
   final serif = template == BookStoryTemplate.classic ||
       template == BookStoryTemplate.paper ||
-      template == BookStoryTemplate.polaroid;
+      template == BookStoryTemplate.polaroid ||
+      template == BookStoryTemplate.editorialPage ||
+      template == BookStoryTemplate.scrapbook;
   final mono = template == BookStoryTemplate.poster ||
       template == BookStoryTemplate.geometric ||
-      template == BookStoryTemplate.collage;
+      template == BookStoryTemplate.collage ||
+      template == BookStoryTemplate.cleanStudio;
   final displayFont = serif ? 'serif' : (mono ? 'monospace' : 'Roboto');
   final headerColor = template == BookStoryTemplate.poster
       ? const Color(0xFF153F48)
@@ -824,6 +885,23 @@ Future<Uint8List> _renderAlternativeBookStory(
   } else if (template == BookStoryTemplate.coverFocus) {
     textBox('MUHAJEER BOOKS  /  KITOB TAVSIYASI', const Rect.fromLTWH(95, 70, 890, 55), 24,
         weight: FontWeight.w600, color: const Color(0xFFD8BE86), maxLines: 1, letterSpacing: 2);
+  } else if (template == BookStoryTemplate.editorialPage) {
+    textBox('MUHAJEER BOOKS', const Rect.fromLTWH(85, 70, 420, 48), 25,
+        weight: FontWeight.w700, color: const Color(0xFF4D4234), align: TextAlign.left,
+        maxLines: 1, fontFamily: 'serif', letterSpacing: 2);
+  } else if (template == BookStoryTemplate.lifestyle) {
+    textBox('MUHAJEER BOOKS', const Rect.fromLTWH(90, 70, 900, 55), 27,
+        weight: FontWeight.w900, color: Colors.white, maxLines: 1, letterSpacing: 4);
+  } else if (template == BookStoryTemplate.cleanStudio) {
+    textBox('MUHAJEER BOOKS', const Rect.fromLTWH(80, 65, 920, 55), 26,
+        weight: FontWeight.w900, color: navy, maxLines: 1, letterSpacing: 3);
+  } else if (template == BookStoryTemplate.goldArch) {
+    textBox('MUHAJEER BOOKS', const Rect.fromLTWH(80, 70, 920, 55), 26,
+        weight: FontWeight.w700, color: const Color(0xFFE5C26E), maxLines: 1, letterSpacing: 5);
+  } else if (template == BookStoryTemplate.scrapbook) {
+    textBox('MUHAJEER BOOKS', const Rect.fromLTWH(80, 65, 920, 55), 27,
+        weight: FontWeight.w900, color: const Color(0xFF3C4935), maxLines: 1,
+        fontFamily: 'serif', letterSpacing: 2);
   } else {
     textBox('MUHAJEER BOOKS', const Rect.fromLTWH(80, 70, 920, 70), 40,
         weight: template == BookStoryTemplate.classic ? FontWeight.w500 : FontWeight.w900,
@@ -926,6 +1004,57 @@ Future<Uint8List> _renderAlternativeBookStory(
       weight: FontWeight.w300, color: const Color(0xFFF4EBDD), letterSpacing: 1.5);
     textBox(storyPrice(book), const Rect.fromLTWH(160, 1265, 760, 85), 49,
       weight: FontWeight.w800, color: const Color(0xFFD6B56B), maxLines: 1);
+  } else if (template == BookStoryTemplate.editorialPage) {
+    textBox(book.title, const Rect.fromLTWH(85, 175, 560, 290), 72,
+      weight: FontWeight.w500, color: const Color(0xFF2D2922), align: TextAlign.left,
+      maxLines: 3, fontFamily: 'serif');
+    textBox(book.author, const Rect.fromLTWH(85, 465, 500, 50), 23,
+      color: const Color(0xFF6D5B43), align: TextAlign.left, maxLines: 1,
+      fontFamily: 'serif', fontStyle: FontStyle.italic);
+    coverFrame = const Rect.fromLTWH(500, 610, 500, 650);
+    coverRect = const Rect.fromLTWH(525, 635, 450, 600);
+    textBox(storyPrice(book), const Rect.fromLTWH(85, 640, 340, 80), 46,
+      weight: FontWeight.w700, color: const Color(0xFF2F5B52), align: TextAlign.left,
+      maxLines: 1, fontFamily: 'serif');
+  } else if (template == BookStoryTemplate.lifestyle) {
+    textBox('Yaxshi kitob —\nyaxshi hayot.', const Rect.fromLTWH(80, 185, 470, 220), 49,
+      weight: FontWeight.w400, color: Colors.white, align: TextAlign.left,
+      maxLines: 3, fontFamily: 'serif', fontStyle: FontStyle.italic);
+    coverFrame = const Rect.fromLTWH(300, 650, 500, 650);
+    coverRect = const Rect.fromLTWH(325, 675, 450, 600);
+    textBox(book.title, const Rect.fromLTWH(110, 1320, 860, 100), 43,
+      weight: FontWeight.w700, color: Colors.white, maxLines: 2, fontFamily: 'serif');
+  } else if (template == BookStoryTemplate.cleanStudio) {
+    textBox('“', const Rect.fromLTWH(70, 165, 130, 120), 105,
+      weight: FontWeight.w900, color: const Color(0xFFD6D9D3), align: TextAlign.left,
+      maxLines: 1, fontFamily: 'serif');
+    textBox(book.title, const Rect.fromLTWH(145, 205, 790, 210), 67,
+      weight: FontWeight.w900, color: navy, align: TextAlign.left, maxLines: 3);
+    textBox(book.author, const Rect.fromLTWH(150, 420, 520, 45), 23,
+      color: muted, align: TextAlign.left, maxLines: 1);
+    coverFrame = const Rect.fromLTWH(265, 570, 550, 670);
+    coverRect = const Rect.fromLTWH(295, 600, 490, 610);
+  } else if (template == BookStoryTemplate.goldArch) {
+    textBox('BILIM  •  XOTIRJAMLIK  •  HAYOT', const Rect.fromLTWH(110, 180, 860, 60), 23,
+      weight: FontWeight.w700, color: const Color(0xFFE5C26E), maxLines: 1, letterSpacing: 3);
+    coverFrame = const Rect.fromLTWH(310, 515, 460, 650);
+    coverRect = const Rect.fromLTWH(335, 540, 410, 600);
+    textBox(book.title, const Rect.fromLTWH(120, 1180, 840, 115), 47,
+      weight: FontWeight.w500, color: const Color(0xFFF4E8CE), maxLines: 2,
+      fontFamily: 'serif');
+    textBox(storyPrice(book), const Rect.fromLTWH(200, 1300, 680, 75), 42,
+      weight: FontWeight.w800, color: const Color(0xFFE5B84F), maxLines: 1);
+  } else if (template == BookStoryTemplate.scrapbook) {
+    textBox('Har bir kitob —\nbir yaxshi odat...', const Rect.fromLTWH(590, 180, 380, 180), 35,
+      weight: FontWeight.w500, color: const Color(0xFF4B3B2A), align: TextAlign.left,
+      maxLines: 3, fontFamily: 'serif', fontStyle: FontStyle.italic);
+    coverFrame = const Rect.fromLTWH(170, 500, 650, 650);
+    coverRect = const Rect.fromLTWH(205, 535, 580, 545);
+    textBox(book.title, const Rect.fromLTWH(190, 1110, 620, 90), 38,
+      weight: FontWeight.w600, color: const Color(0xFF4B3B2A), maxLines: 2,
+      fontFamily: 'serif', fontStyle: FontStyle.italic);
+    textBox(storyPrice(book), const Rect.fromLTWH(725, 1160, 270, 75), 37,
+      weight: FontWeight.w900, color: const Color(0xFF126653), maxLines: 1);
   } else {
     coverFrame = const Rect.fromLTWH(205, 260, 670, 760);
     coverRect = const Rect.fromLTWH(235, 290, 610, 700);
@@ -947,14 +1076,21 @@ Future<Uint8List> _renderAlternativeBookStory(
     paintImage(canvas: canvas, rect: coverRect, image: cover, fit: BoxFit.contain, filterQuality: FilterQuality.high);
   }
 
-  var infoTop = template == BookStoryTemplate.coverFocus
-      ? 1350.0
-      : (template == BookStoryTemplate.polaroid
-          ? 1180.0
-          : ((template == BookStoryTemplate.emerald ||
-                  template == BookStoryTemplate.sunset)
-              ? 1140.0
-              : 1080.0));
+  var infoTop = (template == BookStoryTemplate.coverFocus ||
+          template == BookStoryTemplate.lifestyle ||
+          template == BookStoryTemplate.goldArch ||
+          template == BookStoryTemplate.scrapbook)
+      ? 1370.0
+      : (template == BookStoryTemplate.editorialPage
+          ? 1260.0
+          : (template == BookStoryTemplate.cleanStudio
+              ? 1240.0
+              : (template == BookStoryTemplate.polaroid
+                  ? 1180.0
+                  : ((template == BookStoryTemplate.emerald ||
+                          template == BookStoryTemplate.sunset)
+                      ? 1140.0
+                      : 1080.0))));
   final titleAlreadyShown = template == BookStoryTemplate.library ||
       template == BookStoryTemplate.minimal ||
       template == BookStoryTemplate.sunset ||
@@ -967,7 +1103,12 @@ Future<Uint8List> _renderAlternativeBookStory(
       template == BookStoryTemplate.split ||
       template == BookStoryTemplate.polaroid ||
       template == BookStoryTemplate.collage ||
-      template == BookStoryTemplate.coverFocus;
+      template == BookStoryTemplate.coverFocus ||
+      template == BookStoryTemplate.editorialPage ||
+      template == BookStoryTemplate.lifestyle ||
+      template == BookStoryTemplate.cleanStudio ||
+      template == BookStoryTemplate.goldArch ||
+      template == BookStoryTemplate.scrapbook;
   if (!titleAlreadyShown) {
     textBox(book.title, Rect.fromLTWH(90, infoTop, 900, 90), 45, weight: FontWeight.w900, color: fg);
     infoTop += 84;
@@ -998,7 +1139,9 @@ Future<Uint8List> _renderAlternativeBookStory(
   final descriptionOnDark = dark ||
       template == BookStoryTemplate.sunset ||
       template == BookStoryTemplate.poster ||
-      template == BookStoryTemplate.collage;
+      template == BookStoryTemplate.collage ||
+      template == BookStoryTemplate.lifestyle ||
+      template == BookStoryTemplate.goldArch;
   final descriptionRect = Rect.fromLTWH(90, infoTop + 150, 900, 200);
   final descriptionBg = descriptionOnDark
       ? const Color(0xCC102F36)

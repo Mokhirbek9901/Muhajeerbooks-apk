@@ -840,6 +840,32 @@ class _HomePageState extends State<HomePage> {
     'home',
   );
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchMissTimer;
+  String _lastLoggedMiss = '';
+
+  void _searchChanged(String value) {
+    setState(() => query = value);
+    _searchMissTimer?.cancel();
+    final clean = value.trim();
+    if (clean.length < 2) return;
+    _searchMissTimer = Timer(const Duration(milliseconds: 900), () {
+      if (!mounted || _searchController.text.trim() != clean) return;
+      final state = context.read<AppState>();
+      final q = clean.toLowerCase();
+      final found = state.books.any(
+        (book) =>
+            book.isActive &&
+            (book.title.toLowerCase().contains(q) ||
+                book.author.toLowerCase().contains(q) ||
+                book.publisher.toLowerCase().contains(q) ||
+                book.category.toLowerCase().contains(q)),
+      );
+      if (!found && _lastLoggedMiss != q) {
+        _lastLoggedMiss = q;
+        unawaited(state.recordSearchMiss(clean));
+      }
+    });
+  }
 
   void _showAllBooks() {
     _searchController.clear();
@@ -852,6 +878,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    _searchMissTimer?.cancel();
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -981,7 +1008,7 @@ class _HomePageState extends State<HomePage> {
                     Expanded(
                       child: TextField(
                         controller: _searchController,
-                        onChanged: (value) => setState(() => query = value),
+                        onChanged: _searchChanged,
                         decoration: const InputDecoration(
                           hintText: 'Kitob yoki muallif qidiring...',
                           prefixIcon: Icon(Icons.search_rounded),

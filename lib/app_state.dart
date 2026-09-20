@@ -60,6 +60,7 @@ class Book {
     required this.stock,
     required this.discountPercent,
     this.discountEndsAt,
+    this.discountFreeDelivery = true,
     required this.imageUrl,
     this.thumbnailUrl = '',
     this.imageUrls = const [],
@@ -82,6 +83,7 @@ class Book {
   final int stock;
   final int discountPercent;
   final DateTime? discountEndsAt;
+  final bool discountFreeDelivery;
   final String imageUrl;
   final String thumbnailUrl;
   final List<String> imageUrls;
@@ -150,6 +152,7 @@ class Book {
     discountEndsAt: DateTime.tryParse(
       (map['discount_ends_at'] ?? '').toString(),
     )?.toLocal(),
+    discountFreeDelivery: map['discount_free_delivery'] as bool? ?? true,
     imageUrl: (map['image_url'] ?? '').toString(),
     thumbnailUrl: (map['thumbnail_url'] ?? '').toString(),
     imageUrls: ((map['image_urls'] as List?) ?? const [])
@@ -195,6 +198,7 @@ class Book {
     'stock': stock,
     'discount_percent': discountPercent,
     'discount_ends_at': discountEndsAt?.toUtc().toIso8601String(),
+    'discount_free_delivery': discountFreeDelivery,
     'image_url': galleryImages.isEmpty ? '' : galleryImages.first,
     'thumbnail_url': thumbnailUrl,
     'image_urls': galleryImages,
@@ -223,6 +227,7 @@ class Book {
     int? stock,
     int? discountPercent,
     DateTime? discountEndsAt,
+    bool? discountFreeDelivery,
     bool clearDiscountEndsAt = false,
     String? imageUrl,
     String? thumbnailUrl,
@@ -247,6 +252,7 @@ class Book {
     discountEndsAt: clearDiscountEndsAt
         ? null
         : (discountEndsAt ?? this.discountEndsAt),
+    discountFreeDelivery: discountFreeDelivery ?? this.discountFreeDelivery,
     imageUrl: imageUrl ?? this.imageUrl,
     thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
     imageUrls: imageUrls ?? this.imageUrls,
@@ -915,6 +921,19 @@ class AppState extends ChangeNotifier {
     return 0;
   }
 
+  bool get fourPlusFreeDeliveryEnabled {
+    var hasActiveDiscount = false;
+    for (final book in _books) {
+      if (!book.discountActive) continue;
+      hasActiveDiscount = true;
+      if (!book.discountFreeDelivery) return false;
+    }
+    return true;
+  }
+
+  bool get discountBlocksFourPlusFreeDelivery =>
+      activeGlobalDiscountPercent > 0 && !fourPlusFreeDeliveryEnabled;
+
   void _scheduleDiscountExpiryRefresh() {
     _discountExpiryTimer?.cancel();
     DateTime? nextExpiry;
@@ -1148,6 +1167,7 @@ class AppState extends ChangeNotifier {
           b.stock,
           b.discountPercent,
           b.discountEndsAt?.toUtc().toIso8601String() ?? '',
+          b.discountFreeDelivery,
           b.imageUrl,
           b.galleryImages.join('↕'),
           b.isActive,

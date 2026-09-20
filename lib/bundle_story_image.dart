@@ -376,10 +376,16 @@ Future<Uint8List> renderBundleStory(
       Rect.fromLTWH(320, y + 7, 440, 44), size: 24, weight: FontWeight.w800,
       color: deliveryIncluded ? green : muted, maxLines: 1);
 
+  // CTA fixed koordinatada emas: pochta pillidan keyin joylashadi.
+  // Ayniqsa 4 ta kitobli (2x2) setda pill bilan "buyurtma berish" yozuvi
+  // endi bir-birining ustiga chiqmaydi.
+  final ctaY = y + 82;
   _bundleText(canvas, 'Setni ko‘rish va buyurtma berish uchun bosing',
-      const Rect.fromLTWH(90, 1690, 900, 65), size: 30, weight: FontWeight.w900, color: teal, maxLines: 2);
-  _bundleText(canvas, '@muhajeerbooks', const Rect.fromLTWH(90, 1810, 900, 45),
-      size: 27, weight: FontWeight.w700, color: muted, maxLines: 1);
+      Rect.fromLTWH(90, ctaY, 900, 58), size: 28, weight: FontWeight.w900,
+      color: teal, maxLines: 1);
+  final footerY = (ctaY + 76).clamp(0.0, 1870.0);
+  _bundleText(canvas, '@muhajeerbooks', Rect.fromLTWH(90, footerY, 900, 36),
+      size: 23, weight: FontWeight.w700, color: muted, maxLines: 1);
 
   final picture = recorder.endRecording();
   final image = await picture.toImage(1080, 1920);

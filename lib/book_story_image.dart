@@ -1095,19 +1095,19 @@ Future<Uint8List> renderBookStory(
     lineHeight: 1,
     maxLines: 1,
   );
-  y += ctaSize.height + 8;
+  y += ctaSize.height + 16;
 
   final arrow = Paint()
     ..color = teal
     ..strokeWidth = 5
     ..strokeCap = StrokeCap.round
     ..style = PaintingStyle.stroke;
-  canvas.drawLine(Offset(540, y), Offset(540, y + 38), arrow);
+  canvas.drawLine(Offset(540, y), Offset(540, y + 46), arrow);
   canvas.drawPath(
     Path()
-      ..moveTo(526, y + 24)
-      ..lineTo(540, y + 38)
-      ..lineTo(554, y + 24),
+      ..moveTo(523, y + 29)
+      ..lineTo(540, y + 46)
+      ..lineTo(557, y + 29),
     arrow,
   );
 

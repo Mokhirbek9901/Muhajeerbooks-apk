@@ -135,10 +135,10 @@ Future<Uint8List> _exportStoryPng(ui.Image image) async {
 }
 
 Future<ui.Image> _decodeStoryCover(Uint8List encoded) async {
-  // Set story generatorida ishlayotgan xavfsiz yo‘l bilan bir xil qilamiz.
-  // Katta iPhone rasmlarini 700–900px texture sifatida Canvas'ga berish ayrim
-  // Safari/iOS qurilmalarda qora cover qaytarardi. EXIF'ni bake qilib, 360px
-  // alpha-siz RGB PNG ga aylantiramiz — story uchun bu yetarli aniqlik.
+  // iPhone/Safari uchun compressed JPEG/WebP/PNG teksturasini CanvasKit'ga
+  // bevosita uzatmaymiz. Muqovani avval oddiy RGBA pikselga aylantiramiz.
+  // Bu usul avvalgi barqaror Story rendererda qora frame va raster xatolarini
+  // bartaraf qilgan; 360px limit esa xotira sarfini past ushlab turadi.
   final decoded = img.decodeImage(encoded);
   if (decoded == null) throw StateError('Cover decode failed');
 
@@ -149,23 +149,19 @@ Future<ui.Image> _decodeStoryCover(Uint8List encoded) async {
           interpolation: img.Interpolation.average,
         )
       : decoded;
-
-  final safe = img.Image(
-    width: resized.width,
-    height: resized.height,
-    numChannels: 3,
+  final rgba = Uint8List.fromList(
+    resized.getBytes(order: img.ChannelOrder.rgba),
   );
-  img.fill(safe, color: img.ColorRgb8(255, 255, 255));
-  img.compositeImage(safe, resized);
 
-  final safePng = Uint8List.fromList(img.encodePng(safe, level: 4));
-  final codec = await ui.instantiateImageCodec(safePng, targetWidth: 360);
-  try {
-    final frame = await codec.getNextFrame();
-    return frame.image;
-  } finally {
-    codec.dispose();
-  }
+  final completer = Completer<ui.Image>();
+  ui.decodeImageFromPixels(
+    rgba,
+    resized.width,
+    resized.height,
+    ui.PixelFormat.rgba8888,
+    completer.complete,
+  );
+  return completer.future;
 }
 
 Future<Uint8List?> _downloadStoryCover(Book book) async {

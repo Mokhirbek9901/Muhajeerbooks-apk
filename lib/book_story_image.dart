@@ -11,11 +11,15 @@ import 'app_state.dart';
 
 const storyOrderLabel = 'Buyurtma berish uchun bosing';
 
-enum BookStoryTemplate { current, smartMatch, editorial, library, arch, emerald, minimal, sunset, magazine, classic, poster, noir, geometric, paper, split, polaroid, collage, coverFocus, editorialPage, lifestyle, cleanStudio, goldArch, scrapbook, silk, botanical, mosaic, midnight, gallery, atlas, marble, cinema, terracotta, royal, ornament, adras, kokand, khiva, turon, yurt, heritage }
+enum BookStoryTemplate { current, smartMatch, spring, summer, autumn, winter, editorial, library, arch, emerald, minimal, sunset, magazine, classic, poster, noir, geometric, paper, split, polaroid, collage, coverFocus, editorialPage, lifestyle, cleanStudio, goldArch, scrapbook, silk, botanical, mosaic, midnight, gallery, atlas, marble, cinema, terracotta, royal, ornament, adras, kokand, khiva, turon, yurt, heritage }
 
 String bookStoryTemplateName(BookStoryTemplate value) => switch (value) {
   BookStoryTemplate.current => 'Avto dizayn',
   BookStoryTemplate.smartMatch => 'Mos dizayn',
+  BookStoryTemplate.spring => 'Bahor',
+  BookStoryTemplate.summer => 'Yoz',
+  BookStoryTemplate.autumn => 'Kuz',
+  BookStoryTemplate.winter => 'Qish',
   BookStoryTemplate.editorial => 'Yorug‘',
   BookStoryTemplate.library => 'Kutubxona',
   BookStoryTemplate.arch => 'Sharqona',
@@ -59,6 +63,10 @@ String bookStoryTemplateName(BookStoryTemplate value) => switch (value) {
 Color bookStoryTemplateColor(BookStoryTemplate value) => switch (value) {
   BookStoryTemplate.current => const Color(0xFFF8F4E9),
   BookStoryTemplate.smartMatch => const Color(0xFFEDE8DC),
+  BookStoryTemplate.spring => const Color(0xFFF5E7EC),
+  BookStoryTemplate.summer => const Color(0xFFFFE6A3),
+  BookStoryTemplate.autumn => const Color(0xFFB9673B),
+  BookStoryTemplate.winter => const Color(0xFFDDEBF2),
   BookStoryTemplate.editorial => const Color(0xFFF4EFE4),
   BookStoryTemplate.library => const Color(0xFF24150E),
   BookStoryTemplate.arch => const Color(0xFFF5F0E5),
@@ -1111,7 +1119,8 @@ Future<Uint8List> _renderAlternativeBookStory(
   const teal = Color(0xFF08786E);
   const cream = Color(0xFFF7F2E7);
   const muted = Color(0xFF5F6F72);
-  final dark = template == BookStoryTemplate.library ||
+  final dark = template == BookStoryTemplate.autumn ||
+      template == BookStoryTemplate.library ||
       template == BookStoryTemplate.emerald ||
       template == BookStoryTemplate.geometric ||
       template == BookStoryTemplate.coverFocus ||
@@ -1207,6 +1216,39 @@ Future<Uint8List> _renderAlternativeBookStory(
     case BookStoryTemplate.smartMatch:
       canvas.drawColor(cream, BlendMode.src);
       canvas.drawCircle(const Offset(980, 180), 320, Paint()..color = const Color(0xFFE1EFE7));
+      break;
+    case BookStoryTemplate.spring:
+      canvas.drawColor(const Color(0xFFF9EEF2), BlendMode.src);
+      canvas.drawCircle(const Offset(100, 180), 280, Paint()..color = const Color(0xFFF1C9D7));
+      canvas.drawCircle(const Offset(1000, 520), 330, Paint()..color = const Color(0xFFDDE9C9));
+      for (final o in [const Offset(120,250), const Offset(185,315), const Offset(920,160), const Offset(975,225)]) {
+        canvas.drawCircle(o, 22, Paint()..color = const Color(0xFFE79AB2));
+        canvas.drawCircle(o.translate(20, 8), 15, Paint()..color = const Color(0xFFF7C6D4));
+      }
+      break;
+    case BookStoryTemplate.summer:
+      canvas.drawRect(const Rect.fromLTWH(0,0,1080,1920), Paint()..shader = ui.Gradient.linear(
+        const Offset(0,0), const Offset(0,1920), [const Color(0xFF86D9E8), const Color(0xFFFFE8A8)]));
+      canvas.drawCircle(const Offset(900, 170), 120, Paint()..color = const Color(0xFFFFC83D));
+      canvas.drawPath(Path()..moveTo(0,720)..quadraticBezierTo(260,620,540,730)..quadraticBezierTo(820,840,1080,700)..lineTo(1080,930)..lineTo(0,930)..close(),
+        Paint()..color = const Color(0xFF59BFA8));
+      break;
+    case BookStoryTemplate.autumn:
+      canvas.drawRect(const Rect.fromLTWH(0,0,1080,1920), Paint()..shader = ui.Gradient.linear(
+        const Offset(0,0), const Offset(1080,1920), [const Color(0xFF4A2B24), const Color(0xFFD68B45)]));
+      for (final o in [const Offset(100,160), const Offset(920,230), const Offset(130,760), const Offset(980,690)]) {
+        final leaf=Path()..moveTo(o.dx,o.dy)..quadraticBezierTo(o.dx+70,o.dy-45,o.dx+95,o.dy+30)..quadraticBezierTo(o.dx+35,o.dy+70,o.dx,o.dy)..close();
+        canvas.drawPath(leaf, Paint()..color = const Color(0xFFE3A24B));
+      }
+      break;
+    case BookStoryTemplate.winter:
+      canvas.drawRect(const Rect.fromLTWH(0,0,1080,1920), Paint()..shader = ui.Gradient.linear(
+        const Offset(0,0), const Offset(0,1920), [const Color(0xFFB9D7E6), const Color(0xFFF7FBFD)]));
+      for (final o in [const Offset(120,150),const Offset(260,90),const Offset(850,130),const Offset(970,300),const Offset(120,700),const Offset(940,760)]) {
+        canvas.drawCircle(o, 9, Paint()..color = Colors.white);
+        canvas.drawLine(o.translate(-18,0),o.translate(18,0),Paint()..color=Colors.white..strokeWidth=4);
+        canvas.drawLine(o.translate(0,-18),o.translate(0,18),Paint()..color=Colors.white..strokeWidth=4);
+      }
       break;
     case BookStoryTemplate.editorial:
       canvas.drawColor(const Color(0xFFF5F0E5), BlendMode.src);

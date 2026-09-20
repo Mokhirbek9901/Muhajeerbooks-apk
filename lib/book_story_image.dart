@@ -1185,7 +1185,9 @@ Future<Uint8List> _renderAlternativeBookStory(
   textBox(book.inStock ? 'Buyurtma berish uchun bosing  →' : 'Kitob haqida batafsil  →',
       Rect.fromLTWH(195, buttonY + 8, 690, 60), 27, weight: FontWeight.w900,
       color: ctaText, maxLines: 1);
-  textBox('@muhajeerbooks', const Rect.fromLTWH(100, 1810, 880, 44), 24,
+  // Footer CTA bilan hech qachon ustma-ust tushmasin. Handle Storyning
+  // eng pastidagi alohida footer zonasida turadi.
+  textBox('@muhajeerbooks', const Rect.fromLTWH(100, 1860, 880, 34), 20,
       color: descriptionOnDark ? const Color(0xFFE7DDD1) : muted, maxLines: 1);
 
   final picture = recorder.endRecording();

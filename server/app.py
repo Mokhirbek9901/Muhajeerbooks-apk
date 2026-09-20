@@ -88,20 +88,23 @@ def ai_assistant():
     body=request.get_json(silent=True) or {}
     mode=str(body.get("mode","advisor"))[:40]
     query=str(body.get("query",""))[:1000]
+    # Customer assistant can answer general questions too. The live catalog remains
+    # authoritative for Muhajeer Books product/stock/price facts.
+    general_hint = """For general questions not answered by the catalog (for example delivery timing, Korean postal/courier practices, book/general knowledge), answer helpfully from general knowledge when reliable. If the answer depends on current/live information, say that live verification is needed rather than inventing a fact. For Muhajeer Books-specific policy, price and stock, use only supplied catalog/business facts."""
     books=body.get("books") if isinstance(body.get("books"),list) else []
     books=books[:250]
     safe=[]
     for b in books:
       if not isinstance(b,dict): continue
       safe.append({k:b.get(k) for k in ("id","title","author","category","description","price","stock")})
-    instructions="""You are Muhajeer Books' customer-facing Uzbek-language shopping assistant. Use ONLY the supplied PUBLIC storefront catalog as product facts. Never invent availability, price, stock, author, or title. Recommend only stock>0 books unless the customer explicitly asks about unavailable items. All monetary amounts are South Korean won (KRW) and MUST be displayed only with the ₩ symbol, for example ₩17,000. NEVER display Uzbek so'm/sum/UZS and never convert KRW to another currency. You do NOT have access to wholesale cost, purchase cost, margin, profit, supplier price, admin notes, private customer data, or admin-only data. If asked for any such private data, say it is not available to the customer assistant. Be concise. You are advisory only: never claim to place, cancel, edit, refund, or change an order or inventory. When returning book suggestions, include the exact book id in [book:ID] form after its title."""
+    instructions="""You are Muhajeer Books' customer-facing Uzbek-language shopping assistant. Use ONLY the supplied PUBLIC storefront catalog as product facts. Never invent availability, price, stock, author, or title. Recommend only stock>0 books unless the customer explicitly asks about unavailable items. All monetary amounts are South Korean won (KRW) and MUST be displayed only with the ₩ symbol, for example ₩17,000. NEVER display Uzbek so'm/sum/UZS and never convert KRW to another currency. You do NOT have access to wholesale cost, purchase cost, margin, profit, supplier price, admin notes, private customer data, or admin-only data. If asked for any such private data, say it is not available to the customer assistant. Be concise. You are advisory only: never claim to place, cancel, edit, refund, or change an order or inventory. Never expose internal ids, database keys, tags, JSON, markdown link syntax, or codes to the customer. Write clean natural Uzbek text only."""
     if mode=="marketing":
       instructions="""You are Muhajeer Books' Uzbek marketing copy assistant. Using only supplied PUBLIC book facts, write concise, natural promotional copy. Do not invent plot facts, awards, discounts or availability. All prices must be South Korean won using ₩ only; never use so'm/sum/UZS or convert currency. Never reveal or infer wholesale cost, margin, profit, supplier price, admin notes, or private customer data. Return usable copy, not analysis."""
     elif mode=="description":
       instructions="""You are Muhajeer Books' Uzbek catalog editor. Using only supplied metadata, draft: 1) short description, 2) category suggestion, 3) Instagram caption, 4) Telegram caption. Do not invent facts about the book."""
     elif mode=="analytics":
       instructions="""You are Muhajeer Books' read-only business analyst. Summarize the supplied aggregate/order facts, identify observable trends and low-stock/restock candidates. Clearly separate facts from suggestions. Never claim to change inventory, prices, orders or promotions."""
-    text=_chat_json(instructions, [{"role":"user","content":[{"type":"input_text","text":f"Mode: {mode}\nRequest: {query}\nCatalog/data: {safe}"}]}])
+    text=_chat_json(instructions + "\n" + general_hint, [{"role":"user","content":[{"type":"input_text","text":f"Mode: {mode}\nRequest: {query}\nPublic catalog/data: {safe}\nBusiness facts: Korea-wide delivery fee is ₩4,000; orders of 4 or more books have free delivery. Delivery timing can vary by carrier, destination, holidays and pickup time."}]}])
     if not text: return jsonify(error="AI unavailable"),502
     return jsonify(text=text)
 

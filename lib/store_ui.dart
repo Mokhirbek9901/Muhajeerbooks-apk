@@ -2941,24 +2941,26 @@ class _BookDetailInfo extends StatelessWidget {
       const SizedBox(height: 22),
       AppSurface(
         backgroundColor: AppColors.surfaceSoft,
-        child: const Row(
+        child: Row(
           children: [
-            _DetailFact(
+            const _DetailFact(
               icon: Icons.local_shipping_outlined,
               title: 'Yetkazish',
               value: '1–3 ish kuni',
             ),
-            SizedBox(width: 8),
-            _DetailFact(
+            const SizedBox(width: 8),
+            const _DetailFact(
               icon: Icons.payments_outlined,
               title: '택배',
               value: '₩4,000',
             ),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             _DetailFact(
               icon: Icons.card_giftcard_outlined,
               title: '4+ kitob',
-              value: 'Bepul',
+              value: context.watch<AppState>().fourPlusFreeDeliveryEnabled
+                  ? 'Bepul'
+                  : 'Chegirmada yo‘q',
             ),
           ],
         ),

@@ -17,13 +17,21 @@ class _SharedBookEntryState extends State<SharedBookEntry> {
   void initState() {
     super.initState();
     final id = sharedBookId(widget.uri);
-    if (id != null) {
+    final bundleId = sharedBundleId(widget.uri);
+    if (id != null || bundleId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        Navigator.of(context).push(muhajeerPageRoute<void>(
-          settings: RouteSettings(name: 'mb:book:$id'),
-          builder: (_) => BookDetailPage(bookId: id),
-        ));
+        if (bundleId != null) {
+          Navigator.of(context).push(muhajeerPageRoute<void>(
+            settings: RouteSettings(name: 'mb:bundle:$bundleId'),
+            builder: (_) => BookBundleDetailPage(bundleId: bundleId),
+          ));
+        } else if (id != null) {
+          Navigator.of(context).push(muhajeerPageRoute<void>(
+            settings: RouteSettings(name: 'mb:book:$id'),
+            builder: (_) => BookDetailPage(bookId: id),
+          ));
+        }
       });
     }
   }

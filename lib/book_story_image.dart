@@ -12,11 +12,13 @@ import 'app_state.dart';
 
 const storyOrderLabel = 'Buyurtma berish uchun bosing';
 
-enum BookStoryTemplate { current, smartMatch, spring, summer, autumn, winter, editorial, library, arch, emerald, minimal, sunset, magazine, classic, poster, noir, geometric, paper, split, polaroid, collage, coverFocus, editorialPage, lifestyle, cleanStudio, goldArch, scrapbook, silk, botanical, mosaic, midnight, gallery, atlas, marble, cinema, terracotta, royal, ornament, adras, kokand, khiva, turon, yurt, heritage }
+enum BookStoryTemplate { current, oldCurrent, smartMatch, decorative, spring, summer, autumn, winter, editorial, library, arch, emerald, minimal, sunset, magazine, classic, poster, noir, geometric, paper, split, polaroid, collage, coverFocus, editorialPage, lifestyle, cleanStudio, goldArch, scrapbook, silk, botanical, mosaic, midnight, gallery, atlas, marble, cinema, terracotta, royal, ornament, adras, kokand, khiva, turon, yurt, heritage }
 
 String bookStoryTemplateName(BookStoryTemplate value) => switch (value) {
   BookStoryTemplate.current => 'Avto dizayn',
+  BookStoryTemplate.oldCurrent => 'Hozir',
   BookStoryTemplate.smartMatch => 'Mos dizayn',
+  BookStoryTemplate.decorative => 'Dekorativ',
   BookStoryTemplate.spring => 'Bahor',
   BookStoryTemplate.summer => 'Yoz',
   BookStoryTemplate.autumn => 'Kuz',
@@ -63,7 +65,9 @@ String bookStoryTemplateName(BookStoryTemplate value) => switch (value) {
 
 Color bookStoryTemplateColor(BookStoryTemplate value) => switch (value) {
   BookStoryTemplate.current => const Color(0xFFF8F4E9),
+  BookStoryTemplate.oldCurrent => const Color(0xFFF8F4E9),
   BookStoryTemplate.smartMatch => const Color(0xFFEDE8DC),
+  BookStoryTemplate.decorative => const Color(0xFFF0E1D1),
   BookStoryTemplate.spring => const Color(0xFFF5E7EC),
   BookStoryTemplate.summer => const Color(0xFFFFE6A3),
   BookStoryTemplate.autumn => const Color(0xFFB9673B),
@@ -551,6 +555,15 @@ Future<Uint8List> renderBookStory(
   final safeScale = renderScale.clamp(0.5, 1.0).toDouble();
 
   Uint8List? bytes = coverBytes;
+  if (template == BookStoryTemplate.oldCurrent) {
+    return _renderAlternativeBookStory(
+      book,
+      BookStoryTemplate.editorial,
+      coverBytes: coverBytes,
+      renderScale: safeScale,
+    );
+  }
+
   if (template == BookStoryTemplate.smartMatch) {
     bytes ??= await _downloadStoryCover(book);
     bytes ??= (await rootBundle.load('assets/images/muhajeer_logo.jpg')).buffer.asUint8List();
@@ -1234,9 +1247,24 @@ Future<Uint8List> _renderAlternativeBookStory(
   }
 
   switch (template) {
+    case BookStoryTemplate.oldCurrent:
+      canvas.drawColor(cream, BlendMode.src);
+      break;
     case BookStoryTemplate.smartMatch:
       canvas.drawColor(cream, BlendMode.src);
       canvas.drawCircle(const Offset(980, 180), 320, Paint()..color = const Color(0xFFE1EFE7));
+      break;
+    case BookStoryTemplate.decorative:
+      canvas.drawColor(const Color(0xFFF8F1E7), BlendMode.src);
+      canvas.drawRect(const Rect.fromLTWH(42, 42, 996, 1836), Paint()..style = PaintingStyle.stroke..strokeWidth = 4..color = const Color(0xFF9B6843));
+      canvas.drawRect(const Rect.fromLTWH(62, 62, 956, 1796), Paint()..style = PaintingStyle.stroke..strokeWidth = 1.5..color = const Color(0xFFC9A77C));
+      for (final o in [const Offset(92,92), const Offset(988,92), const Offset(92,1828), const Offset(988,1828)]) {
+        canvas.drawCircle(o, 34, Paint()..style = PaintingStyle.stroke..strokeWidth = 4..color = const Color(0xFF9B6843));
+        canvas.drawCircle(o, 15, Paint()..color = const Color(0xFFD7B47E));
+      }
+      canvas.drawCircle(const Offset(540, 135), 64, Paint()..style = PaintingStyle.stroke..strokeWidth = 3..color = const Color(0xFFB58A55));
+      canvas.drawLine(const Offset(250,135), const Offset(455,135), Paint()..color = const Color(0xFFB58A55)..strokeWidth = 3);
+      canvas.drawLine(const Offset(625,135), const Offset(830,135), Paint()..color = const Color(0xFFB58A55)..strokeWidth = 3);
       break;
     case BookStoryTemplate.spring:
       canvas.drawColor(const Color(0xFFF9EEF2), BlendMode.src);

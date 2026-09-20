@@ -26,33 +26,32 @@ class _BookStoryPageState extends State<BookStoryPage> {
   // Eng yangi dizaynlar tepada ko‘rinsin — foydalanuvchi ularni qidirib
   // pastga tushmasin. Qolganlari avvalgi tartibda saqlanadi.
   static const List<BookStoryTemplate> _templateOrder = [
-    // O‘zbekona va turkona yangi 6 ta milliy dizayn.
-    BookStoryTemplate.adras,
+    // Yangi 4 ta o‘zbekona milliy dizayn.
+    BookStoryTemplate.adras,      // Naqqosh
+    BookStoryTemplate.mosaic,     // Paxta
+    BookStoryTemplate.yurt,       // Xattotlik
+    BookStoryTemplate.heritage,   // Chorsu
+    // Yangi 4 ta butunlay boshqa yo‘nalish.
+    BookStoryTemplate.atlas,      // Bahor
+    BookStoryTemplate.cinema,     // Tun va shahar
+    BookStoryTemplate.ornament,   // Sado
+    BookStoryTemplate.noir,       // Zamonaviy
+    // Saqlanadigan avvalgi dizaynlar.
     BookStoryTemplate.kokand,
     BookStoryTemplate.khiva,
     BookStoryTemplate.turon,
-    BookStoryTemplate.yurt,
-    BookStoryTemplate.heritage,
-    // Oldingi dekorativ dizaynlar.
-    BookStoryTemplate.atlas,
     BookStoryTemplate.marble,
-    BookStoryTemplate.cinema,
     BookStoryTemplate.terracotta,
     BookStoryTemplate.royal,
-    BookStoryTemplate.ornament,
-    BookStoryTemplate.silk,
     BookStoryTemplate.botanical,
-    BookStoryTemplate.mosaic,
     BookStoryTemplate.lifestyle,
     BookStoryTemplate.cleanStudio,
     BookStoryTemplate.goldArch,
     BookStoryTemplate.scrapbook,
     BookStoryTemplate.current,
     BookStoryTemplate.arch,
-    BookStoryTemplate.noir,
     BookStoryTemplate.split,
     BookStoryTemplate.polaroid,
-    BookStoryTemplate.collage,
     BookStoryTemplate.coverFocus,
   ];
 
@@ -210,22 +209,19 @@ class _BookStoryPageState extends State<BookStoryPage> {
                 runSpacing: gap,
                 children: _templateOrder.map((item) {
                   final selected = item == _template;
-                  final darkItem = item == BookStoryTemplate.library ||
+                  final darkItem =
+                      item == BookStoryTemplate.library ||
                       item == BookStoryTemplate.emerald ||
-                      item == BookStoryTemplate.noir ||
                       item == BookStoryTemplate.geometric ||
                       item == BookStoryTemplate.coverFocus ||
                       item == BookStoryTemplate.lifestyle ||
                       item == BookStoryTemplate.goldArch ||
-                      item == BookStoryTemplate.mosaic ||
                       item == BookStoryTemplate.midnight ||
-                      item == BookStoryTemplate.atlas ||
                       item == BookStoryTemplate.cinema ||
                       item == BookStoryTemplate.royal ||
                       item == BookStoryTemplate.adras ||
                       item == BookStoryTemplate.khiva ||
-                      item == BookStoryTemplate.turon ||
-                      item == BookStoryTemplate.heritage;
+                      item == BookStoryTemplate.turon;
                   return InkWell(
                     borderRadius: BorderRadius.circular(14),
                     onTap: () => _selectTemplate(item),

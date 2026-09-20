@@ -433,7 +433,6 @@ Future<Uint8List> _renderAiStory(
   required Uint8List coverBytes,
   required Uint8List backgroundBytes,
   double renderScale = 1.0,
-  String? adminCode,
 }) async {
   final safeScale = renderScale.clamp(0.5, 1.0).toDouble();
   final cover = await _decodeStoryCover(coverBytes);
@@ -676,6 +675,7 @@ Future<Uint8List> renderBookStory(
   Uint8List? coverBytes,
   BookStoryTemplate template = BookStoryTemplate.current,
   double renderScale = 1.0,
+  String? adminCode,
 }) async {
   final safeScale = renderScale.clamp(0.5, 1.0).toDouble();
 

@@ -70,22 +70,36 @@ STRICT: background/decor only. NO words, letters, numbers, logos, prices, UI, fa
 def _chat_json(instructions, payload, max_tokens=1200, web_search=False):
     key=os.getenv("OPENAI_API_KEY","").strip()
     if not key: return None
-    data={"model":"gpt-5.6-luna","instructions":instructions,
-          "input":payload,"max_output_tokens":max_tokens}
-    if web_search:
-        data["tools"]=[{"type":"web_search"}]
-        data["tool_choice"]="auto"
-    r=requests.post("https://api.openai.com/v1/responses",
-      headers={"Authorization":f"Bearer {key}","Content-Type":"application/json"},
-      json=data,timeout=120)
-    if r.status_code>=400:
-      print(f"Responses API failed status={r.status_code} detail={r.text[:400]}",flush=True)
-      return None
-    j=r.json(); out=""
-    for item in j.get("output",[]):
-      for part in item.get("content",[]):
-        if part.get("type")=="output_text": out+=part.get("text","")
-    return out.strip()
+    # Keep AI available when one model hits a temporary quota/rate-limit.
+    models=[]
+    configured=os.getenv("OPENAI_TEXT_MODEL","").strip()
+    if configured: models.append(configured)
+    models += ["gpt-5.6-luna","gpt-5.6-sol"]
+    seen=set()
+    for model in models:
+      if model in seen: continue
+      seen.add(model)
+      data={"model":model,"instructions":instructions,
+            "input":payload,"max_output_tokens":max_tokens}
+      if web_search:
+          data["tools"]=[{"type":"web_search"}]
+          data["tool_choice"]="auto"
+      try:
+        r=requests.post("https://api.openai.com/v1/responses",
+          headers={"Authorization":f"Bearer {key}","Content-Type":"application/json"},
+          json=data,timeout=120)
+      except Exception as e:
+        print(f"Responses API request failed model={model} error={type(e).__name__}",flush=True)
+        continue
+      if r.status_code>=400:
+        print(f"Responses API failed model={model} status={r.status_code} detail={r.text[:400]}",flush=True)
+        continue
+      j=r.json(); out=""
+      for item in j.get("output",[]):
+        for part in item.get("content",[]):
+          if part.get("type")=="output_text": out+=part.get("text","")
+      if out.strip(): return out.strip()
+    return None
 
 @app.post("/api/ai-assistant")
 def ai_assistant():

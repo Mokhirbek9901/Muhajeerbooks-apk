@@ -490,6 +490,7 @@ class _AdminApi {
     required int price,
     String imageUrl = '',
     bool active = true,
+    bool deliveryIncluded = false,
     required List<Map<String, dynamic>> items,
   }) async {
     await _rpc(
@@ -502,6 +503,7 @@ class _AdminApi {
         'p_price': price,
         'p_image_url': imageUrl,
         'p_is_active': active,
+        'p_delivery_included': deliveryIncluded,
         'p_items': items,
       },
     );
@@ -5244,6 +5246,11 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
         TextEditingController(text: (bundle?['title'] ?? '').toString());
     final description =
         TextEditingController(text: (bundle?['description'] ?? '').toString());
+    final price = TextEditingController(
+      text: ((bundle?['price'] as num?)?.toInt() ?? 0) > 0
+          ? (bundle!['price'] as num).toInt().toString()
+          : '',
+    );
     final selected = <String, int>{};
     for (final raw
         in ((bundle?['items'] as List?) ?? const []).whereType<Map>()) {
@@ -5251,6 +5258,20 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
           (raw['quantity'] as num?)?.toInt() ?? 1;
     }
     var active = bundle?['is_active'] as bool? ?? true;
+    var deliveryIncluded = bundle?['delivery_included'] as bool? ?? false;
+
+    int selectedRegularTotal() {
+      var total = 0;
+      for (final entry in selected.entries) {
+        for (final book in books) {
+          if (book.id == entry.key) {
+            total += book.price * entry.value;
+            break;
+          }
+        }
+      }
+      return total;
+    }
 
     final saved = await showDialog<bool>(
       context: context,
@@ -5273,7 +5294,59 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
                     maxLines: 3,
                     decoration: const InputDecoration(labelText: 'Izoh'),
                   ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceSoft,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Set narxi',
+                          style: TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Tanlangan kitoblar oddiy narxi: ${_won(selectedRegularTotal())}',
+                          style: const TextStyle(
+                            color: AppColors.muted,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 9),
+                        TextField(
+                          controller: price,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Mijoz uchun set narxini kiriting',
+                            prefixText: '₩ ',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    value: deliveryIncluded,
+                    onChanged: (v) => setLocal(() => deliveryIncluded = v),
+                    secondary: const Icon(Icons.local_shipping_outlined),
+                    title: const Text(
+                      'Pochta set narxiga kiradi',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    subtitle: Text(
+                      deliveryIncluded
+                          ? 'Mijoz set narxidan tashqari pochta to‘lamaydi.'
+                          : 'Pochta set narxidan alohida hisoblanadi.',
+                    ),
+                  ),
+                                    SwitchListTile.adaptive(
                     contentPadding: EdgeInsets.zero,
                     value: active,
                     onChanged: (v) => setLocal(() => active = v),
@@ -5293,8 +5366,11 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
                       value: qty > 0,
                       title: Text(book.title),
                       subtitle: Text(
-                        [_won(book.currentPrice), 'ombor ' + book.stock.toString()]
-                            .join(' • '),
+                        [
+                          _won(book.price),
+                          if (qty > 1) '×$qty = ${_won(book.price * qty)}',
+                          'ombor ' + book.stock.toString(),
+                        ].join(' • '),
                       ),
                       secondary: qty > 0
                           ? Row(
@@ -5352,6 +5428,7 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
     if (saved != true) {
       title.dispose();
       description.dispose();
+      price.dispose();
       return;
     }
     if (title.text.trim().length < 2 || selected.isEmpty) {
@@ -5362,10 +5439,26 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
       }
       title.dispose();
       description.dispose();
+      price.dispose();
       return;
     }
 
-    var total = 0;
+    final setPrice = int.tryParse(
+          price.text.replaceAll(RegExp(r'[^0-9]'), ''),
+        ) ??
+        0;
+    if (setPrice <= 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Set narxini kiriting.')),
+        );
+      }
+      title.dispose();
+      description.dispose();
+      price.dispose();
+      return;
+    }
+
     final items = <Map<String, dynamic>>[];
     for (final entry in selected.entries) {
       Book? selectedBook;
@@ -5376,7 +5469,6 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
         }
       }
       if (selectedBook == null) continue;
-      total += selectedBook.currentPrice * entry.value;
       items.add({'book_id': selectedBook.id, 'quantity': entry.value});
     }
 
@@ -5386,8 +5478,9 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
         id: rawId.isEmpty ? null : rawId,
         title: title.text.trim(),
         description: description.text.trim(),
-        price: total,
+        price: setPrice,
         active: active,
+        deliveryIncluded: deliveryIncluded,
         items: items,
       );
       if (mounted) {
@@ -5405,6 +5498,7 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
     } finally {
       title.dispose();
       description.dispose();
+      price.dispose();
     }
   }
 
@@ -5476,7 +5570,11 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
                                 [
                                   _rows(b['items']).length.toString() +
                                       ' turdagi kitob',
-                                  _won((b['price'] as num?)?.toInt() ?? 0),
+                                  'Oddiy: ${_won((b['regular_total'] as num?)?.toInt() ?? 0)}',
+                                  'Set: ${_won((b['price'] as num?)?.toInt() ?? 0)}',
+                                  b['delivery_included'] == true
+                                      ? 'pochta ichida'
+                                      : 'pochta alohida',
                                 ].join(' • '),
                               ),
                               trailing: Icon(

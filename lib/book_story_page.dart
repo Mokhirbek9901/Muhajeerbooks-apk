@@ -43,9 +43,10 @@ class _BookStoryPageState extends State<BookStoryPage> {
         }
       }
       if (restored == null || !mounted || restored == _template) return;
+      final restoredTemplate = restored;
       setState(() {
-        _template = restored;
-        _image = renderBookStory(widget.book, template: restored);
+        _template = restoredTemplate;
+        _image = renderBookStory(widget.book, template: restoredTemplate);
       });
     } catch (_) {
       // Saqlangan tanlov o‘qilmasa hozirgi dizayn bilan davom etamiz.

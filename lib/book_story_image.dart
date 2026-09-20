@@ -11,7 +11,7 @@ import 'app_state.dart';
 
 const storyOrderLabel = 'Buyurtma berish uchun bosing';
 
-enum BookStoryTemplate { current, editorial, library, arch, emerald, minimal, sunset, magazine, classic, poster, noir, geometric, paper, split, polaroid, collage, coverFocus, editorialPage, lifestyle, cleanStudio, goldArch, scrapbook }
+enum BookStoryTemplate { current, editorial, library, arch, emerald, minimal, sunset, magazine, classic, poster, noir, geometric, paper, split, polaroid, collage, coverFocus, editorialPage, lifestyle, cleanStudio, goldArch, scrapbook, silk, botanical, mosaic, midnight, gallery }
 
 String bookStoryTemplateName(BookStoryTemplate value) => switch (value) {
   BookStoryTemplate.current => 'Hozirgi',
@@ -36,6 +36,11 @@ String bookStoryTemplateName(BookStoryTemplate value) => switch (value) {
   BookStoryTemplate.cleanStudio => 'Clean',
   BookStoryTemplate.goldArch => 'Premium',
   BookStoryTemplate.scrapbook => 'Scrapbook',
+  BookStoryTemplate.silk => 'Ipak',
+  BookStoryTemplate.botanical => 'Botanika',
+  BookStoryTemplate.mosaic => 'Mozaika',
+  BookStoryTemplate.midnight => 'Tun',
+  BookStoryTemplate.gallery => 'Galereya',
 };
 
 Color bookStoryTemplateColor(BookStoryTemplate value) => switch (value) {
@@ -61,6 +66,11 @@ Color bookStoryTemplateColor(BookStoryTemplate value) => switch (value) {
   BookStoryTemplate.cleanStudio => const Color(0xFFF4F4F0),
   BookStoryTemplate.goldArch => const Color(0xFF17110D),
   BookStoryTemplate.scrapbook => const Color(0xFFE9D8B9),
+  BookStoryTemplate.silk => const Color(0xFFF3D8D4),
+  BookStoryTemplate.botanical => const Color(0xFFE8E3CF),
+  BookStoryTemplate.mosaic => const Color(0xFF173C4D),
+  BookStoryTemplate.midnight => const Color(0xFF17152B),
+  BookStoryTemplate.gallery => const Color(0xFFF2EEE7),
 };
 
 String storyPrice(Book book) => book.price > 0
@@ -689,7 +699,9 @@ Future<Uint8List> _renderAlternativeBookStory(
       template == BookStoryTemplate.geometric ||
       template == BookStoryTemplate.coverFocus ||
       template == BookStoryTemplate.lifestyle ||
-      template == BookStoryTemplate.goldArch;
+      template == BookStoryTemplate.goldArch ||
+      template == BookStoryTemplate.mosaic ||
+      template == BookStoryTemplate.midnight;
   final fg = dark ? Colors.white : navy;
 
   void textBox(String value, Rect rect, double size, {FontWeight weight = FontWeight.w600,
@@ -856,6 +868,82 @@ Future<Uint8List> _renderAlternativeBookStory(
       canvas.drawCircle(const Offset(160, 1540), 115, Paint()..color = const Color(0x55718D5D));
       canvas.drawCircle(const Offset(920, 1460), 170, Paint()..color = const Color(0x33A56C46));
       break;
+    case BookStoryTemplate.silk:
+      canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 1920), Paint()..shader = ui.Gradient.linear(
+        const Offset(0, 0), const Offset(1080, 1920),
+        [const Color(0xFFFFF7F0), const Color(0xFFF0C9C6), const Color(0xFFD8A7B1)]));
+      final silk1 = Path()
+        ..moveTo(0, 360)..cubicTo(260, 250, 390, 470, 620, 360)
+        ..cubicTo(820, 265, 930, 310, 1080, 210)..lineTo(1080, 0)..lineTo(0, 0)..close();
+      canvas.drawPath(silk1, Paint()..color = const Color(0x55FFFFFF));
+      final silk2 = Path()
+        ..moveTo(0, 1460)..cubicTo(260, 1330, 470, 1570, 700, 1440)
+        ..cubicTo(880, 1340, 980, 1420, 1080, 1360)..lineTo(1080, 1920)..lineTo(0, 1920)..close();
+      canvas.drawPath(silk2, Paint()..color = const Color(0x449C586A));
+      break;
+    case BookStoryTemplate.botanical:
+      canvas.drawColor(const Color(0xFFF3F0E3), BlendMode.src);
+      canvas.drawCircle(const Offset(100, 260), 230, Paint()..color = const Color(0xFFD8E0C7));
+      canvas.drawCircle(const Offset(1010, 1030), 300, Paint()..color = const Color(0xFFC9D6B8));
+      for (final leaf in <Rect>[
+        const Rect.fromLTWH(60, 150, 120, 250),
+        const Rect.fromLTWH(875, 720, 125, 260),
+        const Rect.fromLTWH(820, 910, 110, 230),
+      ]) {
+        canvas.save();
+        canvas.translate(leaf.center.dx, leaf.center.dy);
+        canvas.rotate(leaf.left < 500 ? -0.45 : 0.5);
+        canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: leaf.width, height: leaf.height),
+          Paint()..color = const Color(0xFF6F8B62));
+        canvas.drawLine(Offset(0, -leaf.height * .35), Offset(0, leaf.height * .35),
+          Paint()..color = const Color(0x99F3F0E3)..strokeWidth = 3);
+        canvas.restore();
+      }
+      break;
+    case BookStoryTemplate.mosaic:
+      canvas.drawColor(const Color(0xFF123847), BlendMode.src);
+      const tile = 92.0;
+      for (var yy = -40.0; yy < 1920; yy += tile) {
+        for (var xx = -40.0; xx < 1080; xx += tile) {
+          final path = Path()
+            ..moveTo(xx + tile / 2, yy)
+            ..lineTo(xx + tile, yy + tile / 2)
+            ..lineTo(xx + tile / 2, yy + tile)
+            ..lineTo(xx, yy + tile / 2)
+            ..close();
+          canvas.drawPath(path, Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2
+            ..color = const Color(0x225ED0C0));
+        }
+      }
+      canvas.drawCircle(const Offset(540, 620), 430,
+        Paint()..style = PaintingStyle.stroke..strokeWidth = 18..color = const Color(0xFFCCA85B));
+      canvas.drawCircle(const Offset(540, 620), 392,
+        Paint()..style = PaintingStyle.stroke..strokeWidth = 3..color = const Color(0xFFFFE0A0));
+      break;
+    case BookStoryTemplate.midnight:
+      canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 1920), Paint()..shader = ui.Gradient.radial(
+        const Offset(540, 600), 1050,
+        [const Color(0xFF35305E), const Color(0xFF17152B), const Color(0xFF090A16)]));
+      for (final star in <Offset>[
+        const Offset(120, 210), const Offset(245, 330), const Offset(890, 190),
+        const Offset(970, 420), const Offset(150, 760), const Offset(925, 920),
+        const Offset(790, 120), const Offset(330, 110), const Offset(1010, 1180),
+      ]) {
+        canvas.drawCircle(star, 4, Paint()..color = const Color(0xFFEAD9A1));
+      }
+      canvas.drawArc(const Rect.fromLTWH(70, 160, 940, 940), 0.15, 2.75, false,
+        Paint()..style = PaintingStyle.stroke..strokeWidth = 3..color = const Color(0x55D8C27A));
+      break;
+    case BookStoryTemplate.gallery:
+      canvas.drawColor(const Color(0xFFF4F0E8), BlendMode.src);
+      canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 155), Paint()..color = const Color(0xFF202020));
+      canvas.drawRect(const Rect.fromLTWH(0, 155, 270, 285), Paint()..color = const Color(0xFFC45E43));
+      canvas.drawRect(const Rect.fromLTWH(810, 155, 270, 285), Paint()..color = const Color(0xFF315D5A));
+      canvas.drawRect(const Rect.fromLTWH(70, 470, 940, 8), Paint()..color = const Color(0xFF202020));
+      canvas.drawCircle(const Offset(920, 1010), 115, Paint()..color = const Color(0xFFE2B84E));
+      break;
     case BookStoryTemplate.current:
       canvas.drawColor(cream, BlendMode.src);
       break;
@@ -865,11 +953,15 @@ Future<Uint8List> _renderAlternativeBookStory(
       template == BookStoryTemplate.paper ||
       template == BookStoryTemplate.polaroid ||
       template == BookStoryTemplate.editorialPage ||
-      template == BookStoryTemplate.scrapbook;
+      template == BookStoryTemplate.scrapbook ||
+      template == BookStoryTemplate.silk ||
+      template == BookStoryTemplate.botanical ||
+      template == BookStoryTemplate.midnight;
   final mono = template == BookStoryTemplate.poster ||
       template == BookStoryTemplate.geometric ||
       template == BookStoryTemplate.collage ||
-      template == BookStoryTemplate.cleanStudio;
+      template == BookStoryTemplate.cleanStudio ||
+      template == BookStoryTemplate.gallery;
   final displayFont = serif ? 'serif' : (mono ? 'monospace' : 'Roboto');
   final headerColor = template == BookStoryTemplate.poster
       ? const Color(0xFF153F48)
@@ -902,6 +994,26 @@ Future<Uint8List> _renderAlternativeBookStory(
     textBox('MUHAJEER BOOKS', const Rect.fromLTWH(80, 65, 920, 55), 27,
         weight: FontWeight.w900, color: const Color(0xFF3C4935), maxLines: 1,
         fontFamily: 'serif', letterSpacing: 2);
+  } else if (template == BookStoryTemplate.silk) {
+    textBox('MUHAJEER  BOOKS', const Rect.fromLTWH(90, 66, 900, 58), 28,
+        weight: FontWeight.w600, color: const Color(0xFF6B3E4A), maxLines: 1,
+        fontFamily: 'serif', fontStyle: FontStyle.italic, letterSpacing: 4);
+  } else if (template == BookStoryTemplate.botanical) {
+    textBox('MUHAJEER BOOKS', const Rect.fromLTWH(95, 68, 890, 55), 27,
+        weight: FontWeight.w700, color: const Color(0xFF40583C), maxLines: 1,
+        fontFamily: 'serif', letterSpacing: 3);
+  } else if (template == BookStoryTemplate.mosaic) {
+    textBox('MUHAJEER BOOKS', const Rect.fromLTWH(80, 68, 920, 58), 27,
+        weight: FontWeight.w700, color: const Color(0xFFFFD982), maxLines: 1,
+        letterSpacing: 5);
+  } else if (template == BookStoryTemplate.midnight) {
+    textBox('MUHAJEER BOOKS', const Rect.fromLTWH(80, 68, 920, 58), 27,
+        weight: FontWeight.w500, color: const Color(0xFFE8D8A2), maxLines: 1,
+        fontFamily: 'serif', letterSpacing: 5);
+  } else if (template == BookStoryTemplate.gallery) {
+    textBox('MUHAJEER / BOOKS', const Rect.fromLTWH(70, 45, 940, 65), 31,
+        weight: FontWeight.w900, color: Colors.white, maxLines: 1,
+        fontFamily: 'monospace', letterSpacing: 3);
   } else {
     textBox('MUHAJEER BOOKS', const Rect.fromLTWH(80, 70, 920, 70), 40,
         weight: template == BookStoryTemplate.classic ? FontWeight.w500 : FontWeight.w900,
@@ -1064,6 +1176,42 @@ Future<Uint8List> _renderAlternativeBookStory(
       fontFamily: 'serif', fontStyle: FontStyle.italic);
     textBox(storyPrice(book), const Rect.fromLTWH(700, 1135, 280, 65), 35,
       weight: FontWeight.w900, color: const Color(0xFF126653), maxLines: 1);
+  } else if (template == BookStoryTemplate.silk) {
+    textBox(book.title, const Rect.fromLTWH(110, 165, 860, 150), 56,
+      weight: FontWeight.w600, color: const Color(0xFF56333D), maxLines: 2,
+      fontFamily: 'serif', fontStyle: FontStyle.italic);
+    coverFrame = const Rect.fromLTWH(260, 335, 560, 735);
+    coverRect = const Rect.fromLTWH(292, 367, 496, 671);
+  } else if (template == BookStoryTemplate.botanical) {
+    textBox(book.title, const Rect.fromLTWH(145, 175, 790, 145), 54,
+      weight: FontWeight.w600, color: const Color(0xFF354A33), maxLines: 2,
+      fontFamily: 'serif');
+    coverFrame = const Rect.fromLTWH(285, 345, 510, 715);
+    coverRect = const Rect.fromLTWH(315, 375, 450, 655);
+  } else if (template == BookStoryTemplate.mosaic) {
+    textBox(book.title, const Rect.fromLTWH(120, 165, 840, 155), 55,
+      weight: FontWeight.w700, color: const Color(0xFFFFE7AE), maxLines: 2,
+      fontFamily: 'serif');
+    coverFrame = const Rect.fromLTWH(285, 345, 510, 720);
+    coverRect = const Rect.fromLTWH(315, 375, 450, 660);
+  } else if (template == BookStoryTemplate.midnight) {
+    textBox('✦  KITOB TAVSIYASI  ✦', const Rect.fromLTWH(170, 155, 740, 45), 21,
+      weight: FontWeight.w700, color: const Color(0xFFD8C17A), maxLines: 1,
+      letterSpacing: 3);
+    textBox(book.title, const Rect.fromLTWH(120, 210, 840, 130), 52,
+      weight: FontWeight.w500, color: const Color(0xFFF7F0DE), maxLines: 2,
+      fontFamily: 'serif', fontStyle: FontStyle.italic);
+    coverFrame = const Rect.fromLTWH(300, 365, 480, 700);
+    coverRect = const Rect.fromLTWH(328, 393, 424, 644);
+  } else if (template == BookStoryTemplate.gallery) {
+    textBox('KITOB / 01', const Rect.fromLTWH(70, 185, 250, 45), 21,
+      weight: FontWeight.w900, color: const Color(0xFFC45E43), align: TextAlign.left,
+      maxLines: 1, fontFamily: 'monospace', letterSpacing: 2);
+    textBox(book.title.toUpperCase(), const Rect.fromLTWH(70, 235, 940, 130), 51,
+      weight: FontWeight.w900, color: const Color(0xFF202020), align: TextAlign.left,
+      maxLines: 2, fontFamily: 'monospace', letterSpacing: -0.5);
+    coverFrame = const Rect.fromLTWH(245, 500, 590, 565);
+    coverRect = const Rect.fromLTWH(275, 530, 530, 505);
   } else {
     coverFrame = const Rect.fromLTWH(205, 260, 670, 760);
     coverRect = const Rect.fromLTWH(235, 290, 610, 700);
@@ -1091,7 +1239,12 @@ Future<Uint8List> _renderAlternativeBookStory(
               template == BookStoryTemplate.lifestyle ||
               template == BookStoryTemplate.cleanStudio ||
               template == BookStoryTemplate.goldArch ||
-              template == BookStoryTemplate.scrapbook)
+              template == BookStoryTemplate.scrapbook ||
+              template == BookStoryTemplate.silk ||
+              template == BookStoryTemplate.botanical ||
+              template == BookStoryTemplate.mosaic ||
+              template == BookStoryTemplate.midnight ||
+              template == BookStoryTemplate.gallery)
           ? 1245.0
           : (template == BookStoryTemplate.polaroid
               ? 1180.0
@@ -1116,7 +1269,12 @@ Future<Uint8List> _renderAlternativeBookStory(
       template == BookStoryTemplate.lifestyle ||
       template == BookStoryTemplate.cleanStudio ||
       template == BookStoryTemplate.goldArch ||
-      template == BookStoryTemplate.scrapbook;
+      template == BookStoryTemplate.scrapbook ||
+      template == BookStoryTemplate.silk ||
+      template == BookStoryTemplate.botanical ||
+      template == BookStoryTemplate.mosaic ||
+      template == BookStoryTemplate.midnight ||
+      template == BookStoryTemplate.gallery;
   if (!titleAlreadyShown) {
     textBox(book.title, Rect.fromLTWH(90, infoTop, 900, 90), 45, weight: FontWeight.w900, color: fg);
     infoTop += 84;
@@ -1152,7 +1310,9 @@ Future<Uint8List> _renderAlternativeBookStory(
       template == BookStoryTemplate.poster ||
       template == BookStoryTemplate.collage ||
       template == BookStoryTemplate.lifestyle ||
-      template == BookStoryTemplate.goldArch;
+      template == BookStoryTemplate.goldArch ||
+      template == BookStoryTemplate.mosaic ||
+      template == BookStoryTemplate.midnight;
   final descriptionRect = Rect.fromLTWH(90, infoTop + 150, 900, 200);
   final descriptionBg = descriptionOnDark
       ? const Color(0xCC102F36)

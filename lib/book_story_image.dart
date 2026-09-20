@@ -24,29 +24,31 @@ String _storyDescription(Book book) {
 }
 
 Future<ui.Image> _decodeStoryCover(Uint8List encoded) async {
-  // Browser/iOS decoderidan keladigan qora JPEG/WebP frame muammosini
-  // chetlab o‘tish uchun rasmni avval sof RGB PNG ga normallashtiramiz.
-  // Bu story exportida muqovaning qora chiqib qolishini oldini oladi.
-  Uint8List safeBytes = encoded;
-  try {
-    final decoded = img.decodeImage(encoded);
-    if (decoded != null) {
-      final normalized = decoded.width > 900
-          ? img.copyResize(decoded, width: 900, interpolation: img.Interpolation.linear)
-          : decoded;
-      safeBytes = Uint8List.fromList(img.encodePng(normalized, level: 4));
-    }
-  } catch (_) {
-    // image paketi formatni taniy olmasa Flutter decoderiga qaytamiz.
-  }
+  // Safari/iPhone story exportida compressed JPEG/WebP'ni bevosita canvasga
+  // chizish qora frame berishi mumkin. Avval haqiqiy RGBA pikselga aylantiramiz.
+  final decoded = img.decodeImage(encoded);
+  if (decoded == null) throw StateError('Cover decode failed');
 
-  final codec = await ui.instantiateImageCodec(safeBytes, targetWidth: 700);
-  try {
-    final frame = await codec.getNextFrame();
-    return frame.image;
-  } finally {
-    codec.dispose();
-  }
+  final resized = decoded.width > 700
+      ? img.copyResize(
+          decoded,
+          width: 700,
+          interpolation: img.Interpolation.average,
+        )
+      : decoded;
+  final rgba = Uint8List.fromList(
+    resized.getBytes(order: img.ChannelOrder.rgba),
+  );
+
+  final completer = Completer<ui.Image>();
+  ui.decodeImageFromPixels(
+    rgba,
+    resized.width,
+    resized.height,
+    ui.PixelFormat.rgba8888,
+    completer.complete,
+  );
+  return completer.future;
 }
 
 Future<Uint8List?> _downloadStoryCover(Book book) async {

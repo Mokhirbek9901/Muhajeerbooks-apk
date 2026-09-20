@@ -23,6 +23,33 @@ class _BookStoryPageState extends State<BookStoryPage> {
 
   static const _templatePreferenceKey = 'book_story_template_v1';
 
+  // Eng yangi dizaynlar tepada ko‘rinsin — foydalanuvchi ularni qidirib
+  // pastga tushmasin. Qolganlari avvalgi tartibda saqlanadi.
+  static const List<BookStoryTemplate> _templateOrder = [
+    BookStoryTemplate.editorialPage,
+    BookStoryTemplate.lifestyle,
+    BookStoryTemplate.cleanStudio,
+    BookStoryTemplate.goldArch,
+    BookStoryTemplate.scrapbook,
+    BookStoryTemplate.current,
+    BookStoryTemplate.editorial,
+    BookStoryTemplate.library,
+    BookStoryTemplate.arch,
+    BookStoryTemplate.emerald,
+    BookStoryTemplate.minimal,
+    BookStoryTemplate.sunset,
+    BookStoryTemplate.magazine,
+    BookStoryTemplate.classic,
+    BookStoryTemplate.poster,
+    BookStoryTemplate.noir,
+    BookStoryTemplate.geometric,
+    BookStoryTemplate.paper,
+    BookStoryTemplate.split,
+    BookStoryTemplate.polaroid,
+    BookStoryTemplate.collage,
+    BookStoryTemplate.coverFocus,
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -139,7 +166,7 @@ class _BookStoryPageState extends State<BookStoryPage> {
               return Wrap(
                 spacing: gap,
                 runSpacing: gap,
-                children: BookStoryTemplate.values.map((item) {
+                children: _templateOrder.map((item) {
                   final selected = item == _template;
                   final darkItem = item == BookStoryTemplate.library ||
                       item == BookStoryTemplate.emerald ||

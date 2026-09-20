@@ -117,6 +117,47 @@ def ai_assistant():
     if not text: return jsonify(error="AI unavailable"),502
     return jsonify(text=text)
 
+@app.post("/api/admin-ai")
+def admin_ai():
+    body=request.get_json(silent=True) or {}
+    # Admin code is verified against the same server-side secret used by admin RPC.
+    supplied=str(body.get("admin_code",""))
+    expected=os.getenv("ADMIN_CODE","").strip()
+    if not expected or not supplied or not __import__("hmac").compare_digest(supplied,expected):
+        return jsonify(error="Unauthorized"),401
+    query=str(body.get("query",""))[:1500]
+    context=body.get("context") if isinstance(body.get("context"),dict) else {}
+    instructions="""You are Muhajeer Books' private ADMIN assistant. Answer in concise natural Uzbek. You may analyze the supplied admin-only books, stock, cost prices, sales and order aggregates, including profit/margin/restock and operational anomalies. Use web search for current external facts when useful. Never invent business data. You are read-only: do not claim to change prices, stock, orders, discounts, books, customers or settings. For any proposed mutation, explain the proposed change and require explicit admin confirmation before a separate app action performs it. Never expose admin credentials, secrets, tokens or unnecessary customer PII. Money is KRW and displayed with ₩."""
+    text=_chat_json(instructions,[{"role":"user","content":[{"type":"input_text","text":f"Admin request: {query}\nAdmin data: {context}"}]}],1800,web_search=True)
+    if not text: return jsonify(error="AI unavailable"),502
+    return jsonify(text=text)
+
+
+@app.post("/api/admin-ai/book-research")
+def admin_ai_book_research():
+    body=request.get_json(silent=True) or {}
+    supplied=str(body.get("admin_code",""))
+    expected=os.getenv("ADMIN_CODE","").strip()
+    if not expected or not supplied or not __import__("hmac").compare_digest(supplied,expected):
+        return jsonify(error="Unauthorized"),401
+    title=str(body.get("title",""))[:300].strip()
+    author=str(body.get("author",""))[:200].strip()
+    publisher=str(body.get("publisher",""))[:200].strip()
+    if not title: return jsonify(error="Kitob nomi kerak"),400
+    instructions="""Research the exact book on the web. Prefer publisher, author, library/catalog, bookseller bibliographic pages, and other reliable sources. Return ONLY valid JSON with keys: title, author, publisher, category, description, cover, confidence, notes. Do not guess uncertain fields; use empty strings. description must be a short factual Uzbek catalog description, not copyrighted jacket copy. category should be a concise Uzbek bookstore category. cover should be Yumshoq muqova, Qattiq muqova, or empty only when verified. confidence is high/medium/low. notes briefly states ambiguity or verification caveats. Do not include prices, stock, cost, URLs, markdown, citations or internal codes."""
+    payload=f"Find this exact book. Title: {title}\nCurrent author: {author}\nCurrent publisher: {publisher}"
+    out=_chat_json(instructions,[{"role":"user","content":[{"type":"input_text","text":payload}]}],1000,web_search=True)
+    if not out: return jsonify(error="AI research unavailable"),502
+    try:
+      import json
+      start=out.find("{"); end=out.rfind("}")
+      data=json.loads(out[start:end+1])
+      allowed=("title","author","publisher","category","description","cover","confidence","notes")
+      return jsonify({k:data.get(k,"") for k in allowed})
+    except Exception:
+      return jsonify(error="Research result parse failed"),502
+
+
 @app.post("/api/ai-search")
 def ai_search():
     body=request.get_json(silent=True) or {}

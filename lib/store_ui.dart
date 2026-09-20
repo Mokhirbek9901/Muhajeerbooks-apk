@@ -3344,7 +3344,9 @@ class CartPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final lines = state.cartLines;
+    final lines = state.cartStandaloneLines;
+    final bundles = state.cartBundles;
+    final hasItems = state.cartCount > 0;
     final deliveryFee = state.cartBundleDeliveryIncluded ||
             (state.cartCount >= 4 && state.fourPlusFreeDeliveryEnabled)
         ? 0
@@ -3357,7 +3359,7 @@ class CartPage extends StatelessWidget {
         surfaceTintColor: Colors.transparent,
         title: const Text('Savatcha'),
         actions: [
-          if (lines.isNotEmpty)
+          if (hasItems)
             TextButton.icon(
               onPressed: state.clearCart,
               icon: const Icon(Icons.delete_sweep_outlined, size: 18),
@@ -3366,7 +3368,7 @@ class CartPage extends StatelessWidget {
           const SizedBox(width: 6),
         ],
       ),
-      body: lines.isEmpty
+      body: !hasItems
           ? _EmptyState(
               icon: Icons.shopping_bag_outlined,
               title: 'Savatcha bo‘sh',
@@ -3379,7 +3381,7 @@ class CartPage extends StatelessWidget {
               children: [
                 AppSectionHeader(
                   title: 'Sizning tanlovingiz',
-                  subtitle: '${state.cartCount} dona kitob',
+                  subtitle: '${state.cartDisplayCount} ta mahsulot',
                   trailing: AppInfoPill(
                     icon: state.discountBlocksFourPlusFreeDelivery
                         ? Icons.local_shipping_outlined
@@ -3409,6 +3411,15 @@ class CartPage extends StatelessWidget {
                   const _DiscountShippingWarning(),
                   const SizedBox(height: 10),
                 ],
+                ...bundles.map(
+                  (bundle) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _BundleCartCard(
+                      bundle: bundle,
+                      state: state,
+                    ),
+                  ),
+                ),
                 ...lines.map(
                   (line) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
@@ -3506,7 +3517,7 @@ class CartPage extends StatelessWidget {
                 ),
               ],
             ),
-      bottomNavigationBar: lines.isEmpty
+      bottomNavigationBar: !hasItems
           ? null
           : SafeArea(
               child: Container(
@@ -3625,6 +3636,181 @@ class CartPage extends StatelessWidget {
                 ),
               ),
             ),
+    );
+  }
+}
+
+class _BundleCartCard extends StatelessWidget {
+  const _BundleCartCard({
+    required this.bundle,
+    required this.state,
+  });
+
+  final Map<String, dynamic> bundle;
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = ((bundle['items'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+    final books = <Book>[];
+    var bookCount = 0;
+    for (final item in items) {
+      bookCount += (item['quantity'] as num?)?.toInt() ?? 1;
+      final id = (item['book_id'] ?? '').toString();
+      for (final book in state.books) {
+        if (book.id == id) {
+          books.add(book);
+          break;
+        }
+      }
+    }
+    final setPrice = (bundle['price'] as num?)?.toInt() ?? 0;
+    final regular = (bundle['regular_total'] as num?)?.toInt() ?? 0;
+    final saving = (regular - setPrice).clamp(0, regular).toInt();
+    final deliveryIncluded = bundle['delivery_included'] == true;
+
+    return AppSurface(
+      padding: const EdgeInsets.all(11),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 92,
+            height: 108,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                for (var i = 0; i < books.take(3).length; i++)
+                  Positioned(
+                    left: 5.0 + i * 18,
+                    top: i == 1 ? 2 : 9,
+                    child: Transform.rotate(
+                      angle: (i - 1) * 0.055,
+                      child: Container(
+                        width: 54,
+                        height: 88,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(9),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x26000000),
+                              blurRadius: 8,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(9),
+                          child: _BookCover(book: books[i]),
+                        ),
+                      ),
+                    ),
+                  ),
+                Positioned(
+                  left: 4,
+                  bottom: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.navy,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: const Text(
+                      'SET',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: .7,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  (bundle['title'] ?? 'Kitoblar seti').toString(),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    height: 1.2,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  '1 ta set • $bookCount ta kitob',
+                  style: const TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 7),
+                Row(
+                  children: [
+                    Text(
+                      won(setPrice),
+                      style: const TextStyle(
+                        color: AppColors.navy,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    if (saving > 0) ...[
+                      const SizedBox(width: 7),
+                      Flexible(
+                        child: Text(
+                          '${won(saving)} tejaysiz',
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.success,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  deliveryIncluded
+                      ? 'Pochta set narxiga kiritilgan'
+                      : 'Pochta alohida',
+                  style: TextStyle(
+                    color: deliveryIncluded
+                        ? AppColors.success
+                        : AppColors.muted,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => state.removeBundleFromCart(bundle),
+            tooltip: 'Setni olib tashlash',
+            icon: const Icon(
+              Icons.delete_outline_rounded,
+              color: AppColors.danger,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

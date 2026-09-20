@@ -11,6 +11,28 @@ import 'app_state.dart';
 
 const storyOrderLabel = 'Buyurtma berish uchun bosing';
 
+enum BookStoryTemplate { current, editorial, library, arch, emerald, minimal, sunset }
+
+String bookStoryTemplateName(BookStoryTemplate value) => switch (value) {
+  BookStoryTemplate.current => 'Hozirgi',
+  BookStoryTemplate.editorial => 'Yorug‘',
+  BookStoryTemplate.library => 'Kutubxona',
+  BookStoryTemplate.arch => 'Sharqona',
+  BookStoryTemplate.emerald => 'Zumrad',
+  BookStoryTemplate.minimal => 'Minimal',
+  BookStoryTemplate.sunset => 'Oqshom',
+};
+
+Color bookStoryTemplateColor(BookStoryTemplate value) => switch (value) {
+  BookStoryTemplate.current => const Color(0xFFF8F4E9),
+  BookStoryTemplate.editorial => const Color(0xFFF4EFE4),
+  BookStoryTemplate.library => const Color(0xFF24150E),
+  BookStoryTemplate.arch => const Color(0xFFF5F0E5),
+  BookStoryTemplate.emerald => const Color(0xFF073D3B),
+  BookStoryTemplate.minimal => const Color(0xFFF7F4EA),
+  BookStoryTemplate.sunset => const Color(0xFF9A5A31),
+};
+
 String storyPrice(Book book) => book.price > 0
     ? '₩${NumberFormat('#,###').format(book.currentPrice)}'
     : 'Narxi aniqlanmoqda';
@@ -177,7 +199,14 @@ Size _paintText(
 }
 
 /// A full-resolution 9:16 portrait image, independent of preview screen size.
-Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
+Future<Uint8List> renderBookStory(
+  Book book, {
+  Uint8List? coverBytes,
+  BookStoryTemplate template = BookStoryTemplate.current,
+}) async {
+  if (template != BookStoryTemplate.current) {
+    return _renderAlternativeBookStory(book, template, coverBytes: coverBytes);
+  }
   Uint8List? bytes = coverBytes;
   bytes ??= await _downloadStoryCover(book);
   bytes ??= (await rootBundle.load('assets/images/muhajeer_logo.jpg'))
@@ -594,6 +623,173 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
   picture.dispose();
   // Safari/CanvasKit ayrim iPhone'larda toByteData() tugaguncha source texture
   // kerak bo‘ladi. Cover'ni bundan oldin dispose qilish qora to‘rtburchak beradi.
+  final png = await image.toByteData(format: ui.ImageByteFormat.png);
+  image.dispose();
+  cover.dispose();
+  if (png == null) throw StateError('Image unavailable');
+  return png.buffer.asUint8List();
+}
+
+
+Future<Uint8List> _renderAlternativeBookStory(
+  Book book,
+  BookStoryTemplate template, {
+  Uint8List? coverBytes,
+}) async {
+  Uint8List? bytes = coverBytes ?? await _downloadStoryCover(book);
+  bytes ??= (await rootBundle.load('assets/images/muhajeer_logo.jpg')).buffer.asUint8List();
+  ui.Image cover;
+  try {
+    cover = await _decodeStoryCover(bytes);
+  } catch (_) {
+    cover = await _decodeStoryCover(
+      (await rootBundle.load('assets/images/muhajeer_logo.jpg')).buffer.asUint8List(),
+    );
+  }
+
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  const navy = Color(0xFF123F49);
+  const teal = Color(0xFF08786E);
+  const cream = Color(0xFFF7F2E7);
+  const muted = Color(0xFF5F6F72);
+  final dark = template == BookStoryTemplate.library || template == BookStoryTemplate.emerald;
+  final fg = dark ? Colors.white : navy;
+
+  void textBox(String value, Rect rect, double size, {FontWeight weight = FontWeight.w600,
+      Color? color, TextAlign align = TextAlign.center, int maxLines = 2}) {
+    var s = size;
+    TextPainter p;
+    while (true) {
+      p = TextPainter(
+        text: TextSpan(text: value, style: TextStyle(fontFamily: 'Roboto', fontSize: s,
+          fontWeight: weight, color: color ?? fg, height: 1.08)),
+        textDirection: ui.TextDirection.ltr, textAlign: align, maxLines: maxLines, ellipsis: '…',
+      )..layout(maxWidth: rect.width);
+      if ((!p.didExceedMaxLines && p.height <= rect.height) || s <= 15) break;
+      p.dispose(); s -= 1;
+    }
+    final x = align == TextAlign.left ? rect.left : rect.left + (rect.width - p.width) / 2;
+    p.paint(canvas, Offset(x, rect.top + (rect.height - p.height) / 2));
+    p.dispose();
+  }
+
+  void rounded(Rect rect, Color color, {double radius = 28, Color? stroke}) {
+    final rr = RRect.fromRectAndRadius(rect, Radius.circular(radius));
+    canvas.drawRRect(rr, Paint()..color = color);
+    if (stroke != null) canvas.drawRRect(rr, Paint()..style = PaintingStyle.stroke..strokeWidth = 2..color = stroke);
+  }
+
+  switch (template) {
+    case BookStoryTemplate.editorial:
+      canvas.drawColor(const Color(0xFFF5F0E5), BlendMode.src);
+      canvas.drawCircle(const Offset(1000, 250), 310, Paint()..color = const Color(0xFFE1EFE7));
+      canvas.drawCircle(const Offset(80, 1530), 260, Paint()..color = const Color(0xFFEBDDBB));
+      break;
+    case BookStoryTemplate.library:
+      canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 1920), Paint()..shader = ui.Gradient.linear(
+        const Offset(0, 0), const Offset(1080, 1920), [const Color(0xFF160E0A), const Color(0xFF5B321D)]));
+      break;
+    case BookStoryTemplate.arch:
+      canvas.drawColor(const Color(0xFFF7F2E7), BlendMode.src);
+      final arch = Path()..moveTo(190, 770)..lineTo(190, 420)..quadraticBezierTo(540, 80, 890, 420)..lineTo(890, 770)..close();
+      canvas.drawPath(arch, Paint()..color = const Color(0xFFE7E0D0));
+      break;
+    case BookStoryTemplate.emerald:
+      canvas.drawColor(const Color(0xFF063B39), BlendMode.src);
+      canvas.drawCircle(const Offset(930, 170), 330, Paint()..color = const Color(0xFF0A514B));
+      canvas.drawCircle(const Offset(80, 1600), 300, Paint()..color = const Color(0xFF0B4B47));
+      break;
+    case BookStoryTemplate.minimal:
+      canvas.drawColor(cream, BlendMode.src);
+      canvas.drawCircle(const Offset(1040, 120), 350, Paint()..color = const Color(0xFF77B5A4));
+      break;
+    case BookStoryTemplate.sunset:
+      canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 1920), Paint()..shader = ui.Gradient.linear(
+        const Offset(0, 0), const Offset(0, 1920), [const Color(0xFFE9B77D), const Color(0xFF6B351F), const Color(0xFF21130E)]));
+      canvas.drawCircle(const Offset(210, 320), 180, Paint()..color = const Color(0x55FFE3A1));
+      break;
+    case BookStoryTemplate.current:
+      canvas.drawColor(cream, BlendMode.src);
+      break;
+  }
+
+  textBox('MUHAJEER BOOKS', const Rect.fromLTWH(80, 70, 920, 70), 40,
+      weight: FontWeight.w900, color: fg, maxLines: 1);
+  textBox('Koreyadagi o‘zbek kitob do‘koni', const Rect.fromLTWH(80, 132, 920, 44), 23,
+      color: dark ? const Color(0xFFE8E0D7) : navy, maxLines: 1);
+
+  Rect coverFrame;
+  Rect coverRect;
+  if (template == BookStoryTemplate.library) {
+    textBox(book.title, const Rect.fromLTWH(120, 205, 840, 160), 58, weight: FontWeight.w900, color: Colors.white);
+    coverFrame = const Rect.fromLTWH(315, 390, 450, 650);
+    coverRect = const Rect.fromLTWH(340, 415, 400, 600);
+  } else if (template == BookStoryTemplate.arch) {
+    textBox('“Qalbingiz xotirjam bo‘lsin.”', const Rect.fromLTWH(130, 190, 820, 75), 31,
+      color: navy, maxLines: 1);
+    coverFrame = const Rect.fromLTWH(285, 360, 510, 690);
+    coverRect = const Rect.fromLTWH(315, 390, 450, 630);
+  } else if (template == BookStoryTemplate.emerald) {
+    coverFrame = const Rect.fromLTWH(175, 250, 730, 860);
+    coverRect = const Rect.fromLTWH(210, 285, 660, 790);
+  } else if (template == BookStoryTemplate.minimal) {
+    textBox(book.title, const Rect.fromLTWH(90, 230, 500, 145), 54, weight: FontWeight.w900, align: TextAlign.left);
+    if (book.author.trim().isNotEmpty) textBox(book.author, const Rect.fromLTWH(90, 365, 500, 48), 25, align: TextAlign.left);
+    coverFrame = const Rect.fromLTWH(545, 235, 430, 690);
+    coverRect = const Rect.fromLTWH(570, 260, 380, 640);
+  } else if (template == BookStoryTemplate.sunset) {
+    textBox(book.title, const Rect.fromLTWH(120, 190, 840, 150), 58, weight: FontWeight.w900, color: const Color(0xFF24150E));
+    coverFrame = const Rect.fromLTWH(290, 360, 500, 760);
+    coverRect = const Rect.fromLTWH(320, 390, 440, 700);
+  } else {
+    coverFrame = const Rect.fromLTWH(205, 260, 670, 760);
+    coverRect = const Rect.fromLTWH(235, 290, 610, 700);
+  }
+
+  rounded(coverFrame, dark ? const Color(0xFFF2E8DA) : Colors.white,
+      radius: 32, stroke: dark ? const Color(0x33FFFFFF) : const Color(0xFFE8E0D2));
+  paintImage(canvas: canvas, rect: coverRect, image: cover, fit: BoxFit.contain, filterQuality: FilterQuality.high);
+
+  var infoTop = template == BookStoryTemplate.emerald ? 1140.0 : 1080.0;
+  if (template != BookStoryTemplate.library && template != BookStoryTemplate.minimal && template != BookStoryTemplate.sunset) {
+    textBox(book.title, Rect.fromLTWH(90, infoTop, 900, 90), 45, weight: FontWeight.w900, color: fg);
+    infoTop += 84;
+  }
+  if (book.author.trim().isNotEmpty && book.author != 'Ko‘rsatilmagan' && template != BookStoryTemplate.minimal) {
+    textBox(book.author.trim(), Rect.fromLTWH(120, infoTop, 840, 42), 22, color: dark ? const Color(0xFFE5DED4) : muted, maxLines: 1);
+    infoTop += 45;
+  }
+
+  final cardBg = dark ? const Color(0x22FFFFFF) : Colors.white;
+  final cardStroke = dark ? const Color(0x55FFFFFF) : const Color(0xFFE3DDD0);
+  const gap = 18.0;
+  const cardW = 275.0;
+  final left = (1080 - (cardW * 3 + gap * 2)) / 2;
+  for (var i = 0; i < 3; i++) {
+    rounded(Rect.fromLTWH(left + i * (cardW + gap), infoTop + 18, cardW, 112), cardBg, radius: 22, stroke: cardStroke);
+  }
+  textBox(storyPrice(book), Rect.fromLTWH(left + 10, infoTop + 32, cardW - 20, 80), 31, weight: FontWeight.w900, color: dark ? Colors.white : teal, maxLines: 1);
+  textBox('Yetkazib berish:\n₩4,000', Rect.fromLTWH(left + cardW + gap + 10, infoTop + 28, cardW - 20, 88), 22, weight: FontWeight.w800, color: fg);
+  textBox(book.stock > 0 ? 'Omborda:\n${book.stock} dona' : 'Hozircha\nmavjud emas',
+      Rect.fromLTWH(left + (cardW + gap) * 2 + 10, infoTop + 28, cardW - 20, 88), 22, weight: FontWeight.w800,
+      color: book.stock > 0 ? (dark ? const Color(0xFFB8F0D1) : const Color(0xFF187A55)) : const Color(0xFFB53B3B));
+
+  final description = _storyDescription(book);
+  textBox(description, Rect.fromLTWH(100, infoTop + 155, 880, 190), 23,
+      color: dark ? const Color(0xFFF1ECE5) : navy, maxLines: 5);
+
+  final buttonY = infoTop + 365;
+  rounded(Rect.fromLTWH(170, buttonY, 740, 76), dark ? const Color(0xFFF1E4CC) : teal, radius: 38);
+  textBox(book.inStock ? 'Buyurtma berish uchun bosing  →' : 'Kitob haqida batafsil  →',
+      Rect.fromLTWH(195, buttonY + 8, 690, 60), 27, weight: FontWeight.w900,
+      color: dark ? const Color(0xFF2C1A10) : Colors.white, maxLines: 1);
+  textBox('@muhajeerbooks', const Rect.fromLTWH(100, 1810, 880, 44), 24,
+      color: dark ? const Color(0xFFE7DDD1) : muted, maxLines: 1);
+
+  final picture = recorder.endRecording();
+  final image = await picture.toImage(1080, 1920);
+  picture.dispose();
   final png = await image.toByteData(format: ui.ImageByteFormat.png);
   image.dispose();
   cover.dispose();

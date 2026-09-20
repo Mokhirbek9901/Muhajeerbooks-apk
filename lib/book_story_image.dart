@@ -591,12 +591,12 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
 
   final picture = recorder.endRecording();
   final image = await picture.toImage(1080, 1920);
-  // The recorded picture has now been rasterized, so the source cover can be
-  // released safely. Releasing it earlier can produce a black rectangle on iOS.
-  cover.dispose();
   picture.dispose();
+  // Safari/CanvasKit ayrim iPhone'larda toByteData() tugaguncha source texture
+  // kerak bo‘ladi. Cover'ni bundan oldin dispose qilish qora to‘rtburchak beradi.
   final png = await image.toByteData(format: ui.ImageByteFormat.png);
   image.dispose();
+  cover.dispose();
   if (png == null) throw StateError('Image unavailable');
   return png.buffer.asUint8List();
 }

@@ -67,14 +67,20 @@ STRICT: background/decor only. NO words, letters, numbers, logos, prices, UI, fa
     return Response(out,mimetype="image/png",headers={"Cache-Control":"private, max-age=86400"})
 
 
-def _chat_json(instructions, payload, max_tokens=1200):
+def _chat_json(instructions, payload, max_tokens=1200, web_search=False):
     key=os.getenv("OPENAI_API_KEY","").strip()
     if not key: return None
+    data={"model":"gpt-5.6-luna","instructions":instructions,
+          "input":payload,"max_output_tokens":max_tokens}
+    if web_search:
+        data["tools"]=[{"type":"web_search"}]
+        data["tool_choice"]="auto"
     r=requests.post("https://api.openai.com/v1/responses",
       headers={"Authorization":f"Bearer {key}","Content-Type":"application/json"},
-      json={"model":"gpt-5.6-luna","instructions":instructions,
-            "input":payload,"max_output_tokens":max_tokens},timeout=90)
-    if r.status_code>=400: return None
+      json=data,timeout=120)
+    if r.status_code>=400:
+      print(f"Responses API failed status={r.status_code} detail={r.text[:400]}",flush=True)
+      return None
     j=r.json(); out=""
     for item in j.get("output",[]):
       for part in item.get("content",[]):
@@ -104,7 +110,10 @@ def ai_assistant():
       instructions="""You are Muhajeer Books' Uzbek catalog editor. Using only supplied metadata, draft: 1) short description, 2) category suggestion, 3) Instagram caption, 4) Telegram caption. Do not invent facts about the book."""
     elif mode=="analytics":
       instructions="""You are Muhajeer Books' read-only business analyst. Summarize the supplied aggregate/order facts, identify observable trends and low-stock/restock candidates. Clearly separate facts from suggestions. Never claim to change inventory, prices, orders or promotions."""
-    text=_chat_json(instructions + "\n" + general_hint, [{"role":"user","content":[{"type":"input_text","text":f"Mode: {mode}\nRequest: {query}\nPublic catalog/data: {safe}\nBusiness facts: Korea-wide delivery fee is ₩4,000; orders of 4 or more books have free delivery. Delivery timing can vary by carrier, destination, holidays and pickup time."}]}])
+    web_modes={"advisor","general"}
+    text=_chat_json(instructions + "\n" + general_hint + """ When web search is available, use it for current facts such as courier/post-office schedules, holidays, current services, recent book information, and other time-sensitive questions. Prefer official or primary sources. Clearly distinguish Muhajeer Books catalog facts from web facts. Do not expose raw URLs, internal tool traces, citation JSON, source IDs, or hidden metadata in the customer-facing answer.""",
+      [{"role":"user","content":[{"type":"input_text","text":f"Mode: {mode}\nRequest: {query}\nPublic catalog/data: {safe}\nBusiness facts: Korea-wide delivery fee is ₩4,000; orders of 4 or more books have free delivery. Delivery timing can vary by carrier, destination, holidays and pickup time."}]}],
+      web_search=(mode in web_modes))
     if not text: return jsonify(error="AI unavailable"),502
     return jsonify(text=text)
 

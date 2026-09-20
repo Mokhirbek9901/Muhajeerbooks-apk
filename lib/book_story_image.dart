@@ -11,7 +11,7 @@ import 'app_state.dart';
 
 const storyOrderLabel = 'Buyurtma berish uchun bosing';
 
-enum BookStoryTemplate { current, editorial, library, arch, emerald, minimal, sunset, magazine, classic, poster, noir, geometric, paper }
+enum BookStoryTemplate { current, editorial, library, arch, emerald, minimal, sunset, magazine, classic, poster, noir, geometric, paper, split, polaroid, collage, coverFocus }
 
 String bookStoryTemplateName(BookStoryTemplate value) => switch (value) {
   BookStoryTemplate.current => 'Hozirgi',
@@ -27,6 +27,10 @@ String bookStoryTemplateName(BookStoryTemplate value) => switch (value) {
   BookStoryTemplate.noir => 'Noir',
   BookStoryTemplate.geometric => 'Geometrik',
   BookStoryTemplate.paper => 'Qog‘oz',
+  BookStoryTemplate.split => 'Ikki qism',
+  BookStoryTemplate.polaroid => 'Polaroid',
+  BookStoryTemplate.collage => 'Kollaj',
+  BookStoryTemplate.coverFocus => 'Muqova',
 };
 
 Color bookStoryTemplateColor(BookStoryTemplate value) => switch (value) {
@@ -43,6 +47,10 @@ Color bookStoryTemplateColor(BookStoryTemplate value) => switch (value) {
   BookStoryTemplate.noir => const Color(0xFF111111),
   BookStoryTemplate.geometric => const Color(0xFF184D68),
   BookStoryTemplate.paper => const Color(0xFFF0E5CC),
+  BookStoryTemplate.split => const Color(0xFFE8D7BD),
+  BookStoryTemplate.polaroid => const Color(0xFFCCD8C8),
+  BookStoryTemplate.collage => const Color(0xFFF1C64B),
+  BookStoryTemplate.coverFocus => const Color(0xFF242424),
 };
 
 String storyPrice(Book book) => book.price > 0
@@ -668,7 +676,8 @@ Future<Uint8List> _renderAlternativeBookStory(
   final dark = template == BookStoryTemplate.library ||
       template == BookStoryTemplate.emerald ||
       template == BookStoryTemplate.noir ||
-      template == BookStoryTemplate.geometric;
+      template == BookStoryTemplate.geometric ||
+      template == BookStoryTemplate.coverFocus;
   final fg = dark ? Colors.white : navy;
 
   void textBox(String value, Rect rect, double size, {FontWeight weight = FontWeight.w600,
@@ -765,23 +774,61 @@ Future<Uint8List> _renderAlternativeBookStory(
       canvas.drawLine(const Offset(150, 110), const Offset(150, 1810),
         Paint()..color = const Color(0x44C56B5B)..strokeWidth = 2);
       break;
+    case BookStoryTemplate.split:
+      canvas.drawColor(const Color(0xFFF6F0E5), BlendMode.src);
+      canvas.drawRect(const Rect.fromLTWH(0, 0, 470, 1920), Paint()..color = const Color(0xFF173F49));
+      canvas.drawRect(const Rect.fromLTWH(470, 0, 18, 1920), Paint()..color = const Color(0xFFD4A74E));
+      break;
+    case BookStoryTemplate.polaroid:
+      canvas.drawColor(const Color(0xFFDCE5D7), BlendMode.src);
+      canvas.drawCircle(const Offset(100, 280), 210, Paint()..color = const Color(0x55F2C66D));
+      canvas.drawCircle(const Offset(970, 1540), 260, Paint()..color = const Color(0x4484A98C));
+      canvas.drawRect(const Rect.fromLTWH(0, 1710, 1080, 210), Paint()..color = const Color(0xFFF3E8D5));
+      break;
+    case BookStoryTemplate.collage:
+      canvas.drawColor(const Color(0xFFF4C94F), BlendMode.src);
+      canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 190), Paint()..color = const Color(0xFFED5A43));
+      canvas.drawPath(Path()..moveTo(0, 1280)..lineTo(1080, 1080)..lineTo(1080, 1920)..lineTo(0, 1920)..close(),
+        Paint()..color = const Color(0xFF174652));
+      canvas.drawCircle(const Offset(930, 330), 120, Paint()..color = const Color(0xFFF8EFE0));
+      break;
+    case BookStoryTemplate.coverFocus:
+      canvas.drawColor(const Color(0xFF171717), BlendMode.src);
+      canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 1920), Paint()..shader = ui.Gradient.linear(
+        const Offset(0, 0), const Offset(1080, 1920), [const Color(0xFF111111), const Color(0xFF34302B)]));
+      canvas.drawRect(const Rect.fromLTWH(55, 70, 8, 1780), Paint()..color = const Color(0xFFCDAA63));
+      break;
     case BookStoryTemplate.current:
       canvas.drawColor(cream, BlendMode.src);
       break;
   }
 
-  final serif = template == BookStoryTemplate.classic || template == BookStoryTemplate.paper;
-  final mono = template == BookStoryTemplate.poster || template == BookStoryTemplate.geometric;
+  final serif = template == BookStoryTemplate.classic ||
+      template == BookStoryTemplate.paper ||
+      template == BookStoryTemplate.polaroid;
+  final mono = template == BookStoryTemplate.poster ||
+      template == BookStoryTemplate.geometric ||
+      template == BookStoryTemplate.collage;
   final displayFont = serif ? 'serif' : (mono ? 'monospace' : 'Roboto');
   final headerColor = template == BookStoryTemplate.poster ? const Color(0xFF153F48) : fg;
-  textBox('MUHAJEER BOOKS', const Rect.fromLTWH(80, 70, 920, 70), 40,
-      weight: template == BookStoryTemplate.classic ? FontWeight.w500 : FontWeight.w900,
-      color: headerColor, maxLines: 1, fontFamily: displayFont,
-      letterSpacing: template == BookStoryTemplate.magazine ? 7 : (serif ? 3 : 0));
-  textBox('Koreyadagi o‘zbek kitob do‘koni', const Rect.fromLTWH(80, 132, 920, 44), 23,
-      color: dark ? const Color(0xFFE8E0D7) : navy, maxLines: 1,
-      fontFamily: displayFont,
-      fontStyle: serif ? FontStyle.italic : FontStyle.normal);
+  if (template == BookStoryTemplate.split) {
+    textBox('MUHAJEER', const Rect.fromLTWH(45, 72, 380, 55), 29,
+        weight: FontWeight.w900, color: Colors.white, maxLines: 1, letterSpacing: 4);
+    textBox('BOOKS', const Rect.fromLTWH(45, 120, 380, 55), 29,
+        weight: FontWeight.w300, color: const Color(0xFFD8B56C), maxLines: 1, letterSpacing: 8);
+  } else if (template == BookStoryTemplate.coverFocus) {
+    textBox('MUHAJEER BOOKS  /  KITOB TAVSIYASI', const Rect.fromLTWH(95, 70, 890, 55), 24,
+        weight: FontWeight.w600, color: const Color(0xFFD8BE86), maxLines: 1, letterSpacing: 2);
+  } else {
+    textBox('MUHAJEER BOOKS', const Rect.fromLTWH(80, 70, 920, 70), 40,
+        weight: template == BookStoryTemplate.classic ? FontWeight.w500 : FontWeight.w900,
+        color: headerColor, maxLines: 1, fontFamily: displayFont,
+        letterSpacing: template == BookStoryTemplate.magazine ? 7 : (serif ? 3 : 0));
+    textBox('Koreyadagi o‘zbek kitob do‘koni', const Rect.fromLTWH(80, 132, 920, 44), 23,
+        color: dark ? const Color(0xFFE8E0D7) : navy, maxLines: 1,
+        fontFamily: displayFont,
+        fontStyle: serif ? FontStyle.italic : FontStyle.normal);
+  }
 
   Rect coverFrame;
   Rect coverRect;
@@ -838,16 +885,66 @@ Future<Uint8List> _renderAlternativeBookStory(
       color: const Color(0xFF5C432A), fontFamily: 'serif', fontStyle: FontStyle.italic);
     coverFrame = const Rect.fromLTWH(315, 385, 480, 675);
     coverRect = const Rect.fromLTWH(345, 415, 420, 615);
+  } else if (template == BookStoryTemplate.split) {
+    textBox(book.title, const Rect.fromLTWH(525, 245, 470, 260), 58, weight: FontWeight.w900,
+      color: navy, align: TextAlign.left, maxLines: 3);
+    if (book.author.trim().isNotEmpty) {
+      textBox(book.author, const Rect.fromLTWH(525, 515, 450, 65), 24,
+        color: const Color(0xFF6B6A64), align: TextAlign.left, maxLines: 1, fontStyle: FontStyle.italic);
+    }
+    textBox(storyPrice(book), const Rect.fromLTWH(525, 610, 420, 90), 52,
+      weight: FontWeight.w900, color: teal, align: TextAlign.left, maxLines: 1);
+    coverFrame = const Rect.fromLTWH(75, 285, 350, 720);
+    coverRect = const Rect.fromLTWH(95, 305, 310, 680);
+  } else if (template == BookStoryTemplate.polaroid) {
+    textBox('BUGUNGI TANLOV', const Rect.fromLTWH(160, 190, 760, 55), 25,
+      weight: FontWeight.w900, color: const Color(0xFF49664F), letterSpacing: 5, maxLines: 1);
+    textBox(book.title, const Rect.fromLTWH(130, 1010, 820, 145), 55, weight: FontWeight.w600,
+      color: const Color(0xFF304B38), fontFamily: 'serif', fontStyle: FontStyle.italic);
+    coverFrame = const Rect.fromLTWH(255, 300, 570, 700);
+    coverRect = const Rect.fromLTWH(290, 335, 500, 590);
+  } else if (template == BookStoryTemplate.collage) {
+    textBox('O‘QISHGA ARZIYDI!', const Rect.fromLTWH(80, 60, 920, 90), 50,
+      weight: FontWeight.w900, color: Colors.white, fontFamily: 'monospace', letterSpacing: -1);
+    textBox(book.title.toUpperCase(), const Rect.fromLTWH(520, 290, 500, 260), 54,
+      weight: FontWeight.w900, color: navy, align: TextAlign.left, maxLines: 3,
+      fontFamily: 'monospace', letterSpacing: -1);
+    textBox(storyPrice(book), const Rect.fromLTWH(555, 590, 390, 90), 48,
+      weight: FontWeight.w900, color: const Color(0xFFED5A43), align: TextAlign.left, maxLines: 1,
+      fontFamily: 'monospace');
+    coverFrame = const Rect.fromLTWH(85, 285, 390, 720);
+    coverRect = const Rect.fromLTWH(110, 310, 340, 670);
+  } else if (template == BookStoryTemplate.coverFocus) {
+    coverFrame = const Rect.fromLTWH(190, 170, 700, 930);
+    coverRect = const Rect.fromLTWH(220, 200, 640, 870);
+    textBox(book.title, const Rect.fromLTWH(110, 1115, 860, 145), 58,
+      weight: FontWeight.w300, color: const Color(0xFFF4EBDD), letterSpacing: 1.5);
+    textBox(storyPrice(book), const Rect.fromLTWH(160, 1265, 760, 85), 49,
+      weight: FontWeight.w800, color: const Color(0xFFD6B56B), maxLines: 1);
   } else {
     coverFrame = const Rect.fromLTWH(205, 260, 670, 760);
     coverRect = const Rect.fromLTWH(235, 290, 610, 700);
   }
 
-  rounded(coverFrame, dark ? const Color(0xFFF2E8DA) : Colors.white,
-      radius: 32, stroke: dark ? const Color(0x33FFFFFF) : const Color(0xFFE8E0D2));
-  paintImage(canvas: canvas, rect: coverRect, image: cover, fit: BoxFit.contain, filterQuality: FilterQuality.high);
+  if (template == BookStoryTemplate.polaroid) {
+    canvas.save();
+    final center = coverFrame.center;
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(-0.065);
+    canvas.translate(-center.dx, -center.dy);
+    rounded(coverFrame, Colors.white, radius: 8, stroke: const Color(0x22000000));
+    paintImage(canvas: canvas, rect: coverRect, image: cover, fit: BoxFit.contain, filterQuality: FilterQuality.high);
+    canvas.restore();
+  } else {
+    rounded(coverFrame, dark ? const Color(0xFFF2E8DA) : Colors.white,
+        radius: template == BookStoryTemplate.collage ? 6 : 32,
+        stroke: dark ? const Color(0x33FFFFFF) : const Color(0xFFE8E0D2));
+    paintImage(canvas: canvas, rect: coverRect, image: cover, fit: BoxFit.contain, filterQuality: FilterQuality.high);
+  }
 
-  var infoTop = template == BookStoryTemplate.emerald ? 1140.0 : 1080.0;
+  var infoTop = template == BookStoryTemplate.coverFocus
+      ? 1370.0
+      : (template == BookStoryTemplate.emerald ? 1140.0 : 1080.0);
   final titleAlreadyShown = template == BookStoryTemplate.library ||
       template == BookStoryTemplate.minimal ||
       template == BookStoryTemplate.sunset ||
@@ -856,12 +953,19 @@ Future<Uint8List> _renderAlternativeBookStory(
       template == BookStoryTemplate.poster ||
       template == BookStoryTemplate.noir ||
       template == BookStoryTemplate.geometric ||
-      template == BookStoryTemplate.paper;
+      template == BookStoryTemplate.paper ||
+      template == BookStoryTemplate.split ||
+      template == BookStoryTemplate.polaroid ||
+      template == BookStoryTemplate.collage ||
+      template == BookStoryTemplate.coverFocus;
   if (!titleAlreadyShown) {
     textBox(book.title, Rect.fromLTWH(90, infoTop, 900, 90), 45, weight: FontWeight.w900, color: fg);
     infoTop += 84;
   }
-  if (book.author.trim().isNotEmpty && book.author != 'Ko‘rsatilmagan' && template != BookStoryTemplate.minimal) {
+  if (book.author.trim().isNotEmpty &&
+      book.author != 'Ko‘rsatilmagan' &&
+      template != BookStoryTemplate.minimal &&
+      template != BookStoryTemplate.split) {
     textBox(book.author.trim(), Rect.fromLTWH(120, infoTop, 840, 42), 22, color: dark ? const Color(0xFFE5DED4) : muted, maxLines: 1);
     infoTop += 45;
   }

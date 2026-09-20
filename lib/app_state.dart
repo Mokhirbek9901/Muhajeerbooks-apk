@@ -557,6 +557,26 @@ class BackendService {
         .toList();
   }
 
+  Future<Map<String, dynamic>> submitPreorder(String installId, String bookId, String name, String phone, {int quantity = 1}) async {
+    final raw = await _customerRpc('customer_preorder_submit', {'p_install_id': installId, 'p_book_id': bookId, 'p_customer_name': name, 'p_phone': phone, 'p_quantity': quantity});
+    return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+  }
+
+  Future<Map<String, dynamic>> requestMissingBook(String installId, String title, {String author = '', String phone = ''}) async {
+    final raw = await _customerRpc('customer_book_request_submit', {'p_install_id': installId, 'p_title': title, 'p_author': author, 'p_phone': phone});
+    return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+  }
+
+  Future<void> logSearchMiss(String installId, String query) async {
+    await _customerRpc('customer_search_miss_log', {'p_install_id': installId, 'p_query': query});
+  }
+
+  Future<List<Map<String, dynamic>>> fetchBundles() async {
+    final raw = await _customerRpc('customer_bundle_list', const {});
+    if (raw is! List) return const [];
+    return raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
   Future<String> uploadPaymentProof(XFile file) async {
     final bytes = await file.readAsBytes();
     if (bytes.isEmpty) throw StateError('Chek rasmi bo‘sh.');

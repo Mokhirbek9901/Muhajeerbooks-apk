@@ -30,7 +30,7 @@ class _BookStoryPageState extends State<BookStoryPage> {
     BookStoryTemplate.current,    // Avto dizayn — yangi kompozitsiyani o‘zi yaratadi
     BookStoryTemplate.oldCurrent, // Hozir — eski tanish dizayn
     BookStoryTemplate.smartMatch, // Mos dizayn — mavjud dizaynlardan muqovaga mosini tanlaydi
-    BookStoryTemplate.decorative, // Dekorativ
+    BookStoryTemplate.decorative, // Klassik
     BookStoryTemplate.spring,
     BookStoryTemplate.summer,
     BookStoryTemplate.autumn,

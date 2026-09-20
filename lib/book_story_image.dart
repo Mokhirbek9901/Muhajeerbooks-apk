@@ -486,7 +486,7 @@ Future<Uint8List> renderBookStory(
     String value,
     double y,
     double size, {
-    Color color = ink,
+    Color? color,
     FontWeight weight = FontWeight.w500,
     double width = 900,
   }) {
@@ -497,7 +497,7 @@ Future<Uint8List> renderBookStory(
           fontFamily: 'Roboto',
           fontSize: size,
           fontWeight: weight,
-          color: color,
+          color: color ?? ink,
           height: 1.1,
         ),
       ),

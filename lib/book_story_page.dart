@@ -26,20 +26,12 @@ class _BookStoryPageState extends State<BookStoryPage> {
   // Eng yangi dizaynlar tepada ko‘rinsin — foydalanuvchi ularni qidirib
   // pastga tushmasin. Qolganlari avvalgi tartibda saqlanadi.
   static const List<BookStoryTemplate> _templateOrder = [
-    // Yangi 4 ta o‘zbekona milliy dizayn.
+    // Muqova ranglarini o‘zi tahlil qilib, fon/yozuv/aksentlarni moslaydi.
+    BookStoryTemplate.current,    // Avto dizayn
     BookStoryTemplate.adras,      // Naqqosh
-    BookStoryTemplate.mosaic,     // Paxta
-    BookStoryTemplate.yurt,       // Xattotlik
-    BookStoryTemplate.heritage,   // Chorsu
-    // Yangi 4 ta butunlay boshqa yo‘nalish.
-    BookStoryTemplate.atlas,      // Bahor
     BookStoryTemplate.cinema,     // Tun va shahar
     BookStoryTemplate.ornament,   // Sado
     BookStoryTemplate.noir,       // Zamonaviy
-    // Saqlanadigan avvalgi dizaynlar.
-    BookStoryTemplate.kokand,
-    BookStoryTemplate.khiva,
-    BookStoryTemplate.turon,
     BookStoryTemplate.marble,
     BookStoryTemplate.terracotta,
     BookStoryTemplate.royal,
@@ -48,7 +40,6 @@ class _BookStoryPageState extends State<BookStoryPage> {
     BookStoryTemplate.cleanStudio,
     BookStoryTemplate.goldArch,
     BookStoryTemplate.scrapbook,
-    BookStoryTemplate.current,
     BookStoryTemplate.arch,
     BookStoryTemplate.split,
     BookStoryTemplate.polaroid,

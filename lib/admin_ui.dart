@@ -384,8 +384,8 @@ class _AdminApi {
     final ordersData = await orders();
     final context = <String,dynamic>{
       'books': booksData.take(300).map((b)=>{'title':b.title,'author':b.author,'publisher':b.publisher,'category':b.category,'price':b.currentPrice,'cost_price':b.costPrice,'stock':b.stock,'active':b.isActive}).toList(),
-      'sales': salesData.take(1000).toList(),
-      'orders': ordersData.take(500).map((o)=>o.toMap()).toList(),
+      'sales': salesData.take(1000).map((s)=>{'book_id':s['book_id'],'title':s['title'],'quantity':s['quantity']??s['qty'],'unit_price':s['unit_price']??s['price'],'total':s['total'],'cost_price':s['cost_price'],'created_at':s['created_at']}).toList(),
+      'orders': ordersData.take(500).map((o)=>{'status':o.status,'source':o.source,'delivery_fee':o.deliveryFee,'subtotal':o.subtotal,'total':o.total,'items':o.items,'created_at':o.createdAt.toIso8601String(),'stock_reserved':o.stockReserved}).toList(),
     };
     final r=await http.post(_serverUri('/api/admin-ai'),headers:{'Content-Type':'application/json'},body:jsonEncode({'admin_code':secret,'query':query,'context':context})).timeout(const Duration(seconds:120));
     final data=jsonDecode(r.body);

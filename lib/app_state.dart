@@ -67,6 +67,7 @@ class Book {
     this.coverType = 'Ko‘rsatilmagan',
     this.costPrice = 0,
     this.recommended = false,
+    this.preorderEnabled = false,
     this.createdAt,
   });
 
@@ -88,6 +89,7 @@ class Book {
   final String coverType;
   final int costPrice;
   final bool recommended;
+  final bool preorderEnabled;
   final DateTime? createdAt;
 
   bool get discountActive {
@@ -160,6 +162,7 @@ class Book {
         .toString(),
     costPrice: (map['cost_price'] as num?)?.toInt() ?? 0,
     recommended: map['recommended'] as bool? ?? false,
+    preorderEnabled: map['preorder_enabled'] as bool? ?? false,
     createdAt: DateTime.tryParse((map['created_at'] ?? '').toString()),
   );
 
@@ -199,6 +202,7 @@ class Book {
     'cover_type': coverType,
     'cost_price': costPrice,
     'recommended': recommended,
+    'preorder_enabled': preorderEnabled,
   };
 
   Map<String, dynamic> toLocalMap() => {
@@ -227,6 +231,7 @@ class Book {
     String? coverType,
     int? costPrice,
     bool? recommended,
+    bool? preorderEnabled,
     DateTime? createdAt,
   }) => Book(
     id: id ?? this.id,
@@ -249,6 +254,7 @@ class Book {
     coverType: coverType ?? this.coverType,
     costPrice: costPrice ?? this.costPrice,
     recommended: recommended ?? this.recommended,
+    preorderEnabled: preorderEnabled ?? this.preorderEnabled,
     createdAt: createdAt ?? this.createdAt,
   );
 }
@@ -384,7 +390,7 @@ class BackendService {
 
   static const String _storefrontBookColumns =
       'id,legacy_id,title,author,publisher,category,description,price,stock,'
-      'discount_percent,discount_ends_at,image_url,thumbnail_url,image_urls,is_active,cover_type,recommended,'
+      'discount_percent,discount_ends_at,image_url,thumbnail_url,image_urls,is_active,cover_type,recommended,preorder_enabled,'
       'created_at';
 
   Future<dynamic> _customerRpc(

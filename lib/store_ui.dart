@@ -1051,10 +1051,11 @@ class _DiscountCountdownBannerState extends State<_DiscountCountdownBanner> {
 
   @override
   Widget build(BuildContext context) {
-    final discount = context.select<AppState, ({DateTime? end, int percent})>(
+    final discount = context.select<AppState, ({DateTime? end, int percent, bool blocksFreeDelivery})>(
       (s) => (
         end: s.activeDiscountEndsAt,
         percent: s.activeGlobalDiscountPercent,
+        blocksFreeDelivery: s.discountBlocksFourPlusFreeDelivery,
       ),
     );
     final end = discount.end;
@@ -1107,6 +1108,31 @@ class _DiscountCountdownBannerState extends State<_DiscountCountdownBanner> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+                if (discount.blocksFreeDelivery) ...[
+                  const SizedBox(height: 7),
+                  const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.local_shipping_outlined,
+                        size: 16,
+                        color: AppColors.danger,
+                      ),
+                      SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Chegirma davrida 4+ kitobda yetkazib berish bepul aksiyasi amal qilmaydi.',
+                          style: TextStyle(
+                            color: AppColors.danger,
+                            fontSize: 11.5,
+                            height: 1.3,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -3069,7 +3095,9 @@ class CartPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final lines = state.cartLines;
-    final deliveryFee = state.cartCount >= 4 ? 0 : AppState.deliveryFee;
+    final deliveryFee = state.cartCount >= 4 && state.fourPlusFreeDeliveryEnabled
+        ? 0
+        : AppState.deliveryFee;
     final grandTotal = state.cartSubtotal + deliveryFee;
     return Scaffold(
       backgroundColor: UzbekCustomerColors.background,
@@ -3088,10 +3116,12 @@ class CartPage extends StatelessWidget {
         ],
       ),
       body: lines.isEmpty
-          ? const _EmptyState(
+          ? _EmptyState(
               icon: Icons.shopping_bag_outlined,
               title: 'Savatcha bo‘sh',
-              subtitle: 'Kerakli kitoblarni savatchaga qo‘shing. 4 ta va undan ko‘p kitobda yetkazib berish bepul.',
+              subtitle: state.discountBlocksFourPlusFreeDelivery
+                  ? 'Hozir chegirma amalda. Chegirma davrida 4+ kitobda yetkazib berish bepul aksiyasi amal qilmaydi.'
+                  : 'Kerakli kitoblarni savatchaga qo‘shing. 4 ta va undan ko‘p kitobda yetkazib berish bepul.',
             )
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 190),
@@ -3100,23 +3130,34 @@ class CartPage extends StatelessWidget {
                   title: 'Sizning tanlovingiz',
                   subtitle: '${state.cartCount} dona kitob',
                   trailing: AppInfoPill(
-                    icon: state.cartCount >= 4
-                        ? Icons.card_giftcard_rounded
-                        : Icons.local_shipping_outlined,
-                    label: state.cartCount >= 4
-                        ? 'Yetkazish bepul'
-                        : '4+ kitobda bepul',
-                    foreground: state.cartCount >= 4
+                    icon: state.discountBlocksFourPlusFreeDelivery
+                        ? Icons.local_shipping_outlined
+                        : (state.cartCount >= 4
+                            ? Icons.card_giftcard_rounded
+                            : Icons.local_shipping_outlined),
+                    label: state.discountBlocksFourPlusFreeDelivery
+                        ? 'Chegirmada ₩4,000'
+                        : (state.cartCount >= 4
+                            ? 'Yetkazish bepul'
+                            : '4+ kitobda bepul'),
+                    foreground: !state.discountBlocksFourPlusFreeDelivery &&
+                            state.cartCount >= 4
                         ? AppColors.success
                         : AppColors.navy,
-                    background: state.cartCount >= 4
+                    background: !state.discountBlocksFourPlusFreeDelivery &&
+                            state.cartCount >= 4
                         ? AppColors.successSoft
                         : AppColors.surfaceSoft,
-                    border: state.cartCount >= 4
+                    border: !state.discountBlocksFourPlusFreeDelivery &&
+                            state.cartCount >= 4
                         ? const Color(0xFFCDEAD7)
                         : AppColors.border,
                   ),
                 ),
+                if (state.discountBlocksFourPlusFreeDelivery) ...[
+                  const _DiscountShippingWarning(),
+                  const SizedBox(height: 10),
+                ],
                 ...lines.map(
                   (line) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
@@ -3279,22 +3320,27 @@ class CartPage extends StatelessWidget {
                     Row(
                       children: [
                         Icon(
-                          state.cartCount >= 4
+                          state.cartCount >= 4 &&
+                                  state.fourPlusFreeDeliveryEnabled
                               ? Icons.check_circle_rounded
                               : Icons.local_shipping_outlined,
                           size: 16,
-                          color: state.cartCount >= 4
+                          color: state.cartCount >= 4 &&
+                                  state.fourPlusFreeDeliveryEnabled
                               ? AppColors.success
                               : AppColors.muted,
                         ),
                         const SizedBox(width: 5),
                         Expanded(
                           child: Text(
-                            state.cartCount >= 4
-                                ? 'Yetkazib berish siz uchun bepul'
-                                : '택배 ₩4,000 • 4+ kitobda bepul',
+                            state.discountBlocksFourPlusFreeDelivery
+                                ? 'Chegirma davrida 택배 ₩4,000'
+                                : (state.cartCount >= 4
+                                    ? 'Yetkazib berish siz uchun bepul'
+                                    : '택배 ₩4,000 • 4+ kitobda bepul'),
                             style: TextStyle(
-                              color: state.cartCount >= 4
+                              color: state.cartCount >= 4 &&
+                                      state.fourPlusFreeDeliveryEnabled
                                   ? AppColors.success
                                   : AppColors.muted,
                               fontSize: 11.5,
@@ -3341,6 +3387,43 @@ class _QtyButton extends StatelessWidget {
       padding: EdgeInsets.zero,
       iconSize: 18,
       icon: Icon(icon),
+    ),
+  );
+}
+
+class _DiscountShippingWarning extends StatelessWidget {
+  const _DiscountShippingWarning();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFF1F2),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: const Color(0xFFFFCDD2)),
+    ),
+    child: const Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          Icons.local_shipping_outlined,
+          size: 20,
+          color: AppColors.danger,
+        ),
+        SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            'Chegirma davrida 4+ kitobda yetkazib berish bepul aksiyasi amal qilmaydi.',
+            style: TextStyle(
+              color: AppColors.danger,
+              fontSize: 12,
+              height: 1.35,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ],
     ),
   );
 }
@@ -3403,7 +3486,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final isGyeongsanPickup = delivery == '경산 직접수령';
     final deliveryFee = isGyeongsanPickup
         ? 0
-        : (state.cartCount >= 4 ? 0 : AppState.deliveryFee);
+        : (state.cartCount >= 4 && state.fourPlusFreeDeliveryEnabled
+              ? 0
+              : AppState.deliveryFee);
     final total = state.cartSubtotal + deliveryFee;
 
     return Scaffold(
@@ -3484,6 +3569,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
             const SizedBox(height: 22),
             const _CheckoutStepHeader(number: '2', title: 'Yetkazib berish'),
             const SizedBox(height: 8),
+            if (state.discountBlocksFourPlusFreeDelivery) ...[
+              const _DiscountShippingWarning(),
+              const SizedBox(height: 10),
+            ],
             Card(
               child: Column(
                 children: [
@@ -3496,9 +3585,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       style: TextStyle(fontWeight: FontWeight.w800),
                     ),
                     subtitle: Text(
-                      state.cartCount >= 4
-                          ? '4+ kitob — BEPUL • 1–3 ish kuni'
-                          : '₩4,000 • 1–3 ish kuni',
+                      state.discountBlocksFourPlusFreeDelivery
+                          ? 'Chegirma davrida ₩4,000 • 1–3 ish kuni'
+                          : (state.cartCount >= 4
+                              ? '4+ kitob — BEPUL • 1–3 ish kuni'
+                              : '₩4,000 • 1–3 ish kuni'),
                     ),
                   ),
                   const Divider(height: 1),

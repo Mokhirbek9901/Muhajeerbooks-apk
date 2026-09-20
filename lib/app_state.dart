@@ -1220,6 +1220,27 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  Future<String> submitPreorder(Book book) async {
+    if (_backend == null) return 'Pre-order uchun internet kerak.';
+    final installId = await _local.installId();
+    await _backend!.submitPreorder(installId, book.id, savedCustomer['name'] ?? '', savedCustomer['phone'] ?? '');
+    return 'Pre-order qabul qilindi ✅';
+  }
+
+  Future<String> requestMissingBook(String title) async {
+    if (_backend == null) return 'So‘rov yuborish uchun internet kerak.';
+    final clean = title.trim();
+    if (clean.length < 2) return 'Kitob nomini yozing.';
+    final installId = await _local.installId();
+    await _backend!.requestMissingBook(installId, clean, phone: savedCustomer['phone'] ?? '');
+    return 'So‘rovingiz yuborildi ✅';
+  }
+
+  Future<void> recordSearchMiss(String query) async {
+    if (_backend == null || query.trim().length < 2) return;
+    try { await _backend!.logSearchMiss(await _local.installId(), query.trim()); } catch (_) {}
+  }
+
   Future<String> toggleRestockNotification(Book book) async {
     if (book.inStock) return 'Kitob hozir sotuvda mavjud.';
     if (_backend == null) return 'Xabar berish uchun internet kerak.';

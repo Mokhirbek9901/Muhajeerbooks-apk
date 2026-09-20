@@ -52,10 +52,46 @@ class _BookStoryPageState extends State<BookStoryPage> {
     BookStoryTemplate.coverFocus,
   ];
 
+  Future<Uint8List> _renderStoryWithRecovery(BookStoryTemplate template) async {
+    try {
+      return await renderBookStory(widget.book, template: template);
+    } catch (_) {
+      // Ayrim iPhone/Safari qurilmalarida murakkab dekorativ canvas bir martalik
+      // raster xato berishi mumkin. Story sahifasini butunlay yiqitmaymiz:
+      // avval ishonchli asosiy dizaynga qaytamiz.
+      if (template != BookStoryTemplate.current) {
+        try {
+          final bytes = await renderBookStory(
+            widget.book,
+            template: BookStoryTemplate.current,
+          );
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString(
+              _templatePreferenceKey,
+              BookStoryTemplate.current.name,
+            );
+          } catch (_) {}
+          if (mounted && _template == template) {
+            setState(() => _template = BookStoryTemplate.current);
+          }
+          return bytes;
+        } catch (_) {
+          // Pastdagi yakuniy qayta urinishga o'tamiz.
+        }
+      }
+
+      // CanvasKit/Safari'dagi vaqtinchalik raster xatosi uchun bir marta qayta
+      // urinish. Bu internet xatosi deb noto'g'ri ko'rsatishning oldini oladi.
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      return renderBookStory(widget.book, template: BookStoryTemplate.current);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    _image = renderBookStory(widget.book, template: _template);
+    _image = _renderStoryWithRecovery(_template);
     _restoreTemplate();
   }
 
@@ -80,7 +116,7 @@ class _BookStoryPageState extends State<BookStoryPage> {
       final restoredTemplate = restored!;
       setState(() {
         _template = restoredTemplate;
-        _image = renderBookStory(widget.book, template: restoredTemplate);
+        _image = _renderStoryWithRecovery(restoredTemplate);
       });
     } catch (_) {
       // Saqlangan tanlov o‘qilmasa hozirgi dizayn bilan davom etamiz.
@@ -94,7 +130,7 @@ class _BookStoryPageState extends State<BookStoryPage> {
     if (_template == template) return;
     setState(() {
       _template = template;
-      _image = renderBookStory(widget.book, template: template);
+      _image = _renderStoryWithRecovery(template);
     });
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -149,10 +185,10 @@ class _BookStoryPageState extends State<BookStoryPage> {
         if (snapshot.hasError) return Center(child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Text('Kitob rasmini yuklab bo‘lmadi. Internetni tekshirib, qayta urinib ko‘ring.'),
+            const Text('Story rasmini tayyorlashda xatolik bo‘ldi. Qayta urinib ko‘ring.'),
             const SizedBox(height: 16),
             FilledButton(onPressed: () => setState(() {
-              _image = renderBookStory(widget.book, template: _template);
+              _image = _renderStoryWithRecovery(_template);
             }), child: const Text('Qayta urinish')),
           ]),
         ));

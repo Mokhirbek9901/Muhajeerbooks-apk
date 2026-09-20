@@ -509,6 +509,13 @@ class _AdminApi {
     );
   }
 
+  Future<void> deleteBundle(String id) async {
+    await _rpc(
+      'admin_bundle_delete',
+      params: {'p_secret': secret, 'p_id': id},
+    );
+  }
+
   Future<List<Map<String, dynamic>>> restockWaitlist() async {
     final raw = await _rpc(
       'admin_restock_waitlist',
@@ -5502,6 +5509,44 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
     }
   }
 
+  Future<void> _deleteBundle(Map<String, dynamic> bundle) async {
+    final id = (bundle['id'] ?? '').toString();
+    if (id.isEmpty) return;
+    final title = (bundle['title'] ?? 'Kitob seti').toString();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Setni o‘chirish'),
+        content: Text('“$title” setini butunlay o‘chirasizmi?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Yo‘q'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('O‘chirish'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await widget.api.deleteBundle(id);
+      if (!mounted) return;
+      setState(_reload);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kitob seti o‘chirildi.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Set o‘chirilmadi: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Savdo imkoniyatlari')),
@@ -5581,10 +5626,23 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
                                       : 'pochta alohida',
                                 ].join(' • '),
                               ),
-                              trailing: Icon(
-                                b['is_active'] == true
-                                    ? Icons.visibility_rounded
-                                    : Icons.visibility_off_rounded,
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    b['is_active'] == true
+                                        ? Icons.visibility_rounded
+                                        : Icons.visibility_off_rounded,
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Setni o‘chirish',
+                                    onPressed: () => _deleteBundle(b),
+                                    icon: const Icon(
+                                      Icons.delete_outline_rounded,
+                                      color: AppColors.danger,
+                                    ),
+                                  ),
+                                ],
                               ),
                               onTap: () =>
                                   _openBundleEditor(books, bundle: b),

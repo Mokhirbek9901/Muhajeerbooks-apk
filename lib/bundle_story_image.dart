@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -34,18 +33,21 @@ Future<ui.Image?> _loadBundleCover(Book book) async {
               interpolation: img.Interpolation.average,
             )
           : decoded;
-      final rgba = Uint8List.fromList(
-        resized.getBytes(order: img.ChannelOrder.rgba),
+      final safe = img.Image(
+        width: resized.width,
+        height: resized.height,
+        numChannels: 3,
       );
-      final completer = Completer<ui.Image>();
-      ui.decodeImageFromPixels(
-        rgba,
-        resized.width,
-        resized.height,
-        ui.PixelFormat.rgba8888,
-        completer.complete,
-      );
-      return await completer.future;
+      img.fill(safe, color: img.ColorRgb8(255, 255, 255));
+      img.compositeImage(safe, resized);
+      final safePng = Uint8List.fromList(img.encodePng(safe, level: 4));
+      final codec = await ui.instantiateImageCodec(safePng, targetWidth: 360);
+      try {
+        final frame = await codec.getNextFrame();
+        return frame.image;
+      } finally {
+        codec.dispose();
+      }
     } catch (_) {
       // Keyingi rasm manzilini sinab ko‘ramiz.
     }

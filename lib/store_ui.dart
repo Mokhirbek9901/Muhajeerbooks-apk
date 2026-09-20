@@ -763,21 +763,13 @@ class _BookBundlesPageState extends State<BookBundlesPage> {
                               children: [
                                 Row(
                                   children: [
-                                    const Text(
-                                      'Asl narxi: ',
-                                      style: TextStyle(
-                                        color: AppColors.muted,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
                                     Text(
                                       won(regularTotal),
                                       style: const TextStyle(
                                         color: AppColors.muted,
-                                        fontSize: 13,
+                                        fontSize: 16,
                                         decoration: TextDecoration.lineThrough,
-                                        decorationThickness: 2,
+                                        decorationThickness: 2.5,
                                         fontWeight: FontWeight.w800,
                                       ),
                                     ),
@@ -796,9 +788,9 @@ class _BookBundlesPageState extends State<BookBundlesPage> {
                                 Row(
                                   children: [
                                     Text(
-                                      'Setda: ${won(setPrice)}',
+                                      'Setda ${won(setPrice)}',
                                       style: const TextStyle(
-                                        fontSize: 20,
+                                        fontSize: 21,
                                         fontWeight: FontWeight.w900,
                                         color: AppColors.navy,
                                       ),
@@ -1036,19 +1028,13 @@ class _BookBundleDetailPageState extends State<BookBundleDetailPage> {
                 if (saving > 0) ...[
                   Row(
                     children: [
-                      const Text(
-                        'Asl narxi: ',
-                        style: TextStyle(
-                          color: AppColors.muted,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
                       Text(
                         won(regularTotal),
                         style: const TextStyle(
                           color: AppColors.muted,
+                          fontSize: 17,
                           decoration: TextDecoration.lineThrough,
-                          decorationThickness: 2,
+                          decorationThickness: 2.5,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -1064,9 +1050,9 @@ class _BookBundleDetailPageState extends State<BookBundleDetailPage> {
                   const SizedBox(height: 10),
                 ],
                 Text(
-                  'Setda: ${won(setPrice)}',
+                  'Setda ${won(setPrice)}',
                   style: const TextStyle(
-                    fontSize: 22,
+                    fontSize: 23,
                     fontWeight: FontWeight.w900,
                     color: AppColors.navy,
                   ),

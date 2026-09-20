@@ -252,7 +252,7 @@ class _StoreShellState extends State<StoreShell> {
 
   @override
   Widget build(BuildContext context) {
-    final cartCount = context.select<AppState, int>((s) => s.cartCount);
+    final cartCount = context.select<AppState, int>((s) => s.cartDisplayCount);
     final latestNoticeId = context.select<AppState, String?>(
       (s) => s.latestUnreadCustomerNotice?['id']?.toString(),
     );
@@ -3346,9 +3346,9 @@ class CartPage extends StatelessWidget {
     final state = context.watch<AppState>();
     final lines = state.cartStandaloneLines;
     final bundles = state.cartBundles;
-    final hasItems = state.cartCount > 0;
+    final hasItems = state.cartDisplayCount > 0;
     final deliveryFee = state.cartBundleDeliveryIncluded ||
-            (state.cartCount >= 4 && state.fourPlusFreeDeliveryEnabled)
+            (state.cartDisplayCount >= 4 && state.fourPlusFreeDeliveryEnabled)
         ? 0
         : AppState.deliveryFee;
     final grandTotal = state.cartSubtotal + deliveryFee;
@@ -3385,24 +3385,24 @@ class CartPage extends StatelessWidget {
                   trailing: AppInfoPill(
                     icon: state.discountBlocksFourPlusFreeDelivery
                         ? Icons.local_shipping_outlined
-                        : (state.cartCount >= 4
+                        : (state.cartDisplayCount >= 4
                             ? Icons.card_giftcard_rounded
                             : Icons.local_shipping_outlined),
                     label: state.discountBlocksFourPlusFreeDelivery
                         ? 'Chegirmada ₩4,000'
-                        : (state.cartCount >= 4
+                        : (state.cartDisplayCount >= 4
                             ? 'Yetkazish bepul'
                             : '4+ kitobda bepul'),
                     foreground: !state.discountBlocksFourPlusFreeDelivery &&
-                            state.cartCount >= 4
+                            state.cartDisplayCount >= 4
                         ? AppColors.success
                         : AppColors.navy,
                     background: !state.discountBlocksFourPlusFreeDelivery &&
-                            state.cartCount >= 4
+                            state.cartDisplayCount >= 4
                         ? AppColors.successSoft
                         : AppColors.surfaceSoft,
                     border: !state.discountBlocksFourPlusFreeDelivery &&
-                            state.cartCount >= 4
+                            state.cartDisplayCount >= 4
                         ? const Color(0xFFCDEAD7)
                         : AppColors.border,
                   ),
@@ -3583,13 +3583,13 @@ class CartPage extends StatelessWidget {
                       children: [
                         Icon(
                           (state.cartBundleDeliveryIncluded ||
-                                  (state.cartCount >= 4 &&
+                                  (state.cartDisplayCount >= 4 &&
                                       state.fourPlusFreeDeliveryEnabled))
                               ? Icons.check_circle_rounded
                               : Icons.local_shipping_outlined,
                           size: 16,
                           color: (state.cartBundleDeliveryIncluded ||
-                                  (state.cartCount >= 4 &&
+                                  (state.cartDisplayCount >= 4 &&
                                       state.fourPlusFreeDeliveryEnabled))
                               ? AppColors.success
                               : AppColors.muted,
@@ -3601,12 +3601,12 @@ class CartPage extends StatelessWidget {
                                 ? 'Set narxiga pochta ham kiritilgan'
                                 : (state.discountBlocksFourPlusFreeDelivery
                                     ? 'Chegirma davrida 택배 ₩4,000'
-                                    : (state.cartCount >= 4
+                                    : (state.cartDisplayCount >= 4
                                         ? 'Yetkazib berish siz uchun bepul'
                                         : '택배 ₩4,000 • 4+ kitobda bepul')),
                             style: TextStyle(
                               color: (state.cartBundleDeliveryIncluded ||
-                                      (state.cartCount >= 4 &&
+                                      (state.cartDisplayCount >= 4 &&
                                           state.fourPlusFreeDeliveryEnabled))
                                   ? AppColors.success
                                   : AppColors.muted,
@@ -3751,7 +3751,7 @@ class _BundleCartCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  '1 ta set • $bookCount ta kitob',
+                  'Savatchada 1 ta • ichida $bookCount ta kitob',
                   style: const TextStyle(
                     color: AppColors.muted,
                     fontSize: 11.5,
@@ -3929,7 +3929,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final deliveryFee = isGyeongsanPickup
         ? 0
         : (state.cartBundleDeliveryIncluded ||
-                (state.cartCount >= 4 && state.fourPlusFreeDeliveryEnabled)
+                (state.cartDisplayCount >= 4 && state.fourPlusFreeDeliveryEnabled)
             ? 0
             : AppState.deliveryFee);
     final total = state.cartSubtotal + deliveryFee;
@@ -4030,7 +4030,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     subtitle: Text(
                       state.discountBlocksFourPlusFreeDelivery
                           ? 'Chegirma davrida ₩4,000 • 1–3 ish kuni'
-                          : (state.cartCount >= 4
+                          : (state.cartDisplayCount >= 4
                               ? '4+ kitob — BEPUL • 1–3 ish kuni'
                               : '₩4,000 • 1–3 ish kuni'),
                     ),

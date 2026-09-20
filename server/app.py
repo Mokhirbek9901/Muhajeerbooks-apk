@@ -24,6 +24,10 @@ def health():
 
 @app.post("/api/ai-story-background")
 def ai_story_background():
+    # Paid image generation is admin-only. Verify before touching OpenAI.
+    supplied=(request.form.get("admin_code") or "").strip()
+    if not _verify_admin_code(supplied):
+        return jsonify(error="Unauthorized"),401
     key=os.getenv("OPENAI_API_KEY","").strip()
     if not key: return jsonify(error="AI unavailable"),503
     if _limited(request.headers.get("X-Forwarded-For",request.remote_addr or "").split(",")[0].strip()):

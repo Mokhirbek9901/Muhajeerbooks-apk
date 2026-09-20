@@ -26,11 +26,13 @@ class _BookStoryPageState extends State<BookStoryPage> {
   // Eng yangi dizaynlar tepada ko‘rinsin — foydalanuvchi ularni qidirib
   // pastga tushmasin. Qolganlari avvalgi tartibda saqlanadi.
   static const List<BookStoryTemplate> _templateOrder = [
+    // Yangi 6 ta dekorativ dizayn.
     BookStoryTemplate.atlas,
     BookStoryTemplate.marble,
     BookStoryTemplate.cinema,
     BookStoryTemplate.terracotta,
     BookStoryTemplate.royal,
+    BookStoryTemplate.ornament,
     BookStoryTemplate.silk,
     BookStoryTemplate.botanical,
     BookStoryTemplate.mosaic,

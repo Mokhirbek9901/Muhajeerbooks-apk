@@ -1005,55 +1005,59 @@ Future<Uint8List> _renderAlternativeBookStory(
     textBox(storyPrice(book), const Rect.fromLTWH(160, 1265, 760, 85), 49,
       weight: FontWeight.w800, color: const Color(0xFFD6B56B), maxLines: 1);
   } else if (template == BookStoryTemplate.editorialPage) {
-    textBox(book.title, const Rect.fromLTWH(85, 175, 560, 290), 72,
+    textBox(book.title, const Rect.fromLTWH(85, 175, 560, 260), 68,
       weight: FontWeight.w500, color: const Color(0xFF2D2922), align: TextAlign.left,
       maxLines: 3, fontFamily: 'serif');
-    textBox(book.author, const Rect.fromLTWH(85, 465, 500, 50), 23,
-      color: const Color(0xFF6D5B43), align: TextAlign.left, maxLines: 1,
-      fontFamily: 'serif', fontStyle: FontStyle.italic);
-    coverFrame = const Rect.fromLTWH(500, 610, 500, 650);
-    coverRect = const Rect.fromLTWH(525, 635, 450, 600);
-    textBox(storyPrice(book), const Rect.fromLTWH(85, 640, 340, 80), 46,
+    if (book.author.trim().isNotEmpty && book.author != 'Ko‘rsatilmagan') {
+      textBox(book.author, const Rect.fromLTWH(85, 445, 500, 46), 22,
+        color: const Color(0xFF6D5B43), align: TextAlign.left, maxLines: 1,
+        fontFamily: 'serif', fontStyle: FontStyle.italic);
+    }
+    textBox(storyPrice(book), const Rect.fromLTWH(85, 545, 330, 70), 43,
       weight: FontWeight.w700, color: const Color(0xFF2F5B52), align: TextAlign.left,
       maxLines: 1, fontFamily: 'serif');
+    coverFrame = const Rect.fromLTWH(500, 540, 470, 590);
+    coverRect = const Rect.fromLTWH(525, 565, 420, 540);
   } else if (template == BookStoryTemplate.lifestyle) {
-    textBox('Yaxshi kitob —\nyaxshi hayot.', const Rect.fromLTWH(80, 185, 470, 220), 49,
+    textBox('Yaxshi kitob —\nyaxshi hayot.', const Rect.fromLTWH(80, 185, 470, 205), 47,
       weight: FontWeight.w400, color: Colors.white, align: TextAlign.left,
       maxLines: 3, fontFamily: 'serif', fontStyle: FontStyle.italic);
-    coverFrame = const Rect.fromLTWH(300, 650, 500, 650);
-    coverRect = const Rect.fromLTWH(325, 675, 450, 600);
-    textBox(book.title, const Rect.fromLTWH(110, 1320, 860, 100), 43,
+    coverFrame = const Rect.fromLTWH(315, 535, 450, 575);
+    coverRect = const Rect.fromLTWH(340, 560, 400, 525);
+    textBox(book.title, const Rect.fromLTWH(120, 1135, 840, 100), 41,
       weight: FontWeight.w700, color: Colors.white, maxLines: 2, fontFamily: 'serif');
   } else if (template == BookStoryTemplate.cleanStudio) {
-    textBox('“', const Rect.fromLTWH(70, 165, 130, 120), 105,
+    textBox('“', const Rect.fromLTWH(70, 155, 130, 110), 100,
       weight: FontWeight.w900, color: const Color(0xFFD6D9D3), align: TextAlign.left,
       maxLines: 1, fontFamily: 'serif');
-    textBox(book.title, const Rect.fromLTWH(145, 205, 790, 210), 67,
+    textBox(book.title, const Rect.fromLTWH(145, 195, 790, 195), 63,
       weight: FontWeight.w900, color: navy, align: TextAlign.left, maxLines: 3);
-    textBox(book.author, const Rect.fromLTWH(150, 420, 520, 45), 23,
-      color: muted, align: TextAlign.left, maxLines: 1);
-    coverFrame = const Rect.fromLTWH(265, 570, 550, 670);
-    coverRect = const Rect.fromLTWH(295, 600, 490, 610);
+    if (book.author.trim().isNotEmpty && book.author != 'Ko‘rsatilmagan') {
+      textBox(book.author, const Rect.fromLTWH(150, 400, 520, 42), 22,
+        color: muted, align: TextAlign.left, maxLines: 1);
+    }
+    coverFrame = const Rect.fromLTWH(285, 490, 510, 610);
+    coverRect = const Rect.fromLTWH(315, 520, 450, 550);
   } else if (template == BookStoryTemplate.goldArch) {
     textBox('BILIM  •  XOTIRJAMLIK  •  HAYOT', const Rect.fromLTWH(110, 180, 860, 60), 23,
       weight: FontWeight.w700, color: const Color(0xFFE5C26E), maxLines: 1, letterSpacing: 3);
-    coverFrame = const Rect.fromLTWH(310, 515, 460, 650);
-    coverRect = const Rect.fromLTWH(335, 540, 410, 600);
-    textBox(book.title, const Rect.fromLTWH(120, 1180, 840, 115), 47,
+    coverFrame = const Rect.fromLTWH(330, 455, 420, 570);
+    coverRect = const Rect.fromLTWH(355, 480, 370, 520);
+    textBox(book.title, const Rect.fromLTWH(120, 1050, 840, 110), 44,
       weight: FontWeight.w500, color: const Color(0xFFF4E8CE), maxLines: 2,
       fontFamily: 'serif');
-    textBox(storyPrice(book), const Rect.fromLTWH(200, 1300, 680, 75), 42,
+    textBox(storyPrice(book), const Rect.fromLTWH(200, 1160, 680, 65), 39,
       weight: FontWeight.w800, color: const Color(0xFFE5B84F), maxLines: 1);
   } else if (template == BookStoryTemplate.scrapbook) {
-    textBox('Har bir kitob —\nbir yaxshi odat...', const Rect.fromLTWH(590, 180, 380, 180), 35,
+    textBox('Har bir kitob —\nbir yaxshi odat...', const Rect.fromLTWH(590, 180, 380, 170), 34,
       weight: FontWeight.w500, color: const Color(0xFF4B3B2A), align: TextAlign.left,
       maxLines: 3, fontFamily: 'serif', fontStyle: FontStyle.italic);
-    coverFrame = const Rect.fromLTWH(170, 500, 650, 650);
-    coverRect = const Rect.fromLTWH(205, 535, 580, 545);
-    textBox(book.title, const Rect.fromLTWH(190, 1110, 620, 90), 38,
+    coverFrame = const Rect.fromLTWH(190, 430, 610, 590);
+    coverRect = const Rect.fromLTWH(225, 465, 540, 520);
+    textBox(book.title, const Rect.fromLTWH(180, 1035, 720, 95), 38,
       weight: FontWeight.w600, color: const Color(0xFF4B3B2A), maxLines: 2,
       fontFamily: 'serif', fontStyle: FontStyle.italic);
-    textBox(storyPrice(book), const Rect.fromLTWH(725, 1160, 270, 75), 37,
+    textBox(storyPrice(book), const Rect.fromLTWH(700, 1135, 280, 65), 35,
       weight: FontWeight.w900, color: const Color(0xFF126653), maxLines: 1);
   } else {
     coverFrame = const Rect.fromLTWH(205, 260, 670, 760);
@@ -1076,21 +1080,20 @@ Future<Uint8List> _renderAlternativeBookStory(
     paintImage(canvas: canvas, rect: coverRect, image: cover, fit: BoxFit.contain, filterQuality: FilterQuality.high);
   }
 
-  var infoTop = (template == BookStoryTemplate.coverFocus ||
-          template == BookStoryTemplate.lifestyle ||
-          template == BookStoryTemplate.goldArch ||
-          template == BookStoryTemplate.scrapbook)
-      ? 1370.0
-      : (template == BookStoryTemplate.editorialPage
-          ? 1260.0
-          : (template == BookStoryTemplate.cleanStudio
-              ? 1240.0
-              : (template == BookStoryTemplate.polaroid
-                  ? 1180.0
-                  : ((template == BookStoryTemplate.emerald ||
-                          template == BookStoryTemplate.sunset)
-                      ? 1140.0
-                      : 1080.0))));
+  var infoTop = template == BookStoryTemplate.coverFocus
+      ? 1350.0
+      : ((template == BookStoryTemplate.editorialPage ||
+              template == BookStoryTemplate.lifestyle ||
+              template == BookStoryTemplate.cleanStudio ||
+              template == BookStoryTemplate.goldArch ||
+              template == BookStoryTemplate.scrapbook)
+          ? 1245.0
+          : (template == BookStoryTemplate.polaroid
+              ? 1180.0
+              : ((template == BookStoryTemplate.emerald ||
+                      template == BookStoryTemplate.sunset)
+                  ? 1140.0
+                  : 1080.0)));
   final titleAlreadyShown = template == BookStoryTemplate.library ||
       template == BookStoryTemplate.minimal ||
       template == BookStoryTemplate.sunset ||
@@ -1116,13 +1119,15 @@ Future<Uint8List> _renderAlternativeBookStory(
   if (book.author.trim().isNotEmpty &&
       book.author != 'Ko‘rsatilmagan' &&
       template != BookStoryTemplate.minimal &&
-      template != BookStoryTemplate.split) {
+      template != BookStoryTemplate.split &&
+      template != BookStoryTemplate.editorialPage &&
+      template != BookStoryTemplate.cleanStudio) {
     textBox(book.author.trim(), Rect.fromLTWH(120, infoTop, 840, 42), 22, color: dark ? const Color(0xFFE5DED4) : muted, maxLines: 1);
     infoTop += 45;
   }
 
-  final cardBg = dark ? const Color(0x22FFFFFF) : Colors.white;
-  final cardStroke = dark ? const Color(0x55FFFFFF) : const Color(0xFFE3DDD0);
+  final cardBg = dark ? const Color(0xFF173F49) : const Color(0xFFFFFFFF);
+  final cardStroke = dark ? const Color(0xFF6F8A8E) : const Color(0xFFE3DDD0);
   const gap = 18.0;
   const cardW = 275.0;
   final left = (1080 - (cardW * 3 + gap * 2)) / 2;

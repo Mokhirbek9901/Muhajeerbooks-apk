@@ -11,18 +11,30 @@ import 'app_state.dart';
 final _bundleMoney = NumberFormat('#,###', 'en_US');
 String _wonBundle(int value) => '₩${_bundleMoney.format(value)}';
 
-Future<ui.Image?> _loadBundleCover(String url) async {
-  if (url.trim().isEmpty) return null;
-  try {
-    final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 12));
-    if (response.statusCode != 200) return null;
-    final codec = await ui.instantiateImageCodec(response.bodyBytes, targetWidth: 320);
-    final frame = await codec.getNextFrame();
-    codec.dispose();
-    return frame.image;
-  } catch (_) {
-    return null;
+Future<ui.Image?> _loadBundleCover(Book book) async {
+  final candidates = <String>[
+    book.previewImageUrl,
+    book.imageUrl,
+    ...book.imageUrls,
+  ].map((e) => e.trim()).where((e) => e.isNotEmpty).toSet();
+  for (final url in candidates) {
+    try {
+      final response =
+          await http.get(Uri.parse(url)).timeout(const Duration(seconds: 12));
+      if (response.statusCode != 200 || response.bodyBytes.isEmpty) continue;
+      final codec =
+          await ui.instantiateImageCodec(response.bodyBytes, targetWidth: 320);
+      try {
+        final frame = await codec.getNextFrame();
+        return frame.image;
+      } finally {
+        codec.dispose();
+      }
+    } catch (_) {
+      // Thumbnail ishlamasa asl muqova manzilini sinab ko‘ramiz.
+    }
   }
+  return null;
 }
 
 void _bundleText(
@@ -91,7 +103,7 @@ Future<Uint8List> renderBundleStory(
 
   final covers = <ui.Image?>[];
   for (final entry in entries.take(6)) {
-    covers.add(await _loadBundleCover(entry.book.previewImageUrl));
+    covers.add(await _loadBundleCover(entry.book));
   }
 
   final setPrice = (bundle['price'] as num?)?.toInt() ?? regularTotal;

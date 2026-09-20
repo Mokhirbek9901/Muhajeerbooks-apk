@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
 
 import 'app_state.dart';
@@ -13,25 +14,40 @@ String _wonBundle(int value) => '₩${_bundleMoney.format(value)}';
 
 Future<ui.Image?> _loadBundleCover(Book book) async {
   final candidates = <String>[
-    book.previewImageUrl,
     book.imageUrl,
     ...book.imageUrls,
+    book.previewImageUrl,
   ].map((e) => e.trim()).where((e) => e.isNotEmpty).toSet();
+
   for (final url in candidates) {
     try {
       final response =
-          await http.get(Uri.parse(url)).timeout(const Duration(seconds: 12));
+          await http.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
       if (response.statusCode != 200 || response.bodyBytes.isEmpty) continue;
-      final codec =
-          await ui.instantiateImageCodec(response.bodyBytes, targetWidth: 320);
-      try {
-        final frame = await codec.getNextFrame();
-        return frame.image;
-      } finally {
-        codec.dispose();
-      }
+
+      final decoded = img.decodeImage(response.bodyBytes);
+      if (decoded == null) continue;
+      final resized = decoded.width > 360
+          ? img.copyResize(
+              decoded,
+              width: 360,
+              interpolation: img.Interpolation.average,
+            )
+          : decoded;
+      final rgba = Uint8List.fromList(
+        resized.getBytes(order: img.ChannelOrder.rgba),
+      );
+      final completer = Completer<ui.Image>();
+      ui.decodeImageFromPixels(
+        rgba,
+        resized.width,
+        resized.height,
+        ui.PixelFormat.rgba8888,
+        completer.complete,
+      );
+      return await completer.future;
     } catch (_) {
-      // Thumbnail ishlamasa asl muqova manzilini sinab ko‘ramiz.
+      // Keyingi rasm manzilini sinab ko‘ramiz.
     }
   }
   return null;

@@ -117,13 +117,30 @@ def ai_assistant():
     if not text: return jsonify(error="AI unavailable"),502
     return jsonify(text=text)
 
+def _verify_admin_code(code):
+    code=str(code or "").strip()
+    if not code: return False
+    url=os.getenv("SUPABASE_URL","https://rytfhjvhjxnbhgitowho.supabase.co").rstrip("/")+"/functions/v1/admin-rpc"
+    anon=os.getenv("SUPABASE_ANON_KEY","sb_publishable_5lDr_sw4bu8g3x8LCVzp4g_sHSTMBiO").strip()
+    try:
+      r=requests.post(url,headers={"apikey":anon,"Authorization":f"Bearer {anon}","Content-Type":"application/json"},
+        json={"name":"admin_verify","params":{"p_secret":code}},timeout=15)
+      if r.status_code>=400: return False
+      data=r.json() if r.content else {}
+      if isinstance(data,str):
+        import json
+        data=json.loads(data)
+      return isinstance(data,dict) and data.get("ok") is True and data.get("data") is True
+    except Exception:
+      return False
+
+
 @app.post("/api/admin-ai")
 def admin_ai():
     body=request.get_json(silent=True) or {}
     # Admin code is verified against the same server-side secret used by admin RPC.
     supplied=str(body.get("admin_code",""))
-    expected=os.getenv("ADMIN_CODE","").strip()
-    if not expected or not supplied or not __import__("hmac").compare_digest(supplied,expected):
+    if not _verify_admin_code(supplied):
         return jsonify(error="Unauthorized"),401
     query=str(body.get("query",""))[:1500]
     context=body.get("context") if isinstance(body.get("context"),dict) else {}
@@ -137,8 +154,7 @@ def admin_ai():
 def admin_ai_book_research():
     body=request.get_json(silent=True) or {}
     supplied=str(body.get("admin_code",""))
-    expected=os.getenv("ADMIN_CODE","").strip()
-    if not expected or not supplied or not __import__("hmac").compare_digest(supplied,expected):
+    if not _verify_admin_code(supplied):
         return jsonify(error="Unauthorized"),401
     title=str(body.get("title",""))[:300].strip()
     author=str(body.get("author",""))[:200].strip()

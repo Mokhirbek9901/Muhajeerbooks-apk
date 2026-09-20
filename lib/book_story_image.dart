@@ -394,6 +394,91 @@ Future<ui.Image> _decodeStoryCover(Uint8List encoded) async {
   return completer.future;
 }
 
+Future<Uint8List?> _generateAiStoryBackground(Book book, Uint8List coverBytes) async {
+  try {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('/api/ai-story-background'),
+    );
+    request.fields['title'] = book.title;
+    request.fields['category'] = book.category;
+    request.fields['description'] = _storyDescription(book);
+    request.files.add(http.MultipartFile.fromBytes(
+      'cover',
+      coverBytes,
+      filename: 'cover.jpg',
+    ));
+    final streamed = await request.send().timeout(const Duration(minutes: 4));
+    if (streamed.statusCode != 200) return null;
+    final bytes = await streamed.stream.toBytes();
+    return bytes.isEmpty ? null : Uint8List.fromList(bytes);
+  } catch (_) {
+    // AI vaqtincha ishlamasa odatiy Avto dizayn avtomatik fallback bo‘ladi.
+    return null;
+  }
+}
+
+Future<Uint8List> _renderAiStory(
+  Book book, {
+  required Uint8List coverBytes,
+  required Uint8List backgroundBytes,
+  double renderScale = 1.0,
+}) async {
+  final safeScale = renderScale.clamp(0.5, 1.0).toDouble();
+  final cover = await _decodeStoryCover(coverBytes);
+  final background = await _decodeStoryCover(backgroundBytes);
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  canvas.scale(safeScale);
+
+  paintImage(
+    canvas: canvas,
+    rect: const Rect.fromLTWH(0, 0, 1080, 1920),
+    image: background,
+    fit: BoxFit.cover,
+    filterQuality: FilterQuality.high,
+  );
+  // Matn qismi AI fonidan qat'i nazar doim o‘qilishi uchun yumshoq panel.
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(const Rect.fromLTWH(70, 940, 940, 840), const Radius.circular(46)),
+    Paint()..color = const Color(0xF5F8F5EC),
+  );
+
+  const coverRect = Rect.fromLTWH(250, 165, 580, 700);
+  final card = RRect.fromRectAndRadius(coverRect.inflate(20), const Radius.circular(34));
+  canvas.drawShadow(Path()..addRRect(card), const Color(0x55000000), 22, false);
+  canvas.drawRRect(card, Paint()..color = Colors.white);
+  paintImage(canvas: canvas, rect: coverRect, image: cover, fit: BoxFit.contain, filterQuality: FilterQuality.high);
+
+  void center(String value, double y, double size, Color color, FontWeight weight, {double width=880, int lines=2}) {
+    final p=TextPainter(
+      text:TextSpan(text:value,style:TextStyle(fontFamily:'Roboto',fontSize:size,fontWeight:weight,color:color,height:1.08)),
+      textDirection:ui.TextDirection.ltr,textAlign:TextAlign.center,maxLines:lines,ellipsis:'…',
+    )..layout(maxWidth:width);
+    p.paint(canvas,Offset((1080-p.width)/2,y)); p.dispose();
+  }
+  const ink=Color(0xFF174652), teal=Color(0xFF08786E);
+  center('MUHAJEER BOOKS', 975, 25, ink, FontWeight.w900, lines:1);
+  center(book.title, 1035, 48, ink, FontWeight.w900);
+  center(storyPrice(book), 1155, 66, teal, FontWeight.w900, lines:1);
+  center('🚚  Yetkazib berish: ₩4,000', 1250, 22, const Color(0xFF49666E), FontWeight.w700, lines:1);
+  center(book.stock > 0 ? 'Omborda: ${book.stock} dona' : 'Hozircha mavjud emas', 1300, 28,
+      book.stock > 0 ? const Color(0xFF187A55) : const Color(0xFFB53B3B), FontWeight.w800, lines:1);
+  center(_storyDescription(book), 1365, 22, ink, FontWeight.w500, width:840, lines:3);
+  center(book.inStock ? storyOrderLabel : 'Kitob haqida batafsil', 1515, 33, teal, FontWeight.w900, lines:1);
+  final arrow=Paint()..color=teal..strokeWidth=5..strokeCap=StrokeCap.round..style=PaintingStyle.stroke;
+  canvas.drawLine(const Offset(540,1570),const Offset(540,1618),arrow);
+  canvas.drawPath(Path()..moveTo(522,1600)..lineTo(540,1618)..lineTo(558,1600),arrow);
+  center('@muhajeerbooks', 1695, 26, ink, FontWeight.w500, lines:1);
+
+  final picture=recorder.endRecording();
+  final image=await picture.toImage((1080*safeScale).round(),(1920*safeScale).round());
+  picture.dispose();
+  final png=await _exportStoryPng(image);
+  image.dispose(); cover.dispose(); background.dispose();
+  return png;
+}
+
 Future<Uint8List?> _downloadStoryCover(Book book) async {
   // Story uchun thumbnail emas, avval original muqovani olamiz.
   // Ayrim iPhone/Safari holatlarida thumbnail canvas eksportida qora
@@ -619,6 +704,22 @@ Future<Uint8List> renderBookStory(
   bytes ??= (await rootBundle.load('assets/images/muhajeer_logo.jpg'))
       .buffer
       .asUint8List();
+
+  // Avto dizayn avval muqovani AI bilan ko‘rib, aynan shu kitobga mos
+  // yangi fon yaratadi. API/billing/tarmoq xatosida eski lokal Avto davom etadi.
+  final aiBackground = await _generateAiStoryBackground(book, bytes);
+  if (aiBackground != null) {
+    try {
+      return await _renderAiStory(
+        book,
+        coverBytes: bytes,
+        backgroundBytes: aiBackground,
+        renderScale: safeScale,
+      );
+    } catch (_) {
+      // Render xatosida ham mavjud lokal Avto dizaynni yo‘qotmaymiz.
+    }
+  }
 
   ui.Image cover;
   try {

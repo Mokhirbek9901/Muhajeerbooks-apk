@@ -235,43 +235,89 @@ _CoverPalette _paletteFromCover(Uint8List encoded) {
   );
 }
 
-BookStoryTemplate _bestExistingTemplate(Uint8List encoded) {
-  final p = _paletteFromCover(encoded);
+String _storySemanticText(Book book) {
+  return [
+    book.title,
+    book.author,
+    book.publisher,
+    book.description,
+  ].join(' ').toLowerCase();
+}
 
-  // Faqat tanlovda mavjud bo‘lgan dizaynlar orasidan muqovaga eng mosini tanlaydi.
-  // Rang-barang/yorqin -> lifestyle yoki Gulshan; juda qoramtir -> Tun va shahar/Premium;
-  // ko‘k-yashil -> Koshin/Registon; sokin och -> Clean/Sado; iliq -> Naqqosh/Scrapbook.
-  if (p.brightness < 0.34) {
-    return p.saturation > 0.42
-        ? BookStoryTemplate.cinema
-        : BookStoryTemplate.goldArch;
+int _storyTheme(Book book) {
+  final t = _storySemanticText(book);
+  bool has(List<String> words) => words.any(t.contains);
+
+  if (has(['alloh', 'qur’on', 'quron', 'islom', 'musulmon', 'namoz', 'rasul',
+           'payg‘ambar', 'paygambar', 'sahoba', 'tobein', 'hadis', 'duo',
+           'iymon', 'imon', 'halol', 'jannat', 'oxirat', 'diniy'])) return 1;
+  if (has(['qotillik', 'jinoyat', 'sir', 'detektiv', 'o‘lim', 'olim',
+           'qotil', 'tergov', 'mahbus', 'jinoyatchi'])) return 2;
+  if (has(['sevgi', 'muhabbat', 'qalb', 'nikoh', 'oila', 'ayol', 'er-xotin',
+           'romantik', 'sog‘inch', 'hijron'])) return 3;
+  if (has(['pul', 'boy', 'biznes', 'moliya', 'savdo', 'strategiya', 'muvaffaqiyat',
+           'lider', 'marketing', 'boylik', 'invest'])) return 4;
+  if (has(['bola', 'bolalar', 'ertak', 'sarguzasht', 'maktab', 'o‘smir',
+           'osmir', 'farzand'])) return 5;
+  if (has(['tarix', 'amir', 'sulton', 'xon', 'temur', 'jadid', 'istiqlol',
+           'urush', 'davlat', 'saltanat'])) return 6;
+  if (has(['psixolog', 'fikrlash', 'odat', 'ego', 'ruhiyat', 'motiv',
+           'o‘zini', 'ozini', 'tafakkur'])) return 7;
+  if (has(['she’r', 'sher', 'poeziya', 'hikoya', 'roman', 'qissa',
+           'adabiyot'])) return 8;
+  return 0;
+}
+
+BookStoryTemplate _bestExistingTemplate(Book book, Uint8List encoded) {
+  final p = _paletteFromCover(encoded);
+  final theme = _storyTheme(book);
+
+  // Avval mazmun: kitob nimaga oid ekanini nomi/tavsifi orqali aniqlaymiz.
+  switch (theme) {
+    case 1: // diniy
+      return p.brightness < 0.48 ? BookStoryTemplate.goldArch : BookStoryTemplate.arch;
+    case 2: // detektiv / jinoyat
+      return p.brightness < 0.58 ? BookStoryTemplate.cinema : BookStoryTemplate.noir;
+    case 3: // sevgi / oila
+      return p.saturation > 0.38 ? BookStoryTemplate.terracotta : BookStoryTemplate.botanical;
+    case 4: // biznes / pul
+      return p.brightness < 0.45 ? BookStoryTemplate.goldArch : BookStoryTemplate.cleanStudio;
+    case 5: // bolalar / sarguzasht
+      return p.saturation > 0.42 ? BookStoryTemplate.lifestyle : BookStoryTemplate.polaroid;
+    case 6: // tarix
+      return p.warmth > 0 ? BookStoryTemplate.adras : BookStoryTemplate.marble;
+    case 7: // psixologiya / self-help
+      return p.saturation > 0.35 ? BookStoryTemplate.royal : BookStoryTemplate.cleanStudio;
+    case 8: // badiiy
+      return p.warmth > 0.08 ? BookStoryTemplate.scrapbook : BookStoryTemplate.ornament;
   }
-  if (p.saturation > 0.58) {
-    return p.warmth > 0.08
-        ? BookStoryTemplate.lifestyle
-        : BookStoryTemplate.royal;
-  }
-  if (p.warmth > 0.18) {
-    return p.saturation > 0.34
-        ? BookStoryTemplate.adras
-        : BookStoryTemplate.scrapbook;
-  }
-  if (p.warmth < -0.12) {
-    return p.saturation > 0.30
-        ? BookStoryTemplate.royal
-        : BookStoryTemplate.marble;
-  }
-  if (p.brightness > 0.78 && p.saturation < 0.24) {
-    return BookStoryTemplate.cleanStudio;
-  }
-  if (p.brightness > 0.66) {
-    return p.saturation > 0.30
-        ? BookStoryTemplate.botanical
-        : BookStoryTemplate.ornament;
-  }
-  return p.saturation > 0.32
-      ? BookStoryTemplate.terracotta
-      : BookStoryTemplate.noir;
+
+  // Mavzu aniq topilmasa, muqova vizual xarakteri bo‘yicha.
+  if (p.brightness < 0.30) return p.saturation > 0.40 ? BookStoryTemplate.cinema : BookStoryTemplate.goldArch;
+  if (p.saturation > 0.62) return p.warmth > 0.08 ? BookStoryTemplate.lifestyle : BookStoryTemplate.royal;
+  if (p.warmth > 0.20) return p.saturation > 0.32 ? BookStoryTemplate.adras : BookStoryTemplate.scrapbook;
+  if (p.warmth < -0.14) return p.saturation > 0.30 ? BookStoryTemplate.royal : BookStoryTemplate.marble;
+  if (p.brightness > 0.80 && p.saturation < 0.22) return BookStoryTemplate.cleanStudio;
+  if (p.brightness > 0.66) return p.saturation > 0.30 ? BookStoryTemplate.botanical : BookStoryTemplate.ornament;
+  return p.saturation > 0.32 ? BookStoryTemplate.terracotta : BookStoryTemplate.noir;
+}
+
+int _autoStoryVariant(Book book, _CoverPalette p) {
+  final theme = _storyTheme(book);
+  // Har mavzuning o‘z kompozitsiyasi. Vizual xususiyatlar ichki variantni o‘zgartiradi.
+  if (theme == 1) return 4; // diniy: mihrab/arka
+  if (theme == 2) return 5; // detektiv: qorong‘i kino
+  if (theme == 3) return 6; // sevgi/oila: yumshoq organik
+  if (theme == 4) return 7; // biznes: qat’iy editorial
+  if (theme == 5) return 8; // bolalar: rangli kartochkalar
+  if (theme == 6) return 9; // tarix: milliy/klassik
+  if (theme == 7) return 10; // psixologiya: zamonaviy minimal
+  if (theme == 8) return 11; // badiiy: jurnal/sahifa
+
+  if (p.saturation > 0.48) return 0;
+  if (p.brightness < 0.43) return 1;
+  if (p.warmth > 0.10) return 2;
+  return 3;
 }
 
 Future<ui.Image> _decodeStoryCover(Uint8List encoded) async {
@@ -497,7 +543,7 @@ Future<Uint8List> renderBookStory(
   if (template == BookStoryTemplate.smartMatch) {
     bytes ??= await _downloadStoryCover(book);
     bytes ??= (await rootBundle.load('assets/images/muhajeer_logo.jpg')).buffer.asUint8List();
-    final matched = _bestExistingTemplate(bytes);
+    final matched = _bestExistingTemplate(book, bytes);
     return _renderAlternativeBookStory(
       book,
       matched,
@@ -573,13 +619,7 @@ Future<Uint8List> renderBookStory(
 
   // AVTO DIZAYN: muqovaning yorqinligi, rang to‘yinganligi, issiq/sovuq
   // palitrasi va formatiga qarab nafaqat rang, balki kompozitsiya ham almashadi.
-  final autoVariant = palette.saturation > 0.48
-      ? 0 // rang-barang muqova: editorial split
-      : palette.brightness < 0.43
-          ? 1 // qoramtir muqova: kino/poster
-          : palette.warmth > 0.10
-              ? 2 // iliq muqova: klassik arka
-              : 3; // och/sovuq muqova: galereya
+  final autoVariant = _autoStoryVariant(book, palette);
 
   late final Rect coverRect;
   late final double contentStart;
@@ -616,7 +656,7 @@ Future<Uint8List> renderBookStory(
     simpleText('Koreyadagi o‘zbek kitob do‘koni', 142, 21, color: teal);
     coverRect = const Rect.fromLTWH(245, 245, 590, 640);
     contentStart = 958;
-  } else {
+  } else if (autoVariant == 3) {
     canvas.drawColor(cream, BlendMode.src);
     canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 220), Paint()..color = palette.softAccent);
     canvas.drawRect(const Rect.fromLTWH(70, 255, 940, 650), Paint()..color = Colors.white);
@@ -625,6 +665,76 @@ Future<Uint8List> renderBookStory(
     simpleText('TANLANGAN KITOB', 132, 18, color: teal, weight: FontWeight.w700);
     coverRect = const Rect.fromLTWH(170, 285, 740, 590);
     contentStart = 968;
+  } else if (autoVariant == 4) {
+    // Diniy: mihrab/masjid arkasidan ilhomlangan sokin kompozitsiya.
+    canvas.drawColor(const Color(0xFFF5F0E3), BlendMode.src);
+    canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 1920), Paint()..color = const Color(0xFFF5F0E3));
+    final arch = Path()..moveTo(150, 925)..lineTo(150, 420)
+      ..quadraticBezierTo(540, 35, 930, 420)..lineTo(930, 925)..close();
+    canvas.drawPath(arch, Paint()..color = const Color(0xFFE1D2AA));
+    canvas.drawPath(arch, Paint()..style = PaintingStyle.stroke..strokeWidth = 8..color = const Color(0xFF315D50));
+    canvas.drawCircle(const Offset(540, 112), 14, Paint()..color = const Color(0xFFB58A42));
+    simpleText('MUHAJEER BOOKS', 62, 32, color: const Color(0xFF315D50), weight: FontWeight.w800);
+    simpleText('ILM • MA’RIFAT • MUTOLAA', 112, 17, color: const Color(0xFF8B6A34), weight: FontWeight.w700);
+    coverRect = const Rect.fromLTWH(270, 235, 540, 630);
+    contentStart = 958;
+  } else if (autoVariant == 5) {
+    // Detektiv: kino afishasi kabi keskin qorong‘i kompozitsiya.
+    canvas.drawColor(const Color(0xFF10141A), BlendMode.src);
+    canvas.drawRect(const Rect.fromLTWH(0, 790, 1080, 1130), Paint()..color = cream);
+    canvas.drawRect(const Rect.fromLTWH(70, 70, 12, 650), Paint()..color = const Color(0xFFC63D32));
+    simpleText('MUHAJEER / NOIR', 72, 27, color: Colors.white, weight: FontWeight.w900);
+    coverRect = const Rect.fromLTWH(195, 150, 690, 590);
+    contentStart = 845;
+  } else if (autoVariant == 6) {
+    // Sevgi/oila: yumshoq, iliq va organik shakllar.
+    canvas.drawColor(const Color(0xFFF8EDEA), BlendMode.src);
+    canvas.drawCircle(const Offset(90, 260), 300, Paint()..color = palette.softWarm);
+    canvas.drawCircle(const Offset(1010, 650), 350, Paint()..color = palette.softAccent);
+    simpleText('MUHAJEER BOOKS', 70, 31, color: const Color(0xFF7B4B50), weight: FontWeight.w800);
+    coverRect = const Rect.fromLTWH(230, 190, 620, 650);
+    contentStart = 925;
+  } else if (autoVariant == 7) {
+    // Biznes: qat’iy grid/editorial.
+    canvas.drawColor(const Color(0xFFF1F0EB), BlendMode.src);
+    canvas.drawRect(const Rect.fromLTWH(0, 0, 355, 900), Paint()..color = const Color(0xFF18252B));
+    canvas.drawRect(const Rect.fromLTWH(355, 0, 16, 900), Paint()..color = teal);
+    simpleText('MUHAJEER', 74, 31, color: Colors.white, weight: FontWeight.w900, width: 290);
+    coverRect = const Rect.fromLTWH(420, 130, 570, 680);
+    contentStart = 930;
+  } else if (autoVariant == 8) {
+    // Bolalar/sarguzasht: rangli kartochkali ko‘rinish.
+    canvas.drawColor(const Color(0xFFFFF7DE), BlendMode.src);
+    canvas.drawCircle(const Offset(120, 130), 125, Paint()..color = const Color(0xFFFFD05A));
+    canvas.drawCircle(const Offset(950, 230), 155, Paint()..color = const Color(0xFF8ED5C2));
+    canvas.drawCircle(const Offset(930, 780), 110, Paint()..color = const Color(0xFFF29A8A));
+    simpleText('MUHAJEER BOOKS', 68, 34, color: const Color(0xFF294C55), weight: FontWeight.w900);
+    coverRect = const Rect.fromLTWH(210, 190, 660, 650);
+    contentStart = 925;
+  } else if (autoVariant == 9) {
+    // Tarix: milliy, vazmin klassik ramka.
+    canvas.drawColor(const Color(0xFFEDE0C6), BlendMode.src);
+    canvas.drawRect(const Rect.fromLTWH(55, 55, 970, 820), Paint()..style = PaintingStyle.stroke..strokeWidth = 8..color = const Color(0xFF6A432A));
+    canvas.drawRect(const Rect.fromLTWH(75, 75, 930, 780), Paint()..style = PaintingStyle.stroke..strokeWidth = 2..color = const Color(0xFFB28A57));
+    simpleText('MUHAJEER BOOKS', 82, 31, color: const Color(0xFF5A3927), weight: FontWeight.w900);
+    coverRect = const Rect.fromLTWH(255, 190, 570, 620);
+    contentStart = 925;
+  } else if (autoVariant == 10) {
+    // Psixologiya/self-help: toza zamonaviy minimal.
+    canvas.drawColor(const Color(0xFFF5F6F2), BlendMode.src);
+    canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 150), Paint()..color = ink);
+    canvas.drawCircle(const Offset(900, 700), 250, Paint()..color = palette.softAccent);
+    simpleText('MUHAJEER BOOKS', 50, 31, color: Colors.white, weight: FontWeight.w900);
+    coverRect = const Rect.fromLTWH(185, 210, 710, 620);
+    contentStart = 915;
+  } else {
+    // Badiiy/adabiy: jurnal sahifasi.
+    canvas.drawColor(const Color(0xFFF3EBDD), BlendMode.src);
+    canvas.drawRect(const Rect.fromLTWH(65, 60, 950, 820), Paint()..color = Colors.white);
+    canvas.drawLine(const Offset(120, 150), const Offset(960, 150), Paint()..color = ink..strokeWidth = 3);
+    simpleText('MUHAJEER • ADABIYOT', 82, 26, color: ink, weight: FontWeight.w800);
+    coverRect = const Rect.fromLTWH(235, 205, 610, 620);
+    contentStart = 930;
   }
 
   final frame = RRect.fromRectAndRadius(
@@ -638,7 +748,7 @@ Future<Uint8List> renderBookStory(
     canvas: canvas,
     rect: coverRect,
     image: cover,
-    fit: autoVariant == 3 ? BoxFit.contain : BoxFit.cover,
+    fit: autoVariant >= 3 ? BoxFit.contain : BoxFit.cover,
     filterQuality: FilterQuality.high,
   );
 

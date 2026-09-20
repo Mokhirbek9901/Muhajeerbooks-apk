@@ -764,16 +764,33 @@ class _BookBundlesPageState extends State<BookBundlesPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
-                                    Text(
-                                      won(comparisonTotal),
-                                      style: const TextStyle(
-                                        color: AppColors.muted,
-                                        fontSize: 16,
-                                        decoration: TextDecoration.lineThrough,
-                                        decorationThickness: 2.5,
-                                        fontWeight: FontWeight.w800,
-                                      ),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          deliveryIncluded
+                                              ? 'Jami (pochta bilan)'
+                                              : 'Jami',
+                                          style: const TextStyle(
+                                            color: AppColors.muted,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          won(comparisonTotal),
+                                          style: const TextStyle(
+                                            color: AppColors.muted,
+                                            fontSize: 16,
+                                            decoration: TextDecoration.lineThrough,
+                                            decorationThickness: 2.5,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                     if (saving > 0) ...[
                                       const SizedBox(width: 8),
@@ -1032,8 +1049,18 @@ class _BookBundleDetailPageState extends State<BookBundleDetailPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (saving > 0) ...[
-                  Row(
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Text(
+                        deliveryIncluded ? 'Jami (pochta bilan)' : 'Jami',
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
                       Text(
                         won(comparisonTotal),
                         style: const TextStyle(
@@ -1066,8 +1093,8 @@ class _BookBundleDetailPageState extends State<BookBundleDetailPage> {
                 const SizedBox(height: 5),
                 Text(
                   deliveryIncluded
-                      ? 'Yetkazib berish set narxiga kiritilgan'
-                      : 'Yetkazib berish set narxidan alohida',
+                      ? 'pochta bilan'
+                      : 'pochta alohida',
                   style: TextStyle(
                     color: deliveryIncluded
                         ? AppColors.success

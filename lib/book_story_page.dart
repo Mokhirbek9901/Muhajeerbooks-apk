@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:cross_file/cross_file.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'admin_session.dart';
 import 'app_state.dart';
 import 'book_links.dart';
 import 'book_story_image.dart';
@@ -55,7 +56,7 @@ class _BookStoryPageState extends State<BookStoryPage> {
 
   Future<Uint8List> _renderStoryWithRecovery(BookStoryTemplate template) async {
     try {
-      return await renderBookStory(widget.book, template: template);
+      return await renderBookStory(widget.book, template: template, adminCode: AdminSession.code);
     } catch (_) {
       await Future<void>.delayed(const Duration(milliseconds: 60));
       try {
@@ -63,6 +64,7 @@ class _BookStoryPageState extends State<BookStoryPage> {
           widget.book,
           template: template,
           renderScale: 2 / 3,
+          adminCode: AdminSession.code,
         );
       } catch (_) {
         await Future<void>.delayed(const Duration(milliseconds: 60));
@@ -71,6 +73,7 @@ class _BookStoryPageState extends State<BookStoryPage> {
             widget.book,
             template: template,
             renderScale: 0.5,
+            adminCode: AdminSession.code,
           );
         } catch (_) {
           // CanvasKit/GPU uchala urinishda ham yiqilsa, Safari'ga bog‘liq

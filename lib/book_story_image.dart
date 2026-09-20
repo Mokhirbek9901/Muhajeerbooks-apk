@@ -810,12 +810,17 @@ Future<Uint8List> _renderAlternativeBookStory(
       template == BookStoryTemplate.geometric ||
       template == BookStoryTemplate.collage;
   final displayFont = serif ? 'serif' : (mono ? 'monospace' : 'Roboto');
-  final headerColor = template == BookStoryTemplate.poster ? const Color(0xFF153F48) : fg;
+  final headerColor = template == BookStoryTemplate.poster
+      ? const Color(0xFF153F48)
+      : (template == BookStoryTemplate.sunset ? Colors.white : fg);
   if (template == BookStoryTemplate.split) {
     textBox('MUHAJEER', const Rect.fromLTWH(45, 72, 380, 55), 29,
         weight: FontWeight.w900, color: Colors.white, maxLines: 1, letterSpacing: 4);
     textBox('BOOKS', const Rect.fromLTWH(45, 120, 380, 55), 29,
         weight: FontWeight.w300, color: const Color(0xFFD8B56C), maxLines: 1, letterSpacing: 8);
+  } else if (template == BookStoryTemplate.collage) {
+    // Kollajning o‘z sarlavhasi pastroqda chiziladi. Bu yerda ikkinchi
+    // MUHAJEER BOOKS sarlavhasini chizmaymiz — matnlar ustma-ust tushmaydi.
   } else if (template == BookStoryTemplate.coverFocus) {
     textBox('MUHAJEER BOOKS  /  KITOB TAVSIYASI', const Rect.fromLTWH(95, 70, 890, 55), 24,
         weight: FontWeight.w600, color: const Color(0xFFD8BE86), maxLines: 1, letterSpacing: 2);
@@ -944,7 +949,12 @@ Future<Uint8List> _renderAlternativeBookStory(
 
   var infoTop = template == BookStoryTemplate.coverFocus
       ? 1350.0
-      : (template == BookStoryTemplate.emerald ? 1140.0 : 1080.0);
+      : (template == BookStoryTemplate.polaroid
+          ? 1180.0
+          : ((template == BookStoryTemplate.emerald ||
+                  template == BookStoryTemplate.sunset)
+              ? 1140.0
+              : 1080.0));
   final titleAlreadyShown = template == BookStoryTemplate.library ||
       template == BookStoryTemplate.minimal ||
       template == BookStoryTemplate.sunset ||
@@ -985,16 +995,44 @@ Future<Uint8List> _renderAlternativeBookStory(
       color: book.stock > 0 ? (dark ? const Color(0xFFB8F0D1) : const Color(0xFF187A55)) : const Color(0xFFB53B3B));
 
   final description = _storyDescription(book);
-  textBox(description, Rect.fromLTWH(100, infoTop + 155, 880, 190), 23,
-      color: dark ? const Color(0xFFF1ECE5) : navy, maxLines: 5);
+  final descriptionOnDark = dark ||
+      template == BookStoryTemplate.sunset ||
+      template == BookStoryTemplate.poster ||
+      template == BookStoryTemplate.collage;
+  final descriptionRect = Rect.fromLTWH(90, infoTop + 150, 900, 200);
+  final descriptionBg = descriptionOnDark
+      ? const Color(0xCC102F36)
+      : const Color(0xEFFFFFFF);
+  final descriptionStroke = descriptionOnDark
+      ? const Color(0x44FFFFFF)
+      : const Color(0x22000000);
+  final descriptionText = descriptionOnDark
+      ? const Color(0xFFF8F3EA)
+      : navy;
+  rounded(descriptionRect, descriptionBg, radius: 24, stroke: descriptionStroke);
+  textBox(
+    description,
+    Rect.fromLTWH(
+      descriptionRect.left + 24,
+      descriptionRect.top + 18,
+      descriptionRect.width - 48,
+      descriptionRect.height - 36,
+    ),
+    22,
+    color: descriptionText,
+    maxLines: 5,
+  );
 
-  final buttonY = infoTop + 365;
-  rounded(Rect.fromLTWH(170, buttonY, 740, 76), dark ? const Color(0xFFF1E4CC) : teal, radius: 38);
+  final buttonY = infoTop + 370;
+  final ctaOnDark = descriptionOnDark || template == BookStoryTemplate.coverFocus;
+  final ctaBg = ctaOnDark ? const Color(0xFFF1E4CC) : teal;
+  final ctaText = ctaOnDark ? const Color(0xFF2C1A10) : Colors.white;
+  rounded(Rect.fromLTWH(170, buttonY, 740, 76), ctaBg, radius: 38);
   textBox(book.inStock ? 'Buyurtma berish uchun bosing  →' : 'Kitob haqida batafsil  →',
       Rect.fromLTWH(195, buttonY + 8, 690, 60), 27, weight: FontWeight.w900,
-      color: dark ? const Color(0xFF2C1A10) : Colors.white, maxLines: 1);
+      color: ctaText, maxLines: 1);
   textBox('@muhajeerbooks', const Rect.fromLTWH(100, 1810, 880, 44), 24,
-      color: dark ? const Color(0xFFE7DDD1) : muted, maxLines: 1);
+      color: descriptionOnDark ? const Color(0xFFE7DDD1) : muted, maxLines: 1);
 
   final picture = recorder.endRecording();
   final image = await picture.toImage(1080, 1920);

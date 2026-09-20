@@ -11,8 +11,11 @@ RUN flutter pub get
 RUN flutter build web --release
 
 FROM nginx:alpine
+RUN apk add --no-cache python3 py3-pip supervisor && pip3 install --break-system-packages --no-cache-dir flask gunicorn requests
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/build/web /usr/share/nginx/html
+COPY server /app/server
+COPY supervisord.conf /etc/supervisord.conf
 RUN nginx -t
 EXPOSE 8080
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["supervisord", "-c", "/etc/supervisord.conf"]

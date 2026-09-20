@@ -11,10 +11,11 @@ import 'app_state.dart';
 
 const storyOrderLabel = 'Buyurtma berish uchun bosing';
 
-enum BookStoryTemplate { current, editorial, library, arch, emerald, minimal, sunset, magazine, classic, poster, noir, geometric, paper, split, polaroid, collage, coverFocus, editorialPage, lifestyle, cleanStudio, goldArch, scrapbook, silk, botanical, mosaic, midnight, gallery, atlas, marble, cinema, terracotta, royal, ornament, adras, kokand, khiva, turon, yurt, heritage }
+enum BookStoryTemplate { current, smartMatch, editorial, library, arch, emerald, minimal, sunset, magazine, classic, poster, noir, geometric, paper, split, polaroid, collage, coverFocus, editorialPage, lifestyle, cleanStudio, goldArch, scrapbook, silk, botanical, mosaic, midnight, gallery, atlas, marble, cinema, terracotta, royal, ornament, adras, kokand, khiva, turon, yurt, heritage }
 
 String bookStoryTemplateName(BookStoryTemplate value) => switch (value) {
   BookStoryTemplate.current => 'Avto dizayn',
+  BookStoryTemplate.smartMatch => 'Mos dizayn',
   BookStoryTemplate.editorial => 'Yorug‘',
   BookStoryTemplate.library => 'Kutubxona',
   BookStoryTemplate.arch => 'Sharqona',
@@ -57,6 +58,7 @@ String bookStoryTemplateName(BookStoryTemplate value) => switch (value) {
 
 Color bookStoryTemplateColor(BookStoryTemplate value) => switch (value) {
   BookStoryTemplate.current => const Color(0xFFF8F4E9),
+  BookStoryTemplate.smartMatch => const Color(0xFFEDE8DC),
   BookStoryTemplate.editorial => const Color(0xFFF4EFE4),
   BookStoryTemplate.library => const Color(0xFF24150E),
   BookStoryTemplate.arch => const Color(0xFFF5F0E5),
@@ -233,6 +235,45 @@ _CoverPalette _paletteFromCover(Uint8List encoded) {
   );
 }
 
+BookStoryTemplate _bestExistingTemplate(Uint8List encoded) {
+  final p = _paletteFromCover(encoded);
+
+  // Faqat tanlovda mavjud bo‘lgan dizaynlar orasidan muqovaga eng mosini tanlaydi.
+  // Rang-barang/yorqin -> lifestyle yoki Gulshan; juda qoramtir -> Tun va shahar/Premium;
+  // ko‘k-yashil -> Koshin/Registon; sokin och -> Clean/Sado; iliq -> Naqqosh/Scrapbook.
+  if (p.brightness < 0.34) {
+    return p.saturation > 0.42
+        ? BookStoryTemplate.cinema
+        : BookStoryTemplate.goldArch;
+  }
+  if (p.saturation > 0.58) {
+    return p.warmth > 0.08
+        ? BookStoryTemplate.lifestyle
+        : BookStoryTemplate.royal;
+  }
+  if (p.warmth > 0.18) {
+    return p.saturation > 0.34
+        ? BookStoryTemplate.adras
+        : BookStoryTemplate.scrapbook;
+  }
+  if (p.warmth < -0.12) {
+    return p.saturation > 0.30
+        ? BookStoryTemplate.royal
+        : BookStoryTemplate.marble;
+  }
+  if (p.brightness > 0.78 && p.saturation < 0.24) {
+    return BookStoryTemplate.cleanStudio;
+  }
+  if (p.brightness > 0.66) {
+    return p.saturation > 0.30
+        ? BookStoryTemplate.botanical
+        : BookStoryTemplate.ornament;
+  }
+  return p.saturation > 0.32
+      ? BookStoryTemplate.terracotta
+      : BookStoryTemplate.noir;
+}
+
 Future<ui.Image> _decodeStoryCover(Uint8List encoded) async {
   // iPhone/Safari uchun compressed JPEG/WebP/PNG teksturasini CanvasKit'ga
   // bevosita uzatmaymiz. Muqovani avval oddiy RGBA pikselga aylantiramiz.
@@ -313,6 +354,7 @@ Future<Uint8List> renderBookStoryCpuFallback(
 
   // Milliy dizaynlar uchun yengil, GPU talab qilmaydigan ramka.
   final accent = switch (template) {
+    BookStoryTemplate.smartMatch => img.ColorRgb8(18, 99, 93),
     BookStoryTemplate.adras => img.ColorRgb8(123, 36, 72),
     BookStoryTemplate.kokand => img.ColorRgb8(142, 88, 42),
     BookStoryTemplate.khiva => img.ColorRgb8(17, 106, 114),
@@ -450,6 +492,20 @@ Future<Uint8List> renderBookStory(
   double renderScale = 1.0,
 }) async {
   final safeScale = renderScale.clamp(0.5, 1.0).toDouble();
+
+  Uint8List? bytes = coverBytes;
+  if (template == BookStoryTemplate.smartMatch) {
+    bytes ??= await _downloadStoryCover(book);
+    bytes ??= (await rootBundle.load('assets/images/muhajeer_logo.jpg')).buffer.asUint8List();
+    final matched = _bestExistingTemplate(bytes);
+    return _renderAlternativeBookStory(
+      book,
+      matched,
+      coverBytes: bytes,
+      renderScale: safeScale,
+    );
+  }
+
   if (template != BookStoryTemplate.current) {
     return _renderAlternativeBookStory(
       book,
@@ -458,7 +514,6 @@ Future<Uint8List> renderBookStory(
       renderScale: safeScale,
     );
   }
-  Uint8List? bytes = coverBytes;
   bytes ??= await _downloadStoryCover(book);
   bytes ??= (await rootBundle.load('assets/images/muhajeer_logo.jpg'))
       .buffer

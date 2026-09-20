@@ -636,6 +636,7 @@ class BackendService {
     required int subtotal,
     required int total,
     required List<CartLine> lines,
+    List<Map<String, dynamic>> bundleSelections = const [],
     String paymentProofPath = '',
   }) async {
     final payload = {
@@ -649,6 +650,7 @@ class BackendService {
       'status': 'new',
       'source': 'app',
       'items': lines.map(_lineToMap).toList(),
+      'bundle_selections': bundleSelections,
       'payment_proof_path': paymentProofPath,
       'payment_submitted_at': paymentProofPath.isEmpty
           ? null
@@ -902,6 +904,7 @@ class AppState extends ChangeNotifier {
   final Set<String> _favorites = {};
   final Set<String> _restockSubscriptions = {};
   final List<Map<String, dynamic>> _bundles = [];
+  final List<String> _cartBundleIds = [];
   int _catalogRevision = 0;
   int get catalogRevision => _catalogRevision;
   void _touchCatalog() => _catalogRevision++;
@@ -1274,6 +1277,8 @@ class AppState extends ChangeNotifier {
     for (final entry in additions.entries) {
       _cart[entry.key] = (_cart[entry.key] ?? 0) + entry.value;
     }
+    final bundleId = (bundle['id'] ?? '').toString();
+    if (bundleId.isNotEmpty) _cartBundleIds.add(bundleId);
     _persistCart();
     notifyListeners();
     return 'Set savatchaga qo‘shildi ✅';
@@ -1489,8 +1494,56 @@ class AppState extends ChangeNotifier {
   }
 
   int get cartCount => _cart.values.fold(0, (a, b) => a + b);
-  int get cartSubtotal => cartLines.fold(0, (a, b) => a + b.total);
-  int get cartDeliveryFee => cartCount >= 4 ? 0 : deliveryFee;
+
+  int get cartBundleDiscount {
+    var saving = 0;
+    for (final id in _cartBundleIds) {
+      Map<String, dynamic>? bundle;
+      for (final candidate in _bundles) {
+        if ((candidate['id'] ?? '').toString() == id) {
+          bundle = candidate;
+          break;
+        }
+      }
+      if (bundle == null) continue;
+      final setPrice = (bundle['price'] as num?)?.toInt() ?? 0;
+      var liveTotal = 0;
+      for (final raw in ((bundle['items'] as List?) ?? const []).whereType<Map>()) {
+        final item = Map<String, dynamic>.from(raw);
+        final bookId = (item['book_id'] ?? '').toString();
+        final qty = (item['quantity'] as num?)?.toInt() ?? 1;
+        for (final book in _books) {
+          if (book.id == bookId) {
+            liveTotal += book.currentPrice * qty;
+            break;
+          }
+        }
+      }
+      if (liveTotal > setPrice) saving += liveTotal - setPrice;
+    }
+    final raw = cartLines.fold(0, (a, b) => a + b.total);
+    return saving.clamp(0, raw).toInt();
+  }
+
+  bool get cartBundleDeliveryIncluded {
+    for (final id in _cartBundleIds) {
+      for (final bundle in _bundles) {
+        if ((bundle['id'] ?? '').toString() == id &&
+            bundle['delivery_included'] == true) return true;
+      }
+    }
+    return false;
+  }
+
+  List<Map<String, dynamic>> get cartBundleSelections =>
+      _cartBundleIds.map((id) => {'bundle_id': id}).toList();
+
+  int get cartSubtotal =>
+      cartLines.fold(0, (a, b) => a + b.total) - cartBundleDiscount;
+  int get cartDeliveryFee =>
+      cartBundleDeliveryIncluded || (cartCount >= 4 && fourPlusFreeDeliveryEnabled)
+          ? 0
+          : deliveryFee;
 
   void addToCart(Book book) {
     if (!book.inStock) return;
@@ -1503,6 +1556,7 @@ class AppState extends ChangeNotifier {
   }
 
   void decrementCart(Book book) {
+    _cartBundleIds.clear();
     final current = _cart[book.id] ?? 0;
     if (current <= 1) {
       _cart.remove(book.id);
@@ -1514,12 +1568,14 @@ class AppState extends ChangeNotifier {
   }
 
   void removeFromCart(Book book) {
+    _cartBundleIds.clear();
     _cart.remove(book.id);
     _persistCart();
     notifyListeners();
   }
 
   void clearCart() {
+    _cartBundleIds.clear();
     _cart.clear();
     _persistCart();
     notifyListeners();
@@ -1622,7 +1678,8 @@ class AppState extends ChangeNotifier {
     final isGyeongsanPickup = deliveryType == '경산 직접수령';
     final safeDeliveryFee = isGyeongsanPickup
         ? 0
-        : (cartCount >= 4 && fourPlusFreeDeliveryEnabled
+        : (cartBundleDeliveryIncluded ||
+                (cartCount >= 4 && fourPlusFreeDeliveryEnabled)
             ? 0
             : AppState.deliveryFee);
     final total = subtotal + safeDeliveryFee;
@@ -1657,6 +1714,7 @@ class AppState extends ChangeNotifier {
         subtotal: subtotal,
         total: total,
         lines: lines,
+        bundleSelections: cartBundleSelections,
         paymentProofPath: paymentProofPath,
       );
 

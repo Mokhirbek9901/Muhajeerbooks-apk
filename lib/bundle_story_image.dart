@@ -152,8 +152,24 @@ Future<Uint8List> renderBundleStory(
   _bundleText(canvas, 'KITOBLAR SETI', const Rect.fromLTWH(90, 150, 900, 48),
       size: 24, weight: FontWeight.w800, color: teal);
 
-  _bundleText(canvas, title, const Rect.fromLTWH(90, 215, 900, 135),
+  _bundleText(canvas, title, const Rect.fromLTWH(90, 215, 900, 115),
       size: 54, weight: FontWeight.w900, maxLines: 2);
+
+  final totalBookQty = entries.fold<int>(0, (sum, entry) => sum + entry.qty);
+  final countPill = RRect.fromRectAndRadius(
+    const Rect.fromLTWH(205, 332, 670, 62),
+    const Radius.circular(31),
+  );
+  canvas.drawRRect(countPill, Paint()..color = const Color(0xFFDDF0E7));
+  _bundleText(
+    canvas,
+    '$totalBookQty ta kitobdan iborat maxsus to‘plam',
+    const Rect.fromLTWH(225, 340, 630, 46),
+    size: 27,
+    weight: FontWeight.w800,
+    color: teal,
+    maxLines: 1,
+  );
 
   // Coverlar doim yuqorida va markazda turadi. Kitob soni oshgani sari
   // kartalar avtomatik kichrayadi; hech qaysi cover story chetiga yopishmaydi.
@@ -161,16 +177,16 @@ Future<Uint8List> renderBundleStory(
   final count = shown.length;
   final columns = count <= 2 ? count.clamp(1, 2) : (count == 4 ? 2 : 3);
   final rows = count == 0 ? 1 : ((count + columns - 1) ~/ columns);
-  const gridTop = 355.0;
+  const gridTop = 430.0;
   final cardW = count <= 1
       ? 360.0
       : (count == 2
-          ? 300.0
+          ? 315.0
           : (count == 3 ? 250.0 : (count == 4 ? 280.0 : 230.0)));
   final cardH = count <= 1
       ? 520.0
       : (count == 2
-          ? 470.0
+          ? 520.0
           : (count == 3 ? 410.0 : (count == 4 ? 390.0 : 350.0)));
   final gapX = count <= 2 ? 36.0 : 28.0;
   const gapY = 28.0;
@@ -249,24 +265,21 @@ Future<Uint8List> renderBundleStory(
   for (final image in covers) { image?.dispose(); }
 
   final afterGrid = gridTop + rows * cardH + (rows - 1) * gapY;
-  var y = afterGrid + 34;
+  var y = afterGrid + 36;
   if (entries.length > 6) {
     _bundleText(canvas, '+ yana ${entries.length - 6} turdagi kitob',
         Rect.fromLTWH(100, y, 880, 42), size: 23, weight: FontWeight.w800, color: muted);
     y += 52;
   }
 
-  // Narx bloki: oddiy kitoblar + pochta = chizilgan jami, undan keyin set narxi.
-  // Storyda mijoz ₩22,000 qayerdan kelganini bir qarashda tushunadi.
-  final totalQty = entries.fold<int>(0, (sum, entry) => sum + entry.qty);
   const priceBoxLeft = 105.0;
   const priceBoxWidth = 870.0;
-  const priceBoxHeight = 218.0;
+  const priceBoxHeight = 232.0;
   final priceBox = RRect.fromRectAndRadius(
     Rect.fromLTWH(priceBoxLeft, y, priceBoxWidth, priceBoxHeight),
     const Radius.circular(28),
   );
-  canvas.drawRRect(priceBox, Paint()..color = const Color(0xFFF5FAF7));
+  canvas.drawRRect(priceBox, Paint()..color = const Color(0xFFF4F9F6));
   canvas.drawRRect(
     priceBox,
     Paint()
@@ -275,60 +288,75 @@ Future<Uint8List> renderBundleStory(
       ..color = const Color(0xFFD6E7DF),
   );
 
-  _bundleText(canvas, 'Kitoblar narxi ($totalQty ta)',
-      Rect.fromLTWH(145, y + 22, 560, 42),
+  _bundleText(canvas, 'Kitoblar narxi ($totalBookQty ta)',
+      Rect.fromLTWH(145, y + 24, 555, 42),
       size: 27, weight: FontWeight.w700, color: navy, align: TextAlign.left, maxLines: 1);
   _bundleText(canvas, _wonBundle(regularTotal),
-      Rect.fromLTWH(700, y + 22, 225, 42),
-      size: 29, weight: FontWeight.w900, color: navy, align: TextAlign.right, maxLines: 1);
+      Rect.fromLTWH(700, y + 24, 225, 42),
+      size: 30, weight: FontWeight.w900, color: navy, align: TextAlign.right, maxLines: 1);
 
   _bundleText(canvas,
       deliveryIncluded ? 'Yetkazib berish (Koreya bo‘ylab)' : 'Yetkazib berish',
-      Rect.fromLTWH(145, y + 70, 560, 42),
+      Rect.fromLTWH(145, y + 76, 555, 42),
       size: 25, weight: FontWeight.w600, color: navy, align: TextAlign.left, maxLines: 1);
   _bundleText(canvas,
       deliveryIncluded ? _wonBundle(AppState.deliveryFee) : 'alohida',
-      Rect.fromLTWH(700, y + 70, 225, 42),
-      size: 28, weight: FontWeight.w900, color: navy, align: TextAlign.right, maxLines: 1);
+      Rect.fromLTWH(700, y + 76, 225, 42),
+      size: 29, weight: FontWeight.w900, color: navy, align: TextAlign.right, maxLines: 1);
 
-  canvas.drawLine(Offset(145, y + 128), Offset(935, y + 128),
+  canvas.drawLine(Offset(145, y + 137), Offset(935, y + 137),
       Paint()..color = const Color(0xFFD6E7DF)..strokeWidth = 2);
   _bundleText(canvas, deliveryIncluded ? 'Jami (pochta bilan)' : 'Jami',
-      Rect.fromLTWH(145, y + 145, 500, 45),
+      Rect.fromLTWH(145, y + 158, 500, 46),
       size: 28, weight: FontWeight.w900, color: navy, align: TextAlign.left, maxLines: 1);
   _bundleText(canvas, _wonBundle(comparisonTotal),
-      Rect.fromLTWH(670, y + 145, 255, 45),
-      size: 31, weight: FontWeight.w900, color: muted, align: TextAlign.right,
+      Rect.fromLTWH(665, y + 158, 260, 46),
+      size: 32, weight: FontWeight.w900, color: muted, align: TextAlign.right,
       decoration: TextDecoration.lineThrough, maxLines: 1);
 
   y += priceBoxHeight + 28;
-  _bundleText(
-    canvas,
-    'SETDA  ${_wonBundle(setPrice)}',
-    Rect.fromLTWH(150, y, 780, 82),
-    size: 61,
-    weight: FontWeight.w900,
-    color: teal,
-    maxLines: 1,
+  // Pastga yo‘nalgan belgi.
+  final arrow = Path()
+    ..moveTo(510, y)
+    ..lineTo(570, y)
+    ..lineTo(540, y + 30)
+    ..close();
+  canvas.drawPath(arrow, Paint()..color = teal);
+  y += 48;
+
+  final setBanner = RRect.fromRectAndRadius(
+    Rect.fromLTWH(145, y, 790, 108),
+    const Radius.circular(26),
   );
+  canvas.drawRRect(setBanner, Paint()..color = const Color(0xFF07877E));
+  _bundleText(canvas, '🎁  SETDA  ${_wonBundle(setPrice)}',
+      Rect.fromLTWH(175, y + 14, 730, 78),
+      size: 50, weight: FontWeight.w900, color: Colors.white, maxLines: 1);
+
   if (saving > 0) {
     final badge = RRect.fromRectAndRadius(
-      Rect.fromLTWH(825, y - 12, 130, 55),
-      const Radius.circular(24),
+      Rect.fromLTWH(850, y - 28, 130, 66),
+      const Radius.circular(30),
     );
     canvas.drawRRect(badge, Paint()..color = const Color(0xFFDDF0E7));
-    _bundleText(canvas, '-$percent%', Rect.fromLTWH(835, y - 7, 110, 43),
-        size: 26, weight: FontWeight.w900, color: green, maxLines: 1);
+    _bundleText(canvas, '-$percent%', Rect.fromLTWH(862, y - 18, 106, 46),
+        size: 28, weight: FontWeight.w900, color: teal, maxLines: 1);
   }
-  y += 84;
+
+  y += 124;
+  final deliveryPill = RRect.fromRectAndRadius(
+    Rect.fromLTWH(300, y, 480, 58),
+    const Radius.circular(29),
+  );
+  canvas.drawRRect(deliveryPill, Paint()..color = const Color(0xFFDDF0E7));
   _bundleText(canvas,
       deliveryIncluded ? 'Yetkazib berish set narxida' : 'Yetkazib berish alohida',
-      Rect.fromLTWH(150, y, 780, 48), size: 25, weight: FontWeight.w800,
+      Rect.fromLTWH(320, y + 7, 440, 44), size: 24, weight: FontWeight.w800,
       color: deliveryIncluded ? green : muted, maxLines: 1);
 
   _bundleText(canvas, 'Setni ko‘rish va buyurtma berish uchun bosing',
-      const Rect.fromLTWH(90, 1720, 900, 65), size: 30, weight: FontWeight.w900, color: teal, maxLines: 2);
-  _bundleText(canvas, '@muhajeerbooks', const Rect.fromLTWH(90, 1825, 900, 45),
+      const Rect.fromLTWH(90, 1690, 900, 65), size: 30, weight: FontWeight.w900, color: teal, maxLines: 2);
+  _bundleText(canvas, '@muhajeerbooks', const Rect.fromLTWH(90, 1810, 900, 45),
       size: 27, weight: FontWeight.w700, color: muted, maxLines: 1);
 
   final picture = recorder.endRecording();

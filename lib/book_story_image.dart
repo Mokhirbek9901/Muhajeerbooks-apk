@@ -571,10 +571,12 @@ Future<Uint8List> renderBookStory(
 
   Uint8List? bytes = coverBytes;
   if (template == BookStoryTemplate.oldCurrent) {
-    return _renderAlternativeBookStory(
+    Uint8List? oldBytes = coverBytes;
+    oldBytes ??= await _downloadStoryCover(book);
+    oldBytes ??= (await rootBundle.load('assets/images/muhajeer_logo.jpg')).buffer.asUint8List();
+    return _renderOldCurrentStory(
       book,
-      BookStoryTemplate.editorial,
-      coverBytes: coverBytes,
+      coverBytes: oldBytes,
       renderScale: safeScale,
     );
   }
@@ -1207,6 +1209,76 @@ Future<Uint8List> renderBookStory(
   return png;
 }
 
+
+Future<Uint8List> _renderOldCurrentStory(
+  Book book, {
+  required Uint8List coverBytes,
+  double renderScale = 1.0,
+}) async {
+  final safeScale = renderScale.clamp(0.5, 1.0).toDouble();
+  ui.Image cover;
+  try {
+    cover = await _decodeStoryCover(coverBytes);
+  } catch (_) {
+    cover = await _decodeStoryCover(
+      (await rootBundle.load('assets/images/muhajeer_logo.jpg')).buffer.asUint8List(),
+    );
+  }
+
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  canvas.scale(safeScale);
+  const bg = Color(0xFFF8F6ED);
+  const ink = Color(0xFF174E5A);
+  const teal = Color(0xFF08786E);
+  canvas.drawColor(bg, BlendMode.src);
+
+  // Eski "Hozir": katta pastel organik doiralar.
+  canvas.drawCircle(const Offset(1030, 165), 360, Paint()..color = const Color(0xFFDDEEE8));
+  canvas.drawCircle(const Offset(20, 1010), 300, Paint()..color = const Color(0xFFF2DFC0));
+
+  void centerText(String value, double y, double size, Color color, FontWeight weight, {double width=900}) {
+    final p=TextPainter(
+      text: TextSpan(text:value, style:TextStyle(fontFamily:'Roboto',fontSize:size,fontWeight:weight,color:color,height:1.05)),
+      textDirection:ui.TextDirection.ltr,textAlign:TextAlign.center,maxLines:2,
+    )..layout(maxWidth:width);
+    p.paint(canvas,Offset((1080-p.width)/2,y));
+    p.dispose();
+  }
+
+  centerText('MUHAJEER BOOKS', 82, 43, ink, FontWeight.w900);
+  centerText('Koreyadagi o‘zbek kitob do‘koni', 142, 23, ink, FontWeight.w500);
+
+  const coverRect=Rect.fromLTWH(185,255,710,650);
+  final card=RRect.fromRectAndRadius(coverRect.inflate(28),const Radius.circular(34));
+  canvas.drawShadow(Path()..addRRect(card),const Color(0x33000000),18,false);
+  canvas.drawRRect(card,Paint()..color=Colors.white);
+  paintImage(canvas:canvas,rect:coverRect,image:cover,fit:BoxFit.contain,filterQuality:FilterQuality.high);
+
+  final title=_fitText(value:book.title,maxWidth:900,maxHeight:88,maxFontSize:48,minFontSize:32,lineHeight:1.02,maxLines:2,weight:FontWeight.w800);
+  _paintText(canvas,book.title,955,title,width:900,color:ink,weight:FontWeight.w800,lineHeight:1.02,maxLines:2);
+
+  final price=_fitText(value:storyPrice(book),maxWidth:760,maxHeight:72,maxFontSize:68,minFontSize:46,lineHeight:1,maxLines:1,weight:FontWeight.w900);
+  _paintText(canvas,storyPrice(book),1020,price,width:760,color:teal,weight:FontWeight.w900,lineHeight:1,maxLines:1);
+
+  centerText('🚚  Yetkazib berish: ₩4,000', 1100, 20, const Color(0xFF49666E), FontWeight.w700);
+  centerText(book.stock>0?'Omborda: ${book.stock} dona':'Hozircha mavjud emas', 1152, 27, book.stock>0?const Color(0xFF187A55):const Color(0xFFB53B3B), FontWeight.w800);
+  centerText(_storyDescription(book), 1220, 24, ink, FontWeight.w500, width:900);
+  centerText(book.inStock?storyOrderLabel:'Kitob haqida batafsil', 1295, 34, teal, FontWeight.w900);
+
+  final arrow=Paint()..color=teal..strokeWidth=5..strokeCap=StrokeCap.round..style=PaintingStyle.stroke;
+  canvas.drawLine(const Offset(540,1350),const Offset(540,1395),arrow);
+  canvas.drawPath(Path()..moveTo(523,1378)..lineTo(540,1395)..lineTo(557,1378),arrow);
+  centerText('@muhajeerbooks', 1790, 27, ink, FontWeight.w500);
+
+  final picture=recorder.endRecording();
+  final image=await picture.toImage((1080*safeScale).round(),(1920*safeScale).round());
+  picture.dispose();
+  final png=await _exportStoryPng(image);
+  image.dispose();
+  cover.dispose();
+  return png;
+}
 
 Future<Uint8List> _renderAlternativeBookStory(
   Book book,

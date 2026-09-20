@@ -5831,14 +5831,25 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
 }
 
 Future<void> _showMuhajeerReceipt(BuildContext context, ShopOrder order) async {
-  final itemTotal = order.items.fold<int>(0, (sum, item) {
+  final originalItemTotal = order.items.fold<int>(0, (sum, item) {
     final original = (item['original_price'] as num?)?.toInt() ??
         (item['price'] as num?)?.toInt() ??
         (item['unit_price'] as num?)?.toInt() ?? 0;
     final quantity = (item['quantity'] as num?)?.toInt() ?? 1;
     return sum + original * quantity;
   });
-  final discount = (itemTotal - order.subtotal).clamp(0, itemTotal).toInt();
+  final currentItemTotal = order.items.fold<int>(0, (sum, item) {
+    final price = (item['price'] as num?)?.toInt() ??
+        (item['unit_price'] as num?)?.toInt() ?? 0;
+    final quantity = (item['quantity'] as num?)?.toInt() ?? 1;
+    return sum + price * quantity;
+  });
+  final bookDiscount =
+      (originalItemTotal - currentItemTotal).clamp(0, originalItemTotal).toInt();
+  // Set narxi individual kitoblar yig‘indisidan arzon ham, qimmat ham bo‘lishi
+  // mumkin (masalan, pochta set narxiga kiritilgan bo‘lsa). Chekda farqni
+  // yashirmaymiz: barcha qatorlar oxirida aynan order.subtotal ga tenglashadi.
+  final bundleAdjustment = order.subtotal - currentItemTotal;
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -5914,9 +5925,29 @@ Future<void> _showMuhajeerReceipt(BuildContext context, ShopOrder order) async {
                 );
               }),
               const Divider(),
-              _ReceiptRow(label: 'Kitoblar', value: won(itemTotal > 0 ? itemTotal : order.subtotal)),
-              if (discount > 0)
-                _ReceiptRow(label: 'Chegirma', value: '-${won(discount)}'),
+              _ReceiptRow(
+                label: 'Kitoblar',
+                value: won(originalItemTotal > 0
+                    ? originalItemTotal
+                    : order.subtotal),
+              ),
+              if (bookDiscount > 0)
+                _ReceiptRow(
+                  label: 'Kitob chegirmasi',
+                  value: '-${won(bookDiscount)}',
+                ),
+              if (bundleAdjustment < 0)
+                _ReceiptRow(
+                  label: 'Set chegirmasi',
+                  value: '-${won(-bundleAdjustment)}',
+                ),
+              if (bundleAdjustment > 0)
+                _ReceiptRow(
+                  label: 'Set narxi farqi',
+                  value: '+${won(bundleAdjustment)}',
+                ),
+              if (bundleAdjustment != 0 || bookDiscount > 0)
+                _ReceiptRow(label: 'Oraliq jami', value: won(order.subtotal)),
               _ReceiptRow(label: 'Yetkazib berish',
                   value: order.deliveryFee == 0 ? 'Bepul' : won(order.deliveryFee)),
               const SizedBox(height: 6),

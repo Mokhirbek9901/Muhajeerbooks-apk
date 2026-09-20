@@ -54,35 +54,11 @@ class _BookStoryPageState extends State<BookStoryPage> {
     try {
       return await renderBookStory(widget.book, template: template);
     } catch (_) {
-      // Ayrim iPhone/Safari qurilmalarida murakkab dekorativ canvas bir martalik
-      // raster xato berishi mumkin. Story sahifasini butunlay yiqitmaymiz:
-      // avval ishonchli asosiy dizaynga qaytamiz.
-      if (template != BookStoryTemplate.current) {
-        try {
-          final bytes = await renderBookStory(
-            widget.book,
-            template: BookStoryTemplate.current,
-          );
-          try {
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setString(
-              _templatePreferenceKey,
-              BookStoryTemplate.current.name,
-            );
-          } catch (_) {}
-          if (mounted && _template == template) {
-            setState(() => _template = BookStoryTemplate.current);
-          }
-          return bytes;
-        } catch (_) {
-          // Pastdagi yakuniy qayta urinishga o'tamiz.
-        }
-      }
-
-      // CanvasKit/Safari'dagi vaqtinchalik raster xatosi uchun bir marta qayta
-      // urinish. Bu internet xatosi deb noto'g'ri ko'rsatishning oldini oladi.
-      await Future<void>.delayed(const Duration(milliseconds: 120));
-      return renderBookStory(widget.book, template: BookStoryTemplate.current);
+      // Tanlangan dizayn xato bersa boshqa dizaynga sakramaymiz.
+      // iPhone/Safari'dagi vaqtinchalik raster xatosi uchun aynan o‘sha
+      // dizaynni qisqa tanaffusdan keyin yana bir marta chizamiz.
+      await Future<void>.delayed(const Duration(milliseconds: 140));
+      return renderBookStory(widget.book, template: template);
     }
   }
 

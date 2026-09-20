@@ -4,7 +4,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
 
 import 'app_state.dart';
@@ -24,29 +23,34 @@ String _storyDescription(Book book) {
 }
 
 Future<ui.Image> _decodeStoryCover(Uint8List encoded) async {
-  final decoded = img.decodeImage(encoded);
-  if (decoded == null) throw StateError('Cover decode failed');
+  final codec = await ui.instantiateImageCodec(encoded, targetWidth: 700);
+  try {
+    final frame = await codec.getNextFrame();
+    return frame.image;
+  } finally {
+    codec.dispose();
+  }
+}
 
-  final resized = decoded.width > 700
-      ? img.copyResize(
-          decoded,
-          width: 700,
-          interpolation: img.Interpolation.average,
-        )
-      : decoded;
-  final rgba = Uint8List.fromList(
-    resized.getBytes(order: img.ChannelOrder.rgba),
-  );
+Future<Uint8List?> _downloadStoryCover(Book book) async {
+  final candidates = <String>[
+    book.previewImageUrl,
+    book.imageUrl,
+    ...book.imageUrls,
+  ].map((e) => e.trim()).where((e) => e.isNotEmpty).toSet();
 
-  final completer = Completer<ui.Image>();
-  ui.decodeImageFromPixels(
-    rgba,
-    resized.width,
-    resized.height,
-    ui.PixelFormat.rgba8888,
-    completer.complete,
-  );
-  return completer.future;
+  for (final url in candidates) {
+    try {
+      final response =
+          await http.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+        return response.bodyBytes;
+      }
+    } catch (_) {
+      // Keyingi rasm manzilini sinab ko‘ramiz.
+    }
+  }
+  return null;
 }
 
 class _TextMetrics {
@@ -146,22 +150,21 @@ Size _paintText(
 
 /// A full-resolution 9:16 portrait image, independent of preview screen size.
 Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
-  Uint8List bytes;
-  if (coverBytes != null) {
-    bytes = coverBytes;
-  } else if (book.galleryImages.isNotEmpty) {
-    final response = await http
-        .get(Uri.parse(book.galleryImages.first))
-        .timeout(const Duration(seconds: 20));
-    if (response.statusCode != 200) throw StateError('Cover unavailable');
-    bytes = response.bodyBytes;
-  } else {
-    bytes = (await rootBundle.load('assets/images/muhajeer_logo.jpg'))
+  Uint8List? bytes = coverBytes;
+  bytes ??= await _downloadStoryCover(book);
+  bytes ??= (await rootBundle.load('assets/images/muhajeer_logo.jpg'))
+      .buffer
+      .asUint8List();
+
+  ui.Image cover;
+  try {
+    cover = await _decodeStoryCover(bytes);
+  } catch (_) {
+    final fallback = (await rootBundle.load('assets/images/muhajeer_logo.jpg'))
         .buffer
         .asUint8List();
+    cover = await _decodeStoryCover(fallback);
   }
-
-  final cover = await _decodeStoryCover(bytes);
 
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);

@@ -130,55 +130,82 @@ class _BookStoryPageState extends State<BookStoryPage> {
         return ListView(padding: const EdgeInsets.all(20), children: [
           const Text('Dizaynni tanlang', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
           const SizedBox(height: 10),
-          SizedBox(
-            height: 92,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: BookStoryTemplate.values.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (context, index) {
-                final item = BookStoryTemplate.values[index];
-                final selected = item == _template;
-                return InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () => _selectTemplate(item),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 160),
-                    width: 92,
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      color: bookStoryTemplateColor(item),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: selected ? const Color(0xFF08786E) : const Color(0x22000000),
-                        width: selected ? 3 : 1,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const gap = 8.0;
+              final columns = constraints.maxWidth >= 520 ? 5 : 4;
+              final itemWidth =
+                  (constraints.maxWidth - gap * (columns - 1)) / columns;
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: BookStoryTemplate.values.map((item) {
+                  final selected = item == _template;
+                  final darkItem = item == BookStoryTemplate.library ||
+                      item == BookStoryTemplate.emerald ||
+                      item == BookStoryTemplate.noir ||
+                      item == BookStoryTemplate.geometric ||
+                      item == BookStoryTemplate.coverFocus;
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () => _selectTemplate(item),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 160),
+                      width: itemWidth,
+                      height: 72,
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: bookStoryTemplateColor(item),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: selected
+                              ? const Color(0xFF08786E)
+                              : const Color(0x22000000),
+                          width: selected ? 3 : 1,
+                        ),
+                        boxShadow: selected
+                            ? const [
+                                BoxShadow(
+                                  blurRadius: 8,
+                                  offset: Offset(0, 2),
+                                  color: Color(0x2208786E),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            selected
+                                ? Icons.check_circle_rounded
+                                : Icons.auto_awesome_rounded,
+                            size: 20,
+                            color: darkItem
+                                ? Colors.white
+                                : const Color(0xFF174652),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            bookStoryTemplateName(item),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w900,
+                              color: darkItem
+                                  ? Colors.white
+                                  : const Color(0xFF174652),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(selected ? Icons.check_circle_rounded : Icons.auto_awesome_rounded,
-                          color: item == BookStoryTemplate.library ||
-                                  item == BookStoryTemplate.emerald ||
-                                  item == BookStoryTemplate.noir ||
-                                  item == BookStoryTemplate.geometric ||
-                                  item == BookStoryTemplate.coverFocus
-                              ? Colors.white : const Color(0xFF174652)),
-                        const SizedBox(height: 6),
-                        Text(bookStoryTemplateName(item), maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900,
-                            color: item == BookStoryTemplate.library ||
-                                    item == BookStoryTemplate.emerald ||
-                                    item == BookStoryTemplate.noir ||
-                                    item == BookStoryTemplate.geometric ||
-                                    item == BookStoryTemplate.coverFocus
-                                ? Colors.white : const Color(0xFF174652))),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
+                  );
+                }).toList(),
+              );
+            },
           ),
           const SizedBox(height: 16),
           Center(child: ConstrainedBox(

@@ -738,6 +738,7 @@ class _LocalStore {
   static const _customerNoticesKey = 'muhajeer_customer_notices_v2';
   static const _favoritesKey = 'muhajeer_favorites_v2';
   static const _cartKey = 'muhajeer_cart_v2';
+  static const _cartBundlesKey = 'muhajeer_cart_bundles_v1';
   static const _seedVersionKey = 'muhajeer_seed_version';
   static const _customerNameKey = 'muhajeer_customer_name';
   static const _customerPhoneKey = 'muhajeer_customer_phone';
@@ -825,6 +826,12 @@ class _LocalStore {
 
   Future<void> saveCart(Map<String, int> cart) async =>
       (await _prefs).setString(_cartKey, jsonEncode(cart));
+
+  Future<List<String>> loadCartBundles() async =>
+      (await _prefs).getStringList(_cartBundlesKey) ?? <String>[];
+
+  Future<void> saveCartBundles(List<String> ids) async =>
+      (await _prefs).setStringList(_cartBundlesKey, ids);
 
   Future<int> seedVersion() async =>
       (await _prefs).getInt(_seedVersionKey) ?? 0;
@@ -1033,6 +1040,7 @@ class AppState extends ChangeNotifier {
       _local.loadFavorites(),
       _local.loadRestockSubscriptions(),
       _local.loadCart(),
+      _local.loadCartBundles(),
       _local.loadCustomer(),
       _local.loadCustomerVerified(),
       _local.loadOrders(),
@@ -1049,15 +1057,18 @@ class AppState extends ChangeNotifier {
     _cart
       ..clear()
       ..addAll(secondary[2] as Map<String, int>);
-    savedCustomer = secondary[3] as Map<String, String>;
-    final storedVerification = secondary[4] as bool?;
+    _cartBundleIds
+      ..clear()
+      ..addAll(secondary[3] as List<String>);
+    savedCustomer = secondary[4] as Map<String, String>;
+    final storedVerification = secondary[5] as bool?;
     _localOrders
       ..clear()
-      ..addAll(secondary[5] as List<ShopOrder>);
+      ..addAll(secondary[6] as List<ShopOrder>);
     _customerNotices
       ..clear()
-      ..addAll(secondary[6] as List<Map<String, dynamic>>);
-    _catalogCursor = secondary[7] as String;
+      ..addAll(secondary[7] as List<Map<String, dynamic>>);
+    _catalogCursor = secondary[8] as String;
 
     if (storedVerification == null) {
       final legacyName = (savedCustomer['name'] ?? '').trim();
@@ -1279,6 +1290,7 @@ class AppState extends ChangeNotifier {
     }
     final bundleId = (bundle['id'] ?? '').toString();
     if (bundleId.isNotEmpty) _cartBundleIds.add(bundleId);
+    unawaited(_local.saveCartBundles(_cartBundleIds));
     _persistCart();
     notifyListeners();
     return 'Set savatchaga qo‘shildi ✅';
@@ -1495,6 +1507,45 @@ class AppState extends ChangeNotifier {
 
   int get cartCount => _cart.values.fold(0, (a, b) => a + b);
 
+  List<Map<String, dynamic>> get cartBundles {
+    final result = <Map<String, dynamic>>[];
+    for (final id in _cartBundleIds) {
+      for (final bundle in _bundles) {
+        if ((bundle['id'] ?? '').toString() == id) {
+          result.add(bundle);
+          break;
+        }
+      }
+    }
+    return result;
+  }
+
+  List<CartLine> get cartStandaloneLines {
+    final remaining = Map<String, int>.from(_cart);
+    for (final bundle in cartBundles) {
+      for (final raw in ((bundle['items'] as List?) ?? const []).whereType<Map>()) {
+        final item = Map<String, dynamic>.from(raw);
+        final id = (item['book_id'] ?? '').toString();
+        final qty = (item['quantity'] as num?)?.toInt() ?? 1;
+        final left = (remaining[id] ?? 0) - qty;
+        if (left > 0) {
+          remaining[id] = left;
+        } else {
+          remaining.remove(id);
+        }
+      }
+    }
+    final byId = {for (final b in _books) b.id: b};
+    return remaining.entries
+        .where((e) => e.value > 0 && byId[e.key] != null)
+        .map((e) => CartLine(book: byId[e.key]!, quantity: e.value))
+        .toList();
+  }
+
+  int get cartDisplayCount =>
+      cartBundles.length +
+      cartStandaloneLines.fold(0, (sum, line) => sum + line.quantity);
+
   int get cartBundleDiscount {
     var saving = 0;
     for (final id in _cartBundleIds) {
@@ -1557,6 +1608,7 @@ class AppState extends ChangeNotifier {
 
   void decrementCart(Book book) {
     _cartBundleIds.clear();
+    unawaited(_local.saveCartBundles(_cartBundleIds));
     final current = _cart[book.id] ?? 0;
     if (current <= 1) {
       _cart.remove(book.id);
@@ -1569,13 +1621,36 @@ class AppState extends ChangeNotifier {
 
   void removeFromCart(Book book) {
     _cartBundleIds.clear();
+    unawaited(_local.saveCartBundles(_cartBundleIds));
     _cart.remove(book.id);
+    _persistCart();
+    notifyListeners();
+  }
+
+  void removeBundleFromCart(Map<String, dynamic> bundle) {
+    final bundleId = (bundle['id'] ?? '').toString();
+    final index = _cartBundleIds.indexOf(bundleId);
+    if (index < 0) return;
+    for (final raw in ((bundle['items'] as List?) ?? const []).whereType<Map>()) {
+      final item = Map<String, dynamic>.from(raw);
+      final id = (item['book_id'] ?? '').toString();
+      final qty = (item['quantity'] as num?)?.toInt() ?? 1;
+      final left = (_cart[id] ?? 0) - qty;
+      if (left > 0) {
+        _cart[id] = left;
+      } else {
+        _cart.remove(id);
+      }
+    }
+    _cartBundleIds.removeAt(index);
+    unawaited(_local.saveCartBundles(_cartBundleIds));
     _persistCart();
     notifyListeners();
   }
 
   void clearCart() {
     _cartBundleIds.clear();
+    unawaited(_local.saveCartBundles(_cartBundleIds));
     _cart.clear();
     _persistCart();
     notifyListeners();

@@ -26,6 +26,11 @@ class _BookStoryPageState extends State<BookStoryPage> {
   // Eng yangi dizaynlar tepada ko‘rinsin — foydalanuvchi ularni qidirib
   // pastga tushmasin. Qolganlari avvalgi tartibda saqlanadi.
   static const List<BookStoryTemplate> _templateOrder = [
+    BookStoryTemplate.atlas,
+    BookStoryTemplate.marble,
+    BookStoryTemplate.cinema,
+    BookStoryTemplate.terracotta,
+    BookStoryTemplate.royal,
     BookStoryTemplate.silk,
     BookStoryTemplate.botanical,
     BookStoryTemplate.mosaic,
@@ -178,7 +183,10 @@ class _BookStoryPageState extends State<BookStoryPage> {
                       item == BookStoryTemplate.lifestyle ||
                       item == BookStoryTemplate.goldArch ||
                       item == BookStoryTemplate.mosaic ||
-                      item == BookStoryTemplate.midnight;
+                      item == BookStoryTemplate.midnight ||
+                      item == BookStoryTemplate.atlas ||
+                      item == BookStoryTemplate.cinema ||
+                      item == BookStoryTemplate.royal;
                   return InkWell(
                     borderRadius: BorderRadius.circular(14),
                     onTap: () => _selectTemplate(item),

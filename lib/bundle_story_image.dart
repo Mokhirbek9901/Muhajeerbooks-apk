@@ -125,9 +125,14 @@ Future<Uint8List> renderBundleStory(
   }
 
   final setPrice = (bundle['price'] as num?)?.toInt() ?? regularTotal;
-  final saving = (regularTotal - setPrice).clamp(0, regularTotal).toInt();
-  final percent = regularTotal > 0 ? (saving * 100 / regularTotal).round() : 0;
   final deliveryIncluded = bundle['delivery_included'] == true;
+  final comparisonTotal =
+      regularTotal + (deliveryIncluded ? AppState.deliveryFee : 0);
+  final saving =
+      (comparisonTotal - setPrice).clamp(0, comparisonTotal).toInt();
+  final percent = comparisonTotal > 0
+      ? (saving * 100 / comparisonTotal).round()
+      : 0;
   final title = (bundle['title'] ?? 'Kitoblar seti').toString();
 
   final recorder = ui.PictureRecorder();
@@ -150,27 +155,30 @@ Future<Uint8List> renderBundleStory(
   _bundleText(canvas, title, const Rect.fromLTWH(90, 215, 900, 135),
       size: 54, weight: FontWeight.w900, maxLines: 2);
 
-  // Kitob soniga qarab coverlar story ekranini to‘ldiradi:
-  // 1–2 ta — katta, 3 ta — o‘rtacha, 4–6 ta — ixcham grid.
+  // Coverlar doim yuqorida va markazda turadi. Kitob soni oshgani sari
+  // kartalar avtomatik kichrayadi; hech qaysi cover story chetiga yopishmaydi.
   final shown = entries.take(6).toList();
   final count = shown.length;
   final columns = count <= 2 ? count.clamp(1, 2) : (count == 4 ? 2 : 3);
   final rows = count == 0 ? 1 : ((count + columns - 1) ~/ columns);
-  final gridLeft = count == 1 ? 315.0 : (count == 2 ? 115.0 : (columns == 2 ? 190.0 : 105.0));
-  const gridTop = 385.0;
-  final cardW = count == 1
-      ? 450.0
-      : (count == 2 ? 410.0 : (columns == 2 ? 335.0 : 270.0));
-  final cardH = count == 1
-      ? 600.0
-      : (count == 2 ? 555.0 : (columns == 2 ? 455.0 : 385.0));
-  final gapX = count <= 2 ? 30.0 : (columns == 2 ? 30.0 : 30.0);
-  const gapY = 30.0;
-  final imageH = cardH * (count <= 2 ? .72 : .64);
-  final titleTopRatio = count <= 2 ? .75 : .70;
-  final titleHeight = count <= 2 ? 72.0 : 58.0;
-  final titleSize = count == 1 ? 31.0 : (count == 2 ? 27.0 : 22.0);
-  final priceSize = count <= 2 ? 26.0 : 21.0;
+  const gridTop = 355.0;
+  final cardW = count <= 1
+      ? 360.0
+      : (count == 2
+          ? 300.0
+          : (count == 3 ? 250.0 : (count == 4 ? 280.0 : 230.0)));
+  final cardH = count <= 1
+      ? 520.0
+      : (count == 2
+          ? 470.0
+          : (count == 3 ? 410.0 : (count == 4 ? 390.0 : 350.0)));
+  final gapX = count <= 2 ? 36.0 : 28.0;
+  const gapY = 28.0;
+  final imageH = cardH * (count <= 2 ? .70 : .62);
+  final titleTopRatio = count <= 2 ? .72 : .66;
+  final titleHeight = count <= 2 ? 68.0 : 54.0;
+  final titleSize = count == 1 ? 29.0 : (count == 2 ? 25.0 : 20.0);
+  final priceSize = count <= 2 ? 24.0 : 19.0;
 
   for (var i = 0; i < shown.length; i++) {
     final row = i ~/ columns;
@@ -196,11 +204,12 @@ Future<Uint8List> renderBundleStory(
     canvas.drawRRect(card, Paint()..color = Colors.white);
 
     final image = covers.length > i ? covers[i] : null;
+    final coverW = (cardW * (count <= 2 ? .78 : .72)).clamp(120.0, 285.0);
     final imageRect = Rect.fromLTWH(
-      x + 18,
-      y + 18,
-      cardW - 36,
-      imageH - 18,
+      x + (cardW - coverW) / 2,
+      y + 16,
+      coverW,
+      imageH - 16,
     );
     if (image != null) {
       paintImage(
@@ -249,7 +258,7 @@ Future<Uint8List> renderBundleStory(
 
   _bundleText(
     canvas,
-    _wonBundle(regularTotal),
+    _wonBundle(comparisonTotal),
     Rect.fromLTWH(100, y, 880, 52),
     size: 31,
     weight: FontWeight.w800,

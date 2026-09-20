@@ -1024,8 +1024,13 @@ Future<Uint8List> _renderAlternativeBookStory(
       maxLines: 3, fontFamily: 'serif', fontStyle: FontStyle.italic);
     coverFrame = const Rect.fromLTWH(315, 535, 450, 575);
     coverRect = const Rect.fromLTWH(340, 560, 400, 525);
-    textBox(book.title, const Rect.fromLTWH(120, 1135, 840, 100), 41,
+    textBox(book.title, const Rect.fromLTWH(120, 1115, 840, 90), 39,
       weight: FontWeight.w700, color: Colors.white, maxLines: 2, fontFamily: 'serif');
+    if (book.author.trim().isNotEmpty && book.author != 'Ko‘rsatilmagan') {
+      textBox(book.author.trim(), const Rect.fromLTWH(160, 1205, 760, 36), 20,
+        color: const Color(0xFFE8DED5), maxLines: 1, fontFamily: 'serif',
+        fontStyle: FontStyle.italic);
+    }
   } else if (template == BookStoryTemplate.cleanStudio) {
     textBox('“', const Rect.fromLTWH(70, 155, 130, 110), 100,
       weight: FontWeight.w900, color: const Color(0xFFD6D9D3), align: TextAlign.left,
@@ -1121,6 +1126,7 @@ Future<Uint8List> _renderAlternativeBookStory(
       template != BookStoryTemplate.minimal &&
       template != BookStoryTemplate.split &&
       template != BookStoryTemplate.editorialPage &&
+      template != BookStoryTemplate.lifestyle &&
       template != BookStoryTemplate.cleanStudio) {
     textBox(book.author.trim(), Rect.fromLTWH(120, infoTop, 840, 42), 22, color: dark ? const Color(0xFFE5DED4) : muted, maxLines: 1);
     infoTop += 45;

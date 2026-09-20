@@ -544,6 +544,33 @@ Future<Uint8List> renderBookStory(
   const deliveryText = Color(0xFF49666E);
   const deliverySoft = Color(0xFFEAF1F0);
 
+  void simpleText(
+    String value,
+    double y,
+    double size, {
+    Color? color,
+    FontWeight weight = FontWeight.w500,
+    double width = 900,
+  }) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: value,
+        style: TextStyle(
+          fontFamily: 'Roboto',
+          fontSize: size,
+          fontWeight: weight,
+          color: color ?? ink,
+          height: 1.1,
+        ),
+      ),
+      textDirection: ui.TextDirection.ltr,
+      textAlign: TextAlign.center,
+      maxLines: 1,
+    )..layout(maxWidth: width);
+    painter.paint(canvas, Offset((1080 - painter.width) / 2, y));
+    painter.dispose();
+  }
+
   // AVTO DIZAYN: muqovaning yorqinligi, rang to‘yinganligi, issiq/sovuq
   // palitrasi va formatiga qarab nafaqat rang, balki kompozitsiya ham almashadi.
   final autoVariant = palette.saturation > 0.48
@@ -1067,6 +1094,10 @@ Future<Uint8List> _renderAlternativeBookStory(
   }
 
   switch (template) {
+    case BookStoryTemplate.smartMatch:
+      canvas.drawColor(cream, BlendMode.src);
+      canvas.drawCircle(const Offset(980, 180), 320, Paint()..color = const Color(0xFFE1EFE7));
+      break;
     case BookStoryTemplate.editorial:
       canvas.drawColor(const Color(0xFFF5F0E5), BlendMode.src);
       canvas.drawCircle(const Offset(1000, 250), 310, Paint()..color = const Color(0xFFE1EFE7));

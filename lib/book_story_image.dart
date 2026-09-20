@@ -18,7 +18,7 @@ String bookStoryTemplateName(BookStoryTemplate value) => switch (value) {
   BookStoryTemplate.current => 'Avto dizayn',
   BookStoryTemplate.oldCurrent => 'Hozir',
   BookStoryTemplate.smartMatch => 'Mos dizayn',
-  BookStoryTemplate.decorative => 'Dekorativ',
+  BookStoryTemplate.decorative => 'Klassik',
   BookStoryTemplate.spring => 'Bahor',
   BookStoryTemplate.summer => 'Yoz',
   BookStoryTemplate.autumn => 'Kuz',
@@ -315,6 +315,20 @@ BookStoryTemplate _bestExistingTemplate(Book book, Uint8List encoded) {
   if (p.brightness > 0.80 && p.saturation < 0.22) return BookStoryTemplate.cleanStudio;
   if (p.brightness > 0.66) return p.saturation > 0.30 ? BookStoryTemplate.botanical : BookStoryTemplate.ornament;
   return p.saturation > 0.32 ? BookStoryTemplate.terracotta : BookStoryTemplate.noir;
+}
+
+int _coverVisualSignature(Uint8List encoded) {
+  final decoded = img.decodeImage(encoded);
+  if (decoded == null) return 0;
+  final s = img.copyResize(decoded, width: 12, height: 12);
+  var hash = 17;
+  for (var y = 0; y < s.height; y += 2) {
+    for (var x = 0; x < s.width; x += 2) {
+      final p = s.getPixel(x, y);
+      hash = (hash * 31 + p.r.toInt() * 3 + p.g.toInt() * 5 + p.b.toInt() * 7 + x * 11 + y * 13) & 0x7fffffff;
+    }
+  }
+  return hash;
 }
 
 int _autoStoryVariant(Book book, _CoverPalette p) {
@@ -661,6 +675,9 @@ Future<Uint8List> renderBookStory(
   // AVTO DIZAYN: muqovaning yorqinligi, rang to‘yinganligi, issiq/sovuq
   // palitrasi va formatiga qarab nafaqat rang, balki kompozitsiya ham almashadi.
   final autoVariant = _autoStoryVariant(book, palette);
+  final visualSignature = _coverVisualSignature(bytes);
+  final motif = visualSignature % 7;
+  final motif2 = (visualSignature ~/ 7) % 5;
 
   late final Rect coverRect;
   late final double contentStart;
@@ -859,6 +876,32 @@ Future<Uint8List> renderBookStory(
     simpleText('MUHAJEER • ADABIYOT', 82, 27, color: ink, weight: FontWeight.w900);
     coverRect = const Rect.fromLTWH(185, 185, 710, 600);
     contentStart = 890;
+  }
+
+  // Muqovaning o‘z piksel tuzilishidan olinadigan fingerprint har kitobda
+  // dekor, ritm va joylashuvni boshqacha qiladi. Bu tasodifiy emas:
+  // bir xil kitob bir xil, boshqa muqova esa boshqa kompozitsiya oladi.
+  final motifPaint = Paint()
+    ..color = teal.withAlpha(55)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 3;
+  if (motif == 0) {
+    for (var i=0;i<5;i++) canvas.drawCircle(Offset(90+i*55.0, 185+motif2*18.0), 18+i*4.0, motifPaint);
+  } else if (motif == 1) {
+    for (var i=0;i<6;i++) canvas.drawLine(Offset(45+i*42.0,210),Offset(150+i*42.0,90),motifPaint);
+  } else if (motif == 2) {
+    final p=Path()..moveTo(65,180)..quadraticBezierTo(150,80,235,180)..quadraticBezierTo(320,280,405,180);
+    canvas.drawPath(p,motifPaint);
+  } else if (motif == 3) {
+    for (var i=0;i<4;i++) canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(55+i*48.0,120+i*20.0,90,90),const Radius.circular(18)),motifPaint);
+  } else if (motif == 4) {
+    canvas.drawArc(const Rect.fromLTWH(55,80,300,240),0.2,2.5,false,motifPaint);
+    canvas.drawArc(const Rect.fromLTWH(725,80,300,240),0.4,2.3,false,motifPaint);
+  } else if (motif == 5) {
+    for (var i=0;i<7;i++) canvas.drawCircle(Offset(70+i*45.0,140+(i%2)*35),7,motifPaint..style=PaintingStyle.fill);
+    motifPaint.style=PaintingStyle.stroke;
+  } else {
+    canvas.drawPath(Path()..moveTo(55,150)..lineTo(160,85)..lineTo(265,150)..lineTo(370,85),motifPaint);
   }
 
   final frame = RRect.fromRectAndRadius(
@@ -1407,16 +1450,22 @@ Future<Uint8List> _renderAlternativeBookStory(
       canvas.drawCircle(const Offset(980, 180), 320, Paint()..color = const Color(0xFFE1EFE7));
       break;
     case BookStoryTemplate.decorative:
-      canvas.drawColor(const Color(0xFFF8F1E7), BlendMode.src);
-      canvas.drawRect(const Rect.fromLTWH(42, 42, 996, 1836), Paint()..style = PaintingStyle.stroke..strokeWidth = 4..color = const Color(0xFF9B6843));
-      canvas.drawRect(const Rect.fromLTWH(62, 62, 956, 1796), Paint()..style = PaintingStyle.stroke..strokeWidth = 1.5..color = const Color(0xFFC9A77C));
-      for (final o in [const Offset(92,92), const Offset(988,92), const Offset(92,1828), const Offset(988,1828)]) {
-        canvas.drawCircle(o, 34, Paint()..style = PaintingStyle.stroke..strokeWidth = 4..color = const Color(0xFF9B6843));
-        canvas.drawCircle(o, 15, Paint()..color = const Color(0xFFD7B47E));
+      canvas.drawColor(const Color(0xFFF7F0E1), BlendMode.src);
+      // Klassik: nafis sharqona arka, oltin chiziqlar va simmetrik ornament.
+      final classicArch = Path()
+        ..moveTo(105, 880)
+        ..lineTo(105, 390)
+        ..quadraticBezierTo(540, 20, 975, 390)
+        ..lineTo(975, 880);
+      canvas.drawPath(classicArch, Paint()..style=PaintingStyle.stroke..strokeWidth=7..color=const Color(0xFFB58A46));
+      canvas.drawPath(
+        Path()..moveTo(132,880)..lineTo(132,410)..quadraticBezierTo(540,75,948,410)..lineTo(948,880),
+        Paint()..style=PaintingStyle.stroke..strokeWidth=2..color=const Color(0xFFD4B77D));
+      for (final x in [85.0, 995.0]) {
+        canvas.drawCircle(Offset(x,300), 34, Paint()..style=PaintingStyle.stroke..strokeWidth=3..color=const Color(0xFFB58A46));
+        canvas.drawCircle(Offset(x,300), 12, Paint()..color=const Color(0xFFD4B77D));
       }
-      canvas.drawCircle(const Offset(540, 135), 64, Paint()..style = PaintingStyle.stroke..strokeWidth = 3..color = const Color(0xFFB58A55));
-      canvas.drawLine(const Offset(250,135), const Offset(455,135), Paint()..color = const Color(0xFFB58A55)..strokeWidth = 3);
-      canvas.drawLine(const Offset(625,135), const Offset(830,135), Paint()..color = const Color(0xFFB58A55)..strokeWidth = 3);
+      canvas.drawRect(const Rect.fromLTWH(42,42,996,1836), Paint()..style=PaintingStyle.stroke..strokeWidth=2..color=const Color(0xFFD4B77D));
       break;
     case BookStoryTemplate.spring:
       canvas.drawColor(const Color(0xFFF9EEF2), BlendMode.src);

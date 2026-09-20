@@ -585,7 +585,7 @@ class _BookBundlesPageState extends State<BookBundlesPage> {
                       .whereType<Map>()
                       .map((e) => Map<String, dynamic>.from(e))
                       .toList();
-                  var liveTotal = 0;
+                  var regularTotal = 0;
                   var available = true;
                   for (final item in items) {
                     final id = (item['book_id'] ?? '').toString();
@@ -600,7 +600,7 @@ class _BookBundlesPageState extends State<BookBundlesPage> {
                     if (book == null || book.stock < qty) {
                       available = false;
                     } else {
-                      liveTotal += book.currentPrice * qty;
+                      regularTotal += book.price * qty;
                     }
                   }
                   return AppSurface(
@@ -749,28 +749,39 @@ class _BookBundlesPageState extends State<BookBundlesPage> {
                         Builder(
                           builder: (context) {
                             final setPrice =
-                                (bundle['price'] as num?)?.toInt() ?? liveTotal;
-                            final saving =
-                                (liveTotal - setPrice).clamp(0, liveTotal).toInt();
-                            final percent = liveTotal > 0
-                                ? ((saving * 100) / liveTotal).round()
+                                (bundle['price'] as num?)?.toInt() ?? regularTotal;
+                            final saving = (regularTotal - setPrice)
+                                .clamp(0, regularTotal)
+                                .toInt();
+                            final percent = regularTotal > 0
+                                ? ((saving * 100) / regularTotal).round()
                                 : 0;
                             final deliveryIncluded =
                                 bundle['delivery_included'] == true;
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                if (saving > 0)
-                                  Row(
-                                    children: [
-                                      Text(
-                                        won(liveTotal),
-                                        style: const TextStyle(
-                                          color: AppColors.muted,
-                                          decoration: TextDecoration.lineThrough,
-                                          fontWeight: FontWeight.w700,
-                                        ),
+                                Row(
+                                  children: [
+                                    const Text(
+                                      'Asl narxi: ',
+                                      style: TextStyle(
+                                        color: AppColors.muted,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
                                       ),
+                                    ),
+                                    Text(
+                                      won(regularTotal),
+                                      style: const TextStyle(
+                                        color: AppColors.muted,
+                                        fontSize: 13,
+                                        decoration: TextDecoration.lineThrough,
+                                        decorationThickness: 2,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    if (saving > 0) ...[
                                       const SizedBox(width: 8),
                                       AppInfoPill(
                                         icon: Icons.sell_rounded,
@@ -779,12 +790,13 @@ class _BookBundlesPageState extends State<BookBundlesPage> {
                                         background: AppColors.successSoft,
                                       ),
                                     ],
-                                  ),
-                                if (saving > 0) const SizedBox(height: 7),
+                                  ],
+                                ),
+                                const SizedBox(height: 7),
                                 Row(
                                   children: [
                                     Text(
-                                      won(setPrice),
+                                      'Setda: ${won(setPrice)}',
                                       style: const TextStyle(
                                         fontSize: 20,
                                         fontWeight: FontWeight.w900,
@@ -1022,13 +1034,25 @@ class _BookBundleDetailPageState extends State<BookBundleDetailPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (saving > 0) ...[
-                  Text(
-                    'Asl jami: ${won(regularTotal)}',
-                    style: const TextStyle(
-                      color: AppColors.muted,
-                      decoration: TextDecoration.lineThrough,
-                      fontWeight: FontWeight.w800,
-                    ),
+                  Row(
+                    children: [
+                      const Text(
+                        'Asl narxi: ',
+                        style: TextStyle(
+                          color: AppColors.muted,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        won(regularTotal),
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          decoration: TextDecoration.lineThrough,
+                          decorationThickness: 2,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 6),
                   AppInfoPill(
@@ -1040,7 +1064,7 @@ class _BookBundleDetailPageState extends State<BookBundleDetailPage> {
                   const SizedBox(height: 10),
                 ],
                 Text(
-                  'Set narxi: ${won(setPrice)}',
+                  'Setda: ${won(setPrice)}',
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w900,

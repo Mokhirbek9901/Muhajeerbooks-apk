@@ -652,18 +652,66 @@ class _BookBundlesPageState extends State<BookBundlesPage> {
                               ),
                             )),
                         const Divider(height: 24),
-                        Row(
-                          children: [
-                            Text(
-                              liveTotal > 0 ? won(liveTotal) : '',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                                color: AppColors.navy,
-                              ),
-                            ),
-                            const Spacer(),
-                            FilledButton.icon(
+                        Builder(
+                          builder: (context) {
+                            final setPrice =
+                                (bundle['price'] as num?)?.toInt() ?? liveTotal;
+                            final saving =
+                                (liveTotal - setPrice).clamp(0, liveTotal).toInt();
+                            final percent = liveTotal > 0
+                                ? ((saving * 100) / liveTotal).round()
+                                : 0;
+                            final deliveryIncluded =
+                                bundle['delivery_included'] == true;
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (saving > 0)
+                                  Row(
+                                    children: [
+                                      Text(
+                                        won(liveTotal),
+                                        style: const TextStyle(
+                                          color: AppColors.muted,
+                                          decoration: TextDecoration.lineThrough,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      AppInfoPill(
+                                        icon: Icons.sell_rounded,
+                                        label: '-$percent% • ${won(saving)} tejaysiz',
+                                        foreground: AppColors.success,
+                                        background: AppColors.successSoft,
+                                      ),
+                                    ],
+                                  ),
+                                if (saving > 0) const SizedBox(height: 7),
+                                Row(
+                                  children: [
+                                    Text(
+                                      won(setPrice),
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w900,
+                                        color: AppColors.navy,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      deliveryIncluded
+                                          ? 'pochta bilan'
+                                          : 'pochta alohida',
+                                      style: TextStyle(
+                                        color: deliveryIncluded
+                                            ? AppColors.success
+                                            : AppColors.muted,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    FilledButton.icon(
                               onPressed: available
                                   ? () {
                                       final message = state.addBundleToCart(bundle);
@@ -674,8 +722,12 @@ class _BookBundlesPageState extends State<BookBundlesPage> {
                                   : null,
                               icon: const Icon(Icons.add_shopping_cart_rounded),
                               label: Text(available ? 'Setni savatga' : 'To‘liq mavjud emas'),
-                            ),
-                          ],
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -3518,27 +3570,32 @@ class CartPage extends StatelessWidget {
                     Row(
                       children: [
                         Icon(
-                          state.cartCount >= 4 &&
-                                  state.fourPlusFreeDeliveryEnabled
+                          (state.cartBundleDeliveryIncluded ||
+                                  (state.cartCount >= 4 &&
+                                      state.fourPlusFreeDeliveryEnabled))
                               ? Icons.check_circle_rounded
                               : Icons.local_shipping_outlined,
                           size: 16,
-                          color: state.cartCount >= 4 &&
-                                  state.fourPlusFreeDeliveryEnabled
+                          color: (state.cartBundleDeliveryIncluded ||
+                                  (state.cartCount >= 4 &&
+                                      state.fourPlusFreeDeliveryEnabled))
                               ? AppColors.success
                               : AppColors.muted,
                         ),
                         const SizedBox(width: 5),
                         Expanded(
                           child: Text(
-                            state.discountBlocksFourPlusFreeDelivery
-                                ? 'Chegirma davrida 택배 ₩4,000'
-                                : (state.cartCount >= 4
-                                    ? 'Yetkazib berish siz uchun bepul'
-                                    : '택배 ₩4,000 • 4+ kitobda bepul'),
+                            state.cartBundleDeliveryIncluded
+                                ? 'Set narxiga pochta ham kiritilgan'
+                                : (state.discountBlocksFourPlusFreeDelivery
+                                    ? 'Chegirma davrida 택배 ₩4,000'
+                                    : (state.cartCount >= 4
+                                        ? 'Yetkazib berish siz uchun bepul'
+                                        : '택배 ₩4,000 • 4+ kitobda bepul')),
                             style: TextStyle(
-                              color: state.cartCount >= 4 &&
-                                      state.fourPlusFreeDeliveryEnabled
+                              color: (state.cartBundleDeliveryIncluded ||
+                                      (state.cartCount >= 4 &&
+                                          state.fourPlusFreeDeliveryEnabled))
                                   ? AppColors.success
                                   : AppColors.muted,
                               fontSize: 11.5,
@@ -3901,9 +3958,23 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    _priceRow('Kitoblar', state.cartSubtotal),
+                    _priceRow(
+                      state.cartBundleDiscount > 0
+                          ? 'Kitoblar (set narxida)'
+                          : 'Kitoblar',
+                      state.cartSubtotal,
+                    ),
+                    if (state.cartBundleDiscount > 0) ...[
+                      const SizedBox(height: 8),
+                      _priceRow('Set orqali tejash', -state.cartBundleDiscount),
+                    ],
                     const SizedBox(height: 8),
-                    _priceRow('Yetkazib berish', deliveryFee),
+                    _priceRow(
+                      state.cartBundleDeliveryIncluded
+                          ? 'Yetkazib berish (set ichida)'
+                          : 'Yetkazib berish',
+                      deliveryFee,
+                    ),
                     const Divider(height: 24),
                     _priceRow('Jami', total, bold: true),
                   ],
@@ -3924,7 +3995,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Buyurtma yuborilganda ombor darhol kamaymaydi. Admin buyurtmani QABUL QILGANDA kitoblar ombordan avtomatik ayriladi.',
+                      'Buyurtma yuborilganda kitoblar ombordan darhol band qilinadi. Buyurtma bekor qilinsa, omborga avtomatik qaytadi.',
                       style: TextStyle(
                         fontSize: 12,
                         height: 1.4,

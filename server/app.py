@@ -44,27 +44,20 @@ def ai_story_background():
 
     mime=cover.mimetype if cover.mimetype in ("image/png","image/jpeg","image/webp") else "image/jpeg"
     data_url=f"data:{mime};base64,{base64.b64encode(raw).decode()}"
-    vision_prompt="""Analyze this book cover visually. Return a compact art-direction description for an Instagram Story BACKGROUND only. Identify prominent visible subjects (for example bird, flower, building, moon, landscape, object), atmosphere, dominant palette, era/style and decorative motifs. Do not invent a subject that is not visible or strongly implied. No text, no logos, no book mockup. Leave a calm central area for the real book cover and a calm lower area for app text."""
-    vr=requests.post("https://api.openai.com/v1/responses",headers={"Authorization":f"Bearer {key}","Content-Type":"application/json"},json={
-      "model":"gpt-5.6-luna",
-      "input":[{"role":"user","content":[{"type":"input_text","text":vision_prompt+f"\nBook metadata: {title}; {category}; {desc}"},{"type":"input_image","image_url":data_url}]}],
-      "max_output_tokens":350
-    },timeout=90)
-    if vr.status_code>=400: return jsonify(error="AI analysis failed"),502
-    vj=vr.json()
-    direction=""
-    for item in vj.get("output",[]):
-      for part in item.get("content",[]):
-        if part.get("type")=="output_text": direction += part.get("text","")
-    if not direction: direction=f"Elegant book-inspired composition based on {title}."
-
-    prompt=f"""Create a premium vertical Instagram Story background for Muhajeer Books, inspired by the supplied art direction: {direction}
-The background must feel custom to this exact book. Echo visible subjects from the cover in an artistic, non-copying environmental way: if a bird is visible, use bird/nature motifs; if architecture is visible, use compatible architectural atmosphere; if floral, use botanical atmosphere. Make each cover lead to a meaningfully different composition.
-STRICT: background/decor only. NO words, letters, numbers, logos, price tags, UI, book cover, fake book, frames containing text, or watermark. Keep the central upper-middle region relatively uncluttered for the original cover. Keep the lower 40% calm and readable for title/price/CTA overlays. Sophisticated editorial retail photography/illustration, cohesive palette, 9:16."""
-    ir=requests.post("https://api.openai.com/v1/images/generations",headers={"Authorization":f"Bearer {key}","Content-Type":"application/json"},json={
-      "model":"gpt-image-2","prompt":prompt,"size":"1024x1536","quality":"medium","output_format":"png"
-    },timeout=180)
-    if ir.status_code>=400: return jsonify(error="AI image generation failed"),502
+    prompt=f"""Using the supplied BOOK COVER as visual reference, create a premium vertical Instagram Story BACKGROUND for Muhajeer Books.
+Analyze the cover visually yourself: its visible subjects (bird, flower, building, moon, landscape, person/object), mood, palette, era and motifs. Echo those subjects in an artistic environmental way so this exact book leads to a distinct design. If a bird is visibly present, use compatible bird/nature motifs; if architecture is present, use compatible architectural atmosphere; if floral, use botanical atmosphere.
+Book metadata for context only: title={title}; category={category}; description={desc}
+STRICT: background/decor only. NO words, letters, numbers, logos, prices, UI, fake book, watermark. Do not reproduce or redraw the book cover itself. Keep the central upper-middle region relatively uncluttered for the original cover and the lower 40% calm/readable for app text overlays. Sophisticated editorial retail illustration, cohesive palette, vertical."""
+    files={"image":("cover.jpg",raw,mime)}
+    form={"model":"gpt-image-1.5","prompt":prompt,"size":"1024x1536","quality":"medium","output_format":"png"}
+    ir=requests.post("https://api.openai.com/v1/images/edits",
+      headers={"Authorization":f"Bearer {key}"},data=form,files=files,timeout=240)
+    if ir.status_code>=400:
+        detail=""
+        try: detail=(ir.json().get("error") or {}).get("message","")
+        except Exception: detail=ir.text[:300]
+        print(f"AI image API failed status={ir.status_code} detail={detail}",flush=True)
+        return jsonify(error="AI image generation failed", detail=detail[:180]),502
     ij=ir.json(); data=(ij.get("data") or [{}])[0]
     if data.get("b64_json"): out=base64.b64decode(data["b64_json"])
     elif data.get("url"):

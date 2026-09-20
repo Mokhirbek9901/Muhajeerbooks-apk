@@ -1133,29 +1133,53 @@ Future<Uint8List> _renderAlternativeBookStory(
         weight: FontWeight.w900, color: Colors.white, maxLines: 1,
         fontFamily: 'monospace', letterSpacing: 3);
   } else if (template == BookStoryTemplate.atlas) {
-    textBox('MUHAJEER BOOKS  •  SUZANI', const Rect.fromLTWH(80, 62, 920, 60), 26,
-        weight: FontWeight.w700, color: const Color(0xFFF2D58A), maxLines: 1,
-        fontFamily: 'serif', letterSpacing: 4);
+    rounded(const Rect.fromLTWH(105, 160, 870, 175), const Color(0xCC351020), radius: 30,
+      stroke: const Color(0x66E3C46D));
+    textBox(book.title, const Rect.fromLTWH(135, 182, 810, 130), 52,
+      weight: FontWeight.w700, color: const Color(0xFFFFF1D4), maxLines: 2,
+      fontFamily: 'serif', fontStyle: FontStyle.italic);
+    coverFrame = const Rect.fromLTWH(290, 370, 500, 690);
+    coverRect = const Rect.fromLTWH(320, 400, 440, 630);
   } else if (template == BookStoryTemplate.marble) {
-    textBox('MUHAJEER BOOKS  •  REGISTON', const Rect.fromLTWH(80, 62, 920, 60), 25,
-        weight: FontWeight.w700, color: const Color(0xFF246E73), maxLines: 1,
-        fontFamily: 'serif', letterSpacing: 3);
+    rounded(const Rect.fromLTWH(105, 160, 870, 175), const Color(0xEFFFFFFF), radius: 30,
+      stroke: const Color(0x22000000));
+    textBox(book.title, const Rect.fromLTWH(135, 182, 810, 130), 52,
+      weight: FontWeight.w700, color: const Color(0xFF244F53), maxLines: 2,
+      fontFamily: 'serif', fontStyle: FontStyle.normal);
+    coverFrame = const Rect.fromLTWH(290, 370, 500, 690);
+    coverRect = const Rect.fromLTWH(320, 400, 440, 630);
   } else if (template == BookStoryTemplate.cinema) {
-    textBox('MUHAJEER BOOKS  •  ZARHAL', const Rect.fromLTWH(80, 62, 920, 60), 25,
-        weight: FontWeight.w700, color: const Color(0xFFF1D17C), maxLines: 1,
-        fontFamily: 'serif', letterSpacing: 5);
+    rounded(const Rect.fromLTWH(105, 160, 870, 175), const Color(0xD918130D), radius: 30,
+      stroke: const Color(0x66E3C46D));
+    textBox(book.title, const Rect.fromLTWH(135, 182, 810, 130), 52,
+      weight: FontWeight.w700, color: const Color(0xFFFFF0C7), maxLines: 2,
+      fontFamily: 'serif', fontStyle: FontStyle.normal);
+    coverFrame = const Rect.fromLTWH(295, 370, 490, 690);
+    coverRect = const Rect.fromLTWH(325, 400, 430, 630);
   } else if (template == BookStoryTemplate.terracotta) {
-    textBox('MUHAJEER BOOKS  •  GULSHAN', const Rect.fromLTWH(80, 62, 920, 60), 25,
-        weight: FontWeight.w700, color: const Color(0xFF7A4548), maxLines: 1,
-        fontFamily: 'serif', letterSpacing: 3);
+    rounded(const Rect.fromLTWH(105, 160, 870, 175), const Color(0xEFFFFFFF), radius: 30,
+      stroke: const Color(0x22000000));
+    textBox(book.title, const Rect.fromLTWH(135, 182, 810, 130), 52,
+      weight: FontWeight.w700, color: const Color(0xFF673D40), maxLines: 2,
+      fontFamily: 'serif', fontStyle: FontStyle.italic);
+    coverFrame = const Rect.fromLTWH(290, 370, 500, 690);
+    coverRect = const Rect.fromLTWH(320, 400, 440, 630);
   } else if (template == BookStoryTemplate.royal) {
-    textBox('MUHAJEER BOOKS  •  KOSHIN', const Rect.fromLTWH(80, 62, 920, 60), 25,
-        weight: FontWeight.w700, color: const Color(0xFFF0D58B), maxLines: 1,
-        fontFamily: 'serif', letterSpacing: 5);
+    rounded(const Rect.fromLTWH(105, 160, 870, 175), const Color(0xD907343B), radius: 30,
+      stroke: const Color(0x66E3C46D));
+    textBox(book.title, const Rect.fromLTWH(135, 182, 810, 130), 52,
+      weight: FontWeight.w700, color: const Color(0xFFFFF4D1), maxLines: 2,
+      fontFamily: 'serif', fontStyle: FontStyle.normal);
+    coverFrame = const Rect.fromLTWH(300, 370, 480, 690);
+    coverRect = const Rect.fromLTWH(328, 400, 424, 639);
   } else if (template == BookStoryTemplate.ornament) {
-    textBox('MUHAJEER BOOKS  •  SAMARQAND', const Rect.fromLTWH(80, 62, 920, 60), 24,
-        weight: FontWeight.w700, color: const Color(0xFF286E70), maxLines: 1,
-        fontFamily: 'serif', letterSpacing: 3);
+    rounded(const Rect.fromLTWH(105, 160, 870, 175), const Color(0xEFFFFFFF), radius: 30,
+      stroke: const Color(0x22000000));
+    textBox(book.title, const Rect.fromLTWH(135, 182, 810, 130), 52,
+      weight: FontWeight.w700, color: const Color(0xFF4C493D), maxLines: 2,
+      fontFamily: 'serif', fontStyle: FontStyle.normal);
+    coverFrame = const Rect.fromLTWH(300, 370, 480, 690);
+    coverRect = const Rect.fromLTWH(328, 400, 424, 639);
   } else {
     textBox('MUHAJEER BOOKS', const Rect.fromLTWH(80, 70, 920, 70), 40,
         weight: template == BookStoryTemplate.classic ? FontWeight.w500 : FontWeight.w900,
@@ -1494,19 +1518,21 @@ Future<Uint8List> _renderAlternativeBookStory(
     infoTop += 45;
   }
 
-  final cardBg = dark ? const Color(0xFF173F49) : const Color(0xFFFFFFFF);
-  final cardStroke = dark ? const Color(0xFF6F8A8E) : const Color(0xFFE3DDD0);
+  // Ma'lumot kartalari dekor fonidan qat'i nazar o‘qilishi shart.
+  const cardBg = Color(0xFFFDFBF6);
+  const cardStroke = Color(0xFFD8D0C2);
+  const cardText = Color(0xFF123F49);
   const gap = 18.0;
   const cardW = 275.0;
   final left = (1080 - (cardW * 3 + gap * 2)) / 2;
   for (var i = 0; i < 3; i++) {
     rounded(Rect.fromLTWH(left + i * (cardW + gap), infoTop + 18, cardW, 112), cardBg, radius: 22, stroke: cardStroke);
   }
-  textBox(storyPrice(book), Rect.fromLTWH(left + 10, infoTop + 32, cardW - 20, 80), 31, weight: FontWeight.w900, color: dark ? Colors.white : teal, maxLines: 1);
-  textBox('Yetkazib berish:\n₩4,000', Rect.fromLTWH(left + cardW + gap + 10, infoTop + 28, cardW - 20, 88), 22, weight: FontWeight.w800, color: fg);
+  textBox(storyPrice(book), Rect.fromLTWH(left + 10, infoTop + 32, cardW - 20, 80), 31, weight: FontWeight.w900, color: teal, maxLines: 1);
+  textBox('Yetkazib berish:\n₩4,000', Rect.fromLTWH(left + cardW + gap + 10, infoTop + 28, cardW - 20, 88), 22, weight: FontWeight.w800, color: cardText);
   textBox(book.stock > 0 ? 'Omborda:\n${book.stock} dona' : 'Hozircha\nmavjud emas',
       Rect.fromLTWH(left + (cardW + gap) * 2 + 10, infoTop + 28, cardW - 20, 88), 22, weight: FontWeight.w800,
-      color: book.stock > 0 ? (dark ? const Color(0xFFB8F0D1) : const Color(0xFF187A55)) : const Color(0xFFB53B3B));
+      color: book.stock > 0 ? const Color(0xFF187A55) : const Color(0xFFB53B3B));
 
   final description = _storyDescription(book);
   final descriptionOnDark = dark ||

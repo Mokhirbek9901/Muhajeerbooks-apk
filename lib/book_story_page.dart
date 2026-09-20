@@ -35,7 +35,13 @@ class _BookStoryPageState extends State<BookStoryPage> {
       final prefs = await SharedPreferences.getInstance();
       final saved = prefs.getString(_templatePreferenceKey);
       if (saved == null) return;
-      final restored = BookStoryTemplate.values.where((e) => e.name == saved).firstOrNull;
+      BookStoryTemplate? restored;
+      for (final value in BookStoryTemplate.values) {
+        if (value.name == saved) {
+          restored = value;
+          break;
+        }
+      }
       if (restored == null || !mounted || restored == _template) return;
       setState(() {
         _template = restored;

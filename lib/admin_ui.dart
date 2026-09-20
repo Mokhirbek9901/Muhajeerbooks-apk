@@ -190,6 +190,7 @@ class _AdminApi {
           'cover': book.coverType,
           'cost_price': book.costPrice,
           'recommended': book.recommended,
+          'preorder_enabled': book.preorderEnabled,
         },
       },
     );
@@ -461,6 +462,49 @@ class _AdminApi {
     return ((raw as List?) ?? const [])
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
+  }
+
+  Future<Map<String, dynamic>> merchandisingInsights() async {
+    final raw = await _rpc(
+      'admin_merchandising_insights',
+      params: {'p_secret': secret},
+    );
+    return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+  }
+
+  Future<List<Map<String, dynamic>>> bundles() async {
+    final raw = await _rpc(
+      'admin_bundle_list',
+      params: {'p_secret': secret},
+    );
+    return ((raw as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+
+  Future<void> saveBundle({
+    String? id,
+    required String title,
+    required String description,
+    required int price,
+    String imageUrl = '',
+    bool active = true,
+    required List<Map<String, dynamic>> items,
+  }) async {
+    await _rpc(
+      'admin_bundle_save',
+      params: {
+        'p_secret': secret,
+        'p_id': id,
+        'p_title': title,
+        'p_description': description,
+        'p_price': price,
+        'p_image_url': imageUrl,
+        'p_is_active': active,
+        'p_items': items,
+      },
+    );
   }
 
   Future<List<Map<String, dynamic>>> restockWaitlist() async {
@@ -3510,6 +3554,7 @@ class _BookFormState extends State<_BookForm> {
   String cover = 'Ko‘rsatilmagan';
   bool active = true;
   bool recommended = false;
+  bool preorderEnabled = false;
   bool saving = false;
   bool uploadingImage = false;
   List<String> gallery = [];
@@ -3546,6 +3591,7 @@ class _BookFormState extends State<_BookForm> {
     cover = b?.coverType ?? 'Ko‘rsatilmagan';
     active = b?.isActive ?? true;
     recommended = b?.recommended ?? false;
+    preorderEnabled = b?.preorderEnabled ?? false;
     image.addListener(_imageChanged);
   }
 
@@ -3866,6 +3912,7 @@ class _BookFormState extends State<_BookForm> {
           coverType: cover,
           costPrice: c,
           recommended: recommended,
+          preorderEnabled: preorderEnabled,
           createdAt: widget.book?.createdAt,
         ),
       );
@@ -4104,6 +4151,15 @@ class _BookFormState extends State<_BookForm> {
               value: recommended,
               onChanged: (v) => setState(() => recommended = v),
               title: const Text('Tavsiya etilgan kitob'),
+              contentPadding: EdgeInsets.zero,
+            ),
+            SwitchListTile(
+              value: preorderEnabled,
+              onChanged: (v) => setState(() => preorderEnabled = v),
+              title: const Text('Pre-order ochiq'),
+              subtitle: const Text(
+                'Omborda tugaganda mijoz oldindan so‘rov qoldira oladi.',
+              ),
               contentPadding: EdgeInsets.zero,
             ),
             const SizedBox(height: 12),

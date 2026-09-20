@@ -922,11 +922,8 @@ class AppState extends ChangeNotifier {
   }
 
   bool get fourPlusFreeDeliveryEnabled {
-    var hasActiveDiscount = false;
     for (final book in _books) {
-      if (!book.discountActive) continue;
-      hasActiveDiscount = true;
-      if (!book.discountFreeDelivery) return false;
+      if (book.discountActive && !book.discountFreeDelivery) return false;
     }
     return true;
   }

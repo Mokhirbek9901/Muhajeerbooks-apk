@@ -319,15 +319,30 @@ BookStoryTemplate _bestExistingTemplate(Book book, Uint8List encoded) {
 
 int _autoStoryVariant(Book book, _CoverPalette p) {
   final theme = _storyTheme(book);
-  // Har mavzuning o‘z kompozitsiyasi. Vizual xususiyatlar ichki variantni o‘zgartiradi.
-  if (theme == 1) return 4; // diniy: mihrab/arka
-  if (theme == 2) return 5; // detektiv: qorong‘i kino
-  if (theme == 3) return 6; // sevgi/oila: yumshoq organik
-  if (theme == 4) return 7; // biznes: qat’iy editorial
-  if (theme == 5) return 8; // bolalar: rangli kartochkalar
-  if (theme == 6) return 9; // tarix: milliy/klassik
-  if (theme == 7) return 10; // psixologiya: zamonaviy minimal
-  if (theme == 8) return 11; // badiiy: jurnal/sahifa
+
+  // Avto dizayn bir mavzu uchun ham bitta qolipga qamalib qolmaydi.
+  // Nom/tavsif mavzuni beradi; muqovaning yorqinligi, to‘yinganligi va
+  // issiq-sovuqligi esa shu mavzu ichidagi boshqa kompozitsiyani tanlaydi.
+  switch (theme) {
+    case 1: // diniy/qiroat
+      if (p.brightness < 0.42) return 12; // qoramtir: premium masjid
+      if (p.saturation > 0.42) return 13; // rangli: koshin/geometrik
+      return 4;                           // och: mihrab
+    case 2: // detektiv
+      return p.brightness < 0.42 ? 5 : 14; // noir / kesik poster
+    case 3: // sevgi/oila
+      return p.warmth > 0.08 ? 6 : 15;     // iliq organik / nafis botanika
+    case 4: // biznes
+      return p.brightness < 0.44 ? 16 : 7; // qora premium / grid
+    case 5: // bolalar
+      return p.saturation > 0.48 ? 8 : 17; // rangli / yumshoq polaroid
+    case 6: // tarix
+      return p.warmth > 0.05 ? 9 : 18;     // klassik / koshin tarixiy
+    case 7: // psixologiya
+      return p.saturation > 0.38 ? 19 : 10;// gradient / minimal
+    case 8: // badiiy
+      return p.warmth > 0.06 ? 11 : 20;    // jurnal / galereya
+  }
 
   if (p.saturation > 0.48) return 0;
   if (p.brightness < 0.43) return 1;
@@ -769,7 +784,7 @@ Future<Uint8List> renderBookStory(
     simpleText('MUHAJEER BOOKS', 50, 31, color: Colors.white, weight: FontWeight.w900);
     coverRect = const Rect.fromLTWH(185, 210, 710, 620);
     contentStart = 915;
-  } else {
+  } else if (autoVariant == 11) {
     // Badiiy/adabiy: jurnal sahifasi.
     canvas.drawColor(const Color(0xFFF3EBDD), BlendMode.src);
     canvas.drawRect(const Rect.fromLTWH(65, 60, 950, 820), Paint()..color = Colors.white);
@@ -777,6 +792,71 @@ Future<Uint8List> renderBookStory(
     simpleText('MUHAJEER • ADABIYOT', 82, 26, color: ink, weight: FontWeight.w800);
     coverRect = const Rect.fromLTWH(235, 205, 610, 620);
     contentStart = 930;
+  } else if (autoVariant == 12) {
+    canvas.drawColor(const Color(0xFF102E29), BlendMode.src);
+    canvas.drawCircle(const Offset(540, 390), 350, Paint()..color = const Color(0xFF1B493E));
+    canvas.drawCircle(const Offset(540, 390), 305, Paint()..style=PaintingStyle.stroke..strokeWidth=8..color=const Color(0xFFC8A65C));
+    simpleText('MUHAJEER • ILM', 62, 30, color: const Color(0xFFEAD9A8), weight: FontWeight.w900);
+    coverRect = const Rect.fromLTWH(285, 185, 510, 600);
+    contentStart = 875;
+  } else if (autoVariant == 13) {
+    canvas.drawColor(const Color(0xFFEAF2ED), BlendMode.src);
+    for (var x=60.0; x<1080; x+=120) {
+      canvas.drawCircle(Offset(x, 410), 42, Paint()..style=PaintingStyle.stroke..strokeWidth=5..color=teal.withAlpha(130));
+    }
+    canvas.drawRect(const Rect.fromLTWH(0,0,1080,165), Paint()..color=teal);
+    simpleText('MUHAJEER • QIROAT', 52, 31, color: Colors.white, weight: FontWeight.w900);
+    coverRect = const Rect.fromLTWH(245, 215, 590, 590);
+    contentStart = 885;
+  } else if (autoVariant == 14) {
+    canvas.drawColor(const Color(0xFFF0EEE8), BlendMode.src);
+    canvas.drawRect(const Rect.fromLTWH(0,0,1080,720), Paint()..color=const Color(0xFF25272C));
+    canvas.drawRect(const Rect.fromLTWH(0,620,1080,100), Paint()..color=const Color(0xFFB43D34));
+    simpleText('MUHAJEER / DETEKTIV', 58, 28, color: Colors.white, weight: FontWeight.w900);
+    coverRect = const Rect.fromLTWH(330, 145, 600, 610);
+    contentStart = 835;
+  } else if (autoVariant == 15) {
+    canvas.drawColor(const Color(0xFFF6F0ED), BlendMode.src);
+    canvas.drawCircle(const Offset(120,250), 260, Paint()..color=const Color(0xFFDDE7D5));
+    canvas.drawCircle(const Offset(980,650), 310, Paint()..color=const Color(0xFFEACFD4));
+    simpleText('MUHAJEER • HIKOYA', 70, 28, color: const Color(0xFF68545A), weight: FontWeight.w800);
+    coverRect = const Rect.fromLTWH(260, 180, 560, 650);
+    contentStart = 915;
+  } else if (autoVariant == 16) {
+    canvas.drawColor(const Color(0xFF15191C), BlendMode.src);
+    canvas.drawRect(const Rect.fromLTWH(0,0,1080,150), Paint()..color=const Color(0xFFC49A4A));
+    simpleText('MUHAJEER • BUSINESS', 52, 30, color: const Color(0xFF15191C), weight: FontWeight.w900);
+    coverRect = const Rect.fromLTWH(220, 205, 640, 610);
+    contentStart = 900;
+  } else if (autoVariant == 17) {
+    canvas.drawColor(const Color(0xFFFFF8E8), BlendMode.src);
+    canvas.drawCircle(const Offset(130,180), 90, Paint()..color=const Color(0xFFFFD66B));
+    canvas.drawCircle(const Offset(930,260), 120, Paint()..color=const Color(0xFFA9D9CF));
+    canvas.drawCircle(const Offset(130,760), 75, Paint()..color=const Color(0xFFE7B5C8));
+    simpleText('MUHAJEER • KITOB', 62, 30, color: const Color(0xFF38535A), weight: FontWeight.w900);
+    coverRect = const Rect.fromLTWH(230, 190, 620, 630);
+    contentStart = 910;
+  } else if (autoVariant == 18) {
+    canvas.drawColor(const Color(0xFFE8EFEA), BlendMode.src);
+    canvas.drawRect(const Rect.fromLTWH(45,45,990,820), Paint()..style=PaintingStyle.stroke..strokeWidth=8..color=const Color(0xFF17646B));
+    canvas.drawRect(const Rect.fromLTWH(68,68,944,774), Paint()..style=PaintingStyle.stroke..strokeWidth=2..color=const Color(0xFFB99250));
+    simpleText('MUHAJEER • TARIX', 72, 29, color: const Color(0xFF174F54), weight: FontWeight.w900);
+    coverRect = const Rect.fromLTWH(255, 190, 570, 620);
+    contentStart = 915;
+  } else if (autoVariant == 19) {
+    canvas.drawRect(const Rect.fromLTWH(0,0,1080,1920), Paint()..shader=ui.Gradient.linear(
+      const Offset(0,0), const Offset(1080,900), [palette.softAccent, palette.softWarm]));
+    canvas.drawCircle(const Offset(900,160), 240, Paint()..color=teal.withAlpha(55));
+    simpleText('MUHAJEER • TAFAKKUR', 64, 29, color: ink, weight: FontWeight.w900);
+    coverRect = const Rect.fromLTWH(205, 185, 670, 640);
+    contentStart = 910;
+  } else {
+    canvas.drawColor(const Color(0xFFF7F5F0), BlendMode.src);
+    canvas.drawRect(const Rect.fromLTWH(75,75,930,760), Paint()..color=Colors.white);
+    canvas.drawLine(const Offset(100,135), const Offset(980,135), Paint()..color=teal..strokeWidth=4);
+    simpleText('MUHAJEER • ADABIYOT', 82, 27, color: ink, weight: FontWeight.w900);
+    coverRect = const Rect.fromLTWH(185, 185, 710, 600);
+    contentStart = 890;
   }
 
   final frame = RRect.fromRectAndRadius(

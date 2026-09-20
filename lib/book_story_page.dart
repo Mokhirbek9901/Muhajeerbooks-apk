@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cross_file/cross_file.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'app_state.dart';
 import 'book_links.dart';
 import 'book_story_image.dart';
@@ -20,21 +21,46 @@ class _BookStoryPageState extends State<BookStoryPage> {
   bool _copied = false;
   BookStoryTemplate _template = BookStoryTemplate.current;
 
+  static const _templatePreferenceKey = 'book_story_template_v1';
+
   @override
   void initState() {
     super.initState();
     _image = renderBookStory(widget.book, template: _template);
+    _restoreTemplate();
+  }
+
+  Future<void> _restoreTemplate() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(_templatePreferenceKey);
+      if (saved == null) return;
+      final restored = BookStoryTemplate.values.where((e) => e.name == saved).firstOrNull;
+      if (restored == null || !mounted || restored == _template) return;
+      setState(() {
+        _template = restored;
+        _image = renderBookStory(widget.book, template: restored);
+      });
+    } catch (_) {
+      // Saqlangan tanlov o‘qilmasa hozirgi dizayn bilan davom etamiz.
+    }
   }
 
   String get _filename =>
       'muhajeer-${widget.book.id}-${bookStoryTemplateName(_template).toLowerCase()}-story.png';
 
-  void _selectTemplate(BookStoryTemplate template) {
+  Future<void> _selectTemplate(BookStoryTemplate template) async {
     if (_template == template) return;
     setState(() {
       _template = template;
       _image = renderBookStory(widget.book, template: template);
     });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_templatePreferenceKey, template.name);
+    } catch (_) {
+      // Story ishlashiga xalaqit bermaydi.
+    }
   }
 
   Future<void> _copyLink() async {

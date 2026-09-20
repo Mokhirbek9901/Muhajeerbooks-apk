@@ -1156,7 +1156,6 @@ class _HomePageState extends State<HomePage> {
                       const SizedBox(height: 16),
                       FilledButton.icon(
                         onPressed: query.trim().length < 2 ? null : () async {
-                          unawaited(state.recordSearchMiss(query));
                           final message = await state.requestMissingBook(query);
                           if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));

@@ -1594,11 +1594,29 @@ class AppState extends ChangeNotifier {
   List<Map<String, dynamic>> get cartBundleSelections =>
       _cartBundleIds.map((id) => {'bundle_id': id}).toList();
 
-  int get cartSubtotal =>
-      cartLines.fold(0, (a, b) => a + b.total) - cartBundleDiscount;
+  // Savat jami set ichidagi kitoblarning alohida narxidan hisoblanmaydi.
+  // Har bir set uchun admin belgilagan set narxi aynan olinadi; setdan tashqari
+  // kitoblar esa odatdagi joriy narxida qo‘shiladi.
+  int get cartBundleSubtotal {
+    var total = 0;
+    for (final bundle in cartBundles) {
+      total += (bundle['price'] as num?)?.toInt() ?? 0;
+    }
+    return total;
+  }
+
+  int get cartStandaloneSubtotal =>
+      cartStandaloneLines.fold(0, (sum, line) => sum + line.total);
+
+  int get cartSubtotal => cartBundleSubtotal + cartStandaloneSubtotal;
+
+  // 4+ qoidasida bitta set — ichida nechta kitob bo‘lishidan qat’i nazar —
+  // savatda 1 ta mahsulot hisoblanadi. Set + 3 ta alohida kitob = 4 ta.
+  // Agar istalgan setga admin "pochta set narxiga kiritilgan" deb belgilagan
+  // bo‘lsa, shu savat uchun yana pochta puli olinmaydi.
   int get cartDeliveryFee =>
       cartBundleDeliveryIncluded ||
-              (cartStandaloneBookCount >= 4 && fourPlusFreeDeliveryEnabled)
+              (cartDisplayCount >= 4 && fourPlusFreeDeliveryEnabled)
           ? 0
           : deliveryFee;
 
@@ -1613,8 +1631,8 @@ class AppState extends ChangeNotifier {
   }
 
   void decrementCart(Book book) {
-    _cartBundleIds.clear();
-    unawaited(_local.saveCartBundles(_cartBundleIds));
+    // Bu tugma faqat setdan tashqari qatorlarda ko‘rinadi. Alohida kitob
+    // miqdorini o‘zgartirish savatdagi setlarni bekor qilmasligi kerak.
     final current = _cart[book.id] ?? 0;
     if (current <= 1) {
       _cart.remove(book.id);
@@ -1626,8 +1644,8 @@ class AppState extends ChangeNotifier {
   }
 
   void removeFromCart(Book book) {
-    _cartBundleIds.clear();
-    unawaited(_local.saveCartBundles(_cartBundleIds));
+    // Alohida kitobni o‘chirish set narxi va setning pochta sozlamasiga
+    // tegmasin.
     _cart.remove(book.id);
     _persistCart();
     notifyListeners();
@@ -1757,12 +1775,8 @@ class AppState extends ChangeNotifier {
 
     final subtotal = cartSubtotal;
     final isGyeongsanPickup = deliveryType == '경산 직접수령';
-    final safeDeliveryFee = isGyeongsanPickup
-        ? 0
-        : (cartBundleDeliveryIncluded ||
-                (cartDisplayCount >= 4 && fourPlusFreeDeliveryEnabled)
-            ? 0
-            : AppState.deliveryFee);
+    final safeDeliveryFee =
+        isGyeongsanPickup ? 0 : cartDeliveryFee;
     final total = subtotal + safeDeliveryFee;
     await _local.saveCustomer(
       customerName.trim(),
@@ -1818,9 +1832,11 @@ class AppState extends ChangeNotifier {
       _localOrders.removeWhere((o) => o.id == id);
       _localOrders.insert(0, receipt);
       _cart.clear();
+      _cartBundleIds.clear();
       await Future.wait([
         _local.saveOrders(_localOrders),
         _local.saveCart(_cart),
+        _local.saveCartBundles(_cartBundleIds),
       ]);
       // Buyurtmadan keyin butun katalogni emas, faqat ombori o'zgargan
       // kitoblarni delta orqali yangilaymiz.
@@ -1848,9 +1864,11 @@ class AppState extends ChangeNotifier {
 
     _localOrders.insert(0, order);
     _cart.clear();
+    _cartBundleIds.clear();
     await Future.wait([
       _local.saveOrders(_localOrders),
       _local.saveCart(_cart),
+      _local.saveCartBundles(_cartBundleIds),
     ]);
     notifyListeners();
     return id;

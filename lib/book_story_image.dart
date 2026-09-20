@@ -255,9 +255,16 @@ Future<Uint8List> renderBookStory(
   Book book, {
   Uint8List? coverBytes,
   BookStoryTemplate template = BookStoryTemplate.current,
+  double renderScale = 1.0,
 }) async {
+  final safeScale = renderScale.clamp(0.5, 1.0).toDouble();
   if (template != BookStoryTemplate.current) {
-    return _renderAlternativeBookStory(book, template, coverBytes: coverBytes);
+    return _renderAlternativeBookStory(
+      book,
+      template,
+      coverBytes: coverBytes,
+      renderScale: safeScale,
+    );
   }
   Uint8List? bytes = coverBytes;
   bytes ??= await _downloadStoryCover(book);
@@ -277,6 +284,7 @@ Future<Uint8List> renderBookStory(
 
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);
+  canvas.scale(safeScale);
   const ink = Color(0xFF174652);
   const teal = Color(0xFF0D625C);
   const cream = Color(0xFFF8F4E9);
@@ -671,7 +679,10 @@ Future<Uint8List> renderBookStory(
   simpleText('@muhajeerbooks', 1810, 28);
 
   final picture = recorder.endRecording();
-  final image = await picture.toImage(1080, 1920);
+  final image = await picture.toImage(
+    (1080 * safeScale).round(),
+    (1920 * safeScale).round(),
+  );
   picture.dispose();
   // Safari/CanvasKit ayrim iPhone'larda toByteData() tugaguncha source texture
   // kerak bo‘ladi. Cover'ni bundan oldin dispose qilish qora to‘rtburchak beradi.
@@ -687,7 +698,9 @@ Future<Uint8List> _renderAlternativeBookStory(
   Book book,
   BookStoryTemplate template, {
   Uint8List? coverBytes,
+  double renderScale = 1.0,
 }) async {
+  final safeScale = renderScale.clamp(0.5, 1.0).toDouble();
   Uint8List? bytes = coverBytes ?? await _downloadStoryCover(book);
   bytes ??= (await rootBundle.load('assets/images/muhajeer_logo.jpg')).buffer.asUint8List();
   ui.Image cover;
@@ -701,6 +714,7 @@ Future<Uint8List> _renderAlternativeBookStory(
 
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);
+  canvas.scale(safeScale);
   const navy = Color(0xFF123F49);
   const teal = Color(0xFF08786E);
   const cream = Color(0xFFF7F2E7);
@@ -1563,7 +1577,10 @@ Future<Uint8List> _renderAlternativeBookStory(
       color: descriptionOnDark ? const Color(0xFFE7DDD1) : muted, maxLines: 1);
 
   final picture = recorder.endRecording();
-  final image = await picture.toImage(1080, 1920);
+  final image = await picture.toImage(
+    (1080 * safeScale).round(),
+    (1920 * safeScale).round(),
+  );
   picture.dispose();
   final png = await image.toByteData(format: ui.ImageByteFormat.png);
   image.dispose();

@@ -379,13 +379,18 @@ class _AdminApi {
     );
   }
 
-  Future<void> applyDiscount(int percent, DateTime endsAt) async {
+  Future<void> applyDiscount(
+    int percent,
+    DateTime endsAt, {
+    required bool freeDeliveryForFourPlus,
+  }) async {
     await _rpc(
       'admin_apply_discount_until',
       params: {
         'p_secret': secret,
         'p_percent': percent,
         'p_ends_at': endsAt.toUtc().toIso8601String(),
+        'p_free_delivery': freeDeliveryForFourPlus,
       },
     );
   }
@@ -5126,6 +5131,7 @@ class _DiscountAdmin extends StatefulWidget {
 class _DiscountAdminState extends State<_DiscountAdmin> {
   final percent = TextEditingController(text: '20');
   bool loading = false;
+  bool freeDeliveryForFourPlus = true;
   late DateTime endsAt;
 
   @override
@@ -5196,7 +5202,11 @@ class _DiscountAdminState extends State<_DiscountAdmin> {
     }
     setState(() => loading = true);
     try {
-      await widget.api.applyDiscount(p, endsAt);
+      await widget.api.applyDiscount(
+        p,
+        endsAt,
+        freeDeliveryForFourPlus: freeDeliveryForFourPlus,
+      );
       await context.read<AppState>().refreshBooks();
       if (mounted)
         ScaffoldMessenger.of(context)
@@ -5305,6 +5315,48 @@ class _DiscountAdminState extends State<_DiscountAdmin> {
                     'Aynan ${DateFormat('yyyy.MM.dd HH:mm').format(endsAt)} da chegirma avtomatik tugaydi.',
                     style: const TextStyle(
                       fontSize: 12,
+                      color: AppColors.muted,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceSoft,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: SwitchListTile.adaptive(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 4,
+                      ),
+                      secondary: const Icon(
+                        Icons.local_shipping_rounded,
+                        color: AppColors.navy,
+                      ),
+                      title: const Text(
+                        '4+ kitobda yetkazib berish bepul',
+                        style: TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                      subtitle: const Text(
+                        'Bu aksiya chegirma davrida ham amal qilsinmi?',
+                      ),
+                      value: freeDeliveryForFourPlus,
+                      onChanged: loading
+                          ? null
+                          : (value) => setState(
+                                () => freeDeliveryForFourPlus = value,
+                              ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    freeDeliveryForFourPlus
+                        ? 'Yoqilgan: chegirma davrida ham 4+ kitobda yetkazib berish bepul.'
+                        : 'O‘chirilgan: chegirma davrida 4+ kitob uchun ham yetkazib berish ₩4,000.',
+                    style: const TextStyle(
+                      fontSize: 11.5,
                       color: AppColors.muted,
                       fontWeight: FontWeight.w700,
                     ),

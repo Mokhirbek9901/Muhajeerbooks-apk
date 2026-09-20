@@ -1,8 +1,12 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'app_state.dart';
 
 class MuhajeerAi {
+  static Uri _uri(String path) => kIsWeb
+      ? Uri.base.resolve(path)
+      : Uri.parse('https://muhajeer-books-live-production.up.railway.app' + path);
   static List<Map<String,dynamic>> catalog(List<Book> books) => books.map((b)=> {
     'id':b.id,'title':b.title,'author':b.author,'category':b.category,
     'description':b.description,'price':b.currentPrice,'stock':b.stock,
@@ -13,7 +17,7 @@ class MuhajeerAi {
     required String query,
     required List<Book> books,
   }) async {
-    final r=await http.post(Uri.parse('/api/ai-assistant'),
+    final r=await http.post(_uri('/api/ai-assistant'),
       headers:{'Content-Type':'application/json'},
       body:jsonEncode({'mode':mode,'query':query,'books':catalog(books)}),
     ).timeout(const Duration(seconds:90));
@@ -22,7 +26,7 @@ class MuhajeerAi {
   }
 
   static Future<List<String>> search(String query,List<Book> books) async {
-    final r=await http.post(Uri.parse('/api/ai-search'),
+    final r=await http.post(_uri('/api/ai-search'),
       headers:{'Content-Type':'application/json'},
       body:jsonEncode({'query':query,'books':catalog(books)}),
     ).timeout(const Duration(seconds:90));

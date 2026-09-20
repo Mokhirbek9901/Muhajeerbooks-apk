@@ -944,12 +944,31 @@ class _HomePageState extends State<HomePage> {
                 child: Center(child: CircularProgressIndicator()),
               )
             else if (books.isEmpty)
-              const SliverFillRemaining(
+              SliverFillRemaining(
                 hasScrollBody: false,
-                child: _EmptyState(
-                  icon: Icons.search_off_rounded,
-                  title: 'Kitob topilmadi',
-                  subtitle: 'Qidiruv yoki kategoriyani o‘zgartirib ko‘ring.',
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.search_off_rounded, size: 58, color: AppColors.muted),
+                      const SizedBox(height: 14),
+                      const Text('Kitob topilmadi', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 8),
+                      const Text('Bizda yo‘q kitobni so‘rov qilib qoldirishingiz mumkin.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted)),
+                      const SizedBox(height: 16),
+                      FilledButton.icon(
+                        onPressed: query.trim().length < 2 ? null : () async {
+                          unawaited(state.recordSearchMiss(query));
+                          final message = await state.requestMissingBook(query);
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+                        },
+                        icon: const Icon(Icons.library_add_rounded),
+                        label: const Text('Shu kitob kerak'),
+                      ),
+                    ],
+                  ),
                 ),
               )
             else
@@ -2607,6 +2626,20 @@ class BookDetailPage extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
+                )
+              else if (b.preorderEnabled)
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(58)),
+                    onPressed: () async {
+                      final message = await state.submitPreorder(b);
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+                    },
+                    icon: const Icon(Icons.event_available_rounded),
+                    label: const Text('Pre-order qoldirish'),
                   ),
                 )
               else

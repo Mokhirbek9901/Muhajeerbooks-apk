@@ -1133,53 +1133,29 @@ Future<Uint8List> _renderAlternativeBookStory(
         weight: FontWeight.w900, color: Colors.white, maxLines: 1,
         fontFamily: 'monospace', letterSpacing: 3);
   } else if (template == BookStoryTemplate.atlas) {
-    rounded(const Rect.fromLTWH(105, 160, 870, 175), const Color(0xCC351020), radius: 30,
-      stroke: const Color(0x66E3C46D));
-    textBox(book.title, const Rect.fromLTWH(135, 182, 810, 130), 52,
-      weight: FontWeight.w700, color: const Color(0xFFFFF1D4), maxLines: 2,
-      fontFamily: 'serif', fontStyle: FontStyle.italic);
-    coverFrame = const Rect.fromLTWH(290, 370, 500, 690);
-    coverRect = const Rect.fromLTWH(320, 400, 440, 630);
+    textBox('MUHAJEER BOOKS', const Rect.fromLTWH(80, 62, 920, 60), 26,
+        weight: FontWeight.w700, color: const Color(0xFFF2D58A), maxLines: 1,
+        fontFamily: 'serif', letterSpacing: 4);
   } else if (template == BookStoryTemplate.marble) {
-    rounded(const Rect.fromLTWH(105, 160, 870, 175), const Color(0xEFFFFFFF), radius: 30,
-      stroke: const Color(0x22000000));
-    textBox(book.title, const Rect.fromLTWH(135, 182, 810, 130), 52,
-      weight: FontWeight.w700, color: const Color(0xFF244F53), maxLines: 2,
-      fontFamily: 'serif', fontStyle: FontStyle.normal);
-    coverFrame = const Rect.fromLTWH(290, 370, 500, 690);
-    coverRect = const Rect.fromLTWH(320, 400, 440, 630);
+    textBox('MUHAJEER BOOKS', const Rect.fromLTWH(80, 62, 920, 60), 25,
+        weight: FontWeight.w700, color: const Color(0xFF246E73), maxLines: 1,
+        fontFamily: 'serif', letterSpacing: 3);
   } else if (template == BookStoryTemplate.cinema) {
-    rounded(const Rect.fromLTWH(105, 160, 870, 175), const Color(0xD918130D), radius: 30,
-      stroke: const Color(0x66E3C46D));
-    textBox(book.title, const Rect.fromLTWH(135, 182, 810, 130), 52,
-      weight: FontWeight.w700, color: const Color(0xFFFFF0C7), maxLines: 2,
-      fontFamily: 'serif', fontStyle: FontStyle.normal);
-    coverFrame = const Rect.fromLTWH(295, 370, 490, 690);
-    coverRect = const Rect.fromLTWH(325, 400, 430, 630);
+    textBox('MUHAJEER BOOKS', const Rect.fromLTWH(80, 62, 920, 60), 25,
+        weight: FontWeight.w700, color: const Color(0xFFF1D17C), maxLines: 1,
+        fontFamily: 'serif', letterSpacing: 5);
   } else if (template == BookStoryTemplate.terracotta) {
-    rounded(const Rect.fromLTWH(105, 160, 870, 175), const Color(0xEFFFFFFF), radius: 30,
-      stroke: const Color(0x22000000));
-    textBox(book.title, const Rect.fromLTWH(135, 182, 810, 130), 52,
-      weight: FontWeight.w700, color: const Color(0xFF673D40), maxLines: 2,
-      fontFamily: 'serif', fontStyle: FontStyle.italic);
-    coverFrame = const Rect.fromLTWH(290, 370, 500, 690);
-    coverRect = const Rect.fromLTWH(320, 400, 440, 630);
+    textBox('MUHAJEER BOOKS', const Rect.fromLTWH(80, 62, 920, 60), 25,
+        weight: FontWeight.w700, color: const Color(0xFF7A4548), maxLines: 1,
+        fontFamily: 'serif', letterSpacing: 3);
   } else if (template == BookStoryTemplate.royal) {
-    rounded(const Rect.fromLTWH(105, 160, 870, 175), const Color(0xD907343B), radius: 30,
-      stroke: const Color(0x66E3C46D));
-    textBox(book.title, const Rect.fromLTWH(135, 182, 810, 130), 52,
-      weight: FontWeight.w700, color: const Color(0xFFFFF4D1), maxLines: 2,
-      fontFamily: 'serif', fontStyle: FontStyle.normal);
-    coverFrame = const Rect.fromLTWH(300, 370, 480, 690);
-    coverRect = const Rect.fromLTWH(328, 400, 424, 639);
+    textBox('MUHAJEER BOOKS', const Rect.fromLTWH(80, 62, 920, 60), 25,
+        weight: FontWeight.w700, color: const Color(0xFFF0D58B), maxLines: 1,
+        fontFamily: 'serif', letterSpacing: 5);
   } else if (template == BookStoryTemplate.ornament) {
-    rounded(const Rect.fromLTWH(105, 160, 870, 175), const Color(0xEFFFFFFF), radius: 30,
-      stroke: const Color(0x22000000));
-    textBox(book.title, const Rect.fromLTWH(135, 182, 810, 130), 52,
-      weight: FontWeight.w700, color: const Color(0xFF4C493D), maxLines: 2,
-      fontFamily: 'serif', fontStyle: FontStyle.normal);
-    coverFrame = const Rect.fromLTWH(300, 370, 480, 690);
-    coverRect = const Rect.fromLTWH(328, 400, 424, 639);
+    textBox('MUHAJEER BOOKS', const Rect.fromLTWH(80, 62, 920, 60), 24,
+        weight: FontWeight.w700, color: const Color(0xFF286E70), maxLines: 1,
+        fontFamily: 'serif', letterSpacing: 3);
   } else {
     textBox('MUHAJEER BOOKS', const Rect.fromLTWH(80, 70, 920, 70), 40,
         weight: template == BookStoryTemplate.classic ? FontWeight.w500 : FontWeight.w900,
@@ -1379,53 +1355,57 @@ Future<Uint8List> _renderAlternativeBookStory(
     coverFrame = const Rect.fromLTWH(245, 500, 590, 565);
     coverRect = const Rect.fromLTWH(275, 530, 530, 505);
   } else if (template == BookStoryTemplate.atlas) {
-    textBox('KASHTA RUHIDAGI MUTOLAA', const Rect.fromLTWH(150, 160, 780, 42), 19,
-      weight: FontWeight.w700, color: const Color(0xFFDDBB69), maxLines: 1, letterSpacing: 4);
-    textBox(book.title, const Rect.fromLTWH(125, 210, 830, 130), 52,
-      weight: FontWeight.w600, color: const Color(0xFFFFF1D4), maxLines: 2,
+    // Dekor kuchli bo‘lsa ham kitob nomi har doim aniq o‘qiladi.
+    rounded(const Rect.fromLTWH(105, 160, 870, 175), const Color(0xDD351020), radius: 30,
+      stroke: const Color(0x77E3C46D));
+    textBox(book.title, const Rect.fromLTWH(135, 182, 810, 130), 52,
+      weight: FontWeight.w700, color: const Color(0xFFFFF1D4), maxLines: 2,
       fontFamily: 'serif', fontStyle: FontStyle.italic);
     coverFrame = const Rect.fromLTWH(290, 370, 500, 690);
     coverRect = const Rect.fromLTWH(320, 400, 440, 630);
   } else if (template == BookStoryTemplate.marble) {
-    textBox('REGISTON NAFOSATI', const Rect.fromLTWH(170, 160, 740, 42), 20,
-      weight: FontWeight.w700, color: const Color(0xFF2A777B), maxLines: 1, letterSpacing: 5);
-    textBox(book.title, const Rect.fromLTWH(120, 210, 840, 130), 51,
-      weight: FontWeight.w600, color: const Color(0xFF244F53), maxLines: 2,
-      fontFamily: 'serif');
+    // Dekor kuchli bo‘lsa ham kitob nomi har doim aniq o‘qiladi.
+    rounded(const Rect.fromLTWH(105, 160, 870, 175), const Color(0xF2FFFFFF), radius: 30,
+      stroke: const Color(0x33246E73));
+    textBox(book.title, const Rect.fromLTWH(135, 182, 810, 130), 52,
+      weight: FontWeight.w700, color: const Color(0xFF244F53), maxLines: 2,
+      fontFamily: 'serif', fontStyle: FontStyle.normal);
     coverFrame = const Rect.fromLTWH(290, 370, 500, 690);
     coverRect = const Rect.fromLTWH(320, 400, 440, 630);
   } else if (template == BookStoryTemplate.cinema) {
-    textBox('ZARHAL TO‘PLAM', const Rect.fromLTWH(170, 160, 740, 42), 20,
-      weight: FontWeight.w700, color: const Color(0xFFDAB75C), maxLines: 1,
-      fontFamily: 'serif', letterSpacing: 6);
-    textBox(book.title, const Rect.fromLTWH(120, 210, 840, 130), 52,
-      weight: FontWeight.w600, color: const Color(0xFFFFF0C7), maxLines: 2,
-      fontFamily: 'serif');
+    // Dekor kuchli bo‘lsa ham kitob nomi har doim aniq o‘qiladi.
+    rounded(const Rect.fromLTWH(105, 160, 870, 175), const Color(0xE618130D), radius: 30,
+      stroke: const Color(0x77E3C46D));
+    textBox(book.title, const Rect.fromLTWH(135, 182, 810, 130), 52,
+      weight: FontWeight.w700, color: const Color(0xFFFFF0C7), maxLines: 2,
+      fontFamily: 'serif', fontStyle: FontStyle.normal);
     coverFrame = const Rect.fromLTWH(295, 370, 490, 690);
     coverRect = const Rect.fromLTWH(325, 400, 430, 630);
   } else if (template == BookStoryTemplate.terracotta) {
-    textBox('GULSHAN', const Rect.fromLTWH(170, 160, 740, 42), 20,
-      weight: FontWeight.w700, color: const Color(0xFF9A5B5D), maxLines: 1,
-      fontFamily: 'serif', letterSpacing: 7);
-    textBox(book.title, const Rect.fromLTWH(125, 210, 830, 130), 52,
-      weight: FontWeight.w600, color: const Color(0xFF673D40), maxLines: 2,
+    // Dekor kuchli bo‘lsa ham kitob nomi har doim aniq o‘qiladi.
+    rounded(const Rect.fromLTWH(105, 160, 870, 175), const Color(0xF2FFFFFF), radius: 30,
+      stroke: const Color(0x339A5B5D));
+    textBox(book.title, const Rect.fromLTWH(135, 182, 810, 130), 52,
+      weight: FontWeight.w700, color: const Color(0xFF673D40), maxLines: 2,
       fontFamily: 'serif', fontStyle: FontStyle.italic);
     coverFrame = const Rect.fromLTWH(290, 370, 500, 690);
     coverRect = const Rect.fromLTWH(320, 400, 440, 630);
   } else if (template == BookStoryTemplate.royal) {
-    textBox('KOSHIN NAQSHLARI', const Rect.fromLTWH(170, 160, 740, 42), 20,
-      weight: FontWeight.w700, color: const Color(0xFFE1C56F), maxLines: 1, letterSpacing: 5);
-    textBox(book.title, const Rect.fromLTWH(120, 210, 840, 130), 52,
-      weight: FontWeight.w600, color: const Color(0xFFFFF4D1), maxLines: 2,
-      fontFamily: 'serif');
+    // Dekor kuchli bo‘lsa ham kitob nomi har doim aniq o‘qiladi.
+    rounded(const Rect.fromLTWH(105, 160, 870, 175), const Color(0xE607343B), radius: 30,
+      stroke: const Color(0x77E1C56F));
+    textBox(book.title, const Rect.fromLTWH(135, 182, 810, 130), 52,
+      weight: FontWeight.w700, color: const Color(0xFFFFF4D1), maxLines: 2,
+      fontFamily: 'serif', fontStyle: FontStyle.normal);
     coverFrame = const Rect.fromLTWH(300, 370, 480, 695);
     coverRect = const Rect.fromLTWH(328, 398, 424, 639);
   } else if (template == BookStoryTemplate.ornament) {
-    textBox('SAMARQAND RUHI', const Rect.fromLTWH(170, 160, 740, 42), 20,
-      weight: FontWeight.w700, color: const Color(0xFF2B7777), maxLines: 1, letterSpacing: 5);
-    textBox(book.title, const Rect.fromLTWH(120, 210, 840, 130), 52,
-      weight: FontWeight.w600, color: const Color(0xFF4C493D), maxLines: 2,
-      fontFamily: 'serif');
+    // Dekor kuchli bo‘lsa ham kitob nomi har doim aniq o‘qiladi.
+    rounded(const Rect.fromLTWH(105, 160, 870, 175), const Color(0xF2FFFFFF), radius: 30,
+      stroke: const Color(0x442B7777));
+    textBox(book.title, const Rect.fromLTWH(135, 182, 810, 130), 52,
+      weight: FontWeight.w700, color: const Color(0xFF4C493D), maxLines: 2,
+      fontFamily: 'serif', fontStyle: FontStyle.normal);
     coverFrame = const Rect.fromLTWH(300, 370, 480, 695);
     coverRect = const Rect.fromLTWH(328, 398, 424, 639);
   } else {
@@ -1518,7 +1498,6 @@ Future<Uint8List> _renderAlternativeBookStory(
     infoTop += 45;
   }
 
-  // Ma'lumot kartalari dekor fonidan qat'i nazar o‘qilishi shart.
   const cardBg = Color(0xFFFDFBF6);
   const cardStroke = Color(0xFFD8D0C2);
   const cardText = Color(0xFF123F49);

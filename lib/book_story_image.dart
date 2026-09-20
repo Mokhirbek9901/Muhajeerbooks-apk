@@ -109,6 +109,31 @@ String _storyDescription(Book book) {
   return value;
 }
 
+Future<Uint8List> _exportStoryPng(ui.Image image) async {
+  // Safari/CanvasKit ba'zan PNG encoder bosqichida null/xato qaytaradi.
+  // Native PNG ishlamasa raw RGBA ni CPU orqali PNGga aylantiramiz.
+  try {
+    final png = await image.toByteData(format: ui.ImageByteFormat.png);
+    if (png != null && png.lengthInBytes > 0) {
+      return png.buffer.asUint8List(png.offsetInBytes, png.lengthInBytes);
+    }
+  } catch (_) {}
+
+  final rgba = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+  if (rgba == null || rgba.lengthInBytes == 0) {
+    throw StateError('Story export unavailable');
+  }
+  final raster = img.Image.fromBytes(
+    width: image.width,
+    height: image.height,
+    bytes: rgba.buffer,
+    bytesOffset: rgba.offsetInBytes,
+    numChannels: 4,
+    order: img.ChannelOrder.rgba,
+  );
+  return Uint8List.fromList(img.encodePng(raster, level: 4));
+}
+
 Future<ui.Image> _decodeStoryCover(Uint8List encoded) async {
   // Set story generatorida ishlayotgan xavfsiz yo‘l bilan bir xil qilamiz.
   // Katta iPhone rasmlarini 700–900px texture sifatida Canvas'ga berish ayrim
@@ -698,11 +723,10 @@ Future<Uint8List> renderBookStory(
   picture.dispose();
   // Safari/CanvasKit ayrim iPhone'larda toByteData() tugaguncha source texture
   // kerak bo‘ladi. Cover'ni bundan oldin dispose qilish qora to‘rtburchak beradi.
-  final png = await image.toByteData(format: ui.ImageByteFormat.png);
+  final png = await _exportStoryPng(image);
   image.dispose();
   cover.dispose();
-  if (png == null) throw StateError('Image unavailable');
-  return png.buffer.asUint8List();
+  return png;
 }
 
 
@@ -1754,9 +1778,8 @@ Future<Uint8List> _renderAlternativeBookStory(
     (1920 * safeScale).round(),
   );
   picture.dispose();
-  final png = await image.toByteData(format: ui.ImageByteFormat.png);
+  final png = await _exportStoryPng(image);
   image.dispose();
   cover.dispose();
-  if (png == null) throw StateError('Image unavailable');
-  return png.buffer.asUint8List();
+  return png;
 }

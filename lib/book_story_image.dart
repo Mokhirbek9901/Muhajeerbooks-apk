@@ -395,7 +395,9 @@ Future<ui.Image> _decodeStoryCover(Uint8List encoded) async {
   return completer.future;
 }
 
-Future<Uint8List?> _generateAiStoryBackground(Book book, Uint8List coverBytes) async {
+Future<Uint8List?> _generateAiStoryBackground(Book book, Uint8List coverBytes, {String? adminCode}) async {
+  // Never call the paid image API for ordinary customers.
+  if (adminCode == null || adminCode.trim().isEmpty) return null;
   try {
     final request = http.MultipartRequest(
       'POST',
@@ -403,6 +405,7 @@ Future<Uint8List?> _generateAiStoryBackground(Book book, Uint8List coverBytes) a
           ? Uri.base.resolve('/api/ai-story-background')
           : Uri.parse('https://muhajeer-books-live-production.up.railway.app/api/ai-story-background'),
     );
+    request.fields['admin_code'] = adminCode.trim();
     request.fields['title'] = book.title;
     request.fields['category'] = book.category;
     request.fields['description'] = _storyDescription(book);
@@ -430,6 +433,7 @@ Future<Uint8List> _renderAiStory(
   required Uint8List coverBytes,
   required Uint8List backgroundBytes,
   double renderScale = 1.0,
+  String? adminCode,
 }) async {
   final safeScale = renderScale.clamp(0.5, 1.0).toDouble();
   final cover = await _decodeStoryCover(coverBytes);
@@ -714,7 +718,7 @@ Future<Uint8List> renderBookStory(
 
   // Avto dizayn avval muqovani AI bilan ko‘rib, aynan shu kitobga mos
   // yangi fon yaratadi. API/billing/tarmoq xatosida eski lokal Avto davom etadi.
-  final aiBackground = await _generateAiStoryBackground(book, bytes);
+  final aiBackground = await _generateAiStoryBackground(book, bytes, adminCode: adminCode);
   if (aiBackground != null) {
     try {
       return await _renderAiStory(

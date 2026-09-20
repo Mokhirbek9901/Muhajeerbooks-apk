@@ -38,7 +38,7 @@ class _MuhajeerAiPageState extends State<MuhajeerAiPage>{
         hintText: mode=='analytics'?'Masalan: Qaysi kitoblarni qayta olib kelish kerak?':'Masalan: Yig‘latadigan, ta’sirli roman kerak',
         border:const OutlineInputBorder())),
       const SizedBox(height:12),FilledButton.icon(onPressed:busy?null:run,icon:const Icon(Icons.auto_awesome),label:Text(busy?'AI ishlayapti…':'So‘rash')),
-      if(answer.isNotEmpty)...[const SizedBox(height:20),SelectableText(answer,style:const TextStyle(fontSize:16,height:1.45))],
+      if(answer.isNotEmpty)...[const SizedBox(height:20),SelectableText(answer,style:const TextStyle(fontSize:16,height:1.55,fontWeight:FontWeight.w500))],
     ]),
   );
 }

@@ -18,14 +18,24 @@ class _BookStoryPageState extends State<BookStoryPage> {
   late Future<Uint8List> _image;
   bool _sharing = false;
   bool _copied = false;
+  BookStoryTemplate _template = BookStoryTemplate.current;
 
   @override
   void initState() {
     super.initState();
-    _image = renderBookStory(widget.book);
+    _image = renderBookStory(widget.book, template: _template);
   }
 
-  String get _filename => 'muhajeer-${widget.book.id}-story.png';
+  String get _filename =>
+      'muhajeer-${widget.book.id}-${bookStoryTemplateName(_template).toLowerCase()}-story.png';
+
+  void _selectTemplate(BookStoryTemplate template) {
+    if (_template == template) return;
+    setState(() {
+      _template = template;
+      _image = renderBookStory(widget.book, template: template);
+    });
+  }
 
   Future<void> _copyLink() async {
     final link = bookShareLink(widget.book.id).toString();
@@ -75,7 +85,7 @@ class _BookStoryPageState extends State<BookStoryPage> {
             const Text('Kitob rasmini yuklab bo‘lmadi. Internetni tekshirib, qayta urinib ko‘ring.'),
             const SizedBox(height: 16),
             FilledButton(onPressed: () => setState(() {
-              _image = renderBookStory(widget.book);
+              _image = renderBookStory(widget.book, template: _template);
             }), child: const Text('Qayta urinish')),
           ]),
         ));
@@ -85,6 +95,51 @@ class _BookStoryPageState extends State<BookStoryPage> {
           children: [CircularProgressIndicator(), SizedBox(height: 16), Text('Story rasmi tayyorlanmoqda…')],
         ));
         return ListView(padding: const EdgeInsets.all(20), children: [
+          const Text('Dizaynni tanlang', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 92,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: BookStoryTemplate.values.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
+                final item = BookStoryTemplate.values[index];
+                final selected = item == _template;
+                return InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => _selectTemplate(item),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    width: 92,
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: bookStoryTemplateColor(item),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: selected ? const Color(0xFF08786E) : const Color(0x22000000),
+                        width: selected ? 3 : 1,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(selected ? Icons.check_circle_rounded : Icons.auto_awesome_rounded,
+                          color: item == BookStoryTemplate.library || item == BookStoryTemplate.emerald
+                              ? Colors.white : const Color(0xFF174652)),
+                        const SizedBox(height: 6),
+                        Text(bookStoryTemplateName(item), maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900,
+                            color: item == BookStoryTemplate.library || item == BookStoryTemplate.emerald
+                                ? Colors.white : const Color(0xFF174652))),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
           Center(child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 270),
             child: ClipRRect(borderRadius: BorderRadius.circular(18),
@@ -103,21 +158,30 @@ class _BookStoryPageState extends State<BookStoryPage> {
           const SizedBox(height: 10),
           Builder(builder: (buttonContext) => FilledButton.icon(
             onPressed: _sharing ? null : () => _share(bytes, buttonContext),
-            icon: const Icon(Icons.ios_share_rounded),
-            label: const Text('2. Story rasmini ulashish'),
+            icon: const Icon(Icons.auto_awesome_rounded),
+            label: const Text('2. Storyga ulashish'),
           )),
-          if (kIsWeb) TextButton.icon(
-            onPressed: () async {
-              try {
-                await XFile.fromData(bytes, mimeType: 'image/png', name: _filename).saveTo(_filename);
-              } catch (_) {
+          const SizedBox(height: 8),
+          Builder(builder: (buttonContext) => OutlinedButton.icon(
+            onPressed: _sharing ? null : () async {
+              if (kIsWeb) {
+                try {
+                  await XFile.fromData(bytes, mimeType: 'image/png', name: _filename).saveTo(_filename);
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Story rasmi saqlandi ✅')));
+                } catch (_) {
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Saqlash ochilmadi. “Storyga ulashish”dan foydalaning.')));
+                }
+              } else {
+                await _share(bytes, buttonContext);
                 if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Yuklab bo‘lmadi. Rasmni ulashish tugmasidan foydalaning.')));
+                  const SnackBar(content: Text('Rasmni saqlash uchun ulashish oynasidan “Save Image / Rasmni saqlash”ni tanlang.')));
               }
             },
             icon: const Icon(Icons.download_rounded),
-            label: const Text('Rasmni yuklab olish'),
-          ),
+            label: const Text('Rasmni saqlash'),
+          )),
           const SizedBox(height: 8),
           const Text('Instagram ulashish ro‘yxatida chiqmasa, rasmni saqlab, Instagram’da story sifatida tanlang. Rasmdagi yozuvning o‘zi bosiladigan havola emas — Link stikeri kerak.',
               style: TextStyle(fontSize: 12)),

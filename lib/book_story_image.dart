@@ -398,15 +398,22 @@ Future<Uint8List?> _generateAiStoryBackground(Book book, Uint8List coverBytes) a
   try {
     final request = http.MultipartRequest(
       'POST',
-      Uri.parse('/api/ai-story-background'),
+      kIsWeb
+          ? Uri.base.resolve('/api/ai-story-background')
+          : Uri.parse('https://muhajeer-books-live-production.up.railway.app/api/ai-story-background'),
     );
     request.fields['title'] = book.title;
     request.fields['category'] = book.category;
     request.fields['description'] = _storyDescription(book);
+    final decodedCover = img.decodeImage(coverBytes);
+    if (decodedCover == null) return null;
+    // APIga format nomuvofiqligi ketmasligi uchun muqovani doim haqiqiy JPEG qilib yuboramiz.
+    final aiCover = Uint8List.fromList(img.encodeJpg(decodedCover, quality: 90));
     request.files.add(http.MultipartFile.fromBytes(
       'cover',
-      coverBytes,
+      aiCover,
       filename: 'cover.jpg',
+      contentType: MediaType('image', 'jpeg'),
     ));
     final streamed = await request.send().timeout(const Duration(minutes: 4));
     if (streamed.statusCode != 200) return null;

@@ -5527,6 +5527,10 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
             final requests = _rows(insight['requests']);
             final misses = _rows(insight['search_misses']);
             final restock = _rows(insight['restock']);
+            final bundleSales = _rows(insight['bundle_sales']);
+            final bundleSummary = insight['bundle_summary'] is Map
+                ? Map<String, dynamic>.from(insight['bundle_summary'] as Map)
+                : <String, dynamic>{};
 
             return RefreshIndicator(
               onRefresh: () async {
@@ -5584,6 +5588,88 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
                               ),
                               onTap: () =>
                                   _openBundleEditor(books, bundle: b),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  AppSurface(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AppSectionHeader(
+                          title: 'Set savdolari statistikasi',
+                          subtitle:
+                              'Set narxi, tejash va pochta set ichida yoki alohida hisoblangani',
+                          icon: Icons.query_stats_rounded,
+                          trailing: AppInfoPill(
+                            label:
+                                '${bundleSummary['sets_sold'] ?? bundleSales.length} ta set',
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            AppInfoPill(
+                              icon: Icons.payments_outlined,
+                              label:
+                                  'Set savdosi ${_won((bundleSummary['set_revenue'] as num?)?.toInt() ?? 0)}',
+                            ),
+                            AppInfoPill(
+                              icon: Icons.savings_outlined,
+                              label:
+                                  'Mijoz tejadi ${_won((bundleSummary['set_savings'] as num?)?.toInt() ?? 0)}',
+                              foreground: AppColors.success,
+                              background: AppColors.successSoft,
+                            ),
+                            AppInfoPill(
+                              icon: Icons.local_shipping_outlined,
+                              label:
+                                  'Pochta ichida ${bundleSummary['shipping_included_sets'] ?? 0} ta',
+                            ),
+                            AppInfoPill(
+                              icon: Icons.add_road_rounded,
+                              label:
+                                  'Pochta alohida ${bundleSummary['shipping_separate_sets'] ?? 0} ta',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        if (bundleSales.isEmpty)
+                          const Text(
+                            'Hozircha sotilgan set yo‘q.',
+                            style: TextStyle(color: AppColors.muted),
+                          )
+                        else
+                          ...bundleSales.take(30).map(
+                            (sale) => ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(
+                                Icons.collections_bookmark_rounded,
+                              ),
+                              title: Text(
+                                (sale['title'] ?? 'Kitoblar seti').toString(),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              subtitle: Text(
+                                [
+                                  '#${sale['order_number'] ?? ''}',
+                                  '${sale['book_count'] ?? 0} ta kitob',
+                                  'set ${_won((sale['set_price'] as num?)?.toInt() ?? 0)}',
+                                  'tejash ${_won((sale['saving'] as num?)?.toInt() ?? 0)}',
+                                  sale['delivery_included'] == true
+                                      ? 'pochta ichida'
+                                      : 'pochta alohida',
+                                  if (sale['delivery_included'] != true)
+                                    'pochta ${_won((sale['order_delivery_fee'] as num?)?.toInt() ?? 0)}',
+                                ].join(' • '),
+                              ),
                             ),
                           ),
                       ],

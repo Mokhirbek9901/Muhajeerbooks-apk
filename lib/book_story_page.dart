@@ -145,7 +145,9 @@ class _BookStoryPageState extends State<BookStoryPage> {
                       item == BookStoryTemplate.emerald ||
                       item == BookStoryTemplate.noir ||
                       item == BookStoryTemplate.geometric ||
-                      item == BookStoryTemplate.coverFocus;
+                      item == BookStoryTemplate.coverFocus ||
+                      item == BookStoryTemplate.lifestyle ||
+                      item == BookStoryTemplate.goldArch;
                   return InkWell(
                     borderRadius: BorderRadius.circular(14),
                     onTap: () => _selectTemplate(item),

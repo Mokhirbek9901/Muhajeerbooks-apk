@@ -150,48 +150,96 @@ Future<Uint8List> renderBundleStory(
   _bundleText(canvas, title, const Rect.fromLTWH(90, 215, 900, 135),
       size: 54, weight: FontWeight.w900, maxLines: 2);
 
-  const gridLeft = 105.0;
-  const gridTop = 385.0;
-  const cardW = 270.0;
-  const cardH = 385.0;
-  const gapX = 30.0;
-  const gapY = 30.0;
+  // Kitob soniga qarab coverlar story ekranini to‘ldiradi:
+  // 1–2 ta — katta, 3 ta — o‘rtacha, 4–6 ta — ixcham grid.
   final shown = entries.take(6).toList();
+  final count = shown.length;
+  final columns = count <= 2 ? count.clamp(1, 2) : (count == 4 ? 2 : 3);
+  final rows = count == 0 ? 1 : ((count + columns - 1) ~/ columns);
+  final gridLeft = count == 1 ? 315.0 : (count == 2 ? 115.0 : (columns == 2 ? 190.0 : 105.0));
+  const gridTop = 385.0;
+  final cardW = count == 1
+      ? 450.0
+      : (count == 2 ? 410.0 : (columns == 2 ? 335.0 : 270.0));
+  final cardH = count == 1
+      ? 600.0
+      : (count == 2 ? 555.0 : (columns == 2 ? 455.0 : 385.0));
+  final gapX = count <= 2 ? 30.0 : (columns == 2 ? 30.0 : 30.0);
+  const gapY = 30.0;
+  final imageH = cardH * (count <= 2 ? .72 : .64);
+  final titleTopRatio = count <= 2 ? .75 : .70;
+  final titleHeight = count <= 2 ? 72.0 : 58.0;
+  final titleSize = count == 1 ? 31.0 : (count == 2 ? 27.0 : 22.0);
+  final priceSize = count <= 2 ? 26.0 : 21.0;
 
   for (var i = 0; i < shown.length; i++) {
-    final row = i ~/ 3;
-    final col = i % 3;
-    final x = gridLeft + col * (cardW + gapX);
+    final row = i ~/ columns;
+    final col = i % columns;
+    // Oxirgi qatorda bitta kitob qolsa markazga joylaymiz.
+    final itemsInRow = (row == rows - 1 && count % columns != 0)
+        ? count % columns
+        : columns;
+    final rowWidth = itemsInRow * cardW + (itemsInRow - 1) * gapX;
+    final rowLeft = (1080 - rowWidth) / 2;
+    final x = rowLeft + col * (cardW + gapX);
     final y = gridTop + row * (cardH + gapY);
-    final card = RRect.fromRectAndRadius(Rect.fromLTWH(x, y, cardW, cardH), const Radius.circular(22));
-    canvas.drawShadow(Path()..addRRect(card), const Color(0x25174652), 12, false);
+    final card = RRect.fromRectAndRadius(
+      Rect.fromLTWH(x, y, cardW, cardH),
+      const Radius.circular(22),
+    );
+    canvas.drawShadow(
+      Path()..addRRect(card),
+      const Color(0x25174652),
+      12,
+      false,
+    );
     canvas.drawRRect(card, Paint()..color = Colors.white);
 
     final image = covers.length > i ? covers[i] : null;
+    final imageRect = Rect.fromLTWH(
+      x + 18,
+      y + 18,
+      cardW - 36,
+      imageH - 18,
+    );
     if (image != null) {
       paintImage(
         canvas: canvas,
-        rect: Rect.fromLTWH(x + 18, y + 18, cardW - 36, 245),
+        rect: imageRect,
         image: image,
         fit: BoxFit.contain,
         filterQuality: FilterQuality.high,
       );
     } else {
       canvas.drawRRect(
-        RRect.fromRectAndRadius(Rect.fromLTWH(x + 18, y + 18, cardW - 36, 245), const Radius.circular(14)),
+        RRect.fromRectAndRadius(imageRect, const Radius.circular(14)),
         Paint()..color = const Color(0xFFEAF1F0),
       );
     }
-    _bundleText(canvas, shown[i].book.title, Rect.fromLTWH(x + 14, y + 270, cardW - 28, 58),
-        size: 22, weight: FontWeight.w800, maxLines: 2);
+
+    final titleTop = y + cardH * titleTopRatio;
+    _bundleText(
+      canvas,
+      shown[i].book.title,
+      Rect.fromLTWH(x + 14, titleTop, cardW - 28, titleHeight),
+      size: titleSize,
+      weight: FontWeight.w800,
+      maxLines: 2,
+    );
     final qty = shown[i].qty;
-    _bundleText(canvas, '${_wonBundle(shown[i].book.price)}${qty > 1 ? ' ×$qty' : ''}',
-        Rect.fromLTWH(x + 14, y + 330, cardW - 28, 38),
-        size: 21, weight: FontWeight.w800, color: teal, maxLines: 1);
+    _bundleText(
+      canvas,
+      '${_wonBundle(shown[i].book.price)}${qty > 1 ? ' ×$qty' : ''}',
+      Rect.fromLTWH(x + 14, y + cardH - 48, cardW - 28, 38),
+      size: priceSize,
+      weight: FontWeight.w800,
+      color: teal,
+      maxLines: 1,
+    );
   }
   for (final image in covers) { image?.dispose(); }
 
-  final afterGrid = gridTop + (shown.length > 3 ? 2 : 1) * cardH + (shown.length > 3 ? gapY : 0);
+  final afterGrid = gridTop + rows * cardH + (rows - 1) * gapY;
   var y = afterGrid + 38;
   if (entries.length > 6) {
     _bundleText(canvas, '+ yana ${entries.length - 6} turdagi kitob',

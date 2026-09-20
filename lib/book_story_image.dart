@@ -11,7 +11,7 @@ import 'app_state.dart';
 
 const storyOrderLabel = 'Buyurtma berish uchun bosing';
 
-enum BookStoryTemplate { current, editorial, library, arch, emerald, minimal, sunset, magazine, classic, poster, noir, geometric, paper, split, polaroid, collage, coverFocus, editorialPage, lifestyle, cleanStudio, goldArch, scrapbook, silk, botanical, mosaic, midnight, gallery, atlas, marble, cinema, terracotta, royal, ornament }
+enum BookStoryTemplate { current, editorial, library, arch, emerald, minimal, sunset, magazine, classic, poster, noir, geometric, paper, split, polaroid, collage, coverFocus, editorialPage, lifestyle, cleanStudio, goldArch, scrapbook, silk, botanical, mosaic, midnight, gallery, atlas, marble, cinema, terracotta, royal, ornament, adras, kokand, khiva, turon, yurt, heritage }
 
 String bookStoryTemplateName(BookStoryTemplate value) => switch (value) {
   BookStoryTemplate.current => 'Hozirgi',
@@ -47,6 +47,12 @@ String bookStoryTemplateName(BookStoryTemplate value) => switch (value) {
   BookStoryTemplate.terracotta => 'Gulshan',
   BookStoryTemplate.royal => 'Koshin',
   BookStoryTemplate.ornament => 'Samarqand',
+  BookStoryTemplate.adras => 'Adras',
+  BookStoryTemplate.kokand => 'Qo‘qon',
+  BookStoryTemplate.khiva => 'Xiva',
+  BookStoryTemplate.turon => 'Turon',
+  BookStoryTemplate.yurt => 'Oq o‘tov',
+  BookStoryTemplate.heritage => 'Meros',
 };
 
 Color bookStoryTemplateColor(BookStoryTemplate value) => switch (value) {
@@ -83,6 +89,12 @@ Color bookStoryTemplateColor(BookStoryTemplate value) => switch (value) {
   BookStoryTemplate.terracotta => const Color(0xFFF2D9CC),
   BookStoryTemplate.royal => const Color(0xFF073F48),
   BookStoryTemplate.ornament => const Color(0xFFE7D8B8),
+  BookStoryTemplate.adras => const Color(0xFF7B2448),
+  BookStoryTemplate.kokand => const Color(0xFFF0D7B0),
+  BookStoryTemplate.khiva => const Color(0xFF116A72),
+  BookStoryTemplate.turon => const Color(0xFF173B32),
+  BookStoryTemplate.yurt => const Color(0xFFF4E9D3),
+  BookStoryTemplate.heritage => const Color(0xFF8B3D2E),
 };
 
 String storyPrice(Book book) => book.price > 0
@@ -730,7 +742,11 @@ Future<Uint8List> _renderAlternativeBookStory(
       template == BookStoryTemplate.midnight ||
       template == BookStoryTemplate.atlas ||
       template == BookStoryTemplate.cinema ||
-      template == BookStoryTemplate.royal;
+      template == BookStoryTemplate.royal ||
+      template == BookStoryTemplate.adras ||
+      template == BookStoryTemplate.khiva ||
+      template == BookStoryTemplate.turon ||
+      template == BookStoryTemplate.heritage;
   final fg = dark ? Colors.white : navy;
 
   void textBox(String value, Rect rect, double size, {FontWeight weight = FontWeight.w600,
@@ -1070,6 +1086,92 @@ Future<Uint8List> _renderAlternativeBookStory(
       canvas.drawRect(const Rect.fromLTWH(45, 45, 990, 1830), Paint()..style = PaintingStyle.stroke..strokeWidth = 3..color = const Color(0xFFC79A3D));
       canvas.drawRect(const Rect.fromLTWH(62, 62, 956, 1796), Paint()..style = PaintingStyle.stroke..strokeWidth = 2..color = const Color(0x662D8C8A));
       break;
+    case BookStoryTemplate.adras:
+      // ADras — atlas/adras matosidagi to‘lqinli ikat naqshlari.
+      canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 1920), Paint()..shader = ui.Gradient.linear(
+        const Offset(0, 0), const Offset(1080, 1920),
+        [const Color(0xFF8B3157), const Color(0xFF4B1731), const Color(0xFF24101D)]));
+      for (var y = -40.0; y < 1940; y += 150) {
+        final p = Path()..moveTo(-80, y)
+          ..cubicTo(180, y - 85, 330, y + 90, 540, y)
+          ..cubicTo(760, y - 90, 900, y + 85, 1160, y);
+        canvas.drawPath(p, Paint()..style = PaintingStyle.stroke..strokeWidth = 34..color = const Color(0x5573B8A7));
+        canvas.drawPath(p, Paint()..style = PaintingStyle.stroke..strokeWidth = 9..color = const Color(0x88E7B95D));
+      }
+      break;
+    case BookStoryTemplate.kokand:
+      // QO‘QON — ganch va saroy bezaklaridan ilhomlangan yengil gul naqshi.
+      canvas.drawColor(const Color(0xFFF6E7CC), BlendMode.src);
+      for (final center in <Offset>[const Offset(110, 250), const Offset(970, 250), const Offset(110, 1580), const Offset(970, 1580)]) {
+        for (var i = 0; i < 8; i++) {
+          final angle = i * 0.785398;
+          final dx = 70 * (i == 0 || i == 4 ? 0 : (i < 4 ? 1 : -1));
+          final dy = 70 * (i == 2 || i == 6 ? 0 : (i < 2 || i > 6 ? -1 : 1));
+          canvas.drawOval(Rect.fromCenter(center: center + Offset(dx, dy), width: 58, height: 118),
+            Paint()..color = const Color(0x557B9D72));
+        }
+        canvas.drawCircle(center, 42, Paint()..color = const Color(0xFFB66B4B));
+      }
+      canvas.drawRect(const Rect.fromLTWH(48, 48, 984, 1824), Paint()..style = PaintingStyle.stroke..strokeWidth = 4..color = const Color(0xFFB88A46));
+      canvas.drawRect(const Rect.fromLTWH(65, 65, 950, 1790), Paint()..style = PaintingStyle.stroke..strokeWidth = 1..color = const Color(0x887B9D72));
+      break;
+    case BookStoryTemplate.khiva:
+      // XIVA — Ichan-Qal'a koshinlari: turkuaz, ko‘k va qum rang.
+      canvas.drawColor(const Color(0xFF0C626B), BlendMode.src);
+      for (var y = 80.0; y < 1860; y += 180) {
+        for (var x = 70.0; x < 1050; x += 180) {
+          final star = Path()
+            ..moveTo(x, y - 52)..lineTo(x + 20, y - 20)..lineTo(x + 52, y)
+            ..lineTo(x + 20, y + 20)..lineTo(x, y + 52)
+            ..lineTo(x - 20, y + 20)..lineTo(x - 52, y)
+            ..lineTo(x - 20, y - 20)..close();
+          canvas.drawPath(star, Paint()..style = PaintingStyle.stroke..strokeWidth = 4..color = const Color(0x668FD2C9));
+          canvas.drawCircle(Offset(x, y), 9, Paint()..color = const Color(0x99E3B85F));
+        }
+      }
+      canvas.drawRect(const Rect.fromLTWH(80, 120, 920, 1010), Paint()..color = const Color(0x5510353A));
+      canvas.drawRect(const Rect.fromLTWH(95, 135, 890, 980), Paint()..style = PaintingStyle.stroke..strokeWidth = 5..color = const Color(0xFFD9B45B));
+      break;
+    case BookStoryTemplate.turon:
+      // TURON — qadimiy turkiy tamg‘alardan ilhomlangan kuchli geometrik kompozitsiya.
+      canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 1920), Paint()..shader = ui.Gradient.linear(
+        const Offset(0, 0), const Offset(0, 1920),
+        [const Color(0xFF234E42), const Color(0xFF102E29), const Color(0xFF071B18)]));
+      for (var x = 80.0; x < 1040; x += 160) {
+        final tamga = Path()..moveTo(x, 115)..lineTo(x + 55, 170)..lineTo(x, 225)
+          ..moveTo(x, 115)..lineTo(x - 55, 170)..lineTo(x, 225);
+        canvas.drawPath(tamga, Paint()..style = PaintingStyle.stroke..strokeWidth = 8..strokeCap = StrokeCap.round..color = const Color(0x88D8B35C));
+      }
+      canvas.drawCircle(const Offset(540, 650), 420, Paint()..style = PaintingStyle.stroke..strokeWidth = 12..color = const Color(0x5579B9A5));
+      canvas.drawCircle(const Offset(540, 650), 390, Paint()..style = PaintingStyle.stroke..strokeWidth = 3..color = const Color(0xAAD8B35C));
+      break;
+    case BookStoryTemplate.yurt:
+      // OQ O‘TOV — kigiz naqshlari va oq-qizil milliy ornament.
+      canvas.drawColor(const Color(0xFFF8EEDB), BlendMode.src);
+      canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 150), Paint()..color = const Color(0xFF8E3E35));
+      canvas.drawRect(const Rect.fromLTWH(0, 1770, 1080, 150), Paint()..color = const Color(0xFF8E3E35));
+      for (var x = 40.0; x < 1080; x += 105) {
+        final motif = Path()..moveTo(x, 75)..quadraticBezierTo(x + 28, 35, x + 55, 75)
+          ..quadraticBezierTo(x + 28, 115, x, 75);
+        canvas.drawPath(motif, Paint()..style = PaintingStyle.stroke..strokeWidth = 7..color = const Color(0xFFF1D39A));
+      }
+      canvas.drawCircle(const Offset(540, 655), 405, Paint()..style = PaintingStyle.stroke..strokeWidth = 10..color = const Color(0x338E3E35));
+      canvas.drawCircle(const Offset(540, 655), 375, Paint()..style = PaintingStyle.stroke..strokeWidth = 3..color = const Color(0x669B7543));
+      break;
+    case BookStoryTemplate.heritage:
+      // MEROS — qizg‘ish gil, oltin va qora o‘ymakor naqshlar.
+      canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 1920), Paint()..shader = ui.Gradient.radial(
+        const Offset(540, 620), 1150,
+        [const Color(0xFFA44E38), const Color(0xFF6D2C24), const Color(0xFF2D1714)]));
+      for (var y = 100.0; y < 1840; y += 210) {
+        for (var x = 90.0; x < 1040; x += 210) {
+          canvas.drawCircle(Offset(x, y), 54, Paint()..style = PaintingStyle.stroke..strokeWidth = 4..color = const Color(0x55E1B45E));
+          canvas.drawRect(Rect.fromCenter(center: Offset(x, y), width: 74, height: 74),
+            Paint()..style = PaintingStyle.stroke..strokeWidth = 2..color = const Color(0x4475A28D));
+        }
+      }
+      canvas.drawRect(const Rect.fromLTWH(60, 60, 960, 1800), Paint()..style = PaintingStyle.stroke..strokeWidth = 5..color = const Color(0xFFDBB15A));
+      break;
     case BookStoryTemplate.current:
       canvas.drawColor(cream, BlendMode.src);
       break;
@@ -1087,7 +1189,13 @@ Future<Uint8List> _renderAlternativeBookStory(
       template == BookStoryTemplate.marble ||
       template == BookStoryTemplate.terracotta ||
       template == BookStoryTemplate.royal ||
-      template == BookStoryTemplate.ornament;
+      template == BookStoryTemplate.ornament ||
+      template == BookStoryTemplate.adras ||
+      template == BookStoryTemplate.kokand ||
+      template == BookStoryTemplate.khiva ||
+      template == BookStoryTemplate.turon ||
+      template == BookStoryTemplate.yurt ||
+      template == BookStoryTemplate.heritage;
   final mono = template == BookStoryTemplate.poster ||
       template == BookStoryTemplate.geometric ||
       template == BookStoryTemplate.collage ||
@@ -1170,6 +1278,18 @@ Future<Uint8List> _renderAlternativeBookStory(
     textBox('MUHAJEER BOOKS', const Rect.fromLTWH(80, 62, 920, 60), 24,
         weight: FontWeight.w700, color: const Color(0xFF286E70), maxLines: 1,
         fontFamily: 'serif', letterSpacing: 3);
+  } else if (template == BookStoryTemplate.adras ||
+             template == BookStoryTemplate.khiva ||
+             template == BookStoryTemplate.turon ||
+             template == BookStoryTemplate.heritage) {
+    textBox('MUHAJEER BOOKS', const Rect.fromLTWH(80, 62, 920, 60), 25,
+        weight: FontWeight.w700, color: const Color(0xFFF1D18A), maxLines: 1,
+        fontFamily: 'serif', letterSpacing: 4);
+  } else if (template == BookStoryTemplate.kokand ||
+             template == BookStoryTemplate.yurt) {
+    textBox('MUHAJEER BOOKS', const Rect.fromLTWH(80, 62, 920, 60), 25,
+        weight: FontWeight.w700, color: const Color(0xFF69443B), maxLines: 1,
+        fontFamily: 'serif', letterSpacing: 4);
   } else {
     textBox('MUHAJEER BOOKS', const Rect.fromLTWH(80, 70, 920, 70), 40,
         weight: template == BookStoryTemplate.classic ? FontWeight.w500 : FontWeight.w900,
@@ -1422,6 +1542,42 @@ Future<Uint8List> _renderAlternativeBookStory(
       fontFamily: 'serif', fontStyle: FontStyle.normal);
     coverFrame = const Rect.fromLTWH(300, 370, 480, 695);
     coverRect = const Rect.fromLTWH(328, 398, 424, 639);
+  } else if (template == BookStoryTemplate.adras) {
+    rounded(const Rect.fromLTWH(105, 160, 870, 175), const Color(0xE6311022), radius: 30, stroke: const Color(0x88E3C56D));
+    textBox(book.title, const Rect.fromLTWH(135, 182, 810, 130), 52, weight: FontWeight.w700,
+      color: const Color(0xFFFFF0CF), maxLines: 2, fontFamily: 'serif');
+    coverFrame = const Rect.fromLTWH(290, 370, 500, 690);
+    coverRect = const Rect.fromLTWH(320, 400, 440, 630);
+  } else if (template == BookStoryTemplate.kokand) {
+    rounded(const Rect.fromLTWH(105, 160, 870, 175), const Color(0xF4FFF9EE), radius: 30, stroke: const Color(0x558B6840));
+    textBox(book.title, const Rect.fromLTWH(135, 182, 810, 130), 52, weight: FontWeight.w700,
+      color: const Color(0xFF68453A), maxLines: 2, fontFamily: 'serif');
+    coverFrame = const Rect.fromLTWH(290, 370, 500, 690);
+    coverRect = const Rect.fromLTWH(320, 400, 440, 630);
+  } else if (template == BookStoryTemplate.khiva) {
+    rounded(const Rect.fromLTWH(105, 160, 870, 175), const Color(0xE60B3940), radius: 30, stroke: const Color(0x88E0BA61));
+    textBox(book.title, const Rect.fromLTWH(135, 182, 810, 130), 52, weight: FontWeight.w700,
+      color: const Color(0xFFFFF2D0), maxLines: 2, fontFamily: 'serif');
+    coverFrame = const Rect.fromLTWH(290, 370, 500, 690);
+    coverRect = const Rect.fromLTWH(320, 400, 440, 630);
+  } else if (template == BookStoryTemplate.turon) {
+    rounded(const Rect.fromLTWH(105, 160, 870, 175), const Color(0xE60B2823), radius: 30, stroke: const Color(0x88D8B35C));
+    textBox(book.title, const Rect.fromLTWH(135, 182, 810, 130), 52, weight: FontWeight.w700,
+      color: const Color(0xFFFFF1CF), maxLines: 2, fontFamily: 'serif');
+    coverFrame = const Rect.fromLTWH(300, 370, 480, 695);
+    coverRect = const Rect.fromLTWH(328, 398, 424, 639);
+  } else if (template == BookStoryTemplate.yurt) {
+    rounded(const Rect.fromLTWH(105, 160, 870, 175), const Color(0xF5FFF9ED), radius: 30, stroke: const Color(0x558E3E35));
+    textBox(book.title, const Rect.fromLTWH(135, 182, 810, 130), 52, weight: FontWeight.w700,
+      color: const Color(0xFF71382F), maxLines: 2, fontFamily: 'serif');
+    coverFrame = const Rect.fromLTWH(290, 370, 500, 690);
+    coverRect = const Rect.fromLTWH(320, 400, 440, 630);
+  } else if (template == BookStoryTemplate.heritage) {
+    rounded(const Rect.fromLTWH(105, 160, 870, 175), const Color(0xE63B1D18), radius: 30, stroke: const Color(0x88DBB15A));
+    textBox(book.title, const Rect.fromLTWH(135, 182, 810, 130), 52, weight: FontWeight.w700,
+      color: const Color(0xFFFFEDC6), maxLines: 2, fontFamily: 'serif');
+    coverFrame = const Rect.fromLTWH(300, 370, 480, 695);
+    coverRect = const Rect.fromLTWH(328, 398, 424, 639);
   } else {
     coverFrame = const Rect.fromLTWH(205, 260, 670, 760);
     coverRect = const Rect.fromLTWH(235, 290, 610, 700);
@@ -1460,7 +1616,13 @@ Future<Uint8List> _renderAlternativeBookStory(
               template == BookStoryTemplate.cinema ||
               template == BookStoryTemplate.terracotta ||
               template == BookStoryTemplate.royal ||
-              template == BookStoryTemplate.ornament)
+              template == BookStoryTemplate.ornament ||
+              template == BookStoryTemplate.adras ||
+              template == BookStoryTemplate.kokand ||
+              template == BookStoryTemplate.khiva ||
+              template == BookStoryTemplate.turon ||
+              template == BookStoryTemplate.yurt ||
+              template == BookStoryTemplate.heritage)
           ? 1245.0
           : (template == BookStoryTemplate.polaroid
               ? 1180.0
@@ -1496,7 +1658,13 @@ Future<Uint8List> _renderAlternativeBookStory(
       template == BookStoryTemplate.cinema ||
       template == BookStoryTemplate.terracotta ||
       template == BookStoryTemplate.royal ||
-      template == BookStoryTemplate.ornament;
+      template == BookStoryTemplate.ornament ||
+      template == BookStoryTemplate.adras ||
+      template == BookStoryTemplate.kokand ||
+      template == BookStoryTemplate.khiva ||
+      template == BookStoryTemplate.turon ||
+      template == BookStoryTemplate.yurt ||
+      template == BookStoryTemplate.heritage;
   if (!titleAlreadyShown) {
     textBox(book.title, Rect.fromLTWH(90, infoTop, 900, 90), 45, weight: FontWeight.w900, color: fg);
     infoTop += 84;
@@ -1538,7 +1706,11 @@ Future<Uint8List> _renderAlternativeBookStory(
       template == BookStoryTemplate.midnight ||
       template == BookStoryTemplate.atlas ||
       template == BookStoryTemplate.cinema ||
-      template == BookStoryTemplate.royal;
+      template == BookStoryTemplate.royal ||
+      template == BookStoryTemplate.adras ||
+      template == BookStoryTemplate.khiva ||
+      template == BookStoryTemplate.turon ||
+      template == BookStoryTemplate.heritage;
   final descriptionRect = Rect.fromLTWH(90, infoTop + 150, 900, 200);
   final descriptionBg = descriptionOnDark
       ? const Color(0xCC102F36)

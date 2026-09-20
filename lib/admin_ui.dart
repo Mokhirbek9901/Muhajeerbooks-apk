@@ -1724,6 +1724,34 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
       },
     ),
   ),
+  const SizedBox(height: 10),
+  Card(
+    clipBehavior: Clip.antiAlias,
+    child: ListTile(
+      minTileHeight: 72,
+      leading: Container(
+        width: 44,
+        height: 44,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: AppColors.successSoft,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const Icon(Icons.auto_awesome_rounded, color: AppColors.success),
+      ),
+      title: const Text('Savdo imkoniyatlari',
+          style: TextStyle(fontWeight: FontWeight.w800)),
+      subtitle: const Text(
+        'Pre-order • kitob so‘rovlari • setlar • qidiruvlar • qayta olib kelish',
+      ),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => _MerchandisingAdminPage(api: widget.api),
+        ),
+      ),
+    ),
+  ),
             const SizedBox(height: 20),
             AppSurface(
               child: Column(
@@ -5174,6 +5202,393 @@ class _RestockAdminState extends State<_RestockAdmin> {
       },
     );
   }
+}
+
+class _MerchandisingAdminPage extends StatefulWidget {
+  const _MerchandisingAdminPage({required this.api});
+  final _AdminApi api;
+
+  @override
+  State<_MerchandisingAdminPage> createState() =>
+      _MerchandisingAdminPageState();
+}
+
+class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
+  late Future<List<Object>> future;
+
+  @override
+  void initState() {
+    super.initState();
+    _reload();
+  }
+
+  void _reload() {
+    future = Future.wait<Object>([
+      widget.api.merchandisingInsights(),
+      widget.api.bundles(),
+      widget.api.books(),
+    ]);
+  }
+
+  List<Map<String, dynamic>> _rows(dynamic value) =>
+      ((value as List?) ?? const [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+
+  Future<void> _openBundleEditor(
+    List<Book> books, {
+    Map<String, dynamic>? bundle,
+  }) async {
+    final title =
+        TextEditingController(text: (bundle?['title'] ?? '').toString());
+    final description =
+        TextEditingController(text: (bundle?['description'] ?? '').toString());
+    final selected = <String, int>{};
+    for (final raw
+        in ((bundle?['items'] as List?) ?? const []).whereType<Map>()) {
+      selected[(raw['book_id'] ?? '').toString()] =
+          (raw['quantity'] as num?)?.toInt() ?? 1;
+    }
+    var active = bundle?['is_active'] as bool? ?? true;
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setLocal) => AlertDialog(
+          title: Text(bundle == null ? 'Yangi kitob seti' : 'Setni tahrirlash'),
+          content: SizedBox(
+            width: 560,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: title,
+                    decoration: const InputDecoration(labelText: 'Set nomi'),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: description,
+                    maxLines: 3,
+                    decoration: const InputDecoration(labelText: 'Izoh'),
+                  ),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    value: active,
+                    onChanged: (v) => setLocal(() => active = v),
+                    title: const Text('Mijozlarga ko‘rsatish'),
+                  ),
+                  const Divider(),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('Set tarkibi',
+                        style: TextStyle(fontWeight: FontWeight.w900)),
+                  ),
+                  ...books.where((b) => b.isActive).map((book) {
+                    final qty = selected[book.id] ?? 0;
+                    return CheckboxListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      value: qty > 0,
+                      title: Text(book.title),
+                      subtitle: Text(
+                        [_won(book.currentPrice), 'ombor ' + book.stock.toString()]
+                            .join(' • '),
+                      ),
+                      secondary: qty > 0
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: qty <= 1
+                                      ? null
+                                      : () => setLocal(
+                                            () => selected[book.id] = qty - 1,
+                                          ),
+                                  icon: const Icon(Icons.remove_circle_outline),
+                                ),
+                                Text(qty.toString(),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w900)),
+                                IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: () => setLocal(
+                                    () => selected[book.id] = qty + 1,
+                                  ),
+                                  icon: const Icon(Icons.add_circle_outline),
+                                ),
+                              ],
+                            )
+                          : null,
+                      onChanged: (v) => setLocal(() {
+                        if (v == true) {
+                          selected[book.id] = 1;
+                        } else {
+                          selected.remove(book.id);
+                        }
+                      }),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Bekor qilish'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Saqlash'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (saved != true) {
+      title.dispose();
+      description.dispose();
+      return;
+    }
+    if (title.text.trim().length < 2 || selected.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Set nomi va kitoblarini tanlang.')),
+        );
+      }
+      title.dispose();
+      description.dispose();
+      return;
+    }
+
+    var total = 0;
+    final items = <Map<String, dynamic>>[];
+    for (final entry in selected.entries) {
+      Book? selectedBook;
+      for (final candidate in books) {
+        if (candidate.id == entry.key) {
+          selectedBook = candidate;
+          break;
+        }
+      }
+      if (selectedBook == null) continue;
+      total += selectedBook.currentPrice * entry.value;
+      items.add({'book_id': selectedBook.id, 'quantity': entry.value});
+    }
+
+    try {
+      final rawId = (bundle?['id'] ?? '').toString().trim();
+      await widget.api.saveBundle(
+        id: rawId.isEmpty ? null : rawId,
+        title: title.text.trim(),
+        description: description.text.trim(),
+        price: total,
+        active: active,
+        items: items,
+      );
+      if (mounted) {
+        setState(_reload);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Kitob seti saqlandi ✅')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Set saqlanmadi: ' + e.toString())),
+        );
+      }
+    } finally {
+      title.dispose();
+      description.dispose();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('Savdo imkoniyatlari')),
+        body: FutureBuilder<List<Object>>(
+          future: future,
+          builder: (context, snap) {
+            if (!snap.hasData) {
+              if (snap.hasError) {
+                return Center(
+                  child: Text('Xatolik: ' + snap.error.toString()),
+                );
+              }
+              return const Center(child: CircularProgressIndicator());
+            }
+            final insight =
+                Map<String, dynamic>.from(snap.data![0] as Map);
+            final bundles = (snap.data![1] as List)
+                .whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList();
+            final books = (snap.data![2] as List).cast<Book>();
+            final preorders = _rows(insight['preorders']);
+            final requests = _rows(insight['requests']);
+            final misses = _rows(insight['search_misses']);
+            final restock = _rows(insight['restock']);
+
+            return RefreshIndicator(
+              onRefresh: () async {
+                setState(_reload);
+                await future;
+              },
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  AppSurface(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AppSectionHeader(
+                          title: 'Kitob setlari',
+                          subtitle:
+                              'Bir nechta kitobni bitta tayyor to‘plam qilib ko‘rsating',
+                          icon: Icons.auto_awesome_mosaic_rounded,
+                          trailing: FilledButton.icon(
+                            onPressed: () => _openBundleEditor(books),
+                            icon: const Icon(Icons.add_rounded),
+                            label: const Text('Yangi set'),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        if (bundles.isEmpty)
+                          const Text('Hozircha set yo‘q.',
+                              style: TextStyle(color: AppColors.muted))
+                        else
+                          ...bundles.map(
+                            (b) => ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(
+                                  Icons.collections_bookmark_rounded),
+                              title: Text(
+                                (b['title'] ?? '').toString(),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w800),
+                              ),
+                              subtitle: Text(
+                                [
+                                  _rows(b['items']).length.toString() +
+                                      ' turdagi kitob',
+                                  _won((b['price'] as num?)?.toInt() ?? 0),
+                                ].join(' • '),
+                              ),
+                              trailing: Icon(
+                                b['is_active'] == true
+                                    ? Icons.visibility_rounded
+                                    : Icons.visibility_off_rounded,
+                              ),
+                              onTap: () =>
+                                  _openBundleEditor(books, bundle: b),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _AdminInsightCard(
+                    title: 'Pre-order',
+                    icon: Icons.event_available_rounded,
+                    rows: preorders,
+                    empty: 'Hozircha pre-order yo‘q.',
+                    line: (r) => [
+                      (r['title'] ?? '').toString(),
+                      (r['quantity'] ?? 1).toString() + ' dona',
+                      (r['customer_name'] ?? 'Mijoz').toString(),
+                    ].join(' • '),
+                  ),
+                  const SizedBox(height: 14),
+                  _AdminInsightCard(
+                    title: '“Shu kitob kerak” so‘rovlari',
+                    icon: Icons.library_add_rounded,
+                    rows: requests,
+                    empty: 'Hozircha kitob so‘rovi yo‘q.',
+                    line: (r) => [
+                      (r['title'] ?? '').toString(),
+                      if ((r['phone'] ?? '').toString().trim().isNotEmpty)
+                        r['phone'].toString(),
+                    ].join(' • '),
+                  ),
+                  const SizedBox(height: 14),
+                  _AdminInsightCard(
+                    title: 'Qayta olib kelish tavsiyasi',
+                    icon: Icons.replay_circle_filled_rounded,
+                    rows: restock,
+                    empty: 'Hozircha alohida tavsiya yo‘q.',
+                    line: (r) => [
+                      (r['title'] ?? '').toString(),
+                      'ombor ' + (r['stock'] ?? 0).toString(),
+                      'kutmoqda ' + (r['waiting'] ?? 0).toString(),
+                      '30 kunda ' + (r['sold_30d'] ?? 0).toString() + ' sotildi',
+                    ].join(' • '),
+                  ),
+                  const SizedBox(height: 14),
+                  _AdminInsightCard(
+                    title: 'Topilmagan qidiruvlar statistikasi',
+                    icon: Icons.manage_search_rounded,
+                    rows: misses,
+                    empty: 'Topilmagan qidiruvlar hali yo‘q.',
+                    line: (r) => [
+                      (r['query'] ?? '').toString(),
+                      (r['count'] ?? 0).toString() + ' marta',
+                    ].join(' • '),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+}
+
+class _AdminInsightCard extends StatelessWidget {
+  const _AdminInsightCard({
+    required this.title,
+    required this.icon,
+    required this.rows,
+    required this.empty,
+    required this.line,
+  });
+  final String title;
+  final IconData icon;
+  final List<Map<String, dynamic>> rows;
+  final String empty;
+  final String Function(Map<String, dynamic>) line;
+
+  @override
+  Widget build(BuildContext context) => AppSurface(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AppSectionHeader(
+              title: title,
+              icon: icon,
+              trailing: AppInfoPill(label: rows.length.toString() + ' ta'),
+            ),
+            const SizedBox(height: 10),
+            if (rows.isEmpty)
+              Text(empty, style: const TextStyle(color: AppColors.muted))
+            else
+              ...rows.take(30).map(
+                    (row) => ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.chevron_right_rounded),
+                      title: Text(
+                        line(row),
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+          ],
+        ),
+      );
 }
 
 class _DiscountAdmin extends StatefulWidget {

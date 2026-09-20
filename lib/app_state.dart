@@ -1546,6 +1546,11 @@ class AppState extends ChangeNotifier {
       cartBundles.length +
       cartStandaloneLines.fold(0, (sum, line) => sum + line.quantity);
 
+  // Set ichidagi kitoblar 4+ bepul yetkazish aksiyasiga hisoblanmaydi.
+  // Setning pochtasi faqat admin belgilagan delivery_included qiymatiga bog‘liq.
+  int get cartStandaloneBookCount =>
+      cartStandaloneLines.fold(0, (sum, line) => sum + line.quantity);
+
   int get cartBundleDiscount {
     var saving = 0;
     for (final id in _cartBundleIds) {
@@ -1593,7 +1598,7 @@ class AppState extends ChangeNotifier {
       cartLines.fold(0, (a, b) => a + b.total) - cartBundleDiscount;
   int get cartDeliveryFee =>
       cartBundleDeliveryIncluded ||
-              (cartDisplayCount >= 4 && fourPlusFreeDeliveryEnabled)
+              (cartStandaloneBookCount >= 4 && fourPlusFreeDeliveryEnabled)
           ? 0
           : deliveryFee;
 

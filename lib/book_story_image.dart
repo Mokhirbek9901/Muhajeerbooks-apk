@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
 
 import 'app_state.dart';
@@ -23,7 +24,23 @@ String _storyDescription(Book book) {
 }
 
 Future<ui.Image> _decodeStoryCover(Uint8List encoded) async {
-  final codec = await ui.instantiateImageCodec(encoded, targetWidth: 700);
+  // Browser/iOS decoderidan keladigan qora JPEG/WebP frame muammosini
+  // chetlab o‘tish uchun rasmni avval sof RGB PNG ga normallashtiramiz.
+  // Bu story exportida muqovaning qora chiqib qolishini oldini oladi.
+  Uint8List safeBytes = encoded;
+  try {
+    final decoded = img.decodeImage(encoded);
+    if (decoded != null) {
+      final normalized = decoded.width > 900
+          ? img.copyResize(decoded, width: 900, interpolation: img.Interpolation.linear)
+          : decoded;
+      safeBytes = Uint8List.fromList(img.encodePng(normalized, level: 4));
+    }
+  } catch (_) {
+    // image paketi formatni taniy olmasa Flutter decoderiga qaytamiz.
+  }
+
+  final codec = await ui.instantiateImageCodec(safeBytes, targetWidth: 700);
   try {
     final frame = await codec.getNextFrame();
     return frame.image;
@@ -33,10 +50,13 @@ Future<ui.Image> _decodeStoryCover(Uint8List encoded) async {
 }
 
 Future<Uint8List?> _downloadStoryCover(Book book) async {
+  // Story uchun thumbnail emas, avval original muqovani olamiz.
+  // Ayrim iPhone/Safari holatlarida thumbnail canvas eksportida qora
+  // to‘rtburchak bo‘lib qolishi mumkin.
   final candidates = <String>[
-    book.previewImageUrl,
     book.imageUrl,
     ...book.imageUrls,
+    book.previewImageUrl,
   ].map((e) => e.trim()).where((e) => e.isNotEmpty).toSet();
 
   for (final url in candidates) {
@@ -232,9 +252,11 @@ Future<Uint8List> renderBookStory(Book book, {Uint8List? coverBytes}) async {
     false,
   );
   canvas.drawRRect(frame, Paint()..color = Colors.white);
+  const coverRect = Rect.fromLTWH(214, 300, 652, 640);
+  canvas.drawRect(coverRect, Paint()..color = Colors.white);
   paintImage(
     canvas: canvas,
-    rect: const Rect.fromLTWH(214, 300, 652, 640),
+    rect: coverRect,
     image: cover,
     fit: BoxFit.contain,
     filterQuality: FilterQuality.high,

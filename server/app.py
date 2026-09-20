@@ -180,17 +180,45 @@ def _verify_admin_code(code):
 
 @app.post("/api/admin-ai")
 def admin_ai():
+    """Free deterministic admin analytics. OpenAI is reserved for book research."""
     body=request.get_json(silent=True) or {}
-    # Admin code is verified against the same server-side secret used by admin RPC.
     supplied=str(body.get("admin_code",""))
     if not _verify_admin_code(supplied):
         return jsonify(error="Unauthorized"),401
-    query=str(body.get("query",""))[:1500]
+    query=str(body.get("query","")).lower()[:1500]
     context=body.get("context") if isinstance(body.get("context"),dict) else {}
-    instructions="""You are Muhajeer Books' private ADMIN assistant. Answer in concise natural Uzbek. You may analyze the supplied admin-only books, stock, cost prices, sales and order aggregates, including profit/margin/restock and operational anomalies. Use web search for current external facts when useful. Never invent business data. You are read-only: do not claim to change prices, stock, orders, discounts, books, customers or settings. For any proposed mutation, explain the proposed change and require explicit admin confirmation before a separate app action performs it. Never expose admin credentials, secrets, tokens or unnecessary customer PII. Money is KRW and displayed with ₩."""
-    text=_chat_json(instructions,[{"role":"user","content":[{"type":"input_text","text":f"Admin request: {query}\nAdmin data: {context}"}]}],1800,web_search=True)
-    if not text: return jsonify(error="AI unavailable"),502
-    return jsonify(text=text)
+    books=context.get("books") if isinstance(context.get("books"),list) else []
+    sales=context.get("sales") if isinstance(context.get("sales"),list) else []
+    orders=context.get("orders") if isinstance(context.get("orders"),list) else []
+
+    if any(x in query for x in ("ombor","kam qol","restock","qayta olib","qolgan")):
+      low=[]
+      for x in books:
+        try: stock=int(x.get("stock") or 0)
+        except Exception: stock=0
+        if stock<=2: low.append((stock,str(x.get("title") or "")))
+      low.sort()
+      if not low: return jsonify(text="Omborda 2 dona yoki undan kam qolgan kitob topilmadi.")
+      return jsonify(text="Qayta olib kelish/kam qolganlar:\n" + "\n".join(f"• {t}: {s} dona" for s,t in low[:30]))
+
+    if any(x in query for x in ("savdo","sotuv","sotilgan")):
+      qty=0; revenue=0.0; cost=0.0
+      for x in sales:
+        try:
+          q=int(x.get("quantity") or x.get("qty") or 0); qty+=q
+          revenue+=float(x.get("total") or 0)
+          cp=float(x.get("cost_price") or 0); cost+=cp*q
+        except Exception: pass
+      profit=revenue-cost
+      return jsonify(text=f"Yuklangan savdo ma’lumotlari bo‘yicha: {qty} ta kitob sotilgan. Tushum ₩{revenue:,.0f}. Hisoblangan tannarx ₩{cost:,.0f}. Farq/yalpi foyda ₩{profit:,.0f}.")
+
+    if any(x in query for x in ("buyurtma","zakaz","order")):
+      counts={}
+      for x in orders:
+        s=str(x.get("status") or "Noma’lum"); counts[s]=counts.get(s,0)+1
+      return jsonify(text="Buyurtmalar: " + (", ".join(f"{k}: {v}" for k,v in counts.items()) if counts else "ma’lumot yo‘q."))
+
+    return jsonify(text=f"Admin ma’lumotlari yuklandi: {len(books)} ta kitob, {len(sales)} ta savdo yozuvi, {len(orders)} ta buyurtma. Savdo, ombor/kam qolgan kitoblar yoki buyurtmalar haqida so‘rang.")
 
 
 @app.post("/api/admin-ai/book-research")
@@ -219,17 +247,18 @@ def admin_ai_book_research():
 
 @app.post("/api/ai-search")
 def ai_search():
+    """Free local catalog search; no model/API credits."""
     body=request.get_json(silent=True) or {}
-    query=str(body.get("query",""))[:500]
+    import re
+    query=str(body.get("query","")).lower()[:500]
+    words=[w for w in re.findall(r"[\\wʻ’'-]+",query,flags=re.UNICODE) if len(w)>=3]
     books=body.get("books") if isinstance(body.get("books"),list) else []
-    compact=[{"id":b.get("id"),"title":b.get("title"),"author":b.get("author"),"category":b.get("category"),"description":str(b.get("description",""))[:300],"price":b.get("price"),"stock":b.get("stock")} for b in books[:300] if isinstance(b,dict)]
-    instructions="""Match a shopper's natural-language Uzbek request to the supplied catalog. Return ONLY a JSON array of at most 12 exact book ids, best semantic matches first. Never invent ids. Prefer stock>0. Example: ["uuid1","uuid2"]."""
-    out=_chat_json(instructions,[{"role":"user","content":[{"type":"input_text","text":f"Query: {query}\nCatalog: {compact}"}]}],500)
-    if not out: return jsonify(ids=[]),200
-    try:
-      import json
-      ids=json.loads(out[out.find("["):out.rfind("]")+1])
-      valid={str(b.get("id")) for b in compact}
-      return jsonify(ids=[str(x) for x in ids if str(x) in valid][:12])
-    except Exception:
-      return jsonify(ids=[]),200
+    ranked=[]
+    for b in books[:500]:
+      if not isinstance(b,dict): continue
+      hay=" ".join(str(b.get(k) or "").lower() for k in ("title","author","category","description"))
+      score=sum(1 for w in words if w in hay)
+      if query and query in hay: score+=4
+      if score: ranked.append((score, int(b.get("stock") or 0)>0, str(b.get("id") or "")))
+    ranked.sort(key=lambda x:(x[0],x[1]),reverse=True)
+    return jsonify(ids=[x[2] for x in ranked[:12] if x[2]]),200

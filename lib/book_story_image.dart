@@ -943,7 +943,7 @@ Future<Uint8List> _renderAlternativeBookStory(
   }
 
   var infoTop = template == BookStoryTemplate.coverFocus
-      ? 1370.0
+      ? 1350.0
       : (template == BookStoryTemplate.emerald ? 1140.0 : 1080.0);
   final titleAlreadyShown = template == BookStoryTemplate.library ||
       template == BookStoryTemplate.minimal ||

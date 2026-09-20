@@ -3345,7 +3345,8 @@ class CartPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final lines = state.cartLines;
-    final deliveryFee = state.cartCount >= 4 && state.fourPlusFreeDeliveryEnabled
+    final deliveryFee = state.cartBundleDeliveryIncluded ||
+            (state.cartCount >= 4 && state.fourPlusFreeDeliveryEnabled)
         ? 0
         : AppState.deliveryFee;
     final grandTotal = state.cartSubtotal + deliveryFee;
@@ -3741,9 +3742,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final isGyeongsanPickup = delivery == '경산 직접수령';
     final deliveryFee = isGyeongsanPickup
         ? 0
-        : (state.cartCount >= 4 && state.fourPlusFreeDeliveryEnabled
-              ? 0
-              : AppState.deliveryFee);
+        : (state.cartBundleDeliveryIncluded ||
+                (state.cartCount >= 4 && state.fourPlusFreeDeliveryEnabled)
+            ? 0
+            : AppState.deliveryFee);
     final total = state.cartSubtotal + deliveryFee;
 
     return Scaffold(

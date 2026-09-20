@@ -750,21 +750,23 @@ class _BookBundlesPageState extends State<BookBundlesPage> {
                           builder: (context) {
                             final setPrice =
                                 (bundle['price'] as num?)?.toInt() ?? regularTotal;
-                            final saving = (regularTotal - setPrice)
-                                .clamp(0, regularTotal)
-                                .toInt();
-                            final percent = regularTotal > 0
-                                ? ((saving * 100) / regularTotal).round()
-                                : 0;
                             final deliveryIncluded =
                                 bundle['delivery_included'] == true;
+                            final comparisonTotal = regularTotal +
+                                (deliveryIncluded ? AppState.deliveryFee : 0);
+                            final saving = (comparisonTotal - setPrice)
+                                .clamp(0, comparisonTotal)
+                                .toInt();
+                            final percent = comparisonTotal > 0
+                                ? ((saving * 100) / comparisonTotal).round()
+                                : 0;
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
                                   children: [
                                     Text(
-                                      won(regularTotal),
+                                      won(comparisonTotal),
                                       style: const TextStyle(
                                         color: AppColors.muted,
                                         fontSize: 16,
@@ -913,10 +915,14 @@ class _BookBundleDetailPageState extends State<BookBundleDetailPage> {
       if (book != null) regularTotal += book.price * qty;
     }
     final setPrice = (b['price'] as num?)?.toInt() ?? regularTotal;
-    final saving = (regularTotal - setPrice).clamp(0, regularTotal).toInt();
-    final percent =
-        regularTotal > 0 ? ((saving * 100) / regularTotal).round() : 0;
     final deliveryIncluded = b['delivery_included'] == true;
+    final comparisonTotal =
+        regularTotal + (deliveryIncluded ? AppState.deliveryFee : 0);
+    final saving =
+        (comparisonTotal - setPrice).clamp(0, comparisonTotal).toInt();
+    final percent = comparisonTotal > 0
+        ? ((saving * 100) / comparisonTotal).round()
+        : 0;
 
     return Scaffold(
       backgroundColor: UzbekCustomerColors.background,
@@ -1029,7 +1035,7 @@ class _BookBundleDetailPageState extends State<BookBundleDetailPage> {
                   Row(
                     children: [
                       Text(
-                        won(regularTotal),
+                        won(comparisonTotal),
                         style: const TextStyle(
                           color: AppColors.muted,
                           fontSize: 17,
@@ -1297,10 +1303,11 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final homeState = context.select<
       AppState,
-      ({int catalogRevision, bool loading, String? error})
+      ({int catalogRevision, int bundleCount, bool loading, String? error})
     >(
       (s) => (
         catalogRevision: s.catalogRevision,
+        bundleCount: s.bundles.length,
         loading: s.loading,
         error: s.error,
       ),
@@ -1350,9 +1357,31 @@ class _HomePageState extends State<HomePage> {
         });
     }
 
+    final q = query.trim().toLowerCase();
+    final visibleBundles = category == 'Barchasi'
+        ? state.bundles.where((bundle) {
+            if (q.isEmpty) return true;
+            return (bundle['title'] ?? '').toString().toLowerCase().contains(q) ||
+                (bundle['description'] ?? '').toString().toLowerCase().contains(q);
+          }).toList()
+        : <Map<String, dynamic>>[];
+    final catalogItems = <Object>[];
+    var bundleIndex = 0;
+    for (var i = 0; i < books.length; i++) {
+      catalogItems.add(books[i]);
+      if ((i + 1) % 4 == 0 && bundleIndex < visibleBundles.length) {
+        catalogItems.add(visibleBundles[bundleIndex++]);
+      }
+    }
+    while (bundleIndex < visibleBundles.length) {
+      catalogItems.add(visibleBundles[bundleIndex++]);
+    }
+
     return SafeArea(
       child: RefreshIndicator(
-        onRefresh: state.refreshBooks,
+        onRefresh: () async {
+          await Future.wait([state.refreshBooks(), state.refreshBundles()]);
+        },
         child: CustomScrollView(
           controller: _scrollController,
           key: const PageStorageKey<String>('muhajeer-home-scroll-v2'),
@@ -1520,7 +1549,7 @@ class _HomePageState extends State<HomePage> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
-                          '“${query.trim()}” bo‘yicha ${books.length} ta kitob topildi',
+                          '“${query.trim()}” bo‘yicha ${catalogItems.length} ta natija topildi',
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 8),
@@ -1551,7 +1580,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                     const Spacer(),
                     Text(
-                      '${books.length} ta',
+                      '${catalogItems.length} ta',
                       style: const TextStyle(color: Colors.black54),
                     ),
                   ],
@@ -1572,7 +1601,7 @@ class _HomePageState extends State<HomePage> {
               const SliverFillRemaining(
                 child: Center(child: CircularProgressIndicator()),
               )
-            else if (books.isEmpty)
+            else if (catalogItems.isEmpty)
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: Padding(
@@ -1614,11 +1643,19 @@ class _HomePageState extends State<HomePage> {
                         : 2;
                     return SliverGrid(
                       delegate: SliverChildBuilderDelegate(
-                        (context, i) => BookCard(
-                          book: books[i],
-                          sharpCover: category != 'Barchasi',
-                        ),
-                        childCount: books.length,
+                        (context, i) {
+                          final item = catalogItems[i];
+                          if (item is Book) {
+                            return BookCard(
+                              book: item,
+                              sharpCover: category != 'Barchasi',
+                            );
+                          }
+                          return _CatalogBundleCard(
+                            bundle: Map<String, dynamic>.from(item as Map),
+                          );
+                        },
+                        childCount: catalogItems.length,
                         addAutomaticKeepAlives: false,
                         addRepaintBoundaries: true,
                       ),
@@ -1632,6 +1669,107 @@ class _HomePageState extends State<HomePage> {
                   },
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CatalogBundleCard extends StatelessWidget {
+  const _CatalogBundleCard({required this.bundle});
+  final Map<String, dynamic> bundle;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.read<AppState>();
+    final items = ((bundle['items'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+    final books = <Book>[];
+    var regularTotal = 0;
+    var available = true;
+    for (final item in items) {
+      final id = (item['book_id'] ?? '').toString();
+      final qty = (item['quantity'] as num?)?.toInt() ?? 1;
+      Book? book;
+      for (final candidate in state.books) {
+        if (candidate.id == id) { book = candidate; break; }
+      }
+      if (book != null) {
+        books.add(book);
+        regularTotal += book.price * qty;
+        if (book.stock < qty) available = false;
+      } else {
+        available = false;
+      }
+    }
+    final setPrice = (bundle['price'] as num?)?.toInt() ?? regularTotal;
+    final deliveryIncluded = bundle['delivery_included'] == true;
+    final comparisonTotal = regularTotal +
+        (deliveryIncluded ? AppState.deliveryFee : 0);
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: () => Navigator.push(
+        context,
+        muhajeerPageRoute<void>(
+          settings: RouteSettings(name: 'mb:bundle:${bundle['id']}'),
+          builder: (_) => BookBundleDetailPage(
+            bundleId: (bundle['id'] ?? '').toString(),
+          ),
+        ),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.success, width: 1.5),
+          boxShadow: const [BoxShadow(color: Color(0x120F172A), blurRadius: 12, offset: Offset(0, 5))],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+              decoration: BoxDecoration(color: AppColors.success, borderRadius: BorderRadius.circular(999)),
+              child: const Text('SET', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
+            ),
+            const SizedBox(height: 7),
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: books.take(2).map((book) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: SizedBox(width: 55, child: _BookCover(book: book)),
+                )).toList(),
+              ),
+            ),
+            const SizedBox(height: 7),
+            Text((bundle['title'] ?? 'Kitoblar seti').toString(), maxLines: 2, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+            Text('${items.fold<int>(0, (sum, e) => sum + ((e['quantity'] as num?)?.toInt() ?? 1))} ta kitob',
+              style: const TextStyle(color: AppColors.muted, fontSize: 11)),
+            const SizedBox(height: 5),
+            if (comparisonTotal > setPrice)
+              Text(won(comparisonTotal), style: const TextStyle(color: AppColors.muted, fontSize: 11, decoration: TextDecoration.lineThrough)),
+            Row(
+              children: [
+                Expanded(child: Text(won(setPrice), style: const TextStyle(color: AppColors.success, fontSize: 16, fontWeight: FontWeight.w900))),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  onPressed: available ? () {
+                    final message = state.addBundleToCart(bundle);
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+                  } : null,
+                  icon: const Icon(Icons.add_shopping_cart_rounded),
+                ),
+              ],
+            ),
+            if (deliveryIncluded)
+              const Text('Pochta set narxida', style: TextStyle(color: AppColors.success, fontSize: 10, fontWeight: FontWeight.w800)),
           ],
         ),
       ),

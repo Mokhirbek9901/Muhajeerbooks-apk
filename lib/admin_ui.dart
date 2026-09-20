@@ -16,6 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'admin_session.dart';
 import 'app_state.dart';
 import 'brand.dart';
 import 'design_system.dart';
@@ -714,6 +715,8 @@ class _AdminGatePageState extends State<AdminGatePage> {
 
   Future<void> _openDashboard(String secret) async {
     if (!mounted) return;
+    // Paid AI Story is enabled only for this verified admin session.
+    AdminSession.set(secret);
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => AdminDashboardPage(secret: secret)),

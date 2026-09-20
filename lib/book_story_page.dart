@@ -68,14 +68,21 @@ class _BookStoryPageState extends State<BookStoryPage> {
           renderScale: 2 / 3,
         );
       } catch (_) {
-        // Eski iPhone/Safari uchun oxirgi xavfsiz yo‘l: 540x960.
-        // Tanlangan dizayn o‘zgarmaydi.
         await Future<void>.delayed(const Duration(milliseconds: 60));
-        return renderBookStory(
-          widget.book,
-          template: template,
-          renderScale: 0.5,
-        );
+        try {
+          return await renderBookStory(
+            widget.book,
+            template: template,
+            renderScale: 0.5,
+          );
+        } catch (_) {
+          // CanvasKit/GPU uchala urinishda ham yiqilsa, Safari'ga bog‘liq
+          // bo‘lmagan sof CPU raster yo‘li. Endi sahifa xato bilan tugamaydi.
+          return renderBookStoryCpuFallback(
+            widget.book,
+            template: template,
+          );
+        }
       }
     }
   }

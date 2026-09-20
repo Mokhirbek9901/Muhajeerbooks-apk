@@ -28,7 +28,9 @@ class _BookStoryPageState extends State<BookStoryPage> {
   static const List<BookStoryTemplate> _templateOrder = [
     // Muqova ranglarini o‘zi tahlil qilib, fon/yozuv/aksentlarni moslaydi.
     BookStoryTemplate.current,    // Avto dizayn — yangi kompozitsiyani o‘zi yaratadi
+    BookStoryTemplate.oldCurrent, // Hozir — eski tanish dizayn
     BookStoryTemplate.smartMatch, // Mos dizayn — mavjud dizaynlardan muqovaga mosini tanlaydi
+    BookStoryTemplate.decorative, // Dekorativ
     BookStoryTemplate.spring,
     BookStoryTemplate.summer,
     BookStoryTemplate.autumn,

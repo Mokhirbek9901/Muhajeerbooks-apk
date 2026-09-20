@@ -42,7 +42,6 @@ class _BookStoryPageState extends State<BookStoryPage> {
     BookStoryTemplate.scrapbook,
     BookStoryTemplate.current,
     BookStoryTemplate.arch,
-    BookStoryTemplate.classic,
     BookStoryTemplate.noir,
     BookStoryTemplate.split,
     BookStoryTemplate.polaroid,
@@ -54,11 +53,15 @@ class _BookStoryPageState extends State<BookStoryPage> {
     try {
       return await renderBookStory(widget.book, template: template);
     } catch (_) {
-      // Tanlangan dizayn xato bersa boshqa dizaynga sakramaymiz.
-      // iPhone/Safari'dagi vaqtinchalik raster xatosi uchun aynan o‘sha
-      // dizaynni qisqa tanaffusdan keyin yana bir marta chizamiz.
-      await Future<void>.delayed(const Duration(milliseconds: 140));
-      return renderBookStory(widget.book, template: template);
+      // iPhone/Safari ayrim payt 1080x1920 canvasni PNGga aylantirishda
+      // xotira/raster xatosi beradi. Boshqa dizaynga sakramaymiz:
+      // aynan tanlangan dizaynni yengil 720x1280 rejimida qayta chizamiz.
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      return renderBookStory(
+        widget.book,
+        template: template,
+        renderScale: 2 / 3,
+      );
     }
   }
 

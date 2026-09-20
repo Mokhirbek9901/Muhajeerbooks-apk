@@ -125,12 +125,18 @@ class _BookStoryPageState extends State<BookStoryPage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(selected ? Icons.check_circle_rounded : Icons.auto_awesome_rounded,
-                          color: item == BookStoryTemplate.library || item == BookStoryTemplate.emerald
+                          color: item == BookStoryTemplate.library ||
+                                  item == BookStoryTemplate.emerald ||
+                                  item == BookStoryTemplate.noir ||
+                                  item == BookStoryTemplate.geometric
                               ? Colors.white : const Color(0xFF174652)),
                         const SizedBox(height: 6),
                         Text(bookStoryTemplateName(item), maxLines: 1, overflow: TextOverflow.ellipsis,
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900,
-                            color: item == BookStoryTemplate.library || item == BookStoryTemplate.emerald
+                            color: item == BookStoryTemplate.library ||
+                                    item == BookStoryTemplate.emerald ||
+                                    item == BookStoryTemplate.noir ||
+                                    item == BookStoryTemplate.geometric
                                 ? Colors.white : const Color(0xFF174652))),
                       ],
                     ),

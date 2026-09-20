@@ -29,6 +29,10 @@ class _BookStoryPageState extends State<BookStoryPage> {
     // Muqova ranglarini o‘zi tahlil qilib, fon/yozuv/aksentlarni moslaydi.
     BookStoryTemplate.current,    // Avto dizayn — yangi kompozitsiyani o‘zi yaratadi
     BookStoryTemplate.smartMatch, // Mos dizayn — mavjud dizaynlardan muqovaga mosini tanlaydi
+    BookStoryTemplate.spring,
+    BookStoryTemplate.summer,
+    BookStoryTemplate.autumn,
+    BookStoryTemplate.winter,
     BookStoryTemplate.adras,      // Naqqosh
     BookStoryTemplate.cinema,     // Tun va shahar
     BookStoryTemplate.ornament,   // Sado

@@ -315,20 +315,36 @@ def _verify_admin_code(code):
       return False
 
 
+def _admin_free_intent(query,words):
+    q=_free_norm(query)
+    tokens=_free_tokens(query)
+    for word in words:
+      w=_free_norm(word)
+      if w in q: return True
+      if any(len(t)>=4 and _free_similarity(t,w)>=0.78 for t in tokens): return True
+    return False
+
 @app.post("/api/admin-ai")
 def admin_ai():
-    """Free deterministic admin analytics. OpenAI is reserved for book research."""
+    """Free deterministic admin assistant. Paid research/image AI routes stay separate."""
     body=request.get_json(silent=True) or {}
     supplied=str(body.get("admin_code",""))
     if not _verify_admin_code(supplied):
         return jsonify(error="Unauthorized"),401
-    query=str(body.get("query","")).lower()[:1500]
+    raw_query=str(body.get("query","")).strip()[:1500]
+    query=_free_norm(raw_query)
     context=body.get("context") if isinstance(body.get("context"),dict) else {}
     books=context.get("books") if isinstance(context.get("books"),list) else []
     sales=context.get("sales") if isinstance(context.get("sales"),list) else []
     orders=context.get("orders") if isinstance(context.get("orders"),list) else []
 
-    if any(x in query for x in ("ombor","kam qol","restock","qayta olib","qolgan")):
+    if not query:
+      return jsonify(text="Savol yozing. Masalan: “eng ko‘p sotilgan kitoblar”, “omborda 2 tadan kam qolganlar”, “jami tushum va foyda”, “buyurtmalar holati”.")
+
+    if _admin_free_intent(query,("salom","assalom","hello")):
+      return jsonify(text="Assalomu alaykum. Admin yordamchi tayyor. Savdo, foyda, ombor, top kitoblar, buyurtmalar, kategoriya yoki nashriyotlar bo‘yicha so‘rashingiz mumkin.")
+
+    if _admin_free_intent(query,("kam qolgan","restock","qayta olib","tugayotgan","2 dona","ombor kam")):
       low=[]
       for x in books:
         try: stock=int(x.get("stock") or 0)
@@ -336,27 +352,86 @@ def admin_ai():
         if stock<=2: low.append((stock,str(x.get("title") or "")))
       low.sort()
       if not low: return jsonify(text="Omborda 2 dona yoki undan kam qolgan kitob topilmadi.")
-      return jsonify(text="Qayta olib kelish/kam qolganlar:\n" + "\n".join(f"• {t}: {s} dona" for s,t in low[:30]))
+      return jsonify(text="Kam qolgan / qayta olib kelish kerak:\n"+"\n".join(f"• {t}: {s} dona" for s,t in low[:40]))
 
-    if any(x in query for x in ("savdo","sotuv","sotilgan")):
+    if _admin_free_intent(query,("tugagan","0 dona","qolmagan","out of stock")):
+      zero=[]
+      for x in books:
+        try: stock=int(x.get("stock") or 0)
+        except Exception: stock=0
+        if stock<=0: zero.append(str(x.get("title") or ""))
+      return jsonify(text=("Omborda tugagan kitoblar:\n"+"\n".join(f"• {t}" for t in zero[:50])) if zero else "Omborda tugagan kitob yo‘q.")
+
+    if _admin_free_intent(query,("eng kop sotilgan","top sotuv","kop sotilgan","bestseller")):
+      totals={}
+      for x in sales:
+        title=str(x.get("title") or "Noma’lum")
+        try: qty=int(x.get("quantity") or x.get("qty") or 0)
+        except Exception: qty=0
+        totals[title]=totals.get(title,0)+qty
+      top=sorted(totals.items(),key=lambda z:z[1],reverse=True)[:15]
+      return jsonify(text=("Eng ko‘p sotilgan kitoblar:\n"+"\n".join(f"• {t}: {q} dona" for t,q in top)) if top else "Sotuv ma’lumoti yo‘q.")
+
+    if _admin_free_intent(query,("kategoriya","kategoriyalar")):
+      counts={}
+      for x in books:
+        k=str(x.get("category") or "Kategoriyasiz").strip() or "Kategoriyasiz"
+        counts[k]=counts.get(k,0)+1
+      rows=sorted(counts.items(),key=lambda z:(-z[1],z[0]))
+      return jsonify(text="Kategoriyalar:\n"+"\n".join(f"• {k}: {n} xil kitob" for k,n in rows))
+
+    if _admin_free_intent(query,("nashriyot","publisher")):
+      counts={}
+      for x in books:
+        k=str(x.get("publisher") or "").strip()
+        if k: counts[k]=counts.get(k,0)+1
+      rows=sorted(counts.items(),key=lambda z:(-z[1],z[0]))[:40]
+      return jsonify(text=("Nashriyotlar:\n"+"\n".join(f"• {k}: {n} xil kitob" for k,n in rows)) if rows else "Nashriyot ma’lumoti yo‘q.")
+
+    if _admin_free_intent(query,("ombor qiymati","tannarx qiymati","ombordagi pul","inventory value")):
+      retail=0.0; cost=0.0; units=0
+      for x in books:
+        try:
+          stock=max(0,int(x.get("stock") or 0)); units+=stock
+          retail+=float(x.get("price") or 0)*stock
+          cost+=float(x.get("cost_price") or 0)*stock
+        except Exception: pass
+      return jsonify(text=f"Ombor: {units} dona. Sotuv narxida jami ₩{retail:,.0f}. Tannarx bo‘yicha jami ₩{cost:,.0f}. Potensial farq ₩{retail-cost:,.0f}.")
+
+    if _admin_free_intent(query,("savdo","sotuv","sotilgan","tushum","foyda","daromad")):
       qty=0; revenue=0.0; cost=0.0
       for x in sales:
         try:
           q=int(x.get("quantity") or x.get("qty") or 0); qty+=q
-          revenue+=float(x.get("total") or 0)
-          cp=float(x.get("cost_price") or 0); cost+=cp*q
+          total=x.get("total")
+          if total is None:
+            total=float(x.get("unit_price") or x.get("price") or 0)*q
+          revenue+=float(total or 0)
+          cost+=float(x.get("cost_price") or 0)*q
         except Exception: pass
-      profit=revenue-cost
-      return jsonify(text=f"Yuklangan savdo ma’lumotlari bo‘yicha: {qty} ta kitob sotilgan. Tushum ₩{revenue:,.0f}. Hisoblangan tannarx ₩{cost:,.0f}. Farq/yalpi foyda ₩{profit:,.0f}.")
+      return jsonify(text=f"Yuklangan savdo yozuvlari bo‘yicha {qty} dona kitob sotilgan. Tushum ₩{revenue:,.0f}. Tannarx ₩{cost:,.0f}. Yalpi foyda ₩{revenue-cost:,.0f}.")
 
-    if any(x in query for x in ("buyurtma","zakaz","order")):
+    if _admin_free_intent(query,("buyurtma","zakaz","order","kutilmoqda","qabul qilingan","jonatilgan")):
       counts={}
+      total=0.0; delivery=0.0
       for x in orders:
-        s=str(x.get("status") or "Noma’lum"); counts[s]=counts.get(s,0)+1
-      return jsonify(text="Buyurtmalar: " + (", ".join(f"{k}: {v}" for k,v in counts.items()) if counts else "ma’lumot yo‘q."))
+        s=str(x.get("status") or "Noma’lum")
+        counts[s]=counts.get(s,0)+1
+        try:
+          total+=float(x.get("total") or 0); delivery+=float(x.get("delivery_fee") or 0)
+        except Exception: pass
+      summary=", ".join(f"{k}: {v}" for k,v in sorted(counts.items()))
+      return jsonify(text=f"Buyurtmalar: {summary or 'ma’lumot yo‘q'}. Buyurtmalar jami ₩{total:,.0f}; delivery yig‘indisi ₩{delivery:,.0f}.")
 
-    return jsonify(text=f"Admin ma’lumotlari yuklandi: {len(books)} ta kitob, {len(sales)} ta savdo yozuvi, {len(orders)} ta buyurtma. Savdo, ombor/kam qolgan kitoblar yoki buyurtmalar haqida so‘rang.")
+    if _admin_free_intent(query,("ombor","stock","nechta kitob","jami kitob")):
+      units=0; active=0
+      for x in books:
+        try: units+=max(0,int(x.get("stock") or 0))
+        except Exception: pass
+        if x.get("active") is True: active+=1
+      return jsonify(text=f"Omborda jami {units} dona, {len(books)} xil kitob bor. Sotuvda ko‘rsatilganlari: {active} xil.")
 
+    return jsonify(text=f"Bepul admin yordamchi ishlayapti. Hozir {len(books)} ta kitob, {len(sales)} ta savdo yozuvi va {len(orders)} ta buyurtma yuklangan. Savdo/foyda, eng ko‘p sotilganlar, ombor, kam qolganlar, buyurtmalar, kategoriya yoki nashriyot haqida so‘rang. Pulli internet tadqiqoti va AI Story alohida o‘z holicha qolgan.")
 
 @app.post("/api/admin-ai/book-research")
 def admin_ai_book_research():

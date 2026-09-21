@@ -532,8 +532,22 @@ def ai_search():
     """Always-free typo-tolerant local catalog search; no model/API credits."""
     body=request.get_json(silent=True) or {}
     query=str(body.get("query","")).strip()[:500]
+    mode=str(body.get("mode","search")).strip().lower()
     books=_free_catalog(body)
     ranked=_free_rank_books(query,books)
+    if mode=="similar" and ranked:
+      target=ranked[0]
+      cat=_free_norm(target.get("category",""))
+      alternatives=[]
+      for x in books:
+        if x.get("id")==target.get("id") or x.get("stock",0)<=0: continue
+        score=0
+        if cat and _free_norm(x.get("category",""))==cat: score+=5
+        score+=_free_similarity(target.get("description",""),x.get("description",""))*2
+        score+=_free_similarity(target.get("title",""),x.get("title",""))
+        alternatives.append((score,x.get("stock",0),x))
+      alternatives.sort(key=lambda z:(z[0],z[1]),reverse=True)
+      ranked=[x[2] for x in alternatives if x[0]>0][:16]
     if not ranked:
       ranked=_free_recommendations(query,books)
     return jsonify(ids=[x["id"] for x in ranked[:16] if x.get("id")]),200

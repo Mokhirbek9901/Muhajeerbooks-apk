@@ -3988,7 +3988,7 @@ class _PreorderAdminPageState extends State<_PreorderAdminPage> {
                   child: AppSurface(
                     child: Row(
                       children: [
-                        _BookThumb(book: b),
+                        _AdminBookThumb(url: b.previewImageUrl),
                         const SizedBox(width: 12),
                         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Text(b.title, style: const TextStyle(fontSize:16,fontWeight:FontWeight.w900)),

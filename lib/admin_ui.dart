@@ -2968,7 +2968,7 @@ class _CatalogGroupsAdminPageState extends State<_CatalogGroupsAdminPage> with S
       ])),const SizedBox(height:12),
       ...groups(books,pub).map((e)=>Card(margin:const EdgeInsets.only(bottom:8),child:ListTile(
         leading:CircleAvatar(child:Icon(pub?Icons.apartment_rounded:Icons.category_rounded,size:19)),
-        title:Text(e.key,style:const TextStyle(fontWeight:FontWeight.w900)),subtitle:Text('\${e.value} ta kitob'),
+        title:Text(e.key,style:const TextStyle(fontWeight:FontWeight.w900)),subtitle:Text('${e.value} ta kitob'),
         trailing:const Icon(Icons.edit_rounded),onTap:()=>edit(books,pub,e.key),
       ))),
     ]));
@@ -3021,13 +3021,13 @@ class _CatalogGroupEditorPageState extends State<_CatalogGroupEditorPage>{
         Padding(padding:const EdgeInsets.fromLTRB(16,16,16,8),child:Column(children:[
           TextField(controller:name,decoration:InputDecoration(labelText:widget.publisher?'Nashriyot nomi':'Kategoriya nomi',prefixIcon:Icon(widget.publisher?Icons.apartment_rounded:Icons.category_rounded))),
           const SizedBox(height:10),TextField(controller:search,decoration:const InputDecoration(labelText:'Kitob qidirish',prefixIcon:Icon(Icons.search_rounded))),
-          const SizedBox(height:8),Row(children:[Text('\${selected.length} ta kitob tanlangan',style:const TextStyle(fontWeight:FontWeight.w800)),const Spacer(),
+          const SizedBox(height:8),Row(children:[Text('${selected.length} ta kitob tanlangan',style:const TextStyle(fontWeight:FontWeight.w800)),const Spacer(),
             TextButton(onPressed:()=>setState((){for(final b in visible){selected.add(b.id);}}),child:const Text('Barchasini tanlash'))]),
         ])),const Divider(height:1),
         Expanded(child:ListView.builder(itemCount:visible.length,itemBuilder:(context,i){final b=visible[i];final checked=selected.contains(b.id);return CheckboxListTile(
           value:checked,onChanged:saving?null:(v)=>setState((){if(v==true)selected.add(b.id);else selected.remove(b.id);}),
           title:Text(b.title,style:const TextStyle(fontWeight:FontWeight.w800)),
-          subtitle:Text(widget.publisher?'Hozir: \${normalizePublisher(b.publisher).isEmpty?'Ko‘rsatilmagan':normalizePublisher(b.publisher)}':'Hozir: \${b.category}'),
+          subtitle:Text(widget.publisher?'Hozir: ${normalizePublisher(b.publisher).isEmpty?'Ko‘rsatilmagan':normalizePublisher(b.publisher)}':'Hozir: ${b.category}'),
           controlAffinity:ListTileControlAffinity.leading,
         );})),
       ]),

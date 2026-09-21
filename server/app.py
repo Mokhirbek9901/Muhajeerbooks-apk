@@ -105,66 +105,197 @@ def _chat_json(instructions, payload, max_tokens=1200, web_search=False):
       if out.strip(): return out.strip()
     return None
 
+def _free_norm(value):
+    import re, unicodedata
+    s=unicodedata.normalize("NFKD",str(value or "").lower())
+    s="".join(ch for ch in s if not unicodedata.combining(ch))
+    s=s.replace("’","'").replace("ʻ","'").replace("‘","'")
+    s=s.replace("o'","o").replace("g'","g")
+    s=re.sub(r"[^a-z0-9а-яёқғҳў\s]"," ",s)
+    return re.sub(r"\s+"," ",s).strip()
+
+def _free_tokens(value):
+    import re
+    stop={"kitob","kitobi","kitoblar","bormi","narxi","qancha","necha","sotuvda","mavjud",
+          "haqida","kerak","menga","bor","yoq","yo'q","qil","qiling","qilsang","iltimos","qaysi",
+          "nima","uchun","bilan","ham","shu","bir","eng","dan","ning","degan","top","topib","ber"}
+    return [w for w in re.findall(r"[a-z0-9а-яёқғҳў]+",_free_norm(value)) if len(w)>=2 and w not in stop]
+
+def _free_similarity(a,b):
+    from difflib import SequenceMatcher
+    a=_free_norm(a); b=_free_norm(b)
+    if not a or not b: return 0.0
+    if a in b or b in a: return 1.0
+    return SequenceMatcher(None,a,b).ratio()
+
+def _free_catalog(body):
+    rows=body.get("books") if isinstance(body.get("books"),list) else []
+    out=[]
+    for b in rows[:500]:
+      if not isinstance(b,dict): continue
+      try: price=max(0,int(float(b.get("price") or 0)))
+      except Exception: price=0
+      try: stock=max(0,int(b.get("stock") or 0))
+      except Exception: stock=0
+      out.append({
+        "id":str(b.get("id") or ""),
+        "title":str(b.get("title") or "").strip(),
+        "author":str(b.get("author") or "").strip(),
+        "category":str(b.get("category") or "").strip(),
+        "description":str(b.get("description") or "").strip(),
+        "price":price,"stock":stock,
+      })
+    return out
+
+def _free_rank_books(query,books,available_only=False):
+    q=_free_norm(query); qtokens=_free_tokens(query)
+    ranked=[]
+    for x in books:
+      if available_only and x["stock"]<=0: continue
+      title=_free_norm(x["title"]); author=_free_norm(x["author"])
+      category=_free_norm(x["category"]); desc=_free_norm(x["description"])
+      score=0.0
+      if q and (q in title or title in q): score+=12
+      if q and (q in author or author in q): score+=8
+      for w in qtokens:
+        if w in title: score+=5
+        elif w in author: score+=4
+        elif w in category: score+=3
+        elif w in desc: score+=1.5
+        else:
+          best=0.0
+          for token in (title+" "+author+" "+category).split():
+            if abs(len(token)-len(w))<=3:
+              best=max(best,_free_similarity(w,token))
+          if best>=0.84: score+=3.5
+          elif best>=0.74 and len(w)>=4: score+=1.5
+      if q:
+        sim=max(_free_similarity(q,title),_free_similarity(q,author))
+        if sim>=0.82: score+=8*sim
+        elif sim>=0.64: score+=3*sim
+      if score>0: ranked.append((score,x["stock"]>0,x))
+    ranked.sort(key=lambda z:(z[0],z[1],z[2]["stock"]),reverse=True)
+    return [x[2] for x in ranked]
+
+def _free_recommendations(query,books):
+    import re
+    q=_free_norm(query)
+    available=[x for x in books if x["stock"]>0]
+    if not available: return []
+    themes=[
+      (("diniy","islom","alloh","namoz","quron","hadis","iymon","duo","ruhiy"),
+       ("diniy","islom","quron","hadis","marif")),
+      (("pul","biznes","boy","moliya","tadbirkor","savdo"),
+       ("biznes","moliya","pul","boy","tadbirkor")),
+      (("psixolog","motivats","rivojlan","odat","tafakkur","fikrlash"),
+       ("psixolog","rivojlan","motivats","tafakkur","odat")),
+      (("oila","nikoh","er xotin","farzand","tarbiya"),
+       ("oila","nikoh","farzand","tarbiya")),
+      (("tarix","biograf","hayoti","siyrat"),
+       ("tarix","biograf","siyrat")),
+      (("bola","bolalar","farzandga"),
+       ("bolalar","bola")),
+      (("roman","badiiy","hikoya","qissa","detektiv","sarguzasht","qiziqarli"),
+       ("badiiy","roman","hikoya","qissa","detektiv","sarguzasht")),
+      (("ozbek","uzbek"),("ozbek","uzbek")),
+      (("jahon","chet el","xorij"),("jahon","turk","rus","ingliz")),
+    ]
+    wanted=[]
+    for triggers,terms in themes:
+      if any(t in q for t in triggers): wanted.extend(terms)
+    max_price=None
+    m=re.search(r"(\d{1,3})\s*(?:ming|k)\b",q)
+    if m: max_price=int(m.group(1))*1000
+    else:
+      nums=[int(n.replace(",","")) for n in re.findall(r"\b\d{4,6}\b",q)]
+      if nums and any(t in q for t in ("gacha","dan oshmasin","ostida","kam")): max_price=max(nums)
+    if max_price is not None:
+      available=[x for x in available if x["price"]<=max_price]
+    scored=[]
+    for x in available:
+      hay=_free_norm(" ".join((x["title"],x["author"],x["category"],x["description"])))
+      score=sum(3 if t in _free_norm(x["category"]) else 1 for t in wanted if t in hay)
+      score+=min(x["stock"],5)*0.08
+      if x["description"]: score+=0.35
+      scored.append((score,x))
+    if "arzon" in q or max_price is not None:
+      scored.sort(key=lambda z:(z[0],-z[1]["price"]),reverse=True)
+    else:
+      scored.sort(key=lambda z:(z[0],z[1]["stock"]),reverse=True)
+    if wanted:
+      positive=[x for s,x in scored if s>0.45]
+      if positive: return positive[:6]
+    chosen=[]; seen=set()
+    for _,x in scored:
+      key=_free_norm(x["category"])
+      if key not in seen:
+        chosen.append(x); seen.add(key)
+      if len(chosen)>=6: break
+    return chosen or [x for _,x in scored[:6]]
+
+def _free_book_lines(rows,include_desc=False):
+    lines=[]
+    for x in rows[:6]:
+      price=f"₩{x['price']:,}" if x["price"] else "narxi ko‘rsatilmagan"
+      status=f"omborda {x['stock']} dona" if x["stock"]>0 else "hozircha mavjud emas"
+      author=f" — {x['author']}" if x["author"] else ""
+      line=f"• {x['title']}{author} — {price} — {status}"
+      if include_desc and x["description"]:
+        d=x["description"].strip()
+        if len(d)>150: d=d[:147].rstrip()+"…"
+        line+=f"\n  {d}"
+      lines.append(line)
+    return "\n".join(lines)
+
 @app.post("/api/ai-assistant")
 def ai_assistant():
-    """Free customer helper: no OpenAI call. Uses only public storefront data."""
+    """Always-free customer assistant. No OpenAI/API-credit call is made here."""
     body=request.get_json(silent=True) or {}
     query=str(body.get("query","")).strip()[:1000]
-    q=query.lower()
-    books=body.get("books") if isinstance(body.get("books"),list) else []
-    safe=[]
-    for b in books[:500]:
-      if not isinstance(b,dict): continue
-      safe.append({k:b.get(k) for k in ("title","author","category","description","price","stock")})
+    q=_free_norm(query)
+    books=_free_catalog(body)
 
-    # Never expose/admin-infer private business data.
-    private_words=("tannarx","ulgurji","wholesale","supplier","yetkazib beruvchi narx","marja","margin","foyda","profit","admin","parol","password","token","mijoz ma'lumot","mijoz malumot","buyurtma ma'lumot")
-    if any(x in q for x in private_words):
-      return jsonify(text="Bu ma’lumot mijoz yordamchisida mavjud emas.")
+    private_words=("tannarx","ulgurji","wholesale","supplier","yetkazib beruvchi narx","marja","margin",
+                   "foyda","profit","admin","parol","password","token","mijoz malumot","buyurtma malumot")
+    if any(_free_norm(x) in q for x in private_words):
+      return jsonify(text="Bu ichki ma’lumot mijoz yordamchisida ochilmaydi. Kitoblar, narx, mavjudlik, tavsiya va yetkazib berish bo‘yicha yordam bera olaman.")
 
+    if not q:
+      return jsonify(text="Savolingizni yozing 🙂 Masalan: “Psixologiyadan qanday kitob tavsiya qilasan?” yoki “Binafsha shulasi bormi?”")
+
+    if any(x in q for x in ("rahmat","tashakkur","raxmat")):
+      return jsonify(text="Arzimaydi 🙂 Yana kitob tanlashda yordam beraman.")
+    if any(x in q for x in ("yaxshimisan","qalaysan","qalesan","nima gap")):
+      return jsonify(text="Yaxshi, rahmat 🙂 Sizga kitob topish yoki tanlashda yordam beraymi?")
     greetings=("salom","assalomu alaykum","assalom","hello","hi")
     if q in greetings or any(q.startswith(x+" ") for x in greetings):
-      return jsonify(text="Assalomu alaykum! Muhajeer Books’ga xush kelibsiz. Kitob, narx, mavjudligi yoki yetkazib berish haqida so‘rashingiz mumkin.")
+      return jsonify(text="Assalomu alaykum! 🙂 Muhajeer Books yordamchisiman. Istasangiz mavzu yoki kayfiyatingizni ayting — hozir omborda bor kitoblardan tavsiya qilaman.")
+    if any(x in q for x in ("nima qila olasan","nimalarni bilasan","qanday yordam")):
+      return jsonify(text="Bepul yordam bera olaman: xato yozilgan kitob nomini ham topishga harakat qilaman, muallif/kategoriya bo‘yicha qidiraman, ombordagi kitoblardan didingizga mos tavsiya beraman, narx va mavjudlikni aytaman, narx oralig‘ida kitob topaman va yetkazib berish shartlarini tushuntiraman.")
 
-    if any(x in q for x in ("yetkazib","pochta","dostavka","delivery","택배","qachon bor","necha kunda")):
+    if any(x in q for x in ("yetkazib","pochta","dostavka","delivery","택배","necha kunda","yetib kel")):
       if any(x in q for x in ("qachon","necha kun","necha kunda","qancha vaqt","yetib")):
-        return jsonify(text="Ilovadagi ma’lumot bo‘yicha, buyurtma pochtaga topshirilgandan keyin odatda 1–3 ish kunida yetkaziladi.")
-      return jsonify(text="Koreya bo‘ylab yetkazib berish ₩4,000. Buyurtma pochtaga topshirilgandan keyin odatda 1–3 ish kunida yetkaziladi. 4 ta yoki undan ko‘p kitobda odatda yetkazib berish bepul; chegirma davridagi shartlar ilovadagi joriy aksiyaga qarab qo‘llanadi.")
+        return jsonify(text="Buyurtma pochtaga topshirilgandan keyin odatda 1–3 ish kunida yetkaziladi.")
+      return jsonify(text="Koreya bo‘ylab 택배 ₩4,000. 4 ta yoki undan ko‘p mahsulotda odatda yetkazib berish bepul. Set 1 ta mahsulot hisoblanadi; chegirma yoki pochta kiritilgan setlarda ilovada ko‘rsatilgan joriy shart amal qiladi.")
 
-    # Find books by title/author/category/description words. Public catalog only.
-    import re
-    words=[w for w in re.findall(r"[\wʻ’'-]+",q,flags=re.UNICODE) if len(w)>=3]
-    stop={"kitob","kitobi","kitoblar","bormi","narxi","qancha","necha","sotuvda","mavjud","haqida","kerak","menga","bor","yoq","yo'q"}
-    words=[w for w in words if w not in stop]
-    matches=[]
-    for x in safe:
-      hay=" ".join(str(x.get(k) or "").lower() for k in ("title","author","category","description"))
-      score=sum(1 for w in words if w in hay)
-      title=str(x.get("title") or "").lower()
-      if q and (q in title or title in q): score+=4
-      if score: matches.append((score,x))
-    matches.sort(key=lambda z:z[0],reverse=True)
+    recommendation_words=("tavsiya","maslahat","nima oq","nima o'q","qanday kitob",
+                          "qiziqarli","oqishga","o'qishga","arzon","tanlab ber","mos kitob")
+    if any(x in q for x in recommendation_words):
+      rows=_free_recommendations(query,books)
+      if rows:
+        return jsonify(text="Hozir omborda bor kitoblardan sizga shularni tavsiya qilaman:\n"+_free_book_lines(rows,True))
+      return jsonify(text="Hozir shu so‘rovga mos, omborda bor kitob topilmadi. Boshqa mavzu yoki narx oralig‘ini ayting.")
+
+    matches=_free_rank_books(query,books)
     if matches:
-      lines=[]
-      for _,x in matches[:6]:
-        try: price=f"₩{int(float(x.get('price') or 0)):,}"
-        except Exception: price="Narxi ko‘rsatilmagan"
-        stock=int(x.get("stock") or 0)
-        status=f"Omborda {stock} dona" if stock>0 else "Hozircha mavjud emas"
-        author=str(x.get("author") or "").strip()
-        lines.append(f"{x.get('title')}"+(f" — {author}" if author else "")+f" — {price} — {status}")
-      return jsonify(text="\n".join(lines))
+      return jsonify(text=_free_book_lines(matches[:6], any(x in q for x in ("haqida","mazmun","nima haqida","qanday"))))
 
-    if any(x in q for x in ("arzon","tavsiya","tavsiya qil","nima o'q","nima oq")):
-      avail=[x for x in safe if int(x.get("stock") or 0)>0]
-      avail.sort(key=lambda x:float(x.get("price") or 0))
-      if avail:
-        lines=[]
-        for x in avail[:5]:
-          lines.append(f"{x.get('title')} — ₩{int(float(x.get('price') or 0)):,}")
-        return jsonify(text="Hozir sotuvda bor kitoblardan:\n" + "\n".join(lines))
+    themed=_free_recommendations(query,books)
+    theme_tokens=("dini","islom","psix","biznes","moliya","oila","nikoh","tarix","bola","roman","badiiy","quron")
+    if any(_free_similarity(t,w)>=0.72 for t in theme_tokens for w in _free_tokens(query)) and themed:
+      return jsonify(text="Shu mavzuga yaqin, hozir omborda bor kitoblar:\n"+_free_book_lines(themed,True))
 
-    return jsonify(text="Men Muhajeer Books do‘kon yordamchisiman. Kitob nomi, muallif, kategoriya, narx, mavjudligi yoki yetkazib berish haqida so‘rang.")
+    return jsonify(text="Bu gapdan aniq kitob yoki mavzuni topolmadim. Boshqacharoq yozib ko‘ring — imlo xatosi bo‘lsa ham kitob nomi, muallif, mavzu yoki masalan “20 minggacha kitob tavsiya qil” deb yozishingiz mumkin.")
 
 def _verify_admin_code(code):
     code=str(code or "").strip()

@@ -3424,6 +3424,17 @@ class _BooksAdminState extends State<_BooksAdmin> {
     if (changed == true && mounted) reload();
   }
 
+  Future<void> openBulkAi(List<Book> books) async {
+    if (books.isEmpty) return;
+    final changed = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _BulkAiBookEditorPage(api: widget.api, books: books),
+      ),
+    );
+    if (changed == true && mounted) reload();
+  }
+
   Future<void> remove(Book book) async {
     final yes = await showDialog<bool>(
       context: context,
@@ -3679,6 +3690,15 @@ class _BooksAdminState extends State<_BooksAdmin> {
                         label: const Text('Qo‘shish'),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 9),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: all.isEmpty ? null : () => openBulkAi(all),
+                      icon: const Icon(Icons.auto_awesome_rounded),
+                      label: const Text('AI bilan ommaviy tahrirlash'),
+                    ),
                   ),
                 ],
               ),

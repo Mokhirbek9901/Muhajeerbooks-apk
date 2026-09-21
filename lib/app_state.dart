@@ -104,6 +104,7 @@ class Book {
     this.preorderArrivalNote = '',
     this.preorderDepositMin = 5000,
     this.preorderDepositMax = 10000,
+    this.preorderPriceMax = 0,
     this.createdAt,
   });
 
@@ -130,6 +131,7 @@ class Book {
   final String preorderArrivalNote;
   final int preorderDepositMin;
   final int preorderDepositMax;
+  final int preorderPriceMax;
   final DateTime? createdAt;
 
   bool get discountActive {
@@ -207,6 +209,7 @@ class Book {
     preorderArrivalNote: (map['preorder_arrival_note'] ?? '').toString(),
     preorderDepositMin: (map['preorder_deposit_min'] as num?)?.toInt() ?? 5000,
     preorderDepositMax: (map['preorder_deposit_max'] as num?)?.toInt() ?? 10000,
+    preorderPriceMax: (map['preorder_price_max'] as num?)?.toInt() ?? 0,
     createdAt: DateTime.tryParse((map['created_at'] ?? '').toString()),
   );
 
@@ -251,6 +254,7 @@ class Book {
     'preorder_arrival_note': preorderArrivalNote,
     'preorder_deposit_min': preorderDepositMin,
     'preorder_deposit_max': preorderDepositMax,
+    'preorder_price_max': preorderPriceMax,
   };
 
   Map<String, dynamic> toLocalMap() => {
@@ -284,6 +288,7 @@ class Book {
     String? preorderArrivalNote,
     int? preorderDepositMin,
     int? preorderDepositMax,
+    int? preorderPriceMax,
     DateTime? createdAt,
   }) => Book(
     id: id ?? this.id,
@@ -311,6 +316,7 @@ class Book {
     preorderArrivalNote: preorderArrivalNote ?? this.preorderArrivalNote,
     preorderDepositMin: preorderDepositMin ?? this.preorderDepositMin,
     preorderDepositMax: preorderDepositMax ?? this.preorderDepositMax,
+    preorderPriceMax: preorderPriceMax ?? this.preorderPriceMax,
     createdAt: createdAt ?? this.createdAt,
   );
 }

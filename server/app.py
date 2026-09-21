@@ -71,7 +71,7 @@ STRICT: background/decor only. NO words, letters, numbers, logos, prices, UI, fa
     return Response(out,mimetype="image/png",headers={"Cache-Control":"private, max-age=86400"})
 
 
-def _chat_json(instructions, payload, max_tokens=1200, web_search=False):
+def _chat_json(instructions, payload, max_tokens=1200, web_search=False, web_search_required=False, search_context_size="medium"):
     key=os.getenv("OPENAI_API_KEY","").strip()
     if not key: return None
     # Keep AI available when one model hits a temporary quota/rate-limit.
@@ -86,8 +86,8 @@ def _chat_json(instructions, payload, max_tokens=1200, web_search=False):
       data={"model":model,"instructions":instructions,
             "input":payload,"max_output_tokens":max_tokens}
       if web_search:
-          data["tools"]=[{"type":"web_search"}]
-          data["tool_choice"]="auto"
+          data["tools"]=[{"type":"web_search","search_context_size":search_context_size}]
+          data["tool_choice"]="required" if web_search_required else "auto"
       try:
         r=requests.post("https://api.openai.com/v1/responses",
           headers={"Authorization":f"Bearer {key}","Content-Type":"application/json"},
@@ -483,6 +483,108 @@ def admin_ai_book_research():
       return jsonify({k:data.get(k,"") for k in allowed})
     except Exception:
       return jsonify(error="Research result parse failed"),502
+
+
+@app.post("/api/admin-ai/book-price-research")
+def admin_ai_book_price_research():
+    """Paid admin-only web research for Uzbekistan retail price + Korea landed estimate."""
+    body=request.get_json(silent=True) or {}
+    supplied=str(body.get("admin_code",""))
+    if not _verify_admin_code(supplied):
+        return jsonify(error="Unauthorized"),401
+    title=str(body.get("title",""))[:300].strip()
+    author=str(body.get("author",""))[:200].strip()
+    publisher=str(body.get("publisher",""))[:200].strip()
+    if not title:
+        return jsonify(error="Kitob nomi kerak"),400
+
+    instructions="""Research the exact CURRENT Uzbek-language book/edition on the live web for a bookstore admin in South Korea.
+You MUST actually web-search. Match title first, then author/publisher/ISBN/edition when available so you do not mix different books, bundles, scripts, or editions.
+Find current CASH retail prices in Uzbekistan from reliable active bookstores/publishers. Prefer official publisher stores and established retailers such as Asaxiy when relevant. Ignore installment monthly payments, used books, bundles unless the requested item is itself a bundle, and obviously stale/out-of-stock prices when a current offer exists.
+Collect 2-6 verified current offers when possible. Return the seller name and integer UZS cash price for each.
+Also find the physical weight of this exact edition in kilograms. Prefer explicit product/shipping weight. If exact weight is unavailable, make a conservative estimate from verified page count, dimensions and binding, and set weight_basis="estimated"; otherwise "verified".
+Find a current UZS->KRW exchange rate and return KRW per 1 UZS as krw_per_uzs. Do not use installment conversion.
+Return ONLY valid JSON:
+{"matched_title":"","matched_author":"","matched_publisher":"","offers":[{"seller":"","price_uzs":0}],"weight_kg":0.0,"weight_basis":"verified|estimated","krw_per_uzs":0.0,"confidence":"high|medium|low","notes":""}
+Do not calculate shipping or final Korean price yourself; the server will calculate those deterministically. Never invent a seller or a price. If evidence is insufficient, leave offers empty or weight/rate as 0 and explain briefly in notes."""
+
+    payload=f"""Book title: {title}
+Author hint: {author}
+Publisher hint: {publisher}
+Shipping rule after research: Korea delivery/import transport costs 10,000 KRW per kilogram."""
+    out=_chat_json(
+        instructions,
+        [{"role":"user","content":[{"type":"input_text","text":payload}]}],
+        1800,
+        web_search=True,
+        web_search_required=True,
+        search_context_size="high",
+    )
+    if not out:
+        return jsonify(error="AI narx tadqiqoti ishlamadi"),502
+
+    try:
+        import json, math
+        start=out.find("{"); end=out.rfind("}")
+        data=json.loads(out[start:end+1])
+
+        offers=[]
+        seen=set()
+        for item in data.get("offers",[]) if isinstance(data,dict) else []:
+            if not isinstance(item,dict): continue
+            seller=str(item.get("seller","")).strip()[:120]
+            try: price=int(round(float(item.get("price_uzs") or 0)))
+            except Exception: price=0
+            key=(seller.lower(),price)
+            if seller and price>0 and key not in seen:
+                seen.add(key); offers.append({"seller":seller,"price_uzs":price})
+        offers=sorted(offers,key=lambda x:x["price_uzs"])[:6]
+
+        try: weight=max(0.0,float(data.get("weight_kg") or 0))
+        except Exception: weight=0.0
+        try: rate=max(0.0,float(data.get("krw_per_uzs") or 0))
+        except Exception: rate=0.0
+
+        prices=[x["price_uzs"] for x in offers]
+        low_uzs=min(prices) if prices else 0
+        high_uzs=max(prices) if prices else 0
+        avg_uzs=round((low_uzs+high_uzs)/2) if prices else 0
+
+        shipping_krw=int(math.ceil((weight*10000)/100.0)*100) if weight>0 else 0
+        low_book_krw=low_uzs*rate if low_uzs and rate else 0
+        high_book_krw=high_uzs*rate if high_uzs and rate else 0
+        avg_book_krw=avg_uzs*rate if avg_uzs and rate else 0
+
+        def ceil_1000(value):
+            return int(math.ceil(value/1000.0)*1000) if value>0 else 0
+
+        estimated_min=ceil_1000(low_book_krw+shipping_krw) if low_book_krw and shipping_krw else 0
+        estimated_max=ceil_1000(high_book_krw+shipping_krw) if high_book_krw and shipping_krw else 0
+        estimated_avg=ceil_1000(avg_book_krw+shipping_krw) if avg_book_krw and shipping_krw else 0
+
+        return jsonify(
+            matched_title=str(data.get("matched_title",""))[:300],
+            matched_author=str(data.get("matched_author",""))[:200],
+            matched_publisher=str(data.get("matched_publisher",""))[:200],
+            offers=offers,
+            low_uzs=low_uzs,
+            high_uzs=high_uzs,
+            average_uzs=avg_uzs,
+            krw_per_uzs=rate,
+            average_book_krw=int(round(avg_book_krw)) if avg_book_krw else 0,
+            weight_kg=round(weight,3),
+            weight_basis=str(data.get("weight_basis",""))[:20],
+            shipping_per_kg_krw=10000,
+            shipping_krw=shipping_krw,
+            estimated_min_krw=estimated_min,
+            estimated_average_krw=estimated_avg,
+            estimated_max_krw=estimated_max,
+            confidence=str(data.get("confidence",""))[:20],
+            notes=str(data.get("notes",""))[:600],
+        )
+    except Exception as e:
+        print(f"Book price research parse failed error={type(e).__name__}",flush=True)
+        return jsonify(error="Narx tadqiqoti natijasini o‘qib bo‘lmadi"),502
 
 
 @app.post("/api/admin-ai/books-bulk-research")

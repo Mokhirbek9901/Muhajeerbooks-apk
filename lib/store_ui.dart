@@ -3611,7 +3611,23 @@ class BookDetailPage extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 9),
-              if (b.inStock)
+              if (b.preorderEnabled)
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(58)),
+                    onPressed: () => Navigator.push<void>(
+                      context,
+                      muhajeerPageRoute<void>(
+                        settings: RouteSettings(name: 'mb:preorder:${b.id}'),
+                        builder: (_) => _PreorderCheckoutPage(book: b),
+                      ),
+                    ),
+                    icon: const Icon(Icons.event_available_rounded),
+                    label: const Text('Oldindan buyurtma qilish'),
+                  ),
+                )
+              else if (b.inStock)
                 SizedBox(
                   width: double.infinity,
                   child: Row(
@@ -3656,22 +3672,6 @@ class BookDetailPage extends StatelessWidget {
                         ),
                       ),
                     ],
-                  ),
-                )
-              else if (b.preorderEnabled)
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(58)),
-                    onPressed: () => Navigator.push<void>(
-                      context,
-                      muhajeerPageRoute<void>(
-                        settings: RouteSettings(name: 'mb:preorder:${b.id}'),
-                        builder: (_) => _PreorderCheckoutPage(book: b),
-                      ),
-                    ),
-                    icon: const Icon(Icons.event_available_rounded),
-                    label: const Text('Oldindan buyurtma qilish'),
                   ),
                 )
               else

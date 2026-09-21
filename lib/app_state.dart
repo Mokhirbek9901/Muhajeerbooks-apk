@@ -8,8 +8,29 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-String normalizePublisher(String value) =>
-    value.trim().replaceAll(RegExp(r'\s+'), ' ');
+String normalizePublisher(String value) {
+  final cleaned=value.trim().replaceAll(RegExp(r'\s+'), ' ');
+  final key=cleaned.toLowerCase().replaceAll('-', ' ');
+  const aliases=<String,String>{
+    'hilol nashr':'Hilol Nashr',
+    'hilol nashriyoti':'Hilol Nashr',
+    'huzur':'Huzur Nashr',
+    'huzur nashr':'Huzur Nashr',
+    'huzur nashriyoti':'Huzur Nashr',
+    'misbah':'Misbah Nashr',
+    'misbah nashr':'Misbah Nashr',
+    'misbah nashriyoti':'Misbah Nashr',
+    'nasim kutub':'Nasim Kutub',
+    'global book':'Global Book',
+    'global books':'Global Book',
+    'inson':'Inson Nashriyoti',
+    'inson nashr':'Inson Nashriyoti',
+    'inson nashriyoti':'Inson Nashriyoti',
+    'falaq nashr':'Falaq Nashr',
+    'falaq nashriyoti':'Falaq Nashr',
+  };
+  return aliases[key] ?? cleaned;
+}
 
 String publisherKey(String value) => normalizePublisher(value).toLowerCase();
 

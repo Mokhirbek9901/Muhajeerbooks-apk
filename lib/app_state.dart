@@ -101,6 +101,9 @@ class Book {
     this.costPrice = 0,
     this.recommended = false,
     this.preorderEnabled = false,
+    this.preorderArrivalNote = '',
+    this.preorderDepositMin = 5000,
+    this.preorderDepositMax = 10000,
     this.createdAt,
   });
 
@@ -124,6 +127,9 @@ class Book {
   final int costPrice;
   final bool recommended;
   final bool preorderEnabled;
+  final String preorderArrivalNote;
+  final int preorderDepositMin;
+  final int preorderDepositMax;
   final DateTime? createdAt;
 
   bool get discountActive {
@@ -198,6 +204,9 @@ class Book {
     costPrice: (map['cost_price'] as num?)?.toInt() ?? 0,
     recommended: map['recommended'] as bool? ?? false,
     preorderEnabled: map['preorder_enabled'] as bool? ?? false,
+    preorderArrivalNote: (map['preorder_arrival_note'] ?? '').toString(),
+    preorderDepositMin: (map['preorder_deposit_min'] as num?)?.toInt() ?? 5000,
+    preorderDepositMax: (map['preorder_deposit_max'] as num?)?.toInt() ?? 10000,
     createdAt: DateTime.tryParse((map['created_at'] ?? '').toString()),
   );
 
@@ -239,6 +248,9 @@ class Book {
     'cost_price': costPrice,
     'recommended': recommended,
     'preorder_enabled': preorderEnabled,
+    'preorder_arrival_note': preorderArrivalNote,
+    'preorder_deposit_min': preorderDepositMin,
+    'preorder_deposit_max': preorderDepositMax,
   };
 
   Map<String, dynamic> toLocalMap() => {
@@ -269,6 +281,9 @@ class Book {
     int? costPrice,
     bool? recommended,
     bool? preorderEnabled,
+    String? preorderArrivalNote,
+    int? preorderDepositMin,
+    int? preorderDepositMax,
     DateTime? createdAt,
   }) => Book(
     id: id ?? this.id,
@@ -293,6 +308,9 @@ class Book {
     costPrice: costPrice ?? this.costPrice,
     recommended: recommended ?? this.recommended,
     preorderEnabled: preorderEnabled ?? this.preorderEnabled,
+    preorderArrivalNote: preorderArrivalNote ?? this.preorderArrivalNote,
+    preorderDepositMin: preorderDepositMin ?? this.preorderDepositMin,
+    preorderDepositMax: preorderDepositMax ?? this.preorderDepositMax,
     createdAt: createdAt ?? this.createdAt,
   );
 }
@@ -429,7 +447,7 @@ class BackendService {
   static const String _storefrontBookColumns =
       'id,legacy_id,title,author,publisher,category,description,price,stock,'
       'discount_percent,discount_ends_at,image_url,thumbnail_url,image_urls,is_active,cover_type,recommended,preorder_enabled,'
-      'created_at';
+      'preorder_arrival_note,preorder_deposit_min,preorder_deposit_max,created_at';
 
   Future<dynamic> _customerRpc(
     String name,
@@ -595,8 +613,26 @@ class BackendService {
         .toList();
   }
 
-  Future<Map<String, dynamic>> submitPreorder(String installId, String bookId, String name, String phone, {int quantity = 1}) async {
-    final raw = await _customerRpc('customer_preorder_submit', {'p_install_id': installId, 'p_book_id': bookId, 'p_customer_name': name, 'p_phone': phone, 'p_quantity': quantity});
+  Future<Map<String, dynamic>> submitPreorder(
+    String installId,
+    String bookId,
+    String name,
+    String phone, {
+    int quantity = 1,
+    required int depositAmount,
+    required String paymentProofPath,
+    String note = '',
+  }) async {
+    final raw = await _customerRpc('customer_preorder_submit', {
+      'p_install_id': installId,
+      'p_book_id': bookId,
+      'p_customer_name': name,
+      'p_phone': phone,
+      'p_quantity': quantity,
+      'p_deposit_amount': depositAmount,
+      'p_payment_proof_path': paymentProofPath,
+      'p_note': note,
+    });
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
 
@@ -1338,11 +1374,32 @@ class AppState extends ChangeNotifier {
     return 'Set savatchaga qo‘shildi ✅';
   }
 
-  Future<String> submitPreorder(Book book) async {
-    if (_backend == null) return 'Pre-order uchun internet kerak.';
+  Future<String> submitPreorder(
+    Book book, {
+    required String customerName,
+    required String phone,
+    required int depositAmount,
+    required XFile paymentProof,
+    String note = '',
+  }) async {
+    if (_backend == null) return 'Oldindan buyurtma uchun internet kerak.';
+    final min = book.preorderDepositMin;
+    final max = book.preorderDepositMax;
+    if (depositAmount < min || depositAmount > max) {
+      return 'Oldindan to‘lov ₩$min–₩$max oralig‘ida bo‘lishi kerak.';
+    }
+    final proofPath = await _backend!.uploadPaymentProof(paymentProof);
     final installId = await _local.installId();
-    await _backend!.submitPreorder(installId, book.id, savedCustomer['name'] ?? '', savedCustomer['phone'] ?? '');
-    return 'Pre-order qabul qilindi ✅';
+    await _backend!.submitPreorder(
+      installId,
+      book.id,
+      customerName,
+      phone,
+      depositAmount: depositAmount,
+      paymentProofPath: proofPath,
+      note: note,
+    );
+    return 'Oldindan buyurtma qabul qilindi ✅';
   }
 
   Future<String> requestMissingBook(String title) async {

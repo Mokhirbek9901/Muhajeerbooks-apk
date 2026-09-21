@@ -28,6 +28,22 @@ const _navy = Color(0xFF10213D);
 const _orange = Color(0xFFFF8A00);
 final _money = NumberFormat('#,###', 'en_US');
 String _won(int value) => '₩${_money.format(value)}';
+const Set<String> _canonicalBookCategories = {
+  'Badiiy adabiyot','Biznes va moliya','Bolalar adabiyoti','Diniy-ma’rifiy',
+  'Islom tarixi','Jahon adabiyoti','Jamiyat va kommunikatsiya','O‘zbek adabiyoti',
+  'Oila va nikoh','Psixologiya va shaxsiy rivojlanish','Qur’on va islom ilmlari',
+  'Ta’lim va tillar','Tarix va biografiya','Texnologiya','Tibbiyot va jamiyat',
+};
+
+String _validatedAiBookCategory(dynamic value) {
+  final raw=(value??'').toString().trim();
+  final key=raw.toLowerCase().replaceAll(RegExp(r"[’ʻ‘']"), '');
+  for(final category in _canonicalBookCategories) {
+    if(category.toLowerCase().replaceAll(RegExp(r"[’ʻ‘']"), '')==key) return category;
+  }
+  return '';
+}
+
 
 class _UploadedBookImage {
   const _UploadedBookImage({required this.url, required this.thumbnailUrl});
@@ -398,7 +414,9 @@ class _AdminApi {
     final r=await http.post(_serverUri('/api/admin-ai/book-research'),headers:{'Content-Type':'application/json'},body:jsonEncode({'admin_code':secret,'title':title,'author':author,'publisher':publisher})).timeout(const Duration(seconds:120));
     final data=jsonDecode(r.body);
     if(r.statusCode!=200 || data is! Map) throw StateError(data is Map ? (data['error']??'Kitob topilmadi').toString() : 'Kitob topilmadi');
-    return Map<String,dynamic>.from(data);
+    final result=Map<String,dynamic>.from(data);
+    result['category']=_validatedAiBookCategory(result['category']);
+    return result;
   }
 
   Future<List<Map<String,dynamic>>> researchBooksBulk(List<Book> books) async {
@@ -414,7 +432,11 @@ class _AdminApi {
     }
     return ((raw['books'] as List?)??const [])
         .whereType<Map>()
-        .map((e)=>Map<String,dynamic>.from(e))
+        .map((e){
+          final row=Map<String,dynamic>.from(e);
+          row['category']=_validatedAiBookCategory(row['category']);
+          return row;
+        })
         .toList();
   }
 

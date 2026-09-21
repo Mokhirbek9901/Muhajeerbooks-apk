@@ -30,6 +30,16 @@ const _green = UzbekCustomerColors.success;
 final _money = NumberFormat('#,###', 'en_US');
 String won(int value) => '₩${_money.format(value)}';
 
+String preorderEstimatedPrice(Book book) {
+  final min = book.currentPrice;
+  final max = book.preorderPriceMax;
+  if (min <= 0 && max <= 0) return 'Taxminiy narxi aniqlanmoqda';
+  if (max > min && min > 0) {
+    return 'Taxminiy narxi: ${won(min)} ~ ${won(max)}';
+  }
+  return 'Taxminiy narxi: ${won(min > 0 ? min : max)}';
+}
+
 final Map<String, double> _scrollMemory = <String, double>{};
 final Future<SharedPreferences> _uiPrefs = SharedPreferences.getInstance();
 
@@ -680,7 +690,7 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
           Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
             Text(b.title,style:const TextStyle(fontSize:17,fontWeight:FontWeight.w900)),
             if(b.preorderArrivalNote.isNotEmpty) Text('Taxminiy kelishi: ${b.preorderArrivalNote}',style:const TextStyle(color:AppColors.muted)),
-            Text('Taxminiy narxi: ${won(b.currentPrice)}', style: const TextStyle(fontWeight:FontWeight.w800,color:AppColors.navy)),
+            Text(preorderEstimatedPrice(b), style: const TextStyle(fontWeight:FontWeight.w800,color:AppColors.navy)),
           ])),
         ])),
         const SizedBox(height:14),
@@ -3206,7 +3216,7 @@ class BookCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           book.preorderEnabled
-                              ? 'Taxminiy narxi: ${won(book.currentPrice)}'
+                              ? preorderEstimatedPrice(book)
                               : won(book.currentPrice),
                           style: const TextStyle(
                             color: AppColors.navy,

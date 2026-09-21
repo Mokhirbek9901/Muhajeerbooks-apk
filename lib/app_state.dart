@@ -453,7 +453,7 @@ class BackendService {
   static const String _storefrontBookColumns =
       'id,legacy_id,title,author,publisher,category,description,price,stock,'
       'discount_percent,discount_ends_at,image_url,thumbnail_url,image_urls,is_active,cover_type,recommended,preorder_enabled,'
-      'preorder_arrival_note,preorder_deposit_min,preorder_deposit_max,created_at';
+      'preorder_arrival_note,preorder_deposit_min,preorder_deposit_max,preorder_price_max,created_at';
 
   Future<dynamic> _customerRpc(
     String name,

@@ -117,8 +117,23 @@ String storyPrice(Book book) => book.price > 0
     ? '₩${NumberFormat('#,###').format(book.currentPrice)}'
     : 'Narxi aniqlanmoqda';
 
+String _storyActionLabel(Book book) =>
+    book.preorderEnabled
+        ? 'Oldindan buyurtma uchun bosing'
+        : (_storyActionLabel(book));
+
 String _storyDescription(Book book) {
   final value = book.description.replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (book.preorderEnabled) {
+    final arrival = book.preorderArrivalNote.trim().isEmpty
+        ? 'kelish muddati aniqlanmoqda'
+        : 'taxminiy kelishi: ${book.preorderArrivalNote.trim()}';
+    final min = NumberFormat('#,###').format(book.preorderDepositMin);
+    final max = NumberFormat('#,###').format(book.preorderDepositMax);
+    final base = 'Oldindan sotuvda • $arrival • oldindan to‘lov ₩$min–₩$max.';
+    if (value.isEmpty || value == 'Ma’lumot kiritilmagan.') return base;
+    return '$base $value';
+  }
   if (value.isEmpty || value == 'Ma’lumot kiritilmagan.') {
     return 'Kitob haqida batafsil ma’lumotni ilovada ko‘ring.';
   }
@@ -475,7 +490,7 @@ Future<Uint8List> _renderAiStory(
   center(book.stock > 0 ? 'Omborda: ${book.stock} dona' : 'Hozircha mavjud emas', 1300, 28,
       book.stock > 0 ? const Color(0xFF187A55) : const Color(0xFFB53B3B), FontWeight.w800, lines:1);
   center(_storyDescription(book), 1365, 22, ink, FontWeight.w500, width:840, lines:3);
-  center(book.inStock ? storyOrderLabel : 'Kitob haqida batafsil', 1515, 33, teal, FontWeight.w900, lines:1);
+  center(_storyActionLabel(book), 1515, 33, teal, FontWeight.w900, lines:1);
   final arrow=Paint()..color=teal..strokeWidth=5..strokeCap=StrokeCap.round..style=PaintingStyle.stroke;
   canvas.drawLine(const Offset(540,1570),const Offset(540,1618),arrow);
   canvas.drawPath(Path()..moveTo(522,1600)..lineTo(540,1618)..lineTo(558,1600),arrow);
@@ -1312,7 +1327,7 @@ Future<Uint8List> renderBookStory(
   y += descriptionSize.height + gapDescriptionCta;
 
   final cta = _fitText(
-    value: book.inStock ? storyOrderLabel : 'Kitob haqida batafsil',
+    value: _storyActionLabel(book),
     maxWidth: 820,
     maxHeight: ctaHeight,
     maxFontSize: 37,
@@ -1323,7 +1338,7 @@ Future<Uint8List> renderBookStory(
   );
   final ctaSize = _paintText(
     canvas,
-    book.inStock ? storyOrderLabel : 'Kitob haqida batafsil',
+    _storyActionLabel(book),
     y,
     cta,
     width: 820,
@@ -1419,7 +1434,7 @@ Future<Uint8List> _renderOldCurrentStory(
   centerText('🚚  Yetkazib berish: ₩4,000', 1100, 20, const Color(0xFF49666E), FontWeight.w700);
   centerText(book.stock>0?'Omborda: ${book.stock} dona':'Hozircha mavjud emas', 1152, 27, book.stock>0?const Color(0xFF187A55):const Color(0xFFB53B3B), FontWeight.w800);
   centerText(_storyDescription(book), 1220, 24, ink, FontWeight.w500, width:900);
-  centerText(book.inStock?storyOrderLabel:'Kitob haqida batafsil', 1295, 34, teal, FontWeight.w900);
+  centerText(_storyActionLabel(book), 1295, 34, teal, FontWeight.w900);
 
   final arrow=Paint()..color=teal..strokeWidth=5..strokeCap=StrokeCap.round..style=PaintingStyle.stroke;
   canvas.drawLine(const Offset(540,1350),const Offset(540,1395),arrow);

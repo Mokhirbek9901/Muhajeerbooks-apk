@@ -584,7 +584,7 @@ class PreorderBooksPage extends StatelessWidget {
                   itemCount:books.length,
                   gridDelegate:SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount:count,mainAxisSpacing:12,crossAxisSpacing:12,
-                    childAspectRatio:constraints.maxWidth<450?.57:.62,
+                    childAspectRatio: constraints.maxWidth < 450 ? 0.57 : 0.62,
                   ),
                   itemBuilder:(_,i)=>BookCard(book:books[i]),
                 );

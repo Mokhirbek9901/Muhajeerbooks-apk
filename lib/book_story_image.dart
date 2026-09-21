@@ -115,9 +115,14 @@ Color bookStoryTemplateColor(BookStoryTemplate value) => switch (value) {
 
 String storyPrice(Book book) {
   if (book.preorderEnabled) {
-    return book.price > 0
-        ? 'Taxminiy narxi: ₩${NumberFormat('#,###').format(book.currentPrice)}'
-        : 'Taxminiy narxi aniqlanmoqda';
+    final min = book.currentPrice;
+    final max = book.preorderPriceMax;
+    if (min <= 0 && max <= 0) return 'Taxminiy narxi aniqlanmoqda';
+    final minText = NumberFormat('#,###').format(min > 0 ? min : max);
+    if (max > min && min > 0) {
+      return 'Taxminiy narxi: ₩$minText ~ ₩${NumberFormat('#,###').format(max)}';
+    }
+    return 'Taxminiy narxi: ₩$minText';
   }
   return book.price > 0
       ? '₩${NumberFormat('#,###').format(book.currentPrice)}'

@@ -251,6 +251,48 @@ def admin_ai_book_research():
       return jsonify(error="Research result parse failed"),502
 
 
+@app.post("/api/admin-ai/books-bulk-research")
+def admin_ai_books_bulk_research():
+    """Research a small batch in one paid AI call. Nothing is saved here."""
+    body=request.get_json(silent=True) or {}
+    supplied=str(body.get("admin_code",""))
+    if not _verify_admin_code(supplied):
+        return jsonify(error="Unauthorized"),401
+    rows=body.get("books") if isinstance(body.get("books"),list) else []
+    rows=rows[:12]
+    clean=[]
+    for row in rows:
+      if not isinstance(row,dict): continue
+      title=str(row.get("title",""))[:300].strip()
+      if not title: continue
+      clean.append({
+        "id":str(row.get("id",""))[:120],
+        "title":title,
+        "author":str(row.get("author",""))[:200].strip(),
+        "publisher":str(row.get("publisher",""))[:200].strip(),
+      })
+    if not clean: return jsonify(error="Kitoblar kerak"),400
+    instructions="""Research each exact book in the supplied list on the web. Prefer publisher, author, library/catalog and reliable bookseller bibliographic sources. Return ONLY a valid JSON object with key "books", whose value is an array. Preserve each input id exactly. Every item must contain: id, title, author, publisher, category, description, confidence, notes. Do not guess uncertain fields: use empty strings. description must be a short factual Uzbek catalog description, not copied jacket text. category must be a concise Uzbek bookstore category. Do not include price, stock, cost, URLs, markdown, citations, internal data, or books not requested."""
+    import json
+    payload=json.dumps(clean,ensure_ascii=False)
+    out=_chat_json(instructions,[{"role":"user","content":[{"type":"input_text","text":payload}]}],6000,web_search=True)
+    if not out: return jsonify(error="AI research unavailable"),502
+    try:
+      start=out.find("{"); end=out.rfind("}")
+      data=json.loads(out[start:end+1])
+      found=data.get("books") if isinstance(data,dict) else []
+      allowed=("id","title","author","publisher","category","description","confidence","notes")
+      result=[]
+      valid_ids={x["id"] for x in clean}
+      for item in found if isinstance(found,list) else []:
+        if not isinstance(item,dict): continue
+        if str(item.get("id","")) not in valid_ids: continue
+        result.append({k:item.get(k,"") for k in allowed})
+      return jsonify(books=result)
+    except Exception:
+      return jsonify(error="Bulk research result parse failed"),502
+
+
 @app.post("/api/ai-search")
 def ai_search():
     """Free local catalog search; no model/API credits."""

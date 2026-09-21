@@ -4139,7 +4139,9 @@ class CartPage extends StatelessWidget {
                                     ? '4+ mahsulot: yetkazib berish bepul'
                                     : (state.discountBlocksFourPlusFreeDelivery
                                         ? 'Chegirma davrida 택배 ₩4,000'
-                                        : '택배 ₩4,000 • set ham 1 ta mahsulot')),
+                                        : (bundles.isNotEmpty
+                                            ? '택배 ₩4,000 • set ham 1 ta mahsulot'
+                                            : '택배 ₩4,000'))),
                             style: TextStyle(
                               color: state.cartDeliveryFee == 0
                                   ? AppColors.success
@@ -4560,7 +4562,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       state.cartBundleDeliveryIncluded
                           ? 'Set narxiga pochta kiritilgan • qo‘shimcha ₩0'
                           : (state.cartDeliveryFee == 0
-                              ? '4+ mahsulot — BEPUL • set 1 ta hisoblanadi'
+                              ? (state.cartBundles.isNotEmpty
+                                  ? '4+ mahsulot — BEPUL • set 1 ta hisoblanadi'
+                                  : '4+ mahsulot — BEPUL')
                               : (state.discountBlocksFourPlusFreeDelivery
                                   ? 'Chegirma davrida ₩4,000 • 1–3 ish kuni'
                                   : '₩4,000 • 1–3 ish kuni')),

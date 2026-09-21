@@ -3435,6 +3435,16 @@ class _BooksAdminState extends State<_BooksAdmin> {
     if (changed == true && mounted) reload();
   }
 
+  Future<void> openCatalogGroups() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _CatalogGroupsAdminPage(api: widget.api),
+      ),
+    );
+    if (mounted) reload();
+  }
+
   Future<void> remove(Book book) async {
     final yes = await showDialog<bool>(
       context: context,
@@ -3698,6 +3708,15 @@ class _BooksAdminState extends State<_BooksAdmin> {
                       onPressed: all.isEmpty ? null : () => openBulkAi(all),
                       icon: const Icon(Icons.auto_awesome_rounded),
                       label: const Text('AI bilan ommaviy tahrirlash'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: openCatalogGroups,
+                      icon: const Icon(Icons.account_tree_rounded),
+                      label: const Text('Kategoriyalar / Nashriyotlar'),
                     ),
                   ),
                 ],

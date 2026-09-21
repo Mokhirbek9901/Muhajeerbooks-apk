@@ -113,14 +113,21 @@ Color bookStoryTemplateColor(BookStoryTemplate value) => switch (value) {
   BookStoryTemplate.heritage => const Color(0xFF1F6570),
 };
 
-String storyPrice(Book book) => book.price > 0
-    ? '₩${NumberFormat('#,###').format(book.currentPrice)}'
-    : 'Narxi aniqlanmoqda';
+String storyPrice(Book book) {
+  if (book.preorderEnabled) {
+    return book.price > 0
+        ? 'Taxminiy narxi: ₩${NumberFormat('#,###').format(book.currentPrice)}'
+        : 'Taxminiy narxi aniqlanmoqda';
+  }
+  return book.price > 0
+      ? '₩${NumberFormat('#,###').format(book.currentPrice)}'
+      : 'Narxi aniqlanmoqda';
+}
 
 String _storyActionLabel(Book book) =>
     book.preorderEnabled
         ? 'Oldindan buyurtma uchun bosing'
-        : (_storyActionLabel(book));
+        : (book.inStock ? storyOrderLabel : 'Kitob haqida batafsil');
 
 String _storyDescription(Book book) {
   final value = book.description.replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -130,7 +137,7 @@ String _storyDescription(Book book) {
         : 'taxminiy kelishi: ${book.preorderArrivalNote.trim()}';
     final min = NumberFormat('#,###').format(book.preorderDepositMin);
     final max = NumberFormat('#,###').format(book.preorderDepositMax);
-    final base = 'Oldindan sotuvda • $arrival • oldindan to‘lov ₩$min–₩$max.';
+    final base = 'Oldindan sotuvda • $arrival • oldindan to‘lov ₩$min–₩$max • yakuniy narx kitob kelganda aniq bo‘ladi.';
     if (value.isEmpty || value == 'Ma’lumot kiritilmagan.') return base;
     return '$base $value';
   }
@@ -487,7 +494,7 @@ Future<Uint8List> _renderAiStory(
   center(book.title, 1035, 48, ink, FontWeight.w900);
   center(storyPrice(book), 1155, 66, teal, FontWeight.w900, lines:1);
   center('🚚  Yetkazib berish: ₩4,000', 1250, 22, const Color(0xFF49666E), FontWeight.w700, lines:1);
-  center(book.stock > 0 ? 'Omborda: ${book.stock} dona' : 'Hozircha mavjud emas', 1300, 28,
+  center(book.preorderEnabled ? 'Oldindan sotuvda' : (book.stock > 0 ? 'Omborda: ${book.stock} dona' : 'Hozircha mavjud emas'), 1300, 28,
       book.stock > 0 ? const Color(0xFF187A55) : const Color(0xFFB53B3B), FontWeight.w800, lines:1);
   center(_storyDescription(book), 1365, 22, ink, FontWeight.w500, width:840, lines:3);
   center(_storyActionLabel(book), 1515, 33, teal, FontWeight.w900, lines:1);
@@ -1432,7 +1439,7 @@ Future<Uint8List> _renderOldCurrentStory(
   _paintText(canvas,storyPrice(book),1020,price,width:760,color:teal,weight:FontWeight.w900,lineHeight:1,maxLines:1);
 
   centerText('🚚  Yetkazib berish: ₩4,000', 1100, 20, const Color(0xFF49666E), FontWeight.w700);
-  centerText(book.stock>0?'Omborda: ${book.stock} dona':'Hozircha mavjud emas', 1152, 27, book.stock>0?const Color(0xFF187A55):const Color(0xFFB53B3B), FontWeight.w800);
+  centerText(book.preorderEnabled?'Oldindan sotuvda':(book.stock>0?'Omborda: ${book.stock} dona':'Hozircha mavjud emas'), 1152, 27, book.stock>0?const Color(0xFF187A55):const Color(0xFFB53B3B), FontWeight.w800);
   centerText(_storyDescription(book), 1220, 24, ink, FontWeight.w500, width:900);
   centerText(_storyActionLabel(book), 1295, 34, teal, FontWeight.w900);
 

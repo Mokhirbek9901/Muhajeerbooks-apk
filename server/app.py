@@ -426,18 +426,12 @@ def admin_ai_books_bulk_research():
 
 @app.post("/api/ai-search")
 def ai_search():
-    """Free local catalog search; no model/API credits."""
+    """Always-free typo-tolerant local catalog search; no model/API credits."""
     body=request.get_json(silent=True) or {}
-    import re
-    query=str(body.get("query","")).lower()[:500]
-    words=[w for w in re.findall(r"[\\wʻ’'-]+",query,flags=re.UNICODE) if len(w)>=3]
-    books=body.get("books") if isinstance(body.get("books"),list) else []
-    ranked=[]
-    for b in books[:500]:
-      if not isinstance(b,dict): continue
-      hay=" ".join(str(b.get(k) or "").lower() for k in ("title","author","category","description"))
-      score=sum(1 for w in words if w in hay)
-      if query and query in hay: score+=4
-      if score: ranked.append((score, int(b.get("stock") or 0)>0, str(b.get("id") or "")))
-    ranked.sort(key=lambda x:(x[0],x[1]),reverse=True)
-    return jsonify(ids=[x[2] for x in ranked[:12] if x[2]]),200
+    query=str(body.get("query","")).strip()[:500]
+    books=_free_catalog(body)
+    ranked=_free_rank_books(query,books)
+    if not ranked:
+      ranked=_free_recommendations(query,books)
+    return jsonify(ids=[x["id"] for x in ranked[:16] if x.get("id")]),200
+

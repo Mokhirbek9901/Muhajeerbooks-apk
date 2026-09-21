@@ -1593,6 +1593,43 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                 ),
               ),
             ),
+            const SizedBox(height: 10),
+            InkWell(
+              borderRadius: BorderRadius.circular(AppRadii.large),
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => _CatalogGroupsAdminPage(api: widget.api),
+                  ),
+                );
+                reload();
+              },
+              child: AppSurface(
+                backgroundColor: AppColors.surfaceSoft,
+                shadow: true,
+                child: const Row(
+                  children: [
+                    SizedBox(
+                      width: 50,
+                      height: 50,
+                      child: Icon(Icons.account_tree_rounded, color: AppColors.navy, size: 30),
+                    ),
+                    SizedBox(width: 13),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Kategoriyalar va nashriyotlar', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                          SizedBox(height: 2),
+                          Text('Nomini o‘zgartirish • kitoblarni tanlab qo‘shish', style: TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded, color: AppColors.navy),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 14),
             LayoutBuilder(
               builder: (context, c) {

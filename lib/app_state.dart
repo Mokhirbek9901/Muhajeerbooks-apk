@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
@@ -33,6 +34,16 @@ String normalizePublisher(String value) {
 }
 
 String publisherKey(String value) => normalizePublisher(value).toLowerCase();
+
+String _newOrderUuid() {
+  final bytes=List<int>.generate(16,(_)=>Random.secure().nextInt(256));
+  bytes[6]=(bytes[6]&0x0f)|0x40;
+  bytes[8]=(bytes[8]&0x3f)|0x80;
+  String h(int v)=>v.toRadixString(16).padLeft(2,'0');
+  final s=bytes.map(h).join();
+  return '${s.substring(0,8)}-${s.substring(8,12)}-${s.substring(12,16)}-${s.substring(16,20)}-${s.substring(20)}';
+}
+
 
 List<String> bookPublishers(Iterable<Book> books) {
   final names = <String, String>{};
@@ -660,7 +671,11 @@ class BackendService {
     List<Map<String, dynamic>> bundleSelections = const [],
     String paymentProofPath = '',
   }) async {
+    // Bir checkout urinishida ID oldindan yaratiladi. Tarmoq javobi kechiksa
+    // retry aynan shu ID bilan ketadi va ikkinchi buyurtma/ombor kamayishi yaratilmaydi.
+    final orderId = _newOrderUuid();
     final payload = {
+      'id': orderId,
       'customer_name': customerName.trim(),
       'phone': phone.trim(),
       'address': address.trim(),
@@ -691,6 +706,12 @@ class BackendService {
         return data['id'].toString();
       } catch (error) {
         lastError = error;
+        // Birinchi insert serverda muvaffaqiyatli bo‘lib, faqat javob yo‘qolgan
+        // bo‘lsa retry bir xil PK sabab 23505 qaytaradi. Bu — avvalgi buyurtma
+        // allaqachon yaratilgan degani; yangi buyurtma ochmaymiz.
+        if (error is PostgrestException && error.code == '23505') {
+          return orderId;
+        }
         if (attempt == 1) rethrow;
         await Future<void>.delayed(const Duration(milliseconds: 120));
       }

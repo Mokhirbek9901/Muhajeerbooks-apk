@@ -4661,7 +4661,7 @@ class _BookFormState extends State<_BookForm> {
                 Expanded(
                   child: field(
                     price,
-                    'Asl narx (₩)',
+                    widget.preorderMode ? 'Taxminiy narx (₩)' : 'Asl narx (₩)',
                     number: true,
                     required: true,
                   ),
@@ -4672,6 +4672,13 @@ class _BookFormState extends State<_BookForm> {
                 ),
               ],
             ),
+            if (widget.preorderMode) ...[
+              const Text(
+                'Bu taxminiy narx. Yakuniy narx kitob kelganda aniq bo‘ladi.',
+                style: TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+            ],
             Row(
               children: [
                 Expanded(child: field(discount, 'Chegirma %', number: true)),

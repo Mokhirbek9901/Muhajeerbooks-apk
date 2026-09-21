@@ -655,7 +655,10 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
       await showDialog<void>(context:context,builder:(ctx)=>AlertDialog(
         icon:const Icon(Icons.check_circle_rounded,size:54,color:AppColors.success),
         title:const Text('Oldindan buyurtma qabul qilindi'),
-        content:Text('$message\n\nKitob kelganda siz bilan bog‘lanamiz. Qolgan summa kitob kelgach to‘lanadi.',textAlign:TextAlign.center),
+        content:Text(
+          '$message\n\nKitob kelganda shu telefon raqamiga xabar beramiz. Yakuniy narx ham kitob kelganda aniq bo‘ladi.',
+          textAlign:TextAlign.center,
+        ),
         actions:[FilledButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Tushunarli'))],
       ));
       if(mounted) Navigator.pop(context);
@@ -677,6 +680,7 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
           Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
             Text(b.title,style:const TextStyle(fontSize:17,fontWeight:FontWeight.w900)),
             if(b.preorderArrivalNote.isNotEmpty) Text('Taxminiy kelishi: ${b.preorderArrivalNote}',style:const TextStyle(color:AppColors.muted)),
+            Text('Taxminiy narxi: ${won(b.currentPrice)}', style: const TextStyle(fontWeight:FontWeight.w800,color:AppColors.navy)),
           ])),
         ])),
         const SizedBox(height:14),
@@ -685,7 +689,10 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
           const SizedBox(height:5),
           Text('${won(b.preorderDepositMin)} – ${won(b.preorderDepositMax)}',style:const TextStyle(fontSize:22,fontWeight:FontWeight.w900,color:AppColors.navy)),
           const SizedBox(height:5),
-          const Text('Shu oraliqdagi summani yuboring. Qolgan summa kitob kelganda to‘lanadi.',style:TextStyle(color:AppColors.muted,height:1.4)),
+          const Text(
+            'Shu oraliqdagi summani yuboring. Yakuniy narx kitob kelganda aniq bo‘ladi va oldindan to‘lov yakuniy summadan ayriladi.',
+            style:TextStyle(color:AppColors.muted,height:1.4),
+          ),
         ])),
         const SizedBox(height:14),
         TextFormField(controller:name,decoration:const InputDecoration(labelText:'Ism va familiya'),validator:(v)=>(v??'').trim().length<2?'Ismingizni kiriting':null),
@@ -693,7 +700,11 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
         TextFormField(
           controller:phone,keyboardType:TextInputType.phone,
           inputFormatters:[FilteringTextInputFormatter.digitsOnly,LengthLimitingTextInputFormatter(11)],
-          decoration:const InputDecoration(labelText:'Telefon raqam',hintText:'01024338600'),
+          decoration:const InputDecoration(
+            labelText:'Telefon raqam',
+            hintText:'01024338600',
+            helperText:'Kitob kelganda shu telefon raqamiga xabar beramiz.',
+          ),
           validator:(v)=>!_isSupportedCustomerPhone(v??'')?'Koreya 010 raqamini to‘liq kiriting':null,
         ),
         const SizedBox(height:10),
@@ -3194,7 +3205,9 @@ class BookCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          won(book.currentPrice),
+                          book.preorderEnabled
+                              ? 'Taxminiy narxi: ${won(book.currentPrice)}'
+                              : won(book.currentPrice),
                           style: const TextStyle(
                             color: AppColors.navy,
                             fontWeight: FontWeight.w900,
@@ -3597,7 +3610,9 @@ class BookDetailPage extends StatelessWidget {
                   ],
                   Flexible(
                     child: Text(
-                      won(b.currentPrice),
+                      b.preorderEnabled
+                          ? 'Taxminiy narxi: ${won(b.currentPrice)}'
+                          : won(b.currentPrice),
                       maxLines: 1,
                       softWrap: false,
                       overflow: TextOverflow.ellipsis,
@@ -3968,7 +3983,10 @@ class _BookDetailInfo extends StatelessWidget {
               const SizedBox(height:4),
               Text('Band qilish uchun oldindan to‘lov: ${won(book.preorderDepositMin)} – ${won(book.preorderDepositMax)}'),
               const SizedBox(height:5),
-              const Text('Qolgan summa kitob kelgach to‘lanadi.', style: TextStyle(color:AppColors.muted,fontSize:12)),
+              const Text(
+                'Yakuniy narx kitob kelganda aniq bo‘ladi. Oldindan to‘lov yakuniy summadan ayriladi.',
+                style: TextStyle(color:AppColors.muted,fontSize:12),
+              ),
             ],
           ),
         ),

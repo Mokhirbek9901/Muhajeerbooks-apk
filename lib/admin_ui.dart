@@ -2902,6 +2902,105 @@ class _InventoryAdminState extends State<_InventoryAdmin> {
   }
 }
 
+
+class _CatalogGroupsAdminPage extends StatefulWidget {
+  const _CatalogGroupsAdminPage({required this.api});
+  final _AdminApi api;
+  @override State<_CatalogGroupsAdminPage> createState()=>_CatalogGroupsAdminPageState();
+}
+class _CatalogGroupsAdminPageState extends State<_CatalogGroupsAdminPage> with SingleTickerProviderStateMixin {
+  late final TabController tabs;
+  late Future<List<Book>> future;
+  @override void initState(){super.initState();tabs=TabController(length:2,vsync:this);future=widget.api.books();}
+  @override void dispose(){tabs.dispose();super.dispose();}
+  Future<void> reload() async {final b=await widget.api.books();if(mounted)setState(()=>future=Future.value(b));}
+  List<MapEntry<String,int>> groups(List<Book> books,bool pub){
+    final m=<String,int>{};
+    for(final b in books){final raw=pub?normalizePublisher(b.publisher):b.category.trim();final n=raw.isEmpty?(pub?'Ko‘rsatilmagan':'Boshqalar'):raw;m[n]=(m[n]??0)+1;}
+    final r=m.entries.toList()..sort((a,b)=>a.key.toLowerCase().compareTo(b.key.toLowerCase()));return r;
+  }
+  Future<void> edit(List<Book> books,bool pub,[String? name]) async {
+    final ok=await Navigator.push<bool>(context,MaterialPageRoute(builder:(_)=>_CatalogGroupEditorPage(api:widget.api,books:books,publisher:pub,currentName:name)));
+    if(ok==true)await reload();
+  }
+  Widget list(List<Book> books,bool pub)=>RefreshIndicator(onRefresh:reload,child:ListView(
+    physics:const AlwaysScrollableScrollPhysics(),padding:const EdgeInsets.fromLTRB(16,14,16,100),children:[
+      AppSurface(backgroundColor:AppColors.surfaceSoft,child:Row(children:[
+        Icon(pub?Icons.apartment_rounded:Icons.category_rounded,color:AppColors.navy),const SizedBox(width:12),
+        Expanded(child:Text(pub?'Nashriyot nomini o‘zgartiring yoki ichiga kitoblarni tanlab qo‘shing.':'Kategoriya nomini o‘zgartiring yoki ichiga kitoblarni tanlab qo‘shing.',style:const TextStyle(fontWeight:FontWeight.w700,color:AppColors.muted))),
+      ])),const SizedBox(height:12),
+      ...groups(books,pub).map((e)=>Card(margin:const EdgeInsets.only(bottom:8),child:ListTile(
+        leading:CircleAvatar(child:Icon(pub?Icons.apartment_rounded:Icons.category_rounded,size:19)),
+        title:Text(e.key,style:const TextStyle(fontWeight:FontWeight.w900)),subtitle:Text('\${e.value} ta kitob'),
+        trailing:const Icon(Icons.edit_rounded),onTap:()=>edit(books,pub,e.key),
+      ))),
+    ]));
+  @override Widget build(BuildContext context)=>Scaffold(
+    appBar:AppBar(title:const Text('Katalog bo‘limlari'),bottom:TabBar(controller:tabs,tabs:const[
+      Tab(icon:Icon(Icons.category_rounded),text:'Kategoriyalar'),Tab(icon:Icon(Icons.apartment_rounded),text:'Nashriyotlar'),
+    ])),
+    floatingActionButton:FutureBuilder<List<Book>>(future:future,builder:(context,s)=>FloatingActionButton.extended(
+      onPressed:s.hasData?()=>edit(s.data!,tabs.index==1):null,icon:const Icon(Icons.add_rounded),label:const Text('Yangi'))),
+    body:FutureBuilder<List<Book>>(future:future,builder:(context,s){
+      if(s.connectionState==ConnectionState.waiting&&!s.hasData)return const Center(child:CircularProgressIndicator());
+      if(s.hasError)return Center(child:FilledButton.tonalIcon(onPressed:()=>setState(()=>future=widget.api.books()),icon:const Icon(Icons.refresh_rounded),label:const Text('Qayta yuklash')));
+      final books=s.data??const <Book>[];return TabBarView(controller:tabs,children:[list(books,false),list(books,true)]);
+    }),
+  );
+}
+class _CatalogGroupEditorPage extends StatefulWidget {
+  const _CatalogGroupEditorPage({required this.api,required this.books,required this.publisher,this.currentName});
+  final _AdminApi api; final List<Book> books; final bool publisher; final String? currentName;
+  @override State<_CatalogGroupEditorPage> createState()=>_CatalogGroupEditorPageState();
+}
+class _CatalogGroupEditorPageState extends State<_CatalogGroupEditorPage>{
+  late final TextEditingController name; final search=TextEditingController(); final selected=<String>{}; bool saving=false;
+  String value(Book b)=>widget.publisher?normalizePublisher(b.publisher):b.category.trim();
+  bool same(String a,String b)=>widget.publisher?publisherKey(a)==publisherKey(b):a.trim().toLowerCase()==b.trim().toLowerCase();
+  @override void initState(){super.initState();name=TextEditingController(text:widget.currentName??'');final cur=widget.currentName;if(cur!=null){for(final b in widget.books){final v=value(b);final d=v.isEmpty?(widget.publisher?'Ko‘rsatilmagan':'Boshqalar'):v;if(same(d,cur))selected.add(b.id);}}search.addListener(refresh);}
+  void refresh(){if(mounted)setState((){});}
+  @override void dispose(){search.removeListener(refresh);search.dispose();name.dispose();super.dispose();}
+  Future<void> save() async {
+    final newName=name.text.trim();if(newName.isEmpty){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Nomini kiriting.')));return;}
+    setState(()=>saving=true);
+    try{
+      final cur=widget.currentName;
+      for(final b in widget.books){
+        final raw=value(b);final display=raw.isEmpty?(widget.publisher?'Ko‘rsatilmagan':'Boshqalar'):raw;
+        final was=cur!=null&&same(display,cur);final should=selected.contains(b.id);Book? updated;
+        if(should&&!same(raw,newName))updated=widget.publisher?b.copyWith(publisher:normalizePublisher(newName)):b.copyWith(category:newName);
+        else if(!should&&was)updated=widget.publisher?b.copyWith(publisher:''):b.copyWith(category:'Boshqalar');
+        if(updated!=null)await widget.api.saveBook(updated);
+      }
+      if(mounted)Navigator.pop(context,true);
+    }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Saqlashda xatolik: $e')));}
+    finally{if(mounted)setState(()=>saving=false);}
+  }
+  @override Widget build(BuildContext context){
+    final q=search.text.trim().toLowerCase();final visible=widget.books.where((b)=>q.isEmpty||b.title.toLowerCase().contains(q)||b.author.toLowerCase().contains(q)||b.category.toLowerCase().contains(q)||b.publisher.toLowerCase().contains(q)).toList()..sort((a,b)=>a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+    return Scaffold(
+      appBar:AppBar(title:Text(widget.publisher?'Nashriyotni tahrirlash':'Kategoriyani tahrirlash')),
+      body:Column(children:[
+        Padding(padding:const EdgeInsets.fromLTRB(16,16,16,8),child:Column(children:[
+          TextField(controller:name,decoration:InputDecoration(labelText:widget.publisher?'Nashriyot nomi':'Kategoriya nomi',prefixIcon:Icon(widget.publisher?Icons.apartment_rounded:Icons.category_rounded))),
+          const SizedBox(height:10),TextField(controller:search,decoration:const InputDecoration(labelText:'Kitob qidirish',prefixIcon:Icon(Icons.search_rounded))),
+          const SizedBox(height:8),Row(children:[Text('\${selected.length} ta kitob tanlangan',style:const TextStyle(fontWeight:FontWeight.w800)),const Spacer(),
+            TextButton(onPressed:()=>setState((){for(final b in visible){selected.add(b.id);}}),child:const Text('Barchasini tanlash'))]),
+        ])),const Divider(height:1),
+        Expanded(child:ListView.builder(itemCount:visible.length,itemBuilder:(context,i){final b=visible[i];final checked=selected.contains(b.id);return CheckboxListTile(
+          value:checked,onChanged:saving?null:(v)=>setState((){if(v==true)selected.add(b.id);else selected.remove(b.id);}),
+          title:Text(b.title,style:const TextStyle(fontWeight:FontWeight.w800)),
+          subtitle:Text(widget.publisher?'Hozir: \${normalizePublisher(b.publisher).isEmpty?'Ko‘rsatilmagan':normalizePublisher(b.publisher)}':'Hozir: \${b.category}'),
+          controlAffinity:ListTileControlAffinity.leading,
+        );})),
+      ]),
+      bottomNavigationBar:SafeArea(minimum:const EdgeInsets.all(16),child:FilledButton.icon(onPressed:saving?null:save,
+        icon:saving?const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2)):const Icon(Icons.save_rounded),
+        label:Text(saving?'Saqlanmoqda…':'Saqlash'))),
+    );
+  }
+}
+
 class _BooksAdmin extends StatefulWidget {
   const _BooksAdmin({super.key, required this.api});
   final _AdminApi api;

@@ -401,6 +401,23 @@ class _AdminApi {
     return Map<String,dynamic>.from(data);
   }
 
+  Future<List<Map<String,dynamic>>> researchBooksBulk(List<Book> books) async {
+    final payload=books.map((b)=>{'id':b.id,'title':b.title,'author':b.author,'publisher':b.publisher}).toList();
+    final r=await http.post(
+      _serverUri('/api/admin-ai/books-bulk-research'),
+      headers:{'Content-Type':'application/json'},
+      body:jsonEncode({'admin_code':secret,'books':payload}),
+    ).timeout(const Duration(seconds:180));
+    final raw=jsonDecode(r.body);
+    if(r.statusCode!=200 || raw is! Map) {
+      throw StateError(raw is Map ? (raw['error']??'Ommaviy AI qidiruv ishlamadi').toString() : 'Ommaviy AI qidiruv ishlamadi');
+    }
+    return ((raw['books'] as List?)??const [])
+        .whereType<Map>()
+        .map((e)=>Map<String,dynamic>.from(e))
+        .toList();
+  }
+
   Future<void> deleteBook(String id) async {
     await _rpc(
       'admin_delete_book',

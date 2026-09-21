@@ -180,7 +180,7 @@ class _AdminApi {
   }
 
   Future<void> saveBook(Book book) async {
-    await _rpc(
+    final savedId = await _rpc(
       'admin_save_book',
       params: {
         'p_secret': secret,
@@ -215,6 +215,17 @@ class _AdminApi {
         },
       },
     );
+    final id = savedId?.toString().trim() ?? '';
+    if (id.isNotEmpty && id != 'null') {
+      await _rpc(
+        'admin_set_preorder_price_max',
+        params: {
+          'p_secret': secret,
+          'p_id': id,
+          'p_price_max': book.preorderPriceMax,
+        },
+      );
+    }
   }
 
   Future<_UploadedBookImage> uploadCover(XFile file) async {
@@ -4063,6 +4074,7 @@ class _BookFormState extends State<_BookForm> {
   late final TextEditingController category;
   late final TextEditingController description;
   late final TextEditingController price;
+  late final TextEditingController preorderPriceMax;
   late final TextEditingController stock;
   late final TextEditingController discount;
   late final TextEditingController image;
@@ -4094,6 +4106,9 @@ class _BookFormState extends State<_BookForm> {
     category = TextEditingController(text: b?.category ?? 'Boshqalar');
     description = TextEditingController(text: b?.description ?? '');
     price = TextEditingController(text: b == null ? '' : '${b.price}');
+    preorderPriceMax = TextEditingController(
+      text: b == null || b.preorderPriceMax <= 0 ? '' : '${b.preorderPriceMax}',
+    );
     stock = TextEditingController(text: b == null ? '' : '${b.stock}');
     discount = TextEditingController(
       text: b == null ? '0' : '${b.discountPercent}',
@@ -4134,6 +4149,7 @@ class _BookFormState extends State<_BookForm> {
       category,
       description,
       price,
+      preorderPriceMax,
       stock,
       discount,
       image,
@@ -4424,12 +4440,16 @@ class _BookFormState extends State<_BookForm> {
   Future<void> save() async {
     if (!key.currentState!.validate()) return;
     final p = int.tryParse(price.text.trim()) ?? -1;
+    final preorderPriceMaxValue = widget.preorderMode
+        ? (int.tryParse(preorderPriceMax.text.trim()) ?? -1)
+        : (widget.book?.preorderPriceMax ?? 0);
     final s = int.tryParse(stock.text.trim()) ?? -1;
     final d = int.tryParse(discount.text.trim()) ?? 0;
     final c = int.tryParse(cost.text.trim()) ?? 0;
     final preorderMinValue = int.tryParse(preorderMin.text.trim()) ?? 5000;
     final preorderMaxValue = int.tryParse(preorderMax.text.trim()) ?? 10000;
     if (p < 0 || s < 0 || d < 0 || d > 99 || c < 0 ||
+        (widget.preorderMode && (preorderPriceMaxValue < p || preorderPriceMaxValue <= 0)) ||
         (preorderEnabled && (preorderMinValue < 0 || preorderMaxValue < preorderMinValue))) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -4477,6 +4497,7 @@ class _BookFormState extends State<_BookForm> {
           preorderArrivalNote: preorderArrival.text.trim(),
           preorderDepositMin: preorderMinValue,
           preorderDepositMax: preorderMaxValue,
+          preorderPriceMax: preorderPriceMaxValue,
           createdAt: widget.book?.createdAt,
         ),
       );
@@ -4656,29 +4677,42 @@ class _BookFormState extends State<_BookForm> {
             field(publisher, 'Nashriyot'),
             field(category, 'Kategoriya'),
             _descriptionEditor(),
-            Row(
-              children: [
-                Expanded(
-                  child: field(
-                    price,
-                    widget.preorderMode ? 'Taxminiy narx (₩)' : 'Asl narx (₩)',
-                    number: true,
-                    required: true,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: field(stock, 'Ombor', number: true, required: true),
-                ),
-              ],
-            ),
             if (widget.preorderMode) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: field(
+                      price,
+                      'Taxminiy narx — dan (₩)',
+                      number: true,
+                      required: true,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: field(
+                      preorderPriceMax,
+                      'Taxminiy narx — gacha (₩)',
+                      number: true,
+                      required: true,
+                    ),
+                  ),
+                ],
+              ),
               const Text(
-                'Bu taxminiy narx. Yakuniy narx kitob kelganda aniq bo‘ladi.',
+                'Masalan: 18,000 dan 20,000 gacha. Yakuniy narx kitob kelganda aniq bo‘ladi.',
                 style: TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
-            ],
+              field(stock, 'Ombor', number: true, required: true),
+            ] else
+              Row(
+                children: [
+                  Expanded(child: field(price, 'Asl narx (₩)', number: true, required: true)),
+                  const SizedBox(width: 8),
+                  Expanded(child: field(stock, 'Ombor', number: true, required: true)),
+                ],
+              ),
             Row(
               children: [
                 Expanded(child: field(discount, 'Chegirma %', number: true)),

@@ -434,6 +434,19 @@ class _AdminApi {
     return result;
   }
 
+  Future<Map<String,dynamic>> researchBookPrice(String title) async {
+    final r=await http.post(
+      _serverUri('/api/admin-ai/book-price-research'),
+      headers:{'Content-Type':'application/json'},
+      body:jsonEncode({'admin_code':secret,'title':title}),
+    ).timeout(const Duration(seconds:180));
+    final raw=jsonDecode(r.body);
+    if(r.statusCode!=200 || raw is! Map) {
+      throw StateError(raw is Map ? (raw['error']??'Narx tadqiqoti ishlamadi').toString() : 'Narx tadqiqoti ishlamadi');
+    }
+    return Map<String,dynamic>.from(raw);
+  }
+
   Future<List<Map<String,dynamic>>> researchBooksBulk(List<Book> books) async {
     final payload=books.map((b)=>{'id':b.id,'title':b.title,'author':b.author,'publisher':b.publisher}).toList();
     final r=await http.post(
@@ -7382,8 +7395,16 @@ class _AdminAiPage extends StatefulWidget {
   @override State<_AdminAiPage> createState()=>_AdminAiPageState();
 }
 class _AdminAiPageState extends State<_AdminAiPage> {
-  final q=TextEditingController(); String answer=''; bool loading=false;
-  @override void dispose(){q.dispose();super.dispose();}
+  final q=TextEditingController();
+  final priceTitle=TextEditingController();
+  String answer='';
+  Map<String,dynamic>? priceResult;
+  bool loading=false;
+  bool priceLoading=false;
+
+  @override
+  void dispose(){q.dispose();priceTitle.dispose();super.dispose();}
+
   Future<void> ask() async {
     final value=q.text.trim(); if(value.isEmpty||loading)return;
     setState((){loading=true;answer='';});
@@ -7391,14 +7412,125 @@ class _AdminAiPageState extends State<_AdminAiPage> {
     catch(e){if(mounted)setState(()=>answer='Xatolik: ' + e.toString());}
     finally{if(mounted)setState(()=>loading=false);}
   }
-  @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.all(16),children:[
-    const Text('Muhajeer Admin AI',style:TextStyle(fontSize:24,fontWeight:FontWeight.w900)),
-    const SizedBox(height:6),
-    const Text('Savdo, ombor, tannarx, foyda, buyurtmalar va internetdagi joriy ma’lumotlarni tahlil qiladi. O‘zi ma’lumotni o‘zgartirmaydi.',style:TextStyle(color:AppColors.muted,height:1.4)),
-    const SizedBox(height:14),
-    TextField(controller:q,minLines:2,maxLines:5,onSubmitted:(_)=>ask(),decoration:const InputDecoration(hintText:'Masalan: Qaysi kitoblarni qayta olib kelish kerak? Bu oy savdo holati qanday?')),
-    const SizedBox(height:10),
-    FilledButton.icon(onPressed:loading?null:ask,icon:loading?const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2)):const Icon(Icons.auto_awesome_rounded),label:Text(loading?'Tahlil qilmoqda...':'AI dan so‘rash')),
-    if(answer.isNotEmpty)...[const SizedBox(height:16),AppSurface(padding:const EdgeInsets.all(16),child:SelectableText(answer,style:const TextStyle(fontSize:15.5,height:1.55,fontWeight:FontWeight.w500)))],
-  ]);
+
+  Future<void> researchPrice() async {
+    final value=priceTitle.text.trim();
+    if(value.isEmpty||priceLoading)return;
+    setState((){priceLoading=true;priceResult=null;});
+    try {
+      final result=await widget.api.researchBookPrice(value);
+      if(mounted)setState(()=>priceResult=result);
+    } catch(e) {
+      if(mounted)ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text('Narx tadqiqotida xatolik: $e')),
+      );
+    } finally {
+      if(mounted)setState(()=>priceLoading=false);
+    }
+  }
+
+  String money(dynamic value) {
+    final n=value is num ? value.round() : int.tryParse(value?.toString()??'')??0;
+    return _won(n);
+  }
+
+  String som(dynamic value) {
+    final n=value is num ? value.round() : int.tryParse(value?.toString()??'')??0;
+    return '${_money.format(n)} so‘m';
+  }
+
+  Widget priceResearchResult(Map<String,dynamic> r) {
+    final offers=(r['offers'] as List?)??const [];
+    final weight=(r['weight_kg'] as num?)?.toDouble()??0;
+    final basis=(r['weight_basis']??'').toString();
+    final min=(r['estimated_min_krw'] as num?)?.round()??0;
+    final max=(r['estimated_max_krw'] as num?)?.round()??0;
+    final avg=(r['estimated_average_krw'] as num?)?.round()??0;
+    return AppSurface(
+      padding:const EdgeInsets.all(16),
+      child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Text((r['matched_title']??priceTitle.text).toString(),style:const TextStyle(fontSize:18,fontWeight:FontWeight.w900)),
+        const SizedBox(height:10),
+        if(offers.isNotEmpty)...[
+          const Text('O‘zbekistondagi topilgan narxlar',style:TextStyle(fontWeight:FontWeight.w800)),
+          const SizedBox(height:5),
+          ...offers.whereType<Map>().map((x)=>Text('• ${(x['seller']??'Do‘kon')}: ${som(x['price_uzs'])}')),
+          const SizedBox(height:10),
+        ],
+        Text('Arzon → qimmat: ${som(r['low_uzs'])} — ${som(r['high_uzs'])}',style:const TextStyle(fontWeight:FontWeight.w700)),
+        Text('O‘rtacha O‘zbekiston narxi: ${som(r['average_uzs'])} ≈ ${money(r['average_book_krw'])}',style:const TextStyle(fontWeight:FontWeight.w700)),
+        const SizedBox(height:8),
+        Text(weight>0
+          ? 'Kitob og‘irligi: ${weight.toStringAsFixed(weight<1?3:2)} kg${basis=='estimated'?' (AI taxmini)':' (topilgan)'}'
+          : 'Kitob og‘irligi topilmadi'),
+        Text('Koreyaga transport: ${weight>0?money(r['shipping_krw']):'hisoblanmadi'}  (1 kg = ₩10,000)'),
+        const Divider(height:24),
+        if(min>0&&max>0)...[
+          const Text('Taxminiy Koreyaga tushish narxi',style:TextStyle(fontWeight:FontWeight.w800)),
+          const SizedBox(height:4),
+          Text('${money(min)} ~ ${money(max)}',style:const TextStyle(fontSize:24,fontWeight:FontWeight.w900,color:AppColors.navy)),
+          if(avg>0) Text('O‘rtacha: ${money(avg)}',style:const TextStyle(fontWeight:FontWeight.w800)),
+          const SizedBox(height:5),
+          const Text('Hisob: O‘zbekistondagi kitob narxi + og‘irlik × ₩10,000/kg. Natija yuqoriga ₩1,000 gacha yaxlitlanadi.',style:TextStyle(fontSize:12.5,color:AppColors.muted,height:1.35)),
+        ] else
+          const Text('Narx yoki og‘irlik yetarli topilmagani uchun yakuniy hisob chiqarilmadi.',style:TextStyle(fontWeight:FontWeight.w700)),
+        if((r['notes']??'').toString().trim().isNotEmpty)...[
+          const SizedBox(height:10),
+          Text('AI izohi: ${r['notes']}',style:const TextStyle(fontSize:12.5,color:AppColors.muted,height:1.35)),
+        ],
+      ]),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)=>ListView(
+    padding:const EdgeInsets.all(16),
+    children:[
+      const Text('Muhajeer Admin AI',style:TextStyle(fontSize:24,fontWeight:FontWeight.w900)),
+      const SizedBox(height:6),
+      const Text('Kitob narxini internetdan tekshirish — pulli AI. Savdo, ombor va buyurtma tahlillari esa ichki ma’lumotlardan ishlaydi.',style:TextStyle(color:AppColors.muted,height:1.4)),
+      const SizedBox(height:14),
+      AppSurface(
+        padding:const EdgeInsets.all(16),
+        child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          const Text('Kitob narxini AI bilan hisoblash',style:TextStyle(fontSize:18,fontWeight:FontWeight.w900)),
+          const SizedBox(height:5),
+          const Text('AI O‘zbekistondagi arzon va qimmat sotuv narxlarini, kitob og‘irligini va joriy so‘m → won kursini topadi. Koreyaga kelishi 1 kg uchun ₩10,000 hisoblanadi.',style:TextStyle(color:AppColors.muted,height:1.4)),
+          const SizedBox(height:12),
+          TextField(
+            controller:priceTitle,
+            textInputAction:TextInputAction.search,
+            onSubmitted:(_)=>researchPrice(),
+            decoration:const InputDecoration(
+              labelText:'Kitob nomi',
+              hintText:'Masalan: Baxtiyor oila',
+              prefixIcon:Icon(Icons.menu_book_rounded),
+            ),
+          ),
+          const SizedBox(height:10),
+          FilledButton.icon(
+            onPressed:priceLoading?null:researchPrice,
+            icon:priceLoading
+              ? const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2))
+              : const Icon(Icons.travel_explore_rounded),
+            label:Text(priceLoading?'Internetdan tekshirilmoqda...':'Narxni hisoblash'),
+          ),
+        ]),
+      ),
+      if(priceResult!=null)...[
+        const SizedBox(height:12),
+        priceResearchResult(priceResult!),
+      ],
+      const SizedBox(height:18),
+      const Text('Boshqa admin savollari',style:TextStyle(fontSize:18,fontWeight:FontWeight.w900)),
+      const SizedBox(height:8),
+      TextField(controller:q,minLines:2,maxLines:5,onSubmitted:(_)=>ask(),decoration:const InputDecoration(hintText:'Masalan: Qaysi kitoblarni qayta olib kelish kerak? Bu oy savdo holati qanday?')),
+      const SizedBox(height:10),
+      FilledButton.icon(onPressed:loading?null:ask,icon:loading?const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2)):const Icon(Icons.auto_awesome_rounded),label:Text(loading?'Tahlil qilmoqda...':'AI dan so‘rash')),
+      if(answer.isNotEmpty)...[
+        const SizedBox(height:16),
+        AppSurface(padding:const EdgeInsets.all(16),child:SelectableText(answer,style:const TextStyle(fontSize:15.5,height:1.55,fontWeight:FontWeight.w500))),
+      ],
+    ],
+  );
 }

@@ -19,6 +19,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'admin_session.dart';
 import 'app_state.dart';
 import 'brand.dart';
+import 'book_story_page.dart';
 import 'design_system.dart';
 import 'finance_admin.dart';
 import 'catalog_resume.dart';
@@ -208,6 +209,9 @@ class _AdminApi {
           'cost_price': book.costPrice,
           'recommended': book.recommended,
           'preorder_enabled': book.preorderEnabled,
+          'preorder_arrival_note': book.preorderArrivalNote,
+          'preorder_deposit_min': book.preorderDepositMin,
+          'preorder_deposit_max': book.preorderDepositMax,
         },
       },
     );
@@ -1628,6 +1632,41 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                       Icons.chevron_right_rounded,
                       color: AppColors.navy,
                     ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            InkWell(
+              borderRadius: BorderRadius.circular(AppRadii.large),
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => _PreorderAdminPage(api: widget.api)),
+                );
+                reload();
+              },
+              child: AppSurface(
+                backgroundColor: const Color(0xFFFFF4DF),
+                shadow: true,
+                child: const Row(
+                  children: [
+                    SizedBox(
+                      width: 50,
+                      height: 50,
+                      child: Icon(Icons.event_available_rounded, color: AppColors.navy, size: 29),
+                    ),
+                    SizedBox(width: 13),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Oldindan sotuvda', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                          SizedBox(height: 2),
+                          Text('Yangi kitoblar • oldindan buyurtmalar • Story', style: TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded, color: AppColors.navy),
                   ],
                 ),
               ),
@@ -3874,10 +3913,143 @@ class _MiniStat extends StatelessWidget {
   }
 }
 
+class _PreorderAdminPage extends StatefulWidget {
+  const _PreorderAdminPage({required this.api});
+  final _AdminApi api;
+  @override
+  State<_PreorderAdminPage> createState() => _PreorderAdminPageState();
+}
+
+class _PreorderAdminPageState extends State<_PreorderAdminPage> {
+  late Future<List<Object>> future;
+  @override
+  void initState() { super.initState(); future = _load(); }
+  Future<List<Object>> _load() async => <Object>[
+    await widget.api.books(),
+    await widget.api.merchandisingInsights(),
+  ];
+  void reload() => setState(() => future = _load());
+
+  Future<void> _edit([Book? book]) async {
+    final changed = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => _BookForm(api: widget.api, book: book, preorderMode: true)),
+    );
+    if (changed == true) reload();
+  }
+
+  Future<void> _openProof(String path) async {
+    try {
+      final url = await widget.api.paymentProofUrl(path);
+      final uri = Uri.tryParse(url);
+      if (uri == null || !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        throw StateError('Chek ochilmadi');
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Chekni ochishda xatolik: $e')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Oldindan sotuvda')),
+    floatingActionButton: FloatingActionButton.extended(
+      onPressed: () => _edit(),
+      icon: const Icon(Icons.add_rounded),
+      label: const Text('Yangi kitob'),
+    ),
+    body: FutureBuilder<List<Object>>(
+      future: future,
+      builder: (context, snap) {
+        if (!snap.hasData) {
+          if (snap.hasError) return Center(child: Text('Xatolik: ${snap.error}'));
+          return const Center(child: CircularProgressIndicator());
+        }
+        final books = (snap.data![0] as List<Book>).where((b) => b.preorderEnabled).toList();
+        final insight = Map<String,dynamic>.from(snap.data![1] as Map);
+        final requests = ((insight['preorders'] as List?) ?? const []).whereType<Map>().map((e)=>Map<String,dynamic>.from(e)).toList();
+        return RefreshIndicator(
+          onRefresh: () async { reload(); await future; },
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16,16,16,100),
+            children: [
+              AppSectionHeader(
+                title: 'Oldindan sotuvdagi kitoblar',
+                subtitle: 'Rasm, ma’lumot, kelish muddati va oldindan to‘lov',
+                icon: Icons.event_available_rounded,
+                trailing: AppInfoPill(icon: Icons.menu_book_rounded, label: '${books.length} ta'),
+              ),
+              const SizedBox(height: 12),
+              if (books.isEmpty)
+                const AppSurface(child: Text('Hozircha oldindan sotuvdagi kitob yo‘q. “Yangi kitob”ni bosing.'))
+              else
+                ...books.map((b) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: AppSurface(
+                    child: Row(
+                      children: [
+                        _BookThumb(book: b),
+                        const SizedBox(width: 12),
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(b.title, style: const TextStyle(fontSize:16,fontWeight:FontWeight.w900)),
+                          const SizedBox(height:4),
+                          Text(b.preorderArrivalNote.isEmpty ? 'Kelish muddati kiritilmagan' : 'Taxminiy kelishi: ${b.preorderArrivalNote}', style: const TextStyle(color:AppColors.muted)),
+                          Text('Oldindan to‘lov: ${_won(b.preorderDepositMin)} – ${_won(b.preorderDepositMax)}', style: const TextStyle(fontWeight:FontWeight.w700)),
+                        ])),
+                        PopupMenuButton<String>(
+                          onSelected: (v) {
+                            if (v=='edit') _edit(b);
+                            if (v=='story') Navigator.push(context, MaterialPageRoute(builder:(_)=>BookStoryPage(book:b)));
+                          },
+                          itemBuilder: (_) => const [
+                            PopupMenuItem(value:'edit', child:Text('Tahrirlash')),
+                            PopupMenuItem(value:'story', child:Text('Story / ulashish')),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                )),
+              const SizedBox(height: 20),
+              AppSectionHeader(
+                title: 'Oldindan buyurtmalar',
+                subtitle: 'Mijoz yuborgan oldindan to‘lovlar',
+                icon: Icons.receipt_long_rounded,
+                trailing: AppInfoPill(icon: Icons.people_alt_outlined, label: '${requests.length} ta'),
+              ),
+              const SizedBox(height: 10),
+              if (requests.isEmpty)
+                const AppSurface(child: Text('Hozircha oldindan buyurtma yo‘q.'))
+              else
+                ...requests.map((r) => Padding(
+                  padding: const EdgeInsets.only(bottom: 9),
+                  child: AppSurface(child: Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                    Text((r['title']??'Kitob').toString(),style:const TextStyle(fontWeight:FontWeight.w900)),
+                    const SizedBox(height:4),
+                    Text('${r['customer_name']??'Mijoz'} • ${r['phone']??''}'),
+                    Text('Oldindan to‘lov: ${_won((r['deposit_amount'] as num?)?.toInt()??0)}',style:const TextStyle(fontWeight:FontWeight.w800)),
+                    if ((r['note']??'').toString().trim().isNotEmpty) Text('Izoh: ${r['note']}'),
+                    if ((r['payment_proof_path']??'').toString().trim().isNotEmpty)
+                      Align(alignment:Alignment.centerLeft,child:TextButton.icon(
+                        onPressed:()=>_openProof(r['payment_proof_path'].toString()),
+                        icon:const Icon(Icons.receipt_outlined),
+                        label:const Text('To‘lov chekini ko‘rish'),
+                      )),
+                  ])),
+                )),
+            ],
+          ),
+        );
+      },
+    ),
+  );
+}
+
 class _BookForm extends StatefulWidget {
-  const _BookForm({required this.api, this.book});
+  const _BookForm({required this.api, this.book, this.preorderMode = false});
   final _AdminApi api;
   final Book? book;
+  final bool preorderMode;
 
   @override
   State<_BookForm> createState() => _BookFormState();
@@ -3895,6 +4067,9 @@ class _BookFormState extends State<_BookForm> {
   late final TextEditingController discount;
   late final TextEditingController image;
   late final TextEditingController cost;
+  late final TextEditingController preorderArrival;
+  late final TextEditingController preorderMin;
+  late final TextEditingController preorderMax;
   final picker = ImagePicker();
   String cover = 'Ko‘rsatilmagan';
   bool active = true;
@@ -3937,7 +4112,11 @@ class _BookFormState extends State<_BookForm> {
     cover = b?.coverType ?? 'Ko‘rsatilmagan';
     active = b?.isActive ?? true;
     recommended = b?.recommended ?? false;
-    preorderEnabled = b?.preorderEnabled ?? false;
+    preorderEnabled = widget.preorderMode || (b?.preorderEnabled ?? false);
+    preorderArrival = TextEditingController(text: b?.preorderArrivalNote ?? '');
+    preorderMin = TextEditingController(text: '${b?.preorderDepositMin ?? 5000}');
+    preorderMax = TextEditingController(text: '${b?.preorderDepositMax ?? 10000}');
+    if (widget.preorderMode && b == null) stock.text = '0';
     image.addListener(_imageChanged);
   }
 
@@ -3959,6 +4138,9 @@ class _BookFormState extends State<_BookForm> {
       discount,
       image,
       cost,
+      preorderArrival,
+      preorderMin,
+      preorderMax,
     ]) {
       c.dispose();
     }
@@ -4245,7 +4427,10 @@ class _BookFormState extends State<_BookForm> {
     final s = int.tryParse(stock.text.trim()) ?? -1;
     final d = int.tryParse(discount.text.trim()) ?? 0;
     final c = int.tryParse(cost.text.trim()) ?? 0;
-    if (p < 0 || s < 0 || d < 0 || d > 99 || c < 0) {
+    final preorderMinValue = int.tryParse(preorderMin.text.trim()) ?? 5000;
+    final preorderMaxValue = int.tryParse(preorderMax.text.trim()) ?? 10000;
+    if (p < 0 || s < 0 || d < 0 || d > 99 || c < 0 ||
+        (preorderEnabled && (preorderMinValue < 0 || preorderMaxValue < preorderMinValue))) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Narx, ombor yoki chegirma qiymatini tekshiring.'),
@@ -4289,6 +4474,9 @@ class _BookFormState extends State<_BookForm> {
           costPrice: c,
           recommended: recommended,
           preorderEnabled: preorderEnabled,
+          preorderArrivalNote: preorderArrival.text.trim(),
+          preorderDepositMin: preorderMinValue,
+          preorderDepositMax: preorderMaxValue,
           createdAt: widget.book?.createdAt,
         ),
       );
@@ -4308,7 +4496,9 @@ class _BookFormState extends State<_BookForm> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          widget.book == null ? 'Kitob qo‘shish' : 'Kitobni tahrirlash',
+          widget.preorderMode
+              ? (widget.book == null ? 'Oldindan sotuvga kitob qo‘shish' : 'Oldindan sotuvni tahrirlash')
+              : (widget.book == null ? 'Kitob qo‘shish' : 'Kitobni tahrirlash'),
         ),
       ),
       body: Form(
@@ -4537,13 +4727,26 @@ class _BookFormState extends State<_BookForm> {
             ),
             SwitchListTile(
               value: preorderEnabled,
-              onChanged: (v) => setState(() => preorderEnabled = v),
-              title: const Text('Pre-order ochiq'),
-              subtitle: const Text(
-                'Omborda tugaganda mijoz oldindan so‘rov qoldira oladi.',
-              ),
+              onChanged: widget.preorderMode ? null : (v) => setState(() => preorderEnabled = v),
+              title: const Text('Oldindan sotuv ochiq'),
+              subtitle: const Text('Mijoz kitob kelishidan oldin band qilib, oldindan to‘lov yubora oladi.'),
               contentPadding: EdgeInsets.zero,
             ),
+            if (preorderEnabled) ...[
+              const SizedBox(height: 6),
+              field(preorderArrival, 'Taxminiy kelish muddati', required: true),
+              Row(
+                children: [
+                  Expanded(child: field(preorderMin, 'Oldindan to‘lov min (₩)', number: true, required: true)),
+                  const SizedBox(width: 10),
+                  Expanded(child: field(preorderMax, 'Oldindan to‘lov max (₩)', number: true, required: true)),
+                ],
+              ),
+              const Text(
+                'Mijozga “oldindan to‘lov” deb ko‘rsatiladi. Tavsiya: ₩5,000–₩10,000.',
+                style: TextStyle(fontSize: 11.5, color: AppColors.muted),
+              ),
+            ],
             const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: saving || uploadingImage ? null : save,

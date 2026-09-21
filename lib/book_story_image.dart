@@ -142,7 +142,7 @@ String _storyDescription(Book book) {
         : 'taxminiy kelishi: ${book.preorderArrivalNote.trim()}';
     final min = NumberFormat('#,###').format(book.preorderDepositMin);
     final max = NumberFormat('#,###').format(book.preorderDepositMax);
-    final base = 'Oldindan sotuvda • $arrival • oldindan to‘lov ₩$min–₩$max • yakuniy narx kitob kelganda aniq bo‘ladi.';
+    final base = 'OLDINDAN BUYURTMA • $arrival • oldindan to‘lov ₩$min–₩$max • yakuniy narx kitob kelganda aniq bo‘ladi.';
     if (value.isEmpty || value == 'Ma’lumot kiritilmagan.') return base;
     return '$base $value';
   }

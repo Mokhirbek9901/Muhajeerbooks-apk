@@ -3055,6 +3055,99 @@ class _CatalogGroupEditorPageState extends State<_CatalogGroupEditorPage>{
   }
 }
 
+
+class _BulkAiBookEditorPage extends StatefulWidget {
+  const _BulkAiBookEditorPage({required this.api, required this.books});
+  final _AdminApi api; final List<Book> books;
+  @override State<_BulkAiBookEditorPage> createState()=>_BulkAiBookEditorPageState();
+}
+class _BulkAiBookEditorPageState extends State<_BulkAiBookEditorPage> {
+  final selectedBooks=<String>{}; final fields=<String>{};
+  final proposals=<String,Map<String,dynamic>>{}; final search=TextEditingController();
+  bool researching=false,saving=false; int done=0,total=0;
+  static const fieldItems=<({String key,String label,IconData icon})>[
+    (key:'title',label:'Kitob nomi',icon:Icons.menu_book_rounded),
+    (key:'author',label:'Yozuvchi',icon:Icons.person_rounded),
+    (key:'publisher',label:'Nashriyot',icon:Icons.apartment_rounded),
+    (key:'category',label:'Kategoriya',icon:Icons.category_rounded),
+    (key:'description',label:'Tavsif',icon:Icons.notes_rounded),
+  ];
+  @override void initState(){super.initState();selectedBooks.addAll(widget.books.map((b)=>b.id));search.addListener(_refresh);}
+  void _refresh(){if(mounted)setState((){});}
+  @override void dispose(){search.removeListener(_refresh);search.dispose();super.dispose();}
+  List<Book> get visible {final q=search.text.trim().toLowerCase();return widget.books.where((b)=>q.isEmpty||b.title.toLowerCase().contains(q)||b.author.toLowerCase().contains(q)).toList();}
+
+  Future<void> research() async {
+    if(researching||fields.isEmpty||selectedBooks.isEmpty){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Avval kamida bitta maydon va bitta kitobni + bilan tanlang.')));return;}
+    final chosen=widget.books.where((b)=>selectedBooks.contains(b.id)).toList();
+    setState((){researching=true;done=0;total=chosen.length;proposals.clear();});
+    try{
+      for(var i=0;i<chosen.length;i+=12){
+        final end=(i+12<chosen.length)?i+12:chosen.length;
+        final result=await widget.api.researchBooksBulk(chosen.sublist(i,end));
+        for(final row in result){final id=(row['id']??'').toString();if(id.isNotEmpty)proposals[id]=row;}
+        if(mounted)setState(()=>done=end);
+      }
+      if(!mounted)return;
+      final ok=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
+        title:const Text('AI ma’lumotlarni tayyorladi'),
+        content:Text('${proposals.length} ta kitob uchun ma’lumot topildi. Faqat + bilan tanlangan maydonlar o‘zgaradi. Tanlanmagan maydonlar va AI topa olmagan qiymatlar aslicha qoladi.'),
+        actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Hozircha saqlamaslik')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Hammasini saqlash'))],
+      ));
+      if(ok==true)await saveAll();
+    }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('AI qidiruvda xatolik: $e')));}
+    finally{if(mounted)setState(()=>researching=false);}
+  }
+  String pick(Map<String,dynamic> p,String key,String old){if(!fields.contains(key))return old;final v=(p[key]??'').toString().trim();return v.isEmpty?old:v;}
+  Future<void> saveAll() async {
+    if(saving)return;setState(()=>saving=true);var saved=0;
+    try{
+      for(final b in widget.books){
+        if(!selectedBooks.contains(b.id))continue;final p=proposals[b.id];if(p==null)continue;
+        final updated=b.copyWith(title:pick(p,'title',b.title),author:pick(p,'author',b.author),publisher:pick(p,'publisher',b.publisher),category:pick(p,'category',b.category),description:pick(p,'description',b.description));
+        await widget.api.saveBook(updated);saved++;
+      }
+      if(!mounted)return;ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('$saved ta kitob yangilandi.')));Navigator.pop(context,true);
+    }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Saqlashda xatolik: $e')));}
+    finally{if(mounted)setState(()=>saving=false);}
+  }
+  Widget fieldChip(({String key,String label,IconData icon}) item){final on=fields.contains(item.key);return FilterChip(selected:on,avatar:Icon(on?Icons.check_rounded:Icons.add_rounded,size:18),label:Text(item.label),onSelected:researching||saving?null:(v)=>setState((){if(v)fields.add(item.key);else fields.remove(item.key);}));}
+  @override Widget build(BuildContext context){
+    final list=visible;
+    return Scaffold(
+      appBar:AppBar(title:const Text('AI bilan ommaviy tahrirlash')),
+      body:Column(children:[
+        Padding(padding:const EdgeInsets.fromLTRB(16,14,16,10),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          const Text('Qaysi ma’lumotlar o‘zgarsin?',style:TextStyle(fontSize:17,fontWeight:FontWeight.w900)),
+          const SizedBox(height:5),const Text('+ bilan tanlangan maydonlargina AI topgan ma’lumot bilan yangilanadi. Qolganlari aslicha qoladi.',style:TextStyle(color:AppColors.muted,height:1.35)),
+          const SizedBox(height:10),Wrap(spacing:8,runSpacing:8,children:fieldItems.map(fieldChip).toList()),
+          const SizedBox(height:12),TextField(controller:search,decoration:const InputDecoration(hintText:'Kitob yoki muallif...',prefixIcon:Icon(Icons.search_rounded))),
+          const SizedBox(height:8),Row(children:[
+            Text('${selectedBooks.length} / ${widget.books.length} ta tanlangan',style:const TextStyle(fontWeight:FontWeight.w800)),const Spacer(),
+            TextButton(onPressed:researching||saving?null:()=>setState(()=>selectedBooks.addAll(list.map((b)=>b.id))),child:const Text('Barchasini +')),
+            TextButton(onPressed:researching||saving?null:()=>setState(()=>selectedBooks.clear()),child:const Text('Tozalash')),
+          ]),
+          if(researching)...[const SizedBox(height:4),LinearProgressIndicator(value:total==0?null:done/total),const SizedBox(height:5),Text('AI tekshirmoqda: $done / $total',style:const TextStyle(fontWeight:FontWeight.w700,color:AppColors.muted))],
+        ])),
+        const Divider(height:1),
+        Expanded(child:ListView.builder(itemCount:list.length,itemBuilder:(context,i){
+          final b=list[i],on=selectedBooks.contains(b.id),p=proposals[b.id];
+          return ListTile(leading:_AdminBookThumb(url:b.previewImageUrl),title:Text(b.title,style:const TextStyle(fontWeight:FontWeight.w800)),
+            subtitle:Text(p==null?b.author:'AI ma’lumoti tayyor • ${b.author}'),
+            trailing:IconButton(tooltip:on?'Tanlangan':'Tanlash',onPressed:researching||saving?null:()=>setState((){if(on)selectedBooks.remove(b.id);else selectedBooks.add(b.id);}),icon:Icon(on?Icons.check_circle_rounded:Icons.add_circle_outline_rounded,color:on?AppColors.success:AppColors.navy)),
+            onTap:researching||saving?null:()=>setState((){if(on)selectedBooks.remove(b.id);else selectedBooks.add(b.id);}));
+        })),
+      ]),
+      bottomNavigationBar:SafeArea(minimum:const EdgeInsets.all(16),child:FilledButton.icon(
+        onPressed:researching||saving?null:research,
+        icon:researching||saving?const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2)):const Icon(Icons.auto_awesome_rounded),
+        label:Text(researching?'AI tekshirmoqda $done/$total':saving?'Saqlanmoqda...':'AI bilan bir martada to‘ldirish'),
+      )),
+    );
+  }
+}
+
+
 class _BooksAdmin extends StatefulWidget {
   const _BooksAdmin({super.key, required this.api});
   final _AdminApi api;

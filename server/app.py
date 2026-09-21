@@ -252,8 +252,25 @@ def ai_assistant():
     """Always-free customer assistant. No OpenAI/API-credit call is made here."""
     body=request.get_json(silent=True) or {}
     query=str(body.get("query","")).strip()[:1000]
+    mode=str(body.get("mode","advisor")).strip().lower()
+    history=body.get("history") if isinstance(body.get("history"),list) else []
     q=_free_norm(query)
     books=_free_catalog(body)
+
+    # Natural follow-up such as "yana", "boshqasi-chi?" reuses the previous
+    # customer request without any paid language model.
+    followup_words=("yana","boshqasi","boshqa variant","yana tavsiya","yana bormi")
+    if any(x in q for x in followup_words):
+      previous=""
+      for item in reversed(history[-10:]):
+        if isinstance(item,dict) and str(item.get("role",""))=="user":
+          candidate=str(item.get("text","")).strip()
+          if candidate and _free_norm(candidate)!=q:
+            previous=candidate
+            break
+      if previous:
+        query=previous+" boshqa variant"
+        q=_free_norm(query)
 
     private_words=("tannarx","ulgurji","wholesale","supplier","yetkazib beruvchi narx","marja","margin",
                    "foyda","profit","admin","parol","password","token","mijoz malumot","buyurtma malumot")
@@ -277,6 +294,17 @@ def ai_assistant():
       if any(x in q for x in ("qachon","necha kun","necha kunda","qancha vaqt","yetib")):
         return jsonify(text="Buyurtma pochtaga topshirilgandan keyin odatda 1–3 ish kunida yetkaziladi.")
       return jsonify(text="Koreya bo‘ylab 택배 ₩4,000. 4 ta yoki undan ko‘p mahsulotda odatda yetkazib berish bepul. Set 1 ta mahsulot hisoblanadi; chegirma yoki pochta kiritilgan setlarda ilovada ko‘rsatilgan joriy shart amal qiladi.")
+
+    if mode=="marketing":
+      rows=_free_rank_books(query,books,available_only=True)
+      if not rows: rows=_free_recommendations(query,books)
+      if rows:
+        x=rows[0]
+        desc=x["description"].strip()
+        if len(desc)>180: desc=desc[:177].rstrip()+"…"
+        body_text=(desc+"\n\n") if desc else ""
+        return jsonify(text=f"📚 {x['title']}\n{body_text}💰 ₩{x['price']:,}\n📦 Omborda {x['stock']} dona\n\nBuyurtma uchun Muhajeer Books ilovasidan foydalaning.")
+      return jsonify(text="Reklama matni tayyorlash uchun katalogdagi kitob nomini yozing.")
 
     recommendation_words=("tavsiya","maslahat","nima oq","nima o'q","qanday kitob",
                           "qiziqarli","oqishga","o'qishga","arzon","tanlab ber","mos kitob")

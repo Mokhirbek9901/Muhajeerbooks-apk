@@ -523,6 +523,13 @@ class _AdminApi {
     return data;
   }
 
+  Future<List<Map<String,dynamic>>> pushHistory() async {
+    final raw=await _rpc('admin_push_history',params:{'p_secret':secret,'p_limit':50});
+    return ((raw as List?)??const [])
+      .map((e)=>Map<String,dynamic>.from(e as Map))
+      .toList();
+  }
+
   Future<List<ShopOrder>> orders() async {
     final data = await _rpc(
       'admin_list_orders',
@@ -1558,9 +1565,28 @@ class _PushNotificationAdminState extends State<_PushNotificationAdmin> {
   final title=TextEditingController(text:'Muhajeer Books');
   final message=TextEditingController();
   bool sending=false;
+  bool loadingHistory=true;
+  List<Map<String,dynamic>> history=[];
+
+  @override
+  void initState(){super.initState();_loadHistory();}
 
   @override
   void dispose(){title.dispose();message.dispose();super.dispose();}
+
+  Future<void> _loadHistory() async {
+    try{
+      final rows=await widget.api.pushHistory();
+      if(mounted)setState((){history=rows;loadingHistory=false;});
+    }catch(_){if(mounted)setState(()=>loadingHistory=false);}
+  }
+
+  String _date(dynamic raw){
+    final d=DateTime.tryParse(raw?.toString()??'')?.toLocal();
+    if(d==null)return '';
+    String two(int v)=>v.toString().padLeft(2,'0');
+    return '${d.year}.${two(d.month)}.${two(d.day)} ${two(d.hour)}:${two(d.minute)}';
+  }
 
   Future<void> _send() async {
     final cleanTitle=title.text.trim();
@@ -1596,12 +1622,30 @@ class _PushNotificationAdminState extends State<_PushNotificationAdmin> {
           : 'Yuborildi: $success ta${failure>0 ? ' · yetmadi: $failure ta' : ''} ✅')),
       );
       if(success>0)message.clear();
+      await _loadHistory();
     }catch(e){
       if(mounted)ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content:Text('Yuborishda xatolik: ${e.toString().replaceFirst('StateError: ', '')}')),
       );
     }finally{if(mounted)setState(()=>sending=false);}
   }
+
+  Widget _stat(IconData icon,String label,int value)=>Expanded(
+    child:Container(
+      padding:const EdgeInsets.symmetric(vertical:12,horizontal:8),
+      decoration:BoxDecoration(
+        color:AppColors.surface,
+        borderRadius:BorderRadius.circular(14),
+        border:Border.all(color:AppColors.border),
+      ),
+      child:Column(children:[
+        Icon(icon,size:20,color:AppColors.primary),
+        const SizedBox(height:5),
+        Text(value.toString(),style:const TextStyle(fontSize:18,fontWeight:FontWeight.w900)),
+        Text(label,textAlign:TextAlign.center,style:const TextStyle(fontSize:10.5,color:AppColors.muted,fontWeight:FontWeight.w700)),
+      ]),
+    ),
+  );
 
   @override
   Widget build(BuildContext context)=>ListView(
@@ -1628,10 +1672,7 @@ class _PushNotificationAdminState extends State<_PushNotificationAdmin> {
             TextField(
               controller:title,
               maxLength:120,
-              decoration:const InputDecoration(
-                labelText:'Sarlavha',
-                hintText:'Masalan: Yangi kitoblar keldi',
-              ),
+              decoration:const InputDecoration(labelText:'Sarlavha',hintText:'Masalan: Yangi kitoblar keldi'),
             ),
             const SizedBox(height:10),
             TextField(
@@ -1639,10 +1680,7 @@ class _PushNotificationAdminState extends State<_PushNotificationAdmin> {
               maxLength:1000,
               minLines:4,
               maxLines:8,
-              decoration:const InputDecoration(
-                labelText:'Xabar matni',
-                hintText:'Mijoz telefonida chiqadigan xabar...',
-              ),
+              decoration:const InputDecoration(labelText:'Xabar matni',hintText:'Mijoz telefonida chiqadigan xabar...'),
             ),
             const SizedBox(height:14),
             SizedBox(
@@ -1657,6 +1695,49 @@ class _PushNotificationAdminState extends State<_PushNotificationAdmin> {
             ),
           ],
         ),
+      ),
+      const SizedBox(height:18),
+      Row(children:[
+        const Expanded(child:Text('Yuborilgan xabarnomalar',style:TextStyle(fontSize:17,fontWeight:FontWeight.w900))),
+        IconButton(onPressed:_loadHistory,tooltip:'Yangilash',icon:const Icon(Icons.refresh_rounded)),
+      ]),
+      const SizedBox(height:8),
+      if(loadingHistory)
+        const Center(child:Padding(padding:EdgeInsets.all(18),child:CircularProgressIndicator()))
+      else if(history.isEmpty)
+        const AppSurface(child:Text('Hali xabarnoma yuborilmagan.',style:TextStyle(color:AppColors.muted)))
+      else
+        ...history.map((row){
+          final total=(row['total_count'] as num?)?.toInt()??0;
+          final sent=(row['success_count'] as num?)?.toInt()??0;
+          final opened=(row['open_count'] as num?)?.toInt()??0;
+          return Padding(
+            padding:const EdgeInsets.only(bottom:10),
+            child:AppSurface(
+              child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                  Expanded(child:Text((row['title']??'Muhajeer Books').toString(),style:const TextStyle(fontWeight:FontWeight.w900,fontSize:15.5))),
+                  const SizedBox(width:8),
+                  Text(_date(row['sent_at']),style:const TextStyle(fontSize:11,color:AppColors.muted,fontWeight:FontWeight.w700)),
+                ]),
+                const SizedBox(height:5),
+                Text((row['body']??'').toString(),style:const TextStyle(height:1.35)),
+                const SizedBox(height:12),
+                Row(children:[
+                  _stat(Icons.people_alt_outlined,'Nishon',total),
+                  const SizedBox(width:7),
+                  _stat(Icons.send_rounded,'Yuborildi',sent),
+                  const SizedBox(width:7),
+                  _stat(Icons.touch_app_rounded,'Ochdi',opened),
+                ]),
+              ]),
+            ),
+          );
+        }),
+      const SizedBox(height:10),
+      const Text(
+        '“Yuborildi” — push xizmati xabarni qabul qilgan qurilmalar soni. “Ochdi” — bildirishnomani bosib ilovani ochgan noyob qurilmalar soni.',
+        style:TextStyle(fontSize:11.5,color:AppColors.muted,height:1.4),
       ),
     ],
   );

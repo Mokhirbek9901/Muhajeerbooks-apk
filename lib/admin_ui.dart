@@ -6748,6 +6748,21 @@ class _DiscountAdminState extends State<_DiscountAdmin> {
                         )
                         .toList(),
                   ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _pickYearMonth(all),
+                      icon: const Icon(Icons.date_range_rounded),
+                      label: Text(
+                        period == 'custom' && selectedYear != null
+                            ? selectedMonth == null
+                                ? 'Sana filtri: $selectedYear-yil'
+                                : 'Sana filtri: $selectedYear / ${_monthNames[selectedMonth! - 1]}'
+                            : 'Sana filtri — yil / oy tanlash',
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: percent,
@@ -6962,6 +6977,135 @@ class _SalesAdminState extends State<_SalesAdmin> {
   String query = '';
   String source = 'all';
   String period = 'all';
+  int? selectedYear;
+  int? selectedMonth;
+
+  static const _monthNames = <String>[
+    'Yanvar',
+    'Fevral',
+    'Mart',
+    'Aprel',
+    'May',
+    'Iyun',
+    'Iyul',
+    'Avgust',
+    'Sentabr',
+    'Oktabr',
+    'Noyabr',
+    'Dekabr',
+  ];
+
+  Future<void> _pickYearMonth(List<Map<String, dynamic>> all) async {
+    final years = all
+        .map(_soldAt)
+        .whereType<DateTime>()
+        .map((d) => d.year)
+        .toSet()
+        .toList()
+      ..sort((a, b) => b.compareTo(a));
+    if (years.isEmpty) return;
+
+    var year = selectedYear ?? years.first;
+    var month = selectedMonth;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Sana bo‘yicha filtrlash',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.navy,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<int>(
+                  value: year,
+                  decoration: const InputDecoration(
+                    labelText: 'Yil',
+                    prefixIcon: Icon(Icons.calendar_today_rounded),
+                  ),
+                  items: [
+                    for (final value in years)
+                      DropdownMenuItem(
+                        value: value,
+                        child: Text('$value-yil'),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setSheetState(() => year = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<int?>(
+                  value: month,
+                  decoration: const InputDecoration(
+                    labelText: 'Oy',
+                    prefixIcon: Icon(Icons.calendar_month_rounded),
+                  ),
+                  items: [
+                    const DropdownMenuItem<int?>(
+                      value: null,
+                      child: Text('Butun yil'),
+                    ),
+                    for (var i = 0; i < _monthNames.length; i++)
+                      DropdownMenuItem<int?>(
+                        value: i + 1,
+                        child: Text(_monthNames[i]),
+                      ),
+                  ],
+                  onChanged: (value) => setSheetState(() => month = value),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          setState(() {
+                            selectedYear = null;
+                            selectedMonth = null;
+                            period = 'all';
+                          });
+                          Navigator.pop(sheetContext);
+                        },
+                        child: const Text('Tozalash'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () {
+                          setState(() {
+                            selectedYear = year;
+                            selectedMonth = month;
+                            period = 'custom';
+                          });
+                          Navigator.pop(sheetContext);
+                        },
+                        child: const Text('Ko‘rsatish'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -7093,6 +7237,10 @@ class _SalesAdminState extends State<_SalesAdmin> {
                   dt.month == previousMonth.month;
             case 'previous_year':
               return dt.year == now.year - 1;
+            case 'custom':
+              if (selectedYear == null) return true;
+              if (dt.year != selectedYear) return false;
+              return selectedMonth == null || dt.month == selectedMonth;
             default:
               return true;
           }

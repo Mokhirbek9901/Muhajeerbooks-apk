@@ -1143,7 +1143,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
     'Sotilgan kitoblar',
     'Mijozlar',
     'Moliya',
-    'Muhim xabar',
     'Admin AI',
   ];
   static const icons = [
@@ -1154,7 +1153,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
     Icons.sell_rounded,
     Icons.people_alt_rounded,
     Icons.account_balance_wallet_rounded,
-    Icons.campaign_rounded,
     Icons.auto_awesome_rounded,
   ];
 
@@ -1285,8 +1283,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
       _loadedTabs.contains(6)
           ? FinanceAdminPage(secret: widget.secret)
           : const SizedBox.shrink(),
-      _loadedTabs.contains(7) ? _EmergencyNoticeAdmin(api: api) : const SizedBox.shrink(),
-      _loadedTabs.contains(8) ? _AdminAiPage(api: api) : const SizedBox.shrink(),
+      _loadedTabs.contains(7) ? _AdminAiPage(api: api) : const SizedBox.shrink(),
     ];
     const railDestinations = [
       NavigationRailDestination(
@@ -1323,11 +1320,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
         icon: Icon(Icons.account_balance_wallet_outlined),
         selectedIcon: Icon(Icons.account_balance_wallet_rounded),
         label: Text('Moliya'),
-      ),
-      NavigationRailDestination(
-        icon: Icon(Icons.campaign_outlined),
-        selectedIcon: Icon(Icons.campaign_rounded),
-        label: Text('Muhim xabar'),
       ),
       NavigationRailDestination(
         icon: Icon(Icons.auto_awesome_outlined),

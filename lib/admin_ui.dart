@@ -7347,6 +7347,36 @@ class _SalesAdminState extends State<_SalesAdmin> {
                     ),
                   ),
                   const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _pickYearMonth(all),
+                          icon: const Icon(Icons.filter_alt_rounded),
+                          label: Text(
+                            selectedYear == null
+                                ? 'Sana filtri'
+                                : selectedMonth == null
+                                    ? '${selectedYear!}-yil'
+                                    : '${_monthNames[selectedMonth! - 1]} ${selectedYear!}',
+                          ),
+                        ),
+                      ),
+                      if (period == 'custom') ...[
+                        const SizedBox(width: 8),
+                        IconButton.filledTonal(
+                          tooltip: 'Sana filtrini tozalash',
+                          onPressed: () => setState(() {
+                            selectedYear = null;
+                            selectedMonth = null;
+                            period = 'all';
+                          }),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 10),
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
@@ -7356,6 +7386,7 @@ class _SalesAdminState extends State<_SalesAdmin> {
                           ('app', 'Ilova'),
                           ('telegram', 'Telegram'),
                           ('instagram', 'Instagram'),
+                          ('legacy', 'Eski sotuvlar'),
                         ]) ...[
                           ChoiceChip(
                             label: Text(item.$2),

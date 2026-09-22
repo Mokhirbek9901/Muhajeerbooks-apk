@@ -506,6 +506,23 @@ class _AdminApi {
     });
   }
 
+  Future<Map<String,dynamic>> sendPushNotification({
+    required String title,
+    required String message,
+  }) async {
+    final response=await http.post(
+      _serverUri('/api/push/send'),
+      headers:{'Content-Type':'application/json'},
+      body:jsonEncode({'admin_code':secret,'title':title,'message':message}),
+    ).timeout(const Duration(seconds:120));
+    final raw=jsonDecode(response.body);
+    final data=raw is Map ? Map<String,dynamic>.from(raw) : <String,dynamic>{};
+    if(response.statusCode!=200 || data['ok']!=true) {
+      throw StateError((data['error']??'Xabarnoma yuborilmadi.').toString());
+    }
+    return data;
+  }
+
   Future<List<ShopOrder>> orders() async {
     final data = await _rpc(
       'admin_list_orders',
@@ -1529,6 +1546,122 @@ class _EmergencyNoticeAdminState extends State<_EmergencyNoticeAdmin> {
   }
 }
 
+class _PushNotificationAdmin extends StatefulWidget {
+  const _PushNotificationAdmin({required this.api});
+  final _AdminApi api;
+
+  @override
+  State<_PushNotificationAdmin> createState()=>_PushNotificationAdminState();
+}
+
+class _PushNotificationAdminState extends State<_PushNotificationAdmin> {
+  final title=TextEditingController(text:'Muhajeer Books');
+  final message=TextEditingController();
+  bool sending=false;
+
+  @override
+  void dispose(){title.dispose();message.dispose();super.dispose();}
+
+  Future<void> _send() async {
+    final cleanTitle=title.text.trim();
+    final cleanMessage=message.text.trim();
+    if(cleanTitle.isEmpty || cleanMessage.isEmpty){
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content:Text('Sarlavha va xabar matnini yozing.')),
+      );
+      return;
+    }
+    final confirmed=await showDialog<bool>(
+      context:context,
+      builder:(dialogContext)=>AlertDialog(
+        title:const Text('Xabarnomani yuborish'),
+        content:Text('“$cleanTitle” xabarnomasi bildirishnomani yoqqan mijozlarga yuborilsinmi?'),
+        actions:[
+          TextButton(onPressed:()=>Navigator.pop(dialogContext,false),child:const Text('Bekor qilish')),
+          FilledButton(onPressed:()=>Navigator.pop(dialogContext,true),child:const Text('Yuborish')),
+        ],
+      ),
+    );
+    if(confirmed!=true || !mounted)return;
+    setState(()=>sending=true);
+    try{
+      final result=await widget.api.sendPushNotification(title:cleanTitle,message:cleanMessage);
+      if(!mounted)return;
+      final success=(result['success'] as num?)?.toInt()??0;
+      final failure=(result['failure'] as num?)?.toInt()??0;
+      final total=(result['total'] as num?)?.toInt()??0;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text(total==0
+          ? 'Hozircha bildirishnomani yoqqan mijoz yo‘q.'
+          : 'Yuborildi: $success ta${failure>0 ? ' · yetmadi: $failure ta' : ''} ✅')),
+      );
+      if(success>0)message.clear();
+    }catch(e){
+      if(mounted)ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text('Yuborishda xatolik: ${e.toString().replaceFirst('StateError: ', '')}')),
+      );
+    }finally{if(mounted)setState(()=>sending=false);}
+  }
+
+  @override
+  Widget build(BuildContext context)=>ListView(
+    padding:const EdgeInsets.all(18),
+    children:[
+      const AppPageHeading(
+        title:'Xabarnoma yuborish',
+        subtitle:'Ilova yopiq yoki fonda bo‘lsa ham, bildirishnomani yoqqan mijozlarga push xabar yuboring.',
+      ),
+      const SizedBox(height:16),
+      AppSurface(
+        shadow:true,
+        child:Column(
+          crossAxisAlignment:CrossAxisAlignment.start,
+          children:[
+            const AppInfoPill(
+              icon:Icons.notifications_active_rounded,
+              label:'Telefon bildirishnomasi',
+              foreground:AppColors.success,
+              background:AppColors.successSoft,
+              border:Color(0xFFCDEAD7),
+            ),
+            const SizedBox(height:14),
+            TextField(
+              controller:title,
+              maxLength:120,
+              decoration:const InputDecoration(
+                labelText:'Sarlavha',
+                hintText:'Masalan: Yangi kitoblar keldi',
+              ),
+            ),
+            const SizedBox(height:10),
+            TextField(
+              controller:message,
+              maxLength:1000,
+              minLines:4,
+              maxLines:8,
+              decoration:const InputDecoration(
+                labelText:'Xabar matni',
+                hintText:'Mijoz telefonida chiqadigan xabar...',
+              ),
+            ),
+            const SizedBox(height:14),
+            SizedBox(
+              width:double.infinity,
+              child:FilledButton.icon(
+                onPressed:sending?null:_send,
+                icon:sending
+                  ? const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2,color:Colors.white))
+                  : const Icon(Icons.send_rounded),
+                label:Text(sending?'Yuborilmoqda...':'Xabarnomani yuborish'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
 class _OverviewData {
   const _OverviewData(this.books, this.orders);
   final List<Book> books;
@@ -1722,6 +1855,45 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                       ),
                     ),
                     Icon(Icons.chevron_right_rounded, color: AppColors.danger),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            InkWell(
+              borderRadius: BorderRadius.circular(AppRadii.large),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => Scaffold(
+                      appBar: AppBar(title: const Text('Xabarnoma yuborish')),
+                      body: _PushNotificationAdmin(api: widget.api),
+                    ),
+                  ),
+                );
+              },
+              child: AppSurface(
+                backgroundColor: AppColors.successSoft,
+                shadow: true,
+                child: const Row(
+                  children: [
+                    SizedBox(
+                      width: 50,
+                      height: 50,
+                      child: Icon(Icons.notifications_active_rounded, color: AppColors.success, size: 29),
+                    ),
+                    SizedBox(width: 13),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Xabarnoma yuborish', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                          SizedBox(height: 2),
+                          Text('Ilova yopiq bo‘lsa ham mijoz telefoniga push bildirishnoma yuborish', style: TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded, color: AppColors.success),
                   ],
                 ),
               ),

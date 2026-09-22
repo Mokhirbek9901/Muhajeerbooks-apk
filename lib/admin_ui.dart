@@ -7244,6 +7244,15 @@ class _SalesAdminState extends State<_SalesAdmin> {
           }
         }
 
+        final customPeriodCount = selectedYear == null
+            ? 0
+            : all.where((row) {
+                final dt = _soldAt(row);
+                return dt != null &&
+                    dt.year == selectedYear &&
+                    (selectedMonth == null || dt.month == selectedMonth);
+              }).length;
+
         final q = query.trim().toLowerCase();
         final filtered = all.where((row) {
           final rowSource = (row['source'] ?? 'app').toString();
@@ -7355,8 +7364,8 @@ class _SalesAdminState extends State<_SalesAdmin> {
                             selectedYear == null
                                 ? 'Sana filtri'
                                 : selectedMonth == null
-                                    ? '${selectedYear!}-yil'
-                                    : '${_monthNames[selectedMonth! - 1]} ${selectedYear!}',
+                                    ? '${selectedYear!}-yil · $customPeriodCount ta'
+                                    : '${_monthNames[selectedMonth! - 1]} ${selectedYear!} · $customPeriodCount ta',
                           ),
                         ),
                       ),

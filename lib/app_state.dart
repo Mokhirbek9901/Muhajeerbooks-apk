@@ -624,6 +624,18 @@ class BackendService {
         .toList();
   }
 
+  Future<List<Map<String, dynamic>>> fetchPushMessages({int limit = 50}) async {
+    final raw = await _customerRpc(
+      'customer_push_history',
+      {'p_limit': limit.clamp(1, 100)},
+    );
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+
   Future<Map<String, dynamic>> submitPreorder(
     String installId,
     String bookId,
@@ -981,7 +993,7 @@ class _LocalStore {
       (await _prefs).setString(_catalogCursorKey, value);
 }
 
-class AppState extends ChangeNotifier {
+class AppState extends ChangeNotifier with WidgetsBindingObserver {
   AppState({required this.backendConfigured});
 
   static const int telegramSeedVersion = 3;
@@ -1059,6 +1071,8 @@ class AppState extends ChangeNotifier {
   Timer? _discountExpiryTimer;
   bool _orderStatusRefreshing = false;
   bool _restockRefreshing = false;
+  bool _pushMessagesRefreshing = false;
+  bool _lifecycleObserverRegistered = false;
 
   List<Map<String, dynamic>> get customerNotices =>
       List.unmodifiable(_customerNotices);
@@ -1098,6 +1112,10 @@ class AppState extends ChangeNotifier {
       isOnlineBackend ? 'Onlayn baza' : 'Qurilmada saqlanadi';
 
   Future<void> initialize() async {
+    if (!_lifecycleObserverRegistered) {
+      WidgetsBinding.instance.addObserver(this);
+      _lifecycleObserverRegistered = true;
+    }
     if (backendConfigured) {
       _backend = BackendService(Supabase.instance.client);
     }
@@ -1197,6 +1215,7 @@ class AppState extends ChangeNotifier {
     unawaited(_refreshBooksQuietly());
     _startLiveBooksSync();
     unawaited(_checkRestockNotificationsQuietly());
+    unawaited(refreshCustomerPushMessages());
     unawaited(_refreshCustomerOrderStatusesQuietly());
     _orderStatusTimer?.cancel();
     _orderStatusTimer = Timer.periodic(
@@ -1262,6 +1281,7 @@ class AppState extends ChangeNotifier {
     _booksFallbackTimer = Timer.periodic(const Duration(minutes: 2), (_) {
       unawaited(_refreshBooksQuietly());
       unawaited(_checkRestockNotificationsQuietly());
+      unawaited(refreshCustomerPushMessages());
     });
   }
 
@@ -1522,8 +1542,72 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  Future<void> refreshCustomerPushMessages() async {
+    if (_backend == null || _pushMessagesRefreshing) return;
+    _pushMessagesRefreshing = true;
+    try {
+      final rows = await _backend!.fetchPushMessages(limit: 50);
+      if (rows.isEmpty) return;
+
+      final existingIds = _customerNotices
+          .map((n) => (n['id'] ?? '').toString())
+          .toSet();
+      var changed = false;
+
+      for (final row in rows) {
+        final rawId = (row['id'] ?? '').toString().trim();
+        if (rawId.isEmpty) continue;
+        final noticeId = 'push:$rawId';
+        if (existingIds.contains(noticeId)) continue;
+
+        _customerNotices.add({
+          'id': noticeId,
+          'status': 'push',
+          'title': (row['title'] ?? 'Muhajeer Books').toString(),
+          'message': (row['body'] ?? '').toString(),
+          'created_at':
+              (row['sent_at'] ?? DateTime.now().toIso8601String()).toString(),
+          'read': false,
+        });
+        existingIds.add(noticeId);
+        changed = true;
+      }
+
+      if (!changed) return;
+      _customerNotices.sort((a, b) {
+        final aAt = DateTime.tryParse((a['created_at'] ?? '').toString()) ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+        final bAt = DateTime.tryParse((b['created_at'] ?? '').toString()) ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+        return bAt.compareTo(aAt);
+      });
+      if (_customerNotices.length > 50) {
+        _customerNotices.removeRange(50, _customerNotices.length);
+      }
+      await _local.saveCustomerNotices(_customerNotices);
+      notifyListeners();
+    } catch (_) {
+      // Push ruxsati bo'lmasa ham in-app inbox ishlashi kerak.
+    } finally {
+      _pushMessagesRefreshing = false;
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(refreshCustomerPushMessages());
+      unawaited(_refreshCustomerOrderStatusesQuietly());
+      unawaited(_checkRestockNotificationsQuietly());
+    }
+  }
+
   @override
   void dispose() {
+    if (_lifecycleObserverRegistered) {
+      WidgetsBinding.instance.removeObserver(this);
+      _lifecycleObserverRegistered = false;
+    }
     _booksFallbackTimer?.cancel();
     _orderStatusTimer?.cancel();
     _discountExpiryTimer?.cancel();

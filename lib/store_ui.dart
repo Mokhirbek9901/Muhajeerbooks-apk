@@ -2052,14 +2052,35 @@ class _EmergencyNoticeBanner extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 40,
-          height: 40,
-          alignment: Alignment.center,
+          width: compact ? 52 : 58,
+          height: compact ? 58 : 66,
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
           decoration: BoxDecoration(
             color: const Color(0xFFFFDDE1),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
           ),
-          child: const Icon(Icons.campaign_rounded, color: AppColors.danger),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                color: AppColors.danger,
+                size: compact ? 27 : 31,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'DIQQAT',
+                maxLines: 1,
+                style: TextStyle(
+                  color: AppColors.danger,
+                  fontSize: compact ? 8 : 9,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.2,
+                  height: 1,
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(width: 11),
         Expanded(

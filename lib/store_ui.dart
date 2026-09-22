@@ -19,6 +19,7 @@ import 'book_share_platform.dart';
 import 'catalog_resume.dart';
 import 'book_image_viewer.dart';
 import 'design_system.dart';
+import 'push_notifications.dart';
 import 'uzbek_customer_style.dart';
 
 const _navy = UzbekCustomerColors.navy;

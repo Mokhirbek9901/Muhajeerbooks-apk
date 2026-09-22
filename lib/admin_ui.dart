@@ -6990,6 +6990,8 @@ class _SalesAdminState extends State<_SalesAdmin> {
         return 'Instagram';
       case 'telegram':
         return 'Telegram';
+      case 'legacy':
+        return 'Eski sotuv tarixi';
       default:
         return 'Ilova';
     }
@@ -7001,6 +7003,8 @@ class _SalesAdminState extends State<_SalesAdmin> {
         return Icons.camera_alt_outlined;
       case 'telegram':
         return Icons.send_outlined;
+      case 'legacy':
+        return Icons.history_rounded;
       default:
         return Icons.phone_iphone_rounded;
     }

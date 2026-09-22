@@ -495,6 +495,17 @@ class _AdminApi {
     await _rpc('admin_clear_discounts', params: {'p_secret': secret});
   }
 
+  Future<Map<String,dynamic>> storeNotice() async {
+    final data=await _rpc('admin_store_notice_get',params:{'p_secret':secret});
+    return data is Map ? Map<String,dynamic>.from(data) : <String,dynamic>{};
+  }
+
+  Future<void> saveStoreNotice({required String title,required String message,required bool enabled}) async {
+    await _rpc('admin_store_notice_save',params:{
+      'p_secret':secret,'p_title':title,'p_message':message,'p_enabled':enabled,
+    });
+  }
+
   Future<List<ShopOrder>> orders() async {
     final data = await _rpc(
       'admin_list_orders',
@@ -1132,6 +1143,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
     'Sotilgan kitoblar',
     'Mijozlar',
     'Moliya',
+    'Muhim xabar',
     'Admin AI',
   ];
   static const icons = [
@@ -1142,6 +1154,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
     Icons.sell_rounded,
     Icons.people_alt_rounded,
     Icons.account_balance_wallet_rounded,
+    Icons.campaign_rounded,
     Icons.auto_awesome_rounded,
   ];
 
@@ -1272,7 +1285,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
       _loadedTabs.contains(6)
           ? FinanceAdminPage(secret: widget.secret)
           : const SizedBox.shrink(),
-      _loadedTabs.contains(7) ? _AdminAiPage(api: api) : const SizedBox.shrink(),
+      _loadedTabs.contains(7) ? _EmergencyNoticeAdmin(api: api) : const SizedBox.shrink(),
+      _loadedTabs.contains(8) ? _AdminAiPage(api: api) : const SizedBox.shrink(),
     ];
     const railDestinations = [
       NavigationRailDestination(
@@ -1309,6 +1323,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
         icon: Icon(Icons.account_balance_wallet_outlined),
         selectedIcon: Icon(Icons.account_balance_wallet_rounded),
         label: Text('Moliya'),
+      ),
+      NavigationRailDestination(
+        icon: Icon(Icons.campaign_outlined),
+        selectedIcon: Icon(Icons.campaign_rounded),
+        label: Text('Muhim xabar'),
       ),
       NavigationRailDestination(
         icon: Icon(Icons.auto_awesome_outlined),
@@ -1436,6 +1455,72 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
         );
       },
     );
+  }
+}
+
+class _EmergencyNoticeAdmin extends StatefulWidget {
+  const _EmergencyNoticeAdmin({required this.api});
+  final _AdminApi api;
+  @override
+  State<_EmergencyNoticeAdmin> createState()=>_EmergencyNoticeAdminState();
+}
+
+class _EmergencyNoticeAdminState extends State<_EmergencyNoticeAdmin> {
+  final title=TextEditingController();
+  final message=TextEditingController();
+  bool enabled=false, loading=true, saving=false;
+
+  @override
+  void initState(){super.initState();_load();}
+  @override
+  void dispose(){title.dispose();message.dispose();super.dispose();}
+
+  Future<void> _load() async {
+    try {
+      final data=await widget.api.storeNotice();
+      if(!mounted)return;
+      title.text=(data['title']??'MUHIM MA’LUMOT').toString();
+      message.text=(data['message']??'').toString();
+      setState(()=>enabled=data['enabled']==true);
+    } catch(e) {
+      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Xabarni yuklashda xatolik: $e')));
+    } finally {if(mounted)setState(()=>loading=false);}
+  }
+
+  Future<void> _save() async {
+    if(message.text.trim().isEmpty && enabled){
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Xabar matnini yozing.')));return;
+    }
+    setState(()=>saving=true);
+    try{
+      await widget.api.saveStoreNotice(title:title.text.trim(),message:message.text.trim(),enabled:enabled);
+      if(!mounted)return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Muhim xabar saqlandi ✅')));
+    }catch(e){
+      if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Saqlashda xatolik: $e')));
+    }finally{if(mounted)setState(()=>saving=false);}
+  }
+
+  @override
+  Widget build(BuildContext context){
+    if(loading)return const Center(child:CircularProgressIndicator());
+    return ListView(padding:const EdgeInsets.all(18),children:[
+      const AppPageHeading(title:'Muhim xabar',subtitle:'Favqulodda holat, bayram yoki yetkazib berishdagi o‘zgarishni mijozlarga ko‘rsating.'),
+      const SizedBox(height:16),
+      AppSurface(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        SwitchListTile.adaptive(contentPadding:EdgeInsets.zero,value:enabled,onChanged:(v)=>setState(()=>enabled=v),
+          title:const Text('Xabarni ko‘rsatish',style:TextStyle(fontWeight:FontWeight.w900)),
+          subtitle:const Text('Yoqilsa katalogda va buyurtma berishda ko‘rinadi.')),
+        const SizedBox(height:10),
+        TextField(controller:title,maxLength:80,decoration:const InputDecoration(labelText:'Sarlavha',hintText:'MUHIM MA’LUMOT')),
+        const SizedBox(height:10),
+        TextField(controller:message,maxLength:1000,minLines:4,maxLines:8,decoration:const InputDecoration(labelText:'Xabar matni',hintText:'Masalan: Chuseok sababli yetkazib berish...')),
+        const SizedBox(height:14),
+        SizedBox(width:double.infinity,child:FilledButton.icon(onPressed:saving?null:_save,
+          icon:saving?const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2)):const Icon(Icons.save_rounded),
+          label:Text(saving?'Saqlanmoqda...':'Saqlash'))),
+      ])),
+    ]);
   }
 }
 

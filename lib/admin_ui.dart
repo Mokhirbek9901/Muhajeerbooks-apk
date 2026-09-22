@@ -6749,21 +6749,6 @@ class _DiscountAdminState extends State<_DiscountAdmin> {
                         .toList(),
                   ),
                   const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () => _pickYearMonth(all),
-                      icon: const Icon(Icons.date_range_rounded),
-                      label: Text(
-                        period == 'custom' && selectedYear != null
-                            ? selectedMonth == null
-                                ? 'Sana filtri: $selectedYear-yil'
-                                : 'Sana filtri: $selectedYear / ${_monthNames[selectedMonth! - 1]}'
-                            : 'Sana filtri — yil / oy tanlash',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
                   TextField(
                     controller: percent,
                     keyboardType: TextInputType.number,

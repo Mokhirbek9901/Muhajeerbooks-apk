@@ -4544,7 +4544,7 @@ class _BookFormState extends State<_BookForm> {
     });
   }
 
-  Future<void> _researchBook() async {
+  Future<void> _researchBook({String? editField}) async {
     if (title.text.trim().isEmpty || researchingBook) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Avval kitob nomini kiriting.')));
       return;
@@ -4553,6 +4553,19 @@ class _BookFormState extends State<_BookForm> {
     try {
       final data=await widget.api.researchBook(title:title.text.trim(),author:author.text.trim(),publisher:publisher.text.trim());
       if(!mounted) return;
+      if(editField!=null && editField!='description') {
+        final fieldMap=<String,TextEditingController>{'title':title,'author':author,'publisher':publisher,'category':category};
+        final controller=fieldMap[editField];
+        final value=(data[editField]??'').toString().trim();
+        if(controller!=null && value.isNotEmpty) {
+          controller.text=value;
+          setState((){});
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('AI topgan ma’lumot maydonga qo‘yildi. “Saqlash”ni bosing.')));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Bu ma’lumot internetdan aniq topilmadi.')));
+        }
+        return;
+      }
       final variantsRaw=data['description_variants'];
       final variants=variantsRaw is Map ? Map<String,dynamic>.from(variantsRaw) : <String,dynamic>{};
       final choices=<String,String>{
@@ -4684,7 +4697,31 @@ class _BookFormState extends State<_BookForm> {
           padding: const EdgeInsets.all(16),
           children: [
             FilledButton.tonalIcon(
-              onPressed: researchingBook ? null : _researchBook,
+              onPressed: researchingBook ? null : () async {
+                if(widget.book==null) {
+                  await _researchBook();
+                  return;
+                }
+                final field=await showModalBottomSheet<String>(
+                  context:context,
+                  showDragHandle:true,
+                  builder:(ctx)=>SafeArea(child:Padding(
+                    padding:const EdgeInsets.fromLTRB(16,0,16,20),
+                    child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+                      const Text('Nimasini AI bilan tahrirlaysiz?',style:TextStyle(fontSize:20,fontWeight:FontWeight.w900)),
+                      const SizedBox(height:12),
+                      ListTile(leading:const Icon(Icons.notes_rounded),title:const Text('Tavsif'),subtitle:const Text('3 xil variant beradi'),onTap:()=>Navigator.pop(ctx,'description')),
+                      ListTile(leading:const Icon(Icons.person_rounded),title:const Text('Muallif'),onTap:()=>Navigator.pop(ctx,'author')),
+                      ListTile(leading:const Icon(Icons.apartment_rounded),title:const Text('Nashriyot'),onTap:()=>Navigator.pop(ctx,'publisher')),
+                      ListTile(leading:const Icon(Icons.category_rounded),title:const Text('Kategoriya'),onTap:()=>Navigator.pop(ctx,'category')),
+                      ListTile(leading:const Icon(Icons.menu_book_rounded),title:const Text('Kitob nomi'),onTap:()=>Navigator.pop(ctx,'title')),
+                      ListTile(leading:const Icon(Icons.auto_awesome_rounded),title:const Text('Hammasini tekshirish'),onTap:()=>Navigator.pop(ctx,'all')),
+                    ]),
+                  )),
+                );
+                if(field==null) return;
+                await _researchBook(editField:field=='all'?null:field);
+              },
               icon: researchingBook ? const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2)) : const Icon(Icons.travel_explore_rounded),
               label: Text(researchingBook ? 'Internetdan qidirilmoqda...' : 'AI bilan internetdan ma’lumot topish'),
             ),

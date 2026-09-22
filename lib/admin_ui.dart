@@ -4566,38 +4566,24 @@ class _BookFormState extends State<_BookForm> {
         }
         return;
       }
-      final variantsRaw=data['description_variants'];
-      final variants=variantsRaw is Map ? Map<String,dynamic>.from(variantsRaw) : <String,dynamic>{};
-      final choices=<String,String>{
-        'Sotuvga mos':(variants['sales']??data['description']??'').toString().trim(),
-        'Mazmuniy batafsil':(variants['detailed']??'').toString().trim(),
-        'Qisqa':(variants['short']??'').toString().trim(),
-      }..removeWhere((_,value)=>value.isEmpty);
-      String selectedDescription=choices.values.isNotEmpty ? choices.values.first : (data['description']??'').toString().trim();
-      final ok=await showDialog<bool>(context:context,builder:(ctx)=>StatefulBuilder(builder:(ctx,setDialogState)=>AlertDialog(
+      final foundDescription=(data['description']??'').toString().trim();
+      final ok=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
         title:const Text('AI internetdan topdi'),
         content:SizedBox(width:620,child:SingleChildScrollView(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
           Text('Nomi: '+(data['title']??'').toString()), const SizedBox(height:6),
           if((data['author']??'').toString().trim().isNotEmpty) Text('Muallif: '+data['author'].toString()),
           if((data['publisher']??'').toString().trim().isNotEmpty) Text('Nashriyot: '+data['publisher'].toString()),
           const SizedBox(height:12),
-          const Text('Tavsif variantini tanlang:',style:TextStyle(fontWeight:FontWeight.w800)),
-          const SizedBox(height:8),
-          ...choices.entries.map((item)=>Card(child:RadioListTile<String>(
-            value:item.value,groupValue:selectedDescription,
-            onChanged:(v){if(v!=null)setDialogState(()=>selectedDescription=v);},
-            title:Text(item.key,style:const TextStyle(fontWeight:FontWeight.w800)),
-            subtitle:Padding(padding:const EdgeInsets.only(top:6),child:Text(item.value)),
-          ))),
+          if(foundDescription.isNotEmpty) Text(foundDescription),
           if((data['notes']??'').toString().trim().isNotEmpty) Padding(padding:const EdgeInsets.only(top:8),child:Text('Izoh: '+data['notes'].toString())),
-          const SizedBox(height:8),const Text('Tanlangan tavsif maydonga qo‘yiladi. Bazaga yozish uchun keyin “Saqlash”ni bosing.',style:TextStyle(fontWeight:FontWeight.w700)),
+          const SizedBox(height:8),const Text('Shu tavsifni qo‘llash uchun “Tanlash”ni bosing. Boshqa tavsif kerak bo‘lsa oynani yoping va AI qidiruvini qayta bosing.',style:TextStyle(fontWeight:FontWeight.w700)),
         ]))),
-        actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Bekor qilish')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Tanlash'))],
+        actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Yopish')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Tanlash'))],
       )));
       if(ok!=true || !mounted) return;
       void setIf(TextEditingController x,String name){final v=(data[name]??'').toString().trim();if(v.isNotEmpty)x.text=v;}
       setIf(title,'title'); setIf(author,'author'); setIf(publisher,'publisher'); setIf(category,'category');
-      if(selectedDescription.isNotEmpty) description.text=selectedDescription;
+      if(foundDescription.isNotEmpty) description.text=foundDescription;
       final cv=(data['cover']??'').toString().trim(); if(cv.isNotEmpty) cover=cv;
       setState((){});
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Maydonlarga qo‘llandi. Bazaga yozish uchun “Saqlash”ni bosing.')));

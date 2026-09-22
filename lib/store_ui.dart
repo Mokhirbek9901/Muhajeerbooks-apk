@@ -5605,6 +5605,36 @@ class ProfilePage extends StatelessWidget {
             borderColor: UzbekCustomerColors.border,
             child: Column(
               children: [
+                if (pushNotificationsSupported) ...[
+                  ListTile(
+                    minTileHeight: 68,
+                    leading: const _ProfileIcon(
+                      icon: Icons.notifications_active_outlined,
+                    ),
+                    title: const Text(
+                      'Bildirishnomalar',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    subtitle: const Text(
+                      'Yangi kitoblar va muhim e’lonlarni telefonda oling',
+                    ),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () async {
+                      final ok = await enablePushNotifications();
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            ok
+                                ? 'Bildirishnomalar yoqildi ✅'
+                                : 'Bildirishnomaga ruxsat berilmadi.',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const Divider(),
+                ],
                 ListTile(
                   minTileHeight: 68,
                   leading: const _ProfileIcon(

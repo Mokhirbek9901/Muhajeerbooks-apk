@@ -11,7 +11,7 @@ RUN flutter pub get
 RUN flutter build web --release
 
 FROM nginx:alpine
-RUN apk add --no-cache python3 py3-pip supervisor && pip3 install --break-system-packages --no-cache-dir flask gunicorn requests
+RUN apk add --no-cache python3 py3-pip supervisor && pip3 install --break-system-packages --no-cache-dir flask gunicorn requests pywebpush
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/build/web /usr/share/nginx/html
 COPY server /app/server

@@ -476,12 +476,26 @@ def admin_ai_book_research():
     out=_chat_json(instructions,[{"role":"user","content":[{"type":"input_text","text":payload}]}],1000,web_search=True)
     if not out: return jsonify(error="AI research unavailable"),502
     try:
-      import json
-      start=out.find("{"); end=out.rfind("}")
-      data=json.loads(out[start:end+1])
+      import json, re
+      cleaned=out.strip()
+      cleaned=re.sub(r"^```(?:json)?\\s*","",cleaned,flags=re.I)
+      cleaned=re.sub(r"\\s*```$","",cleaned)
+      start=cleaned.find("{"); end=cleaned.rfind("}")
+      if start < 0 or end <= start: raise ValueError("missing JSON")
+      data=json.loads(cleaned[start:end+1])
+      variants=data.get("description_variants")
+      if not isinstance(variants,dict): variants={}
+      sales=str(variants.get("sales") or data.get("description") or "").strip()
+      data["description_variants"]={
+        "sales":sales,
+        "detailed":str(variants.get("detailed") or sales).strip(),
+        "short":str(variants.get("short") or sales).strip(),
+      }
+      if not str(data.get("description") or "").strip(): data["description"]=sales
       allowed=("title","author","publisher","category","description","description_variants","cover","confidence","notes")
       return jsonify({k:data.get(k,"") for k in allowed})
-    except Exception:
+    except Exception as e:
+      print(f"Book research parse failed {type(e).__name__}: {out[:800]!r}",flush=True)
       return jsonify(error="Research result parse failed"),502
 
 

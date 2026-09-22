@@ -1689,6 +1689,45 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => Scaffold(
+                      appBar: AppBar(title: const Text('Muhim xabar')),
+                      body: _EmergencyNoticeAdmin(api: widget.api),
+                    ),
+                  ),
+                );
+              },
+              child: AppSurface(
+                backgroundColor: const Color(0xFFFFF1F2),
+                shadow: true,
+                child: const Row(
+                  children: [
+                    SizedBox(
+                      width: 50,
+                      height: 50,
+                      child: Icon(Icons.campaign_rounded, color: AppColors.danger, size: 30),
+                    ),
+                    SizedBox(width: 13),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Muhim xabar', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                          SizedBox(height: 2),
+                          Text('Mijozlarga ko‘rinadigan favqulodda xabarni yozish va yoqish/o‘chirish', style: TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded, color: AppColors.danger),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            InkWell(
+              borderRadius: BorderRadius.circular(AppRadii.large),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => Scaffold(
                       appBar: AppBar(title: const Text('Kutayotganlar')),
                       body: _RestockAdmin(api: widget.api),
                     ),

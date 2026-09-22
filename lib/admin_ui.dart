@@ -6961,6 +6961,7 @@ class _SalesAdminState extends State<_SalesAdmin> {
   late Future<List<Map<String, dynamic>>> future;
   String query = '';
   String source = 'all';
+  String period = 'all';
 
   @override
   void initState() {
@@ -7060,6 +7061,38 @@ class _SalesAdminState extends State<_SalesAdmin> {
           final dt = _soldAt(row);
           return dt != null && dt.year == now.year && dt.month == now.month;
         }).length;
+        final previousMonth = DateTime(now.year, now.month - 1);
+        final previousMonthCount = all.where((row) {
+          final dt = _soldAt(row);
+          return dt != null &&
+              dt.year == previousMonth.year &&
+              dt.month == previousMonth.month;
+        }).length;
+        final previousYearCount = all.where((row) {
+          final dt = _soldAt(row);
+          return dt != null && dt.year == now.year - 1;
+        }).length;
+
+        bool matchesPeriod(Map<String, dynamic> row) {
+          final dt = _soldAt(row);
+          if (period == 'all') return true;
+          if (dt == null) return false;
+          switch (period) {
+            case 'today':
+              return dt.year == now.year &&
+                  dt.month == now.month &&
+                  dt.day == now.day;
+            case 'month':
+              return dt.year == now.year && dt.month == now.month;
+            case 'previous_month':
+              return dt.year == previousMonth.year &&
+                  dt.month == previousMonth.month;
+            case 'previous_year':
+              return dt.year == now.year - 1;
+            default:
+              return true;
+          }
+        }
 
         final q = query.trim().toLowerCase();
         final filtered = all.where((row) {
@@ -7067,7 +7100,7 @@ class _SalesAdminState extends State<_SalesAdmin> {
           final title = (row['title'] ?? 'Kitob').toString();
           final matchesSource = source == 'all' || rowSource == source;
           final matchesQuery = q.isEmpty || title.toLowerCase().contains(q);
-          return matchesSource && matchesQuery;
+          return matchesSource && matchesQuery && matchesPeriod(row);
         }).toList();
 
         return Column(
@@ -7091,26 +7124,65 @@ class _SalesAdminState extends State<_SalesAdmin> {
                     spacing: 10,
                     runSpacing: 10,
                     children: [
-                      AppInfoPill(
-                        icon: Icons.auto_stories_rounded,
-                        label: 'Jami ${all.length} ta',
-                        foreground: AppColors.navy,
-                        background: AppColors.infoSoft,
-                        border: AppColors.border,
+                      GestureDetector(
+                        onTap: () => setState(() => period = 'all'),
+                        child: AppInfoPill(
+                          icon: Icons.auto_stories_rounded,
+                          label: 'Jami ${all.length} ta',
+                          foreground: AppColors.navy,
+                          background: period == 'all'
+                              ? AppColors.infoSoft
+                              : Colors.white,
+                          border: AppColors.border,
+                        ),
                       ),
-                      AppInfoPill(
-                        icon: Icons.today_rounded,
-                        label: 'Bugun $todayCount ta',
-                        foreground: AppColors.success,
-                        background: AppColors.successSoft,
-                        border: AppColors.border,
+                      GestureDetector(
+                        onTap: () => setState(() => period = 'today'),
+                        child: AppInfoPill(
+                          icon: Icons.today_rounded,
+                          label: 'Bugun $todayCount ta',
+                          foreground: AppColors.success,
+                          background: period == 'today'
+                              ? AppColors.successSoft
+                              : Colors.white,
+                          border: AppColors.border,
+                        ),
                       ),
-                      AppInfoPill(
-                        icon: Icons.calendar_month_rounded,
-                        label: 'Shu oy $monthCount ta',
-                        foreground: AppColors.orange,
-                        background: const Color(0xFFFFF3E3),
-                        border: AppColors.border,
+                      GestureDetector(
+                        onTap: () => setState(() => period = 'month'),
+                        child: AppInfoPill(
+                          icon: Icons.calendar_month_rounded,
+                          label: 'Shu oy $monthCount ta',
+                          foreground: AppColors.orange,
+                          background: period == 'month'
+                              ? const Color(0xFFFFF3E3)
+                              : Colors.white,
+                          border: AppColors.border,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => setState(() => period = 'previous_month'),
+                        child: AppInfoPill(
+                          icon: Icons.history_rounded,
+                          label: 'O‘tgan oy $previousMonthCount ta',
+                          foreground: AppColors.navy,
+                          background: period == 'previous_month'
+                              ? AppColors.infoSoft
+                              : Colors.white,
+                          border: AppColors.border,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => setState(() => period = 'previous_year'),
+                        child: AppInfoPill(
+                          icon: Icons.event_repeat_rounded,
+                          label: 'O‘tgan yil $previousYearCount ta',
+                          foreground: AppColors.navy,
+                          background: period == 'previous_year'
+                              ? AppColors.infoSoft
+                              : Colors.white,
+                          border: AppColors.border,
+                        ),
                       ),
                     ],
                   ),

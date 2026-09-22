@@ -518,6 +518,11 @@ class BackendService {
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
 
+  Future<Map<String, dynamic>> fetchStoreNotice() async {
+    final raw = await _customerRpc('customer_store_notice', const {});
+    return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+  }
+
   Future<void> saveBook(Book book) async {
     final payload = book.toDbMap();
     if (book.id.isEmpty ||
@@ -995,6 +1000,7 @@ class AppState extends ChangeNotifier {
   final Set<String> _favorites = {};
   final Set<String> _restockSubscriptions = {};
   final List<Map<String, dynamic>> _bundles = [];
+  Map<String, dynamic> _storeNotice = const <String, dynamic>{};
   final List<String> _cartBundleIds = [];
   int _catalogRevision = 0;
   int get catalogRevision => _catalogRevision;
@@ -1078,6 +1084,11 @@ class AppState extends ChangeNotifier {
   List<ShopOrder> get localOrders => List.unmodifiable(_localOrders);
   List<Book> get books => List.unmodifiable(_books);
   List<Map<String, dynamic>> get bundles => List.unmodifiable(_bundles);
+  Map<String, dynamic> get storeNotice => Map.unmodifiable(_storeNotice);
+  bool get storeNoticeEnabled => _storeNotice['enabled'] == true &&
+      (_storeNotice['message'] ?? '').toString().trim().isNotEmpty;
+  String get storeNoticeTitle => (_storeNotice['title'] ?? 'MUHIM MA’LUMOT').toString();
+  String get storeNoticeMessage => (_storeNotice['message'] ?? '').toString();
   Set<String> get favorites => Set.unmodifiable(_favorites);
   bool isRestockSubscribed(Book book) =>
       _restockSubscriptions.contains(book.id);
@@ -1180,6 +1191,7 @@ class AppState extends ChangeNotifier {
 
     unawaited(_registerInstallation());
     unawaited(refreshBundles());
+    unawaited(refreshStoreNotice());
 
     // Live narx va qoldiqni UI'ni bloklamasdan yangilaymiz.
     unawaited(_refreshBooksQuietly());
@@ -1337,6 +1349,17 @@ class AppState extends ChangeNotifier {
       // Oddiy internet uzilishida ekrandagi oxirgi katalog saqlanadi.
     } finally {
       _quietBooksRefreshing = false;
+    }
+  }
+
+  Future<void> refreshStoreNotice() async {
+    if (_backend == null) return;
+    try {
+      final notice = await _backend!.fetchStoreNotice();
+      _storeNotice = notice;
+      notifyListeners();
+    } catch (_) {
+      // Muhim xabar yuklanmasa savdo jarayoni ishlashda davom etadi.
     }
   }
 

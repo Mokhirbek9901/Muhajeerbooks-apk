@@ -367,8 +367,18 @@ def send_push_notification():
     if not isinstance(subscriptions,list):
         subscriptions=[]
 
+    message_id=_admin_rpc_call("admin_push_message_create",{
+      "p_secret":supplied,
+      "p_title":title,
+      "p_body":message,
+      "p_total":len(subscriptions),
+    })
+    if not message_id:
+        return jsonify(error="Xabarnoma statistikasi yaratilmadi."),502
+
     import json
     payload=json.dumps({
+      "message_id":str(message_id),
       "title":title,
       "body":message,
       "url":"/",
@@ -409,15 +419,13 @@ def send_push_notification():
         if future.result(): success+=1
         else: failure+=1
 
-    _admin_rpc_call("admin_push_log",{
+    _admin_rpc_call("admin_push_message_finish",{
       "p_secret":supplied,
-      "p_title":title,
-      "p_body":message,
+      "p_id":str(message_id),
       "p_success":success,
       "p_failure":failure,
     })
-    return jsonify(ok=True,total=len(subscriptions),success=success,failure=failure)
-
+    return jsonify(ok=True,id=str(message_id),total=len(subscriptions),success=success,failure=failure)
 
 def _verify_admin_code(code):
     code=str(code or "").strip()

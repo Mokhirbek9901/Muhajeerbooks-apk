@@ -5653,26 +5653,6 @@ class ProfilePage extends StatelessWidget {
                 const Divider(),
                 ListTile(
                   minTileHeight: 68,
-                  leading: const _ProfileIcon(
-                    icon: Icons.favorite_border_rounded,
-                  ),
-                  title: const Text(
-                    'Sevimli kitoblar',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  subtitle: const Text('Saqlab qo‘yilgan kitoblarni ko‘ring'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => Navigator.push(
-                    context,
-                    muhajeerPageRoute(
-                      settings: const RouteSettings(name: 'mb:favorites'),
-                      builder: (_) => const FavoritesPage(),
-                    ),
-                  ),
-                ),
-                const Divider(),
-                ListTile(
-                  minTileHeight: 68,
                   leading: const _InstagramProfileIcon(),
                   title: const Text(
                     'Do‘kon Instagrami',

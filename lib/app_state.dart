@@ -10,6 +10,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'push_notifications.dart';
+
 String normalizePublisher(String value) {
   final cleaned=value.trim().replaceAll(RegExp(r'\s+'), ' ');
   final key=cleaned.toLowerCase().replaceAll('-', ' ');
@@ -1175,6 +1177,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       ..clear()
       ..addAll(secondary[3] as List<String>);
     savedCustomer = secondary[4] as Map<String, String>;
+    final pushPhone=(savedCustomer['phone']??'').trim();
+    if(pushPhone.isNotEmpty) unawaited(syncPushIdentity(pushPhone));
     final storedVerification = secondary[5] as bool?;
     _localOrders
       ..clear()
@@ -2001,6 +2005,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       'phone': phone.trim(),
       'address': address.trim(),
     };
+    unawaited(syncPushIdentity(phone.trim()));
 
     var paymentProofPath = '';
     if (paymentProof != null) {

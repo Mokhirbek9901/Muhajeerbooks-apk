@@ -7,3 +7,4 @@ story-decorative-five-20260921-0608-kst
 admin-ai-price-fix-20260921-2235-kst
 emergency-notice-20260922-2130-kst
 managed-emergency-notice-20260922-2140-kst
+2026-09-23 notification-inbox-sync

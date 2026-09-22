@@ -2061,22 +2061,22 @@ class _EmergencyNoticeBanner extends StatelessWidget {
           child: const Icon(Icons.campaign_rounded, color: AppColors.danger),
         ),
         const SizedBox(width: 11),
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 notice.storeNoticeTitle,
-                style: TextStyle(
+                style: const TextStyle(
                   color: AppColors.danger,
                   fontWeight: FontWeight.w900,
                   fontSize: 14,
                 ),
               ),
-              SizedBox(height: 4),
+              const SizedBox(height: 4),
               Text(
                 notice.storeNoticeMessage,
-                style: TextStyle(
+                style: const TextStyle(
                   color: AppColors.text,
                   fontSize: 12,
                   height: 1.4,

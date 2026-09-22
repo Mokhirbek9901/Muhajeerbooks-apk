@@ -19,7 +19,6 @@ import 'book_share_platform.dart';
 import 'catalog_resume.dart';
 import 'book_image_viewer.dart';
 import 'design_system.dart';
-import 'push_notifications.dart';
 import 'uzbek_customer_style.dart';
 
 const _navy = UzbekCustomerColors.navy;
@@ -2257,8 +2256,11 @@ class _CustomerNotificationsPageState extends State<CustomerNotificationsPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<AppState>().markCustomerNoticesRead();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final state = context.read<AppState>();
+      await state.refreshCustomerPushMessages();
+      if (mounted) await state.markCustomerNoticesRead();
     });
   }
 
@@ -2296,14 +2298,16 @@ class _CustomerNotificationsPageState extends State<CustomerNotificationsPage> {
                       vertical: 8,
                     ),
                     leading: CircleAvatar(
-                      backgroundColor: status == 'shipping'
+                      backgroundColor: status == 'shipping' || status == 'push'
                           ? UzbekCustomerColors.goldSoft
                           : const Color(0xFFE8F5EE),
                       child: Icon(
                         status == 'shipping'
                             ? Icons.local_shipping_rounded
-                            : Icons.check_circle_rounded,
-                        color: status == 'shipping'
+                            : status == 'push'
+                                ? Icons.notifications_active_rounded
+                                : Icons.check_circle_rounded,
+                        color: status == 'shipping' || status == 'push'
                             ? UzbekCustomerColors.goldDeep
                             : UzbekCustomerColors.success,
                       ),
@@ -5627,36 +5631,6 @@ class ProfilePage extends StatelessWidget {
             borderColor: UzbekCustomerColors.border,
             child: Column(
               children: [
-                if (pushNotificationsSupported) ...[
-                  ListTile(
-                    minTileHeight: 68,
-                    leading: const _ProfileIcon(
-                      icon: Icons.notifications_active_outlined,
-                    ),
-                    title: const Text(
-                      'Bildirishnomalar',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    subtitle: const Text(
-                      'Yangi kitoblar va muhim e’lonlarni telefonda oling',
-                    ),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () async {
-                      final ok = await enablePushNotifications();
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            ok
-                                ? 'Bildirishnomalar yoqildi ✅'
-                                : 'Bildirishnomaga ruxsat berilmadi.',
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const Divider(),
-                ],
                 ListTile(
                   minTileHeight: 68,
                   leading: const _ProfileIcon(

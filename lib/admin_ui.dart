@@ -517,13 +517,26 @@ class _AdminApi {
   }
 
   Future<List<Map<String, dynamic>>> sales() async {
-    final raw = await _rpc(
-      'admin_list_sales',
-      params: {'p_secret': secret, 'p_limit': 5000},
-    );
-    return ((raw as List?) ?? const [])
-        .map((e) => Map<String, dynamic>.from(e as Map))
-        .toList();
+    const pageSize = 1000;
+    final rows = <Map<String, dynamic>>[];
+    var offset = 0;
+    while (true) {
+      final raw = await _rpc(
+        'admin_list_sales',
+        params: {
+          'p_secret': secret,
+          'p_limit': pageSize,
+          'p_offset': offset,
+        },
+      );
+      final page = ((raw as List?) ?? const [])
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+      rows.addAll(page);
+      if (page.length < pageSize) break;
+      offset += pageSize;
+    }
+    return rows;
   }
 
   Future<String> paymentProofUrl(String path) async {

@@ -220,6 +220,23 @@
           window.muhajeerEnablePush();
         }
       });
+
+      // Brauzer/telefon xavfsizlik qoidalari bildirishnomani foydalanuvchi
+      // roziligisiz yoqishga ruxsat bermaydi. Shuning uchun hali tanlov qilinmagan
+      // qurilmada ilovadagi birinchi tabiiy bosishda tizim ruxsat oynasini
+      // avtomatik chiqaramiz. "Allow" berilgach obuna darhol yaratiladi.
+      const autoAskPushOnFirstInteraction = async () => {
+        if (!window.muhajeerPushSupported()) return;
+        if (Notification.permission !== 'default') return;
+        await window.muhajeerEnablePush();
+      };
+      window.addEventListener('pointerdown', autoAskPushOnFirstInteraction, {
+        once: true,
+        passive: true
+      });
+      window.addEventListener('keydown', autoAskPushOnFirstInteraction, {
+        once: true
+      });
     })();
   </script>
   <script>

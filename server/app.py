@@ -427,6 +427,111 @@ def send_push_notification():
     })
     return jsonify(ok=True,id=str(message_id),total=len(subscriptions),success=success,failure=failure)
 
+@app.post("/api/push/order-event")
+def order_push_event():
+    body=request.get_json(silent=True) or {}
+    supplied=str(request.headers.get("X-Muhajeer-Push-Secret","")).strip()
+    expected=os.getenv("ORDER_PUSH_SECRET","").strip()
+    if not expected or supplied != expected:
+        return jsonify(error="Unauthorized"),401
+
+    phone=str(body.get("phone","")).strip()[:40]
+    event=str(body.get("event","")).strip().lower()
+    if event not in ("submitted","accepted") or len(phone)<8:
+        return jsonify(error="Invalid event"),400
+
+    subscriptions=_admin_rpc_call("event_push_subscriptions",{
+      "p_event_secret":supplied,
+      "p_phone":phone,
+    })
+    if subscriptions is None:
+        return jsonify(error="Subscriptions unavailable"),502
+    if not isinstance(subscriptions,list):
+        subscriptions=[]
+
+    private_key=os.getenv("VAPID_PRIVATE_KEY","").strip()
+    if not private_key:
+        return jsonify(error="Push server sozlanmagan."),503
+
+    try:
+      order_no=int(body.get("order_number") or 0)
+    except Exception:
+      order_no=0
+    try:
+      total=int(body.get("total") or 0)
+    except Exception:
+      total=0
+    order_label=f"#{order_no:04d}" if order_no>0 else "buyurtmangiz"
+    items=body.get("items") if isinstance(body.get("items"),list) else []
+    item_count=0
+    receipt_parts=[]
+    for item in items[:8]:
+      if not isinstance(item,dict): continue
+      try: qty=max(1,int(item.get("quantity") or 1))
+      except Exception: qty=1
+      item_count+=qty
+      title=str(item.get("title") or "Kitob").strip()
+      if title: receipt_parts.append(f"{title} ×{qty}")
+    total_text=f"₩{total:,}" if total>0 else ""
+
+    if event=="submitted":
+      notifications=[
+        {
+          "title":"Buyurtma yuborildi ✅",
+          "body":f"Muhajeer Books • {order_label} buyurtmangiz yuborildi. Tez orada ko‘rib chiqamiz.",
+          "tag":f"order-{order_no or 'new'}-submitted",
+        },
+        {
+          "title":"Muhajeer Books cheki 🧾",
+          "body":(
+            f"{order_label} • {item_count} ta kitob"
+            + (f" • Jami {total_text}" if total_text else "")
+            + (f" • {'; '.join(receipt_parts)}" if receipt_parts else "")
+          )[:950],
+          "tag":f"order-{order_no or 'new'}-receipt",
+        },
+      ]
+    else:
+      notifications=[{
+        "title":"Buyurtma qabul qilindi ✅",
+        "body":f"Muhajeer Books • {order_label} buyurtmangiz qabul qilindi."
+               + (f" Jami {total_text}." if total_text else ""),
+        "tag":f"order-{order_no or 'new'}-accepted",
+      }]
+
+    import json
+    success=0
+    failure=0
+    for note in notifications:
+      payload=json.dumps({
+        "title":note["title"],
+        "body":note["body"],
+        "url":"/",
+        "tag":note["tag"],
+        "icon":"/icons/Icon-192.png",
+        "badge":"/icons/Icon-192.png",
+      },ensure_ascii=False)
+      for row in subscriptions:
+        if not isinstance(row,dict): continue
+        try:
+          webpush(
+            subscription_info={
+              "endpoint":str(row.get("endpoint","")),
+              "keys":{"p256dh":str(row.get("p256dh","")),"auth":str(row.get("auth",""))},
+            },
+            data=payload,
+            vapid_private_key=private_key,
+            vapid_claims={"sub":"https://muhajeer-books-live-production.up.railway.app"},
+            ttl=86400,
+            timeout=12,
+          )
+          success+=1
+        except Exception as exc:
+          print(f"Order WebPush failed error={type(exc).__name__}",flush=True)
+          failure+=1
+    return jsonify(ok=True,subscriptions=len(subscriptions),sent=success,failed=failure)
+
+
 def _verify_admin_code(code):
     code=str(code or "").strip()
     if not code: return False

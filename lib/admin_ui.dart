@@ -4579,7 +4579,7 @@ class _BookFormState extends State<_BookForm> {
           const SizedBox(height:8),const Text('Shu tavsifni qo‘llash uchun “Tanlash”ni bosing. Boshqa tavsif kerak bo‘lsa oynani yoping va AI qidiruvini qayta bosing.',style:TextStyle(fontWeight:FontWeight.w700)),
         ]))),
         actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Yopish')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Tanlash'))],
-      )));
+      ));
       if(ok!=true || !mounted) return;
       void setIf(TextEditingController x,String name){final v=(data[name]??'').toString().trim();if(v.isNotEmpty)x.text=v;}
       setIf(title,'title'); setIf(author,'author'); setIf(publisher,'publisher'); setIf(category,'category');

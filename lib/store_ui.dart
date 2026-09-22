@@ -1642,6 +1642,10 @@ class _HomePageState extends State<HomePage> {
               padding: EdgeInsets.fromLTRB(16, 5, 16, 5),
               sliver: SliverToBoxAdapter(child: _DiscountCountdownBanner()),
             ),
+            const SliverPadding(
+              padding: EdgeInsets.fromLTRB(16, 5, 16, 7),
+              sliver: SliverToBoxAdapter(child: _EmergencyNoticeBanner()),
+            ),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 7, 16, 5),
               sliver: SliverToBoxAdapter(
@@ -2024,6 +2028,64 @@ class _CatalogBundleCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _EmergencyNoticeBanner extends StatelessWidget {
+  const _EmergencyNoticeBanner({this.compact = false});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: EdgeInsets.fromLTRB(14, compact ? 11 : 13, 14, compact ? 11 : 13),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFF1F2),
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: const Color(0xFFF3A6AD)),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFDDE1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(Icons.campaign_rounded, color: AppColors.danger),
+        ),
+        const SizedBox(width: 11),
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'MUHIM MA’LUMOT',
+                style: TextStyle(
+                  color: AppColors.danger,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Chuseok (추석) bayrami sababli yetkazib berish jadvalida vaqtinchalik o‘zgarishlar bo‘lishi mumkin. Buyurtma berishda yetkazib berish muddatiga e’tibor bering.',
+                style: TextStyle(
+                  color: AppColors.text,
+                  fontSize: 12,
+                  height: 1.4,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _DiscountCountdownBanner extends StatefulWidget {
@@ -4747,6 +4809,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
           children: [
+            const _EmergencyNoticeBanner(compact: true),
+            const SizedBox(height: 14),
             const _CheckoutStepHeader(number: '1', title: 'Qabul qiluvchi'),
             const SizedBox(height: 10),
             Card(

@@ -1639,7 +1639,7 @@ class _PushNotificationAdminState extends State<_PushNotificationAdmin> {
         border:Border.all(color:AppColors.border),
       ),
       child:Column(children:[
-        Icon(icon,size:20,color:AppColors.primary),
+        Icon(icon,size:20,color:AppColors.navy2),
         const SizedBox(height:5),
         Text(value.toString(),style:const TextStyle(fontSize:18,fontWeight:FontWeight.w900)),
         Text(label,textAlign:TextAlign.center,style:const TextStyle(fontSize:10.5,color:AppColors.muted,fontWeight:FontWeight.w700)),

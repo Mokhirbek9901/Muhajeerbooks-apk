@@ -2090,6 +2090,7 @@ class _EmergencyNoticeBanner extends StatelessWidget {
     ),
   );
   }
+}
 
 class _DiscountCountdownBanner extends StatefulWidget {
   const _DiscountCountdownBanner();

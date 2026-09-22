@@ -2036,7 +2036,10 @@ class _EmergencyNoticeBanner extends StatelessWidget {
   final bool compact;
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) {
+    final notice = context.watch<AppState>();
+    if (!notice.storeNoticeEnabled) return const SizedBox.shrink();
+    return Container(
     width: double.infinity,
     padding: EdgeInsets.fromLTRB(14, compact ? 11 : 13, 14, compact ? 11 : 13),
     decoration: BoxDecoration(
@@ -2063,7 +2066,7 @@ class _EmergencyNoticeBanner extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'MUHIM MA’LUMOT',
+                notice.storeNoticeTitle,
                 style: TextStyle(
                   color: AppColors.danger,
                   fontWeight: FontWeight.w900,
@@ -2072,7 +2075,7 @@ class _EmergencyNoticeBanner extends StatelessWidget {
               ),
               SizedBox(height: 4),
               Text(
-                'Chuseok (추석) bayrami sababli yetkazib berish jadvalida vaqtinchalik o‘zgarishlar bo‘lishi mumkin. Buyurtma berishda yetkazib berish muddatiga e’tibor bering.',
+                notice.storeNoticeMessage,
                 style: TextStyle(
                   color: AppColors.text,
                   fontSize: 12,
@@ -2086,7 +2089,7 @@ class _EmergencyNoticeBanner extends StatelessWidget {
       ],
     ),
   );
-}
+  }
 
 class _DiscountCountdownBanner extends StatefulWidget {
   const _DiscountCountdownBanner();

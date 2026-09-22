@@ -6,6 +6,8 @@ import time
 from collections import defaultdict, deque
 
 import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pywebpush import webpush, WebPushException
 from flask import Flask, jsonify, request, Response
 
 app = Flask(__name__)
@@ -324,6 +326,98 @@ def ai_assistant():
       return jsonify(text="Shu mavzuga yaqin, hozir omborda bor kitoblar:\n"+_free_book_lines(themed,True))
 
     return jsonify(text="Bu gapdan aniq kitob yoki mavzuni topolmadim. Boshqacharoq yozib ko‘ring — imlo xatosi bo‘lsa ham kitob nomi, muallif, mavzu yoki masalan “20 minggacha kitob tavsiya qil” deb yozishingiz mumkin.")
+
+
+def _admin_rpc_call(name, params):
+    url=os.getenv("SUPABASE_URL","https://rytfhjvhjxnbhgitowho.supabase.co").rstrip("/")+"/functions/v1/admin-rpc"
+    anon=os.getenv("SUPABASE_ANON_KEY","sb_publishable_5lDr_sw4bu8g3x8LCVzp4g_sHSTMBiO").strip()
+    try:
+      r=requests.post(url,headers={"apikey":anon,"Authorization":f"Bearer {anon}","Content-Type":"application/json"},
+        json={"name":name,"params":params},timeout=20)
+      if r.status_code>=400: return None
+      data=r.json() if r.content else {}
+      if isinstance(data,str):
+        import json
+        data=json.loads(data)
+      if not isinstance(data,dict) or data.get("ok") is not True: return None
+      return data.get("data")
+    except Exception:
+      return None
+
+
+@app.post("/api/push/send")
+def send_push_notification():
+    body=request.get_json(silent=True) or {}
+    supplied=str(body.get("admin_code","")).strip()
+    if not _verify_admin_code(supplied):
+        return jsonify(error="Unauthorized"),401
+
+    title=str(body.get("title","")).strip()[:120]
+    message=str(body.get("message","")).strip()[:1000]
+    if not title or not message:
+        return jsonify(error="Sarlavha va xabar matnini kiriting."),400
+
+    private_key=os.getenv("VAPID_PRIVATE_KEY","").strip()
+    if not private_key:
+        return jsonify(error="Push server sozlanmagan."),503
+
+    subscriptions=_admin_rpc_call("admin_push_subscriptions",{"p_secret":supplied})
+    if subscriptions is None:
+        return jsonify(error="Obunachilarni yuklab bo‘lmadi."),502
+    if not isinstance(subscriptions,list):
+        subscriptions=[]
+
+    import json
+    payload=json.dumps({
+      "title":title,
+      "body":message,
+      "url":"/",
+      "icon":"/icons/Icon-192.png",
+      "badge":"/icons/Icon-192.png",
+    },ensure_ascii=False)
+
+    def deliver(row):
+      try:
+        info={
+          "endpoint":str(row.get("endpoint","")),
+          "keys":{
+            "p256dh":str(row.get("p256dh","")),
+            "auth":str(row.get("auth","")),
+          },
+        }
+        webpush(
+          subscription_info=info,
+          data=payload,
+          vapid_private_key=private_key,
+          vapid_claims={"sub":"https://muhajeer-books-live-production.up.railway.app"},
+          ttl=86400,
+          timeout=12,
+        )
+        return True
+      except WebPushException as exc:
+        print(f"WebPush failed status={getattr(getattr(exc,'response',None),'status_code',None)}",flush=True)
+        return False
+      except Exception as exc:
+        print(f"WebPush failed error={type(exc).__name__}",flush=True)
+        return False
+
+    success=0
+    failure=0
+    with ThreadPoolExecutor(max_workers=8) as pool:
+      futures=[pool.submit(deliver,row) for row in subscriptions if isinstance(row,dict)]
+      for future in as_completed(futures):
+        if future.result(): success+=1
+        else: failure+=1
+
+    _admin_rpc_call("admin_push_log",{
+      "p_secret":supplied,
+      "p_title":title,
+      "p_body":message,
+      "p_success":success,
+      "p_failure":failure,
+    })
+    return jsonify(ok=True,total=len(subscriptions),success=success,failure=failure)
+
 
 def _verify_admin_code(code):
     code=str(code or "").strip()

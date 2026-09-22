@@ -130,13 +130,16 @@
     })();
   </script>
   <script>
-    // Remove legacy Flutter PWA workers/caches so old bundles cannot keep
-    // calling retired RPC routes after a security update.
+    // Eski Flutter cache workerlarini olib tashlaymiz, lekin Muhajeer Push
+    // workerini saqlaymiz. Push worker ilova yopiq paytda ham xabarni ko‘rsatadi.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async () => {
         try {
           const regs = await navigator.serviceWorker.getRegistrations();
-          await Promise.all(regs.map((reg) => reg.unregister()));
+          await Promise.all(regs.map((reg) => {
+            const url = reg.active?.scriptURL || reg.waiting?.scriptURL || reg.installing?.scriptURL || '';
+            return url.endsWith('/push-sw.js') ? Promise.resolve(true) : reg.unregister();
+          }));
           if ('caches' in window) {
             const keys = await caches.keys();
             await Promise.all(keys.filter((key) => key.startsWith('flutter-app-cache')).map((key) => caches.delete(key)));
@@ -144,6 +147,80 @@
         } catch (_) {}
       });
     }
+
+    (() => {
+      const vapidPublicKey = 'BNmOtGaBLl4SW8Q_kRrbrTALuoDB5sOJbgCC-Z4bwy5yyAr4BncgXGh6OHP4ylmIyU4NMrsjHSIhWf0Eityf0fo';
+      const publishableKey = 'sb_publishable_5lDr_sw4bu8g3x8LCVzp4g_sHSTMBiO';
+
+      function base64UrlToUint8Array(value) {
+        const padding = '='.repeat((4 - value.length % 4) % 4);
+        const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const raw = atob(base64);
+        return Uint8Array.from([...raw].map((ch) => ch.charCodeAt(0)));
+      }
+
+      async function syncSubscription(subscription) {
+        const data = subscription.toJSON();
+        if (!data.endpoint || !data.keys?.p256dh || !data.keys?.auth) return false;
+        const response = await fetch('/supabase/functions/v1/customer-rpc', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': publishableKey,
+            'Authorization': 'Bearer ' + publishableKey
+          },
+          body: JSON.stringify({
+            name: 'customer_push_subscribe',
+            params: {
+              p_endpoint: data.endpoint,
+              p_p256dh: data.keys.p256dh,
+              p_auth: data.keys.auth,
+              p_user_agent: navigator.userAgent || ''
+            }
+          })
+        });
+        const result = await response.json().catch(() => ({}));
+        return response.ok && result?.ok === true;
+      }
+
+      window.muhajeerPushSupported = () =>
+        location.protocol === 'https:' &&
+        'serviceWorker' in navigator &&
+        'PushManager' in window &&
+        'Notification' in window;
+
+      window.muhajeerEnablePush = async () => {
+        try {
+          if (!window.muhajeerPushSupported()) return false;
+          const permission = Notification.permission === 'granted'
+            ? 'granted'
+            : await Notification.requestPermission();
+          if (permission !== 'granted') return false;
+
+          const registration = await navigator.serviceWorker.register('/push-sw.js', { scope: '/' });
+          await navigator.serviceWorker.ready;
+          let subscription = await registration.pushManager.getSubscription();
+          if (!subscription) {
+            subscription = await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: base64UrlToUint8Array(vapidPublicKey)
+            });
+          }
+          return await syncSubscription(subscription);
+        } catch (error) {
+          console.warn('Muhajeer push setup failed', error);
+          return false;
+        }
+      };
+
+      // Ruxsat avval berilgan bo‘lsa, endpoint yangilangan bo‘lishi mumkin:
+      // foydalanuvchini qayta bezovta qilmasdan bazaga qayta sinxronlaymiz.
+      window.addEventListener('load', () => {
+        if (window.muhajeerPushSupported() && Notification.permission === 'granted') {
+          window.muhajeerEnablePush();
+        }
+      });
+    })();
   </script>
   <script>
     // Home-screen web app uzoq vaqt ochiq qolsa iOS eski Flutter bundle'ni

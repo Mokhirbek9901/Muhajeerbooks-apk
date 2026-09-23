@@ -627,10 +627,10 @@ class BackendService {
         .toList();
   }
 
-  Future<List<Map<String, dynamic>>> fetchPushMessages({int limit = 50}) async {
+  Future<List<Map<String, dynamic>>> fetchPushMessages({int limit = 50, String phone = ''}) async {
     final raw = await _customerRpc(
       'customer_push_history',
-      {'p_limit': limit.clamp(1, 100)},
+      {'p_limit': limit.clamp(1, 100), 'p_phone': phone.trim()},
     );
     if (raw is! List) return const [];
     return raw
@@ -1551,7 +1551,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     if (_backend == null || _pushMessagesRefreshing) return;
     _pushMessagesRefreshing = true;
     try {
-      final rows = await _backend!.fetchPushMessages(limit: 50);
+      final rows = await _backend!.fetchPushMessages(
+        limit: 50,
+        phone: (savedCustomer['phone'] ?? '').trim(),
+      );
       if (rows.isEmpty) return;
 
       final existingIds = _customerNotices

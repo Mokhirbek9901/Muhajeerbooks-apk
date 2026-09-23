@@ -499,6 +499,18 @@ def order_push_event():
         "tag":f"order-{order_no or 'new'}-accepted",
       }]
 
+    # Transactional xabarni in-app Bildirishnomalar tarixiga ham yozamiz.
+    # Web Push yo'qolsa ham mijoz ilovaga kirganda chek/status xabarini ko'radi.
+    for note in notifications:
+      _admin_rpc_call("event_push_message_log",{
+        "p_event_secret":supplied,
+        "p_phone":phone,
+        "p_title":note["title"],
+        "p_body":note["body"],
+        "p_kind":"receipt" if "cheki" in note["title"].lower() else event,
+        "p_order_number":order_no if order_no>0 else None,
+      })
+
     import json
     success=0
     failure=0

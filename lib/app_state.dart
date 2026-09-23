@@ -628,9 +628,14 @@ class BackendService {
   }
 
   Future<List<Map<String, dynamic>>> fetchPushMessages({int limit = 50, String phone = ''}) async {
+    final cleanPhone = phone.trim();
+    final params = <String, dynamic>{
+      'p_limit': limit.clamp(1, 100),
+      if (cleanPhone.isNotEmpty) 'p_phone': cleanPhone,
+    };
     final raw = await _customerRpc(
       'customer_push_history',
-      {'p_limit': limit.clamp(1, 100), 'p_phone': phone.trim()},
+      params,
     );
     if (raw is! List) return const [];
     return raw

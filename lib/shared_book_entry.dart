@@ -18,10 +18,16 @@ class _SharedBookEntryState extends State<SharedBookEntry> {
     super.initState();
     final id = sharedBookId(widget.uri);
     final bundleId = sharedBundleId(widget.uri);
-    if (id != null || bundleId != null) {
+    final openNotifications = widget.uri.queryParameters['open'] == 'notifications';
+    if (id != null || bundleId != null || openNotifications) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        if (bundleId != null) {
+        if (openNotifications) {
+          Navigator.of(context).push(muhajeerPageRoute<void>(
+            settings: const RouteSettings(name: 'mb:notifications'),
+            builder: (_) => const CustomerNotificationsPage(),
+          ));
+        } else if (bundleId != null) {
           Navigator.of(context).push(muhajeerPageRoute<void>(
             settings: RouteSettings(name: 'mb:bundle:$bundleId'),
             builder: (_) => BookBundleDetailPage(bundleId: bundleId),

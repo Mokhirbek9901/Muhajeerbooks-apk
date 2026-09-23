@@ -437,8 +437,14 @@ def order_push_event():
 
     phone=str(body.get("phone","")).strip()[:40]
     event=str(body.get("event","")).strip().lower()
-    if event not in ("submitted","accepted") or len(phone)<8:
+    if event not in ("submitted","accepted","admin_new_order"):
         return jsonify(error="Invalid event"),400
+    if event != "admin_new_order" and len(phone)<8:
+        return jsonify(error="Invalid event"),400
+    if event == "admin_new_order":
+        phone=os.getenv("ADMIN_PUSH_PHONE","").strip()
+        if len(phone)<8:
+            return jsonify(error="Admin push target unavailable"),503
 
     subscriptions=_admin_rpc_call("event_push_subscriptions",{
       "p_event_secret":supplied,
@@ -474,7 +480,18 @@ def order_push_event():
       if title: receipt_parts.append(f"{title} ×{qty}")
     total_text=f"₩{total:,}" if total>0 else ""
 
-    if event=="submitted":
+    if event=="admin_new_order":
+      notifications=[{
+        "title":"Yangi buyurtma tushdi 🛒",
+        "body":(
+          f"{order_label}"
+          + (f" • {item_count} ta kitob" if item_count else "")
+          + (f" • Jami {total_text}" if total_text else "")
+          + (f" • {'; '.join(receipt_parts)}" if receipt_parts else "")
+        )[:950],
+        "tag":f"admin-order-{order_no or 'new'}",
+      }]
+    elif event=="submitted":
       notifications=[
         {
           "title":"Buyurtma yuborildi ✅",

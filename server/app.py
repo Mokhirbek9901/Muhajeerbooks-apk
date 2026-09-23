@@ -535,7 +535,8 @@ def order_push_event():
       payload=json.dumps({
         "title":note["title"],
         "body":note["body"],
-        "url":"/",
+        "url":"/?open=notifications",
+        "open_inbox":True,
         "tag":note["tag"],
         "icon":"/icons/Icon-192.png",
         "badge":"/icons/Icon-192.png",

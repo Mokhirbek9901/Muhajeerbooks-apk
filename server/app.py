@@ -381,7 +381,8 @@ def send_push_notification():
       "message_id":str(message_id),
       "title":title,
       "body":message,
-      "url":"/",
+      "url":"/?open=notifications",
+      "open_inbox":True,
       "icon":"/icons/Icon-192.png",
       "badge":"/icons/Icon-192.png",
     },ensure_ascii=False)

@@ -11,7 +11,7 @@ self.addEventListener('push', (event) => {
     body: data.body || '',
     icon: data.icon || '/icons/Icon-192.png',
     badge: data.badge || '/icons/Icon-192.png',
-    data: { url: data.url || '/', messageId: data.message_id || '' },
+    data: { url: data.url || '/', messageId: data.message_id || '', openInbox: data.open_inbox === true },
     tag: data.tag || 'muhajeer-books',
     renotify: true
   };
@@ -20,7 +20,9 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const target = new URL(event.notification.data?.url || '/', self.location.origin).href;
+  const openInbox = event.notification.data?.openInbox === true;
+  const rawTarget = openInbox ? '/?open=notifications' : (event.notification.data?.url || '/');
+  const target = new URL(rawTarget, self.location.origin).href;
   event.waitUntil((async () => {
     try {
       const messageId = event.notification.data?.messageId || '';

@@ -540,7 +540,6 @@ def order_push_event():
         "tag":note["tag"],
         "icon":"/icons/Icon-192.png",
         "badge":"/icons/Icon-192.png",
-        "open_inbox":True,
       },ensure_ascii=False)
       for row in subscriptions:
         if not isinstance(row,dict): continue

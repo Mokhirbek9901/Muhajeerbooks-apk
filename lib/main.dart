@@ -17,6 +17,7 @@ import 'design_system.dart';
 import 'fast_store_shell.dart';
 import 'navigation_sync.dart';
 import 'shared_book_entry.dart';
+import 'store_ui.dart';
 
 // Live Railway web va APK aynan shu bir xil storefront kodidan build qilinadi.
 // Mijoz uchun majburiy Supabase login yo'q. Katalog cache'i tez start uchun
@@ -119,11 +120,23 @@ class _AdminResumeBootstrap extends StatefulWidget {
 
 class _AdminResumeBootstrapState extends State<_AdminResumeBootstrap> {
   bool _restoreStarted = false;
+  bool _pushLinkOpened = false;
 
   @override
   void initState() {
     super.initState();
     unawaited(_restoreAdminIfNeeded());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openPushLink());
+  }
+
+  void _openPushLink() {
+    if (_pushLinkOpened || !mounted || !kIsWeb) return;
+    if (Uri.base.queryParameters['open'] != 'notifications') return;
+    _pushLinkOpened = true;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'mb:notifications'),
+      builder: (_) => const CustomerNotificationsPage(),
+    ));
   }
 
   Future<void> _restoreAdminIfNeeded() async {

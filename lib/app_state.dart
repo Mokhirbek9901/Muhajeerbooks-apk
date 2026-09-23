@@ -628,9 +628,16 @@ class BackendService {
   }
 
   Future<List<Map<String, dynamic>>> fetchPushMessages({int limit = 50, String phone = ''}) async {
+    final cleanPhone = phone.trim();
     final raw = await _customerRpc(
       'customer_push_history',
-      {'p_limit': limit.clamp(1, 100), 'p_phone': phone.trim()},
+      {
+        'p_limit': limit.clamp(1, 100),
+        // The gateway rejects an empty optional phone. A non-numeric guest
+        // marker keeps the two-argument RPC unambiguous and returns only
+        // global push messages until the customer has saved a real phone.
+        'p_phone': cleanPhone.isEmpty ? 'guest' : cleanPhone,
+      },
     );
     if (raw is! List) return const [];
     return raw

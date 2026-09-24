@@ -1961,7 +1961,10 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                   children: [
                     SizedBox(
                       width: cardWidth,
-                      child: AppMetricCard(
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(AppRadii.large),
+                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Yangi buyurtmalar')), body: _OrdersAdmin(api: widget.api, initialFilter: 'new')))),
+                        child: AppMetricCard(
                         icon: Icons.new_releases_outlined,
                         label: 'Yangi buyurtmalar',
                         value: '$newOrders',
@@ -1969,6 +1972,7 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                         note: proofOrders > 0
                             ? '$proofOrders ta chek kutilmoqda'
                             : 'Tekshirish navbati',
+                        ),
                       ),
                     ),
                     SizedBox(
@@ -2006,12 +2010,16 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                     ),
                     SizedBox(
                       width: cardWidth,
-                      child: AppMetricCard(
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(AppRadii.large),
+                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => _AdminBookListPage(title: 'Ombordagi kitoblar', books: books.where((b) => b.stock > 0).toList()))),
+                        child: AppMetricCard(
                         icon: Icons.inventory_2_outlined,
                         label: 'Ombordagi dona',
                         value: '$totalStock',
                         accent: const Color(0xFF6B5DD3),
                         note: '${books.length} xil kitob',
+                        ),
                       ),
                     ),
                     SizedBox(
@@ -2036,12 +2044,16 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                     ),
                     SizedBox(
                       width: cardWidth,
-                      child: AppMetricCard(
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(AppRadii.large),
+                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => _AdminBookListPage(title: 'Kam qolgan kitoblar', books: lowStock))),
+                        child: AppMetricCard(
                         icon: Icons.warning_amber_rounded,
                         label: 'Kam qolgan kitob',
                         value: '${lowStock.length}',
                         accent: AppColors.warning,
                         note: '2 dona yoki undan kam',
+                        ),
                       ),
                     ),
                     SizedBox(
@@ -2076,81 +2088,22 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                     ),
                     SizedBox(
                       width: cardWidth,
-                      child: AppMetricCard(
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(AppRadii.large),
+                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => _AdminBookListPage(title: 'Tugagan kitoblar', books: books.where((b) => b.stock == 0).toList()))),
+                        child: AppMetricCard(
                         icon: Icons.remove_shopping_cart_outlined,
                         label: 'Tugagan kitob',
                         value: '$outOfStock',
                         accent: AppColors.danger,
                         note: 'Omborda 0 dona',
+                        ),
                       ),
                     ),
                   ],
                 );
               },
             ),
-  const SizedBox(height: 14),
-  Card(
-    clipBehavior: Clip.antiAlias,
-    child: ListTile(
-      minTileHeight: 72,
-      leading: Container(
-        width: 44,
-        height: 44,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: AppColors.warning.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: const Icon(Icons.percent_rounded),
-      ),
-      title: const Text(
-        'Chegirma berish',
-        style: TextStyle(fontWeight: FontWeight.w800),
-      ),
-      subtitle: const Text('Kitoblarga aksiya foizini boshqaring'),
-      trailing: const Icon(Icons.chevron_right_rounded),
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => Scaffold(
-              appBar: AppBar(
-                title: const Text('Chegirma boshqaruvi'),
-              ),
-              body: _DiscountAdmin(api: widget.api),
-            ),
-          ),
-        );
-      },
-    ),
-  ),
-  const SizedBox(height: 10),
-  Card(
-    clipBehavior: Clip.antiAlias,
-    child: ListTile(
-      minTileHeight: 72,
-      leading: Container(
-        width: 44,
-        height: 44,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: AppColors.successSoft,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: const Icon(Icons.auto_awesome_rounded, color: AppColors.success),
-      ),
-      title: const Text('Savdo imkoniyatlari',
-          style: TextStyle(fontWeight: FontWeight.w800)),
-      subtitle: const Text(
-        'Pre-order • kitob so‘rovlari • setlar • qidiruvlar • qayta olib kelish',
-      ),
-      trailing: const Icon(Icons.chevron_right_rounded),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => _MerchandisingAdminPage(api: widget.api),
-        ),
-      ),
-    ),
-  ),
             const SizedBox(height: 20),
             AppSurface(
               child: Column(
@@ -2951,6 +2904,32 @@ class _ShippingCopyRow extends StatelessWidget {
       ],
     );
   }
+}
+
+class _AdminBookListPage extends StatelessWidget {
+  const _AdminBookListPage({required this.title, required this.books});
+  final String title;
+  final List<Book> books;
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(title)),
+    body: books.isEmpty
+      ? const Center(child: Text('Hozircha ma’lumot yo‘q.'))
+      : ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: books.length,
+          separatorBuilder: (_, __) => const Divider(),
+          itemBuilder: (_, i) {
+            final b = books[i];
+            return ListTile(
+              leading: _AdminBookThumb(url: b.previewImageUrl),
+              title: Text(b.title, style: const TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: Text(_won(b.currentPrice)),
+              trailing: Text('${b.stock} dona', style: const TextStyle(fontWeight: FontWeight.w900)),
+            );
+          },
+        ),
+  );
 }
 
 class _AdminProgressStat extends StatelessWidget {
@@ -5208,8 +5187,9 @@ class _BookFormState extends State<_BookForm> {
 }
 
 class _OrdersAdmin extends StatefulWidget {
-  const _OrdersAdmin({super.key, required this.api});
+  const _OrdersAdmin({super.key, required this.api, this.initialFilter = 'all'});
   final _AdminApi api;
+  final String initialFilter;
 
   @override
   State<_OrdersAdmin> createState() => _OrdersAdminState();
@@ -5225,6 +5205,7 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
   void initState() {
     super.initState();
     future = widget.api.orders();
+    filter = widget.initialFilter;
   }
 
   void reload() {

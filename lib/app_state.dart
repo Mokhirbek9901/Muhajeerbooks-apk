@@ -1232,9 +1232,15 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _localOrders
       ..clear()
       ..addAll(secondary[7] as List<ShopOrder>);
+    final storedNotices = (secondary[8] as List<Map<String, dynamic>>)
+        .where((n) => (n['title'] ?? '').toString().trim().toLowerCase() !=
+            'Yangi buyurtma tushdi 🛒'.toLowerCase())
+        .toList();
     _customerNotices
       ..clear()
-      ..addAll(secondary[8] as List<Map<String, dynamic>>);
+      ..addAll(storedNotices);
+    // Purge legacy admin-only alerts that older app versions cached locally.
+    unawaited(_local.saveCustomerNotices(_customerNotices));
     _catalogCursor = secondary[9] as String;
 
     if (storedVerification == null) {

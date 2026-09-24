@@ -751,6 +751,44 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
   }
 }
 
+class _BundleCoverCollage extends StatelessWidget {
+  const _BundleCoverCollage({required this.books});
+  final List<Book> books;
+
+  @override
+  Widget build(BuildContext context) {
+    if (books.isEmpty) {
+      return Container(
+        color: UzbekCustomerColors.goldSoft,
+        child: const Center(child: Icon(Icons.auto_awesome_mosaic_rounded, size: 42, color: UzbekCustomerColors.navy)),
+      );
+    }
+    return Container(
+      color: AppColors.surfaceSoft,
+      padding: const EdgeInsets.all(8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: books.map((book) => Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(7),
+              child: Image.network(
+                book.previewImageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  color: UzbekCustomerColors.goldSoft,
+                  child: const Icon(Icons.menu_book_rounded, color: UzbekCustomerColors.navy),
+                ),
+              ),
+            ),
+          ),
+        )).toList(),
+      ),
+    );
+  }
+}
+
 class BookBundlesPage extends StatefulWidget {
   const BookBundlesPage({super.key});
 
@@ -816,10 +854,33 @@ class _BookBundlesPageState extends State<BookBundlesPage> {
                       regularTotal += book.price * qty;
                     }
                   }
+                  final bundleBooks = <Book>[];
+                  for (final item in items) {
+                    final id = (item['book_id'] ?? '').toString();
+                    for (final candidate in state.books) {
+                      if (candidate.id == id) {
+                        bundleBooks.add(candidate);
+                        break;
+                      }
+                    }
+                  }
+                  final customImage = (bundle['image_url'] ?? '').toString().trim();
                   return AppSurface(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        SizedBox(
+                          height: 126,
+                          width: double.infinity,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: customImage.isNotEmpty
+                                ? Image.network(customImage, fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => _BundleCoverCollage(books: bundleBooks))
+                                : _BundleCoverCollage(books: bundleBooks),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         Row(
                           children: [
                             Container(

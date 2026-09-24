@@ -6249,6 +6249,8 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
     }
     var active = bundle?['is_active'] as bool? ?? true;
     var deliveryIncluded = bundle?['delivery_included'] as bool? ?? false;
+    var bundleImageUrl = (bundle?['image_url'] ?? '').toString().trim();
+    var uploadingBundleImage = false;
 
     int selectedRegularTotal() {
       var total = 0;
@@ -6295,6 +6297,49 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
                   TextField(controller: title, decoration: const InputDecoration(labelText: 'Set nomi')),
                   const SizedBox(height: 8),
                   TextField(controller: description, maxLines: 2, decoration: const InputDecoration(labelText: 'Izoh')),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: bundleImageUrl.isEmpty
+                          ? Container(
+                              width: 72, height: 88,
+                              color: AppColors.surfaceSoft,
+                              child: const Icon(Icons.collections_rounded, color: AppColors.muted),
+                            )
+                          : Image.network(bundleImageUrl, width: 72, height: 88, fit: BoxFit.cover),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(child: OutlinedButton.icon(
+                      onPressed: uploadingBundleImage ? null : () async {
+                        final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+                        if (picked == null) return;
+                        setLocal(() => uploadingBundleImage = true);
+                        try {
+                          final uploaded = await widget.api.uploadCover(picked);
+                          setLocal(() => bundleImageUrl = uploaded.url);
+                        } catch (e) {
+                          if (dialogContext.mounted) {
+                            ScaffoldMessenger.of(dialogContext).showSnackBar(
+                              SnackBar(content: Text('Set rasmi yuklanmadi: $e')),
+                            );
+                          }
+                        } finally {
+                          if (dialogContext.mounted) setLocal(() => uploadingBundleImage = false);
+                        }
+                      },
+                      icon: uploadingBundleImage
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.add_photo_alternate_outlined),
+                      label: Text(bundleImageUrl.isEmpty ? 'Setga rasm yuklash' : 'Set rasmini almashtirish'),
+                    )),
+                    if (bundleImageUrl.isNotEmpty)
+                      IconButton(
+                        tooltip: 'Set rasmini olib tashlash',
+                        onPressed: () => setLocal(() => bundleImageUrl = ''),
+                        icon: const Icon(Icons.delete_outline_rounded),
+                      ),
+                  ]),
                   const SizedBox(height: 10),
                   Row(children: [
                     Expanded(child: TextField(
@@ -6466,6 +6511,7 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
         title: title.text.trim(),
         description: description.text.trim(),
         price: setPrice,
+        imageUrl: bundleImageUrl,
         active: active,
         deliveryIncluded: deliveryIncluded,
         items: items,

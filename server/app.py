@@ -510,10 +510,14 @@ def order_push_event():
         },
       ]
     else:
+      customer_note=str(body.get("customer_note") or "").strip()[:500]
       notifications=[{
         "title":"Buyurtma qabul qilindi ✅",
-        "body":f"Muhajeer Books • {order_label} buyurtmangiz qabul qilindi."
-               + (f" Jami {total_text}." if total_text else ""),
+        "body":(
+          f"Muhajeer Books • {order_label} buyurtmangiz qabul qilindi."
+          + (f" Jami {total_text}." if total_text else "")
+          + (f"\nIzoh: {customer_note}" if customer_note else "")
+        )[:950],
         "tag":f"order-{order_no or 'new'}-accepted",
       }]
 

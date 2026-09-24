@@ -1488,6 +1488,11 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (category != 'Barchasi') setState(() => category = 'Barchasi');
+  }
   String query = '';
   String category = 'Barchasi';
   String sort = 'new';
@@ -1561,8 +1566,8 @@ class _HomePageState extends State<HomePage> {
     );
     final state = context.read<AppState>();
     final categories = <String>{
-      'Sizga mos kitoblar',
       'Barchasi',
+      'Sizga mos kitoblar',
       'Oldindan sotuvda',
       'Nashriyotlar',
       'Setlar',
@@ -1573,7 +1578,6 @@ class _HomePageState extends State<HomePage> {
         .take(6)
         .toList();
     final personalized = state.personalizedBooks.take(8).toList();
-    final recentlyViewed = state.recentlyViewedBooks.take(10).toList();
     if (!categories.contains(category)) category = 'Barchasi';
 
     final books = state.books.where((book) {
@@ -1703,18 +1707,6 @@ class _HomePageState extends State<HomePage> {
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                 sliver: SliverToBoxAdapter(
                   child: _FeaturedBooksStrip(books: featured),
-                ),
-              ),
-            if (recentlyViewed.isNotEmpty)
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                sliver: SliverToBoxAdapter(
-                  child: _DiscoveryBooksStrip(
-                    title: 'Yaqinda ko‘rganlar',
-                    subtitle: 'Oxirgi ko‘rgan kitoblaringiz',
-                    icon: Icons.history_rounded,
-                    books: recentlyViewed,
-                  ),
                 ),
               ),
             SliverPadding(

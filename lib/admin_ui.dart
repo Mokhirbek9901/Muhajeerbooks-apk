@@ -7994,57 +7994,80 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  metric(
-                    'Ro‘yxatdan o‘tgan',
-                    stats['total_users'] ?? 0,
-                    Icons.person_add_alt_1_rounded,
-                  ),
+                  metric('Jami mijozlar', stats['total_users'] ?? 0, Icons.groups_rounded),
                   const SizedBox(width: 10),
-                  metric(
-                    'Bugun faol',
-                    stats['active_today'] ?? 0,
-                    Icons.bolt_rounded,
-                  ),
+                  metric('Bugun qo‘shildi', stats['new_today'] ?? 0, Icons.person_add_alt_1_rounded),
                 ],
               ),
               const SizedBox(height: 10),
               Row(
                 children: [
-                  metric(
-                    'Ilova qurilmalari',
-                    stats['total_installs'] ?? 0,
-                    Icons.phone_iphone_rounded,
-                  ),
+                  metric('Bugun faol', stats['active_today'] ?? 0, Icons.bolt_rounded),
                   const SizedBox(width: 10),
-                  metric(
-                    '7 kunda faol',
-                    stats['active_7d'] ?? 0,
-                    Icons.calendar_view_week_rounded,
-                  ),
+                  metric('7 kunda faol', stats['active_7d'] ?? 0, Icons.calendar_view_week_rounded),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  metric('7 kunda yangi', stats['new_7d'] ?? 0, Icons.trending_up_rounded),
+                  const SizedBox(width: 10),
+                  metric('Shu oy yangi', stats['new_this_month'] ?? 0, Icons.calendar_month_rounded),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  metric('Xaridorlar', stats['buyers'] ?? 0, Icons.shopping_bag_rounded),
+                  const SizedBox(width: 10),
+                  metric('Qayta xarid qilgan', stats['repeat_buyers'] ?? 0, Icons.repeat_rounded),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  metric('Ilova qurilmalari', stats['total_installs'] ?? 0, Icons.phone_iphone_rounded),
+                  const SizedBox(width: 10),
+                  metric('Jami kirishlar', stats['total_logins'] ?? 0, Icons.login_rounded),
                 ],
               ),
               const SizedBox(height: 16),
               AppSurface(
                 padding: const EdgeInsets.all(14),
-                child: Row(
+                child: Column(
                   children: [
-                    const Icon(
-                      Icons.receipt_long_rounded,
-                      color: AppColors.navy,
+                    Row(
+                      children: [
+                        const Icon(Icons.receipt_long_rounded, color: AppColors.navy),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Bugungi buyurtmalar: ${stats['orders_today'] ?? 0} • Ochiq: ${stats['open_orders'] ?? 0}',
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        Text(
+                          _won((stats['revenue_today'] as num?)?.toInt() ?? 0),
+                          style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.success),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Ochiq buyurtmalar: ${stats['open_orders'] ?? 0} • Jo‘natilgan: ${stats['completed_orders'] ?? 0}',
-                        style: const TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                    ),
-                    Text(
-                      _won((stats['completed_revenue'] as num?)?.toInt() ?? 0),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.success,
-                      ),
+                    const Divider(height: 24),
+                    Row(
+                      children: [
+                        const Icon(Icons.analytics_outlined, color: AppColors.navy),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Jami buyurtma: ${stats['total_orders'] ?? 0} • Yakunlangan: ${stats['completed_orders'] ?? 0}',
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        Text(
+                          _won((stats['completed_revenue'] as num?)?.toInt() ?? 0),
+                          style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.success),
+                        ),
+                      ],
                     ),
                   ],
                 ),

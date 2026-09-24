@@ -1932,179 +1932,17 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
               ),
             ),
             const SizedBox(height: 18),
-            InkWell(
-              borderRadius: BorderRadius.circular(AppRadii.large),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => Scaffold(
-                      appBar: AppBar(title: const Text('Muhim xabar')),
-                      body: _EmergencyNoticeAdmin(api: widget.api),
-                    ),
-                  ),
-                );
-              },
-              child: AppSurface(
-                backgroundColor: const Color(0xFFFFF1F2),
-                shadow: true,
-                child: const Row(
-                  children: [
-                    SizedBox(
-                      width: 50,
-                      height: 50,
-                      child: Icon(Icons.campaign_rounded, color: AppColors.danger, size: 30),
-                    ),
-                    SizedBox(width: 13),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Muhim xabar', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-                          SizedBox(height: 2),
-                          Text('Mijozlarga ko‘rinadigan favqulodda xabarni yozish va yoqish/o‘chirish', style: TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
-                    Icon(Icons.chevron_right_rounded, color: AppColors.danger),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            InkWell(
-              borderRadius: BorderRadius.circular(AppRadii.large),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => Scaffold(
-                      appBar: AppBar(title: const Text('Xabarnoma yuborish')),
-                      body: _PushNotificationAdmin(api: widget.api),
-                    ),
-                  ),
-                );
-              },
-              child: AppSurface(
-                backgroundColor: AppColors.successSoft,
-                shadow: true,
-                child: const Row(
-                  children: [
-                    SizedBox(
-                      width: 50,
-                      height: 50,
-                      child: Icon(Icons.notifications_active_rounded, color: AppColors.success, size: 29),
-                    ),
-                    SizedBox(width: 13),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Xabarnoma yuborish', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-                          SizedBox(height: 2),
-                          Text('Ilova yopiq bo‘lsa ham mijoz telefoniga push bildirishnoma yuborish', style: TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
-                    Icon(Icons.chevron_right_rounded, color: AppColors.success),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            InkWell(
-              borderRadius: BorderRadius.circular(AppRadii.large),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => Scaffold(
-                      appBar: AppBar(title: const Text('Kutayotganlar')),
-                      body: _RestockAdmin(api: widget.api),
-                    ),
-                  ),
-                );
-              },
-              child: AppSurface(
-                backgroundColor: AppColors.surfaceSoft,
-                shadow: true,
-                child: Row(
-                  children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(15),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: const Icon(
-                        Icons.notifications_active_rounded,
-                        color: AppColors.navy,
-                      ),
-                    ),
-                    const SizedBox(width: 13),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Kutayotganlar',
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Sotuvga qaytishini kutish so‘rovlarini ko‘rish',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.muted,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      color: AppColors.navy,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            InkWell(
-              borderRadius: BorderRadius.circular(AppRadii.large),
-              onTap: () async {
-                await Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => _PreorderAdminPage(api: widget.api)),
-                );
-                reload();
-              },
-              child: AppSurface(
-                backgroundColor: const Color(0xFFFFF4DF),
-                shadow: true,
-                child: const Row(
-                  children: [
-                    SizedBox(
-                      width: 50,
-                      height: 50,
-                      child: Icon(Icons.event_available_rounded, color: AppColors.navy, size: 29),
-                    ),
-                    SizedBox(width: 13),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Oldindan sotuvda', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-                          SizedBox(height: 2),
-                          Text('Yangi kitoblar • oldindan buyurtmalar • Story', style: TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
-                    Icon(Icons.chevron_right_rounded, color: AppColors.navy),
-                  ],
-                ),
+            Card(
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
+                minTileHeight: 78,
+                leading: const Icon(Icons.auto_awesome_rounded, color: AppColors.success, size: 30),
+                title: const Text('Savdo imkoniyatlari', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
+                subtitle: const Text('Xabarlar • kutayotganlar • oldindan sotuv • chegirma • savdo tahlili'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => _MerchandisingAdminPage(api: widget.api),
+                )),
               ),
             ),
             const SizedBox(height: 14),
@@ -6753,6 +6591,46 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  Card(
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(children: [
+                      ListTile(
+                        leading: const Icon(Icons.campaign_rounded, color: AppColors.danger),
+                        title: const Text('Muhim xabar', style: TextStyle(fontWeight: FontWeight.w900)),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Muhim xabar')), body: _EmergencyNoticeAdmin(api: widget.api)))),
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.notifications_active_rounded, color: AppColors.success),
+                        title: const Text('Xabarnoma yuborish', style: TextStyle(fontWeight: FontWeight.w900)),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Xabarnoma yuborish')), body: _PushNotificationAdmin(api: widget.api)))),
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.notifications_none_rounded),
+                        title: const Text('Kutayotganlar', style: TextStyle(fontWeight: FontWeight.w900)),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Kutayotganlar')), body: _RestockAdmin(api: widget.api)))),
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.event_available_rounded),
+                        title: const Text('Oldindan sotuvda', style: TextStyle(fontWeight: FontWeight.w900)),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () async { await Navigator.of(context).push(MaterialPageRoute(builder: (_) => _PreorderAdminPage(api: widget.api))); if (mounted) setState(_reload); },
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.percent_rounded),
+                        title: const Text('Chegirma berish', style: TextStyle(fontWeight: FontWeight.w900)),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Chegirma boshqaruvi')), body: _DiscountAdmin(api: widget.api)))),
+                      ),
+                    ]),
+                  ),
+                  const SizedBox(height: 14),
                   AppSurface(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

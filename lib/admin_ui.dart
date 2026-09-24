@@ -6263,157 +6263,154 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
       return total;
     }
 
+    final search = TextEditingController();
+    String query = '';
+    bool onlyInStock = false;
     final saved = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setLocal) => AlertDialog(
-          title: Text(bundle == null ? 'Yangi kitob seti' : 'Setni tahrirlash'),
-          content: SizedBox(
-            width: 560,
-            child: SingleChildScrollView(
+        builder: (context, setLocal) {
+          final q = query.trim().toLowerCase();
+          final visibleBooks = books.where((b) {
+            if (!b.isActive) return false;
+            if (onlyInStock && b.stock <= 0) return false;
+            if (q.isEmpty) return true;
+            return b.title.toLowerCase().contains(q) ||
+                b.author.toLowerCase().contains(q) ||
+                b.category.toLowerCase().contains(q);
+          }).toList()
+            ..sort((a, b) {
+              final as = selected.containsKey(a.id) ? 0 : 1;
+              final bs = selected.containsKey(b.id) ? 0 : 1;
+              if (as != bs) return as.compareTo(bs);
+              return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+            });
+          return AlertDialog(
+            title: Text(bundle == null ? 'Yangi kitob seti' : 'Setni tahrirlash'),
+            content: SizedBox(
+              width: 620,
+              height: MediaQuery.sizeOf(context).height * .76,
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextField(
-                    controller: title,
-                    decoration: const InputDecoration(labelText: 'Set nomi'),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: description,
-                    maxLines: 3,
-                    decoration: const InputDecoration(labelText: 'Izoh'),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceSoft,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Set narxi',
-                          style: TextStyle(fontWeight: FontWeight.w900),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Tanlangan kitoblar oddiy narxi: ${_won(selectedRegularTotal())}',
-                          style: const TextStyle(
-                            color: AppColors.muted,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 9),
-                        TextField(
-                          controller: price,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Mijoz uchun set narxini kiriting',
-                            prefixText: '₩ ',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  TextField(controller: title, decoration: const InputDecoration(labelText: 'Set nomi')),
                   const SizedBox(height: 8),
-                  SwitchListTile.adaptive(
-                    contentPadding: EdgeInsets.zero,
-                    value: deliveryIncluded,
-                    onChanged: (v) => setLocal(() => deliveryIncluded = v),
-                    secondary: const Icon(Icons.local_shipping_outlined),
-                    title: const Text(
-                      'Pochta set narxiga kiradi',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    subtitle: Text(
-                      deliveryIncluded
-                          ? 'Mijoz set narxidan tashqari pochta to‘lamaydi.'
-                          : 'Pochta set narxidan alohida hisoblanadi.',
-                    ),
-                  ),
-                                    SwitchListTile.adaptive(
-                    contentPadding: EdgeInsets.zero,
-                    value: active,
-                    onChanged: (v) => setLocal(() => active = v),
-                    title: const Text('Mijozlarga ko‘rsatish'),
-                  ),
-                  const Divider(),
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text('Set tarkibi',
-                        style: TextStyle(fontWeight: FontWeight.w900)),
-                  ),
-                  ...books.where((b) => b.isActive).map((book) {
-                    final qty = selected[book.id] ?? 0;
-                    return CheckboxListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      value: qty > 0,
-                      title: Text(book.title),
-                      subtitle: Text(
-                        [
-                          _won(book.price),
-                          if (qty > 1) '×$qty = ${_won(book.price * qty)}',
-                          'ombor ' + book.stock.toString(),
-                        ].join(' • '),
+                  TextField(controller: description, maxLines: 2, decoration: const InputDecoration(labelText: 'Izoh')),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    Expanded(child: TextField(
+                      controller: price,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Set narxi',
+                        prefixText: '₩ ',
+                        helperText: 'Oddiy narx: ${_won(selectedRegularTotal())}',
                       ),
-                      secondary: qty > 0
-                          ? Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  visualDensity: VisualDensity.compact,
-                                  onPressed: qty <= 1
-                                      ? null
-                                      : () => setLocal(
-                                            () => selected[book.id] = qty - 1,
-                                          ),
-                                  icon: const Icon(Icons.remove_circle_outline),
-                                ),
-                                Text(qty.toString(),
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w900)),
-                                IconButton(
-                                  visualDensity: VisualDensity.compact,
-                                  onPressed: () => setLocal(
-                                    () => selected[book.id] = qty + 1,
-                                  ),
-                                  icon: const Icon(Icons.add_circle_outline),
-                                ),
-                              ],
-                            )
-                          : null,
-                      onChanged: (v) => setLocal(() {
-                        if (v == true) {
-                          selected[book.id] = 1;
-                        } else {
-                          selected.remove(book.id);
-                        }
-                      }),
-                    );
-                  }),
+                    )),
+                    const SizedBox(width: 10),
+                    Column(children: [
+                      Text('${selected.length} xil', style: const TextStyle(fontWeight: FontWeight.w900)),
+                      const Text('tanlandi', style: TextStyle(color: AppColors.muted, fontSize: 11)),
+                    ]),
+                  ]),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    Expanded(child: TextField(
+                      controller: search,
+                      onChanged: (v) => setLocal(() => query = v),
+                      decoration: InputDecoration(
+                        hintText: 'Kitob nomi, muallif yoki kategoriya...',
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        suffixIcon: query.isEmpty ? null : IconButton(
+                          onPressed: () { search.clear(); setLocal(() => query = ''); },
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ),
+                    )),
+                    const SizedBox(width: 8),
+                    FilterChip(
+                      label: const Text('Omborda bor'),
+                      selected: onlyInStock,
+                      onSelected: (v) => setLocal(() => onlyInStock = v),
+                    ),
+                  ]),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: visibleBooks.isEmpty
+                      ? const Center(child: Text('Kitob topilmadi.'))
+                      : ListView.builder(
+                          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                          itemCount: visibleBooks.length,
+                          itemBuilder: (_, i) {
+                            final book = visibleBooks[i];
+                            final qty = selected[book.id] ?? 0;
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 6),
+                              child: ListTile(
+                                dense: true,
+                                leading: _AdminBookThumb(url: book.previewImageUrl),
+                                title: Text(book.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
+                                subtitle: Text('${_won(book.price)} • ombor ${book.stock}'),
+                                trailing: qty == 0
+                                  ? IconButton(
+                                      tooltip: 'Setga qo‘shish',
+                                      onPressed: () => setLocal(() => selected[book.id] = 1),
+                                      icon: const Icon(Icons.add_circle_rounded, color: AppColors.success),
+                                    )
+                                  : Row(mainAxisSize: MainAxisSize.min, children: [
+                                      IconButton(
+                                        visualDensity: VisualDensity.compact,
+                                        onPressed: () => setLocal(() {
+                                          if (qty <= 1) selected.remove(book.id);
+                                          else selected[book.id] = qty - 1;
+                                        }),
+                                        icon: const Icon(Icons.remove_circle_outline),
+                                      ),
+                                      Text('$qty', style: const TextStyle(fontWeight: FontWeight.w900)),
+                                      IconButton(
+                                        visualDensity: VisualDensity.compact,
+                                        onPressed: () => setLocal(() => selected[book.id] = qty + 1),
+                                        icon: const Icon(Icons.add_circle_outline),
+                                      ),
+                                    ]),
+                                onTap: () => setLocal(() {
+                                  if (qty == 0) selected[book.id] = 1;
+                                }),
+                              ),
+                            );
+                          },
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(children: [
+                    Expanded(child: SwitchListTile.adaptive(
+                      dense: true, contentPadding: EdgeInsets.zero,
+                      value: deliveryIncluded,
+                      onChanged: (v) => setLocal(() => deliveryIncluded = v),
+                      title: const Text('Pochta narx ichida', style: TextStyle(fontWeight: FontWeight.w700)),
+                    )),
+                    Expanded(child: SwitchListTile.adaptive(
+                      dense: true, contentPadding: EdgeInsets.zero,
+                      value: active,
+                      onChanged: (v) => setLocal(() => active = v),
+                      title: const Text('Ko‘rsatish', style: TextStyle(fontWeight: FontWeight.w700)),
+                    )),
+                  ]),
                 ],
               ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Bekor qilish'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Saqlash'),
-            ),
-          ],
-        ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Bekor qilish')),
+              FilledButton.icon(
+                onPressed: selected.isEmpty ? null : () => Navigator.pop(dialogContext, true),
+                icon: const Icon(Icons.check_rounded),
+                label: Text('Saqlash (${selected.length})'),
+              ),
+            ],
+          );
+        },
       ),
     );
+    search.dispose();
 
     if (saved != true) {
       title.dispose();

@@ -176,6 +176,7 @@ class _PersistentScrollController extends ScrollController {
 }
 
 Future<void> _openBookDetail(BuildContext context, Book book) async {
+  unawaited(context.read<AppState>().recordBookView(book));
   await Navigator.push<void>(
     context,
     muhajeerPageRoute<void>(
@@ -1515,6 +1516,10 @@ class _HomePageState extends State<HomePage> {
                 book.publisher.toLowerCase().contains(q) ||
                 book.category.toLowerCase().contains(q)),
       );
+      final resultCount = state.books.where((book) => book.isActive &&
+          (book.title.toLowerCase().contains(q) || book.author.toLowerCase().contains(q) ||
+           book.publisher.toLowerCase().contains(q) || book.category.toLowerCase().contains(q))).length;
+      unawaited(state.recordSearchEvent(clean, resultCount));
       if (!found && _lastLoggedMiss != q) {
         _lastLoggedMiss = q;
         unawaited(state.recordSearchMiss(clean));
@@ -1543,11 +1548,13 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final homeState = context.select<
       AppState,
-      ({int catalogRevision, int bundleCount, bool loading, String? error})
+      ({int catalogRevision, int bundleCount, int recentCount, int favoriteCount, bool loading, String? error})
     >(
       (s) => (
         catalogRevision: s.catalogRevision,
         bundleCount: s.bundles.length,
+        recentCount: s.recentlyViewedBooks.length,
+        favoriteCount: s.favorites.length,
         loading: s.loading,
         error: s.error,
       ),
@@ -1564,6 +1571,8 @@ class _HomePageState extends State<HomePage> {
         .where((b) => b.isActive && b.recommended && b.inStock)
         .take(6)
         .toList();
+    final personalized = state.personalizedBooks.take(8).toList();
+    final recentlyViewed = state.recentlyViewedBooks.take(10).toList();
     if (!categories.contains(category)) category = 'Barchasi';
 
     final books = state.books.where((book) {
@@ -1689,6 +1698,30 @@ class _HomePageState extends State<HomePage> {
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                 sliver: SliverToBoxAdapter(
                   child: _FeaturedBooksStrip(books: featured),
+                ),
+              ),
+            if (personalized.isNotEmpty)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                sliver: SliverToBoxAdapter(
+                  child: _DiscoveryBooksStrip(
+                    title: 'Sizga mos kitoblar',
+                    subtitle: 'Qiziqishlaringiz asosida tanlandi',
+                    icon: Icons.auto_awesome_rounded,
+                    books: personalized,
+                  ),
+                ),
+              ),
+            if (recentlyViewed.isNotEmpty)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                sliver: SliverToBoxAdapter(
+                  child: _DiscoveryBooksStrip(
+                    title: 'Yaqinda ko‘rganlar',
+                    subtitle: 'Oxirgi ko‘rgan kitoblaringiz',
+                    icon: Icons.history_rounded,
+                    books: recentlyViewed,
+                  ),
                 ),
               ),
             SliverPadding(
@@ -3141,6 +3174,57 @@ class _FeaturedBooksStrip extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    ],
+  );
+}
+
+class _DiscoveryBooksStrip extends StatelessWidget {
+  const _DiscoveryBooksStrip({required this.title, required this.subtitle, required this.icon, required this.books});
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final List<Book> books;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      UzbekSectionTitle(title: title, subtitle: subtitle, icon: icon),
+      const SizedBox(height: 10),
+      SizedBox(
+        height: 226,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: books.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 10),
+          itemBuilder: (context, i) {
+            final b = books[i];
+            return SizedBox(
+              width: 132,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: () => _openBookDetail(context, b),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: UzbekCustomerColors.border),
+                  ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(10), child: _BookCover(book: b))),
+                    const SizedBox(height: 7),
+                    Text(b.title, maxLines: 2, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900, color: UzbekCustomerColors.navy)),
+                    const SizedBox(height: 3),
+                    Text(won(b.currentPrice), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: UzbekCustomerColors.teal)),
+                  ]),
                 ),
               ),
             );

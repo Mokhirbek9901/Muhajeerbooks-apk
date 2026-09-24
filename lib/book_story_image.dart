@@ -835,7 +835,6 @@ Future<Uint8List> renderBookStory(
     canvas.drawCircle(const Offset(150, 780), 260, Paint()..color = palette.accent.withAlpha(70));
     canvas.drawRect(const Rect.fromLTWH(0, 930, 1080, 990), Paint()..color = cream);
     simpleText('MUHAJEER BOOKS', 90, 38, color: Colors.white, weight: FontWeight.w800);
-    simpleText('KITOB • MUTOLAA • ILM', 146, 18, color: palette.softWarm, weight: FontWeight.w700);
     coverRect = const Rect.fromLTWH(245, 225, 590, 650);
     contentStart = 966;
   } else if (autoVariant == 2) {
@@ -850,7 +849,6 @@ Future<Uint8List> renderBookStory(
     canvas.drawPath(arch, Paint()..style = PaintingStyle.stroke..strokeWidth = 9..color = teal);
     canvas.drawCircle(const Offset(540, 145), 20, Paint()..color = teal);
     simpleText('MUHAJEER BOOKS', 92, 36, weight: FontWeight.w800);
-    simpleText('Koreyadagi o‘zbek kitob do‘koni', 142, 21, color: teal);
     coverRect = const Rect.fromLTWH(245, 245, 590, 640);
     contentStart = 958;
   } else if (autoVariant == 3) {
@@ -859,7 +857,6 @@ Future<Uint8List> renderBookStory(
     canvas.drawRect(const Rect.fromLTWH(70, 255, 940, 650), Paint()..color = Colors.white);
     canvas.drawLine(const Offset(70, 935), const Offset(1010, 935), Paint()..color = teal..strokeWidth = 3);
     simpleText('MUHAJEER BOOKS', 72, 42, weight: FontWeight.w900);
-    simpleText('TANLANGAN KITOB', 132, 18, color: teal, weight: FontWeight.w700);
     coverRect = const Rect.fromLTWH(170, 285, 740, 590);
     contentStart = 968;
   } else if (autoVariant == 4) {
@@ -868,7 +865,6 @@ Future<Uint8List> renderBookStory(
     canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 1920), Paint()..color = const Color(0xFFF6F1E5));
     canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 188), Paint()..color = const Color(0xFF244F45));
     simpleText('MUHAJEER BOOKS', 48, 34, color: Colors.white, weight: FontWeight.w900);
-    simpleText('ILM • QIROAT • MA’RIFAT', 105, 17, color: const Color(0xFFE5C987), weight: FontWeight.w700);
 
     final arch = Path()
       ..moveTo(185, 845)
@@ -898,7 +894,6 @@ Future<Uint8List> renderBookStory(
     canvas.drawColor(const Color(0xFF10141A), BlendMode.src);
     canvas.drawRect(const Rect.fromLTWH(0, 790, 1080, 1130), Paint()..color = cream);
     canvas.drawRect(const Rect.fromLTWH(70, 70, 12, 650), Paint()..color = const Color(0xFFC63D32));
-    simpleText('MUHAJEER / NOIR', 72, 27, color: Colors.white, weight: FontWeight.w900);
     coverRect = const Rect.fromLTWH(195, 150, 690, 590);
     contentStart = 845;
   } else if (autoVariant == 6) {
@@ -947,14 +942,12 @@ Future<Uint8List> renderBookStory(
     canvas.drawColor(const Color(0xFFF3EBDD), BlendMode.src);
     canvas.drawRect(const Rect.fromLTWH(65, 60, 950, 820), Paint()..color = Colors.white);
     canvas.drawLine(const Offset(120, 150), const Offset(960, 150), Paint()..color = ink..strokeWidth = 3);
-    simpleText('MUHAJEER • ADABIYOT', 82, 26, color: ink, weight: FontWeight.w800);
     coverRect = const Rect.fromLTWH(235, 205, 610, 620);
     contentStart = 930;
   } else if (autoVariant == 12) {
     canvas.drawColor(const Color(0xFF102E29), BlendMode.src);
     canvas.drawCircle(const Offset(540, 390), 350, Paint()..color = const Color(0xFF1B493E));
     canvas.drawCircle(const Offset(540, 390), 305, Paint()..style=PaintingStyle.stroke..strokeWidth=8..color=const Color(0xFFC8A65C));
-    simpleText('MUHAJEER • ILM', 62, 30, color: const Color(0xFFEAD9A8), weight: FontWeight.w900);
     coverRect = const Rect.fromLTWH(285, 185, 510, 600);
     contentStart = 875;
   } else if (autoVariant == 13) {
@@ -963,27 +956,23 @@ Future<Uint8List> renderBookStory(
       canvas.drawCircle(Offset(x, 410), 42, Paint()..style=PaintingStyle.stroke..strokeWidth=5..color=teal.withAlpha(130));
     }
     canvas.drawRect(const Rect.fromLTWH(0,0,1080,165), Paint()..color=teal);
-    simpleText('MUHAJEER • QIROAT', 52, 31, color: Colors.white, weight: FontWeight.w900);
     coverRect = const Rect.fromLTWH(245, 215, 590, 590);
     contentStart = 885;
   } else if (autoVariant == 14) {
     canvas.drawColor(const Color(0xFFF0EEE8), BlendMode.src);
     canvas.drawRect(const Rect.fromLTWH(0,0,1080,720), Paint()..color=const Color(0xFF25272C));
     canvas.drawRect(const Rect.fromLTWH(0,620,1080,100), Paint()..color=const Color(0xFFB43D34));
-    simpleText('MUHAJEER / DETEKTIV', 58, 28, color: Colors.white, weight: FontWeight.w900);
     coverRect = const Rect.fromLTWH(330, 145, 600, 610);
     contentStart = 835;
   } else if (autoVariant == 15) {
     canvas.drawColor(const Color(0xFFF6F0ED), BlendMode.src);
     canvas.drawCircle(const Offset(120,250), 260, Paint()..color=const Color(0xFFDDE7D5));
     canvas.drawCircle(const Offset(980,650), 310, Paint()..color=const Color(0xFFEACFD4));
-    simpleText('MUHAJEER • HIKOYA', 70, 28, color: const Color(0xFF68545A), weight: FontWeight.w800);
     coverRect = const Rect.fromLTWH(260, 180, 560, 650);
     contentStart = 915;
   } else if (autoVariant == 16) {
     canvas.drawColor(const Color(0xFF15191C), BlendMode.src);
     canvas.drawRect(const Rect.fromLTWH(0,0,1080,150), Paint()..color=const Color(0xFFC49A4A));
-    simpleText('MUHAJEER • BUSINESS', 52, 30, color: const Color(0xFF15191C), weight: FontWeight.w900);
     coverRect = const Rect.fromLTWH(220, 205, 640, 610);
     contentStart = 900;
   } else if (autoVariant == 17) {
@@ -991,28 +980,24 @@ Future<Uint8List> renderBookStory(
     canvas.drawCircle(const Offset(130,180), 90, Paint()..color=const Color(0xFFFFD66B));
     canvas.drawCircle(const Offset(930,260), 120, Paint()..color=const Color(0xFFA9D9CF));
     canvas.drawCircle(const Offset(130,760), 75, Paint()..color=const Color(0xFFE7B5C8));
-    simpleText('MUHAJEER • KITOB', 62, 30, color: const Color(0xFF38535A), weight: FontWeight.w900);
     coverRect = const Rect.fromLTWH(230, 190, 620, 630);
     contentStart = 910;
   } else if (autoVariant == 18) {
     canvas.drawColor(const Color(0xFFE8EFEA), BlendMode.src);
     canvas.drawRect(const Rect.fromLTWH(45,45,990,820), Paint()..style=PaintingStyle.stroke..strokeWidth=8..color=const Color(0xFF17646B));
     canvas.drawRect(const Rect.fromLTWH(68,68,944,774), Paint()..style=PaintingStyle.stroke..strokeWidth=2..color=const Color(0xFFB99250));
-    simpleText('MUHAJEER • TARIX', 72, 29, color: const Color(0xFF174F54), weight: FontWeight.w900);
     coverRect = const Rect.fromLTWH(255, 190, 570, 620);
     contentStart = 915;
   } else if (autoVariant == 19) {
     canvas.drawRect(const Rect.fromLTWH(0,0,1080,1920), Paint()..shader=ui.Gradient.linear(
       const Offset(0,0), const Offset(1080,900), [palette.softAccent, palette.softWarm]));
     canvas.drawCircle(const Offset(900,160), 240, Paint()..color=teal.withAlpha(55));
-    simpleText('MUHAJEER • TAFAKKUR', 64, 29, color: ink, weight: FontWeight.w900);
     coverRect = const Rect.fromLTWH(205, 185, 670, 640);
     contentStart = 910;
   } else {
     canvas.drawColor(const Color(0xFFF7F5F0), BlendMode.src);
     canvas.drawRect(const Rect.fromLTWH(75,75,930,760), Paint()..color=Colors.white);
     canvas.drawLine(const Offset(100,135), const Offset(980,135), Paint()..color=teal..strokeWidth=4);
-    simpleText('MUHAJEER • ADABIYOT', 82, 27, color: ink, weight: FontWeight.w900);
     coverRect = const Rect.fromLTWH(185, 185, 710, 600);
     contentStart = 890;
   }
@@ -1429,7 +1414,6 @@ Future<Uint8List> _renderOldCurrentStory(
   }
 
   centerText('MUHAJEER BOOKS', 82, 43, ink, FontWeight.w900);
-  centerText('Koreyadagi o‘zbek kitob do‘koni', 142, 23, ink, FontWeight.w500);
 
   const coverRect=Rect.fromLTWH(185,255,710,650);
   final card=RRect.fromRectAndRadius(coverRect.inflate(28),const Radius.circular(34));
@@ -2037,8 +2021,6 @@ Future<Uint8List> _renderAlternativeBookStory(
     // Kollajning o‘z sarlavhasi pastroqda chiziladi. Bu yerda ikkinchi
     // MUHAJEER BOOKS sarlavhasini chizmaymiz — matnlar ustma-ust tushmaydi.
   } else if (template == BookStoryTemplate.coverFocus) {
-    textBox('MUHAJEER BOOKS  /  KITOB TAVSIYASI', const Rect.fromLTWH(95, 70, 890, 55), 24,
-        weight: FontWeight.w600, color: const Color(0xFFD8BE86), maxLines: 1, letterSpacing: 2);
   } else if (template == BookStoryTemplate.editorialPage) {
     textBox('MUHAJEER BOOKS', const Rect.fromLTWH(85, 70, 420, 48), 25,
         weight: FontWeight.w700, color: const Color(0xFF4D4234), align: TextAlign.left,
@@ -2130,25 +2112,21 @@ Future<Uint8List> _renderAlternativeBookStory(
         weight: template == BookStoryTemplate.classic ? FontWeight.w500 : FontWeight.w900,
         color: headerColor, maxLines: 1, fontFamily: displayFont,
         letterSpacing: template == BookStoryTemplate.magazine ? 7 : (serif ? 3 : 0));
-    textBox('Koreyadagi o‘zbek kitob do‘koni', const Rect.fromLTWH(80, 132, 920, 44), 23,
-        color: dark ? const Color(0xFFE8E0D7) : navy, maxLines: 1,
-        fontFamily: displayFont,
-        fontStyle: serif ? FontStyle.italic : FontStyle.normal);
   }
 
   // Oldindan sotuvdagi kitob Storysi ekanini bir qarashda ko‘rsatamiz.
   // Barcha dizaynlarda yuqori qismda bir xil, aniq banner chiqadi.
   if (book.preorderEnabled) {
     rounded(
-      const Rect.fromLTWH(190, 145, 700, 64),
+      const Rect.fromLTWH(190, 112, 700, 46),
       const Color(0xEE0A6F66),
-      radius: 32,
+      radius: 23,
       stroke: const Color(0x55FFFFFF),
     );
     textBox(
       'OLDINDAN BUYURTMA YIG‘YAPMIZ',
-      const Rect.fromLTWH(215, 157, 650, 40),
-      25,
+      const Rect.fromLTWH(215, 120, 650, 28),
+      20,
       weight: FontWeight.w900,
       color: Colors.white,
       maxLines: 1,
@@ -2163,8 +2141,6 @@ Future<Uint8List> _renderAlternativeBookStory(
     coverFrame = const Rect.fromLTWH(315, 390, 450, 650);
     coverRect = const Rect.fromLTWH(340, 415, 400, 600);
   } else if (template == BookStoryTemplate.arch) {
-    textBox('“Qalbingiz xotirjam bo‘lsin.”', const Rect.fromLTWH(130, 190, 820, 75), 31,
-      color: navy, maxLines: 1);
     coverFrame = const Rect.fromLTWH(285, 360, 510, 690);
     coverRect = const Rect.fromLTWH(315, 390, 450, 630);
   } else if (template == BookStoryTemplate.emerald) {
@@ -2180,8 +2156,6 @@ Future<Uint8List> _renderAlternativeBookStory(
     coverFrame = const Rect.fromLTWH(290, 360, 500, 760);
     coverRect = const Rect.fromLTWH(320, 390, 440, 700);
   } else if (template == BookStoryTemplate.magazine) {
-    textBox('YANGI KITOB', const Rect.fromLTWH(115, 190, 300, 48), 22, weight: FontWeight.w900,
-      color: const Color(0xFFD94B3D), align: TextAlign.left, maxLines: 1, letterSpacing: 3);
     textBox(book.title.toUpperCase(), const Rect.fromLTWH(115, 235, 850, 155), 57, weight: FontWeight.w900,
       align: TextAlign.left, maxLines: 2, letterSpacing: 1.2);
     coverFrame = const Rect.fromLTWH(330, 410, 600, 650);
@@ -2224,15 +2198,11 @@ Future<Uint8List> _renderAlternativeBookStory(
     coverFrame = const Rect.fromLTWH(75, 285, 350, 720);
     coverRect = const Rect.fromLTWH(95, 305, 310, 680);
   } else if (template == BookStoryTemplate.polaroid) {
-    textBox('BUGUNGI TANLOV', const Rect.fromLTWH(160, 190, 760, 55), 25,
-      weight: FontWeight.w900, color: const Color(0xFF49664F), letterSpacing: 5, maxLines: 1);
     textBox(book.title, const Rect.fromLTWH(130, 1010, 820, 145), 55, weight: FontWeight.w600,
       color: const Color(0xFF304B38), fontFamily: 'serif', fontStyle: FontStyle.italic);
     coverFrame = const Rect.fromLTWH(255, 300, 570, 700);
     coverRect = const Rect.fromLTWH(290, 335, 500, 590);
   } else if (template == BookStoryTemplate.collage) {
-    textBox('O‘QISHGA ARZIYDI!', const Rect.fromLTWH(80, 60, 920, 90), 50,
-      weight: FontWeight.w900, color: Colors.white, fontFamily: 'monospace', letterSpacing: -1);
     textBox(book.title.toUpperCase(), const Rect.fromLTWH(520, 290, 500, 260), 54,
       weight: FontWeight.w900, color: navy, align: TextAlign.left, maxLines: 3,
       fontFamily: 'monospace', letterSpacing: -1);
@@ -2263,9 +2233,6 @@ Future<Uint8List> _renderAlternativeBookStory(
     coverFrame = const Rect.fromLTWH(500, 540, 470, 590);
     coverRect = const Rect.fromLTWH(525, 565, 420, 540);
   } else if (template == BookStoryTemplate.lifestyle) {
-    textBox('Yaxshi kitob —\nyaxshi hayot.', const Rect.fromLTWH(80, 185, 470, 205), 47,
-      weight: FontWeight.w400, color: Colors.white, align: TextAlign.left,
-      maxLines: 3, fontFamily: 'serif', fontStyle: FontStyle.italic);
     coverFrame = const Rect.fromLTWH(315, 535, 450, 575);
     coverRect = const Rect.fromLTWH(340, 560, 400, 525);
     textBox(book.title, const Rect.fromLTWH(120, 1115, 840, 90), 39,
@@ -2288,8 +2255,6 @@ Future<Uint8List> _renderAlternativeBookStory(
     coverFrame = const Rect.fromLTWH(285, 490, 510, 610);
     coverRect = const Rect.fromLTWH(315, 520, 450, 550);
   } else if (template == BookStoryTemplate.goldArch) {
-    textBox('BILIM  •  XOTIRJAMLIK  •  HAYOT', const Rect.fromLTWH(110, 180, 860, 60), 23,
-      weight: FontWeight.w700, color: const Color(0xFFE5C26E), maxLines: 1, letterSpacing: 3);
     coverFrame = const Rect.fromLTWH(330, 455, 420, 570);
     coverRect = const Rect.fromLTWH(355, 480, 370, 520);
     textBox(book.title, const Rect.fromLTWH(120, 1050, 840, 110), 44,
@@ -2298,9 +2263,6 @@ Future<Uint8List> _renderAlternativeBookStory(
     textBox(storyPrice(book), const Rect.fromLTWH(200, 1160, 680, 65), 39,
       weight: FontWeight.w800, color: const Color(0xFFE5B84F), maxLines: 1);
   } else if (template == BookStoryTemplate.scrapbook) {
-    textBox('Har bir kitob —\nbir yaxshi odat...', const Rect.fromLTWH(590, 180, 380, 170), 34,
-      weight: FontWeight.w500, color: const Color(0xFF4B3B2A), align: TextAlign.left,
-      maxLines: 3, fontFamily: 'serif', fontStyle: FontStyle.italic);
     coverFrame = const Rect.fromLTWH(190, 430, 610, 590);
     coverRect = const Rect.fromLTWH(225, 465, 540, 520);
     textBox(book.title, const Rect.fromLTWH(180, 1035, 720, 95), 38,
@@ -2327,18 +2289,12 @@ Future<Uint8List> _renderAlternativeBookStory(
     coverFrame = const Rect.fromLTWH(285, 345, 510, 720);
     coverRect = const Rect.fromLTWH(315, 375, 450, 660);
   } else if (template == BookStoryTemplate.midnight) {
-    textBox('✦  KITOB TAVSIYASI  ✦', const Rect.fromLTWH(170, 155, 740, 45), 21,
-      weight: FontWeight.w700, color: const Color(0xFFD8C17A), maxLines: 1,
-      letterSpacing: 3);
     textBox(book.title, const Rect.fromLTWH(120, 210, 840, 130), 52,
       weight: FontWeight.w500, color: const Color(0xFFF7F0DE), maxLines: 2,
       fontFamily: 'serif', fontStyle: FontStyle.italic);
     coverFrame = const Rect.fromLTWH(300, 365, 480, 700);
     coverRect = const Rect.fromLTWH(328, 393, 424, 644);
   } else if (template == BookStoryTemplate.gallery) {
-    textBox('KITOB / 01', const Rect.fromLTWH(70, 185, 250, 45), 21,
-      weight: FontWeight.w900, color: const Color(0xFFC45E43), align: TextAlign.left,
-      maxLines: 1, fontFamily: 'monospace', letterSpacing: 2);
     textBox(book.title.toUpperCase(), const Rect.fromLTWH(70, 235, 940, 130), 51,
       weight: FontWeight.w900, color: const Color(0xFF202020), align: TextAlign.left,
       maxLines: 2, fontFamily: 'monospace', letterSpacing: -0.5);

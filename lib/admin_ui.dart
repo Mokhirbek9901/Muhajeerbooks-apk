@@ -582,7 +582,14 @@ class _AdminApi {
     await saveBook(book.copyWith(stock: value < 0 ? 0 : value));
   }
 
-  Future<void> updateOrderStatus(String id, String status) async {
+  Future<void> updateOrderStatus(String id, String status, {String? customerNote}) async {
+    if (status == 'accepted') {
+      await _rpc(
+        'admin_accept_order_with_note',
+        params: {'p_secret': secret, 'p_id': id, 'p_note': customerNote?.trim() ?? ''},
+      );
+      return;
+    }
     await _rpc(
       'admin_update_order_status',
       params: {'p_secret': secret, 'p_id': id, 'p_status': status},
@@ -5408,32 +5415,44 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
       return;
     }
     if (busy.contains(order.id)) return;
+    String customerNote = '';
     if (status == 'accepted') {
-      final yes = await showDialog<bool>(
+      final noteController = TextEditingController();
+      final result = await showDialog<String?>(
         context: context,
         builder: (_) => AlertDialog(
-          icon: const Icon(
-            Icons.inventory_2_rounded,
-            color: Color(0xFF138A4B),
-            size: 44,
-          ),
+          icon: const Icon(Icons.inventory_2_rounded, color: Color(0xFF138A4B), size: 44),
           title: const Text('Buyurtmani qabul qilasizmi?'),
-          content: const Text(
-            'Qabul qilinganda buyurtma sotilgan kitoblar va statistikaga qo‘shiladi. Bepul yetkazishda pochta do‘kon xarajati sifatida hisoblanadi.',
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Qabul qilinganda buyurtma sotilgan kitoblar va statistikaga qo‘shiladi.'),
+              const SizedBox(height: 14),
+              TextField(
+                controller: noteController,
+                maxLength: 500,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Mijozga izoh',
+                  hintText: 'Ixtiyoriy — yozmasangiz ham bo‘ladi',
+                  prefixIcon: Icon(Icons.chat_bubble_outline_rounded),
+                ),
+              ),
+            ],
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Yo‘q'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Yo‘q')),
             FilledButton(
-              onPressed: () => Navigator.pop(context, true),
+              onPressed: () => Navigator.pop(context, noteController.text),
               child: const Text('Qabul qilish'),
             ),
           ],
         ),
       );
-      if (yes != true) return;
+      noteController.dispose();
+      if (result == null) return;
+      customerNote = result.trim();
     }
     if (status == 'cancelled') {
       final yes = await showDialog<bool>(
@@ -5462,7 +5481,7 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
 
     setState(() => busy.add(order.id));
     try {
-      await widget.api.updateOrderStatus(order.id, status);
+      await widget.api.updateOrderStatus(order.id, status, customerNote: customerNote);
       await context.read<AppState>().refreshBooks();
       if (mounted) {
         reload();
@@ -8398,28 +8417,3 @@ class _AdminAiPageState extends State<_AdminAiPage> {
           ),
           const SizedBox(height:10),
           FilledButton.icon(
-            onPressed:priceLoading?null:researchPrice,
-            icon:priceLoading
-              ? const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2))
-              : const Icon(Icons.travel_explore_rounded),
-            label:Text(priceLoading?'Internetdan tekshirilmoqda...':'Narxni hisoblash'),
-          ),
-        ]),
-      ),
-      if(priceResult!=null)...[
-        const SizedBox(height:12),
-        priceResearchResult(priceResult!),
-      ],
-      const SizedBox(height:18),
-      const Text('Boshqa admin savollari',style:TextStyle(fontSize:18,fontWeight:FontWeight.w900)),
-      const SizedBox(height:8),
-      TextField(controller:q,minLines:2,maxLines:5,onSubmitted:(_)=>ask(),decoration:const InputDecoration(hintText:'Masalan: Qaysi kitoblarni qayta olib kelish kerak? Bu oy savdo holati qanday?')),
-      const SizedBox(height:10),
-      FilledButton.icon(onPressed:loading?null:ask,icon:loading?const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2)):const Icon(Icons.auto_awesome_rounded),label:Text(loading?'Tahlil qilmoqda...':'AI dan so‘rash')),
-      if(answer.isNotEmpty)...[
-        const SizedBox(height:16),
-        AppSurface(padding:const EdgeInsets.all(16),child:SelectableText(answer,style:const TextStyle(fontSize:15.5,height:1.55,fontWeight:FontWeight.w500))),
-      ],
-    ],
-  );
-}

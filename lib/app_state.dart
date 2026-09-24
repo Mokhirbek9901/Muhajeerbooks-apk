@@ -1632,6 +1632,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         if (rawId.isEmpty) continue;
         final noticeId = 'push:$rawId';
         if (existingIds.contains(noticeId)) continue;
+        // Admin-only order alerts must never appear in the customer inbox.
+        if ((row['title'] ?? '').toString().trim().toLowerCase() ==
+            'Yangi buyurtma tushdi 🛒'.toLowerCase()) {
+          continue;
+        }
 
         _customerNotices.add({
           'id': noticeId,

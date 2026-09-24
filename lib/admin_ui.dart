@@ -699,6 +699,24 @@ class _AdminApi {
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
 
+  Future<void> editShippingQueueContact({
+    required String kind,
+    required String id,
+    required String phone,
+    required String address,
+  }) async {
+    await _rpc(
+      'admin_shipping_queue_edit_contact',
+      params: {
+        'p_secret': secret,
+        'p_kind': kind,
+        'p_id': id,
+        'p_phone': phone.trim(),
+        'p_address': address.trim(),
+      },
+    );
+  }
+
   Future<void> dismissShippingQueue({
     required String kind,
     required String id,
@@ -2704,6 +2722,96 @@ class _ShippingQueueAdminState extends State<_ShippingQueueAdmin> {
     }
   }
 
+  Future<void> editContact(Map<String, dynamic> row) async {
+    final phone = TextEditingController(text: (row['phone'] ?? '').toString());
+    final address = TextEditingController(text: (row['address'] ?? '').toString());
+    bool saving = false;
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Telefon va manzilni tahrirlash'),
+          content: SizedBox(
+            width: 520,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: phone,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Telefon',
+                    prefixIcon: Icon(Icons.phone_outlined),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: address,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Manzil',
+                    prefixIcon: Icon(Icons.location_on_outlined),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: saving ? null : () => Navigator.pop(dialogContext, false),
+              child: const Text('Bekor qilish'),
+            ),
+            FilledButton.icon(
+              onPressed: saving
+                  ? null
+                  : () async {
+                      if (phone.text.trim().isEmpty || address.text.trim().isEmpty) {
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                          const SnackBar(content: Text('Telefon va manzilni to‘ldiring.')),
+                        );
+                        return;
+                      }
+                      setDialogState(() => saving = true);
+                      try {
+                        await widget.api.editShippingQueueContact(
+                          kind: (row['queue_kind'] ?? '').toString(),
+                          id: (row['queue_id'] ?? '').toString(),
+                          phone: phone.text,
+                          address: address.text,
+                        );
+                        if (dialogContext.mounted) Navigator.pop(dialogContext, true);
+                      } catch (_) {
+                        setDialogState(() => saving = false);
+                        if (dialogContext.mounted) {
+                          ScaffoldMessenger.of(dialogContext).showSnackBar(
+                            const SnackBar(content: Text('O‘zgarish saqlanmadi.')),
+                          );
+                        }
+                      }
+                    },
+              icon: saving
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.save_outlined),
+              label: Text(saving ? 'Saqlanmoqda...' : 'Saqlash'),
+            ),
+          ],
+        ),
+      ),
+    );
+    phone.dispose();
+    address.dispose();
+    if (ok == true) {
+      await reload();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Telefon va manzil yangilandi.')),
+        );
+      }
+    }
+  }
+
   Future<void> removeRow(Map<String, dynamic> row) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -2880,6 +2988,11 @@ class _ShippingQueueAdminState extends State<_ShippingQueueAdmin> {
                                 ),
                               ],
                             ),
+                          ),
+                          IconButton(
+                            tooltip: 'Telefon va manzilni tahrirlash',
+                            onPressed: () => editContact(row),
+                            icon: const Icon(Icons.edit_outlined),
                           ),
                           IconButton(
                             tooltip: 'Pochta ro‘yxatidan o‘chirish',

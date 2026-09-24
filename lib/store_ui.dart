@@ -1561,6 +1561,7 @@ class _HomePageState extends State<HomePage> {
     );
     final state = context.read<AppState>();
     final categories = <String>{
+      'Sizga mos kitoblar',
       'Barchasi',
       'Oldindan sotuvda',
       'Nashriyotlar',
@@ -1584,7 +1585,9 @@ class _HomePageState extends State<HomePage> {
           book.publisher.toLowerCase().contains(q) ||
           book.category.toLowerCase().contains(q);
       final matchesCategory =
-          category == 'Barchasi' || book.category == category;
+          category == 'Barchasi' ||
+          (category == 'Sizga mos kitoblar' && personalized.any((b) => b.id == book.id)) ||
+          book.category == category;
       return book.isActive && matchesQuery && matchesCategory;
     }).toList();
 
@@ -1662,7 +1665,9 @@ class _HomePageState extends State<HomePage> {
                   categories: categories,
                   selected: category,
                   onSelected: (value) {
-                    if (value == 'Oldindan sotuvda') {
+                    if (value == 'Sizga mos kitoblar') {
+                      setState(() => category = value);
+                    } else if (value == 'Oldindan sotuvda') {
                       Navigator.push(
                         context,
                         muhajeerPageRoute(
@@ -1698,18 +1703,6 @@ class _HomePageState extends State<HomePage> {
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                 sliver: SliverToBoxAdapter(
                   child: _FeaturedBooksStrip(books: featured),
-                ),
-              ),
-            if (personalized.isNotEmpty)
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                sliver: SliverToBoxAdapter(
-                  child: _DiscoveryBooksStrip(
-                    title: 'Sizga mos kitoblar',
-                    subtitle: 'Qiziqishlaringiz asosida tanlandi',
-                    icon: Icons.auto_awesome_rounded,
-                    books: personalized,
-                  ),
                 ),
               ),
             if (recentlyViewed.isNotEmpty)

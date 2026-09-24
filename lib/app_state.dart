@@ -526,6 +526,14 @@ class BackendService {
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
 
+  Future<void> logBookView(String installId, String bookId) async {
+    await _customerRpc('customer_book_view_log', {'p_install_id': installId, 'p_book_id': bookId});
+  }
+
+  Future<void> logSearchEvent(String installId, String query, int resultCount) async {
+    await _customerRpc('customer_search_event_log', {'p_install_id': installId, 'p_query': query, 'p_result_count': resultCount});
+  }
+
   Future<void> saveBook(Book book) async {
     final payload = book.toDbMap();
     if (book.id.isEmpty ||
@@ -857,6 +865,7 @@ class _LocalStore {
   static const _customerVerifiedKey = 'muhajeer_customer_verified_v1';
   static const _installIdKey = 'muhajeer_install_id_v1';
   static const _restockSubscriptionsKey = 'muhajeer_restock_subscriptions_v1';
+  static const _recentlyViewedKey = 'muhajeer_recently_viewed_v1';
   static const _catalogCursorKey = 'muhajeer_catalog_cursor_v1';
 
   final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
@@ -996,6 +1005,12 @@ class _LocalStore {
   Future<void> saveRestockSubscriptions(Set<String> ids) async =>
       (await _prefs).setStringList(_restockSubscriptionsKey, ids.toList());
 
+  Future<List<String>> loadRecentlyViewed() async =>
+      (await _prefs).getStringList(_recentlyViewedKey) ?? <String>[];
+
+  Future<void> saveRecentlyViewed(List<String> ids) async =>
+      (await _prefs).setStringList(_recentlyViewedKey, ids.take(30).toList());
+
   Future<String> loadCatalogCursor() async =>
       (await _prefs).getString(_catalogCursorKey) ?? '1970-01-01T00:00:00Z';
 
@@ -1021,6 +1036,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   final Map<String, int> _cart = {};
   final Set<String> _favorites = {};
   final Set<String> _restockSubscriptions = {};
+  final List<String> _recentlyViewedIds = [];
   final List<Map<String, dynamic>> _bundles = [];
   Map<String, dynamic> _storeNotice = const <String, dynamic>{};
   final List<String> _cartBundleIds = [];
@@ -1114,6 +1130,28 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   String get storeNoticeTitle => (_storeNotice['title'] ?? 'MUHIM MA’LUMOT').toString();
   String get storeNoticeMessage => (_storeNotice['message'] ?? '').toString();
   Set<String> get favorites => Set.unmodifiable(_favorites);
+  List<Book> get recentlyViewedBooks => _recentlyViewedIds
+      .map((id) => _books.where((b) => b.id == id && b.isActive).firstOrNull)
+      .whereType<Book>()
+      .take(12)
+      .toList();
+  List<Book> get personalizedBooks {
+    final signals = <Book>[...recentlyViewedBooks, ..._books.where((b) => _favorites.contains(b.id))];
+    final scores = <String, int>{};
+    for (final b in signals) {
+      if (b.category.trim().isNotEmpty) scores[b.category] = (scores[b.category] ?? 0) + 3;
+      if (b.author.trim().isNotEmpty && b.author != 'Ko‘rsatilmagan') scores['a:${b.author}'] = (scores['a:${b.author}'] ?? 0) + 1;
+    }
+    final seen = _recentlyViewedIds.toSet();
+    final candidates = _books.where((b) => b.isActive && b.inStock && !seen.contains(b.id)).toList();
+    candidates.sort((a,b) {
+      int score(Book x) => (scores[x.category] ?? 0) + (scores['a:${x.author}'] ?? 0) + (x.recommended ? 2 : 0);
+      final d = score(b).compareTo(score(a));
+      if (d != 0) return d;
+      return (b.createdAt ?? DateTime(2000)).compareTo(a.createdAt ?? DateTime(2000));
+    });
+    return candidates.take(10).toList();
+  }
   bool isRestockSubscribed(Book book) =>
       _restockSubscriptions.contains(book.id);
   BackendService? get backend => _backend;
@@ -1162,6 +1200,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     final secondary = await Future.wait<Object?>([
       _local.loadFavorites(),
       _local.loadRestockSubscriptions(),
+      _local.loadRecentlyViewed(),
       _local.loadCart(),
       _local.loadCartBundles(),
       _local.loadCustomer(),
@@ -1177,23 +1216,26 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _restockSubscriptions
       ..clear()
       ..addAll(secondary[1] as Set<String>);
+    _recentlyViewedIds
+      ..clear()
+      ..addAll(secondary[2] as List<String>);
     _cart
       ..clear()
-      ..addAll(secondary[2] as Map<String, int>);
+      ..addAll(secondary[3] as Map<String, int>);
     _cartBundleIds
       ..clear()
-      ..addAll(secondary[3] as List<String>);
-    savedCustomer = secondary[4] as Map<String, String>;
+      ..addAll(secondary[4] as List<String>);
+    savedCustomer = secondary[5] as Map<String, String>;
     final pushPhone=(savedCustomer['phone']??'').trim();
     if(pushPhone.isNotEmpty) unawaited(syncPushIdentity(pushPhone));
-    final storedVerification = secondary[5] as bool?;
+    final storedVerification = secondary[6] as bool?;
     _localOrders
       ..clear()
-      ..addAll(secondary[6] as List<ShopOrder>);
+      ..addAll(secondary[7] as List<ShopOrder>);
     _customerNotices
       ..clear()
-      ..addAll(secondary[7] as List<Map<String, dynamic>>);
-    _catalogCursor = secondary[8] as String;
+      ..addAll(secondary[8] as List<Map<String, dynamic>>);
+    _catalogCursor = secondary[9] as String;
 
     if (storedVerification == null) {
       final legacyName = (savedCustomer['name'] ?? '').trim();
@@ -1470,6 +1512,22 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     final installId = await _local.installId();
     await _backend!.requestMissingBook(installId, clean, phone: savedCustomer['phone'] ?? '');
     return 'So‘rovingiz yuborildi ✅';
+  }
+
+  Future<void> recordBookView(Book book) async {
+    _recentlyViewedIds.remove(book.id);
+    _recentlyViewedIds.insert(0, book.id);
+    if (_recentlyViewedIds.length > 30) _recentlyViewedIds.removeRange(30, _recentlyViewedIds.length);
+    await _local.saveRecentlyViewed(_recentlyViewedIds);
+    notifyListeners();
+    if (_backend != null) {
+      try { await _backend!.logBookView(await _local.installId(), book.id); } catch (_) {}
+    }
+  }
+
+  Future<void> recordSearchEvent(String query, int resultCount) async {
+    if (_backend == null || query.trim().length < 2) return;
+    try { await _backend!.logSearchEvent(await _local.installId(), query.trim(), resultCount); } catch (_) {}
   }
 
   Future<void> recordSearchMiss(String query) async {

@@ -8417,3 +8417,28 @@ class _AdminAiPageState extends State<_AdminAiPage> {
           ),
           const SizedBox(height:10),
           FilledButton.icon(
+            onPressed:priceLoading?null:researchPrice,
+            icon:priceLoading
+              ? const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2))
+              : const Icon(Icons.travel_explore_rounded),
+            label:Text(priceLoading?'Internetdan tekshirilmoqda...':'Narxni hisoblash'),
+          ),
+        ]),
+      ),
+      if(priceResult!=null)...[
+        const SizedBox(height:12),
+        priceResearchResult(priceResult!),
+      ],
+      const SizedBox(height:18),
+      const Text('Boshqa admin savollari',style:TextStyle(fontSize:18,fontWeight:FontWeight.w900)),
+      const SizedBox(height:8),
+      TextField(controller:q,minLines:2,maxLines:5,onSubmitted:(_)=>ask(),decoration:const InputDecoration(hintText:'Masalan: Qaysi kitoblarni qayta olib kelish kerak? Bu oy savdo holati qanday?')),
+      const SizedBox(height:10),
+      FilledButton.icon(onPressed:loading?null:ask,icon:loading?const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2)):const Icon(Icons.auto_awesome_rounded),label:Text(loading?'Tahlil qilmoqda...':'AI dan so‘rash')),
+      if(answer.isNotEmpty)...[
+        const SizedBox(height:16),
+        AppSurface(padding:const EdgeInsets.all(16),child:SelectableText(answer,style:const TextStyle(fontSize:15.5,height:1.55,fontWeight:FontWeight.w500))),
+      ],
+    ],
+  );
+}

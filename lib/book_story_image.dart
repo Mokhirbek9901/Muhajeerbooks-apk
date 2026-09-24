@@ -2136,6 +2136,26 @@ Future<Uint8List> _renderAlternativeBookStory(
         fontStyle: serif ? FontStyle.italic : FontStyle.normal);
   }
 
+  // Oldindan sotuvdagi kitob Storysi ekanini bir qarashda ko‘rsatamiz.
+  // Barcha dizaynlarda yuqori qismda bir xil, aniq banner chiqadi.
+  if (book.preorderEnabled) {
+    rounded(
+      const Rect.fromLTWH(190, 145, 700, 64),
+      const Color(0xEE0A6F66),
+      radius: 32,
+      stroke: const Color(0x55FFFFFF),
+    );
+    textBox(
+      'OLDINDAN BUYURTMA YIG‘YAPMIZ',
+      const Rect.fromLTWH(215, 157, 650, 40),
+      25,
+      weight: FontWeight.w900,
+      color: Colors.white,
+      maxLines: 1,
+      letterSpacing: 1.2,
+    );
+  }
+
   Rect coverFrame;
   Rect coverRect;
   if (template == BookStoryTemplate.library) {

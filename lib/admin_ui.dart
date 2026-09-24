@@ -615,6 +615,11 @@ class _AdminApi {
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
 
+  Future<Map<String, dynamic>> demandAnalytics() async {
+    final raw = await _rpc('admin_demand_analytics', params: {'p_secret': secret});
+    return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+  }
+
   Future<List<Map<String, dynamic>>> bundles() async {
     final raw = await _rpc(
       'admin_bundle_list',
@@ -6375,6 +6380,7 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
       widget.api.merchandisingInsights(),
       widget.api.bundles(),
       widget.api.books(),
+      widget.api.demandAnalytics(),
     ]);
   }
 
@@ -6712,6 +6718,10 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
             final misses = _rows(insight['search_misses']);
             final restock = _rows(insight['restock']);
             final bundleSales = _rows(insight['bundle_sales']);
+            final demand = Map<String, dynamic>.from(snap.data![3] as Map);
+            final viewed = _rows(demand['views']);
+            final searched = _rows(demand['searches']);
+            final waitingDemand = _rows(demand['waiting']);
             final bundleSummary = insight['bundle_summary'] is Map
                 ? Map<String, dynamic>.from(insight['bundle_summary'] as Map)
                 : <String, dynamic>{};
@@ -6871,6 +6881,30 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
                           ),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: 14),
+                  _AdminInsightCard(
+                    title: 'Eng ko‘p ko‘rilgan kitoblar · 30 kun',
+                    icon: Icons.visibility_rounded,
+                    rows: viewed,
+                    empty: 'Ko‘rish statistikasi hali yig‘ilmagan.',
+                    line: (r) => '${r['title'] ?? ''} • ${r['count'] ?? 0} marta',
+                  ),
+                  const SizedBox(height: 14),
+                  _AdminInsightCard(
+                    title: 'Eng ko‘p qidirilgan · 30 kun',
+                    icon: Icons.search_rounded,
+                    rows: searched,
+                    empty: 'Qidiruv statistikasi hali yig‘ilmagan.',
+                    line: (r) => '${r['query'] ?? ''} • ${r['count'] ?? 0} marta • o‘rtacha ${r['avg_results'] ?? 0} natija',
+                  ),
+                  const SizedBox(height: 14),
+                  _AdminInsightCard(
+                    title: 'Eng ko‘p kutilayotgan kitoblar',
+                    icon: Icons.notifications_active_rounded,
+                    rows: waitingDemand,
+                    empty: 'Kutayotgan mijozlar yo‘q.',
+                    line: (r) => '${r['title'] ?? ''} • ${r['waiting'] ?? 0} kishi • ombor ${r['stock'] ?? 0}',
                   ),
                   const SizedBox(height: 14),
                   _AdminInsightCard(

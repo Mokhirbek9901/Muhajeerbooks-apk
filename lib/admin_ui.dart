@@ -7948,31 +7948,77 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
               (c['phone'] ?? '').toString().toLowerCase().contains(q);
         }).toList();
 
-        Widget metric(String label, dynamic value, IconData icon) => Expanded(
-          child: AppSurface(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(icon, color: AppColors.navy, size: 20),
-                const SizedBox(height: 10),
-                Text(
-                  '$value',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.navy,
-                  ),
+        void showPeople(String title, bool Function(Map<String, dynamic>) test) {
+          final people = all.where(test).toList();
+          showModalBottomSheet<void>(
+            context: context,
+            isScrollControlled: true,
+            showDragHandle: true,
+            builder: (sheetContext) => SafeArea(
+              child: SizedBox(
+                height: MediaQuery.of(sheetContext).size.height * .72,
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 4, 18, 12),
+                      child: Row(
+                        children: [
+                          Expanded(child: Text('$title — ${people.length} ta', style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900))),
+                          IconButton(onPressed: () => Navigator.pop(sheetContext), icon: const Icon(Icons.close_rounded)),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: people.isEmpty
+                          ? const Center(child: Text('Bu bo‘limda mijoz yo‘q.'))
+                          : ListView.separated(
+                              padding: const EdgeInsets.all(14),
+                              itemCount: people.length,
+                              separatorBuilder: (_, __) => const Divider(height: 1),
+                              itemBuilder: (_, i) {
+                                final p = people[i];
+                                final name = (p['full_name'] ?? '').toString().trim();
+                                return ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                  leading: const CircleAvatar(child: Icon(Icons.person_rounded)),
+                                  title: Text(name.isEmpty ? 'Nomsiz mijoz' : name, style: const TextStyle(fontWeight: FontWeight.w800)),
+                                  subtitle: Text('${p['phone'] ?? '—'}\nOxirgi faollik: ${_date(p['last_seen_at'])}'),
+                                  isThreeLine: true,
+                                  trailing: Text('${p['order_count'] ?? 0} ta\n${_won((p['spent'] as num?)?.toInt() ?? 0)}', textAlign: TextAlign.end),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: AppColors.muted,
-                    fontSize: 11.5,
-                  ),
-                ),
-              ],
+              ),
+            ),
+          );
+        }
+
+        final now = DateTime.now();
+        DateTime? localDate(dynamic v) => DateTime.tryParse((v ?? '').toString())?.toLocal();
+        bool sameDay(DateTime? a, DateTime b) => a != null && a.year == b.year && a.month == b.month && a.day == b.day;
+        final weekStart = DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1));
+        final monthStart = DateTime(now.year, now.month, 1);
+
+        Widget metric(String label, dynamic value, IconData icon, {VoidCallback? onTap}) => Expanded(
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: onTap,
+            child: AppSurface(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [Icon(icon, color: AppColors.navy, size: 20), const Spacer(), if (onTap != null) const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.muted)]),
+                  const SizedBox(height: 10),
+                  Text('$value', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.navy)),
+                  const SizedBox(height: 3),
+                  Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 11.5)),
+                ],
+              ),
             ),
           ),
         );
@@ -7994,33 +8040,33 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  metric('Jami mijozlar', stats['total_users'] ?? 0, Icons.groups_rounded),
+                  metric('Jami mijozlar', stats['total_users'] ?? 0, Icons.groups_rounded, onTap: () => showPeople('Jami mijozlar', (_) => true)),
                   const SizedBox(width: 10),
-                  metric('Bugun qo‘shildi', stats['new_today'] ?? 0, Icons.person_add_alt_1_rounded),
+                  metric('Bugun qo‘shildi', stats['new_today'] ?? 0, Icons.person_add_alt_1_rounded, onTap: () => showPeople('Bugun qo‘shilganlar', (p) => sameDay(localDate(p['created_at']), now))),
                 ],
               ),
               const SizedBox(height: 10),
               Row(
                 children: [
-                  metric('Bugun faol', stats['active_today'] ?? 0, Icons.bolt_rounded),
+                  metric('Bugun faol', stats['active_today'] ?? 0, Icons.bolt_rounded, onTap: () => showPeople('Bugun faol', (p) => sameDay(localDate(p['last_seen_at']), now))),
                   const SizedBox(width: 10),
-                  metric('7 kunda faol', stats['active_7d'] ?? 0, Icons.calendar_view_week_rounded),
+                  metric('7 kunda faol', stats['active_7d'] ?? 0, Icons.calendar_view_week_rounded, onTap: () => showPeople('7 kunda faol', (p) { final d=localDate(p['last_seen_at']); return d != null && d.isAfter(now.subtract(const Duration(days: 7))); })),
                 ],
               ),
               const SizedBox(height: 10),
               Row(
                 children: [
-                  metric('7 kunda yangi', stats['new_7d'] ?? 0, Icons.trending_up_rounded),
+                  metric('7 kunda yangi', stats['new_7d'] ?? 0, Icons.trending_up_rounded, onTap: () => showPeople('7 kunda yangi', (p) { final d=localDate(p['created_at']); return d != null && d.isAfter(now.subtract(const Duration(days: 7))); })),
                   const SizedBox(width: 10),
-                  metric('Shu oy yangi', stats['new_this_month'] ?? 0, Icons.calendar_month_rounded),
+                  metric('Shu oy yangi', stats['new_this_month'] ?? 0, Icons.calendar_month_rounded, onTap: () => showPeople('Shu oy yangi', (p) { final d=localDate(p['created_at']); return d != null && !d.isBefore(monthStart); })),
                 ],
               ),
               const SizedBox(height: 10),
               Row(
                 children: [
-                  metric('Xaridorlar', stats['buyers'] ?? 0, Icons.shopping_bag_rounded),
+                  metric('Xaridorlar', stats['buyers'] ?? 0, Icons.shopping_bag_rounded, onTap: () => showPeople('Xaridorlar', (p) => ((p['order_count'] as num?)?.toInt() ?? 0) > 0)),
                   const SizedBox(width: 10),
-                  metric('Qayta xarid qilgan', stats['repeat_buyers'] ?? 0, Icons.repeat_rounded),
+                  metric('Qayta xarid qilgan', stats['repeat_buyers'] ?? 0, Icons.repeat_rounded, onTap: () => showPeople('Qayta xarid qilganlar', (p) => ((p['order_count'] as num?)?.toInt() ?? 0) > 1)),
                 ],
               ),
               const SizedBox(height: 10),

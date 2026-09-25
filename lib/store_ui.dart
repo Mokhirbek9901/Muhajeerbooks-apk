@@ -5147,12 +5147,44 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     groupValue: delivery,
                     onChanged: (v) => setState(() => delivery = v!),
                     title: const Text(
-                      '경산 (Gyeongsan) — o‘zim olib ketaman',
+                      '경산dan (Gyeongsan) o‘zim olib ketaman',
                       style: TextStyle(fontWeight: FontWeight.w800),
                     ),
                     subtitle: const Text('BEPUL • Pochta puli olinmaydi'),
                     secondary: const Icon(Icons.storefront_outlined),
                   ),
+                  if (isGyeongsanPickup)
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.successSoft,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFCDEAD7)),
+                      ),
+                      child: const Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.info_outline_rounded,
+                            size: 20,
+                            color: AppColors.success,
+                          ),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Bu faqat 경산 (Gyeongsan) hududida yashaydiganlar uchun. One Mart atrofiga olib boramiz.',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                height: 1.4,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),

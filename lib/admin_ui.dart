@@ -115,19 +115,6 @@ Map<String, Uint8List>? _prepareBookImageVariants(Uint8List sourceBytes) {
   return <String, Uint8List>{'full': fullBytes, 'thumb': thumbBytes};
 }
 
-Uint8List? _prepareBookThumbnail(Uint8List sourceBytes) {
-  final decoded = img.decodeImage(sourceBytes);
-  if (decoded == null) return null;
-  final oriented = img.bakeOrientation(decoded);
-  final thumbImage = _resizeWithin(oriented, 480, 720);
-  return _encodeJpegTarget(
-    thumbImage,
-    targetBytes: 46 * 1024,
-    startQuality: 78,
-    minQuality: 60,
-  );
-}
-
 Map<String, dynamic> _functionResponseMap(dynamic raw) {
   if (raw is Map) return Map<String, dynamic>.from(raw);
   if (raw is String && raw.trim().isNotEmpty) {
@@ -2984,70 +2971,6 @@ class _AdminProgressStat extends StatelessWidget {
   }
 }
 
-class _AdminStatCard extends StatelessWidget {
-  const _AdminStatCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.accent,
-  });
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 210,
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: const Color(0xFFE6E8EC)),
-    ),
-    child: Row(
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: accent.withValues(alpha: .10),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(icon, color: accent),
-        ),
-        const SizedBox(width: 11),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 19,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                maxLines: 2,
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  color: Colors.black54,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
 class _InventoryAdmin extends StatefulWidget {
   const _InventoryAdmin({super.key, required this.api});
   final _AdminApi api;
@@ -3434,6 +3357,13 @@ class _CatalogGroupEditorPageState extends State<_CatalogGroupEditorPage>{
 }
 
 
+/// AI returns 0 (or text) when it could not verify the page count; only a
+/// positive whole number counts as a real answer.
+int _aiPageCount(Object? value) {
+  final n = num.tryParse((value ?? '').toString().trim());
+  return n == null || n <= 0 || n != n.roundToDouble() ? 0 : n.toInt();
+}
+
 class _BulkAiBookEditorPage extends StatefulWidget {
   const _BulkAiBookEditorPage({required this.api, required this.books});
   final _AdminApi api; final List<Book> books;
@@ -3483,7 +3413,7 @@ class _BulkAiBookEditorPageState extends State<_BulkAiBookEditorPage> {
     try{
       for(final b in widget.books){
         if(!selectedBooks.contains(b.id))continue;final p=proposals[b.id];if(p==null)continue;
-        final updated=b.copyWith(title:pick(p,'title',b.title),author:pick(p,'author',b.author),publisher:pick(p,'publisher',b.publisher),category:pick(p,'category',b.category),description:pick(p,'description',b.description),pageCount:fields.contains('page_count') ? (int.tryParse((p['page_count']??'').toString()) ?? b.pageCount) : b.pageCount);
+        final updated=b.copyWith(title:pick(p,'title',b.title),author:pick(p,'author',b.author),publisher:pick(p,'publisher',b.publisher),category:pick(p,'category',b.category),description:pick(p,'description',b.description),pageCount:fields.contains('page_count') && _aiPageCount(p['page_count'])>0 ? _aiPageCount(p['page_count']) : b.pageCount);
         await widget.api.saveBook(updated);saved++;
       }
       if(!mounted)return;ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('$saved ta kitob yangilandi.')));Navigator.pop(context,true);
@@ -4775,6 +4705,8 @@ class _BookFormState extends State<_BookForm> {
     try {
       final data=await widget.api.researchBook(title:title.text.trim(),author:author.text.trim(),publisher:publisher.text.trim());
       if(!mounted) return;
+      final aiPages=_aiPageCount(data['page_count']);
+      data['page_count']=aiPages>0 ? '$aiPages' : '';
       if(editField!=null && editField!='description') {
         final fieldMap=<String,TextEditingController>{'title':title,'author':author,'publisher':publisher,'category':category,'page_count':pageCount};
         final controller=fieldMap[editField];
@@ -4795,7 +4727,7 @@ class _BookFormState extends State<_BookForm> {
           Text('Nomi: '+(data['title']??'').toString()), const SizedBox(height:6),
           if((data['author']??'').toString().trim().isNotEmpty) Text('Muallif: '+data['author'].toString()),
           if((data['publisher']??'').toString().trim().isNotEmpty) Text('Nashriyot: '+data['publisher'].toString()),
-          if((data['page_count']??'').toString().trim().isNotEmpty && (data['page_count']??'').toString().trim() != '0') Text('Sahifalar soni: '+data['page_count'].toString()+' bet'),
+          if(aiPages>0) Text('Sahifalar soni: '+data['page_count'].toString()+' bet'),
           const SizedBox(height:12),
           if(foundDescription.isNotEmpty) Text(foundDescription),
           if((data['notes']??'').toString().trim().isNotEmpty) Padding(padding:const EdgeInsets.only(top:8),child:Text('Izoh: '+data['notes'].toString())),
@@ -5963,7 +5895,7 @@ class _PaymentProofPanel extends StatelessWidget {
 }
 
 class _RestockAdmin extends StatefulWidget {
-  const _RestockAdmin({super.key, required this.api});
+  const _RestockAdmin({required this.api});
   final _AdminApi api;
 
   @override
@@ -8013,7 +7945,6 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
         final now = DateTime.now();
         DateTime? localDate(dynamic v) => DateTime.tryParse((v ?? '').toString())?.toLocal();
         bool sameDay(DateTime? a, DateTime b) => a != null && a.year == b.year && a.month == b.month && a.day == b.day;
-        final weekStart = DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1));
         final monthStart = DateTime(now.year, now.month, 1);
 
         Widget metric(String label, dynamic value, IconData icon, {VoidCallback? onTap}) => Expanded(

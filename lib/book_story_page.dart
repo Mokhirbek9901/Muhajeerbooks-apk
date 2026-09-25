@@ -112,7 +112,7 @@ class _BookStoryPageState extends State<BookStoryPage> {
           restored == _template) {
         return;
       }
-      final restoredTemplate = restored!;
+      final restoredTemplate = restored;
       setState(() {
         _template = restoredTemplate;
         _image = _renderStoryWithRecovery(restoredTemplate);

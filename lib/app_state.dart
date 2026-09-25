@@ -775,12 +775,13 @@ class BackendService {
     for (var attempt = 0; attempt < 2; attempt++) {
       try {
         final data = await client
-            .from('orders')
-            .insert(payload)
-            .select('id')
-            .single()
-            .timeout(const Duration(milliseconds: 2200));
-        return data['id'].toString();
+            .rpc('customer_order_submit', params: {'p_order': payload})
+            .timeout(const Duration(seconds: 8));
+        final savedId = (data ?? '').toString().trim();
+        if (savedId.isEmpty) {
+          throw StateError('Buyurtma serverda tasdiqlanmadi.');
+        }
+        return savedId;
       } catch (error) {
         lastError = error;
         // Birinchi insert serverda muvaffaqiyatli bo‘lib, faqat javob yo‘qolgan

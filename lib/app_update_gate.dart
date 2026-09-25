@@ -11,6 +11,10 @@ const int _currentApkBuild = int.fromEnvironment(
   defaultValue: 0,
 );
 
+// Google Play builds must update only through Play, so the GitHub APK
+// update prompt is disabled for them.
+const bool _playStoreBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
+
 const String _latestManifestUrl =
     'https://github.com/Mokhirbek9901/Muhajeerbooks-apk/releases/download/apk-latest/app-version.json';
 
@@ -35,7 +39,10 @@ class _AppUpdateGateState extends State<AppUpdateGate> {
   }
 
   Future<void> _checkForUpdate() async {
-    if (_checked || kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+    if (_checked ||
+        _playStoreBuild ||
+        kIsWeb ||
+        defaultTargetPlatform != TargetPlatform.android) {
       return;
     }
     _checked = true;

@@ -4783,6 +4783,7 @@ class _BookFormState extends State<_BookForm> {
           Text('Nomi: '+(data['title']??'').toString()), const SizedBox(height:6),
           if((data['author']??'').toString().trim().isNotEmpty) Text('Muallif: '+data['author'].toString()),
           if((data['publisher']??'').toString().trim().isNotEmpty) Text('Nashriyot: '+data['publisher'].toString()),
+          if((data['page_count']??'').toString().trim().isNotEmpty && (data['page_count']??'').toString().trim() != '0') Text('Sahifalar soni: '+data['page_count'].toString()+' bet'),
           const SizedBox(height:12),
           if(foundDescription.isNotEmpty) Text(foundDescription),
           if((data['notes']??'').toString().trim().isNotEmpty) Padding(padding:const EdgeInsets.only(top:8),child:Text('Izoh: '+data['notes'].toString())),

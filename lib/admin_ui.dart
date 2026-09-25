@@ -6805,29 +6805,24 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  SegmentedButton<bool>(
-                    segments: const [
-                      ButtonSegment(value: false, label: Text('Bugun'), icon: Icon(Icons.today_rounded)),
-                      ButtonSegment(value: true, label: Text('Butun davr'), icon: Icon(Icons.all_inclusive_rounded)),
-                    ],
-                    selected: {demandAllTime},
-                    onSelectionChanged: (value) => setState(() => demandAllTime = value.first),
-                  ),
-                  const SizedBox(height: 14),
                   _AdminInsightCard(
-                    title: 'Eng ko‘p ko‘rilgan kitoblar · ' + (demandAllTime ? 'Butun davr' : 'Bugun'),
+                    title: 'Eng ko‘p ko‘rilgan kitoblar',
                     icon: Icons.visibility_rounded,
                     rows: viewed,
                     empty: 'Ko‘rish statistikasi hali yig‘ilmagan.',
                     line: (r) => '${r['title'] ?? ''} • ${r['count'] ?? 0} marta',
+                    periodAllTime: demandAllTime,
+                    onPeriodChanged: (value) => setState(() => demandAllTime = value),
                   ),
                   const SizedBox(height: 14),
                   _AdminInsightCard(
-                    title: 'Eng ko‘p qidirilgan · ' + (demandAllTime ? 'Butun davr' : 'Bugun'),
+                    title: 'Eng ko‘p qidirilgan',
                     icon: Icons.search_rounded,
                     rows: searched,
                     empty: 'Qidiruv statistikasi hali yig‘ilmagan.',
                     line: (r) => '${r['query'] ?? ''} • ${r['count'] ?? 0} marta • o‘rtacha ${r['avg_results'] ?? 0} natija',
+                    periodAllTime: demandAllTime,
+                    onPeriodChanged: (value) => setState(() => demandAllTime = value),
                   ),
                   const SizedBox(height: 14),
                   _AdminInsightCard(
@@ -6900,12 +6895,16 @@ class _AdminInsightCard extends StatelessWidget {
     required this.rows,
     required this.empty,
     required this.line,
+    this.periodAllTime,
+    this.onPeriodChanged,
   });
   final String title;
   final IconData icon;
   final List<Map<String, dynamic>> rows;
   final String empty;
   final String Function(Map<String, dynamic>) line;
+  final bool? periodAllTime;
+  final ValueChanged<bool>? onPeriodChanged;
 
   @override
   Widget build(BuildContext context) => AppSurface(
@@ -6915,7 +6914,21 @@ class _AdminInsightCard extends StatelessWidget {
             AppSectionHeader(
               title: title,
               icon: icon,
-              trailing: AppInfoPill(label: rows.length.toString() + ' ta'),
+              trailing: periodAllTime == null
+                  ? AppInfoPill(label: rows.length.toString() + ' ta')
+                  : SegmentedButton<bool>(
+                      segments: const [
+                        ButtonSegment(value: false, label: Text('Kun')),
+                        ButtonSegment(value: true, label: Text('Butun davr')),
+                      ],
+                      selected: {periodAllTime!},
+                      onSelectionChanged: (value) => onPeriodChanged?.call(value.first),
+                      showSelectedIcon: false,
+                      style: const ButtonStyle(
+                        visualDensity: VisualDensity.compact,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
             ),
             const SizedBox(height: 10),
             if (rows.isEmpty)

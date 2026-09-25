@@ -91,6 +91,7 @@ class Book {
     this.publisher = '',
     required this.category,
     required this.description,
+    this.pageCount = 0,
     required this.price,
     required this.stock,
     required this.discountPercent,
@@ -118,6 +119,7 @@ class Book {
   final String publisher;
   final String category;
   final String description;
+  final int pageCount;
   final int price;
   final int stock;
   final int discountPercent;
@@ -189,6 +191,7 @@ class Book {
     publisher: normalizePublisher((map['publisher'] ?? '').toString()),
     category: (map['category'] ?? 'Boshqalar').toString(),
     description: (map['description'] ?? '').toString(),
+    pageCount: (map['page_count'] as num?)?.toInt() ?? 0,
     price: (map['price'] as num?)?.toInt() ?? 0,
     stock: (map['stock'] as num?)?.toInt() ?? 0,
     discountPercent: (map['discount_percent'] as num?)?.toInt() ?? 0,
@@ -241,6 +244,7 @@ class Book {
     'publisher': normalizePublisher(publisher),
     'category': category,
     'description': description,
+    'page_count': pageCount,
     'price': price,
     'stock': stock,
     'discount_percent': discountPercent,
@@ -274,6 +278,7 @@ class Book {
     String? publisher,
     String? category,
     String? description,
+    int? pageCount,
     int? price,
     int? stock,
     int? discountPercent,
@@ -301,6 +306,7 @@ class Book {
     publisher: publisher ?? this.publisher,
     category: category ?? this.category,
     description: description ?? this.description,
+    pageCount: pageCount ?? this.pageCount,
     price: price ?? this.price,
     stock: stock ?? this.stock,
     discountPercent: discountPercent ?? this.discountPercent,
@@ -454,7 +460,7 @@ class BackendService {
   final SupabaseClient client;
 
   static const String _storefrontBookColumns =
-      'id,legacy_id,title,author,publisher,category,description,price,stock,'
+      'id,legacy_id,title,author,publisher,category,description,page_count,price,stock,'
       'discount_percent,discount_ends_at,image_url,thumbnail_url,image_urls,is_active,cover_type,recommended,preorder_enabled,'
       'preorder_arrival_note,preorder_deposit_min,preorder_deposit_max,preorder_price_max,created_at';
 

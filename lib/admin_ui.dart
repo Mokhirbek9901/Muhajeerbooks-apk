@@ -3434,6 +3434,13 @@ class _CatalogGroupEditorPageState extends State<_CatalogGroupEditorPage>{
 }
 
 
+/// AI returns 0 (or text) when it could not verify the page count; only a
+/// positive whole number counts as a real answer.
+int _aiPageCount(Object? value) {
+  final n = num.tryParse((value ?? '').toString().trim());
+  return n == null || n <= 0 || n != n.roundToDouble() ? 0 : n.toInt();
+}
+
 class _BulkAiBookEditorPage extends StatefulWidget {
   const _BulkAiBookEditorPage({required this.api, required this.books});
   final _AdminApi api; final List<Book> books;
@@ -3483,7 +3490,7 @@ class _BulkAiBookEditorPageState extends State<_BulkAiBookEditorPage> {
     try{
       for(final b in widget.books){
         if(!selectedBooks.contains(b.id))continue;final p=proposals[b.id];if(p==null)continue;
-        final updated=b.copyWith(title:pick(p,'title',b.title),author:pick(p,'author',b.author),publisher:pick(p,'publisher',b.publisher),category:pick(p,'category',b.category),description:pick(p,'description',b.description),pageCount:fields.contains('page_count') ? (int.tryParse((p['page_count']??'').toString()) ?? b.pageCount) : b.pageCount);
+        final updated=b.copyWith(title:pick(p,'title',b.title),author:pick(p,'author',b.author),publisher:pick(p,'publisher',b.publisher),category:pick(p,'category',b.category),description:pick(p,'description',b.description),pageCount:fields.contains('page_count') && _aiPageCount(p['page_count'])>0 ? _aiPageCount(p['page_count']) : b.pageCount);
         await widget.api.saveBook(updated);saved++;
       }
       if(!mounted)return;ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('$saved ta kitob yangilandi.')));Navigator.pop(context,true);
@@ -4775,6 +4782,8 @@ class _BookFormState extends State<_BookForm> {
     try {
       final data=await widget.api.researchBook(title:title.text.trim(),author:author.text.trim(),publisher:publisher.text.trim());
       if(!mounted) return;
+      final aiPages=_aiPageCount(data['page_count']);
+      data['page_count']=aiPages>0 ? '$aiPages' : '';
       if(editField!=null && editField!='description') {
         final fieldMap=<String,TextEditingController>{'title':title,'author':author,'publisher':publisher,'category':category,'page_count':pageCount};
         final controller=fieldMap[editField];
@@ -4795,7 +4804,7 @@ class _BookFormState extends State<_BookForm> {
           Text('Nomi: '+(data['title']??'').toString()), const SizedBox(height:6),
           if((data['author']??'').toString().trim().isNotEmpty) Text('Muallif: '+data['author'].toString()),
           if((data['publisher']??'').toString().trim().isNotEmpty) Text('Nashriyot: '+data['publisher'].toString()),
-          if((data['page_count']??'').toString().trim().isNotEmpty && (data['page_count']??'').toString().trim() != '0') Text('Sahifalar soni: '+data['page_count'].toString()+' bet'),
+          if(aiPages>0) Text('Sahifalar soni: '+data['page_count'].toString()+' bet'),
           const SizedBox(height:12),
           if(foundDescription.isNotEmpty) Text(foundDescription),
           if((data['notes']??'').toString().trim().isNotEmpty) Padding(padding:const EdgeInsets.only(top:8),child:Text('Izoh: '+data['notes'].toString())),

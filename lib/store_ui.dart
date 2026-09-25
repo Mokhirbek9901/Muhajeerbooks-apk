@@ -21,6 +21,8 @@ import 'book_image_viewer.dart';
 import 'design_system.dart';
 import 'uzbek_customer_style.dart';
 
+const bool _playStoreBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
+
 const _navy = UzbekCustomerColors.navy;
 const _orange = UzbekCustomerColors.goldDeep;
 const _gold = UzbekCustomerColors.gold;
@@ -5548,13 +5550,17 @@ class ProfilePage extends StatelessWidget {
               children: [
                 GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onLongPress: () => Navigator.push(
-                    context,
-                    muhajeerPageRoute(
-                      settings: const RouteSettings(name: 'mb:admin'),
-                      builder: (_) => const AdminGatePage(),
-                    ),
-                  ),
+                  // Staff use the website or GitHub APK for admin; the Play
+                  // build has no restricted area for store review.
+                  onLongPress: _playStoreBuild
+                      ? null
+                      : () => Navigator.push(
+                          context,
+                          muhajeerPageRoute(
+                            settings: const RouteSettings(name: 'mb:admin'),
+                            builder: (_) => const AdminGatePage(),
+                          ),
+                        ),
                   child: Padding(
                     padding: EdgeInsets.symmetric(vertical: 4),
                     child: Text(

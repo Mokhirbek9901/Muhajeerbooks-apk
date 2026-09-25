@@ -6207,6 +6207,7 @@ class _MerchandisingAdminPage extends StatefulWidget {
 
 class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
   late Future<List<Object>> future;
+  bool demandAllTime = false;
 
   @override
   void initState() {

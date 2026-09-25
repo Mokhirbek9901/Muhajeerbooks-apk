@@ -4270,6 +4270,7 @@ class _PreorderAdminPage extends StatefulWidget {
 
 class _PreorderAdminPageState extends State<_PreorderAdminPage> {
   late Future<List<Object>> future;
+  bool demandAllTime = false;
   @override
   void initState() { super.initState(); future = _load(); }
   Future<List<Object>> _load() async => <Object>[
@@ -6600,8 +6601,8 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
             final restock = _rows(insight['restock']);
             final bundleSales = _rows(insight['bundle_sales']);
             final demand = Map<String, dynamic>.from(snap.data![3] as Map);
-            final viewed = _rows(demand['views']);
-            final searched = _rows(demand['searches']);
+            final viewed = _rows(demand[demandAllTime ? 'views_all' : 'views']);
+            final searched = _rows(demand[demandAllTime ? 'searches_all' : 'searches']);
             final waitingDemand = _rows(demand['waiting']);
             final bundleSummary = insight['bundle_summary'] is Map
                 ? Map<String, dynamic>.from(insight['bundle_summary'] as Map)
@@ -6804,8 +6805,17 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
                     ),
                   ),
                   const SizedBox(height: 14),
+                  SegmentedButton<bool>(
+                    segments: const [
+                      ButtonSegment(value: false, label: Text('Bugun'), icon: Icon(Icons.today_rounded)),
+                      ButtonSegment(value: true, label: Text('Butun davr'), icon: Icon(Icons.all_inclusive_rounded)),
+                    ],
+                    selected: {demandAllTime},
+                    onSelectionChanged: (value) => setState(() => demandAllTime = value.first),
+                  ),
+                  const SizedBox(height: 14),
                   _AdminInsightCard(
-                    title: 'Eng ko‘p ko‘rilgan kitoblar · 30 kun',
+                    title: 'Eng ko‘p ko‘rilgan kitoblar · ' + (demandAllTime ? 'Butun davr' : 'Bugun'),
                     icon: Icons.visibility_rounded,
                     rows: viewed,
                     empty: 'Ko‘rish statistikasi hali yig‘ilmagan.',
@@ -6813,7 +6823,7 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
                   ),
                   const SizedBox(height: 14),
                   _AdminInsightCard(
-                    title: 'Eng ko‘p qidirilgan · 30 kun',
+                    title: 'Eng ko‘p qidirilgan · ' + (demandAllTime ? 'Butun davr' : 'Bugun'),
                     icon: Icons.search_rounded,
                     rows: searched,
                     empty: 'Qidiruv statistikasi hali yig‘ilmagan.',

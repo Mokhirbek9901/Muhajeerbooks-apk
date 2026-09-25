@@ -2752,7 +2752,7 @@ class _ShippingQueueAdminState extends State<_ShippingQueueAdmin> {
               final displayOrderNumber = displayOrderNumberValue == null ||
                       displayOrderNumberValue <= 0
                   ? ''
-                  : displayOrderNumberValue.toString().padLeft(4, '0');
+                  : displayOrderNumberValue.toString();
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: AppSurface(
@@ -5646,7 +5646,7 @@ class _ProfessionalOrderCard extends StatelessWidget {
                 child: Text(
                   order.status == 'cancelled'
                       ? ''
-                      : "№ ${order.displayOrderNumber > 0 ? order.displayOrderNumber.toString().padLeft(4, '0') : order.id}",
+                      : "№${order.displayOrderNumber > 0 ? order.displayOrderNumber.toString() : order.id}",
                   style: const TextStyle(fontSize: 11, color: Colors.black45),
                 ),
               ),

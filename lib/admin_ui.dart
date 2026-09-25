@@ -5334,19 +5334,6 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
       builder: (context, snap) {
         final all = snap.data ?? const <ShopOrder>[];
         final q = query.trim().toLowerCase();
-        Future<void> showDevices() async {
-          showModalBottomSheet<void>(context: context,isScrollControlled:true,showDragHandle:true,builder:(sheetContext)=>SafeArea(child:SizedBox(height:MediaQuery.of(sheetContext).size.height*.82,child:FutureBuilder<Map<String,dynamic>>(future:widget.api.deviceAnalytics(),builder:(context,snap){
-            if(!snap.hasData)return const Center(child:CircularProgressIndicator());
-            final d=snap.data!; final devices=((d['devices'] as List?)??const []).whereType<Map>().map((e)=>Map<String,dynamic>.from(e)).toList();
-            Widget box(String title,dynamic value,IconData icon)=>Expanded(child:AppSurface(padding:const EdgeInsets.all(12),child:Column(children:[Icon(icon,color:AppColors.navy),const SizedBox(height:5),Text('$value',style:const TextStyle(fontSize:21,fontWeight:FontWeight.w900)),Text(title,style:const TextStyle(fontSize:11,color:AppColors.muted))])));
-            return Column(children:[
-              Padding(padding:const EdgeInsets.fromLTRB(16,4,10,10),child:Row(children:[const Expanded(child:Text('Ilova qurilmalari',style:TextStyle(fontSize:19,fontWeight:FontWeight.w900))),IconButton(onPressed:()=>Navigator.pop(sheetContext),icon:const Icon(Icons.close_rounded))])),
-              Padding(padding:const EdgeInsets.symmetric(horizontal:14),child:Row(children:[box('iPhone',d['iphone']??0,Icons.phone_iphone_rounded),const SizedBox(width:8),box('Android',d['android']??0,Icons.android_rounded),const SizedBox(width:8),box('Web / noma’lum',d['web_unknown']??0,Icons.language_rounded)])),
-              const SizedBox(height:10),
-              Expanded(child:ListView.separated(padding:const EdgeInsets.fromLTRB(14,4,14,20),itemCount:devices.length,separatorBuilder:(_,__)=>const Divider(height:1),itemBuilder:(_,i){final x=devices[i];final platform=(x['platform']??'').toString();return ListTile(leading:Icon(platform.toLowerCase()=='android'?Icons.android_rounded:Icons.phone_iphone_rounded),title:Text((x['model']??'Aniqlanmagan').toString(),style:const TextStyle(fontWeight:FontWeight.w800)),subtitle:Text(platform+' • Oxirgi kirish: '+_date(x['last_seen_at'])),trailing:Text((x['sessions']??0).toString()+' kirish',textAlign:TextAlign.end));}))
-            ]);
-          }))));}
-
         final now = DateTime.now();
         final today = DateTime(now.year, now.month, now.day);
         final yesterday = today.subtract(const Duration(days: 1));
@@ -7993,6 +7980,19 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
             ),
           );
         }
+
+        Future<void> showDevices() async {
+          showModalBottomSheet<void>(context: context,isScrollControlled:true,showDragHandle:true,builder:(sheetContext)=>SafeArea(child:SizedBox(height:MediaQuery.of(sheetContext).size.height*.82,child:FutureBuilder<Map<String,dynamic>>(future:widget.api.deviceAnalytics(),builder:(context,snap){
+            if(!snap.hasData)return const Center(child:CircularProgressIndicator());
+            final d=snap.data!; final devices=((d['devices'] as List?)??const []).whereType<Map>().map((e)=>Map<String,dynamic>.from(e)).toList();
+            Widget box(String title,dynamic value,IconData icon)=>Expanded(child:AppSurface(padding:const EdgeInsets.all(12),child:Column(children:[Icon(icon,color:AppColors.navy),const SizedBox(height:5),Text('$value',style:const TextStyle(fontSize:21,fontWeight:FontWeight.w900)),Text(title,style:const TextStyle(fontSize:11,color:AppColors.muted))])));
+            return Column(children:[
+              Padding(padding:const EdgeInsets.fromLTRB(16,4,10,10),child:Row(children:[const Expanded(child:Text('Ilova qurilmalari',style:TextStyle(fontSize:19,fontWeight:FontWeight.w900))),IconButton(onPressed:()=>Navigator.pop(sheetContext),icon:const Icon(Icons.close_rounded))])),
+              Padding(padding:const EdgeInsets.symmetric(horizontal:14),child:Row(children:[box('iPhone',d['iphone']??0,Icons.phone_iphone_rounded),const SizedBox(width:8),box('Android',d['android']??0,Icons.android_rounded),const SizedBox(width:8),box('Web / noma’lum',d['web_unknown']??0,Icons.language_rounded)])),
+              const SizedBox(height:10),
+              Expanded(child:ListView.separated(padding:const EdgeInsets.fromLTRB(14,4,14,20),itemCount:devices.length,separatorBuilder:(_,__)=>const Divider(height:1),itemBuilder:(_,i){final x=devices[i];final platform=(x['platform']??'').toString();return ListTile(leading:Icon(platform.toLowerCase()=='android'?Icons.android_rounded:Icons.phone_iphone_rounded),title:Text((x['model']??'Aniqlanmagan').toString(),style:const TextStyle(fontWeight:FontWeight.w800)),subtitle:Text(platform+' • Oxirgi kirish: '+DateFormat('yyyy.MM.dd HH:mm').format(DateTime.tryParse((x['last_seen_at']??'').toString())?.toLocal() ?? DateTime.now())),trailing:Text((x['sessions']??0).toString()+' kirish',textAlign:TextAlign.end));}))
+            ]);
+          }))));}
 
         final now = DateTime.now();
         DateTime? localDate(dynamic v) => DateTime.tryParse((v ?? '').toString())?.toLocal();

@@ -196,6 +196,7 @@ class _AdminApi {
           'publisher': normalizePublisher(book.publisher),
           'category': book.category,
           'description': book.description,
+          'page_count': book.pageCount,
           'price': book.price,
           'stock': book.stock,
           'discount_percent': book.discountPercent,

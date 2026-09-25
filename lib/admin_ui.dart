@@ -7987,7 +7987,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
             if(snap.hasError)return Center(child:Padding(padding:const EdgeInsets.all(24),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.error_outline_rounded,size:38),const SizedBox(height:10),const Text('Qurilmalar ma’lumotini yuklab bo‘lmadi.',textAlign:TextAlign.center),const SizedBox(height:12),FilledButton(onPressed:()=>Navigator.pop(sheetContext),child:const Text('Yopish'))])));
             final d=snap.data??const <String,dynamic>{}; final total=d['total_installs']??0; final active=d['active_installs_today']??0;
             return Column(children:[Padding(padding:const EdgeInsets.fromLTRB(16,4,10,10),child:Row(children:[const Expanded(child:Text('Ilova qurilmalari',style:TextStyle(fontSize:19,fontWeight:FontWeight.w900))),IconButton(onPressed:()=>Navigator.pop(sheetContext),icon:const Icon(Icons.close_rounded))])),Padding(padding:const EdgeInsets.all(16),child:AppSurface(padding:const EdgeInsets.all(18),child:Row(mainAxisAlignment:MainAxisAlignment.spaceAround,children:[Column(children:[Text('$total',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Jami qurilma')]),Column(children:[Text('$active',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Bugun faol')])]))),const Padding(padding:EdgeInsets.all(20),child:Text('iPhone, Android va telefon modeli bo‘yicha aniq ajratish yangi qurilma ma’lumotlari yig‘ilgandan keyin ko‘rsatiladi.',textAlign:TextAlign.center,style:TextStyle(color:AppColors.muted)))]);
-          })))));}
+          }))));}
 
         final now = DateTime.now();
         DateTime? localDate(dynamic v) => DateTime.tryParse((v ?? '').toString())?.toLocal();

@@ -2011,37 +2011,9 @@ class _HomePageState extends State<HomePage> {
                       const Text('Natija topilmadi', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
                       const SizedBox(height: 8),
                       const Text(
-                        'So‘rov qoldirish tugmasi qidiruv oynasining yuqorisida.',
+                        'So‘rov qoldirish tugmasi yuqorida ko‘rsatilgan.',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: AppColors.muted),
-                      ),
-                    ],
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(dialogContext),
-                                  child: const Text('Bekor qilish'),
-                                ),
-                                FilledButton.icon(
-                                  onPressed: () {
-                                    final clean = titleController.text.trim();
-                                    if (clean.length < 2) return;
-                                    Navigator.pop(dialogContext, clean);
-                                  },
-                                  icon: const Icon(Icons.send_rounded),
-                                  label: const Text('So‘rov yuborish'),
-                                ),
-                              ],
-                            ),
-                          );
-                          titleController.dispose();
-                          if (requestedTitle == null || requestedTitle.trim().length < 2 || !context.mounted) return;
-                          final message = await state.requestMissingBook(requestedTitle.trim());
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-                        },
-                        icon: const Icon(Icons.library_add_rounded),
-                        label: const Text('Adminga so‘rov qoldirish'),
                       ),
                     ],
                   ),

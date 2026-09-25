@@ -4849,6 +4849,7 @@ class _BookFormState extends State<_BookForm> {
           description: description.text.trim().isEmpty
               ? 'Ma’lumot kiritilmagan.'
               : description.text.trim(),
+          pageCount: pages,
           price: p,
           stock: s,
           discountPercent: d,
@@ -6523,7 +6524,7 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
       await widget.api.saveBundle(
         id: rawId.isEmpty ? null : rawId,
         title: title.text.trim(),
-        description: description.text.trim(), pageCount: pages,
+        description: description.text.trim(),
         price: setPrice,
         imageUrl: bundleImageUrl,
         active: active,

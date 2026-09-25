@@ -3,8 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_state.dart';
-import 'brand.dart';
-import 'design_system.dart';
 import 'fast_store_shell.dart';
 
 class CustomerAuthGate extends StatefulWidget {
@@ -87,33 +85,4 @@ class _CustomerAuthGateState extends State<CustomerAuthGate> {
     // build qilmaydi; Android brauzerda start yengilroq bo‘ladi.
     return const FastStoreShell();
   }
-}
-
-class _CustomerLoadingScreen extends StatelessWidget {
-  const _CustomerLoadingScreen();
-
-  @override
-  Widget build(BuildContext context) => const Scaffold(
-    backgroundColor: AppColors.background,
-    body: SafeArea(
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            MuhajeerLogoBadge(size: 82, radius: 22),
-            SizedBox(height: 18),
-            CircularProgressIndicator(strokeWidth: 2.5),
-            SizedBox(height: 12),
-            Text(
-              'Muhajeer Books',
-              style: TextStyle(
-                color: AppColors.navy,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
 }

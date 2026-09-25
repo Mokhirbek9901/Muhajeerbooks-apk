@@ -3092,79 +3092,6 @@ class _QuickCategoryStrip extends StatelessWidget {
   }
 }
 
-class _TrustStrip extends StatelessWidget {
-  const _TrustStrip();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-    decoration: BoxDecoration(
-      color: UzbekCustomerColors.surface,
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: UzbekCustomerColors.border),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x09000000),
-          blurRadius: 14,
-          offset: Offset(0, 5),
-        ),
-      ],
-    ),
-    child: const Row(
-      children: [
-        Expanded(
-          child: _TrustItem(
-            icon: Icons.verified_outlined,
-            text: 'Ishonchli buyurtma',
-          ),
-        ),
-        _TrustDivider(),
-        Expanded(
-          child: _TrustItem(icon: Icons.schedule_rounded, text: '1–3 ish kuni'),
-        ),
-        _TrustDivider(),
-        Expanded(
-          child: _TrustItem(
-            icon: Icons.favorite_border_rounded,
-            text: 'Kitobxonga e’tibor',
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _TrustDivider extends StatelessWidget {
-  const _TrustDivider();
-  @override
-  Widget build(BuildContext context) =>
-      Container(width: 1, height: 30, color: UzbekCustomerColors.border);
-}
-
-class _TrustItem extends StatelessWidget {
-  const _TrustItem({required this.icon, required this.text});
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 5),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 18, color: UzbekCustomerColors.teal),
-        const SizedBox(height: 4),
-        Text(
-          text,
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700),
-        ),
-      ],
-    ),
-  );
-}
-
 class _FeaturedBooksStrip extends StatelessWidget {
   const _FeaturedBooksStrip({required this.books});
   final List<Book> books;
@@ -3280,57 +3207,6 @@ class _FeaturedBooksStrip extends StatelessWidget {
                       ),
                     ),
                   ],
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    ],
-  );
-}
-
-class _DiscoveryBooksStrip extends StatelessWidget {
-  const _DiscoveryBooksStrip({required this.title, required this.subtitle, required this.icon, required this.books});
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final List<Book> books;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      UzbekSectionTitle(title: title, subtitle: subtitle, icon: icon),
-      const SizedBox(height: 10),
-      SizedBox(
-        height: 226,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: books.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 10),
-          itemBuilder: (context, i) {
-            final b = books[i];
-            return SizedBox(
-              width: 132,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(18),
-                onTap: () => _openBookDetail(context, b),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: UzbekCustomerColors.border),
-                  ),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(10), child: _BookCover(book: b))),
-                    const SizedBox(height: 7),
-                    Text(b.title, maxLines: 2, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900, color: UzbekCustomerColors.navy)),
-                    const SizedBox(height: 3),
-                    Text(won(b.currentPrice), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: UzbekCustomerColors.teal)),
-                  ]),
                 ),
               ),
             );
@@ -5593,108 +5469,6 @@ Widget _priceRow(String label, int value, {bool bold = false}) => Row(
   ],
 );
 
-class _ProfileMosaicPainter extends CustomPainter {
-  const _ProfileMosaicPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final gold = Paint()
-      ..color = const Color(0xBFE8C66A)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.05;
-    final teal = Paint()
-      ..color = const Color(0x8059B7C3)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = .8;
-    final center = Offset(size.width * .5, size.height * .49);
-
-    // Dark central medallion exactly like the supplied reference.
-    final medallion = Rect.fromCenter(
-      center: center,
-      width: size.width * .52,
-      height: size.height * .98,
-    );
-    canvas.drawOval(
-      medallion,
-      Paint()
-        ..shader = const RadialGradient(
-          colors: [Color(0xF5052C45), Color(0xEB07344D), Color(0xB0052943), Color(0x00052943)],
-          stops: [0, .58, .82, 1],
-        ).createShader(medallion),
-    );
-
-    // Concentric Uzbek/Islamic arches around the central medallion.
-    void arch(double inset, Paint paint) {
-      final left = size.width * inset;
-      final right = size.width * (1 - inset);
-      final bottom = size.height * .98;
-      final shoulder = size.height * .37;
-      final top = size.height * .015;
-      final path = Path()
-        ..moveTo(left, bottom)
-        ..lineTo(left, shoulder)
-        ..quadraticBezierTo(left, size.height * .12, center.dx, top)
-        ..quadraticBezierTo(right, size.height * .12, right, shoulder)
-        ..lineTo(right, bottom);
-      canvas.drawPath(path, paint);
-    }
-
-    arch(.035, gold);
-    arch(.085, teal);
-    arch(.135, gold);
-    arch(.19, teal);
-    arch(.245, gold);
-
-    // Fine geometric diamonds on both sides.
-    for (var y = 12.0; y < size.height - 8; y += 22) {
-      for (final x in [size.width * .055, size.width * .945]) {
-        final d = Path()
-          ..moveTo(x, y - 5)
-          ..lineTo(x + 5, y)
-          ..lineTo(x, y + 5)
-          ..lineTo(x - 5, y)
-          ..close();
-        canvas.drawPath(d, gold);
-        canvas.drawCircle(Offset(x, y), 1.1, teal);
-      }
-    }
-
-    // Subtle central rosette behind the customer's name.
-    for (var i = 0; i < 16; i++) {
-      final aa = i * 3.141592653589793 / 8;
-      final p1 = center + Offset(
-        size.width * .12 * MathCos.cos(aa),
-        size.height * .23 * MathCos.sin(aa),
-      );
-      final p2 = center + Offset(
-        size.width * .205 * MathCos.cos(aa),
-        size.height * .40 * MathCos.sin(aa),
-      );
-      canvas.drawLine(p1, p2, i.isEven ? gold : teal);
-    }
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: center,
-        width: size.width * .34,
-        height: size.height * .70,
-      ),
-      teal,
-    );
-
-    // Small star points like the reference.
-    final star = Paint()..color = const Color(0xBFFFF2B5);
-    for (var i = 0; i < 38; i++) {
-      final x = ((i * 83) % 997) / 997 * size.width;
-      final y = ((i * 47) % 311) / 311 * size.height * .72;
-      if ((x - center.dx).abs() < size.width * .27) continue;
-      canvas.drawCircle(Offset(x, y), i % 6 == 0 ? 1.15 : .55, star);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
 class MathCos {
   static double cos(double x) => _sin(x + 1.5707963267948966);
   static double sin(double x) => _sin(x);
@@ -5977,17 +5751,7 @@ class ProfilePage extends StatelessWidget {
   }
 }
 
-class _ProfileReferenceAction extends StatelessWidget {
-    const _ProfileReferenceAction({required this.icon, required this.label, required this.onTap});
-    final IconData icon; final String label; final VoidCallback onTap;
-    @override Widget build(BuildContext context) => Material(
-      color: const Color(0xFFFFFCF4),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: Color(0xFFE4D3AE))),
-      child: InkWell(onTap:onTap,borderRadius:BorderRadius.circular(20),child:Padding(padding:const EdgeInsets.symmetric(horizontal:9,vertical:13),child:Row(children:[Icon(icon,color:const Color(0xFF082B3D),size:25),const SizedBox(width:6),Expanded(child:Text(label,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Color(0xFF082B3D),fontWeight:FontWeight.w800,fontFamily:'serif',fontSize:12))),const Icon(Icons.chevron_right_rounded,color:Color(0xFF082B3D),size:18)]))),
-    );
-  }
-
-  class _ProfileStat extends StatelessWidget {
+class _ProfileStat extends StatelessWidget {
   const _ProfileStat({required this.value, required this.label});
   final String value;
   final String label;
@@ -6463,7 +6227,7 @@ Future<void> _showMuhajeerReceipt(BuildContext context, ShopOrder order) async {
                   style: TextStyle(color: AppColors.muted)),
               const SizedBox(height: 18),
               const Divider(),
-              _ReceiptRow(label: 'Buyurtma', value: '#${order.displayOrderNumber ?? order.recoveryCode}'),
+              _ReceiptRow(label: 'Buyurtma', value: '#${order.displayOrderNumber}'),
               _ReceiptRow(label: 'Sana', value: DateFormat('dd.MM.yyyy  HH:mm').format(order.createdAt)),
               _ReceiptRow(label: 'Mijoz', value: order.customerName),
               const Divider(),

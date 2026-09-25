@@ -1919,7 +1919,6 @@ Future<Uint8List> _renderAlternativeBookStory(
       canvas.drawColor(const Color(0xFFF6E7CC), BlendMode.src);
       for (final center in <Offset>[const Offset(110, 250), const Offset(970, 250), const Offset(110, 1580), const Offset(970, 1580)]) {
         for (var i = 0; i < 8; i++) {
-          final angle = i * 0.785398;
           final dx = 70.0 * (i == 0 || i == 4 ? 0.0 : (i < 4 ? 1.0 : -1.0));
           final dy = 70.0 * (i == 2 || i == 6 ? 0.0 : (i < 2 || i > 6 ? -1.0 : 1.0));
           canvas.drawOval(Rect.fromCenter(center: center + Offset(dx, dy), width: 58, height: 118),

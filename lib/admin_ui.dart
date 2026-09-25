@@ -115,19 +115,6 @@ Map<String, Uint8List>? _prepareBookImageVariants(Uint8List sourceBytes) {
   return <String, Uint8List>{'full': fullBytes, 'thumb': thumbBytes};
 }
 
-Uint8List? _prepareBookThumbnail(Uint8List sourceBytes) {
-  final decoded = img.decodeImage(sourceBytes);
-  if (decoded == null) return null;
-  final oriented = img.bakeOrientation(decoded);
-  final thumbImage = _resizeWithin(oriented, 480, 720);
-  return _encodeJpegTarget(
-    thumbImage,
-    targetBytes: 46 * 1024,
-    startQuality: 78,
-    minQuality: 60,
-  );
-}
-
 Map<String, dynamic> _functionResponseMap(dynamic raw) {
   if (raw is Map) return Map<String, dynamic>.from(raw);
   if (raw is String && raw.trim().isNotEmpty) {
@@ -2982,70 +2969,6 @@ class _AdminProgressStat extends StatelessWidget {
       ],
     );
   }
-}
-
-class _AdminStatCard extends StatelessWidget {
-  const _AdminStatCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.accent,
-  });
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 210,
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: const Color(0xFFE6E8EC)),
-    ),
-    child: Row(
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: accent.withValues(alpha: .10),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(icon, color: accent),
-        ),
-        const SizedBox(width: 11),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 19,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                maxLines: 2,
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  color: Colors.black54,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
 }
 
 class _InventoryAdmin extends StatefulWidget {
@@ -5972,7 +5895,7 @@ class _PaymentProofPanel extends StatelessWidget {
 }
 
 class _RestockAdmin extends StatefulWidget {
-  const _RestockAdmin({super.key, required this.api});
+  const _RestockAdmin({required this.api});
   final _AdminApi api;
 
   @override
@@ -8022,7 +7945,6 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
         final now = DateTime.now();
         DateTime? localDate(dynamic v) => DateTime.tryParse((v ?? '').toString())?.toLocal();
         bool sameDay(DateTime? a, DateTime b) => a != null && a.year == b.year && a.month == b.month && a.day == b.day;
-        final weekStart = DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1));
         final monthStart = DateTime(now.year, now.month, 1);
 
         Widget metric(String label, dynamic value, IconData icon, {VoidCallback? onTap}) => Expanded(

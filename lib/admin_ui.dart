@@ -3559,6 +3559,8 @@ class _BooksAdminState extends State<_BooksAdmin> {
 
   bool _missingImage(Book book) => book.galleryImages.isEmpty;
 
+  bool _missingPageCount(Book book) => book.pageCount <= 0;
+
   bool _missingDescription(Book book) {
     final value = book.description
         .trim()
@@ -3636,6 +3638,8 @@ class _BooksAdminState extends State<_BooksAdmin> {
         return _missingImage(book);
       case 'missing_description':
         return _missingDescription(book);
+      case 'missing_page_count':
+        return _missingPageCount(book);
       case 'missing_cost':
         return book.costPrice <= 0;
       case 'active':
@@ -3976,6 +3980,7 @@ class _BooksAdminState extends State<_BooksAdmin> {
         final totalStock = all.fold<int>(0, (s, b) => s + b.stock);
         final missingImages = all.where(_missingImage).length;
         final missingDescriptions = all.where(_missingDescription).length;
+        final missingPageCounts = all.where(_missingPageCount).length;
         final missingCost = all.where((b) => b.costPrice <= 0).length;
         final activeBooks = all.where((b) => b.isActive).length;
         final hiddenBooks = all.where((b) => !b.isActive).length;
@@ -4012,6 +4017,12 @@ class _BooksAdminState extends State<_BooksAdmin> {
                         selected: filter == 'missing_description',
                         onTap: () =>
                             setState(() => filter = 'missing_description'),
+                      ),
+                      _MiniStat(
+                        label: 'Sahifasi ko‘rsatilmagan',
+                        value: '$missingPageCounts',
+                        selected: filter == 'missing_page_count',
+                        onTap: () => setState(() => filter = 'missing_page_count'),
                       ),
                       _MiniStat(
                         label: 'Tan narxi kiritilmagan',

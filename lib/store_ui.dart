@@ -3451,6 +3451,23 @@ class BookCard extends StatelessWidget {
                       fontSize: 11.5,
                     ),
                   ),
+                  if (book.pageCount > 0) ...[
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        const Icon(Icons.menu_book_outlined, size: 13, color: AppColors.muted),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${book.pageCount} bet',
+                          style: const TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   Row(
                     children: [

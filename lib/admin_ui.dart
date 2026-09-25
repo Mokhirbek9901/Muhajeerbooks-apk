@@ -415,7 +415,7 @@ class _AdminApi {
     final salesData = await sales();
     final ordersData = await orders();
     final context = <String,dynamic>{
-      'books': booksData.take(300).map((b)=>{'title':b.title,'author':b.author,'publisher':b.publisher,'category':b.category,'price':b.currentPrice,'cost_price':b.costPrice,'stock':b.stock,'active':b.isActive}).toList(),
+      'books': booksData.take(300).map((b)=>{'title':b.title,'author':b.author,'publisher':b.publisher,'category':b.category,'page_count':b.pageCount,'price':b.currentPrice,'cost_price':b.costPrice,'stock':b.stock,'active':b.isActive}).toList(),
       'sales': salesData.take(1000).map((s)=>{'book_id':s['book_id'],'title':s['title'],'quantity':s['quantity']??s['qty'],'unit_price':s['unit_price']??s['price'],'total':s['total'],'cost_price':s['cost_price'],'created_at':s['created_at']}).toList(),
       'orders': ordersData.take(500).map((o)=>{'status':o.status,'source':o.source,'delivery_fee':o.deliveryFee,'subtotal':o.subtotal,'total':o.total,'items':o.items,'created_at':o.createdAt.toIso8601String(),'stock_reserved':o.stockReserved}).toList(),
     };
@@ -448,7 +448,7 @@ class _AdminApi {
   }
 
   Future<List<Map<String,dynamic>>> researchBooksBulk(List<Book> books) async {
-    final payload=books.map((b)=>{'id':b.id,'title':b.title,'author':b.author,'publisher':b.publisher}).toList();
+    final payload=books.map((b)=>{'id':b.id,'title':b.title,'author':b.author,'publisher':b.publisher,'page_count':b.pageCount}).toList();
     final r=await http.post(
       _serverUri('/api/admin-ai/books-bulk-research'),
       headers:{'Content-Type':'application/json'},
@@ -3448,6 +3448,7 @@ class _BulkAiBookEditorPageState extends State<_BulkAiBookEditorPage> {
     (key:'publisher',label:'Nashriyot',icon:Icons.apartment_rounded),
     (key:'category',label:'Kategoriya',icon:Icons.category_rounded),
     (key:'description',label:'Tavsif',icon:Icons.notes_rounded),
+    (key:'page_count',label:'Sahifalar soni',icon:Icons.menu_book_outlined),
   ];
   @override void initState(){super.initState();selectedBooks.addAll(widget.books.map((b)=>b.id));search.addListener(_refresh);}
   void _refresh(){if(mounted)setState((){});}
@@ -3481,7 +3482,7 @@ class _BulkAiBookEditorPageState extends State<_BulkAiBookEditorPage> {
     try{
       for(final b in widget.books){
         if(!selectedBooks.contains(b.id))continue;final p=proposals[b.id];if(p==null)continue;
-        final updated=b.copyWith(title:pick(p,'title',b.title),author:pick(p,'author',b.author),publisher:pick(p,'publisher',b.publisher),category:pick(p,'category',b.category),description:pick(p,'description',b.description));
+        final updated=b.copyWith(title:pick(p,'title',b.title),author:pick(p,'author',b.author),publisher:pick(p,'publisher',b.publisher),category:pick(p,'category',b.category),description:pick(p,'description',b.description),pageCount:fields.contains('page_count') ? (int.tryParse((p['page_count']??'').toString()) ?? b.pageCount) : b.pageCount);
         await widget.api.saveBook(updated);saved++;
       }
       if(!mounted)return;ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('$saved ta kitob yangilandi.')));Navigator.pop(context,true);
@@ -4416,6 +4417,7 @@ class _BookFormState extends State<_BookForm> {
   late final TextEditingController publisher;
   late final TextEditingController category;
   late final TextEditingController description;
+  late final TextEditingController pageCount;
   late final TextEditingController price;
   late final TextEditingController preorderPriceMax;
   late final TextEditingController stock;
@@ -4448,6 +4450,7 @@ class _BookFormState extends State<_BookForm> {
     publisher = TextEditingController(text: b?.publisher ?? '');
     category = TextEditingController(text: b?.category ?? 'Boshqalar');
     description = TextEditingController(text: b?.description ?? '');
+    pageCount = TextEditingController(text: b == null || b.pageCount <= 0 ? '' : '${b.pageCount}');
     price = TextEditingController(text: b == null ? '' : '${b.price}');
     preorderPriceMax = TextEditingController(
       text: b == null || b.preorderPriceMax <= 0 ? '' : '${b.preorderPriceMax}',
@@ -4491,6 +4494,7 @@ class _BookFormState extends State<_BookForm> {
       publisher,
       category,
       description,
+      pageCount,
       price,
       preorderPriceMax,
       stock,
@@ -4760,7 +4764,7 @@ class _BookFormState extends State<_BookForm> {
       final data=await widget.api.researchBook(title:title.text.trim(),author:author.text.trim(),publisher:publisher.text.trim());
       if(!mounted) return;
       if(editField!=null && editField!='description') {
-        final fieldMap=<String,TextEditingController>{'title':title,'author':author,'publisher':publisher,'category':category};
+        final fieldMap=<String,TextEditingController>{'title':title,'author':author,'publisher':publisher,'category':category,'page_count':pageCount};
         final controller=fieldMap[editField];
         final value=(data[editField]??'').toString().trim();
         if(controller!=null && value.isNotEmpty) {
@@ -4788,7 +4792,7 @@ class _BookFormState extends State<_BookForm> {
       ));
       if(ok!=true || !mounted) return;
       void setIf(TextEditingController x,String name){final v=(data[name]??'').toString().trim();if(v.isNotEmpty)x.text=v;}
-      setIf(title,'title'); setIf(author,'author'); setIf(publisher,'publisher'); setIf(category,'category');
+      setIf(title,'title'); setIf(author,'author'); setIf(publisher,'publisher'); setIf(category,'category'); setIf(pageCount,'page_count');
       if(foundDescription.isNotEmpty) description.text=foundDescription;
       final cv=(data['cover']??'').toString().trim(); if(cv.isNotEmpty) cover=cv;
       setState((){});
@@ -4807,6 +4811,7 @@ class _BookFormState extends State<_BookForm> {
     final s = int.tryParse(stock.text.trim()) ?? -1;
     final d = int.tryParse(discount.text.trim()) ?? 0;
     final c = int.tryParse(cost.text.trim()) ?? 0;
+    final pages = int.tryParse(pageCount.text.trim()) ?? 0;
     final preorderMinValue = int.tryParse(preorderMin.text.trim()) ?? 5000;
     final preorderMaxValue = int.tryParse(preorderMax.text.trim()) ?? 10000;
     if (p < 0 || s < 0 || d < 0 || d > 99 || c < 0 ||
@@ -4905,6 +4910,7 @@ class _BookFormState extends State<_BookForm> {
                       ListTile(leading:const Icon(Icons.notes_rounded),title:const Text('Tavsif'),subtitle:const Text('3 xil variant beradi'),onTap:()=>Navigator.pop(ctx,'description')),
                       ListTile(leading:const Icon(Icons.person_rounded),title:const Text('Muallif'),onTap:()=>Navigator.pop(ctx,'author')),
                       ListTile(leading:const Icon(Icons.apartment_rounded),title:const Text('Nashriyot'),onTap:()=>Navigator.pop(ctx,'publisher')),
+                      ListTile(leading:const Icon(Icons.menu_book_outlined),title:const Text('Sahifalar soni'),onTap:()=>Navigator.pop(ctx,'page_count')),
                       ListTile(leading:const Icon(Icons.category_rounded),title:const Text('Kategoriya'),onTap:()=>Navigator.pop(ctx,'category')),
                       ListTile(leading:const Icon(Icons.menu_book_rounded),title:const Text('Kitob nomi'),onTap:()=>Navigator.pop(ctx,'title')),
                       ListTile(leading:const Icon(Icons.auto_awesome_rounded),title:const Text('Hammasini tekshirish'),onTap:()=>Navigator.pop(ctx,'all')),
@@ -5061,6 +5067,7 @@ class _BookFormState extends State<_BookForm> {
             field(author, 'Muallif'),
             field(publisher, 'Nashriyot'),
             field(category, 'Kategoriya'),
+            field(pageCount, 'Sahifalar soni (bet)', number: true),
             _descriptionEditor(),
             if (widget.preorderMode) ...[
               Row(
@@ -6516,7 +6523,7 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
       await widget.api.saveBundle(
         id: rawId.isEmpty ? null : rawId,
         title: title.text.trim(),
-        description: description.text.trim(),
+        description: description.text.trim(), pageCount: pages,
         price: setPrice,
         imageUrl: bundleImageUrl,
         active: active,

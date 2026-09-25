@@ -4195,9 +4195,9 @@ class _BookDetailInfo extends StatelessWidget {
             const SizedBox(width: 8),
             _DetailFact(
               icon: Icons.card_giftcard_outlined,
-              title: '4+ kitob',
+              title: '4+ kitobda',
               value: context.watch<AppState>().fourPlusFreeDeliveryEnabled
-                  ? 'Bepul'
+                  ? 'Pochta bepul'
                   : 'Chegirmada yo‘q',
             ),
           ],

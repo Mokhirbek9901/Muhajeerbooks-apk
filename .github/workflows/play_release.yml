@@ -1,0 +1,173 @@
+name: Google Play signed AAB
+
+# Builds an App Bundle signed with the Play upload key.
+#
+# One-time setup: add the repository secret ANDROID_KEYSTORE_PASSWORD
+# (at least 16 characters). On the first run the upload key is generated,
+# encrypted with that password and committed to .github/signing/, so every
+# later run signs with the same key. Keep the password safe: without it the
+# encrypted key cannot be opened.
+#
+# Runs started by a push (feature branches) never create the real key; without
+# it they only check that a signed release bundle builds, using a throwaway key.
+
+on:
+  workflow_dispatch:
+  push:
+    branches-ignore: [main]
+    paths:
+      - '.github/workflows/play_release.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: play-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      ENC_KEYSTORE: .github/signing/upload-keystore.jks.enc
+      KEYSTORE_SECRET: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare upload key
+        id: key
+        run: |
+          set -euo pipefail
+          KS="$RUNNER_TEMP/upload-keystore.jks"
+          DNAME="CN=Muhajeer Books, O=Muhajeer Books, L=Gyeongsan, C=KR"
+          if [ -z "$KEYSTORE_SECRET" ] && [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "::error::ANDROID_KEYSTORE_PASSWORD secret qo'shilmagan. Settings → Secrets and variables → Actions orqali qo'shing."
+            exit 1
+          fi
+          # The real key is only created by a manual run; other runs without it just test the build.
+          if [ -z "$KEYSTORE_SECRET" ] || { [ ! -f "$ENC_KEYSTORE" ] && [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; }; then
+            echo "::warning::Test build: vaqtinchalik kalit ishlatiladi. Bu AAB Play Market'ga yuklanmaydi."
+            PASS="test-$(openssl rand -hex 16)"
+            keytool -genkeypair -noprompt -keystore "$KS" -storetype PKCS12 -alias upload \
+              -keyalg RSA -keysize 4096 -validity 10000 -storepass "$PASS" -keypass "$PASS" -dname "$DNAME"
+            echo "mode=test" >> "$GITHUB_OUTPUT"
+          else
+            PASS="$KEYSTORE_SECRET"
+            if [ "${#PASS}" -lt 16 ]; then
+              echo "::error::ANDROID_KEYSTORE_PASSWORD kamida 16 belgidan iborat bo'lishi kerak."
+              exit 1
+            fi
+            if [ -f "$ENC_KEYSTORE" ]; then
+              openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -in "$ENC_KEYSTORE" -out "$KS" -pass env:KEYSTORE_SECRET
+              echo "new_key=false" >> "$GITHUB_OUTPUT"
+            else
+              keytool -genkeypair -noprompt -keystore "$KS" -storetype PKCS12 -alias upload \
+                -keyalg RSA -keysize 4096 -validity 10000 -storepass "$PASS" -keypass "$PASS" -dname "$DNAME"
+              mkdir -p "$(dirname "$ENC_KEYSTORE")"
+              openssl enc -aes-256-cbc -salt -pbkdf2 -iter 600000 -in "$KS" -out "$ENC_KEYSTORE" -pass env:KEYSTORE_SECRET
+              echo "new_key=true" >> "$GITHUB_OUTPUT"
+            fi
+            echo "mode=release" >> "$GITHUB_OUTPUT"
+          fi
+          echo "::add-mask::$PASS"
+          {
+            echo "ANDROID_KEYSTORE_PATH=$KS"
+            echo "ANDROID_KEYSTORE_PASS=$PASS"
+          } >> "$GITHUB_ENV"
+          keytool -list -v -keystore "$KS" -storepass "$PASS" -alias upload | grep -E "SHA1:|SHA256:" || true
+
+      - name: Save encrypted upload key to the repository
+        if: steps.key.outputs.new_key == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$ENC_KEYSTORE"
+          git commit -m "Add encrypted Google Play upload key"
+          git pull --rebase origin "$GITHUB_REF_NAME"
+          git push origin "HEAD:$GITHUB_REF_NAME"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Create Android platform files
+        run: flutter create . --platforms=android --project-name muhajeerbooks --org com.muhajeerbooks
+
+      - run: flutter pub get
+
+      - name: Configure Android release signing and package
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('android/app/build.gradle.kts')
+          s = p.read_text(encoding='utf-8')
+          s = re.sub(r'applicationId\s*=\s*"[^"]+"', 'applicationId = "com.muhajeerbooks.app"', s)
+          signing = (
+              '    signingConfigs {\n'
+              '        create("upload") {\n'
+              '            storeFile = file(System.getenv("ANDROID_KEYSTORE_PATH"))\n'
+              '            storePassword = System.getenv("ANDROID_KEYSTORE_PASS")\n'
+              '            keyAlias = "upload"\n'
+              '            keyPassword = System.getenv("ANDROID_KEYSTORE_PASS")\n'
+              '        }\n'
+              '    }\n\n'
+              '    buildTypes {'
+          )
+          if s.count('    buildTypes {') != 1:
+              raise SystemExit('buildTypes block not found')
+          s = s.replace('    buildTypes {', signing, 1)
+          debug = 'signingConfig = signingConfigs.getByName("debug")'
+          if debug not in s:
+              raise SystemExit('debug signing line not found')
+          s = s.replace(debug, 'signingConfig = signingConfigs.getByName("upload")', 1)
+          p.write_text(s, encoding='utf-8')
+
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          m = manifest.read_text(encoding='utf-8')
+          if 'android.permission.INTERNET' not in m:
+              m = m.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">', '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET" />', 1)
+          m = re.sub(r'android:label="[^"]*"', 'android:label="Muhajeer Books"', m, count=1)
+          manifest.write_text(m, encoding='utf-8')
+          PY
+
+      - name: Prepare Android biometrics
+        run: python3 tools/prepare_android_biometrics.py
+
+      - name: Apply official Muhajeer launcher icon
+        run: |
+          sudo apt-get -qq update
+          sudo apt-get -qq install -y imagemagick
+          for spec in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+            density="${spec%%:*}"; size="${spec##*:}"; dir="android/app/src/main/res/mipmap-${density}"
+            convert assets/images/muhajeer_logo.jpg -resize "${size}x${size}^" -gravity center -extent "${size}x${size}" "$dir/ic_launcher.png"
+          done
+
+      - name: Build signed App Bundle
+        run: |
+          flutter build appbundle --release \
+            --build-number="${{ github.run_number }}" \
+            --dart-define=PLAY_STORE_BUILD=true \
+            --dart-define=APP_BUILD_NUMBER="${{ github.run_number }}" \
+            --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
+            --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
+
+      - name: Verify bundle signature
+        run: |
+          AAB=build/app/outputs/bundle/release/app-release.aab
+          jarsigner -verify "$AAB" | tail -1
+          keytool -printcert -jarfile "$AAB" | grep -E "Owner:|SHA256:"
+          if keytool -printcert -jarfile "$AAB" | grep -q "CN=Android Debug"; then
+            echo "::error::Bundle debug kalit bilan imzolangan."
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: steps.key.outputs.mode == 'release'
+        with:
+          name: muhajeer-books-play-signed-aab-${{ github.run_number }}
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 30

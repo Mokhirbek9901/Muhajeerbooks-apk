@@ -468,7 +468,7 @@ def order_push_event():
       total=int(body.get("total") or 0)
     except Exception:
       total=0
-    order_label=f"#{order_no:04d}" if order_no>0 else "buyurtmangiz"
+    order_label=f"#{order_no}" if order_no>0 else "buyurtmangiz"
     items=body.get("items") if isinstance(body.get("items"),list) else []
     item_count=0
     receipt_parts=[]

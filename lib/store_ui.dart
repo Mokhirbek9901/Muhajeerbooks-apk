@@ -1945,16 +1945,69 @@ class _HomePageState extends State<HomePage> {
                       const SizedBox(height: 14),
                       const Text('Kitob topilmadi', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
                       const SizedBox(height: 8),
-                      const Text('Bizda yo‘q kitobni so‘rov qilib qoldirishingiz mumkin.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted)),
+                      const Text(
+                        'Bu kitob hozir sotuvda yo‘q. Olib kelishimiz uchun adminga so‘rov qoldirasizmi?',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: AppColors.muted, height: 1.4),
+                      ),
                       const SizedBox(height: 16),
                       FilledButton.icon(
-                        onPressed: query.trim().length < 2 ? null : () async {
-                          final message = await state.requestMissingBook(query);
+                        onPressed: () async {
+                          final titleController = TextEditingController(text: query.trim());
+                          final requestedTitle = await showDialog<String>(
+                            context: context,
+                            builder: (dialogContext) => AlertDialog(
+                              title: const Text('Kitob uchun so‘rov'),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Olib kelishimiz uchun kitob nomini to‘liq yozing.',
+                                    style: TextStyle(color: AppColors.muted, height: 1.4),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  TextField(
+                                    controller: titleController,
+                                    autofocus: true,
+                                    textInputAction: TextInputAction.done,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Kitob nomi',
+                                      hintText: 'Masalan: Ikki eshik orasi',
+                                      prefixIcon: Icon(Icons.menu_book_rounded),
+                                    ),
+                                    onSubmitted: (value) {
+                                      final clean = value.trim();
+                                      if (clean.length >= 2) Navigator.pop(dialogContext, clean);
+                                    },
+                                  ),
+                                ],
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(dialogContext),
+                                  child: const Text('Bekor qilish'),
+                                ),
+                                FilledButton.icon(
+                                  onPressed: () {
+                                    final clean = titleController.text.trim();
+                                    if (clean.length < 2) return;
+                                    Navigator.pop(dialogContext, clean);
+                                  },
+                                  icon: const Icon(Icons.send_rounded),
+                                  label: const Text('So‘rov yuborish'),
+                                ),
+                              ],
+                            ),
+                          );
+                          titleController.dispose();
+                          if (requestedTitle == null || requestedTitle.trim().length < 2 || !context.mounted) return;
+                          final message = await state.requestMissingBook(requestedTitle.trim());
                           if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
                         },
                         icon: const Icon(Icons.library_add_rounded),
-                        label: const Text('Shu kitob kerak'),
+                        label: const Text('Adminga so‘rov qoldirish'),
                       ),
                     ],
                   ),

@@ -1513,6 +1513,7 @@ class _PersistentBookGridState extends State<_PersistentBookGrid> {
     padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
     addAutomaticKeepAlives: false,
     addRepaintBoundaries: true,
+    cacheExtent: 900,
     itemCount: widget.books.length,
     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
       crossAxisCount: 2,
@@ -3585,7 +3586,6 @@ class _BookCover extends StatelessWidget {
     return Image.network(
       displayUrl,
       fit: BoxFit.cover,
-      cacheWidth: 640,
       filterQuality: FilterQuality.high,
       gaplessPlayback: true,
       frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
@@ -3597,7 +3597,6 @@ class _BookCover extends StatelessWidget {
           return Image.network(
             previewUrl,
             fit: BoxFit.cover,
-            cacheWidth: 480,
             filterQuality: FilterQuality.high,
             gaplessPlayback: true,
             errorBuilder: (_, __, ___) => _placeholder(),

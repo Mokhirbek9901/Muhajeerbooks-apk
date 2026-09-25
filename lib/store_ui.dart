@@ -4253,6 +4253,8 @@ class _BookDetailInfo extends StatelessWidget {
           ),
           if (book.coverType != 'Ko‘rsatilmagan')
             AppInfoPill(icon: Icons.book_outlined, label: book.coverType),
+          if (book.pageCount > 0)
+            AppInfoPill(icon: Icons.menu_book_outlined, label: '${book.pageCount} bet'),
         ],
       ),
       if (book.preorderEnabled) ...[

@@ -1881,9 +1881,74 @@ class _HomePageState extends State<HomePage> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
-                          '“${query.trim()}” bo‘yicha ${catalogItems.length} ta natija topildi',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          catalogItems.isEmpty
+                              ? '“${query.trim()}” bo‘yicha natija topilmadi'
+                              : '“${query.trim()}” bo‘yicha ${catalogItems.length} ta natija topildi',
+                          style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
+                        if (catalogItems.isEmpty) ...[
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Bu kitob hozir sotuvda yo‘q. Olib kelishimiz uchun adminga so‘rov qoldirasizmi?',
+                            style: TextStyle(color: AppColors.muted, height: 1.35),
+                          ),
+                          const SizedBox(height: 10),
+                          FilledButton.icon(
+                            onPressed: () async {
+                              final titleController = TextEditingController(text: query.trim());
+                              final requestedTitle = await showDialog<String>(
+                                context: context,
+                                builder: (dialogContext) => AlertDialog(
+                                  title: const Text('Kitob uchun so‘rov'),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('Olib kelishimiz uchun kitob nomini to‘liq yozing.'),
+                                      const SizedBox(height: 12),
+                                      TextField(
+                                        controller: titleController,
+                                        autofocus: true,
+                                        textInputAction: TextInputAction.done,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Kitob nomi',
+                                          hintText: 'Masalan: Ikki eshik orasi',
+                                          prefixIcon: Icon(Icons.menu_book_rounded),
+                                        ),
+                                        onSubmitted: (value) {
+                                          final clean = value.trim();
+                                          if (clean.length >= 2) Navigator.pop(dialogContext, clean);
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(dialogContext),
+                                      child: const Text('Bekor qilish'),
+                                    ),
+                                    FilledButton.icon(
+                                      onPressed: () {
+                                        final clean = titleController.text.trim();
+                                        if (clean.length < 2) return;
+                                        Navigator.pop(dialogContext, clean);
+                                      },
+                                      icon: const Icon(Icons.send_rounded),
+                                      label: const Text('So‘rov yuborish'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              titleController.dispose();
+                              if (requestedTitle == null || requestedTitle.trim().length < 2 || !context.mounted) return;
+                              final message = await state.requestMissingBook(requestedTitle.trim());
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+                            },
+                            icon: const Icon(Icons.send_rounded),
+                            label: const Text('Adminga so‘rov qoldirish'),
+                          ),
+                        ],
                         const SizedBox(height: 8),
                         OutlinedButton.icon(
                           onPressed: _showAllBooks,
@@ -1943,45 +2008,14 @@ class _HomePageState extends State<HomePage> {
                     children: [
                       const Icon(Icons.search_off_rounded, size: 58, color: AppColors.muted),
                       const SizedBox(height: 14),
-                      const Text('Kitob topilmadi', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                      const Text('Natija topilmadi', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
                       const SizedBox(height: 8),
                       const Text(
-                        'Bu kitob hozir sotuvda yo‘q. Olib kelishimiz uchun adminga so‘rov qoldirasizmi?',
+                        'So‘rov qoldirish tugmasi qidiruv oynasining yuqorisida.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: AppColors.muted, height: 1.4),
+                        style: TextStyle(color: AppColors.muted),
                       ),
-                      const SizedBox(height: 16),
-                      FilledButton.icon(
-                        onPressed: () async {
-                          final titleController = TextEditingController(text: query.trim());
-                          final requestedTitle = await showDialog<String>(
-                            context: context,
-                            builder: (dialogContext) => AlertDialog(
-                              title: const Text('Kitob uchun so‘rov'),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Olib kelishimiz uchun kitob nomini to‘liq yozing.',
-                                    style: TextStyle(color: AppColors.muted, height: 1.4),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  TextField(
-                                    controller: titleController,
-                                    autofocus: true,
-                                    textInputAction: TextInputAction.done,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Kitob nomi',
-                                      hintText: 'Masalan: Ikki eshik orasi',
-                                      prefixIcon: Icon(Icons.menu_book_rounded),
-                                    ),
-                                    onSubmitted: (value) {
-                                      final clean = value.trim();
-                                      if (clean.length >= 2) Navigator.pop(dialogContext, clean);
-                                    },
-                                  ),
-                                ],
+                    ],
                               ),
                               actions: [
                                 TextButton(

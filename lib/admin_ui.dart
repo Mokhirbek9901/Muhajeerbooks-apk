@@ -615,7 +615,7 @@ class _AdminApi {
   }
 
   Future<Map<String, dynamic>> deviceAnalytics() async {
-    final raw = await _rpc('admin_device_analytics', params: {'p_secret': secret});
+    final raw = await _rpc('admin_user_stats', params: {'p_secret': secret});
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
 
@@ -7982,17 +7982,12 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
         }
 
         Future<void> showDevices() async {
-          showModalBottomSheet<void>(context: context,isScrollControlled:true,showDragHandle:true,builder:(sheetContext)=>SafeArea(child:SizedBox(height:MediaQuery.of(sheetContext).size.height*.82,child:FutureBuilder<Map<String,dynamic>>(future:widget.api.deviceAnalytics(),builder:(context,snap){
-            if(!snap.hasData)return const Center(child:CircularProgressIndicator());
-            final d=snap.data!; final devices=((d['devices'] as List?)??const []).whereType<Map>().map((e)=>Map<String,dynamic>.from(e)).toList();
-            Widget box(String title,dynamic value,IconData icon)=>Expanded(child:AppSurface(padding:const EdgeInsets.all(12),child:Column(children:[Icon(icon,color:AppColors.navy),const SizedBox(height:5),Text('$value',style:const TextStyle(fontSize:21,fontWeight:FontWeight.w900)),Text(title,style:const TextStyle(fontSize:11,color:AppColors.muted))])));
-            return Column(children:[
-              Padding(padding:const EdgeInsets.fromLTRB(16,4,10,10),child:Row(children:[const Expanded(child:Text('Ilova qurilmalari',style:TextStyle(fontSize:19,fontWeight:FontWeight.w900))),IconButton(onPressed:()=>Navigator.pop(sheetContext),icon:const Icon(Icons.close_rounded))])),
-              Padding(padding:const EdgeInsets.symmetric(horizontal:14),child:Row(children:[box('iPhone',d['iphone']??0,Icons.phone_iphone_rounded),const SizedBox(width:8),box('Android',d['android']??0,Icons.android_rounded),const SizedBox(width:8),box('Web / noma’lum',d['web_unknown']??0,Icons.language_rounded)])),
-              const SizedBox(height:10),
-              Expanded(child:ListView.separated(padding:const EdgeInsets.fromLTRB(14,4,14,20),itemCount:devices.length,separatorBuilder:(_,__)=>const Divider(height:1),itemBuilder:(_,i){final x=devices[i];final platform=(x['platform']??'').toString();return ListTile(leading:Icon(platform.toLowerCase()=='android'?Icons.android_rounded:Icons.phone_iphone_rounded),title:Text((x['model']??'Aniqlanmagan').toString(),style:const TextStyle(fontWeight:FontWeight.w800)),subtitle:Text(platform+' • Oxirgi kirish: '+DateFormat('yyyy.MM.dd HH:mm').format(DateTime.tryParse((x['last_seen_at']??'').toString())?.toLocal() ?? DateTime.now())),trailing:Text((x['sessions']??0).toString()+' kirish',textAlign:TextAlign.end));}))
-            ]);
-          }))));}
+          showModalBottomSheet<void>(context: context,isScrollControlled:true,showDragHandle:true,builder:(sheetContext)=>SafeArea(child:SizedBox(height:MediaQuery.of(sheetContext).size.height*.62,child:FutureBuilder<Map<String,dynamic>>(future:widget.api.deviceAnalytics().timeout(const Duration(seconds:8)),builder:(context,snap){
+            if(snap.connectionState==ConnectionState.waiting)return const Center(child:CircularProgressIndicator());
+            if(snap.hasError)return Center(child:Padding(padding:const EdgeInsets.all(24),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.error_outline_rounded,size:38),const SizedBox(height:10),const Text('Qurilmalar ma’lumotini yuklab bo‘lmadi.',textAlign:TextAlign.center),const SizedBox(height:12),FilledButton(onPressed:()=>Navigator.pop(sheetContext),child:const Text('Yopish'))])));
+            final d=snap.data??const <String,dynamic>{}; final total=d['total_installs']??0; final active=d['active_installs_today']??0;
+            return Column(children:[Padding(padding:const EdgeInsets.fromLTRB(16,4,10,10),child:Row(children:[const Expanded(child:Text('Ilova qurilmalari',style:TextStyle(fontSize:19,fontWeight:FontWeight.w900))),IconButton(onPressed:()=>Navigator.pop(sheetContext),icon:const Icon(Icons.close_rounded))])),Padding(padding:const EdgeInsets.all(16),child:AppSurface(padding:const EdgeInsets.all(18),child:Row(mainAxisAlignment:MainAxisAlignment.spaceAround,children:[Column(children:[Text('$total',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Jami qurilma')]),Column(children:[Text('$active',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Bugun faol')])]))),const Padding(padding:EdgeInsets.all(20),child:Text('iPhone, Android va telefon modeli bo‘yicha aniq ajratish yangi qurilma ma’lumotlari yig‘ilgandan keyin ko‘rsatiladi.',textAlign:TextAlign.center,style:TextStyle(color:AppColors.muted)))]);
+          })))));}
 
         final now = DateTime.now();
         DateTime? localDate(dynamic v) => DateTime.tryParse((v ?? '').toString())?.toLocal();

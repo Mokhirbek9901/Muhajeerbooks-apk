@@ -1361,6 +1361,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           b.publisher,
           b.category,
           b.description,
+          b.pageCount,
           b.price,
           b.stock,
           b.discountPercent,

@@ -14,9 +14,9 @@ name: Google Play signed AAB
 on:
   workflow_dispatch:
   push:
-    branches-ignore: [main]
+    branches: [main]
     paths:
-      - '.github/workflows/play_release.yml'
+      - '.github/play-release-trigger'
 
 permissions:
   contents: write

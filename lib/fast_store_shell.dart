@@ -131,14 +131,29 @@ class _FastStoreShellState extends State<FastStoreShell> {
             ),
         ],
       ),
-      floatingActionButton: index == 0 ? FloatingActionButton.extended(
-        heroTag: 'muhajeer-ai',
-        onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
-          builder: (_) => const MuhajeerAiPage(),
-        )),
-        icon: const Icon(Icons.auto_awesome_rounded),
-        label: const Text('Muhajeer AI'),
-      ) : null,
+      floatingActionButton: index == 0
+          ? SizedBox(
+              height: 48,
+              child: FloatingActionButton.extended(
+                heroTag: 'muhajeer-ai',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const MuhajeerAiPage(),
+                  ),
+                ),
+                icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                label: const Text(
+                  'Muhajeer AI',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                extendedPadding: const EdgeInsets.symmetric(horizontal: 14),
+              ),
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: SafeArea(
         top: false,
         child: Container(

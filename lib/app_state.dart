@@ -605,7 +605,11 @@ class BackendService {
   Future<void> registerInstallation(String installId, String platform) async {
     await _customerRpc(
       'register_app_install',
-      {'p_install_id': installId, 'p_platform': platform},
+      {
+        'p_install_id': installId,
+        'p_platform': platform,
+        'p_device_model': '',
+      },
     );
   }
 

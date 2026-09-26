@@ -1678,6 +1678,13 @@ class _HomePageState extends State<HomePage> {
         });
     }
 
+    // Customer catalog rule: sold-out books always stay below available books,
+    // while preserving the selected sort order inside each group.
+    books.sort((a, b) {
+      final availability = (b.inStock ? 1 : 0).compareTo(a.inStock ? 1 : 0);
+      return availability != 0 ? availability : 0;
+    });
+
     final q = query.trim().toLowerCase();
     final visibleBundles = category == 'Barchasi'
         ? state.bundles.where((bundle) {

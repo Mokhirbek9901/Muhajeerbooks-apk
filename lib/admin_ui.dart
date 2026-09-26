@@ -5182,11 +5182,15 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
   }
 
   Future<void> changeStatus(ShopOrder order, String status) async {
-    if (!order.isApp) {
+    // Telegram/Instagram savdosi botda qabul qilingach, ilovadan ham
+    // jo'natilgan holatiga o'tkazish mumkin. Boshqa holatlar botda boshqariladi.
+    if (!order.isApp &&
+        !(status == 'shipping' &&
+            (order.status == 'accepted' || order.status == 'paid'))) {
       if (mounted) {
         final message = order.isInstagram
-            ? 'Instagram savdosi Telegram botdan boshqariladi.'
-            : 'Telegram buyurtmasi botdan boshqariladi.';
+            ? 'Instagram savdosining bu bosqichi Telegram botdan boshqariladi.'
+            : 'Telegram buyurtmasining bu bosqichi botdan boshqariladi.';
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(message)));
       }
@@ -5685,20 +5689,32 @@ class _OrderActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!order.isApp) {
+      if (order.status == 'accepted' || order.status == 'paid') {
+        return SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: () => onStatus('shipping'),
+            icon: const Icon(Icons.local_shipping_rounded),
+            label: const Text('Jo‘natildi'),
+          ),
+        );
+      }
       return AppInfoPill(
         icon: order.isInstagram
             ? Icons.photo_camera_outlined
             : Icons.send_rounded,
-        label: order.isInstagram
-            ? 'Instagram savdo — botdan boshqariladi'
-            : 'Telegram buyurtmasi — botdan boshqariladi',
+        label: order.status == 'shipping' || order.status == 'done'
+            ? 'Yuborildi'
+            : (order.isInstagram
+                ? 'Instagram savdo — botdan boshqariladi'
+                : 'Telegram buyurtmasi — botdan boshqariladi'),
         foreground: order.isInstagram
             ? const Color(0xFFC13584)
             : const Color(0xFF1976A3),
         background: order.isInstagram
             ? const Color(0xFFFCEAF4)
             : const Color(0xFFEAF7FD),
-        border: Color(0xFFC8E8F6),
+        border: const Color(0xFFC8E8F6),
       );
     }
     if (order.status == 'cancelled' ||
@@ -5762,7 +5778,7 @@ class _AdminOrderStatusChip extends StatelessWidget {
         Icons.verified_rounded,
       ),
       'shipping' => (
-        'Jo‘natildi',
+        'Yuborildi',
         AppColors.success,
         AppColors.successSoft,
         const Color(0xFFCDEAD7),
@@ -5771,7 +5787,7 @@ class _AdminOrderStatusChip extends StatelessWidget {
       // Eski buildlardan qolgan 'done' yozuvi uchrasa ham alohida
       // bosqich ko‘rsatmaymiz: Jo‘natildi yakuniy holat.
       'done' => (
-        'Jo‘natildi',
+        'Yuborildi',
         AppColors.success,
         AppColors.successSoft,
         const Color(0xFFCDEAD7),

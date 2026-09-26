@@ -109,7 +109,9 @@ jobs:
       - name: Build installable APK from this exact commit
         run: flutter build apk --release --build-number="${{ github.run_number }}" --dart-define=APP_BUILD_NUMBER="${{ github.run_number }}" --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
 
-      - name: Build Google Play App Bundle
+      # This bundle is only a CI artifact. Google Play releases use
+      # play_release.yml, which signs with the persistent Play upload key.
+      - name: Build unsigned CI App Bundle
         run: flutter build appbundle --release --build-number="${{ github.run_number }}" --dart-define=APP_BUILD_NUMBER="${{ github.run_number }}" --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
 
       - name: Prepare latest APK update files
@@ -160,3 +162,5 @@ jobs:
           name: muhajeer-books-google-play-aab
           path: build/app/outputs/bundle/release/app-release.aab
           retention-days: 30
+
+# 2026-09-26: trigger verified APK/AAB build after Play update-gate change.

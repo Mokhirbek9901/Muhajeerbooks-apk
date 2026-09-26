@@ -11,9 +11,13 @@ const int _currentApkBuild = int.fromEnvironment(
   defaultValue: 0,
 );
 
-// Google Play builds must update only through Play, so the GitHub APK
-// update prompt is disabled for them.
+// Play Store builds use the same manifest only to detect a newer build.
+// The update action itself always opens Google Play, never the GitHub APK.
 const bool _playStoreBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
+const String _playStoreUrl = String.fromEnvironment(
+  'PLAY_STORE_URL',
+  defaultValue: '',
+);
 
 const String _latestManifestUrl =
     'https://github.com/Mokhirbek9901/Muhajeerbooks-apk/releases/download/apk-latest/app-version.json';
@@ -40,7 +44,6 @@ class _AppUpdateGateState extends State<AppUpdateGate> {
 
   Future<void> _checkForUpdate() async {
     if (_checked ||
-        _playStoreBuild ||
         kIsWeb ||
         defaultTargetPlatform != TargetPlatform.android) {
       return;
@@ -58,10 +61,12 @@ class _AppUpdateGateState extends State<AppUpdateGate> {
       final data = Map<String, dynamic>.from(decoded);
       final remoteBuild = (data['build_number'] as num?)?.toInt() ?? 0;
       final downloadUrl = (data['download_url'] ?? '').toString().trim();
+      final playStoreUrl = (data['play_store_url'] ?? _playStoreUrl).toString().trim();
+      final updateUrl = _playStoreBuild ? playStoreUrl : downloadUrl;
       final version = (data['version'] ?? '').toString().trim();
       final message = (data['message'] ?? '').toString().trim();
 
-      if (remoteBuild <= _currentApkBuild || downloadUrl.isEmpty || !mounted) {
+      if (remoteBuild <= _currentApkBuild || updateUrl.isEmpty || !mounted) {
         return;
       }
 
@@ -73,7 +78,9 @@ class _AppUpdateGateState extends State<AppUpdateGate> {
             [
               if (version.isNotEmpty) 'Muhajeer Books $version tayyor.',
               if (message.isNotEmpty) message,
-              'Yangilash tugmasini bossangiz yangi APK ochiladi. Android o‘rnatishni tasdiqlashingizni so‘rashi mumkin.',
+              _playStoreBuild
+                  ? 'Yangilash tugmasini bossangiz Google Play ochiladi.'
+                  : 'Yangilash tugmasini bossangiz yangi APK ochiladi. Android o‘rnatishni tasdiqlashingizni so‘rashi mumkin.',
             ].join('\n\n'),
           ),
           actions: [
@@ -83,7 +90,7 @@ class _AppUpdateGateState extends State<AppUpdateGate> {
             ),
             FilledButton.icon(
               onPressed: () async {
-                final uri = Uri.tryParse(downloadUrl);
+                final uri = Uri.tryParse(updateUrl);
                 if (uri == null) return;
                 Navigator.pop(dialogContext);
                 await launchUrl(uri, mode: LaunchMode.externalApplication);

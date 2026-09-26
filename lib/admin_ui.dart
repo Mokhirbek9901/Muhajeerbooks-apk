@@ -571,7 +571,7 @@ class _AdminApi {
   }
 
   Future<void> updateOrderStatus(String id, String status, {String? customerNote}) async {
-    if (status == 'accepted' && order.isApp) {
+    if (status == 'accepted') {
       await _rpc(
         'admin_accept_order_with_note',
         params: {'p_secret': secret, 'p_id': id, 'p_note': customerNote?.trim() ?? ''},

@@ -571,7 +571,7 @@ class _AdminApi {
   }
 
   Future<void> updateOrderStatus(String id, String status, {String? customerNote}) async {
-    if (status == 'accepted') {
+    if (status == 'accepted' && order.isApp) {
       await _rpc(
         'admin_accept_order_with_note',
         params: {'p_secret': secret, 'p_id': id, 'p_note': customerNote?.trim() ?? ''},
@@ -5182,20 +5182,6 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
   }
 
   Future<void> changeStatus(ShopOrder order, String status) async {
-    // Telegram/Instagram savdosi botda qabul qilingach, ilovadan ham
-    // jo'natilgan holatiga o'tkazish mumkin. Boshqa holatlar botda boshqariladi.
-    if (!order.isApp &&
-        !(status == 'shipping' &&
-            (order.status == 'accepted' || order.status == 'paid'))) {
-      if (mounted) {
-        final message = order.isInstagram
-            ? 'Instagram savdosining bu bosqichi Telegram botdan boshqariladi.'
-            : 'Telegram buyurtmasining bu bosqichi botdan boshqariladi.';
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(message)));
-      }
-      return;
-    }
     if (busy.contains(order.id)) return;
     String customerNote = '';
     if (status == 'accepted') {
@@ -5688,35 +5674,6 @@ class _OrderActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!order.isApp) {
-      if (order.status == 'accepted' || order.status == 'paid') {
-        return SizedBox(
-          width: double.infinity,
-          child: FilledButton.icon(
-            onPressed: () => onStatus('shipping'),
-            icon: const Icon(Icons.local_shipping_rounded),
-            label: const Text('Jo‘natildi'),
-          ),
-        );
-      }
-      return AppInfoPill(
-        icon: order.isInstagram
-            ? Icons.photo_camera_outlined
-            : Icons.send_rounded,
-        label: order.status == 'shipping' || order.status == 'done'
-            ? 'Yuborildi'
-            : (order.isInstagram
-                ? 'Instagram savdo — botdan boshqariladi'
-                : 'Telegram buyurtmasi — botdan boshqariladi'),
-        foreground: order.isInstagram
-            ? const Color(0xFFC13584)
-            : const Color(0xFF1976A3),
-        background: order.isInstagram
-            ? const Color(0xFFFCEAF4)
-            : const Color(0xFFEAF7FD),
-        border: const Color(0xFFC8E8F6),
-      );
-    }
     if (order.status == 'cancelled' ||
         order.status == 'shipping' ||
         order.status == 'done') {

@@ -8105,6 +8105,10 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                                           '${c['order_count'] ?? 0} buyurtma',
                                     ),
                                     AppInfoPill(
+                                      icon: (c['platform'] ?? '').toString() == 'android' ? Icons.android_rounded : Icons.language_rounded,
+                                      label: (c['platform'] ?? '').toString() == 'android' ? 'Android / Play Market' : ((c['platform'] ?? '').toString() == 'ios' ? 'iPhone' : 'Web'),
+                                    ),
+                                    AppInfoPill(
                                       icon: Icons.payments_outlined,
                                       label: _won(
                                         (c['spent'] as num?)?.toInt() ?? 0,

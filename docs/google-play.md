@@ -81,3 +81,18 @@ Savollar uchun: Instagram @muhajeerbooks
 
 - Play versiyasi `PLAY_STORE_BUILD=true` bilan yig'iladi: ilova ichidagi "GitHub'dan yangi APK yuklab oling" oynasi unda chiqmaydi (Google Play qoidalari tashqi manbadan yangilanishni taqiqlaydi). Yangilanishlar faqat Play orqali keladi.
 - GitHub'dagi APK o'rnatilgan telefonga Play versiyasini o'rnatish uchun avval eski ilovani o'chirish kerak (imzolari har xil).
+
+## Avtomatik yuklash (har bir yangilanishda)
+
+`main` ga `lib/`, `assets/` yoki `pubspec.yaml` o'zgarishi tushganda **Google Play signed AAB** workflow'i o'zi ishga tushadi, AAB yig'adi va `PLAY_SERVICE_ACCOUNT_JSON` secret bo'lsa, uni to'g'ridan-to'g'ri **Muhajeer Books Closed Test 1** trekiga yuklaydi.
+
+Bir martalik sozlash:
+
+1. https://console.cloud.google.com → yuqoridan loyiha tanlash → **New project** → nomi `muhajeer-play` → **Create**.
+2. **APIs & Services → Library** → `Google Play Android Developer API` → **Enable**.
+3. **IAM & Admin → Service Accounts → Create service account** → nomi `github-play` → **Create and continue** → **Done** (rol berish shart emas).
+4. Yaratilgan service account → **Keys → Add key → Create new key → JSON** → fayl yuklanadi.
+5. Play Console → **Пользователи и разрешения** → **Пригласить новых пользователей** → email: service account email'i (`github-play@...iam.gserviceaccount.com`) → **Разрешения для приложений**: Muhajeer Books → **Выпуск приложений в тестовые версии** (va kerak bo'lsa **рабочую версию**) → **Пригласить**.
+6. GitHub → Settings → Secrets and variables → Actions → **New repository secret** → Name: `PLAY_SERVICE_ACCOUNT_JSON`, Secret: JSON faylning butun matni.
+
+Production'ga o'tganda GitHub → Settings → Secrets and variables → Actions → **Variables** → `PLAY_TRACK` = `production`.

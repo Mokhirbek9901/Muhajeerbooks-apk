@@ -602,13 +602,14 @@ class BackendService {
 
   Future<void> signOut() => client.auth.signOut();
 
-  Future<void> registerInstallation(String installId, String platform) async {
+  Future<void> registerInstallation(String installId, String platform, {String phone = ''}) async {
     await _customerRpc(
       'register_app_install',
       {
         'p_install_id': installId,
         'p_platform': platform,
         'p_device_model': '',
+        'p_phone': phone.trim(),
       },
     );
   }
@@ -1299,7 +1300,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     try {
       final id = await _local.installId();
       final platform = kIsWeb ? 'web' : defaultTargetPlatform.name;
-      await _backend?.registerInstallation(id, platform);
+      await _backend?.registerInstallation(id, platform, phone: (savedCustomer['phone'] ?? '').trim());
     } catch (_) {
       // Analytics must never slow or block shopping.
     }
@@ -1324,6 +1325,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     );
     customerVerified = verified;
     await _local.saveCustomerVerified(verified);
+    if (_backend != null) unawaited(_registerInstallation());
     notifyListeners();
   }
 

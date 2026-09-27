@@ -83,6 +83,9 @@ jobs:
           if 'android.permission.INTERNET' not in m:
               m = m.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">','<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET" />',1)
           m = re.sub(r'android:label="[^"]*"', 'android:label="Muhajeer Books"', m, count=1)
+          if 'muhajeer-books-live-production.up.railway.app' not in m:
+              deep_link = '''\n            <intent-filter android:autoVerify="true">\n                <action android:name="android.intent.action.VIEW" />\n                <category android:name="android.intent.category.DEFAULT" />\n                <category android:name="android.intent.category.BROWSABLE" />\n                <data android:scheme="https" android:host="muhajeer-books-live-production.up.railway.app" android:pathPrefix="/share/" />\n            </intent-filter>'''
+              m = m.replace('</activity>', deep_link + '\n        </activity>', 1)
           manifest.write_text(m, encoding='utf-8')
           PY
 

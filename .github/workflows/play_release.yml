@@ -17,6 +17,9 @@ on:
     branches: [main]
     paths:
       - '.github/play-release-trigger'
+      - 'lib/**'
+      - 'assets/**'
+      - 'pubspec.yaml'
 
 permissions:
   contents: write
@@ -31,6 +34,10 @@ jobs:
     env:
       ENC_KEYSTORE: .github/signing/upload-keystore.jks.enc
       KEYSTORE_SECRET: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+      # Closed testing track the app is published to; override with the
+      # PLAY_TRACK repository variable when moving to production.
+      PLAY_TRACK: ${{ vars.PLAY_TRACK || 'Muhajeer Books Closed Test 1' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -171,3 +178,16 @@ jobs:
           name: muhajeer-books-play-signed-aab-${{ github.run_number }}
           path: build/app/outputs/bundle/release/app-release.aab
           retention-days: 30
+
+      # Automatic Google Play upload. Needs the PLAY_SERVICE_ACCOUNT_JSON
+      # secret (a service account invited in Play Console with release
+      # permission); without it the bundle is only kept as an artifact.
+      - name: Upload to Google Play
+        if: steps.key.outputs.mode == 'release' && env.PLAY_SERVICE_ACCOUNT_JSON != ''
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.muhajeerbooks.app
+          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          track: ${{ env.PLAY_TRACK }}
+          status: completed

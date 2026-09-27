@@ -7955,6 +7955,22 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                 icon: Icons.people_alt_rounded,
               ),
               const SizedBox(height: 14),
+              FutureBuilder<Map<String, dynamic>>(
+                future: widget.api.deviceAnalytics().timeout(const Duration(seconds: 8)),
+                builder: (context, deviceSnap) {
+                  final d = deviceSnap.data ?? const <String, dynamic>{};
+                  final android = d['android'] ?? 0;
+                  final web = d['web_unknown'] ?? 0;
+                  return Row(
+                    children: [
+                      metric('Play Market / Android', android, Icons.android_rounded, onTap: showDevices),
+                      const SizedBox(width: 10),
+                      metric('Web orqali', web, Icons.language_rounded, onTap: showDevices),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 10),
               Row(
                 children: [
                   metric('Jami mijozlar', stats['total_users'] ?? 0, Icons.groups_rounded, onTap: () => showPeople('Jami mijozlar', (_) => true)),

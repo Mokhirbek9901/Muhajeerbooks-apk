@@ -15,6 +15,7 @@ const allowed = new Set([
   "customer_restock_unsubscribe",
   "customer_restore_orders",
   "register_app_install",
+  "register_app_install_v2",
   "customer_preorder_submit",
   "customer_book_request_submit",
   "customer_search_miss_log",
@@ -82,7 +83,7 @@ function validate(name: string, p: Record<string, unknown>): string | null {
     if (!textParam(p.p_message_id, 64) || !textParam(p.p_endpoint, 2048)) return "Invalid push open";
   } else if (name === "customer_push_subscribe") {
     if (!textParam(p.p_endpoint, 2048) || !textParam(p.p_p256dh, 512) || !textParam(p.p_auth, 256)) return "Invalid push subscription";
-  } else if (name === "register_app_install") {
+  } else if (name === "register_app_install" || name === "register_app_install_v2") {
     if (!textParam(p.p_install_id, 120) || String(p.p_install_id).trim().length < 12 || !textParam(p.p_platform, 30)) return "Invalid install registration";
   }
   return null;

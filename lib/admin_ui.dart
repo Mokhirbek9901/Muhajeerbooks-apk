@@ -7937,8 +7937,26 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
           showModalBottomSheet<void>(context: context,isScrollControlled:true,showDragHandle:true,builder:(sheetContext)=>SafeArea(child:SizedBox(height:MediaQuery.of(sheetContext).size.height*.62,child:FutureBuilder<Map<String,dynamic>>(future:widget.api.deviceAnalytics().timeout(const Duration(seconds:8)),builder:(context,snap){
             if(snap.connectionState==ConnectionState.waiting)return const Center(child:CircularProgressIndicator());
             if(snap.hasError)return Center(child:Padding(padding:const EdgeInsets.all(24),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.error_outline_rounded,size:38),const SizedBox(height:10),const Text('Qurilmalar ma’lumotini yuklab bo‘lmadi.',textAlign:TextAlign.center),const SizedBox(height:12),FilledButton(onPressed:()=>Navigator.pop(sheetContext),child:const Text('Yopish'))])));
-            final d=snap.data??const <String,dynamic>{}; final total=d['total']??0; final android=d['android']??0; final iphone=d['iphone']??0; final web=d['web_unknown']??0;
-            return Column(children:[Padding(padding:const EdgeInsets.fromLTRB(16,4,10,10),child:Row(children:[const Expanded(child:Text('Kirish manbalari',style:TextStyle(fontSize:19,fontWeight:FontWeight.w900))),IconButton(onPressed:()=>Navigator.pop(sheetContext),icon:const Icon(Icons.close_rounded))])),Padding(padding:const EdgeInsets.all(16),child:AppSurface(padding:const EdgeInsets.all(18),child:Wrap(spacing:24,runSpacing:18,alignment:WrapAlignment.center,children:[Column(children:[Text('$total',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Jami qurilma')]),Column(children:[Text('$android',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Android ilova')]),Column(children:[Text('$web',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Web')]),if(iphone!=0)Column(children:[Text('$iphone',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('iPhone')])]))),const Padding(padding:EdgeInsets.all(20),child:Text('Bu son Android ilovada ochilgan qurilmalarni ko‘rsatadi; Play Market yuklab olishlar soni emas. Web kirishlari alohida hisoblanadi.',textAlign:TextAlign.center,style:TextStyle(color:AppColors.muted)))]);
+            final d=snap.data??const <String,dynamic>{};
+            final total=d['total']??0;
+            final android=d['android']??0;
+            final iphone=d['ios']??d['iphone']??0;
+            final playMarket=d['play_market']??d['play_store']??0;
+            final appStore=d['app_store']??0;
+            return Column(children:[
+              Padding(padding:const EdgeInsets.fromLTRB(16,4,10,10),child:Row(children:[const Expanded(child:Text('Kirish manbalari',style:TextStyle(fontSize:19,fontWeight:FontWeight.w900))),IconButton(onPressed:()=>Navigator.pop(sheetContext),icon:const Icon(Icons.close_rounded))])),
+              Padding(padding:const EdgeInsets.all(16),child:AppSurface(padding:const EdgeInsets.all(18),child:Wrap(
+                spacing:24,runSpacing:18,alignment:WrapAlignment.center,
+                children:[
+                  Column(children:[Text('$total',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Jami qurilma')]),
+                  Column(children:[Text('$android',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Android')]),
+                  Column(children:[Text('$iphone',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('iPhone')]),
+                  Column(children:[Text('$playMarket',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Play Market')]),
+                  Column(children:[Text('$appStore',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('App Store')]),
+                ],
+              ))),
+              const Padding(padding:EdgeInsets.all(20),child:Text('Qurilmalar va rasmiy do‘kon orqali o‘rnatilgan ilovalar alohida hisoblanadi.',textAlign:TextAlign.center,style:TextStyle(color:AppColors.muted)))
+            ]);
           }))));}
 
         final now = DateTime.now();

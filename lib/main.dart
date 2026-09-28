@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'admin_ui.dart';
@@ -81,13 +82,15 @@ class MuhajeerBooksApp extends StatelessWidget {
         title: 'Muhajeer Books',
         debugShowCheckedModeBanner: false,
         theme: MuhajeerDesign.theme,
-        builder: (context, child) => CartStockAlertBridge(
-          child: BrowserBackSync(
+        builder: (context, child) => NotificationPermissionGate(
+          child: CartStockAlertBridge(
+            child: BrowserBackSync(
             navigatorKey: _navigatorKey,
             observer: _navigatorObserver,
             child: ColoredBox(
               color: AppColors.background,
               child: child ?? const SizedBox.shrink(),
+              ),
             ),
           ),
         ),
@@ -157,6 +160,77 @@ class _AdminResumeBootstrapState extends State<_AdminResumeBootstrap> {
         ),
       );
     });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+
+class NotificationPermissionGate extends StatefulWidget {
+  const NotificationPermissionGate({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<NotificationPermissionGate> createState() =>
+      _NotificationPermissionGateState();
+}
+
+class _NotificationPermissionGateState
+    extends State<NotificationPermissionGate> {
+  bool _checkedThisLaunch = false;
+
+  bool get _isAndroid =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_checkNotificationPermission());
+    });
+  }
+
+  Future<void> _checkNotificationPermission() async {
+    if (_checkedThisLaunch || !_isAndroid || !mounted) return;
+    _checkedThisLaunch = true;
+
+    final status = await Permission.notification.status;
+    if (!mounted || status.isGranted) return;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Bildirishnomalarga ruxsat berasizmi?'),
+        content: const Text(
+          'Muhajeer Books yangi xabarlar va muhim yangilanishlarni '
+          'sizga bildirishnoma orqali yuborishi uchun ruxsat bering.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Hozir emas'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              final current = await Permission.notification.status;
+              if (current.isPermanentlyDenied || current.isRestricted) {
+                await openAppSettings();
+                return;
+              }
+              final result = await Permission.notification.request();
+              if (result.isPermanentlyDenied) {
+                await openAppSettings();
+              }
+            },
+            child: const Text('Ruxsat berish'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:in_app_update/in_app_update.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 const int _currentApkBuild = int.fromEnvironment(
@@ -49,6 +50,27 @@ class _AppUpdateGateState extends State<AppUpdateGate> {
       return;
     }
     _checked = true;
+
+    // Google Play orqali o'rnatilgan buildlarda rasmiy Play Core In-App
+    // Updates ishlatiladi. Yangilanish oynasi ilovaning o'zida chiqadi va
+    // foydalanuvchini Play Market ilovasiga olib chiqmaydi.
+    if (_playStoreBuild) {
+      try {
+        final info = await InAppUpdate.checkForUpdate();
+        if (!mounted) return;
+        if (info.updateAvailability == UpdateAvailability.updateAvailable) {
+          if (info.immediateUpdateAllowed) {
+            await InAppUpdate.performImmediateUpdate();
+          } else if (info.flexibleUpdateAllowed) {
+            await InAppUpdate.startFlexibleUpdate();
+            await InAppUpdate.completeFlexibleUpdate();
+          }
+        }
+      } catch (_) {
+        // Play Core vaqtincha javob bermasa do'kon ishlashda davom etadi.
+      }
+      return;
+    }
 
     try {
       final response = await http

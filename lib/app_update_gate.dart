@@ -16,7 +16,7 @@ const int _currentApkBuild = int.fromEnvironment(
 const bool _playStoreBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
 const String _playStoreUrl = String.fromEnvironment(
   'PLAY_STORE_URL',
-  defaultValue: '',
+  defaultValue: 'https://play.google.com/store/apps/details?id=com.muhajeerbooks.app',
 );
 
 const String _latestManifestUrl =

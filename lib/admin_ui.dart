@@ -3095,6 +3095,33 @@ class _InventoryAdminState extends State<_InventoryAdmin> {
                 ],
               ),
               const SizedBox(height: 12),
+              AppSurface(
+                padding: const EdgeInsets.all(10),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: Text('Barchasi (\${all.length})'),
+                      selected: sourceFilter == 'all',
+                      onSelected: (_) => setState(() => sourceFilter = 'all'),
+                    ),
+                    ChoiceChip(
+                      avatar: const Icon(Icons.android_rounded, size: 18),
+                      label: Text('Android / Play Market (\$androidCustomers)'),
+                      selected: sourceFilter == 'android',
+                      onSelected: (_) => setState(() => sourceFilter = 'android'),
+                    ),
+                    ChoiceChip(
+                      avatar: const Icon(Icons.language_rounded, size: 18),
+                      label: Text('Web (\$webCustomers)'),
+                      selected: sourceFilter == 'web',
+                      onSelected: (_) => setState(() => sourceFilter = 'web'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
               TextField(
                 onChanged: (v) => setState(() => query = v),
                 decoration: const InputDecoration(
@@ -7789,6 +7816,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
   late Future<(Map<String, dynamic>, List<Map<String, dynamic>>)> future;
   Timer? _customerRefreshTimer;
   String query = '';
+  String sourceFilter = 'all';
 
   void reload() {
     if (!mounted) return;
@@ -7864,10 +7892,15 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
         final all = snapshot.data?.$2 ?? <Map<String, dynamic>>[];
         final q = query.trim().toLowerCase();
         final customers = all.where((c) {
+          final platform = (c['platform'] ?? 'web').toString().toLowerCase();
+          if (sourceFilter == 'android' && platform != 'android') return false;
+          if (sourceFilter == 'web' && platform != 'web') return false;
           if (q.isEmpty) return true;
           return (c['full_name'] ?? '').toString().toLowerCase().contains(q) ||
               (c['phone'] ?? '').toString().toLowerCase().contains(q);
         }).toList();
+        final androidCustomers = all.where((c) => (c['platform'] ?? '').toString().toLowerCase() == 'android').length;
+        final webCustomers = all.where((c) => (c['platform'] ?? 'web').toString().toLowerCase() == 'web').length;
 
         void showPeople(String title, bool Function(Map<String, dynamic>) test) {
           final people = all.where(test).toList();

@@ -7778,6 +7778,8 @@ class _CustomersAdmin extends StatefulWidget {
 class _CustomersAdminState extends State<_CustomersAdmin> {
   late Future<(Map<String, dynamic>, List<Map<String, dynamic>>)> future;
   Timer? _customerRefreshTimer;
+  Timer? _deviceRefreshTimer;
+  Future<Map<String, dynamic>>? _deviceFuture;
   String query = '';
   String sourceFilter = 'all';
 
@@ -7811,14 +7813,22 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
     super.initState();
     _reload();
     _customerRefreshTimer = Timer.periodic(
-      const Duration(seconds: 15),
+      const Duration(seconds: 10),
       (_) => reloadQuietly(),
     );
+    _deviceFuture = widget.api.deviceAnalytics().timeout(const Duration(seconds: 8));
+    _deviceRefreshTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (!mounted) return;
+      setState(() {
+        _deviceFuture = widget.api.deviceAnalytics().timeout(const Duration(seconds: 8));
+      });
+    });
   }
 
   @override
   void dispose() {
     _customerRefreshTimer?.cancel();
+    _deviceRefreshTimer?.cancel();
     super.dispose();
   }
 
@@ -8000,7 +8010,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
               ),
               const SizedBox(height: 14),
               FutureBuilder<Map<String, dynamic>>(
-                future: widget.api.deviceAnalytics().timeout(const Duration(seconds: 8)),
+                future: _deviceFuture ??= widget.api.deviceAnalytics().timeout(const Duration(seconds: 8)),
                 builder: (context, deviceSnap) {
                   final d = deviceSnap.data ?? const <String, dynamic>{};
                   final android = d['android'] ?? 0;

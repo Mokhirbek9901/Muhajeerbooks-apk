@@ -17,6 +17,7 @@ import 'cart_stock_alert.dart';
 import 'design_system.dart';
 import 'fast_store_shell.dart';
 import 'navigation_sync.dart';
+import 'legal_pages.dart';
 import 'shared_book_entry.dart';
 import 'store_ui.dart';
 
@@ -94,6 +95,10 @@ class MuhajeerBooksApp extends StatelessWidget {
             ),
           ),
         ),
+        routes: {
+          '/privacy': (_) => const PrivacyPolicyPage(),
+          '/support': (_) => const SupportPage(),
+        },
         home: SharedBookEntry(
           uri: kIsWeb ? Uri.base : Uri(),
           child: AppUpdateGate(

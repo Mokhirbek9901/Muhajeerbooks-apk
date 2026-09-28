@@ -7866,13 +7866,22 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
         final q = query.trim().toLowerCase();
         final customers = all.where((c) {
           final platform = (c['platform'] ?? 'web').toString().toLowerCase();
+          final source = (c['install_source'] ?? c['source'] ?? '').toString().toLowerCase();
           if (sourceFilter == 'android' && platform != 'android') return false;
+          if (sourceFilter == 'ios' && platform != 'ios') return false;
+          if (sourceFilter == 'play' && !(source == 'play_market' || source == 'play_store' || platform == 'android_play')) return false;
           if (sourceFilter == 'web' && platform != 'web') return false;
           if (q.isEmpty) return true;
           return (c['full_name'] ?? '').toString().toLowerCase().contains(q) ||
               (c['phone'] ?? '').toString().toLowerCase().contains(q);
         }).toList();
         final androidCustomers = all.where((c) => (c['platform'] ?? '').toString().toLowerCase() == 'android').length;
+        final iosCustomers = all.where((c) => (c['platform'] ?? '').toString().toLowerCase() == 'ios').length;
+        final playCustomers = all.where((c) {
+          final platform = (c['platform'] ?? '').toString().toLowerCase();
+          final source = (c['install_source'] ?? c['source'] ?? '').toString().toLowerCase();
+          return platform == 'android_play' || source == 'play_market' || source == 'play_store';
+        }).length;
         final webCustomers = all.where((c) => (c['platform'] ?? 'web').toString().toLowerCase() == 'web').length;
 
         void showPeople(String title, bool Function(Map<String, dynamic>) test) {
@@ -7977,12 +7986,26 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                 builder: (context, deviceSnap) {
                   final d = deviceSnap.data ?? const <String, dynamic>{};
                   final android = d['android'] ?? 0;
+                  final ios = d['ios'] ?? 0;
+                  final playMarket = d['play_market'] ?? d['play_store'] ?? 0;
                   final web = d['web_unknown'] ?? 0;
-                  return Row(
+                  return Column(
                     children: [
-                      metric('Android ilova', android, Icons.android_rounded, onTap: showDevices),
-                      const SizedBox(width: 10),
-                      metric('Web orqali', web, Icons.language_rounded, onTap: showDevices),
+                      Row(
+                        children: [
+                          metric('Android', android, Icons.android_rounded, onTap: showDevices),
+                          const SizedBox(width: 10),
+                          metric('iPhone', ios, Icons.phone_iphone_rounded, onTap: showDevices),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          metric('Play Market', playMarket, Icons.shop_rounded, onTap: showDevices),
+                          const SizedBox(width: 10),
+                          metric('Web orqali', web, Icons.language_rounded, onTap: showDevices),
+                        ],
+                      ),
                     ],
                   );
                 },
@@ -8082,9 +8105,21 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                     ),
                     ChoiceChip(
                       avatar: const Icon(Icons.android_rounded, size: 18),
-                      label: Text('Android / Play Market ($androidCustomers)'),
+                      label: Text('Android ($androidCustomers)'),
                       selected: sourceFilter == 'android',
                       onSelected: (_) => setState(() => sourceFilter = 'android'),
+                    ),
+                    ChoiceChip(
+                      avatar: const Icon(Icons.phone_iphone_rounded, size: 18),
+                      label: Text('iPhone ($iosCustomers)'),
+                      selected: sourceFilter == 'ios',
+                      onSelected: (_) => setState(() => sourceFilter = 'ios'),
+                    ),
+                    ChoiceChip(
+                      avatar: const Icon(Icons.shop_rounded, size: 18),
+                      label: Text('Play Market ($playCustomers)'),
+                      selected: sourceFilter == 'play',
+                      onSelected: (_) => setState(() => sourceFilter = 'play'),
                     ),
                     ChoiceChip(
                       avatar: const Icon(Icons.language_rounded, size: 18),

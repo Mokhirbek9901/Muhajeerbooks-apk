@@ -1299,7 +1299,15 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _registerInstallation() async {
     try {
       final id = await _local.installId();
-      final platform = kIsWeb ? 'web' : defaultTargetPlatform.name;
+      const playStoreBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
+      const appStoreBuild = bool.fromEnvironment('APP_STORE_BUILD');
+      final platform = kIsWeb
+          ? 'web'
+          : (defaultTargetPlatform == TargetPlatform.android && playStoreBuild)
+              ? 'android_play'
+              : (defaultTargetPlatform == TargetPlatform.iOS && appStoreBuild)
+                  ? 'ios_app_store'
+                  : defaultTargetPlatform.name;
       await _backend?.registerInstallation(id, platform, phone: (savedCustomer['phone'] ?? '').trim());
     } catch (_) {
       // Analytics must never slow or block shopping.

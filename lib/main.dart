@@ -186,8 +186,10 @@ class _NotificationPermissionGateState
     extends State<NotificationPermissionGate> {
   bool _checkedThisLaunch = false;
 
-  bool get _isAndroid =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  bool get _isMobile =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
 
   @override
   void initState() {
@@ -198,7 +200,7 @@ class _NotificationPermissionGateState
   }
 
   Future<void> _checkNotificationPermission() async {
-    if (_checkedThisLaunch || !_isAndroid || !mounted) return;
+    if (_checkedThisLaunch || !_isMobile || !mounted) return;
     _checkedThisLaunch = true;
 
     final status = await Permission.notification.status;

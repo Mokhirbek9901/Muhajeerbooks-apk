@@ -135,8 +135,17 @@ jobs:
 
           manifest = Path('android/app/src/main/AndroidManifest.xml')
           m = manifest.read_text(encoding='utf-8')
-          if 'android.permission.INTERNET' not in m:
-              m = m.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">', '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET" />', 1)
+          permissions = [
+              'android.permission.INTERNET',
+              'android.permission.POST_NOTIFICATIONS',
+          ]
+          for permission in permissions:
+              if permission not in m:
+                  m = m.replace(
+                      '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
+                      f'<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="{permission}" />',
+                      1,
+                  )
           m = re.sub(r'android:label="[^"]*"', 'android:label="Muhajeer Books"', m, count=1)
           manifest.write_text(m, encoding='utf-8')
           PY

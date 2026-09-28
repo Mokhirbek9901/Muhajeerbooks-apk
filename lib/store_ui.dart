@@ -1467,7 +1467,12 @@ class CategoryBrowsePage extends StatelessWidget {
                   ? b.category == category
                   : publisherKey(b.publisher) == publisherKey(publisher!)),
         )
-        .toList();
+        .toList()
+      ..sort((a, b) {
+        final aa = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bb = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bb.compareTo(aa);
+      });
     return Scaffold(
       backgroundColor: UzbekCustomerColors.background,
       appBar: AppBar(
@@ -1550,14 +1555,23 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (category != 'Barchasi') setState(() => category = 'Barchasi');
-  }
   String query = '';
   String category = 'Barchasi';
   String sort = 'new';
+
+  @override
+  void initState() {
+    super.initState();
+    // Every fresh HomePage/app launch starts from the canonical catalog view:
+    // all books, newest additions first. Customer filters are session-only.
+    query = '';
+    category = 'Barchasi';
+    sort = 'new';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.jumpTo(0);
+    });
+  }
 
   final ScrollController _scrollController = _PersistentScrollController(
     'home',

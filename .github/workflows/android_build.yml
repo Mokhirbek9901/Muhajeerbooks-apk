@@ -129,7 +129,7 @@ jobs:
           PY
           )
           cat > build/latest-apk/app-version.json <<EOF
-          {"build_number": ${{ github.run_number }}, "version": "$VERSION_NAME", "download_url": "https://github.com/Mokhirbek9901/Muhajeerbooks-apk/releases/download/apk-latest/muhajeer-books.apk", "message": "Muhajeer Books yangilandi. Yangi imkoniyatlar va tuzatishlarni olish uchun yangilang."}
+          {"build_number": ${{ github.run_number }}, "version": "$VERSION_NAME", "download_url": "https://github.com/Mokhirbek9901/Muhajeerbooks-apk/releases/download/apk-latest/muhajeer-books.apk", "play_store_url": "https://play.google.com/store/apps/details?id=com.muhajeerbooks.app", "message": "Muhajeer Books yangilandi. Yangi imkoniyatlar va tuzatishlarni olish uchun yangilang."}
           EOF
 
       - name: Confirm this run is still latest main

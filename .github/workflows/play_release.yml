@@ -155,11 +155,12 @@ jobs:
 
       - name: Build signed App Bundle
         run: |
+          BUILD_NUMBER=$((1000 + GITHUB_RUN_NUMBER))
           flutter build appbundle --release \
-            --build-number="${{ github.run_number }}" \
+            --build-number="$BUILD_NUMBER" \
             --dart-define=PLAY_STORE_BUILD=true \
             --dart-define=PLAY_STORE_URL="https://play.google.com/store/apps/details?id=com.muhajeerbooks.app" \
-            --dart-define=APP_BUILD_NUMBER="${{ github.run_number }}" \
+            --dart-define=APP_BUILD_NUMBER="$BUILD_NUMBER" \
             --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
             --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
 

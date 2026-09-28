@@ -3095,33 +3095,6 @@ class _InventoryAdminState extends State<_InventoryAdmin> {
                 ],
               ),
               const SizedBox(height: 12),
-              AppSurface(
-                padding: const EdgeInsets.all(10),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    ChoiceChip(
-                      label: Text('Barchasi (\${all.length})'),
-                      selected: sourceFilter == 'all',
-                      onSelected: (_) => setState(() => sourceFilter = 'all'),
-                    ),
-                    ChoiceChip(
-                      avatar: const Icon(Icons.android_rounded, size: 18),
-                      label: Text('Android / Play Market (\$androidCustomers)'),
-                      selected: sourceFilter == 'android',
-                      onSelected: (_) => setState(() => sourceFilter = 'android'),
-                    ),
-                    ChoiceChip(
-                      avatar: const Icon(Icons.language_rounded, size: 18),
-                      label: Text('Web (\$webCustomers)'),
-                      selected: sourceFilter == 'web',
-                      onSelected: (_) => setState(() => sourceFilter = 'web'),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
               TextField(
                 onChanged: (v) => setState(() => query = v),
                 decoration: const InputDecoration(
@@ -8096,6 +8069,33 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                 ),
               ),
               const SizedBox(height: 16),
+              AppSurface(
+                padding: const EdgeInsets.all(10),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: Text('Barchasi (${all.length})'),
+                      selected: sourceFilter == 'all',
+                      onSelected: (_) => setState(() => sourceFilter = 'all'),
+                    ),
+                    ChoiceChip(
+                      avatar: const Icon(Icons.android_rounded, size: 18),
+                      label: Text('Android / Play Market ($androidCustomers)'),
+                      selected: sourceFilter == 'android',
+                      onSelected: (_) => setState(() => sourceFilter = 'android'),
+                    ),
+                    ChoiceChip(
+                      avatar: const Icon(Icons.language_rounded, size: 18),
+                      label: Text('Web ($webCustomers)'),
+                      selected: sourceFilter == 'web',
+                      onSelected: (_) => setState(() => sourceFilter = 'web'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
               TextField(
                 onChanged: (v) => setState(() => query = v),
                 decoration: const InputDecoration(

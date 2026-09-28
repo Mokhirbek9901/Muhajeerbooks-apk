@@ -6144,16 +6144,6 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
   void initState() {
     super.initState();
     _reload();
-    _customerRefreshTimer = Timer.periodic(
-      const Duration(seconds: 15),
-      (_) => reloadQuietly(),
-    );
-  }
-
-  @override
-  void dispose() {
-    _customerRefreshTimer?.cancel();
-    super.dispose();
   }
 
   void _reload() {
@@ -7820,6 +7810,16 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
   void initState() {
     super.initState();
     _reload();
+    _customerRefreshTimer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => reloadQuietly(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _customerRefreshTimer?.cancel();
+    super.dispose();
   }
 
   void _reload() {

@@ -5006,6 +5006,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
+    final savedProfessionalName =
+        (state.savedCustomer['name'] ?? '').trim().toLowerCase();
+    final savedProfessionalPhone =
+        (state.savedCustomer['phone'] ?? '').replaceAll(RegExp(r'\D'), '');
+    final canShowProfessionalMode =
+        savedProfessionalName == 'mohirbek' &&
+        savedProfessionalPhone == '01024338600';
     final isGyeongsanPickup = delivery == '경산 직접수령';
     final deliveryFee = isGyeongsanPickup ? 0 : state.cartDeliveryFee;
     final professionalSubtotal =
@@ -5026,37 +5033,38 @@ class _CheckoutPageState extends State<CheckoutPage> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
           children: [
-            AppSurface(
-              padding: const EdgeInsets.all(6),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: FilledButton.tonalIcon(
-                      onPressed: professionalMode
-                          ? () => _setProfessionalMode(false)
-                          : null,
-                      icon: const Icon(Icons.person_outline_rounded),
-                      label: const Text('Oddiy buyurtma'),
+            if (canShowProfessionalMode)
+              AppSurface(
+                padding: const EdgeInsets.all(6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.tonalIcon(
+                        onPressed: professionalMode
+                            ? () => _setProfessionalMode(false)
+                            : null,
+                        icon: const Icon(Icons.person_outline_rounded),
+                        label: const Text('Oddiy buyurtma'),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 7),
-                  Expanded(
-                    child: professionalMode
-                        ? FilledButton.icon(
-                            onPressed: null,
-                            icon: const Icon(Icons.admin_panel_settings_rounded),
-                            label: const Text('Professional'),
-                          )
-                        : OutlinedButton.icon(
-                            onPressed: () => _setProfessionalMode(true),
-                            icon: const Icon(Icons.lock_outline_rounded),
-                            label: const Text('Professional'),
-                          ),
-                  ),
-                ],
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: professionalMode
+                          ? FilledButton.icon(
+                              onPressed: null,
+                              icon: const Icon(Icons.admin_panel_settings_rounded),
+                              label: const Text('Professional'),
+                            )
+                          : OutlinedButton.icon(
+                              onPressed: () => _setProfessionalMode(true),
+                              icon: const Icon(Icons.lock_outline_rounded),
+                              label: const Text('Professional'),
+                            ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            if (professionalMode) ...[
+              if (professionalMode) ...[
               const SizedBox(height: 8),
               const AppInfoPill(
                 icon: Icons.verified_user_rounded,

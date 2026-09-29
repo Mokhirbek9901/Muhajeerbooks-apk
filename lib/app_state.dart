@@ -758,6 +758,11 @@ class BackendService {
     required List<CartLine> lines,
     List<Map<String, dynamic>> bundleSelections = const [],
     String paymentProofPath = '',
+    String instagramHandle = '',
+    String orderNote = '',
+    bool enteredByAdmin = false,
+    String paymentStatus = 'paid',
+    int? manualSubtotal,
   }) async {
     // Bir checkout urinishida ID oldindan yaratiladi. Tarmoq javobi kechiksa
     // retry aynan shu ID bilan ketadi va ikkinchi buyurtma/ombor kamayishi yaratilmaydi.
@@ -779,6 +784,11 @@ class BackendService {
       'payment_submitted_at': paymentProofPath.isEmpty
           ? null
           : DateTime.now().toIso8601String(),
+      'instagram_handle': instagramHandle.trim(),
+      'order_note': orderNote.trim(),
+      'entered_by_admin': enteredByAdmin,
+      'payment_status': paymentStatus,
+      if (manualSubtotal != null) 'manual_subtotal': manualSubtotal,
     };
     // Checkoutni maksimal tez tutamiz: normal tarmoqda darhol tugaydi,
     // uzilish bo'lsa esa foydalanuvchini uzoq kuttirmaymiz.
@@ -2078,6 +2088,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     required String deliveryType,
     required int deliveryFee,
     XFile? paymentProof,
+    bool preserveCustomerProfile = false,
+    bool allowWithoutPaymentProof = false,
+    String instagramHandle = '',
+    String orderNote = '',
+    String paymentStatus = 'paid',
+    int? manualSubtotal,
   }) async {
     final lines = cartLines;
     if (lines.isEmpty) throw StateError('Savatcha bo‘sh.');
@@ -2087,26 +2103,28 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       }
     }
 
-    if (_backend != null && paymentProof == null) {
+    if (_backend != null && paymentProof == null && !allowWithoutPaymentProof) {
       throw StateError('To‘lov chekini tanlang.');
     }
 
-    final subtotal = cartSubtotal;
+    final subtotal = manualSubtotal ?? cartSubtotal;
     final isGyeongsanPickup = deliveryType == '경산 직접수령';
     final safeDeliveryFee =
         isGyeongsanPickup ? 0 : cartDeliveryFee;
     final total = subtotal + safeDeliveryFee;
-    await _local.saveCustomer(
-      customerName.trim(),
-      phone.trim(),
-      address.trim(),
-    );
-    savedCustomer = {
-      'name': customerName.trim(),
-      'phone': phone.trim(),
-      'address': address.trim(),
-    };
-    unawaited(syncPushIdentity(phone.trim()));
+    if (!preserveCustomerProfile) {
+      await _local.saveCustomer(
+        customerName.trim(),
+        phone.trim(),
+        address.trim(),
+      );
+      savedCustomer = {
+        'name': customerName.trim(),
+        'phone': phone.trim(),
+        'address': address.trim(),
+      };
+      unawaited(syncPushIdentity(phone.trim()));
+    }
 
     var paymentProofPath = '';
     if (paymentProof != null) {
@@ -2130,6 +2148,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         lines: lines,
         bundleSelections: cartBundleSelections,
         paymentProofPath: paymentProofPath,
+        instagramHandle: instagramHandle,
+        orderNote: orderNote,
+        enteredByAdmin: preserveCustomerProfile,
+        paymentStatus: paymentStatus,
+        manualSubtotal: manualSubtotal,
       );
 
       final receipt = ShopOrder(

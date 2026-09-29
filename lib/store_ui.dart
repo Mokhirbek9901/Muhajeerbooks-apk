@@ -5280,94 +5280,97 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ],
               ),
             ),
-            const SizedBox(height: 22),
-            const _CheckoutStepHeader(number: '3', title: 'To‘lov va chek'),
-            const SizedBox(height: 8),
-            _PaymentCard(onCopy: _copyAccount),
-            const SizedBox(height: 10),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SwitchListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      value: paymentDone,
-                      onChanged: (v) => setState(() {
-                        paymentDone = v;
-                        if (!v) paymentProof = null;
-                      }),
-                      title: const Text(
-                        'To‘lovni amalga oshirdim',
-                        style: TextStyle(fontWeight: FontWeight.w900),
+            if (!professionalMode) ...[
+              const SizedBox(height: 22),
+              const _CheckoutStepHeader(number: '3', title: 'To‘lov va chek'),
+              const SizedBox(height: 8),
+              _PaymentCard(onCopy: _copyAccount),
+              const SizedBox(height: 10),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SwitchListTile.adaptive(
+                        contentPadding: EdgeInsets.zero,
+                        value: paymentDone,
+                        onChanged: (v) => setState(() {
+                          paymentDone = v;
+                          if (!v) paymentProof = null;
+                        }),
+                        title: const Text(
+                          'To‘lovni amalga oshirdim',
+                          style: TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        subtitle: const Text(
+                          'To‘lov qilgan bo‘lsangiz, chek skrinshotini yuboring.',
+                        ),
                       ),
-                      subtitle: const Text(
-                        'To‘lov qilgan bo‘lsangiz, chek skrinshotini yuboring.',
-                      ),
-                    ),
-                    if (paymentDone) ...[
-                      const Divider(height: 20),
-                      if (paymentProof == null)
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: _pickPaymentProof,
-                            icon: const Icon(
-                              Icons.add_photo_alternate_outlined,
-                            ),
-                            label: const Text('Chek skrinshotini tanlash'),
-                          ),
-                        )
-                      else
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEAF7EF),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0xFFBDE2C9)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.check_circle_rounded,
-                                color: _green,
+                      if (paymentDone) ...[
+                        const Divider(height: 20),
+                        if (paymentProof == null)
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: _pickPaymentProof,
+                              icon: const Icon(
+                                Icons.add_photo_alternate_outlined,
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  paymentProof!.name,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w800,
+                              label: const Text('Chek skrinshotini tanlash'),
+                            ),
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEAF7EF),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: const Color(0xFFBDE2C9)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.check_circle_rounded,
+                                  color: _green,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    paymentProof!.name,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              IconButton(
-                                onPressed: _pickPaymentProof,
-                                tooltip: 'Almashtirish',
-                                icon: const Icon(Icons.edit_outlined),
-                              ),
-                              IconButton(
-                                onPressed: () =>
-                                    setState(() => paymentProof = null),
-                                tooltip: 'Olib tashlash',
-                                icon: const Icon(Icons.close_rounded),
-                              ),
-                            ],
+                                IconButton(
+                                  onPressed: _pickPaymentProof,
+                                  tooltip: 'Almashtirish',
+                                  icon: const Icon(Icons.edit_outlined),
+                                ),
+                                IconButton(
+                                  onPressed: () =>
+                                      setState(() => paymentProof = null),
+                                  tooltip: 'Olib tashlash',
+                                  icon: const Icon(Icons.close_rounded),
+                                ),
+                              ],
+                            ),
                           ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Chek maxfiy saqlanadi va faqat admin ko‘ra oladi.',
+                          style: TextStyle(fontSize: 11.5, color: Colors.black54),
                         ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Chek maxfiy saqlanadi va faqat admin ko‘ra oladi.',
-                        style: TextStyle(fontSize: 11.5, color: Colors.black54),
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
+  
+            ],
             const SizedBox(height: 22),
             const _CheckoutStepHeader(number: '4', title: 'Buyurtma jami'),
             const SizedBox(height: 8),

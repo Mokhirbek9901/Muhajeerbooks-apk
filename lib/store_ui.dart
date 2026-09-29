@@ -4889,6 +4889,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
   bool saving = false;
   bool paymentDone = false;
   XFile? paymentProof;
+  bool professionalMode = false;
+  String professionalPaymentStatus = 'paid';
+  late final TextEditingController instagram;
+  late final TextEditingController orderNote;
+  late final TextEditingController manualPrice;
 
   @override
   void initState() {
@@ -4900,6 +4905,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
       text: _isSupportedCustomerPhone(savedPhone) ? savedPhone : '',
     );
     address = TextEditingController(text: saved['address'] ?? '');
+    instagram = TextEditingController();
+    orderNote = TextEditingController();
+    manualPrice = TextEditingController();
   }
 
   @override
@@ -4907,7 +4915,78 @@ class _CheckoutPageState extends State<CheckoutPage> {
     name.dispose();
     phone.dispose();
     address.dispose();
+    instagram.dispose();
+    orderNote.dispose();
+    manualPrice.dispose();
     super.dispose();
+  }
+
+  bool _professionalPhoneOk(String raw) {
+    final digits = raw.replaceAll(RegExp(r'\\D'), '');
+    return _isSupportedCustomerPhone(digits) ||
+        (digits.length == 12 && digits.startsWith('998')) ||
+        (digits.length == 9 && !digits.startsWith('0'));
+  }
+
+  Future<void> _setProfessionalMode(bool enabled) async {
+    if (!enabled) {
+      setState(() => professionalMode = false);
+      return;
+    }
+    final controller = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Professional buyurtma'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          obscureText: true,
+          keyboardType: TextInputType.number,
+          maxLength: 4,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(4),
+          ],
+          onSubmitted: (_) => Navigator.pop(
+            dialogContext,
+            controller.text.trim() == '6494',
+          ),
+          decoration: const InputDecoration(
+            labelText: 'Kirish kodi',
+            prefixIcon: Icon(Icons.admin_panel_settings_outlined),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Bekor qilish'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(
+              dialogContext,
+              controller.text.trim() == '6494',
+            ),
+            child: const Text('Kirish'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (!mounted) return;
+    if (ok == true) {
+      setState(() {
+        professionalMode = true;
+        paymentDone = false;
+        paymentProof = null;
+        professionalPaymentStatus = 'paid';
+        manualPrice.text = context.read<AppState>().cartSubtotal.toString();
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Professional rejim kodi noto‘g‘ri.')),
+      );
+    }
   }
 
   Future<void> _pickPaymentProof() async {
@@ -4943,6 +5022,47 @@ class _CheckoutPageState extends State<CheckoutPage> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
           children: [
+            AppSurface(
+              padding: const EdgeInsets.all(6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.tonalIcon(
+                      onPressed: professionalMode
+                          ? () => _setProfessionalMode(false)
+                          : null,
+                      icon: const Icon(Icons.person_outline_rounded),
+                      label: const Text('Oddiy buyurtma'),
+                    ),
+                  ),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: professionalMode
+                        ? FilledButton.icon(
+                            onPressed: null,
+                            icon: const Icon(Icons.admin_panel_settings_rounded),
+                            label: const Text('Professional'),
+                          )
+                        : OutlinedButton.icon(
+                            onPressed: () => _setProfessionalMode(true),
+                            icon: const Icon(Icons.lock_outline_rounded),
+                            label: const Text('Professional'),
+                          ),
+                  ),
+                ],
+              ),
+            ),
+            if (professionalMode) ...[
+              const SizedBox(height: 8),
+              const AppInfoPill(
+                icon: Icons.verified_user_rounded,
+                label: 'Admin buyurtma kiritish rejimi',
+                foreground: AppColors.success,
+                background: AppColors.successSoft,
+                border: Color(0xFFCDEAD7),
+              ),
+            ],
+            const SizedBox(height: 12),
             const _EmergencyNoticeBanner(compact: true),
             const SizedBox(height: 14),
             const _CheckoutStepHeader(number: '1', title: 'Qabul qiluvchi'),
@@ -4979,9 +5099,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             'Koreya raqamini 010 bilan 11 ta raqamda kiriting.',
                         prefixIcon: Icon(Icons.phone_outlined),
                       ),
-                      validator: (v) => !_isSupportedCustomerPhone(v ?? '')
-                          ? 'Koreya 010 raqamini to‘liq kiriting. Masalan: 01024338600'
-                          : null,
+                      validator: (v) => professionalMode
+                          ? (!_professionalPhoneOk(v ?? '')
+                              ? 'Koreya 010 yoki O‘zbekiston +998 raqamini kiriting.'
+                              : null)
+                          : (!_isSupportedCustomerPhone(v ?? '')
+                              ? 'Koreya 010 raqamini to‘liq kiriting. Masalan: 01024338600'
+                              : null),
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -5008,6 +5132,69 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ),
               ),
             ),
+            if (professionalMode) ...[
+              const SizedBox(height: 12),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    children: [
+                      TextFormField(
+                        controller: instagram,
+                        decoration: const InputDecoration(
+                          labelText: 'Instagram / Telegram (ixtiyoriy)',
+                          hintText: '@username',
+                          prefixIcon: Icon(Icons.alternate_email_rounded),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: manualPrice,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        decoration: InputDecoration(
+                          labelText: 'Kitoblar yakuniy narxi',
+                          prefixText: '₩ ',
+                          helperText: 'Oddiy jami: ${won(state.cartSubtotal)}. Chegirma bo‘lsa yakuniy summani yozing.',
+                          prefixIcon: const Icon(Icons.sell_outlined),
+                        ),
+                        validator: (v) {
+                          if (!professionalMode) return null;
+                          final value = int.tryParse((v ?? '').trim()) ?? 0;
+                          return value <= 0 ? 'Yakuniy narxni kiriting' : null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: professionalPaymentStatus,
+                        decoration: const InputDecoration(
+                          labelText: 'To‘lov holati',
+                          prefixIcon: Icon(Icons.payments_outlined),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'paid', child: Text('To‘langan')),
+                          DropdownMenuItem(value: 'unpaid', child: Text('To‘lanmagan')),
+                          DropdownMenuItem(value: 'partial', child: Text('Qisman to‘langan')),
+                        ],
+                        onChanged: (value) => setState(
+                          () => professionalPaymentStatus = value ?? 'paid',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: orderNote,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          labelText: 'Admin izohi (ixtiyoriy)',
+                          hintText: 'Masalan: Instagramdan zakas, kechqurun olib ketadi',
+                          prefixIcon: Icon(Icons.notes_rounded),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 22),
             const _CheckoutStepHeader(number: '2', title: 'Yetkazib berish'),
             const SizedBox(height: 8),
@@ -5230,7 +5417,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               ),
             ),
             const SizedBox(height: 14),
-            if (paymentDone && paymentProof != null)
+            if (professionalMode || (paymentDone && paymentProof != null))
               SizedBox(
                 height: 52,
                 child: FilledButton.icon(
@@ -5298,13 +5485,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   Future<void> _submit(AppState state, int deliveryFee) async {
     if (!formKey.currentState!.validate()) return;
-    if (!paymentDone || paymentProof == null) {
+    if (!professionalMode && (!paymentDone || paymentProof == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('To‘lov qilgan bo‘lsangiz, chek skrinshotini tanlang.'),
         ),
       );
       return;
+    }
+    if (professionalMode &&
+        professionalPaymentStatus == 'paid' &&
+        paymentProof == null) {
+      // Instagram/Telegramdan kelgan zakasni tez kiritishda chek majburiy emas.
+      // To‘lov holati admin tomonidan aniq belgilanadi.
     }
 
     setState(() => saving = true);
@@ -5317,6 +5510,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
         deliveryType: delivery,
         deliveryFee: deliveryFee,
         paymentProof: proof,
+        preserveCustomerProfile: professionalMode,
+        allowWithoutPaymentProof: professionalMode,
+        instagramHandle: professionalMode ? instagram.text : '',
+        orderNote: professionalMode ? orderNote.text : '',
+        paymentStatus:
+            professionalMode ? professionalPaymentStatus : 'paid',
+        manualSubtotal: professionalMode
+            ? int.tryParse(manualPrice.text.trim())
+            : null,
       );
       if (!mounted) return;
       await showDialog<void>(

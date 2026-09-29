@@ -5008,7 +5008,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final state = context.watch<AppState>();
     final isGyeongsanPickup = delivery == '경산 직접수령';
     final deliveryFee = isGyeongsanPickup ? 0 : state.cartDeliveryFee;
-    final total = state.cartSubtotal + deliveryFee;
+    final professionalSubtotal =
+        int.tryParse(manualPrice.text.trim()) ?? state.cartSubtotal;
+    final total =
+        (professionalMode ? professionalSubtotal : state.cartSubtotal) +
+        deliveryFee;
 
     return Scaffold(
       backgroundColor: UzbekCustomerColors.background,
@@ -5090,13 +5094,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       textInputAction: TextInputAction.next,
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(11),
+                        LengthLimitingTextInputFormatter(professionalMode ? 12 : 11),
                       ],
                       decoration: const InputDecoration(
                         labelText: 'Telefon raqam',
-                        hintText: 'Masalan: 01024338600',
-                        helperText:
-                            'Koreya raqamini 010 bilan 11 ta raqamda kiriting.',
+                        hintText: professionalMode
+                            ? '01024338600 yoki 998901234567'
+                            : 'Masalan: 01024338600',
+                        helperText: professionalMode
+                            ? 'Koreya 010 yoki O‘zbekiston +998 raqami.'
+                            : 'Koreya raqamini 010 bilan 11 ta raqamda kiriting.',
                         prefixIcon: Icon(Icons.phone_outlined),
                       ),
                       validator: (v) => professionalMode

@@ -34,7 +34,7 @@ jobs:
         run: |
           flutter create . --platforms=ios --project-name muhajeerbooks --org com.muhajeerbooks
 
-      - name: Configure Muhajeer Books for iPhone
+      - name: Configure Muhajeer Books for iPhone and iPad
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -51,6 +51,11 @@ jobs:
           text = re.sub(
               r'IPHONEOS_DEPLOYMENT_TARGET = [^;]+;',
               'IPHONEOS_DEPLOYMENT_TARGET = 15.0;',
+              text,
+          )
+          text = re.sub(
+              r'TARGETED_DEVICE_FAMILY = [^;]+;',
+              'TARGETED_DEVICE_FAMILY = "1,2";',
               text,
           )
           project.write_text(text, encoding='utf-8')
@@ -111,7 +116,7 @@ jobs:
           flutter analyze --no-fatal-warnings --no-fatal-infos
           flutter test
 
-      - name: Verify unsigned iPhone release build
+      - name: Verify unsigned iPhone and iPad release build
         run: |
           flutter build ios --release --no-codesign             --build-number="${{ github.run_number }}"             --dart-define=APP_BUILD_NUMBER="${{ github.run_number }}"             --dart-define=APP_STORE_BUILD=true             --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}"             --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
 
@@ -124,7 +129,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add ios
-          git commit -m "Prepare Muhajeer Books for iPhone"
+          git commit -m "Prepare Muhajeer Books for iPhone and iPad"
           git push origin HEAD:main
 
       - name: Upload unsigned iOS build for verification

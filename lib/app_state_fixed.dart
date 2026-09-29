@@ -111,6 +111,12 @@ class AppStateFixed extends AppState {
     required String deliveryType,
     required int deliveryFee,
     XFile? paymentProof,
+    bool preserveCustomerProfile = false,
+    bool allowWithoutPaymentProof = false,
+    String instagramHandle = '',
+    String orderNote = '',
+    String paymentStatus = 'paid',
+    int? manualSubtotal,
   }) async {
     _checkoutChangingCart = true;
     try {
@@ -129,6 +135,12 @@ class AppStateFixed extends AppState {
           deliveryType: deliveryType,
           deliveryFee: deliveryFee,
           paymentProof: paymentProof,
+          preserveCustomerProfile: preserveCustomerProfile,
+          allowWithoutPaymentProof: allowWithoutPaymentProof,
+          instagramHandle: instagramHandle,
+          orderNote: orderNote,
+          paymentStatus: paymentStatus,
+          manualSubtotal: manualSubtotal,
         );
       } catch (e) {
         if (!_isStockConflict(e)) rethrow;

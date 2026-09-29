@@ -706,7 +706,7 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
           ),
         ])),
         const SizedBox(height:14),
-        TextFormField(controller:name,decoration:const InputDecoration(labelText:'Ism va familiya'),validator:(v)=>(v??'').trim().length<2?'Ismingizni kiriting':null),
+        TextFormField(controller:name,decoration:const InputDecoration(labelText:'Ism'),validator:(v)=>(v??'').trim().length<2?'Ismingizni kiriting':null),
         const SizedBox(height:10),
         TextFormField(
           controller:phone,keyboardType:TextInputType.phone,
@@ -5080,7 +5080,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       controller: name,
                       textInputAction: TextInputAction.next,
                       decoration: const InputDecoration(
-                        labelText: 'Ism va familiya',
+                        labelText: 'Ism',
                         prefixIcon: Icon(Icons.person_outline_rounded),
                       ),
                       validator: (v) => v == null || v.trim().length < 2

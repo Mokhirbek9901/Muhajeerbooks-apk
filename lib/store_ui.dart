@@ -4922,7 +4922,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   bool _professionalPhoneOk(String raw) {
-    final digits = raw.replaceAll(RegExp(r'\\D'), '');
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
     return _isSupportedCustomerPhone(digits) ||
         (digits.length == 12 && digits.startsWith('998')) ||
         (digits.length == 9 && !digits.startsWith('0'));
@@ -5096,7 +5096,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         FilteringTextInputFormatter.digitsOnly,
                         LengthLimitingTextInputFormatter(professionalMode ? 12 : 11),
                       ],
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Telefon raqam',
                         hintText: professionalMode
                             ? '01024338600 yoki 998901234567'
@@ -5159,6 +5159,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         controller: manualPrice,
                         keyboardType: TextInputType.number,
                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        onChanged: (_) => setState(() {}),
                         decoration: InputDecoration(
                           labelText: 'Kitoblar yakuniy narxi',
                           prefixText: '₩ ',

@@ -1,0 +1,53 @@
+name: Finance period filters patch
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/finance_period_filters_patch.py'
+      - '.github/workflows/finance_period_filters_patch.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: finance-period-filters-patch
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply finance UI patch
+        run: python3 tools/finance_period_filters_patch.py
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Format and validate
+        run: |
+          dart format lib/finance_admin.dart
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+          git diff --check
+
+      - name: Commit finance UI update
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- lib/finance_admin.dart; then
+            echo 'Finance UI already up to date.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lib/finance_admin.dart
+          git commit -m 'Add finance quick periods and month filter'
+          git pull --rebase origin main
+          git push origin HEAD:main

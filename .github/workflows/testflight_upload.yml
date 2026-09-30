@@ -2,156 +2,159 @@ name: Build and Upload iOS to TestFlight
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/testflight_upload.yml'
+      - '.github/scripts/ios/**'
+      - '.github/signing/Muhajeer_Books_App_Store.mobileprovision.b64'
+      - '.github/signing/apple_distribution.pem'
 
 permissions:
   actions: read
   contents: read
 
+concurrency:
+  group: muhajeer-testflight
+  cancel-in-progress: false
+
 jobs:
   testflight:
     runs-on: macos-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-
-      - name: Prepare iOS project
-        run: |
-          set -euo pipefail
-          flutter create . --platforms=ios --project-name muhajeerbooks --org com.muhajeerbooks
-          python3 - <<'PY'
-          from pathlib import Path
-          import plistlib, re
-          p = Path('ios/Runner.xcodeproj/project.pbxproj')
-          s = p.read_text()
-          s = re.sub(r'PRODUCT_BUNDLE_IDENTIFIER = [^;]+;', 'PRODUCT_BUNDLE_IDENTIFIER = com.muhajeerbooks.app;', s)
-          s = re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [^;]+;', 'IPHONEOS_DEPLOYMENT_TARGET = 15.0;', s)
-          s = re.sub(r'TARGETED_DEVICE_FAMILY = [^;]+;', 'TARGETED_DEVICE_FAMILY = "1,2";', s)
-          s = re.sub(r'DEVELOPMENT_TEAM = [^;]+;', 'DEVELOPMENT_TEAM = 8HJA5K2BQJ;', s)
-          if 'DEVELOPMENT_TEAM = ' not in s:
-              s = s.replace('PRODUCT_BUNDLE_IDENTIFIER = com.muhajeerbooks.app;', 'PRODUCT_BUNDLE_IDENTIFIER = com.muhajeerbooks.app;\n\t\t\t\tDEVELOPMENT_TEAM = 8HJA5K2BQJ;')
-          p.write_text(s)
-          plist_path = Path('ios/Runner/Info.plist')
-          with plist_path.open('rb') as f: plist = plistlib.load(f)
-          plist['CFBundleDisplayName'] = 'Muhajeer Books'
-          plist['NSPhotoLibraryUsageDescription'] = 'Kitob rasmi yoki to‘lov chekini tanlash uchun rasmlarga kirish kerak.'
-          plist['NSCameraUsageDescription'] = 'Kitob rasmi yoki to‘lov chekini suratga olish uchun kamera kerak.'
-          plist['NSFaceIDUsageDescription'] = 'Admin bo‘limiga xavfsiz kirish uchun Face ID ishlatiladi.'
-          with plist_path.open('wb') as f: plistlib.dump(plist, f, sort_keys=False)
-          PY
-
-      - name: Install signing certificate and provisioning profile
+      - name: Validate and install Apple Distribution signing
         env:
           CSR_PRIVATE_KEY_PASSWORD: ${{ secrets.CSR_PRIVATE_KEY_PASSWORD }}
           GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/signing" "$HOME/Library/MobileDevice/Provisioning Profiles"
-          gh api /repos/${{ github.repository }}/actions/artifacts/11082514116/zip > "$RUNNER_TEMP/signing/key-artifact.zip"
-          unzip -q "$RUNNER_TEMP/signing/key-artifact.zip" -d "$RUNNER_TEMP/signing/artifact"
-          unzip -q -P "$CSR_PRIVATE_KEY_PASSWORD" "$RUNNER_TEMP/signing/artifact/MuhajeerBooks-signing-key.zip" -d "$RUNNER_TEMP/signing"
-          python3 - <<'PY'
-          import base64, pathlib, os
-          src = pathlib.Path(".github/signing/Muhajeer_Books_App_Store.mobileprovision.b64").read_text().strip()
-          data = base64.b64decode(src, validate=True)
-          if len(data) < 1000 or not data.startswith(b"0"):
-              raise SystemExit(f"Provisioning profile decode invalid: {len(data)} bytes")
-          pathlib.Path(os.environ["RUNNER_TEMP"], "signing", "profile.mobileprovision").write_bytes(data)
-          print(f"Decoded provisioning profile: {len(data)} bytes")
-          PY
-          python3 - <<'PY'
-          import plistlib, pathlib, os
-          p = pathlib.Path(os.environ["RUNNER_TEMP"], "signing", "profile.mobileprovision")
-          raw = p.read_bytes()
-          start = raw.find(b"<?xml")
-          end = raw.find(b"</plist>")
-          if start < 0 or end < 0:
-              raise SystemExit("Provisioning profile plist payload not found")
-          payload = raw[start:end + len(b"</plist>")]
-          out = pathlib.Path(os.environ["RUNNER_TEMP"], "signing", "profile.plist")
-          out.write_bytes(payload)
-          plistlib.loads(payload)
-          print("Provisioning profile plist extracted and validated")
-          PY
-          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$RUNNER_TEMP/signing/profile.plist")
-          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$RUNNER_TEMP/signing/profile.plist")
-          PROFILE_APP_ID=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$RUNNER_TEMP/signing/profile.plist")
-          test -n "$PROFILE_UUID"
-          test "$PROFILE_APP_ID" = "8HJA5K2BQJ.com.muhajeerbooks.app"
-          cp "$RUNNER_TEMP/signing/profile.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+        run: bash .github/scripts/ios/install_signing.sh
 
-          test -s "$RUNNER_TEMP/signing/distribution-private-key.pem"
-          test -s ".github/signing/apple_distribution.pem"
-          openssl x509 -in ".github/signing/apple_distribution.pem" -noout -subject -dates
-          CERT_PUB=$(openssl x509 -in ".github/signing/apple_distribution.pem" -pubkey -noout | openssl pkey -pubin -outform DER | shasum -a 256 | awk '{print $1}')
-          KEY_PUB=$(openssl pkey -in "$RUNNER_TEMP/signing/distribution-private-key.pem" -passin env:CSR_PRIVATE_KEY_PASSWORD -pubout -outform DER | shasum -a 256 | awk '{print $1}')
-          test "$CERT_PUB" = "$KEY_PUB"
-          openssl pkcs12 -export -legacy \
-            -inkey "$RUNNER_TEMP/signing/distribution-private-key.pem" \
-            -passin env:CSR_PRIVATE_KEY_PASSWORD \
-            -in ".github/signing/apple_distribution.pem" \
-            -out "$RUNNER_TEMP/signing/distribution.p12" \
-            -passout env:CSR_PRIVATE_KEY_PASSWORD
-          KEYCHAIN="$RUNNER_TEMP/app-signing.keychain-db"
-          security create-keychain -p "$CSR_PRIVATE_KEY_PASSWORD" "$KEYCHAIN"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN"
-          security unlock-keychain -p "$CSR_PRIVATE_KEY_PASSWORD" "$KEYCHAIN"
-          security import "$RUNNER_TEMP/signing/distribution.p12" -P "$CSR_PRIVATE_KEY_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
-          security list-keychain -d user -s "$KEYCHAIN" login.keychain-db
-          security set-key-partition-list -S apple-tool:,apple: -s -k "$CSR_PRIVATE_KEY_PASSWORD" "$KEYCHAIN"
-          security find-identity -v -p codesigning "$KEYCHAIN"
-
-      - name: Install dependencies
-        run: |
-          flutter pub get
-          cd ios && pod install && cd ..
-
-      - name: Build signed IPA
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: |
-          set -euo pipefail
-          cat > "$RUNNER_TEMP/ExportOptions.plist" <<'PLIST'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key><string>app-store-connect</string>
-            <key>signingStyle</key><string>manual</string>
-            <key>teamID</key><string>8HJA5K2BQJ</string>
-            <key>signingCertificate</key><string>Apple Distribution</string>
-            <key>provisioningProfiles</key>
-            <dict>
-              <key>com.muhajeerbooks.app</key><string>$(PROFILE_NAME)</string>
-            </dict>
-            <key>destination</key><string>export</string>
-            <key>uploadSymbols</key><true/>
-          </dict>
-          </plist>
-          PLIST
-          flutter build ipa --release             --build-number="${{ github.run_number }}"             --dart-define=APP_BUILD_NUMBER="${{ github.run_number }}"             --dart-define=APP_STORE_BUILD=true             --dart-define=SUPABASE_URL="$SUPABASE_URL"             --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"             --export-options-plist="$RUNNER_TEMP/ExportOptions.plist"
-
-      - name: Upload IPA artifact
+      - name: Preserve the verified encrypted CSR 4 key
         uses: actions/upload-artifact@v4
         with:
-          name: muhajeer-books-ios-signed-ipa
-          path: build/ios/ipa/*.ipa
-          retention-days: 14
+          name: muhajeer-csr4-encrypted-key
+          path: ${{ runner.temp }}/signing/MuhajeerBooks-signing-key.zip
+          if-no-files-found: error
+          retention-days: 90
 
-      - name: Upload to App Store Connect / TestFlight
+      - name: Prepare App Store Connect authentication
         env:
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
         run: |
           set -euo pipefail
-          mkdir -p "$HOME/.appstoreconnect/private_keys"
-          printf '%s' "$APP_STORE_CONNECT_PRIVATE_KEY" > "$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
-          chmod 600 "$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
+          python3 - <<'PY'
+          import os, re
+          from pathlib import Path
+          for name in ('APP_STORE_CONNECT_KEY_ID', 'APP_STORE_CONNECT_ISSUER_ID', 'APP_STORE_CONNECT_PRIVATE_KEY'):
+              if not os.environ.get(name, '').strip():
+                  raise SystemExit(f'Missing secret: {name}')
+          key_id = os.environ['APP_STORE_CONNECT_KEY_ID'].strip()
+          if not re.fullmatch(r'[A-Za-z0-9]+', key_id):
+              raise SystemExit('Invalid App Store Connect key ID format.')
+          key = os.environ['APP_STORE_CONNECT_PRIVATE_KEY'].strip().replace('\\n', '\n') + '\n'
+          if not key.startswith('-----BEGIN PRIVATE KEY-----'):
+              raise SystemExit('APP_STORE_CONNECT_PRIVATE_KEY must contain the original .p8 PEM contents.')
+          directory = Path.home()/'.appstoreconnect/private_keys'
+          directory.mkdir(parents=True, exist_ok=True)
+          path = directory/f'AuthKey_{key_id}.p8'
+          path.write_text(key)
+          path.chmod(0o600)
+          version = re.search(r'^version:\s*([^+\s]+)', Path('pubspec.yaml').read_text(), re.M).group(1)
+          with open(os.environ['GITHUB_ENV'], 'a') as env:
+              env.write(f'ASC_PRIVATE_KEY_PATH={path}\n')
+              env.write(f'IOS_BUILD_NUMBER={1000 + int(os.environ["GITHUB_RUN_NUMBER"])}\n')
+              env.write(f'IOS_MARKETING_VERSION={version}\n')
+          PY
+
+      - name: Verify API access and App Store Connect app record
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: ruby .github/scripts/ios/app_store_status.rb preflight
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: true
+
+      - name: Install dependencies and configure manual signing
+        run: |
+          set -euo pipefail
+          flutter pub get
+          ruby .github/scripts/ios/configure_signing.rb
+          cd ios
+          pod install
+
+      - name: Build signed iPhone and iPad IPA
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          flutter build ipa --release \
+            --build-number="$IOS_BUILD_NUMBER" \
+            --dart-define=APP_BUILD_NUMBER="$IOS_BUILD_NUMBER" \
+            --dart-define=APP_STORE_BUILD=true \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
+            --export-options-plist="$RUNNER_TEMP/signing/ExportOptions.plist" \
+            2>&1 | tee "$RUNNER_TEMP/ios-build.log"
+
+      - name: Verify exported IPA signature and device support
+        run: python3 .github/scripts/ios/verify_ipa.py
+
+      - name: Upload signed IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: muhajeer-books-ios-signed-ipa
+          path: build/ios/ipa/*.ipa
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload to App Store Connect / TestFlight
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          set -euo pipefail
           IPA=$(find build/ios/ipa -name '*.ipa' -print -quit)
           test -n "$IPA"
-          xcrun altool --upload-app --type ios --file "$IPA"             --apiKey "$APP_STORE_CONNECT_KEY_ID"             --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
+          xcrun altool --upload-app --type ios --file "$IPA" \
+            --apiKey "$APP_STORE_CONNECT_KEY_ID" \
+            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID" \
+            2>&1 | tee "$RUNNER_TEMP/testflight-upload.log"
+
+      - name: Verify uploaded build in TestFlight
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: ruby .github/scripts/ios/app_store_status.rb wait
+
+      - name: Save release diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-release-diagnostics
+          path: |
+            ${{ runner.temp }}/ios-build.log
+            ${{ runner.temp }}/testflight-upload.log
+            ${{ runner.temp }}/testflight-result.json
+            ${{ runner.temp }}/ipa-verification.json
+            ${{ runner.temp }}/signing/metadata.json
+          retention-days: 14
+
+      - name: Remove temporary signing credentials
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/app-signing.keychain-db" 2>/dev/null || true
+          rm -rf "$RUNNER_TEMP/signing" "$RUNNER_TEMP/ipa-verification"
+          if [ -n "${ASC_PRIVATE_KEY_PATH:-}" ]; then rm -f "$ASC_PRIVATE_KEY_PATH"; fi
+          if [ -n "${PROFILE_UUID:-}" ]; then
+            rm -f "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+            rm -f "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+          fi

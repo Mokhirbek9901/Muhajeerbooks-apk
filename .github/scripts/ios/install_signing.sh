@@ -42,18 +42,36 @@ openssl pkcs12 -export -legacy -inkey "$SIGNING_DIR/distribution-private-key.pem
   -passin env:CSR_PRIVATE_KEY_PASSWORD -in .github/signing/apple_distribution.pem \
   -out "$SIGNING_DIR/distribution.p12" -passout env:CSR_PRIVATE_KEY_PASSWORD
 KEYCHAIN="$RUNNER_TEMP/app-signing.keychain-db"
+echo 'Creating isolated signing keychain'
 security create-keychain -p "$CSR_PRIVATE_KEY_PASSWORD" "$KEYCHAIN"
 security set-keychain-settings -lut 21600 "$KEYCHAIN"
 security unlock-keychain -p "$CSR_PRIVATE_KEY_PASSWORD" "$KEYCHAIN"
-security import "$SIGNING_DIR/distribution.p12" -P "$CSR_PRIVATE_KEY_PASSWORD" \
-  -T /usr/bin/codesign -T /usr/bin/security -t cert -f pkcs12 -k "$KEYCHAIN"
+echo 'Installing Apple WWDR G3 intermediate'
 curl --fail --silent --show-error --location https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer \
   -o "$SIGNING_DIR/AppleWWDRCAG3.cer"
-security import "$SIGNING_DIR/AppleWWDRCAG3.cer" -k "$KEYCHAIN"
+WWDR_SHA1=$(openssl x509 -inform DER -in "$SIGNING_DIR/AppleWWDRCAG3.cer" -noout -fingerprint -sha1 | cut -d= -f2 | tr -d ':')
+if ! security import "$SIGNING_DIR/AppleWWDRCAG3.cer" -k "$KEYCHAIN" 2> "$SIGNING_DIR/wwdr-import.txt"; then
+  security find-certificate -a -Z "$KEYCHAIN" > "$SIGNING_DIR/wwdr-certificates.txt"
+  grep -q "$WWDR_SHA1" "$SIGNING_DIR/wwdr-certificates.txt" || { cat "$SIGNING_DIR/wwdr-import.txt"; exit 1; }
+  echo 'Exact WWDR certificate is already installed.'
+fi
 security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
+echo 'Importing Distribution identity from verified PKCS12'
+CERT_SHA1=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["certificate_sha1"])' "$SIGNING_DIR/metadata.json")
+if ! security import "$SIGNING_DIR/distribution.p12" -P "$CSR_PRIVATE_KEY_PASSWORD" \
+  -T /usr/bin/codesign -T /usr/bin/security -f pkcs12 -k "$KEYCHAIN" 2> "$SIGNING_DIR/identity-import.txt"; then
+  # Some security versions report a duplicate certificate after importing the
+  # identity. Accept this only when the exact certificate AND private key form
+  # a valid codesigning identity; other import failures remain fatal.
+  security find-identity -v -p codesigning "$KEYCHAIN" > "$SIGNING_DIR/import-identities.txt"
+  if ! grep -q "$CERT_SHA1" "$SIGNING_DIR/import-identities.txt"; then
+    cat "$SIGNING_DIR/identity-import.txt" "$SIGNING_DIR/import-identities.txt"
+    exit 1
+  fi
+  echo 'Exact Distribution identity is present and valid after import.'
+fi
 security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$CSR_PRIVATE_KEY_PASSWORD" "$KEYCHAIN" >/dev/null
 security find-identity -v -p codesigning "$KEYCHAIN" > "$SIGNING_DIR/identities.txt"
-CERT_SHA1=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["certificate_sha1"])' "$SIGNING_DIR/metadata.json")
 grep -q "$CERT_SHA1" "$SIGNING_DIR/identities.txt" || { echo '::error::Distribution signing identity is not trusted/usable.'; exit 1; }
 cat "$SIGNING_DIR/identities.txt"
 PROFILE_UUID=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["uuid"])' "$SIGNING_DIR/metadata.json")

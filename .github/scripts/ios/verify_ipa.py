@@ -33,7 +33,7 @@ require(entitlements['application-identifier'] == f'{TEAM}.{BUNDLE}', 'Wrong sig
 require(entitlements['com.apple.developer.team-identifier'] == TEAM, 'Wrong signed team.')
 require(not entitlements.get('get-task-allow', False), 'IPA is signed for debugging.')
 prefix = str(output / 'certificate-')
-subprocess.run(['codesign', '-d', '--extract-certificates', prefix, str(app)], check=True)
+subprocess.run(['codesign', '-d', '--extract-certificates=' + prefix, str(app)], check=True)
 require(hashlib.sha1(Path(prefix + '0').read_bytes()).hexdigest().upper() == os.environ['SIGNING_CERT_SHA1'],
         'Export used a different signing certificate.')
 result = {'ipa': str(ipa), 'sha256': hashlib.sha256(ipa.read_bytes()).hexdigest(),

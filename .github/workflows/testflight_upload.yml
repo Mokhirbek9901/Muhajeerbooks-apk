@@ -62,7 +62,20 @@ jobs:
           pathlib.Path(os.environ["RUNNER_TEMP"], "signing", "profile.mobileprovision").write_bytes(data)
           print(f"Decoded provisioning profile: {len(data)} bytes")
           PY
-          security cms -D -i "$RUNNER_TEMP/signing/profile.mobileprovision" > "$RUNNER_TEMP/signing/profile.plist"
+          python3 - <<'PY'
+          import plistlib, pathlib, os
+          p = pathlib.Path(os.environ["RUNNER_TEMP"], "signing", "profile.mobileprovision")
+          raw = p.read_bytes()
+          start = raw.find(b"<?xml")
+          end = raw.find(b"</plist>")
+          if start < 0 or end < 0:
+              raise SystemExit("Provisioning profile plist payload not found")
+          payload = raw[start:end + len(b"</plist>")]
+          out = pathlib.Path(os.environ["RUNNER_TEMP"], "signing", "profile.plist")
+          out.write_bytes(payload)
+          plistlib.loads(payload)
+          print("Provisioning profile plist extracted and validated")
+          PY
           PROFILE_UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$RUNNER_TEMP/signing/profile.plist")
           PROFILE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$RUNNER_TEMP/signing/profile.plist")
           PROFILE_APP_ID=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$RUNNER_TEMP/signing/profile.plist")
@@ -113,7 +126,7 @@ jobs:
             <key>signingCertificate</key><string>Apple Distribution</string>
             <key>provisioningProfiles</key>
             <dict>
-              <key>com.muhajeerbooks.app</key><string>Muhajeer Books App Store</string>
+              <key>com.muhajeerbooks.app</key><string>$(PROFILE_NAME)</string>
             </dict>
             <key>destination</key><string>export</string>
             <key>uploadSymbols</key><true/>

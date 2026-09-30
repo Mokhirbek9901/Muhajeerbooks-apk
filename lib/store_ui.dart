@@ -2726,7 +2726,7 @@ class _DeliveryPromoCard extends StatelessWidget {
                   children: [
                     _HeroFact(
                       icon: Icons.local_shipping_rounded,
-                      text: '1–3 ish kuni',
+                      text: '1–2 ish kuni',
                     ),
                     _HeroFact(
                       icon: Icons.payments_outlined,
@@ -4205,7 +4205,7 @@ class _BookDetailInfo extends StatelessWidget {
             const _DetailFact(
               icon: Icons.local_shipping_outlined,
               title: 'Yetkazish',
-              value: '1–3 ish kuni',
+              value: '1–2 ish kuni',
             ),
             const SizedBox(width: 8),
             const _DetailFact(
@@ -5237,8 +5237,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                   ? '4+ mahsulot — BEPUL • set 1 ta hisoblanadi'
                                   : '4+ mahsulot — BEPUL')
                               : (state.discountBlocksFourPlusFreeDelivery
-                                  ? 'Chegirma davrida ₩4,000 • 1–3 ish kuni'
-                                  : '₩4,000 • 1–3 ish kuni')),
+                                  ? 'Chegirma davrida ₩4,000 • 1–2 ish kuni'
+                                  : '₩4,000 • 1–2 ish kuni')),
                     ),
                   ),
                   const Divider(height: 1),
@@ -6364,7 +6364,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                             SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                'Buyurtma pochtaga topshirildi.\n1–3 ish kunida yetkaziladi.',
+                                'Buyurtma pochtaga topshirildi.\n1–2 ish kunida yetkaziladi.',
                                 style: TextStyle(
                                   color: AppColors.success,
                                   fontWeight: FontWeight.w800,

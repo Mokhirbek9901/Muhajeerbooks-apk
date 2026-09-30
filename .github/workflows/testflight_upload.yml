@@ -54,12 +54,12 @@ jobs:
           unzip -q "$RUNNER_TEMP/signing/key-artifact.zip" -d "$RUNNER_TEMP/signing/artifact"
           unzip -q -P "$CSR_PRIVATE_KEY_PASSWORD" "$RUNNER_TEMP/signing/artifact/MuhajeerBooks-signing-key.zip" -d "$RUNNER_TEMP/signing"
           python3 - <<'PY'
-          import base64, pathlib
+          import base64, pathlib, os
           src = pathlib.Path(".github/signing/Muhajeer_Books_App_Store.mobileprovision.b64").read_text().strip()
           data = base64.b64decode(src, validate=True)
           if len(data) < 1000 or not data.startswith(b"0"):
               raise SystemExit(f"Provisioning profile decode invalid: {len(data)} bytes")
-          pathlib.Path("$RUNNER_TEMP/signing/profile.mobileprovision").write_bytes(data)
+          pathlib.Path(os.environ["RUNNER_TEMP"], "signing", "profile.mobileprovision").write_bytes(data)
           print(f"Decoded provisioning profile: {len(data)} bytes")
           PY
           PROFILE_UUID=$(security cms -D -i "$RUNNER_TEMP/signing/profile.mobileprovision" | /usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin)

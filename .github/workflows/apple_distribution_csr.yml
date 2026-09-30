@@ -21,8 +21,12 @@ jobs:
           fi
           mkdir -p "$RUNNER_TEMP/muhajeer-csr"
           cd "$RUNNER_TEMP/muhajeer-csr"
-          openssl genrsa -aes256 -passout env:CSR_PRIVATE_KEY_PASSWORD -out distribution-private-key.pem 4096
-          openssl req -new -sha256             -key distribution-private-key.pem             -passin env:CSR_PRIVATE_KEY_PASSWORD             -out MuhajeerBooks.certSigningRequest             -subj "/CN=Muhajeer Books/C=KR"
+          openssl genrsa -aes256 -passout env:CSR_PRIVATE_KEY_PASSWORD -out distribution-private-key.pem 2048
+          openssl req -new -sha256 \
+            -key distribution-private-key.pem \
+            -passin env:CSR_PRIVATE_KEY_PASSWORD \
+            -out MuhajeerBooks.certSigningRequest \
+            -subj "/CN=Muhajeer Books/C=KR"
           openssl req -in MuhajeerBooks.certSigningRequest -noout -verify
           zip -q -P "$CSR_PRIVATE_KEY_PASSWORD" MuhajeerBooks-signing-key.zip distribution-private-key.pem
 

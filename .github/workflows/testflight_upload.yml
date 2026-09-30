@@ -53,7 +53,7 @@ jobs:
           gh api /repos/${{ github.repository }}/actions/artifacts/11082514116/zip > "$RUNNER_TEMP/signing/key-artifact.zip"
           unzip -q "$RUNNER_TEMP/signing/key-artifact.zip" -d "$RUNNER_TEMP/signing/artifact"
           unzip -q -P "$CSR_PRIVATE_KEY_PASSWORD" "$RUNNER_TEMP/signing/artifact/MuhajeerBooks-signing-key.zip" -d "$RUNNER_TEMP/signing"
-          base64 --decode ".github/signing/Muhajeer_Books_App_Store.mobileprovision.b64" > "$RUNNER_TEMP/signing/profile.mobileprovision"
+          base64 -D -i ".github/signing/Muhajeer_Books_App_Store.mobileprovision.b64" -o "$RUNNER_TEMP/signing/profile.mobileprovision"
           PROFILE_UUID=$(security cms -D -i "$RUNNER_TEMP/signing/profile.mobileprovision" | /usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin)
           cp "$RUNNER_TEMP/signing/profile.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
           openssl pkcs12 -export -legacy             -inkey "$RUNNER_TEMP/signing/distribution-private-key.pem"             -passin env:CSR_PRIVATE_KEY_PASSWORD             -in ".github/signing/apple_distribution.pem"             -out "$RUNNER_TEMP/signing/distribution.p12"             -passout env:CSR_PRIVATE_KEY_PASSWORD

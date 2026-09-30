@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/testflight_upload.yml'
+      - '.github/ios-release-trigger'
       - '.github/scripts/ios/**'
       - '.github/signing/Muhajeer_Books_App_Store.mobileprovision.b64'
       - '.github/signing/apple_distribution.pem'

@@ -1,0 +1,118 @@
+name: Build and Upload iOS to TestFlight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  testflight:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Prepare iOS project
+        run: |
+          set -euo pipefail
+          flutter create . --platforms=ios --project-name muhajeerbooks --org com.muhajeerbooks
+          python3 - <<'PY'
+          from pathlib import Path
+          import plistlib, re
+          p = Path('ios/Runner.xcodeproj/project.pbxproj')
+          s = p.read_text()
+          s = re.sub(r'PRODUCT_BUNDLE_IDENTIFIER = [^;]+;', 'PRODUCT_BUNDLE_IDENTIFIER = com.muhajeerbooks.app;', s)
+          s = re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [^;]+;', 'IPHONEOS_DEPLOYMENT_TARGET = 15.0;', s)
+          s = re.sub(r'TARGETED_DEVICE_FAMILY = [^;]+;', 'TARGETED_DEVICE_FAMILY = "1,2";', s)
+          s = re.sub(r'DEVELOPMENT_TEAM = [^;]+;', 'DEVELOPMENT_TEAM = 8HJA5K2BQJ;', s)
+          if 'DEVELOPMENT_TEAM = ' not in s:
+              s = s.replace('PRODUCT_BUNDLE_IDENTIFIER = com.muhajeerbooks.app;', 'PRODUCT_BUNDLE_IDENTIFIER = com.muhajeerbooks.app;\n\t\t\t\tDEVELOPMENT_TEAM = 8HJA5K2BQJ;')
+          p.write_text(s)
+          plist_path = Path('ios/Runner/Info.plist')
+          with plist_path.open('rb') as f: plist = plistlib.load(f)
+          plist['CFBundleDisplayName'] = 'Muhajeer Books'
+          plist['NSPhotoLibraryUsageDescription'] = 'Kitob rasmi yoki to‘lov chekini tanlash uchun rasmlarga kirish kerak.'
+          plist['NSCameraUsageDescription'] = 'Kitob rasmi yoki to‘lov chekini suratga olish uchun kamera kerak.'
+          plist['NSFaceIDUsageDescription'] = 'Admin bo‘limiga xavfsiz kirish uchun Face ID ishlatiladi.'
+          with plist_path.open('wb') as f: plistlib.dump(plist, f, sort_keys=False)
+          PY
+
+      - name: Install signing certificate and provisioning profile
+        env:
+          CSR_PRIVATE_KEY_PASSWORD: ${{ secrets.CSR_PRIVATE_KEY_PASSWORD }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/signing" "$HOME/Library/MobileDevice/Provisioning Profiles"
+          gh api /repos/${{ github.repository }}/actions/artifacts/11082514116/zip > "$RUNNER_TEMP/signing/key-artifact.zip"
+          unzip -q "$RUNNER_TEMP/signing/key-artifact.zip" -d "$RUNNER_TEMP/signing/artifact"
+          unzip -q -P "$CSR_PRIVATE_KEY_PASSWORD" "$RUNNER_TEMP/signing/artifact/MuhajeerBooks-signing-key.zip" -d "$RUNNER_TEMP/signing"
+          base64 --decode ".github/signing/Muhajeer_Books_App_Store.mobileprovision.b64" > "$RUNNER_TEMP/signing/profile.mobileprovision"
+          PROFILE_UUID=$(security cms -D -i "$RUNNER_TEMP/signing/profile.mobileprovision" | /usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin)
+          cp "$RUNNER_TEMP/signing/profile.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+          openssl pkcs12 -export -legacy             -inkey "$RUNNER_TEMP/signing/distribution-private-key.pem"             -passin env:CSR_PRIVATE_KEY_PASSWORD             -in ".github/signing/apple_distribution.pem"             -out "$RUNNER_TEMP/signing/distribution.p12"             -passout env:CSR_PRIVATE_KEY_PASSWORD
+          KEYCHAIN="$RUNNER_TEMP/app-signing.keychain-db"
+          security create-keychain -p "$CSR_PRIVATE_KEY_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$CSR_PRIVATE_KEY_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/signing/distribution.p12" -P "$CSR_PRIVATE_KEY_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security list-keychain -d user -s "$KEYCHAIN" login.keychain-db
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$CSR_PRIVATE_KEY_PASSWORD" "$KEYCHAIN"
+          security find-identity -v -p codesigning "$KEYCHAIN"
+
+      - name: Install dependencies
+        run: |
+          flutter pub get
+          cd ios && pod install && cd ..
+
+      - name: Build signed IPA
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>teamID</key><string>8HJA5K2BQJ</string>
+            <key>signingCertificate</key><string>Apple Distribution</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.muhajeerbooks.app</key><string>Muhajeer Books App Store</string>
+            </dict>
+            <key>uploadSymbols</key><true/>
+          </dict>
+          </plist>
+          PLIST
+          flutter build ipa --release             --build-number="${{ github.run_number }}"             --dart-define=APP_BUILD_NUMBER="${{ github.run_number }}"             --dart-define=APP_STORE_BUILD=true             --dart-define=SUPABASE_URL="$SUPABASE_URL"             --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"             --export-options-plist="$RUNNER_TEMP/ExportOptions.plist"
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: muhajeer-books-ios-signed-ipa
+          path: build/ios/ipa/*.ipa
+          retention-days: 14
+
+      - name: Upload to App Store Connect / TestFlight
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          printf '%s' "$APP_STORE_CONNECT_PRIVATE_KEY" > "$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
+          chmod 600 "$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
+          IPA=$(find build/ios/ipa -name '*.ipa' -print -quit)
+          test -n "$IPA"
+          xcrun altool --upload-app --type ios --file "$IPA"             --apiKey "$APP_STORE_CONNECT_KEY_ID"             --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"

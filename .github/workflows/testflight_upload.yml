@@ -53,7 +53,15 @@ jobs:
           gh api /repos/${{ github.repository }}/actions/artifacts/11082514116/zip > "$RUNNER_TEMP/signing/key-artifact.zip"
           unzip -q "$RUNNER_TEMP/signing/key-artifact.zip" -d "$RUNNER_TEMP/signing/artifact"
           unzip -q -P "$CSR_PRIVATE_KEY_PASSWORD" "$RUNNER_TEMP/signing/artifact/MuhajeerBooks-signing-key.zip" -d "$RUNNER_TEMP/signing"
-          base64 -D -i ".github/signing/Muhajeer_Books_App_Store.mobileprovision.b64" -o "$RUNNER_TEMP/signing/profile.mobileprovision"
+          python3 - <<'PY'
+          import base64, pathlib
+          src = pathlib.Path(".github/signing/Muhajeer_Books_App_Store.mobileprovision.b64").read_text().strip()
+          data = base64.b64decode(src, validate=True)
+          if len(data) < 1000 or not data.startswith(b"0"):
+              raise SystemExit(f"Provisioning profile decode invalid: {len(data)} bytes")
+          pathlib.Path("$RUNNER_TEMP/signing/profile.mobileprovision").write_bytes(data)
+          print(f"Decoded provisioning profile: {len(data)} bytes")
+          PY
           PROFILE_UUID=$(security cms -D -i "$RUNNER_TEMP/signing/profile.mobileprovision" | /usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin)
           cp "$RUNNER_TEMP/signing/profile.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
           openssl pkcs12 -export -legacy             -inkey "$RUNNER_TEMP/signing/distribution-private-key.pem"             -passin env:CSR_PRIVATE_KEY_PASSWORD             -in ".github/signing/apple_distribution.pem"             -out "$RUNNER_TEMP/signing/distribution.p12"             -passout env:CSR_PRIVATE_KEY_PASSWORD

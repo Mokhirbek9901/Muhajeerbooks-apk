@@ -795,9 +795,10 @@ class BackendService {
     Object? lastError;
     for (var attempt = 0; attempt < 2; attempt++) {
       try {
-        final data = await client
-            .rpc('customer_order_submit', params: {'p_order': payload})
-            .timeout(const Duration(seconds: 8));
+        final data = await _customerRpc(
+          'customer_order_submit',
+          {'p_order': payload},
+        ).timeout(const Duration(seconds: 8));
         final savedId = (data ?? '').toString().trim();
         if (savedId.isEmpty) {
           throw StateError('Buyurtma serverda tasdiqlanmadi.');

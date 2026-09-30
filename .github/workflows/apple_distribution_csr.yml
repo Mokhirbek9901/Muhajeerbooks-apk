@@ -1,0 +1,41 @@
+name: Generate Apple Distribution CSR
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate-csr:
+    runs-on: macos-latest
+    steps:
+      - name: Generate signing private key and CSR
+        env:
+          CSR_PRIVATE_KEY_PASSWORD: ${{ secrets.CSR_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CSR_PRIVATE_KEY_PASSWORD:-}" ]; then
+            echo "::error::Add repository secret CSR_PRIVATE_KEY_PASSWORD first."
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/muhajeer-csr"
+          cd "$RUNNER_TEMP/muhajeer-csr"
+          openssl genrsa -aes256 -passout env:CSR_PRIVATE_KEY_PASSWORD -out distribution-private-key.pem 4096
+          openssl req -new -sha256             -key distribution-private-key.pem             -passin env:CSR_PRIVATE_KEY_PASSWORD             -out MuhajeerBooks.certSigningRequest             -subj "/CN=Muhajeer Books/C=KR"
+          openssl req -in MuhajeerBooks.certSigningRequest -noout -verify
+          zip -q -P "$CSR_PRIVATE_KEY_PASSWORD" MuhajeerBooks-signing-key.zip distribution-private-key.pem
+
+      - name: Upload CSR
+        uses: actions/upload-artifact@v4
+        with:
+          name: MuhajeerBooks-CSR
+          path: ${{ runner.temp }}/muhajeer-csr/MuhajeerBooks.certSigningRequest
+          retention-days: 1
+
+      - name: Upload encrypted signing private key
+        uses: actions/upload-artifact@v4
+        with:
+          name: MuhajeerBooks-signing-private-key
+          path: ${{ runner.temp }}/muhajeer-csr/MuhajeerBooks-signing-key.zip
+          retention-days: 1

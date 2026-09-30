@@ -1,0 +1,35 @@
+name: Apply finance period filters
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/finance_period_filters_apply.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch finance UI
+        run: |
+          python3 tools/finance_period_filters_patch.py
+          git diff --check
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- lib/finance_admin.dart; then
+            echo 'No finance UI changes needed.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lib/finance_admin.dart
+          git commit -m 'Add finance quick periods and month filter'
+          git pull --rebase origin main
+          git push origin HEAD:main

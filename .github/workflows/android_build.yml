@@ -175,4 +175,4 @@ jobs:
           path: build/app/outputs/bundle/release/app-release.aab
           retention-days: 30
 
-# 2026-09-26: trigger verified APK/AAB build after Play update-gate change.
+# 2026-09-30: build finance quick-period and year/month filter release.

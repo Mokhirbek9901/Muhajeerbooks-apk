@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'app_state.dart';
 import 'catalog_resume.dart';
+import 'customer_sms_login.dart';
 import 'store_ui.dart';
 import 'uzbek_customer_style.dart';
 import 'muhajeer_ai_page.dart';
@@ -83,6 +84,11 @@ class _FastStoreShellState extends State<FastStoreShell> {
   @override
   Widget build(BuildContext context) {
     final cartCount = context.select<AppState, int>((s) => s.cartCount);
+    final customerVerified =
+        context.select<AppState, bool>((s) => s.customerVerified);
+    final smsLoggedIn = customerSmsLoginAvailable &&
+        customerVerified &&
+        customerSmsSessionActive;
     final latestNoticeId = context.select<AppState, String?>(
       (s) => s.latestUnreadCustomerNotice?['id']?.toString(),
     );
@@ -128,6 +134,31 @@ class _FastStoreShellState extends State<FastStoreShell> {
             KeyedSubtree(
               key: ValueKey<int>(index),
               child: _secondaryPageFor(index),
+            ),
+          // Web-only account action. It sits exactly over ProfilePage's old
+          // local-profile clear icon, so Android/iOS keep their existing UI.
+          if (index == 4 && customerSmsLoginAvailable)
+            Positioned(
+              top: MediaQuery.paddingOf(context).top + 4,
+              right: 6,
+              child: Material(
+                color: UzbekCustomerColors.background,
+                shape: const CircleBorder(),
+                child: SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: IconButton(
+                    tooltip: smsLoggedIn ? 'Hisobim' : 'SMS orqali kirish',
+                    onPressed: () => openCustomerSmsAccount(context),
+                    icon: Icon(
+                      smsLoggedIn
+                          ? Icons.person_rounded
+                          : Icons.person_add_alt_1_rounded,
+                      color: UzbekCustomerColors.navy,
+                    ),
+                  ),
+                ),
+              ),
             ),
         ],
       ),

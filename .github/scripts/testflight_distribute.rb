@@ -69,8 +69,11 @@ puts "Source build #{source_number}: #{groups.length} beta group(s), #{testers.l
 abort "Build #{source_number} has no TestFlight groups or individual testers to copy." if groups.empty? && testers.empty?
 
 unless groups.empty?
-  request(:post, "/v1/builds/#{target_id}/relationships/betaGroups",
-    body: { data: groups.map { |g| { type: 'betaGroups', id: g.fetch('id') } } })
+  groups.each do |group|
+    group_id = group.fetch('id')
+    request(:post, "/v1/betaGroups/#{group_id}/relationships/builds",
+      body: { data: [{ type: 'builds', id: target_id }] })
+  end
   puts "Copied #{groups.length} beta group(s) to build #{target_number}."
 end
 

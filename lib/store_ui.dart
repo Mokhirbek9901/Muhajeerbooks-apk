@@ -1554,7 +1554,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String query = '';
   String category = 'Barchasi';
   String sort = 'new';
@@ -1562,7 +1562,8 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    // Every fresh HomePage/app launch starts from the canonical catalog view:
+    WidgetsBinding.instance.addObserver(this);
+    // Every fresh app launch starts from the canonical catalog view:
     // all books, newest additions first. Customer filters are session-only.
     query = '';
     category = 'Barchasi';
@@ -1571,6 +1572,28 @@ class _HomePageState extends State<HomePage> {
       if (!mounted || !_scrollController.hasClients) return;
       _scrollController.jumpTo(0);
     });
+  }
+
+  void _resetCatalogToNewest() {
+    if (!mounted) return;
+    _searchController.clear();
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      query = '';
+      category = 'Barchasi';
+      sort = 'new';
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.jumpTo(0);
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _resetCatalogToNewest();
+    }
   }
 
   final ScrollController _scrollController = _PersistentScrollController(
@@ -1619,6 +1642,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchMissTimer?.cancel();
     _scrollController.dispose();
     _searchController.dispose();
@@ -1649,10 +1673,6 @@ class _HomePageState extends State<HomePage> {
       'Setlar',
       ...state.books.where((b) => b.isActive).map((b) => b.category),
     }.toList();
-    final featured = state.books
-        .where((b) => b.isActive && b.recommended && b.inStock)
-        .take(6)
-        .toList();
     final personalized = state.personalizedBooks.take(8).toList();
     if (!categories.contains(category)) category = 'Barchasi';
 
@@ -1671,51 +1691,44 @@ class _HomePageState extends State<HomePage> {
       return book.isActive && matchesQuery && matchesCategory;
     }).toList();
 
-    switch (sort) {
-      case 'price_low':
-        books.sort((a, b) => a.currentPrice.compareTo(b.currentPrice));
-      case 'price_high':
-        books.sort((a, b) => b.currentPrice.compareTo(a.currentPrice));
-      case 'stock':
-        books.sort((a, b) => b.stock.compareTo(a.stock));
-      case 'name':
-        books.sort(
-          (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
-        );
-      default:
-        books.sort((a, b) {
+    int selectedOrder(Book a, Book b) {
+      int result;
+      switch (sort) {
+        case 'price_low':
+          result = a.currentPrice.compareTo(b.currentPrice);
+        case 'price_high':
+          result = b.currentPrice.compareTo(a.currentPrice);
+        case 'stock':
+          result = b.stock.compareTo(a.stock);
+        case 'name':
+          result = a.title.toLowerCase().compareTo(b.title.toLowerCase());
+        default:
           final aa = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
           final bb = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-          return bb.compareTo(aa);
-        });
+          result = bb.compareTo(aa);
+      }
+      if (result != 0) return result;
+
+      // Deterministic tie-breaker so a second sort can never scramble the list.
+      final aa = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bb = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final recent = bb.compareTo(aa);
+      if (recent != 0) return recent;
+      return a.title.toLowerCase().compareTo(b.title.toLowerCase());
     }
 
-    // Customer catalog rule: sold-out books always stay below available books,
-    // while preserving the selected sort order inside each group.
+    // One comparator only: available books first, then the exact selected order.
+    // The previous second List.sort returned 0 for most books and could scramble
+    // "Qimmatidan" and "Yangi qo‘shilgan" because Dart sort is not stable.
     books.sort((a, b) {
       final availability = (b.inStock ? 1 : 0).compareTo(a.inStock ? 1 : 0);
-      return availability != 0 ? availability : 0;
+      if (availability != 0) return availability;
+      return selectedOrder(a, b);
     });
 
-    final q = query.trim().toLowerCase();
-    final visibleBundles = category == 'Barchasi'
-        ? state.bundles.where((bundle) {
-            if (q.isEmpty) return true;
-            return (bundle['title'] ?? '').toString().toLowerCase().contains(q) ||
-                (bundle['description'] ?? '').toString().toLowerCase().contains(q);
-          }).toList()
-        : <Map<String, dynamic>>[];
-    final catalogItems = <Object>[];
-    var bundleIndex = 0;
-    for (var i = 0; i < books.length; i++) {
-      catalogItems.add(books[i]);
-      if ((i + 1) % 4 == 0 && bundleIndex < visibleBundles.length) {
-        catalogItems.add(visibleBundles[bundleIndex++]);
-      }
-    }
-    while (bundleIndex < visibleBundles.length) {
-      catalogItems.add(visibleBundles[bundleIndex++]);
-    }
+    // Sets have their own "Setlar" page. Do not mix them into a sorted book
+    // result, otherwise the visible order no longer matches the chosen filter.
+    final catalogItems = <Object>[...books];
 
     return SafeArea(
       child: RefreshIndicator(
@@ -1785,13 +1798,6 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
-            if (featured.isNotEmpty)
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                sliver: SliverToBoxAdapter(
-                  child: _FeaturedBooksStrip(books: featured),
-                ),
-              ),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               sliver: SliverToBoxAdapter(

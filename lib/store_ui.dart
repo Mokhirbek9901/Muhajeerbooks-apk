@@ -3764,14 +3764,26 @@ class BookDetailPage extends StatelessWidget {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 1050),
                 child: desktop
-                    ? Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          cover,
-                          const SizedBox(width: 34),
-                          Expanded(child: info),
-                        ],
-                      )
+                    ? (kIsWeb
+                        ? AppSurface(
+                            padding: const EdgeInsets.all(24),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                cover,
+                                const SizedBox(width: 34),
+                                Expanded(child: info),
+                              ],
+                            ),
+                          )
+                        : Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              cover,
+                              const SizedBox(width: 34),
+                              Expanded(child: info),
+                            ],
+                          ))
                     : Column(
                         children: [cover, const SizedBox(height: 26), info],
                       ),

@@ -1,0 +1,58 @@
+name: Distribute existing TestFlight build
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_build:
+        description: Existing TestFlight build whose tester access should be copied
+        required: true
+        default: '1009'
+      target_build:
+        description: New TestFlight build to distribute
+        required: true
+        default: '1012'
+  push:
+    branches: [main]
+    paths:
+      - '.github/testflight-distribute-trigger'
+
+permissions:
+  contents: read
+
+jobs:
+  distribute:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare App Store Connect authentication
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          for name in ('APP_STORE_CONNECT_KEY_ID','APP_STORE_CONNECT_ISSUER_ID','APP_STORE_CONNECT_PRIVATE_KEY'):
+              if not os.environ.get(name,'').strip():
+                  raise SystemExit(f'Missing secret: {name}')
+          key_id=os.environ['APP_STORE_CONNECT_KEY_ID'].strip()
+          key=os.environ['APP_STORE_CONNECT_PRIVATE_KEY'].strip().replace('\\n','\n')+'\n'
+          d=Path.home()/'.appstoreconnect/private_keys'
+          d.mkdir(parents=True,exist_ok=True)
+          p=d/f'AuthKey_{key_id}.p8'
+          p.write_text(key)
+          p.chmod(0o600)
+          with open(os.environ['GITHUB_ENV'],'a') as f:
+              f.write(f'ASC_PRIVATE_KEY_PATH={p}\n')
+          PY
+
+      - name: Copy TestFlight tester access to new build
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          SOURCE_BUILD: ${{ github.event.inputs.source_build || '1009' }}
+          TARGET_BUILD: ${{ github.event.inputs.target_build || '1012' }}
+        run: ruby .github/scripts/testflight_distribute.rb

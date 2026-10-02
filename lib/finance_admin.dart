@@ -175,6 +175,21 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                       },
                     ),
                     const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.pop(
+                          sheetContext,
+                          <String, int>{
+                            'year': selectedYear,
+                            'month': 0,
+                          },
+                        ),
+                        icon: const Icon(Icons.date_range_rounded),
+                        label: Text('Butun $selectedYear-yilni ko‘rsatish'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     DropdownButtonFormField<int>(
                       initialValue: selectedMonth,
                       decoration: const InputDecoration(
@@ -221,6 +236,16 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
     if (!mounted || selected == null) return;
     final year = selected['year']!;
     final month = selected['month']!;
+
+    if (month == 0) {
+      setState(() {
+        period = 'range:$year-01-01:$year-12-31';
+        customPeriodLabel = '$year — butun yil';
+      });
+      await _load();
+      return;
+    }
+
     final lastDay = DateTime(year, month + 1, 0).day;
     final start = '$year-${_twoDigits(month)}-01';
     final end = '$year-${_twoDigits(month)}-${_twoDigits(lastDay)}';

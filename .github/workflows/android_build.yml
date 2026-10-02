@@ -1,4 +1,5 @@
 name: Unified Web + Android APK
+# release trigger: compact books admin 2026-10-02
 
 on:
   workflow_dispatch:

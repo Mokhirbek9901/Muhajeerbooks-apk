@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -721,62 +722,100 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Moliya va sof foyda',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Web, APK, Telegram va Instagram moliyasi bitta server hisobotida.',
-                      style: TextStyle(color: AppColors.muted),
-                    ),
-                  ],
+          if (kIsWeb) ...[
+            _WebFinanceDashboard(
+              revenue: _int('total_revenue'),
+              expenses: _int('cash_outflow_total'),
+              profit: result,
+              cost: _int('cost_of_goods'),
+              selectedPeriod: period,
+              customPeriodLabel: customPeriodLabel,
+              onToday: () {
+                setState(() {
+                  period = 'today';
+                  customPeriodLabel = null;
+                });
+                unawaited(_load());
+              },
+              onMonth: () {
+                setState(() {
+                  period = 'month';
+                  customPeriodLabel = null;
+                });
+                unawaited(_load());
+              },
+              onYear: () {
+                final year = DateTime.now().year < 2026
+                    ? 2026
+                    : DateTime.now().year;
+                setState(() {
+                  period = 'range:$year-01-01:$year-12-31';
+                  customPeriodLabel = '$year — butun yil';
+                });
+                unawaited(_load());
+              },
+              onFilter: () => unawaited(_openPeriodFilter()),
+              onAddExpense: _addExpense,
+            ),
+            const SizedBox(height: 20),
+          ] else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Moliya va sof foyda',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Web, APK, Telegram va Instagram moliyasi bitta server hisobotida.',
+                        style: TextStyle(color: AppColors.muted),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              FilledButton.icon(
-                onPressed: _addExpense,
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('Xarajat'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              ...periodLabels.entries.map((entry) {
-                return ChoiceChip(
-                  label: Text(entry.value),
-                  selected: period == entry.key,
-                  onSelected: (_) {
-                    setState(() {
-                      period = entry.key;
-                      customPeriodLabel = null;
-                    });
-                    unawaited(_load());
-                  },
-                );
-              }),
-              FilterChip(
-                avatar: const Icon(Icons.filter_alt_outlined, size: 18),
-                label: Text(
-                  customPeriodLabel == null
-                      ? 'Filtr'
-                      : 'Filtr: $customPeriodLabel',
+                FilledButton.icon(
+                  onPressed: _addExpense,
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('Xarajat'),
                 ),
-                selected: customPeriodLabel != null,
-                onSelected: (_) => unawaited(_openPeriodFilter()),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ...periodLabels.entries.map((entry) {
+                  return ChoiceChip(
+                    label: Text(entry.value),
+                    selected: period == entry.key,
+                    onSelected: (_) {
+                      setState(() {
+                        period = entry.key;
+                        customPeriodLabel = null;
+                      });
+                      unawaited(_load());
+                    },
+                  );
+                }),
+                FilterChip(
+                  avatar: const Icon(Icons.filter_alt_outlined, size: 18),
+                  label: Text(
+                    customPeriodLabel == null
+                        ? 'Filtr'
+                        : 'Filtr: $customPeriodLabel',
+                  ),
+                  selected: customPeriodLabel != null,
+                  onSelected: (_) => unawaited(_openPeriodFilter()),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
           if (loading)
             const Center(
               child: Padding(
@@ -1014,6 +1053,342 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _WebFinanceDashboard extends StatelessWidget {
+  const _WebFinanceDashboard({
+    required this.revenue,
+    required this.expenses,
+    required this.profit,
+    required this.cost,
+    required this.selectedPeriod,
+    required this.customPeriodLabel,
+    required this.onToday,
+    required this.onMonth,
+    required this.onYear,
+    required this.onFilter,
+    required this.onAddExpense,
+  });
+
+  final int revenue;
+  final int expenses;
+  final int profit;
+  final int cost;
+  final String selectedPeriod;
+  final String? customPeriodLabel;
+  final VoidCallback onToday;
+  final VoidCallback onMonth;
+  final VoidCallback onYear;
+  final VoidCallback onFilter;
+  final VoidCallback onAddExpense;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxValue = <int>[
+      revenue.abs(),
+      expenses.abs(),
+      profit.abs(),
+      cost.abs(),
+      1,
+    ].reduce((a, b) => a > b ? a : b);
+
+    final currentYear = DateTime.now().year < 2026 ? 2026 : DateTime.now().year;
+    final yearSelected = selectedPeriod.startsWith('range:$currentYear-01-01');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(22, 20, 18, 20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF0E4B51), Color(0xFF0A6662)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Moliya',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 25,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'Savdo va xarajatlar nazorati',
+                      style: TextStyle(
+                        color: Color(0xFFD5ECE8),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: onAddExpense,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Xarajat'),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'today', label: Text('Bugun')),
+                  ButtonSegment(value: 'month', label: Text('Oy')),
+                  ButtonSegment(value: 'year', label: Text('Yil')),
+                ],
+                selected: <String>{
+                  selectedPeriod == 'today'
+                      ? 'today'
+                      : yearSelected
+                          ? 'year'
+                          : 'month',
+                },
+                onSelectionChanged: (value) {
+                  switch (value.first) {
+                    case 'today':
+                      onToday();
+                    case 'year':
+                      onYear();
+                    default:
+                      onMonth();
+                  }
+                },
+              ),
+            ),
+            const SizedBox(width: 10),
+            OutlinedButton.icon(
+              onPressed: onFilter,
+              icon: const Icon(Icons.filter_alt_outlined),
+              label: Text(customPeriodLabel ?? 'Filtr'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = constraints.maxWidth >= 850 ? 4 : 2;
+            final width =
+                (constraints.maxWidth - ((columns - 1) * 12)) / columns;
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _WebFinanceMetric(
+                  width: width,
+                  title: 'Kirim',
+                  value: _financeWon(revenue),
+                  icon: Icons.south_west_rounded,
+                ),
+                _WebFinanceMetric(
+                  width: width,
+                  title: 'Chiqim',
+                  value: _financeWon(expenses),
+                  icon: Icons.north_east_rounded,
+                ),
+                _WebFinanceMetric(
+                  width: width,
+                  title: 'Foyda',
+                  value: _financeSignedWon(profit),
+                  icon: Icons.trending_up_rounded,
+                ),
+                _WebFinanceMetric(
+                  width: width,
+                  title: 'Tannarx',
+                  value: _financeWon(cost),
+                  icon: Icons.inventory_2_outlined,
+                ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        AppSurface(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Moliyaviy ko‘rinish',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                  color: AppColors.navy,
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 150,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    _WebFinanceBar(
+                      label: 'Kirim',
+                      fraction: revenue.abs() / maxValue,
+                      value: _financeWon(revenue),
+                    ),
+                    _WebFinanceBar(
+                      label: 'Chiqim',
+                      fraction: expenses.abs() / maxValue,
+                      value: _financeWon(expenses),
+                    ),
+                    _WebFinanceBar(
+                      label: 'Foyda',
+                      fraction: profit.abs() / maxValue,
+                      value: _financeSignedWon(profit),
+                    ),
+                    _WebFinanceBar(
+                      label: 'Tannarx',
+                      fraction: cost.abs() / maxValue,
+                      value: _financeWon(cost),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WebFinanceMetric extends StatelessWidget {
+  const _WebFinanceMetric({
+    required this.width,
+    required this.title,
+    required this.value,
+    required this.icon,
+  });
+
+  final double width;
+  final String title;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: width,
+    child: AppSurface(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.surfaceSoft,
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(icon, color: AppColors.navy),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppColors.muted,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.navy,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _WebFinanceBar extends StatelessWidget {
+  const _WebFinanceBar({
+    required this.label,
+    required this.fraction,
+    required this.value,
+  });
+
+  final String label;
+  final double fraction;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalized = fraction.clamp(0.08, 1.0).toDouble();
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 7),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Expanded(
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: FractionallySizedBox(
+                  heightFactor: normalized,
+                  widthFactor: .55,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.navy,
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 7),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 10.5,
+                color: AppColors.muted,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

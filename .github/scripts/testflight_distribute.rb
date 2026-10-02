@@ -25,6 +25,7 @@ def request(method, path, query: nil, body: nil)
   req = case method
         when :get then Net::HTTP::Get.new(uri)
         when :post then Net::HTTP::Post.new(uri)
+        when :patch then Net::HTTP::Patch.new(uri)
         else raise "Unsupported method #{method}"
         end
   req['Authorization'] = "Bearer #{jwt_token}"
@@ -68,13 +69,41 @@ testers = request(:get, "/v1/builds/#{source_id}/individualTesters", query: { 'l
 puts "Source build #{source_number}: #{groups.length} beta group(s), #{testers.length} individual tester(s)."
 abort "Build #{source_number} has no TestFlight groups or individual testers to copy." if groups.empty? && testers.empty?
 
+automatic_group_ids = []
+assignable_group_ids = []
+
 unless groups.empty?
   groups.each do |group|
     group_id = group.fetch('id')
-    request(:post, "/v1/betaGroups/#{group_id}/relationships/builds",
-      body: { data: [{ type: 'builds', id: target_id }] })
+    detail = request(:get, "/v1/betaGroups/#{group_id}",
+      query: { 'fields[betaGroups]' => 'name,isInternalGroup,hasAccessToAllBuilds' }).fetch('data')
+    attrs = detail.fetch('attributes', {})
+    name = attrs['name'] || group_id
+    internal = attrs['isInternalGroup'] == true
+    all_builds = attrs['hasAccessToAllBuilds'] == true
+
+    if internal
+      unless all_builds
+        request(:patch, "/v1/betaGroups/#{group_id}",
+          body: {
+            data: {
+              type: 'betaGroups',
+              id: group_id,
+              attributes: { hasAccessToAllBuilds: true }
+            }
+          })
+        all_builds = true
+        puts "Enabled automatic access to all builds for internal group #{name}."
+      end
+      automatic_group_ids << group_id
+      puts "Internal group #{name} has automatic access to all builds."
+    else
+      request(:post, "/v1/betaGroups/#{group_id}/relationships/builds",
+        body: { data: [{ type: 'builds', id: target_id }] })
+      assignable_group_ids << group_id
+      puts "Assigned build #{target_number} to external group #{name}."
+    end
   end
-  puts "Copied #{groups.length} beta group(s) to build #{target_number}."
 end
 
 unless testers.empty?
@@ -87,8 +116,16 @@ target_groups = request(:get, '/v1/betaGroups',
   query: { 'filter[builds]' => target_id, 'limit' => 200 }).fetch('data')
 target_testers = request(:get, "/v1/builds/#{target_id}/individualTesters", query: { 'limit' => 200 }).fetch('data')
 
-missing_groups = groups.map { |x| x['id'] } - target_groups.map { |x| x['id'] }
+missing_groups = assignable_group_ids - target_groups.map { |x| x['id'] }
 missing_testers = testers.map { |x| x['id'] } - target_testers.map { |x| x['id'] }
+
+automatic_group_ids.each do |group_id|
+  detail = request(:get, "/v1/betaGroups/#{group_id}",
+    query: { 'fields[betaGroups]' => 'name,isInternalGroup,hasAccessToAllBuilds' }).fetch('data')
+  attrs = detail.fetch('attributes', {})
+  abort "Verification failed. Internal group #{group_id} does not have access to all builds." unless attrs['hasAccessToAllBuilds'] == true
+end
+
 abort "Verification failed. Missing groups=#{missing_groups.inspect}, testers=#{missing_testers.inspect}" unless missing_groups.empty? && missing_testers.empty?
 
-puts "SUCCESS: TestFlight access copied from #{source_number} to #{target_number}."
+puts "SUCCESS: TestFlight access from #{source_number} is available for #{target_number}. Automatic internal groups=#{automatic_group_ids.length}, assigned external groups=#{assignable_group_ids.length}, individual testers=#{testers.length}."

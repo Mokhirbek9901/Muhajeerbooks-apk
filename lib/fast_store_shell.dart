@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_state.dart';
 import 'catalog_resume.dart';
@@ -15,6 +16,121 @@ import 'muhajeer_ai_page.dart';
 /// cart/favorite/order-state notification could rebuild several hidden pages
 /// at once. Keeping just Home + the active secondary page removes that hidden
 /// work while preserving the storefront behaviour users see.
+class _PersistentMuhajeerAiButton extends StatefulWidget {
+  const _PersistentMuhajeerAiButton();
+
+  @override
+  State<_PersistentMuhajeerAiButton> createState() =>
+      _PersistentMuhajeerAiButtonState();
+}
+
+class _PersistentMuhajeerAiButtonState
+    extends State<_PersistentMuhajeerAiButton> {
+  static const _xKey = 'muhajeer_ai_fab_x_fraction';
+  static const _yKey = 'muhajeer_ai_fab_y_fraction';
+  static const _buttonWidth = 148.0;
+  static const _buttonHeight = 48.0;
+  static const _edgeMargin = 12.0;
+
+  double _xFraction = 0;
+  double _yFraction = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _restorePosition();
+  }
+
+  Future<void> _restorePosition() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final x = prefs.getDouble(_xKey);
+      final y = prefs.getDouble(_yKey);
+      if (!mounted) return;
+      setState(() {
+        _xFraction = (x ?? 0).clamp(0.0, 1.0);
+        _yFraction = (y ?? 1).clamp(0.0, 1.0);
+      });
+    } catch (_) {
+      // Local storage mavjud bo'lmasa ham tugma standart joyida ishlaydi.
+    }
+  }
+
+  Future<void> _savePosition() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(_xKey, _xFraction);
+      await prefs.setDouble(_yKey, _yFraction);
+    } catch (_) {
+      // Joylashuvni saqlashdagi xato asosiy ilovani bloklamaydi.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final topSafe = MediaQuery.paddingOf(context).top;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final minX = _edgeMargin;
+        final minY = topSafe + 6;
+        final usableX =
+            (constraints.maxWidth - _buttonWidth - (_edgeMargin * 2))
+                .clamp(0.0, double.infinity);
+        final usableY =
+            (constraints.maxHeight - _buttonHeight - minY - _edgeMargin)
+                .clamp(0.0, double.infinity);
+
+        final left = minX + (usableX * _xFraction);
+        final top = minY + (usableY * _yFraction);
+
+        void moveBy(Offset delta) {
+          final nextLeft =
+              (left + delta.dx).clamp(minX, minX + usableX).toDouble();
+          final nextTop =
+              (top + delta.dy).clamp(minY, minY + usableY).toDouble();
+          setState(() {
+            _xFraction = usableX <= 0 ? 0 : (nextLeft - minX) / usableX;
+            _yFraction = usableY <= 0 ? 0 : (nextTop - minY) / usableY;
+          });
+        }
+
+        return Positioned(
+          left: left,
+          top: top,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onPanUpdate: (details) => moveBy(details.delta),
+            onPanEnd: (_) => _savePosition(),
+            onPanCancel: _savePosition,
+            child: SizedBox(
+              width: _buttonWidth,
+              height: _buttonHeight,
+              child: FloatingActionButton.extended(
+                heroTag: 'muhajeer-ai',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const MuhajeerAiPage(),
+                  ),
+                ),
+                icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                label: const Text(
+                  'Muhajeer AI',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                extendedPadding:
+                    const EdgeInsets.symmetric(horizontal: 14),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class FastStoreShell extends StatefulWidget {
   const FastStoreShell({super.key});
 
@@ -129,31 +245,9 @@ class _FastStoreShellState extends State<FastStoreShell> {
               key: ValueKey<int>(index),
               child: _secondaryPageFor(index),
             ),
+          if (index == 0) const _PersistentMuhajeerAiButton(),
         ],
       ),
-      floatingActionButton: index == 0
-          ? SizedBox(
-              height: 48,
-              child: FloatingActionButton.extended(
-                heroTag: 'muhajeer-ai',
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const MuhajeerAiPage(),
-                  ),
-                ),
-                icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                label: const Text(
-                  'Muhajeer AI',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                extendedPadding: const EdgeInsets.symmetric(horizontal: 14),
-              ),
-            )
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       bottomNavigationBar: SafeArea(
         top: false,
         child: Container(

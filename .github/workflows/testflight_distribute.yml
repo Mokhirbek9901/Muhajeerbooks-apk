@@ -17,7 +17,7 @@ on:
       - '.github/testflight-distribute-trigger*'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   distribute:
@@ -50,9 +50,42 @@ jobs:
           PY
 
       - name: Copy TestFlight tester access to new build
+        id: distribute
+        continue-on-error: true
         env:
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           SOURCE_BUILD: ${{ github.event.inputs.source_build || '1009' }}
           TARGET_BUILD: ${{ github.event.inputs.target_build || '1014' }}
         run: ruby .github/scripts/testflight_distribute.rb
+
+      - name: Record verified distribution status
+        if: always()
+        env:
+          DIST_OUTCOME: ${{ steps.distribute.outcome }}
+          SOURCE_BUILD: ${{ github.event.inputs.source_build || '1009' }}
+          TARGET_BUILD: ${{ github.event.inputs.target_build || '1014' }}
+        run: |
+          set -euo pipefail
+          cat > .github/testflight-distribution-status.txt <<EOF
+          outcome=$DIST_OUTCOME
+          source=$SOURCE_BUILD
+          target=$TARGET_BUILD
+          run_id=$GITHUB_RUN_ID
+          run_number=$GITHUB_RUN_NUMBER
+          sha=$GITHUB_SHA
+          verified_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/testflight-distribution-status.txt
+          if git diff --cached --quiet; then
+            echo "Status unchanged"
+          else
+            git commit -m "Record TestFlight distribution status [skip ci]"
+            git push
+          fi
+
+      - name: Fail workflow if tester distribution failed
+        if: steps.distribute.outcome != 'success'
+        run: exit 1

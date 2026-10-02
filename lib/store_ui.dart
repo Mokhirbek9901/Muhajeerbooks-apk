@@ -5325,9 +5325,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
       ),
       body: Form(
         key: formKey,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-          children: [
+        child: _WebCheckoutFrame(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+            children: [
+              if (kIsWeb) ...[
+                const _WebCheckoutProgress(),
+                const SizedBox(height: 18),
+              ],
             if (canShowProfessionalMode)
               AppSurface(
                 padding: const EdgeInsets.all(6),
@@ -5774,7 +5779,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   ],
                 ),
               ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -5880,6 +5886,87 @@ class _CheckoutPageState extends State<CheckoutPage> {
     } finally {
       if (mounted) setState(() => saving = false);
     }
+  }
+}
+
+class _WebCheckoutFrame extends StatelessWidget {
+  const _WebCheckoutFrame({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!kIsWeb) return child;
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 760),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _WebCheckoutProgress extends StatelessWidget {
+  const _WebCheckoutProgress();
+
+  @override
+  Widget build(BuildContext context) {
+    const items = [
+      ('1', 'Yetkazish'),
+      ('2', 'Ma’lumotlar'),
+      ('3', 'To‘lov'),
+      ('4', 'Tasdiq'),
+    ];
+    return AppSurface(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      child: Row(
+        children: [
+          for (var i = 0; i < items.length; i++) ...[
+            Expanded(
+              child: Column(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: i == 0
+                          ? UzbekCustomerColors.teal
+                          : UzbekCustomerColors.goldSoft,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: UzbekCustomerColors.border),
+                    ),
+                    child: Text(
+                      items[i].$1,
+                      style: TextStyle(
+                        color: i == 0
+                            ? Colors.white
+                            : UzbekCustomerColors.navy,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  Text(
+                    items[i].$2,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (i != items.length - 1)
+              Container(
+                width: 28,
+                height: 1,
+                color: UzbekCustomerColors.border,
+              ),
+          ],
+        ],
+      ),
+    );
   }
 }
 

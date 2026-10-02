@@ -61,8 +61,9 @@ target = build_for(app_id, target_number)
 source_id = source.fetch('id')
 target_id = target.fetch('id')
 
-groups = request(:get, "/v1/builds/#{source_id}/relationships/betaGroups", query: { 'limit' => 200 }).fetch('data')
-testers = request(:get, "/v1/builds/#{source_id}/relationships/individualTesters", query: { 'limit' => 200 }).fetch('data')
+groups = request(:get, '/v1/betaGroups',
+  query: { 'filter[app]' => app_id, 'filter[builds]' => source_id, 'limit' => 200 }).fetch('data')
+testers = request(:get, "/v1/builds/#{source_id}/individualTesters", query: { 'limit' => 200 }).fetch('data')
 
 puts "Source build #{source_number}: #{groups.length} beta group(s), #{testers.length} individual tester(s)."
 abort "Build #{source_number} has no TestFlight groups or individual testers to copy." if groups.empty? && testers.empty?
@@ -79,8 +80,9 @@ unless testers.empty?
   puts "Copied #{testers.length} individual tester(s) to build #{target_number}."
 end
 
-target_groups = request(:get, "/v1/builds/#{target_id}/relationships/betaGroups", query: { 'limit' => 200 }).fetch('data')
-target_testers = request(:get, "/v1/builds/#{target_id}/relationships/individualTesters", query: { 'limit' => 200 }).fetch('data')
+target_groups = request(:get, '/v1/betaGroups',
+  query: { 'filter[app]' => app_id, 'filter[builds]' => target_id, 'limit' => 200 }).fetch('data')
+target_testers = request(:get, "/v1/builds/#{target_id}/individualTesters", query: { 'limit' => 200 }).fetch('data')
 
 missing_groups = groups.map { |x| x['id'] } - target_groups.map { |x| x['id'] }
 missing_testers = testers.map { |x| x['id'] } - target_testers.map { |x| x['id'] }

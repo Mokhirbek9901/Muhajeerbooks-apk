@@ -50,7 +50,7 @@ def build_for(app_id, build_number)
 end
 
 source_number = ENV.fetch('SOURCE_BUILD', '1009')
-target_number = ENV.fetch('TARGET_BUILD', '1012')
+target_number = ENV.fetch('TARGET_BUILD', '1014')
 
 apps = request(:get, '/v1/apps', query: { 'filter[bundleId]' => BUNDLE_ID, 'limit' => 2 }).fetch('data')
 abort "Expected exactly one app for #{BUNDLE_ID}, found #{apps.length}." unless apps.length == 1

@@ -10,7 +10,7 @@ on:
       target_build:
         description: New TestFlight build to distribute
         required: true
-        default: '1012'
+        default: '1014'
   push:
     branches: [main]
     paths:
@@ -54,5 +54,5 @@ jobs:
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           SOURCE_BUILD: ${{ github.event.inputs.source_build || '1009' }}
-          TARGET_BUILD: ${{ github.event.inputs.target_build || '1012' }}
+          TARGET_BUILD: ${{ github.event.inputs.target_build || '1014' }}
         run: ruby .github/scripts/testflight_distribute.rb

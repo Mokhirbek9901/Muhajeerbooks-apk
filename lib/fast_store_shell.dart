@@ -153,7 +153,7 @@ class _FastStoreShellState extends State<FastStoreShell> {
               ),
             )
           : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       bottomNavigationBar: SafeArea(
         top: false,
         child: Container(

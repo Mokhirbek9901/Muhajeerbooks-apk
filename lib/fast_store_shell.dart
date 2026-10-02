@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -138,6 +139,32 @@ class _PersistentMuhajeerAiButtonState
   }
 }
 
+class _WebStorefrontFrame extends StatelessWidget {
+  const _WebStorefrontFrame({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!kIsWeb) return child;
+    return ColoredBox(
+      color: UzbekCustomerColors.background,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1180),
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              color: UzbekCustomerColors.background,
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class FastStoreShell extends StatefulWidget {
   const FastStoreShell({super.key});
 
@@ -234,27 +261,29 @@ class _FastStoreShellState extends State<FastStoreShell> {
 
     return Scaffold(
       backgroundColor: UzbekCustomerColors.background,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Home is the only tab intentionally kept alive. It already listens
-          // only to catalog-specific revisions, so cart/favorite changes don't
-          // trigger an expensive hidden catalog rebuild.
-          Offstage(
-            offstage: index != 0,
-            child: TickerMode(
-              enabled: index == 0,
-              child: const HomePage(key: PageStorageKey<String>('home-tab')),
+      body: _WebStorefrontFrame(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Home is the only tab intentionally kept alive. It already listens
+            // only to catalog-specific revisions, so cart/favorite changes don't
+            // trigger an expensive hidden catalog rebuild.
+            Offstage(
+              offstage: index != 0,
+              child: TickerMode(
+                enabled: index == 0,
+                child: const HomePage(key: PageStorageKey<String>('home-tab')),
+              ),
             ),
-          ),
-          if (index != 0)
-            KeyedSubtree(
-              key: ValueKey<int>(index),
-              child: _secondaryPageFor(index),
-            ),
-          if (index == 0)
-            const Positioned.fill(child: _PersistentMuhajeerAiButton()),
-        ],
+            if (index != 0)
+              KeyedSubtree(
+                key: ValueKey<int>(index),
+                child: _secondaryPageFor(index),
+              ),
+            if (index == 0)
+              const Positioned.fill(child: _PersistentMuhajeerAiButton()),
+          ],
+        ),
       ),
       bottomNavigationBar: SafeArea(
         top: false,

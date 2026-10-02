@@ -48,8 +48,8 @@ class _PersistentMuhajeerAiButtonState
       final y = prefs.getDouble(_yKey);
       if (!mounted) return;
       setState(() {
-        _xFraction = (x ?? 0).clamp(0.0, 1.0);
-        _yFraction = (y ?? 1).clamp(0.0, 1.0);
+        _xFraction = (x ?? 0).clamp(0.0, 1.0).toDouble();
+        _yFraction = (y ?? 1).clamp(0.0, 1.0).toDouble();
       });
     } catch (_) {
       // Local storage mavjud bo'lmasa ham tugma standart joyida ishlaydi.
@@ -75,10 +75,12 @@ class _PersistentMuhajeerAiButtonState
         final minY = topSafe + 6;
         final usableX =
             (constraints.maxWidth - _buttonWidth - (_edgeMargin * 2))
-                .clamp(0.0, double.infinity);
+                .clamp(0.0, double.infinity)
+                .toDouble();
         final usableY =
             (constraints.maxHeight - _buttonHeight - minY - _edgeMargin)
-                .clamp(0.0, double.infinity);
+                .clamp(0.0, double.infinity)
+                .toDouble();
 
         final left = minX + (usableX * _xFraction);
         final top = minY + (usableY * _yFraction);

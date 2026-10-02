@@ -3920,14 +3920,17 @@ class _BooksAdminState extends State<_BooksAdmin> {
         return Column(
           children: [
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
+                  SizedBox(
+                    height: 36,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        children: [
                       _MiniStat(
                         label: 'Kitob',
                         value: '${all.length}',
@@ -3986,7 +3989,9 @@ class _BooksAdminState extends State<_BooksAdmin> {
                         selected: _problemFilterKeys.contains(filter),
                         onTap: () => _openProblemFilters(all),
                       ),
-                    ],
+                        ],
+                      ),
+                    ),
                   ),
                   if (_problemFilterKeys.contains(filter)) ...[
                     const SizedBox(height: 10),
@@ -4021,23 +4026,31 @@ class _BooksAdminState extends State<_BooksAdmin> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 9),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: all.isEmpty ? null : () => openBulkAi(all),
-                      icon: const Icon(Icons.auto_awesome_rounded),
-                      label: const Text('AI bilan ommaviy tahrirlash'),
-                    ),
-                  ),
                   const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: openCatalogGroups,
-                      icon: const Icon(Icons.account_tree_rounded),
-                      label: const Text('Kategoriyalar / Nashriyotlar'),
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: all.isEmpty ? null : () => openBulkAi(all),
+                          icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                          label: const FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text('AI tahrir'),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: openCatalogGroups,
+                          icon: const Icon(Icons.account_tree_rounded, size: 18),
+                          label: const FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text('Kategoriya / Nashriyot'),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -4181,17 +4194,20 @@ class _MiniStat extends StatelessWidget {
   Widget build(BuildContext context) {
     final child = AnimatedContainer(
       duration: const Duration(milliseconds: 160),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      margin: const EdgeInsets.only(right: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: selected ? AppColors.navy : Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(11),
         border: Border.all(
           color: selected ? AppColors.navy : const Color(0xFFE7E9ED),
         ),
       ),
       child: Text(
         '$label: $value',
+        maxLines: 1,
         style: TextStyle(
+          fontSize: 12.5,
           fontWeight: FontWeight.w800,
           color: selected ? Colors.white : null,
         ),
@@ -4201,7 +4217,7 @@ class _MiniStat extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(11),
         onTap: onTap,
         child: child,
       ),

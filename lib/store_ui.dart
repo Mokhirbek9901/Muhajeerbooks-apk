@@ -4367,6 +4367,12 @@ class CartPage extends StatelessWidget {
     final hasItems = state.cartDisplayCount > 0;
     final deliveryFee = state.cartDeliveryFee;
     final grandTotal = state.cartSubtotal + deliveryFee;
+    if (kIsWeb) {
+      return _WebCartPage(
+        state: state,
+        onContinueShopping: onContinueShopping,
+      );
+    }
     return Scaffold(
       backgroundColor: UzbekCustomerColors.background,
       appBar: AppBar(
@@ -4644,6 +4650,288 @@ class CartPage extends StatelessWidget {
                   ],
                 ),
               ),
+            ),
+    );
+  }
+}
+
+class _WebCartPage extends StatelessWidget {
+  const _WebCartPage({
+    required this.state,
+    required this.onContinueShopping,
+  });
+
+  final AppState state;
+  final VoidCallback? onContinueShopping;
+
+  void _continueShopping(BuildContext context) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final callback = onContinueShopping;
+    if (callback != null) {
+      callback();
+      return;
+    }
+    storefrontTabRequest.value = 0;
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.popUntil((route) => route.isFirst);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final lines = state.cartStandaloneLines;
+    final bundles = state.cartBundles;
+    final hasItems = state.cartDisplayCount > 0;
+    final deliveryFee = state.cartDeliveryFee;
+    final grandTotal = state.cartSubtotal + deliveryFee;
+
+    return Scaffold(
+      backgroundColor: UzbekCustomerColors.background,
+      appBar: AppBar(
+        backgroundColor: UzbekCustomerColors.background,
+        surfaceTintColor: Colors.transparent,
+        title: const Text('Savatcha'),
+        actions: [
+          if (hasItems)
+            TextButton.icon(
+              onPressed: state.clearCart,
+              icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+              label: const Text('Tozalash'),
+            ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: !hasItems
+          ? const Center(
+              child: SizedBox(
+                width: 560,
+                child: _EmptyState(
+                  icon: Icons.shopping_bag_outlined,
+                  title: 'Savatcha bo‘sh',
+                  subtitle: 'Kerakli kitoblarni savatchaga qo‘shing.',
+                ),
+              ),
+            )
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final wide = constraints.maxWidth >= 900;
+                final items = Column(
+                  children: [
+                    AppSurface(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: UzbekCustomerColors.goldSoft,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(
+                              Icons.local_shipping_rounded,
+                              color: UzbekCustomerColors.teal,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              state.cartDeliveryFee == 0
+                                  ? 'Yetkazib berish bepul'
+                                  : '4+ kitobda — pochta bepul',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ...bundles.map(
+                      (bundle) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _BundleCartCard(bundle: bundle, state: state),
+                      ),
+                    ),
+                    ...lines.map(
+                      (line) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: AppSurface(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 72,
+                                height: 100,
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: _BookCover(book: line.book),
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      line.book.title,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      won(line.book.currentPrice),
+                                      style: const TextStyle(
+                                        color: AppColors.navy,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      children: [
+                                        _QtyButton(
+                                          icon: Icons.remove,
+                                          onTap: () => state.decrementCart(line.book),
+                                        ),
+                                        SizedBox(
+                                          width: 42,
+                                          child: Text(
+                                            '${line.quantity}',
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                        ),
+                                        _QtyButton(
+                                          icon: Icons.add,
+                                          onTap: line.quantity < line.book.stock
+                                              ? () => state.addToCart(line.book)
+                                              : null,
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    won(line.total),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 26),
+                                  IconButton(
+                                    tooltip: 'Olib tashlash',
+                                    onPressed: () => state.removeFromCart(line.book),
+                                    icon: const Icon(
+                                      Icons.delete_outline_rounded,
+                                      color: AppColors.danger,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+
+                final summary = AppSurface(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'Buyurtma jami',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: UzbekCustomerColors.navy,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _priceRow('Mahsulotlar', state.cartSubtotal),
+                      const SizedBox(height: 8),
+                      _priceRow('Yetkazib berish', deliveryFee),
+                      const Divider(height: 26),
+                      Row(
+                        children: [
+                          const Text(
+                            'Jami',
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          const Spacer(),
+                          Text(
+                            won(grandTotal),
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w900,
+                              color: UzbekCustomerColors.navy,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      FilledButton.icon(
+                        onPressed: () => Navigator.push(
+                          context,
+                          muhajeerPageRoute(
+                            settings: const RouteSettings(name: 'mb:checkout'),
+                            builder: (_) => const CheckoutPage(),
+                          ),
+                        ),
+                        icon: const Icon(Icons.lock_outline_rounded),
+                        label: const Text('Buyurtmani rasmiylashtirish'),
+                      ),
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: () => _continueShopping(context),
+                        icon: const Icon(Icons.add_rounded),
+                        label: const Text('Yana kitob qo‘shish'),
+                      ),
+                    ],
+                  ),
+                );
+
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1080),
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(18, 12, 18, 36),
+                      child: wide
+                          ? Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(flex: 7, child: items),
+                                const SizedBox(width: 20),
+                                SizedBox(width: 340, child: summary),
+                              ],
+                            )
+                          : Column(
+                              children: [
+                                items,
+                                const SizedBox(height: 14),
+                                summary,
+                              ],
+                            ),
+                    ),
+                  ),
+                );
+              },
             ),
     );
   }

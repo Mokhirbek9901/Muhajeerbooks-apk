@@ -99,11 +99,11 @@ class _PersistentMuhajeerAiButtonState
         return Positioned(
           left: left,
           top: top,
-          child: GestureDetector(
+          child: Listener(
             behavior: HitTestBehavior.opaque,
-            onPanUpdate: (details) => moveBy(details.delta),
-            onPanEnd: (_) => _savePosition(),
-            onPanCancel: _savePosition,
+            onPointerMove: (event) => moveBy(event.delta),
+            onPointerUp: (_) => _savePosition(),
+            onPointerCancel: (_) => _savePosition(),
             child: SizedBox(
               width: _buttonWidth,
               height: _buttonHeight,

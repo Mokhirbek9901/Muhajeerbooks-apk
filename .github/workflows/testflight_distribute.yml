@@ -14,7 +14,7 @@ on:
   push:
     branches: [main]
     paths:
-      - '.github/testflight-distribute-trigger'
+      - '.github/testflight-distribute-trigger*'
 
 permissions:
   contents: read

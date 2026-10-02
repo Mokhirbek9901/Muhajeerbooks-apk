@@ -1162,13 +1162,13 @@ class _WebFinanceDashboard extends StatelessWidget {
                           : 'month',
                 },
                 onSelectionChanged: (value) {
-                  switch (value.first) {
-                    case 'today':
-                      onToday();
-                    case 'year':
-                      onYear();
-                    default:
-                      onMonth();
+                  final selected = value.first;
+                  if (selected == 'today') {
+                    onToday();
+                  } else if (selected == 'year') {
+                    onYear();
+                  } else {
+                    onMonth();
                   }
                 },
               ),

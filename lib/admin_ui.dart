@@ -1323,7 +1323,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
   Widget build(BuildContext context) {
     final pages = <Widget>[
       _loadedTabs.contains(0)
-          ? _OverviewAdmin(key: _overviewKey, api: api)
+          ? _OverviewAdmin(
+              key: _overviewKey,
+              api: api,
+              onOpenTab: _selectTab,
+            )
           : const SizedBox.shrink(),
       _loadedTabs.contains(1)
           ? _BooksAdmin(key: _booksKey, api: api)
@@ -1773,8 +1777,13 @@ class _OverviewData {
 }
 
 class _OverviewAdmin extends StatefulWidget {
-  const _OverviewAdmin({super.key, required this.api});
+  const _OverviewAdmin({
+    super.key,
+    required this.api,
+    this.onOpenTab,
+  });
   final _AdminApi api;
+  final ValueChanged<int>? onOpenTab;
 
   @override
   State<_OverviewAdmin> createState() => _OverviewAdminState();
@@ -1915,30 +1924,51 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(18),
           children: [
-            AppPageHeading(
-              title: 'Boshqaruv markazi',
-              subtitle: 'Savdo, buyurtmalar va ombor holati real vaqtga yaqin ko‘rinishda.',
-              trailing: IconButton.filledTonal(
-                onPressed: reload,
-                tooltip: 'Yangilash',
-                icon: const Icon(Icons.refresh_rounded),
+            if (kIsWeb) ...[
+              _WebAdminDashboardHeader(
+                todayRevenue: todayRevenue,
+                todayOrders: todayOrders,
+                customerCount: orders
+                    .map((o) => o.phone.trim())
+                    .where((phone) => phone.isNotEmpty)
+                    .toSet()
+                    .length,
+                totalStock: totalStock,
+                onRefresh: reload,
+                onOpenTab: widget.onOpenTab,
+                onOpenMerchandising: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => _MerchandisingAdminPage(api: widget.api),
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 18),
-            Card(
-              clipBehavior: Clip.antiAlias,
-              child: ListTile(
-                minTileHeight: 78,
-                leading: const Icon(Icons.auto_awesome_rounded, color: AppColors.success, size: 30),
-                title: const Text('Savdo imkoniyatlari', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
-                subtitle: const Text('Xabarlar • kutayotganlar • oldindan sotuv • chegirma • savdo tahlili'),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                  builder: (_) => _MerchandisingAdminPage(api: widget.api),
-                )),
+              const SizedBox(height: 20),
+            ] else ...[
+              AppPageHeading(
+                title: 'Boshqaruv markazi',
+                subtitle: 'Savdo, buyurtmalar va ombor holati real vaqtga yaqin ko‘rinishda.',
+                trailing: IconButton.filledTonal(
+                  onPressed: reload,
+                  tooltip: 'Yangilash',
+                  icon: const Icon(Icons.refresh_rounded),
+                ),
               ),
-            ),
-            const SizedBox(height: 14),
+              const SizedBox(height: 18),
+              Card(
+                clipBehavior: Clip.antiAlias,
+                child: ListTile(
+                  minTileHeight: 78,
+                  leading: const Icon(Icons.auto_awesome_rounded, color: AppColors.success, size: 30),
+                  title: const Text('Savdo imkoniyatlari', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
+                  subtitle: const Text('Xabarlar • kutayotganlar • oldindan sotuv • chegirma • savdo tahlili'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => _MerchandisingAdminPage(api: widget.api),
+                  )),
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
             LayoutBuilder(
               builder: (context, c) {
                 final cardWidth = c.maxWidth >= 1200
@@ -2922,6 +2952,269 @@ class _AdminBookListPage extends StatelessWidget {
             );
           },
         ),
+  );
+}
+
+class _WebAdminDashboardHeader extends StatelessWidget {
+  const _WebAdminDashboardHeader({
+    required this.todayRevenue,
+    required this.todayOrders,
+    required this.customerCount,
+    required this.totalStock,
+    required this.onRefresh,
+    required this.onOpenTab,
+    required this.onOpenMerchandising,
+  });
+
+  final int todayRevenue;
+  final int todayOrders;
+  final int customerCount;
+  final int totalStock;
+  final VoidCallback onRefresh;
+  final ValueChanged<int>? onOpenTab;
+  final VoidCallback onOpenMerchandising;
+
+  @override
+  Widget build(BuildContext context) {
+    final actions = <({IconData icon, String label, int? tab, VoidCallback? onTap})>[
+      (icon: Icons.receipt_long_rounded, label: 'Buyurtmalar', tab: 3, onTap: null),
+      (icon: Icons.menu_book_rounded, label: 'Kitoblar', tab: 1, onTap: null),
+      (icon: Icons.inventory_2_rounded, label: 'Ombor', tab: 2, onTap: null),
+      (icon: Icons.account_balance_wallet_rounded, label: 'Moliya', tab: 6, onTap: null),
+      (icon: Icons.people_alt_rounded, label: 'Mijozlar', tab: 5, onTap: null),
+      (icon: Icons.sell_rounded, label: 'Sotilgan', tab: 4, onTap: null),
+      (icon: Icons.auto_awesome_rounded, label: 'Admin AI', tab: 7, onTap: null),
+      (icon: Icons.campaign_rounded, label: 'Savdo imkoniyatlari', tab: null, onTap: onOpenMerchandising),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(22, 20, 18, 20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF0E4B51), Color(0xFF0A6662)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x1A0F3F45),
+                blurRadius: 24,
+                offset: Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              const MuhajeerLogoBadge(size: 54, radius: 15, showShadow: false),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Admin Panel',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 25,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'Muhajeer Books boshqaruv markazi',
+                      style: TextStyle(
+                        color: Color(0xFFD5ECE8),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton.filledTonal(
+                onPressed: onRefresh,
+                tooltip: 'Yangilash',
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = constraints.maxWidth >= 900 ? 4 : 2;
+            final width =
+                (constraints.maxWidth - ((columns - 1) * 12)) / columns;
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _WebAdminHeroMetric(
+                  width: width,
+                  icon: Icons.payments_outlined,
+                  label: 'Bugungi savdo',
+                  value: _won(todayRevenue),
+                ),
+                _WebAdminHeroMetric(
+                  width: width,
+                  icon: Icons.receipt_long_outlined,
+                  label: 'Buyurtmalar',
+                  value: '$todayOrders ta',
+                ),
+                _WebAdminHeroMetric(
+                  width: width,
+                  icon: Icons.people_alt_outlined,
+                  label: 'Mijozlar',
+                  value: '$customerCount ta',
+                ),
+                _WebAdminHeroMetric(
+                  width: width,
+                  icon: Icons.inventory_2_outlined,
+                  label: 'Ombor',
+                  value: '$totalStock ta',
+                ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 20),
+        const Text(
+          'Asosiy bo‘limlar',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+            color: AppColors.navy,
+          ),
+        ),
+        const SizedBox(height: 10),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = constraints.maxWidth >= 900 ? 4 : 2;
+            final width =
+                (constraints.maxWidth - ((columns - 1) * 12)) / columns;
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: actions.map((item) {
+                return SizedBox(
+                  width: width,
+                  child: Material(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(18),
+                      onTap: item.onTap ??
+                          (item.tab == null || onOpenTab == null
+                              ? null
+                              : () => onOpenTab!(item.tab!)),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 18,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Column(
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceSoft,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Icon(
+                                item.icon,
+                                color: AppColors.navy,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              item.label,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _WebAdminHeroMetric extends StatelessWidget {
+  const _WebAdminHeroMetric({
+    required this.width,
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final double width;
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: width,
+    child: AppSurface(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.surfaceSoft,
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(icon, color: AppColors.navy),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.navy,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
   );
 }
 

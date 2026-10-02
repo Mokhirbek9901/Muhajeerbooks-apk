@@ -96,37 +96,42 @@ class _PersistentMuhajeerAiButtonState
           });
         }
 
-        return Positioned(
-          left: left,
-          top: top,
-          child: Listener(
-            behavior: HitTestBehavior.opaque,
-            onPointerMove: (event) => moveBy(event.delta),
-            onPointerUp: (_) => _savePosition(),
-            onPointerCancel: (_) => _savePosition(),
-            child: SizedBox(
-              width: _buttonWidth,
-              height: _buttonHeight,
-              child: FloatingActionButton.extended(
-                heroTag: 'muhajeer-ai',
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const MuhajeerAiPage(),
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              left: left,
+              top: top,
+              child: Listener(
+                behavior: HitTestBehavior.opaque,
+                onPointerMove: (event) => moveBy(event.delta),
+                onPointerUp: (_) => _savePosition(),
+                onPointerCancel: (_) => _savePosition(),
+                child: SizedBox(
+                  width: _buttonWidth,
+                  height: _buttonHeight,
+                  child: FloatingActionButton.extended(
+                    heroTag: 'muhajeer-ai',
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const MuhajeerAiPage(),
+                      ),
+                    ),
+                    icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                    label: const Text(
+                      'Muhajeer AI',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    extendedPadding:
+                        const EdgeInsets.symmetric(horizontal: 14),
                   ),
                 ),
-                icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                label: const Text(
-                  'Muhajeer AI',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                extendedPadding:
-                    const EdgeInsets.symmetric(horizontal: 14),
               ),
             ),
-          ),
+          ],
         );
       },
     );
@@ -247,7 +252,8 @@ class _FastStoreShellState extends State<FastStoreShell> {
               key: ValueKey<int>(index),
               child: _secondaryPageFor(index),
             ),
-          if (index == 0) const _PersistentMuhajeerAiButton(),
+          if (index == 0)
+            const Positioned.fill(child: _PersistentMuhajeerAiButton()),
         ],
       ),
       bottomNavigationBar: SafeArea(

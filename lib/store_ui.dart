@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -5864,6 +5865,30 @@ class ProfilePage extends StatelessWidget {
               ],
             ),
           ),
+          if (kIsWeb) ...[
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.center,
+              child: FilledButton.tonalIcon(
+                onPressed: () => Navigator.push(
+                  context,
+                  muhajeerPageRoute(
+                    settings: const RouteSettings(name: 'mb:my-profile-web'),
+                    builder: (_) => const _WebMyProfilePage(),
+                  ),
+                ),
+                icon: const Icon(Icons.person_rounded, size: 18),
+                label: const Text('Mening'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 11,
+                  ),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           Row(
             children: [
@@ -6006,6 +6031,265 @@ class ProfilePage extends StatelessWidget {
       ),
     );
   }
+}
+
+class _WebMyProfilePage extends StatelessWidget {
+  const _WebMyProfilePage();
+
+  Future<void> _editProfile(BuildContext context) async {
+    final state = context.read<AppState>();
+    final name = TextEditingController(text: state.savedCustomer['name'] ?? '');
+    final phone = TextEditingController(text: state.savedCustomer['phone'] ?? '');
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Profilni tahrirlash'),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: name,
+                decoration: const InputDecoration(
+                  labelText: 'Ism',
+                  prefixIcon: Icon(Icons.person_outline_rounded),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: phone,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'Telefon',
+                  prefixIcon: Icon(Icons.phone_outlined),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Bekor qilish'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Saqlash'),
+          ),
+        ],
+      ),
+    );
+    if (saved == true && context.mounted) {
+      await state.setAuthenticatedCustomer(name.text, phone.text);
+    }
+    name.dispose();
+    phone.dispose();
+  }
+
+  Future<void> _showAddress(BuildContext context) async {
+    final address = context.read<AppState>().savedCustomer['address'] ?? '';
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Manzillarim'),
+        content: Text(
+          address.trim().isEmpty
+              ? 'Saqlangan manzil yo‘q. Keyingi buyurtmada manzil kiritsangiz, shu yerda ko‘rinadi.'
+              : address,
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Tushunarli'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showAbout(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.menu_book_rounded),
+        title: const Text('Muhajeer Books'),
+        content: const Text(
+          'Koreyadagi O‘zbek kitobxonlari uchun kitob tanlash, buyurtma berish va yetkazib berishni bir joyga jamlagan xizmat.',
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Yopish'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openHelp(BuildContext context) async {
+    final uri = Uri.parse('https://t.me/muhajeerbooks_admin');
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Yordam sahifasi ochilmadi.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final displayName = (state.savedCustomer['name'] ?? '').trim().isNotEmpty
+        ? state.savedCustomer['name']!.trim()
+        : 'Muhajeer kitobxoni';
+    final displayPhone = (state.savedCustomer['phone'] ?? '').trim();
+
+    return Scaffold(
+      backgroundColor: UzbekCustomerColors.background,
+      appBar: AppBar(
+        backgroundColor: UzbekCustomerColors.background,
+        surfaceTintColor: Colors.transparent,
+        title: const Text('Mening'),
+      ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 680),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(18, 10, 18, 36),
+            children: [
+              AppSurface(
+                padding: const EdgeInsets.fromLTRB(22, 24, 22, 22),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 78,
+                      height: 78,
+                      decoration: const BoxDecoration(
+                        color: UzbekCustomerColors.goldSoft,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.person_rounded,
+                        size: 46,
+                        color: UzbekCustomerColors.navy,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      displayName,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        color: UzbekCustomerColors.navy,
+                      ),
+                    ),
+                    if (displayPhone.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        displayPhone,
+                        style: const TextStyle(
+                          color: UzbekCustomerColors.textMuted,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    OutlinedButton.icon(
+                      onPressed: () => _editProfile(context),
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: const Text('Profilni tahrirlash'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              AppSurface(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  children: [
+                    _WebProfileMenuTile(
+                      icon: Icons.receipt_long_outlined,
+                      title: 'Buyurtmalarim',
+                      onTap: () => Navigator.push(
+                        context,
+                        muhajeerPageRoute(
+                          settings: const RouteSettings(name: 'mb:orders'),
+                          builder: (_) => const MyOrdersPage(),
+                        ),
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    _WebProfileMenuTile(
+                      icon: Icons.location_on_outlined,
+                      title: 'Manzillarim',
+                      onTap: () => _showAddress(context),
+                    ),
+                    const Divider(height: 1),
+                    _WebProfileMenuTile(
+                      icon: Icons.help_outline_rounded,
+                      title: 'Yordam va savollar',
+                      onTap: () => _openHelp(context),
+                    ),
+                    const Divider(height: 1),
+                    _WebProfileMenuTile(
+                      icon: Icons.info_outline_rounded,
+                      title: 'Ilova haqida',
+                      onTap: () => _showAbout(context),
+                    ),
+                    const Divider(height: 1),
+                    _WebProfileMenuTile(
+                      icon: Icons.settings_outlined,
+                      title: 'Sozlamalar',
+                      onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Web sozlamalari shu profil orqali boshqariladi.'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  await context.read<AppState>().signOutCustomer();
+                  if (context.mounted) Navigator.pop(context);
+                },
+                icon: const Icon(Icons.logout_rounded),
+                label: const Text('Chiqish'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WebProfileMenuTile extends StatelessWidget {
+  const _WebProfileMenuTile({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    minTileHeight: 66,
+    leading: _ProfileIcon(icon: icon),
+    title: Text(
+      title,
+      style: const TextStyle(fontWeight: FontWeight.w800),
+    ),
+    trailing: const Icon(Icons.chevron_right_rounded),
+    onTap: onTap,
+  );
 }
 
 class _ProfileStat extends StatelessWidget {

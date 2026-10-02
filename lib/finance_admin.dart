@@ -103,14 +103,17 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
 
   Future<void> _openPeriodFilter() async {
     final now = DateTime.now();
-    var selectedYear = now.year;
+    final latestFinanceYear = now.year < 2026 ? 2026 : now.year;
+    var selectedYear = latestFinanceYear;
     var selectedMonth = now.month;
 
     if (period.startsWith('range:')) {
       final parts = period.split(':');
       if (parts.length >= 3) {
         final parsed = DateTime.tryParse(parts[1]);
-        if (parsed != null) {
+        if (parsed != null &&
+            parsed.year >= 2026 &&
+            parsed.year <= latestFinanceYear) {
           selectedYear = parsed.year;
           selectedMonth = parsed.month;
         }
@@ -162,7 +165,11 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                         prefixIcon: Icon(Icons.calendar_today_outlined),
                       ),
                       items: [
-                        for (var year = now.year; year >= 2020; year--)
+                        for (
+                          var year = latestFinanceYear;
+                          year >= 2026;
+                          year--
+                        )
                           DropdownMenuItem<int>(
                             value: year,
                             child: Text('$year-yil'),

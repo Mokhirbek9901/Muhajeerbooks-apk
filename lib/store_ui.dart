@@ -5739,6 +5739,9 @@ class ProfilePage extends StatelessWidget {
     final availableBooks = state.books
         .where((b) => b.isActive && b.inStock)
         .length;
+    final totalStock = state.books
+        .where((b) => b.isActive)
+        .fold<int>(0, (sum, book) => sum + book.stock);
     final displayName = (state.savedCustomer['name'] ?? '').trim().isNotEmpty
         ? state.savedCustomer['name']!.trim()
         : 'Muhajeer kitobxoni';
@@ -5865,17 +5868,23 @@ class ProfilePage extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _ProfileStat(value: '$activeBooks', label: 'Kitoblar'),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _ProfileStat(value: '$availableBooks', label: 'Mavjud'),
+                child: _ProfileStat(
+                  value: '$activeBooks xil',
+                  label: 'Kitoblar',
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: _ProfileStat(
-                  value: state.isOnlineBackend ? 'Onlayn' : 'Local',
-                  label: 'Tizim',
+                  value: '$availableBooks xil',
+                  label: 'Mavjud',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ProfileStat(
+                  value: '$totalStock ta',
+                  label: 'Omborda mavjud',
                 ),
               ),
             ],

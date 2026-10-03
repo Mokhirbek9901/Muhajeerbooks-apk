@@ -839,7 +839,9 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                     icon: Icons.price_check_outlined,
                   ),
                   _FinanceCard(
-                    title: 'Kitobdan qolgan sof foyda',
+                    title: kIsWeb
+                        ? 'Kitob savdosidan yalpi foyda'
+                        : 'Kitobdan qolgan sof foyda',
                     value: _financeSignedWon(_int('book_profit')),
                     subtitle: 'Kitob savdosi − sotilgan kitob tannarxi',
                     icon: _int('book_profit') >= 0
@@ -937,7 +939,9 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                       'ℹ️ Sotilgan kitob tannarxi: ${_financeWon(_int('cost_of_goods'))}',
                     ),
                     Text(
-                      '📖 Kitobdan qolgan sof foyda: ${_financeSignedWon(_int('book_profit'))}',
+                      kIsWeb
+                          ? '📖 Kitob savdosidan yalpi foyda: ${_financeSignedWon(_int('book_profit'))}'
+                          : '📖 Kitobdan qolgan sof foyda: ${_financeSignedWon(_int('book_profit'))}',
                     ),
                   ],
                 ),

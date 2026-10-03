@@ -5337,14 +5337,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
       ),
       body: Form(
         key: formKey,
-        child: _WebCheckoutFrame(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-            children: [
-              if (kIsWeb) ...[
-                const _WebCheckoutProgress(),
-                const SizedBox(height: 18),
-              ],
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+          children: [
             if (canShowProfessionalMode)
               AppSurface(
                 padding: const EdgeInsets.all(6),
@@ -5791,8 +5786,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   ],
                 ),
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );
@@ -5898,87 +5892,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
     } finally {
       if (mounted) setState(() => saving = false);
     }
-  }
-}
-
-class _WebCheckoutFrame extends StatelessWidget {
-  const _WebCheckoutFrame({required this.child});
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!kIsWeb) return child;
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 760),
-        child: child,
-      ),
-    );
-  }
-}
-
-class _WebCheckoutProgress extends StatelessWidget {
-  const _WebCheckoutProgress();
-
-  @override
-  Widget build(BuildContext context) {
-    const items = [
-      ('1', 'Yetkazish'),
-      ('2', 'Ma’lumotlar'),
-      ('3', 'To‘lov'),
-      ('4', 'Tasdiq'),
-    ];
-    return AppSurface(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-      child: Row(
-        children: [
-          for (var i = 0; i < items.length; i++) ...[
-            Expanded(
-              child: Column(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: i == 0
-                          ? UzbekCustomerColors.teal
-                          : UzbekCustomerColors.goldSoft,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: UzbekCustomerColors.border),
-                    ),
-                    child: Text(
-                      items[i].$1,
-                      style: TextStyle(
-                        color: i == 0
-                            ? Colors.white
-                            : UzbekCustomerColors.navy,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 7),
-                  Text(
-                    items[i].$2,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (i != items.length - 1)
-              Container(
-                width: 28,
-                height: 1,
-                color: UzbekCustomerColors.border,
-              ),
-          ],
-        ],
-      ),
-    );
   }
 }
 
@@ -6252,30 +6165,6 @@ class ProfilePage extends StatelessWidget {
               ],
             ),
           ),
-          if (kIsWeb) ...[
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.center,
-              child: FilledButton.tonalIcon(
-                onPressed: () => Navigator.push(
-                  context,
-                  muhajeerPageRoute(
-                    settings: const RouteSettings(name: 'mb:my-profile-web'),
-                    builder: (_) => const _WebMyProfilePage(),
-                  ),
-                ),
-                icon: const Icon(Icons.person_rounded, size: 18),
-                label: const Text('Mening'),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 11,
-                  ),
-                  visualDensity: VisualDensity.compact,
-                ),
-              ),
-            ),
-          ],
           const SizedBox(height: 12),
           Row(
             children: [
@@ -6315,20 +6204,30 @@ class ProfilePage extends StatelessWidget {
               children: [
                 ListTile(
                   minTileHeight: 68,
-                  leading: const _ProfileIcon(
-                    icon: Icons.receipt_long_outlined,
+                  leading: _ProfileIcon(
+                    icon: kIsWeb
+                        ? Icons.person_outline_rounded
+                        : Icons.receipt_long_outlined,
                   ),
-                  title: const Text(
-                    'Mening buyurtmalarim',
-                    style: TextStyle(fontWeight: FontWeight.w800),
+                  title: Text(
+                    kIsWeb ? 'Mening ma’lumotlarim' : 'Mening buyurtmalarim',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
-                  subtitle: const Text('Holatini kuzatish va tarixni ko‘rish'),
+                  subtitle: Text(
+                    kIsWeb
+                        ? 'Profil, buyurtmalar, manzil va yordam'
+                        : 'Holatini kuzatish va tarixni ko‘rish',
+                  ),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => Navigator.push(
                     context,
                     muhajeerPageRoute(
-                      settings: const RouteSettings(name: 'mb:orders'),
-                      builder: (_) => const MyOrdersPage(),
+                      settings: RouteSettings(
+                        name: kIsWeb ? 'mb:my-profile-web' : 'mb:orders',
+                      ),
+                      builder: (_) => kIsWeb
+                          ? const _WebMyProfilePage()
+                          : const MyOrdersPage(),
                     ),
                   ),
                 ),

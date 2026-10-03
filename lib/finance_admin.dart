@@ -767,8 +767,24 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
       0,
       (sum, e) => sum + ((e['amount'] as num?)?.round() ?? 0),
     );
+    final rawBreakdown = report['expense_breakdown'];
+    final webBreakdown = rawBreakdown is Map
+        ? Map<String, dynamic>.from(rawBreakdown)
+        : const <String, dynamic>{};
+    int webBreakdownInt(String key) =>
+        (webBreakdown[key] as num?)?.round() ?? 0;
+    final webBooksRevenue = _int('books_revenue');
+    final webProfitCostTotal = _int('profit_cost_total') > 0
+        ? _int('profit_cost_total')
+        : _int('cost_of_goods') +
+            _int('store_postage_expense') +
+            _int('other_expenses');
+    final webPeriodResult = webBooksRevenue - webProfitCostTotal;
+    final webPeriodMargin = webBooksRevenue == 0
+        ? 0.0
+        : (webPeriodResult / webBooksRevenue) * 100;
     final result =
-        kIsWeb ? _int('operating_profit') : _cashResult;
+        kIsWeb ? webPeriodResult : _cashResult;
     final margin = kIsWeb
         ? _double('operating_margin_percent')
         : _double('margin_percent');
@@ -982,7 +998,9 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                     Text('✅ Mijoz qoplagan: ${_financeWon(coveredPostage)}'),
                     Text('🏪 Do‘kon hisobidan: ${_financeWon(storePostage)}'),
                     Text(
-                      '💸 Jami hisobga kiradigan xarajat: ${_financeWon(_int('cash_outflow_total'))}',
+                      kIsWeb
+                          ? '💸 Pul chiqimi: ${_financeWon(webExpenseTotal)}'
+                          : '💸 Jami hisobga kiradigan xarajat: ${_financeWon(_int('cash_outflow_total'))}',
                     ),
                     Text('📊 Natija: ${_financeSignedWon(result)}'),
                     Text('📈 Marja: ${_financeSignedPercent(margin)}'),
@@ -1010,6 +1028,21 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                 ),
               ),
             ),
+            if (kIsWeb) ...[
+              const SizedBox(height: 14),
+              _WebPeriodBusinessResult(
+                booksRevenue: webBooksRevenue,
+                soldCost: _int('cost_of_goods'),
+                packaging: webBreakdownInt('packaging'),
+                ads: webBreakdownInt('ads'),
+                transport: webBreakdownInt('transport'),
+                storePostage: storePostage,
+                other: webBreakdownInt('other'),
+                totalCost: webProfitCostTotal,
+                result: webPeriodResult,
+                margin: webPeriodMargin,
+              ),
+            ],
           ],
           const SizedBox(height: 22),
           Row(
@@ -1108,6 +1141,203 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                 'Hisob formulasi: KITOB SAVDOSI − YANGI PARTIYA KITOBLAR − DO‘KON HISOBIDAN POCHTA − BOSHQA XARAJATLAR. Xarajatlar Bugun, Shu hafta va Shu oy bo‘limlarida kiritilgan vaqtga emas, tanlangan xarajat sanasiga qarab hisoblanadi. Mijoz yetkazish uchun to‘lagan pul foyda sifatida qo‘shilmaydi.',
                 style: TextStyle(color: AppColors.muted, height: 1.45),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WebPeriodBusinessResult extends StatelessWidget {
+  const _WebPeriodBusinessResult({
+    required this.booksRevenue,
+    required this.soldCost,
+    required this.packaging,
+    required this.ads,
+    required this.transport,
+    required this.storePostage,
+    required this.other,
+    required this.totalCost,
+    required this.result,
+    required this.margin,
+  });
+
+  final int booksRevenue;
+  final int soldCost;
+  final int packaging;
+  final int ads;
+  final int transport;
+  final int storePostage;
+  final int other;
+  final int totalCost;
+  final int result;
+  final double margin;
+
+  @override
+  Widget build(BuildContext context) {
+    final positive = result >= 0;
+    final resultLabel = result > 0
+        ? 'FOYDA'
+        : result < 0
+            ? 'ZARAR'
+            : 'NATIJA';
+
+    Widget row(String label, int amount, {bool strong = false}) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontWeight: strong ? FontWeight.w900 : FontWeight.w700,
+                color: strong ? AppColors.navy : AppColors.muted,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            _financeWon(amount),
+            style: TextStyle(
+              fontWeight: strong ? FontWeight.w900 : FontWeight.w800,
+              color: AppColors.navy,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return AppSurface(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.calculate_outlined, color: AppColors.navy),
+              SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  'Davr bo‘yicha haqiqiy savdo natijasi',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.navy,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Tanlangan kun, hafta, oy yoki yil uchun kitob savdosi va foydaga kiradigan xarajatlar.',
+            style: TextStyle(
+              color: AppColors.muted,
+              fontSize: 12.5,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 14),
+          row('Umumiy kitob savdosi', booksRevenue, strong: true),
+          const Divider(height: 22),
+          row('Sotilgan kitob tannarxi', soldCost),
+          row('Qadoqlash', packaging),
+          row('Reklama', ads),
+          row('Transport', transport),
+          row('Do‘kon hisobidan pochta', storePostage),
+          row('Boshqa xarajatlar', other),
+          const Divider(height: 22),
+          row('Foyda hisobiga kiradigan jami xarajat', totalCost, strong: true),
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: positive ? AppColors.successSoft : AppColors.dangerSoft,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: positive
+                    ? const Color(0xFFCDEAD7)
+                    : const Color(0xFFF2C7C7),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  positive
+                      ? Icons.trending_up_rounded
+                      : Icons.trending_down_rounded,
+                  color: positive ? AppColors.success : AppColors.danger,
+                  size: 30,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        resultLabel,
+                        style: TextStyle(
+                          color: positive
+                              ? AppColors.success
+                              : AppColors.danger,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _financeSignedWon(result),
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.navy,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text(
+                      'Marja',
+                      style: TextStyle(
+                        color: AppColors.muted,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _financeSignedPercent(margin),
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        color: positive
+                            ? AppColors.success
+                            : AppColors.danger,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '${_financeWon(booksRevenue)} − ${_financeWon(totalCost)} = ${_financeSignedWon(result)}',
+            style: const TextStyle(
+              color: AppColors.muted,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Yangi partiya kitob xaridi bu formulaga qayta qo‘shilmaydi: sotilgan qismining tannarxi yuqorida allaqachon hisoblangan.',
+            style: TextStyle(
+              color: AppColors.muted,
+              fontSize: 11.5,
+              height: 1.35,
             ),
           ),
         ],

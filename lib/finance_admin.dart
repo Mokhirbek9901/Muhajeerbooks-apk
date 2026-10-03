@@ -702,8 +702,71 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
     }
   }
 
+  List<Map<String, dynamic>> _webVisibleExpenseRows() {
+    DateTime? start;
+    DateTime? end;
+    final rawStart = report['period_start']?.toString();
+    final rawEnd = report['period_end']?.toString();
+    if (rawStart != null && rawStart.isNotEmpty && rawStart != 'null') {
+      start = DateTime.tryParse(rawStart);
+    }
+    if (rawEnd != null && rawEnd.isNotEmpty && rawEnd != 'null') {
+      end = DateTime.tryParse(rawEnd);
+    }
+
+    final rows = expenses.where((expense) {
+      final date = _expenseDate(expense['expense_date']);
+      final day = DateTime(date.year, date.month, date.day);
+      if (start != null) {
+        final from = DateTime(start.year, start.month, start.day);
+        if (day.isBefore(from)) return false;
+      }
+      if (end != null) {
+        final through = DateTime(end.year, end.month, end.day);
+        if (day.isAfter(through)) return false;
+      }
+      return true;
+    }).map((e) => Map<String, dynamic>.from(e)).toList();
+
+    final manualPostage = rows
+        .where((e) => (e['category'] ?? '').toString() == 'postage')
+        .fold<int>(
+          0,
+          (sum, e) => sum + ((e['amount'] as num?)?.round() ?? 0),
+        );
+
+    // Agar foydalanuvchi shu davr uchun pochta xarajatini qo'lda
+    // kiritmagan bo'lsa, server hisoblagan do'kon ulushini ro'yxatda ham
+    // ko'rsatamiz. Shunda tepada "Chiqim" va pastdagi ro'yxat jami bir xil.
+    final automaticStorePostage = _int('store_postage_expense');
+    if (manualPostage == 0 && automaticStorePostage > 0) {
+      final autoDate = end ?? DateTime.now();
+      rows.add(<String, dynamic>{
+        'expense_date': autoDate.toIso8601String(),
+        'category': 'postage',
+        'amount': automaticStorePostage,
+        'note': 'Do‘kon hisobidan pochta (avtomatik hisob)',
+        'source': 'system',
+        '_system': true,
+      });
+    }
+
+    rows.sort((a, b) {
+      final ad = _expenseDate(a['expense_date']);
+      final bd = _expenseDate(b['expense_date']);
+      return bd.compareTo(ad);
+    });
+    return rows;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final webVisibleExpenses =
+        kIsWeb ? _webVisibleExpenseRows() : const <Map<String, dynamic>>[];
+    final webExpenseTotal = webVisibleExpenses.fold<int>(
+      0,
+      (sum, e) => sum + ((e['amount'] as num?)?.round() ?? 0),
+    );
     final result =
         kIsWeb ? _int('operating_profit') : _cashResult;
     final margin = kIsWeb
@@ -728,7 +791,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
           if (kIsWeb) ...[
             _WebFinanceDashboard(
               revenue: _int('total_revenue'),
-              expenses: _int('cash_outflow_total'),
+              expenses: webExpenseTotal,
               profit: result,
               cost: _int('cost_of_goods'),
               selectedPeriod: period,
@@ -965,15 +1028,15 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
             ],
           ),
           const SizedBox(height: 8),
-          if (expenses.isEmpty)
+          if ((kIsWeb ? webVisibleExpenses : expenses).isEmpty)
             const Card(
               child: Padding(
                 padding: EdgeInsets.all(20),
-                child: Text('Hali qo‘lda kiritilgan xarajat yo‘q.'),
+                child: Text('Tanlangan davrda xarajat yo‘q.'),
               ),
             )
           else
-            ...expenses.map(
+            ...(kIsWeb ? webVisibleExpenses : expenses).map(
               (e) {
                 final category = (e['category'] ?? 'other').toString();
                 final date = _expenseDate(e['expense_date']);
@@ -995,39 +1058,44 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                             : 'Admin ilovadan kiritilgan',
                       ].join(' • '),
                     ),
-                    trailing: PopupMenuButton<String>(
-                      tooltip: 'Amallar',
-                      icon: const Icon(Icons.more_vert_rounded),
-                      onSelected: (action) {
-                        if (action == 'edit') {
-                          unawaited(_editExpense(e));
-                        } else if (action == 'delete') {
-                          unawaited(_deleteExpense(e));
-                        }
-                      },
-                      itemBuilder: (context) => const [
-                        PopupMenuItem<String>(
-                          value: 'edit',
-                          child: Row(
-                            children: [
-                              Icon(Icons.edit_outlined),
-                              SizedBox(width: 10),
-                              Text('Tahrirlash'),
+                    trailing: e['_system'] == true
+                        ? const Tooltip(
+                            message: 'Avtomatik hisoblangan',
+                            child: Icon(Icons.auto_awesome_rounded),
+                          )
+                        : PopupMenuButton<String>(
+                            tooltip: 'Amallar',
+                            icon: const Icon(Icons.more_vert_rounded),
+                            onSelected: (action) {
+                              if (action == 'edit') {
+                                unawaited(_editExpense(e));
+                              } else if (action == 'delete') {
+                                unawaited(_deleteExpense(e));
+                              }
+                            },
+                            itemBuilder: (context) => const [
+                              PopupMenuItem<String>(
+                                value: 'edit',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.edit_outlined),
+                                    SizedBox(width: 10),
+                                    Text('Tahrirlash'),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuItem<String>(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.delete_outline_rounded),
+                                    SizedBox(width: 10),
+                                    Text('O‘chirish'),
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
-                        ),
-                        PopupMenuItem<String>(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete_outline_rounded),
-                              SizedBox(width: 10),
-                              Text('O‘chirish'),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                 );
               },

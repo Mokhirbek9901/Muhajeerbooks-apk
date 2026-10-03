@@ -1,0 +1,19 @@
+{
+  "name": "Shaxsiy yordamchi",
+  "short_name": "Yordamchi",
+  "description": "Mohirbek uchun shaxsiy kutubxona va moliya yordamchisi",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f1e9",
+  "theme_color": "#0f3d3e",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

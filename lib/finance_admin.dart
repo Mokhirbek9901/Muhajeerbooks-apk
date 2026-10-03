@@ -704,8 +704,11 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
 
   @override
   Widget build(BuildContext context) {
-    final result = _cashResult;
-    final margin = _double('margin_percent');
+    final result =
+        kIsWeb ? _int('operating_profit') : _cashResult;
+    final margin = kIsWeb
+        ? _double('operating_margin_percent')
+        : _double('margin_percent');
     final grossPostage = _int('postage_expense');
     final coveredPostage = _int('postage_covered_by_customers');
     final storePostage = _int('store_postage_expense');
@@ -730,27 +733,10 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
               cost: _int('cost_of_goods'),
               selectedPeriod: period,
               customPeriodLabel: customPeriodLabel,
-              onToday: () {
+              onPeriodChanged: (value) {
                 setState(() {
-                  period = 'today';
+                  period = value;
                   customPeriodLabel = null;
-                });
-                unawaited(_load());
-              },
-              onMonth: () {
-                setState(() {
-                  period = 'month';
-                  customPeriodLabel = null;
-                });
-                unawaited(_load());
-              },
-              onYear: () {
-                final year = DateTime.now().year < 2026
-                    ? 2026
-                    : DateTime.now().year;
-                setState(() {
-                  period = 'range:$year-01-01:$year-12-31';
-                  customPeriodLabel = '$year — butun yil';
                 });
                 unawaited(_load());
               },
@@ -1066,9 +1052,7 @@ class _WebFinanceDashboard extends StatelessWidget {
     required this.cost,
     required this.selectedPeriod,
     required this.customPeriodLabel,
-    required this.onToday,
-    required this.onMonth,
-    required this.onYear,
+    required this.onPeriodChanged,
     required this.onFilter,
     required this.onAddExpense,
   });
@@ -1079,11 +1063,18 @@ class _WebFinanceDashboard extends StatelessWidget {
   final int cost;
   final String selectedPeriod;
   final String? customPeriodLabel;
-  final VoidCallback onToday;
-  final VoidCallback onMonth;
-  final VoidCallback onYear;
+  final ValueChanged<String> onPeriodChanged;
   final VoidCallback onFilter;
   final VoidCallback onAddExpense;
+
+  static const _filters = <(String, String)>[
+    ('last_month', 'O‘tgan oy'),
+    ('last_week', 'O‘tgan hafta'),
+    ('yesterday', 'Kecha'),
+    ('today', 'Bugun'),
+    ('week', 'Shu hafta'),
+    ('month', 'Shu oy'),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -1094,9 +1085,6 @@ class _WebFinanceDashboard extends StatelessWidget {
       cost.abs(),
       1,
     ].reduce((a, b) => a > b ? a : b);
-
-    final currentYear = DateTime.now().year < 2026 ? 2026 : DateTime.now().year;
-    final yearSelected = selectedPeriod.startsWith('range:$currentYear-01-01');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1145,39 +1133,26 @@ class _WebFinanceDashboard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: [
-            Expanded(
-              child: SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'today', label: Text('Bugun')),
-                  ButtonSegment(value: 'month', label: Text('Oy')),
-                  ButtonSegment(value: 'year', label: Text('Yil')),
-                ],
-                selected: <String>{
-                  selectedPeriod == 'today'
-                      ? 'today'
-                      : yearSelected
-                          ? 'year'
-                          : 'month',
-                },
-                onSelectionChanged: (value) {
-                  final selected = value.first;
-                  if (selected == 'today') {
-                    onToday();
-                  } else if (selected == 'year') {
-                    onYear();
-                  } else {
-                    onMonth();
-                  }
-                },
+            ..._filters.map(
+              (entry) => ChoiceChip(
+                label: Text(entry.$2),
+                selected: selectedPeriod == entry.$1,
+                onSelected: (_) => onPeriodChanged(entry.$1),
               ),
             ),
-            const SizedBox(width: 10),
-            OutlinedButton.icon(
-              onPressed: onFilter,
-              icon: const Icon(Icons.filter_alt_outlined),
-              label: Text(customPeriodLabel ?? 'Filtr'),
+            FilterChip(
+              avatar: const Icon(Icons.filter_alt_outlined, size: 18),
+              label: Text(
+                customPeriodLabel == null
+                    ? 'Filtr'
+                    : 'Filtr: $customPeriodLabel',
+              ),
+              selected: customPeriodLabel != null,
+              onSelected: (_) => onFilter(),
             ),
           ],
         ),
@@ -1205,13 +1180,15 @@ class _WebFinanceDashboard extends StatelessWidget {
                 ),
                 _WebFinanceMetric(
                   width: width,
-                  title: 'Foyda',
+                  title: 'Sof foyda',
                   value: _financeSignedWon(profit),
-                  icon: Icons.trending_up_rounded,
+                  icon: profit >= 0
+                      ? Icons.trending_up_rounded
+                      : Icons.trending_down_rounded,
                 ),
                 _WebFinanceMetric(
                   width: width,
-                  title: 'Tannarx',
+                  title: 'Sotilgan kitob tannarxi',
                   value: _financeWon(cost),
                   icon: Icons.inventory_2_outlined,
                 ),
@@ -1250,7 +1227,7 @@ class _WebFinanceDashboard extends StatelessWidget {
                       value: _financeWon(expenses),
                     ),
                     _WebFinanceBar(
-                      label: 'Foyda',
+                      label: 'Sof foyda',
                       fraction: profit.abs() / maxValue,
                       value: _financeSignedWon(profit),
                     ),

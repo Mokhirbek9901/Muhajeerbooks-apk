@@ -1,1 +1,2 @@
 2026-10-02 latest catalog finance profile stats + TestFlight 1014 distribution
+2026-10-03 safe Railway runtime secret migration

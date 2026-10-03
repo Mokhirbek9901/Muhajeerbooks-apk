@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0f3d3e">
+  <meta name="description" content="Mohirbek uchun shaxsiy kutubxona va moliya yordamchisi">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Yordamchi">
+  <title>Shaxsiy yordamchi</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icon.svg">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">SHAXSIY MAKON</div>
+        <h1 id="topTitle">Salom, Mohirbek</h1>
+        <p id="todayLabel" class="muted"></p>
+      </div>
+      <div class="top-actions">
+        <button id="themeBtn" class="icon-btn" aria-label="Mavzu">◐</button>
+        <button id="installBtn" class="ghost-btn hidden">Ekranga qo‘shish</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="view-dashboard" class="view active">
+        <div class="hero">
+          <div class="hero-copy">
+            <span class="pill">Bugungi nazorat</span>
+            <h2>Kitoblarim va hisob-kitobim — bir joyda.</h2>
+            <p>Mutolaa jarayoni, shaxsiy moliya va kundalik natijalar bitta tartibli tizimda.</p>
+          </div>
+          <div class="hero-badge">
+            <strong id="heroReadingCount">0</strong>
+            <span>o‘qilmoqda</span>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <article class="stat-card">
+            <span class="stat-label">Hozir o‘qiyapman</span>
+            <strong id="statReading">0</strong>
+            <small>faol kitob</small>
+          </article>
+          <article class="stat-card">
+            <span class="stat-label">Tugatdim</span>
+            <strong id="statFinished">0</strong>
+            <small>jami kitob</small>
+          </article>
+          <article class="stat-card">
+            <span class="stat-label">O‘qimoqchiman</span>
+            <strong id="statWishlist">0</strong>
+            <small>navbatda</small>
+          </article>
+          <article class="stat-card">
+            <span class="stat-label">Bu yil</span>
+            <strong id="statYearFinished">0</strong>
+            <small>tugatilgan</small>
+          </article>
+        </div>
+
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">MUTO LAA</span>
+            <h3>Hozir o‘qiyotganlarim</h3>
+          </div>
+          <button class="text-btn" data-go="library">Barchasi →</button>
+        </div>
+        <div id="dashboardReading" class="reading-strip"></div>
+
+        <div class="dashboard-grid">
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <span class="eyebrow">MAQSAD</span>
+                <h3>Yillik mutolaa</h3>
+              </div>
+              <button id="editGoalBtn" class="mini-btn">O‘zgartirish</button>
+            </div>
+            <div class="goal-wrap">
+              <div class="goal-ring" id="goalRing"><span id="goalPercent">0%</span></div>
+              <div>
+                <strong id="goalText">0 / 24 kitob</strong>
+                <p class="muted">Yil yakunigacha maqsad</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <span class="eyebrow">MOLIYA</span>
+                <h3>Shu oy</h3>
+              </div>
+              <button class="text-btn" data-go="finance">Batafsil →</button>
+            </div>
+            <div id="dashboardFinance" class="finance-snapshot"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="view-library" class="view">
+        <div class="page-head">
+          <div>
+            <span class="eyebrow">SHAXSIY KUTUBXONA</span>
+            <h2>Kitoblarim</h2>
+            <p class="muted">Boshlagan va tugatgan sana asosida holat avtomatik aniqlanadi.</p>
+          </div>
+          <button id="addBookBtn" class="primary-btn">+ Kitob qo‘shish</button>
+        </div>
+
+        <div class="toolbar">
+          <label class="search-box">
+            <span>⌕</span>
+            <input id="bookSearch" type="search" placeholder="Kitob yoki muallif qidirish">
+          </label>
+          <select id="bookSort" class="select">
+            <option value="updated">Oxirgi o‘zgargan</option>
+            <option value="title">Nom bo‘yicha</option>
+            <option value="started">Boshlangan sana</option>
+            <option value="finished">Tugatilgan sana</option>
+          </select>
+        </div>
+
+        <div class="segmented" id="bookFilters">
+          <button data-filter="all" class="active">Barchasi <span id="countAll">0</span></button>
+          <button data-filter="reading">O‘qiyapman <span id="countReading">0</span></button>
+          <button data-filter="wishlist">O‘qimoqchiman <span id="countWishlist">0</span></button>
+          <button data-filter="finished">Tugatdim <span id="countFinished">0</span></button>
+        </div>
+
+        <div id="booksGrid" class="books-grid"></div>
+      </section>
+
+      <section id="view-finance" class="view">
+        <div class="page-head">
+          <div>
+            <span class="eyebrow">SHAXSIY MOLIYA</span>
+            <h2>Hisob-kitob</h2>
+            <p class="muted">Won va so‘m alohida hisoblanadi — valyutalar aralashtirilmaydi.</p>
+          </div>
+          <button id="addTxBtn" class="primary-btn">+ Tranzaksiya</button>
+        </div>
+
+        <div class="finance-controls">
+          <div class="segmented compact" id="periodFilters">
+            <button data-period="today">Bugun</button>
+            <button data-period="week">Hafta</button>
+            <button data-period="month" class="active">Oy</button>
+            <button data-period="year">Yil</button>
+            <button data-period="all">Barchasi</button>
+          </div>
+          <div class="currency-toggle" id="currencyToggle">
+            <button data-currency="KRW" class="active">₩ KRW</button>
+            <button data-currency="UZS">so‘m UZS</button>
+          </div>
+        </div>
+
+        <div class="finance-summary">
+          <article class="money-card income">
+            <span>Kirim</span>
+            <strong id="finIncome">₩0</strong>
+          </article>
+          <article class="money-card expense">
+            <span>Chiqim</span>
+            <strong id="finExpense">₩0</strong>
+          </article>
+          <article class="money-card net">
+            <span>Qoldiq</span>
+            <strong id="finNet">₩0</strong>
+          </article>
+        </div>
+
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">TAHLIL</span>
+              <h3>Kategoriyalar</h3>
+            </div>
+          </div>
+          <div id="categoryBreakdown" class="category-bars"></div>
+        </article>
+
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">TARIX</span>
+            <h3>Tranzaksiyalar</h3>
+          </div>
+        </div>
+        <div id="txList" class="tx-list"></div>
+      </section>
+
+      <section id="view-settings" class="view">
+        <div class="page-head">
+          <div>
+            <span class="eyebrow">SOZLAMALAR</span>
+            <h2>Mening makonim</h2>
+            <p class="muted">Ilova ma’lumotlari faqat shu qurilmada saqlanadi.</p>
+          </div>
+        </div>
+
+        <div class="settings-grid">
+          <article class="panel">
+            <div class="setting-row">
+              <div>
+                <h3>Ism</h3>
+                <p class="muted">Dashboarddagi salomlashuv uchun</p>
+              </div>
+              <input id="profileName" class="small-input" value="Mohirbek">
+            </div>
+            <div class="setting-row">
+              <div>
+                <h3>Yillik kitob maqsadi</h3>
+                <p class="muted">Har yili nechta kitob tugatmoqchisiz</p>
+              </div>
+              <input id="yearGoal" class="small-input" type="number" min="1" max="500" value="24">
+            </div>
+            <button id="saveSettingsBtn" class="primary-btn full">Saqlash</button>
+          </article>
+
+          <article class="panel">
+            <span class="eyebrow">BACKUP</span>
+            <h3>Ma’lumotlarni himoyalash</h3>
+            <p class="muted">Kitoblar va moliya ma’lumotlarini JSON faylga saqlab qo‘ying yoki qayta tiklang.</p>
+            <div class="button-row">
+              <button id="exportBtn" class="secondary-btn">Backup olish</button>
+              <label class="secondary-btn file-btn">Backup tiklash<input id="importInput" type="file" accept="application/json"></label>
+            </div>
+          </article>
+
+          <article class="panel danger-panel">
+            <span class="eyebrow">XAVFLI AMAL</span>
+            <h3>Barcha ma’lumotlarni tozalash</h3>
+            <p class="muted">Bu amal qaytarib bo‘lmaydi. Avval backup olish tavsiya qilinadi.</p>
+            <button id="clearAllBtn" class="danger-btn">Hammasini o‘chirish</button>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav">
+      <button data-view="dashboard" class="active"><span>⌂</span><small>Bosh sahifa</small></button>
+      <button data-view="library"><span>▤</span><small>Kitoblar</small></button>
+      <button data-view="finance"><span>₩</span><small>Moliya</small></button>
+      <button data-view="settings"><span>◉</span><small>Sozlamalar</small></button>
+    </nav>
+  </div>
+
+  <dialog id="bookDialog" class="modal">
+    <form id="bookForm" method="dialog">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">KITOB</span>
+          <h3 id="bookDialogTitle">Kitob qo‘shish</h3>
+        </div>
+        <button type="button" class="icon-btn close-dialog" data-close="bookDialog">×</button>
+      </div>
+      <input id="bookId" type="hidden">
+      <div class="form-grid">
+        <label class="field wide"><span>Kitob nomi *</span><input id="bookTitle" required maxlength="120"></label>
+        <label class="field wide"><span>Muallif</span><input id="bookAuthor" maxlength="100"></label>
+        <label class="field wide"><span>Muqova rasmi URL</span><input id="bookCover" type="url" placeholder="https://..."></label>
+        <label class="field"><span>Jami sahifa</span><input id="bookPages" type="number" min="1"></label>
+        <label class="field"><span>Hozirgi sahifa</span><input id="bookCurrentPage" type="number" min="0"></label>
+        <label class="field"><span>Mutolaa boshlangan sana</span><input id="bookStartedAt" type="date"></label>
+        <label class="field"><span>Tugatilgan sana</span><input id="bookFinishedAt" type="date"></label>
+        <label class="field"><span>Baho</span>
+          <select id="bookRating">
+            <option value="0">Baholanmagan</option>
+            <option value="1">1 / 5</option>
+            <option value="2">2 / 5</option>
+            <option value="3">3 / 5</option>
+            <option value="4">4 / 5</option>
+            <option value="5">5 / 5</option>
+          </select>
+        </label>
+        <div class="field status-preview-field"><span>Avtomatik holat</span><div id="bookStatusPreview" class="status-badge wishlist">O‘qimoqchiman</div></div>
+        <label class="field wide"><span>Qaydlar / taassurot</span><textarea id="bookNotes" rows="4" maxlength="1000"></textarea></label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="secondary-btn close-dialog" data-close="bookDialog">Bekor qilish</button>
+        <button type="submit" class="primary-btn">Saqlash</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="txDialog" class="modal">
+    <form id="txForm" method="dialog">
+      <div class="modal-head">
+        <div><span class="eyebrow">MOLIYA</span><h3 id="txDialogTitle">Tranzaksiya qo‘shish</h3></div>
+        <button type="button" class="icon-btn close-dialog" data-close="txDialog">×</button>
+      </div>
+      <input id="txId" type="hidden">
+      <div class="form-grid">
+        <label class="field"><span>Turi *</span>
+          <select id="txType" required><option value="expense">Chiqim</option><option value="income">Kirim</option></select>
+        </label>
+        <label class="field"><span>Valyuta *</span>
+          <select id="txCurrency" required><option value="KRW">KRW (₩)</option><option value="UZS">UZS (so‘m)</option></select>
+        </label>
+        <label class="field"><span>Summa *</span><input id="txAmount" type="number" min="0" step="1" required></label>
+        <label class="field"><span>Sana *</span><input id="txDate" type="date" required></label>
+        <label class="field wide"><span>Kategoriya</span><input id="txCategory" list="categoryOptions" maxlength="60" placeholder="Masalan: Oziq-ovqat"></label>
+        <datalist id="categoryOptions">
+          <option value="Maosh"><option value="Biznes"><option value="Oziq-ovqat"><option value="Transport">
+          <option value="Uy"><option value="Sog‘liq"><option value="Ta’lim"><option value="Kitob"><option value="Boshqa">
+        </datalist>
+        <label class="field wide"><span>Izoh</span><textarea id="txNote" rows="3" maxlength="500"></textarea></label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="secondary-btn close-dialog" data-close="txDialog">Bekor qilish</button>
+        <button type="submit" class="primary-btn">Saqlash</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast"></div>
+  <script src="./app.js"></script>
+</body>
+</html>

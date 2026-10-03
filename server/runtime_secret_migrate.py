@@ -6,8 +6,12 @@ import urllib.request
 
 
 def main():
-    supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
-    anon_key = os.getenv("SUPABASE_ANON_KEY", "").strip()
+    supabase_url = os.getenv(
+        "SUPABASE_URL", "https://rytfhjvhjxnbhgitowho.supabase.co"
+    ).rstrip("/")
+    anon_key = os.getenv(
+        "SUPABASE_ANON_KEY", "sb_publishable_5lDr_sw4bu8g3x8LCVzp4g_sHSTMBiO"
+    ).strip()
     event_secret = os.getenv("ORDER_PUSH_SECRET", "").strip()
 
     if not supabase_url or not anon_key or not event_secret:

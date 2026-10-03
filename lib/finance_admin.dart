@@ -810,6 +810,14 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
               expenses: webExpenseTotal,
               profit: result,
               cost: _int('cost_of_goods'),
+              booksRevenue: webBooksRevenue,
+              packaging: webBreakdownInt('packaging'),
+              ads: webBreakdownInt('ads'),
+              transport: webBreakdownInt('transport'),
+              storePostage: storePostage,
+              other: webBreakdownInt('other'),
+              profitCostTotal: webProfitCostTotal,
+              periodMargin: webPeriodMargin,
               selectedPeriod: period,
               customPeriodLabel: customPeriodLabel,
               onPeriodChanged: (value) {
@@ -1028,21 +1036,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                 ),
               ),
             ),
-            if (kIsWeb) ...[
-              const SizedBox(height: 14),
-              _WebPeriodBusinessResult(
-                booksRevenue: webBooksRevenue,
-                soldCost: _int('cost_of_goods'),
-                packaging: webBreakdownInt('packaging'),
-                ads: webBreakdownInt('ads'),
-                transport: webBreakdownInt('transport'),
-                storePostage: storePostage,
-                other: webBreakdownInt('other'),
-                totalCost: webProfitCostTotal,
-                result: webPeriodResult,
-                margin: webPeriodMargin,
-              ),
-            ],
+
           ],
           const SizedBox(height: 22),
           Row(
@@ -1138,7 +1132,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
             child: Padding(
               padding: EdgeInsets.all(16),
               child: Text(
-                'Hisob formulasi: KITOB SAVDOSI − YANGI PARTIYA KITOBLAR − DO‘KON HISOBIDAN POCHTA − BOSHQA XARAJATLAR. Xarajatlar Bugun, Shu hafta va Shu oy bo‘limlarida kiritilgan vaqtga emas, tanlangan xarajat sanasiga qarab hisoblanadi. Mijoz yetkazish uchun to‘lagan pul foyda sifatida qo‘shilmaydi.',
+                'Hisob formulasi: KITOB SAVDOSI − SOTILGAN KITOB TANNARXI − QADOQLASH − REKLAMA − TRANSPORT − DO‘KON HISOBIDAN POCHTA − BOSHQA XARAJATLAR. Xarajatlar tanlangan davr va xarajat sanasi bo‘yicha hisoblanadi. Yangi partiya xaridi qayta ayirilmaydi, chunki sotilgan qismining tannarxi alohida hisobda allaqachon bor.',
                 style: TextStyle(color: AppColors.muted, height: 1.45),
               ),
             ),
@@ -1352,6 +1346,14 @@ class _WebFinanceDashboard extends StatelessWidget {
     required this.expenses,
     required this.profit,
     required this.cost,
+    required this.booksRevenue,
+    required this.packaging,
+    required this.ads,
+    required this.transport,
+    required this.storePostage,
+    required this.other,
+    required this.profitCostTotal,
+    required this.periodMargin,
     required this.selectedPeriod,
     required this.customPeriodLabel,
     required this.onPeriodChanged,
@@ -1363,6 +1365,14 @@ class _WebFinanceDashboard extends StatelessWidget {
   final int expenses;
   final int profit;
   final int cost;
+  final int booksRevenue;
+  final int packaging;
+  final int ads;
+  final int transport;
+  final int storePostage;
+  final int other;
+  final int profitCostTotal;
+  final double periodMargin;
   final String selectedPeriod;
   final String? customPeriodLabel;
   final ValueChanged<String> onPeriodChanged;
@@ -1497,6 +1507,19 @@ class _WebFinanceDashboard extends StatelessWidget {
               ],
             );
           },
+        ),
+        const SizedBox(height: 16),
+        _WebPeriodBusinessResult(
+          booksRevenue: booksRevenue,
+          soldCost: cost,
+          packaging: packaging,
+          ads: ads,
+          transport: transport,
+          storePostage: storePostage,
+          other: other,
+          totalCost: profitCostTotal,
+          result: profit,
+          margin: periodMargin,
         ),
         const SizedBox(height: 16),
         AppSurface(

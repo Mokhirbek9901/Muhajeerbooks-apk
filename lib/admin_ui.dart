@@ -1935,14 +1935,33 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                     .length,
                 totalStock: totalStock,
                 onRefresh: reload,
-                onOpenTab: widget.onOpenTab,
-                onOpenMerchandising: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => _MerchandisingAdminPage(api: widget.api),
+              ),
+              const SizedBox(height: 18),
+              Card(
+                clipBehavior: Clip.antiAlias,
+                child: ListTile(
+                  minTileHeight: 78,
+                  leading: const Icon(
+                    Icons.auto_awesome_rounded,
+                    color: AppColors.success,
+                    size: 30,
+                  ),
+                  title: const Text(
+                    'Savdo imkoniyatlari',
+                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
+                  ),
+                  subtitle: const Text(
+                    'Xabarlar • kutayotganlar • oldindan sotuv • chegirma • savdo tahlili',
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => _MerchandisingAdminPage(api: widget.api),
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
             ] else ...[
               AppPageHeading(
                 title: 'Boshqaruv markazi',
@@ -2962,8 +2981,6 @@ class _WebAdminDashboardHeader extends StatelessWidget {
     required this.customerCount,
     required this.totalStock,
     required this.onRefresh,
-    required this.onOpenTab,
-    required this.onOpenMerchandising,
   });
 
   final int todayRevenue;
@@ -2971,22 +2988,9 @@ class _WebAdminDashboardHeader extends StatelessWidget {
   final int customerCount;
   final int totalStock;
   final VoidCallback onRefresh;
-  final ValueChanged<int>? onOpenTab;
-  final VoidCallback onOpenMerchandising;
 
   @override
   Widget build(BuildContext context) {
-    final actions = <({IconData icon, String label, int? tab, VoidCallback? onTap})>[
-      (icon: Icons.receipt_long_rounded, label: 'Buyurtmalar', tab: 3, onTap: null),
-      (icon: Icons.menu_book_rounded, label: 'Kitoblar', tab: 1, onTap: null),
-      (icon: Icons.inventory_2_rounded, label: 'Ombor', tab: 2, onTap: null),
-      (icon: Icons.account_balance_wallet_rounded, label: 'Moliya', tab: 6, onTap: null),
-      (icon: Icons.people_alt_rounded, label: 'Mijozlar', tab: 5, onTap: null),
-      (icon: Icons.sell_rounded, label: 'Sotilgan', tab: 4, onTap: null),
-      (icon: Icons.auto_awesome_rounded, label: 'Admin AI', tab: 7, onTap: null),
-      (icon: Icons.campaign_rounded, label: 'Savdo imkoniyatlari', tab: null, onTap: onOpenMerchandising),
-    ];
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3077,77 +3081,6 @@ class _WebAdminDashboardHeader extends StatelessWidget {
                   value: '$totalStock ta',
                 ),
               ],
-            );
-          },
-        ),
-        const SizedBox(height: 20),
-        const Text(
-          'Asosiy bo‘limlar',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-            color: AppColors.navy,
-          ),
-        ),
-        const SizedBox(height: 10),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final columns = constraints.maxWidth >= 900 ? 4 : 2;
-            final width =
-                (constraints.maxWidth - ((columns - 1) * 12)) / columns;
-            return Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: actions.map((item) {
-                return SizedBox(
-                  width: width,
-                  child: Material(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(18),
-                      onTap: item.onTap ??
-                          (item.tab == null || onOpenTab == null
-                              ? null
-                              : () => onOpenTab!(item.tab!)),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 18,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceSoft,
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Icon(
-                                item.icon,
-                                color: AppColors.navy,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              item.label,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
             );
           },
         ),

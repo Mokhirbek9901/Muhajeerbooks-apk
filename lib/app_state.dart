@@ -39,6 +39,22 @@ String normalizePublisher(String value) {
 
 String publisherKey(String value) => normalizePublisher(value).toLowerCase();
 
+const MethodChannel _deviceAnalyticsChannel =
+    MethodChannel('muhajeer/device_analytics');
+
+Future<bool> _runningInFirebaseTestLab() async {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return false;
+  try {
+    return await _deviceAnalyticsChannel.invokeMethod<bool>(
+          'isFirebaseTestLab',
+        ) ==
+        true;
+  } catch (_) {
+    // Analytics detection must never block the storefront.
+    return false;
+  }
+}
+
 String _newOrderUuid() {
   final bytes=List<int>.generate(16,(_)=>Random.secure().nextInt(256));
   bytes[6]=(bytes[6]&0x0f)|0x40;
@@ -1355,6 +1371,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> _registerInstallation() async {
     try {
+      // Google Play Pre-launch Report Firebase Test Lab qurilmalarida
+      // analytics install yaratmaymiz. Aks holda avtomatik Robo testlar
+      // haqiqiy mijoz/qurilma sifatida sanalib ketadi.
+      if (await _runningInFirebaseTestLab()) return;
+
       final id = await _local.installId();
       const playStoreBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
       const appStoreBuild = bool.fromEnvironment('APP_STORE_BUILD');

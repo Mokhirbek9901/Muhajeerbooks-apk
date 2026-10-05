@@ -8191,8 +8191,8 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
             if(snap.hasError)return Center(child:Padding(padding:const EdgeInsets.all(24),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.error_outline_rounded,size:38),const SizedBox(height:10),const Text('Qurilmalar ma’lumotini yuklab bo‘lmadi.',textAlign:TextAlign.center),const SizedBox(height:12),FilledButton(onPressed:()=>Navigator.pop(sheetContext),child:const Text('Yopish'))])));
             final d=snap.data??const <String,dynamic>{};
             final total=d['total']??0;
-            final android=d['android']??0;
-            final androidApk=d['android_apk']??0;
+            final android=d['android_total']??d['android']??0;
+            final androidApk=d['android_apk']??d['android']??0;
             final iphone=d['ios']??d['iphone']??0;
             final playMarket=d['play_market']??d['play_store']??0;
             final appStore=d['app_store']??0;

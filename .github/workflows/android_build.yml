@@ -1,4 +1,5 @@
 name: Unified Web + Android APK
+# analytics testlab guard trigger 2026-10-05
 # release trigger: catalog-sort-finance-year 2026-10-02
 
 on:

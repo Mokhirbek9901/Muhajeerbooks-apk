@@ -8202,7 +8202,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                 children:[
                   Column(children:[Text('$total',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Jami qurilma')]),
                   Column(children:[Text('$android',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Android')]),
-                  Column(children:[Text('$iphone',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('iPhone')]),
+                  Column(children:[Text('$iphone',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('iOS / iPadOS')]),
                   Column(children:[Text('$playMarket',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Play Market')]),
                   Column(children:[Text('$appStore',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('App Store')]),
                 ],
@@ -8265,7 +8265,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                         children: [
                           metric('Android', android, Icons.android_rounded, onTap: showDevices),
                           const SizedBox(width: 10),
-                          metric('iPhone', ios, Icons.phone_iphone_rounded, onTap: showDevices),
+                          metric('iOS / iPadOS', ios, Icons.phone_iphone_rounded, onTap: showDevices),
                         ],
                       ),
                       const SizedBox(height: 10),

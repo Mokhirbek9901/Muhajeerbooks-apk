@@ -4,6 +4,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:image_picker/image_picker.dart';
@@ -887,11 +888,15 @@ class _LocalStore {
   static const _customerAddressKey = 'muhajeer_customer_address';
   static const _customerVerifiedKey = 'muhajeer_customer_verified_v1';
   static const _installIdKey = 'muhajeer_install_id_v1';
+  static const _secureInstallIdKey = 'muhajeer_install_id_secure_v2';
   static const _restockSubscriptionsKey = 'muhajeer_restock_subscriptions_v1';
   static const _recentlyViewedKey = 'muhajeer_recently_viewed_v1';
   static const _catalogCursorKey = 'muhajeer_catalog_cursor_v1';
 
   final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
 
   Future<List<Book>> loadBooks() async {
     final raw = (await _prefs).getString(_booksKey);
@@ -1013,10 +1018,51 @@ class _LocalStore {
 
   Future<String> installId() async {
     final prefs = await _prefs;
+
+    // Native ilovalarda install ID'ni secure storage'da saqlaymiz.
+    // iOS Keychain odatda app update/reinstall orasida ham saqlanadi, shuning
+    // uchun bitta iPhone/iPad qayta o'rnatilganda yangi "qurilma" bo'lib
+    // statistika sonini oshirib yubormaydi. Web esa SharedPreferences'da qoladi.
+    if (!kIsWeb) {
+      try {
+        final secureExisting =
+            await _secureStorage.read(key: _secureInstallIdKey);
+        if (secureExisting != null && secureExisting.length >= 12) {
+          if (prefs.getString(_installIdKey) != secureExisting) {
+            await prefs.setString(_installIdKey, secureExisting);
+          }
+          return secureExisting;
+        }
+
+        // Eski versiyadagi ID mavjud bo'lsa, uni yangi secure storage'ga
+        // ko'chiramiz. Shu qurilma statistikada yangi yozuv bo'lib ketmaydi.
+        final legacyExisting = prefs.getString(_installIdKey);
+        if (legacyExisting != null && legacyExisting.length >= 12) {
+          await _secureStorage.write(
+            key: _secureInstallIdKey,
+            value: legacyExisting,
+          );
+          return legacyExisting;
+        }
+
+        final generated =
+            'mb-${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 31)}';
+        await _secureStorage.write(
+          key: _secureInstallIdKey,
+          value: generated,
+        );
+        await prefs.setString(_installIdKey, generated);
+        return generated;
+      } catch (_) {
+        // Secure storage vaqtincha ishlamasa analytics asosiy ilovani
+        // bloklamaydi; mavjud SharedPreferences ID bilan davom etamiz.
+      }
+    }
+
     final existing = prefs.getString(_installIdKey);
     if (existing != null && existing.length >= 12) return existing;
     final generated =
-        'mb-${DateTime.now().microsecondsSinceEpoch}-${identityHashCode(prefs).abs()}';
+        'mb-${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 31)}';
     await prefs.setString(_installIdKey, generated);
     return generated;
   }

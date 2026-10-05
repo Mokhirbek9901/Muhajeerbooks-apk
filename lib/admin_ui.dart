@@ -8192,22 +8192,26 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
             final d=snap.data??const <String,dynamic>{};
             final total=d['total']??0;
             final android=d['android']??0;
+            final androidApk=d['android_apk']??0;
             final iphone=d['ios']??d['iphone']??0;
             final playMarket=d['play_market']??d['play_store']??0;
             final appStore=d['app_store']??0;
+            final web=d['web_unknown']??0;
             return Column(children:[
               Padding(padding:const EdgeInsets.fromLTRB(16,4,10,10),child:Row(children:[const Expanded(child:Text('Kirish manbalari',style:TextStyle(fontSize:19,fontWeight:FontWeight.w900))),IconButton(onPressed:()=>Navigator.pop(sheetContext),icon:const Icon(Icons.close_rounded))])),
               Padding(padding:const EdgeInsets.all(16),child:AppSurface(padding:const EdgeInsets.all(18),child:Wrap(
                 spacing:24,runSpacing:18,alignment:WrapAlignment.center,
                 children:[
-                  Column(children:[Text('$total',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Jami qurilma')]),
-                  Column(children:[Text('$android',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Android')]),
+                  Column(children:[Text('$total',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Jami ilova qurilma')]),
+                  Column(children:[Text('$android',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Android jami')]),
                   Column(children:[Text('$iphone',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('iOS / iPadOS')]),
+                  Column(children:[Text('$androidApk',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Android APK')]),
                   Column(children:[Text('$playMarket',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Play Market')]),
                   Column(children:[Text('$appStore',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('App Store')]),
+                  Column(children:[Text('$web',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Web brauzer')]),
                 ],
               ))),
-              const Padding(padding:EdgeInsets.all(20),child:Text('Qurilmalar va rasmiy do‘kon orqali o‘rnatilgan ilovalar alohida hisoblanadi.',textAlign:TextAlign.center,style:TextStyle(color:AppColors.muted)))
+              const Padding(padding:EdgeInsets.all(20),child:Text('Jami ilova qurilma Web brauzerlarni o‘z ichiga olmaydi. Play Market Android jami ichida, App Store esa iOS/iPadOS ichida ko‘rsatiladi.',textAlign:TextAlign.center,style:TextStyle(color:AppColors.muted)))
             ]);
           }))));}
 
@@ -8255,7 +8259,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                 future: _deviceFuture ??= widget.api.deviceAnalytics().timeout(const Duration(seconds: 8)),
                 builder: (context, deviceSnap) {
                   final d = deviceSnap.data ?? const <String, dynamic>{};
-                  final android = d['android'] ?? 0;
+                  final androidApk = d['android_apk'] ?? 0;
                   final ios = d['ios'] ?? 0;
                   final playMarket = d['play_market'] ?? d['play_store'] ?? 0;
                   final web = d['web_unknown'] ?? 0;
@@ -8263,7 +8267,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                     children: [
                       Row(
                         children: [
-                          metric('Android', android, Icons.android_rounded, onTap: showDevices),
+                          metric('Android APK', androidApk, Icons.android_rounded, onTap: showDevices),
                           const SizedBox(width: 10),
                           metric('iOS / iPadOS', ios, Icons.phone_iphone_rounded, onTap: showDevices),
                         ],
@@ -8273,7 +8277,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                         children: [
                           metric('Play Market', playMarket, Icons.shop_rounded, onTap: showDevices),
                           const SizedBox(width: 10),
-                          metric('Web orqali', web, Icons.language_rounded, onTap: showDevices),
+                          metric('Web brauzer', web, Icons.language_rounded, onTap: showDevices),
                         ],
                       ),
                     ],

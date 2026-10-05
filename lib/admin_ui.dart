@@ -8202,7 +8202,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
               Padding(padding:const EdgeInsets.all(16),child:AppSurface(padding:const EdgeInsets.all(18),child:Wrap(
                 spacing:24,runSpacing:18,alignment:WrapAlignment.center,
                 children:[
-                  Column(children:[Text('$total',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Jami ilova qurilma')]),
+                  Column(children:[Text('$total',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Jami qurilma')]),
                   Column(children:[Text('$android',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Android jami')]),
                   Column(children:[Text('$iphone',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('iOS / iPadOS')]),
                   Column(children:[Text('$androidApk',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Android APK')]),
@@ -8211,7 +8211,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                   Column(children:[Text('$web',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Web brauzer')]),
                 ],
               ))),
-              const Padding(padding:EdgeInsets.all(20),child:Text('Jami ilova qurilma Web brauzerlarni o‘z ichiga olmaydi. Play Market Android jami ichida, App Store esa iOS/iPadOS ichida ko‘rsatiladi.',textAlign:TextAlign.center,style:TextStyle(color:AppColors.muted)))
+              const Padding(padding:EdgeInsets.all(20),child:Text('Jami qurilma Web brauzerlarni o‘z ichiga olmaydi. Play Market Android jami ichida, App Store esa iOS/iPadOS ichida ko‘rsatiladi.',textAlign:TextAlign.center,style:TextStyle(color:AppColors.muted)))
             ]);
           }))));}
 

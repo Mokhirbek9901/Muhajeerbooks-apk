@@ -4157,30 +4157,39 @@ class BookDetailPage extends StatelessWidget {
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 1050),
-                child: desktop
-                    ? (kIsWeb
-                        ? AppSurface(
-                            padding: const EdgeInsets.all(24),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                cover,
-                                const SizedBox(width: 34),
-                                Expanded(child: info),
-                              ],
-                            ),
-                          )
-                        : Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              cover,
-                              const SizedBox(width: 34),
-                              Expanded(child: info),
-                            ],
-                          ))
-                    : Column(
-                        children: [cover, const SizedBox(height: 26), info],
-                      ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    desktop
+                        ? (kIsWeb
+                            ? AppSurface(
+                                padding: const EdgeInsets.all(24),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    cover,
+                                    const SizedBox(width: 34),
+                                    Expanded(child: info),
+                                  ],
+                                ),
+                              )
+                            : Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  cover,
+                                  const SizedBox(width: 34),
+                                  Expanded(child: info),
+                                ],
+                              ))
+                        : Column(
+                            children: [cover, const SizedBox(height: 26), info],
+                          ),
+                    if (kIsWeb) ...[
+                      const SizedBox(height: 22),
+                      _WebBookReviews(book: b),
+                    ],
+                  ],
+                ),
               ),
             ),
           );
@@ -4353,6 +4362,274 @@ class BookDetailPage extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _WebBookReviews extends StatefulWidget {
+  const _WebBookReviews({required this.book});
+  final Book book;
+
+  @override
+  State<_WebBookReviews> createState() => _WebBookReviewsState();
+}
+
+class _WebBookReviewsState extends State<_WebBookReviews> {
+  late Future<List<BookReview>> future;
+
+  @override
+  void initState() {
+    super.initState();
+    future = context.read<AppState>().bookReviews(widget.book.id);
+  }
+
+  void _reload() {
+    if (!mounted) return;
+    setState(() => future = context.read<AppState>().bookReviews(widget.book.id));
+  }
+
+  Future<void> _writeReview() async {
+    final state = context.read<AppState>();
+    final phone = (state.savedCustomer['phone'] ?? '').trim();
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Avval Mening bo‘limida telefon raqamingizni saqlang.')),
+      );
+      return;
+    }
+
+    final orders = await state.customerOrdersByPhone(phone);
+    ShopOrder? verifiedOrder;
+    for (final order in orders) {
+      if (!const {'accepted', 'paid', 'shipping'}.contains(order.status)) continue;
+      final hasBook = order.items.any(
+        (item) => (item['book_id'] ?? item['id'] ?? '').toString() == widget.book.id,
+      );
+      if (hasBook) {
+        verifiedOrder = order;
+        break;
+      }
+    }
+
+    if (!mounted) return;
+    if (verifiedOrder == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sharhni faqat shu kitobni sotib olgan mijoz qoldira oladi.'),
+        ),
+      );
+      return;
+    }
+
+    final comment = TextEditingController();
+    var rating = 5;
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Text(widget.book.title),
+          content: SizedBox(
+            width: 460,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Kitobga baho bering',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    5,
+                    (index) => IconButton(
+                      tooltip: '${index + 1} yulduz',
+                      onPressed: () => setDialogState(() => rating = index + 1),
+                      icon: Icon(
+                        index < rating ? Icons.star_rounded : Icons.star_border_rounded,
+                        color: const Color(0xFFF59E0B),
+                        size: 31,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: comment,
+                  maxLines: 4,
+                  maxLength: 600,
+                  decoration: const InputDecoration(
+                    labelText: 'Sharhingiz',
+                    hintText: 'Kitob sizga qanday taassurot qoldirdi?',
+                    alignLabelWithHint: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Bekor qilish'),
+            ),
+            FilledButton.icon(
+              onPressed: () {
+                if (comment.text.trim().length < 2) return;
+                Navigator.pop(dialogContext, true);
+              },
+              icon: const Icon(Icons.send_rounded),
+              label: const Text('Yuborish'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (submitted != true || !mounted) {
+      comment.dispose();
+      return;
+    }
+
+    try {
+      await state.submitBookReview(
+        orderId: verifiedOrder.id,
+        phone: phone,
+        bookId: widget.book.id,
+        rating: rating,
+        comment: comment.text,
+      );
+      if (!mounted) return;
+      _reload();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sharhingiz saqlandi ✅')),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sharh saqlanmadi: $e')),
+        );
+      }
+    } finally {
+      comment.dispose();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<BookReview>>(
+      future: future,
+      builder: (context, snapshot) {
+        final reviews = snapshot.data ?? const <BookReview>[];
+        final average = reviews.isEmpty
+            ? 0.0
+            : reviews.fold<int>(0, (sum, item) => sum + item.rating) / reviews.length;
+        return AppSurface(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Kitob bahosi va sharhlar',
+                      style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: _writeReview,
+                    icon: const Icon(Icons.rate_review_outlined),
+                    label: const Text('Sharh qoldirish'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (reviews.isEmpty && snapshot.connectionState == ConnectionState.waiting)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(18),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              else if (reviews.isEmpty)
+                const Text(
+                  'Hali sharh yo‘q. Ushbu kitobni sotib olgan mijoz birinchi bo‘lib baho qoldirishi mumkin.',
+                  style: TextStyle(color: AppColors.muted, height: 1.45),
+                )
+              else ...[
+                Row(
+                  children: [
+                    Text(
+                      average.toStringAsFixed(1),
+                      style: const TextStyle(
+                        fontSize: 36,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.navy,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 30),
+                    const SizedBox(width: 10),
+                    Text(
+                      '${reviews.length} ta baho',
+                      style: const TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ),
+                const Divider(height: 26),
+                ...reviews.take(12).map(
+                  (review) => Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceSoft,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  review.reviewerName,
+                                  style: const TextStyle(fontWeight: FontWeight.w900),
+                                ),
+                              ),
+                              const AppInfoPill(
+                                icon: Icons.verified_rounded,
+                                label: 'Tasdiqlangan xaridor',
+                                foreground: AppColors.success,
+                                background: AppColors.successSoft,
+                                border: Color(0xFFCDEAD7),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 7),
+                          Row(
+                            children: List.generate(
+                              5,
+                              (index) => Icon(
+                                index < review.rating ? Icons.star_rounded : Icons.star_border_rounded,
+                                size: 18,
+                                color: const Color(0xFFF59E0B),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 7),
+                          Text(review.comment, style: const TextStyle(height: 1.45)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -20,6 +20,7 @@ import 'book_share_platform.dart';
 import 'catalog_resume.dart';
 import 'book_image_viewer.dart';
 import 'design_system.dart';
+import 'professional_access.dart';
 import 'uzbek_customer_style.dart';
 
 const _navy = UzbekCustomerColors.navy;
@@ -5244,8 +5245,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
       setState(() => professionalMode = false);
       return;
     }
+
     final controller = TextEditingController();
-    final ok = await showDialog<bool>(
+    final enteredCode = await showDialog<String?>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Professional buyurtma'),
@@ -5254,15 +5256,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
           autofocus: true,
           obscureText: true,
           keyboardType: TextInputType.number,
-          maxLength: 4,
+          maxLength: 12,
           inputFormatters: [
             FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(4),
+            LengthLimitingTextInputFormatter(12),
           ],
-          onSubmitted: (_) => Navigator.pop(
-            dialogContext,
-            controller.text.trim() == '6494',
-          ),
+          onSubmitted: (_) =>
+              Navigator.pop(dialogContext, controller.text.trim()),
           decoration: const InputDecoration(
             labelText: 'Kirish kodi',
             prefixIcon: Icon(Icons.admin_panel_settings_outlined),
@@ -5270,22 +5270,36 @@ class _CheckoutPageState extends State<CheckoutPage> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Bekor qilish'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(
-              dialogContext,
-              controller.text.trim() == '6494',
-            ),
+            onPressed: () =>
+                Navigator.pop(dialogContext, controller.text.trim()),
             child: const Text('Kirish'),
           ),
         ],
       ),
     );
     controller.dispose();
+    if (!mounted || enteredCode == null || enteredCode.isEmpty) return;
+
+    var ok = false;
+    try {
+      ok = await verifyProfessionalAccess(enteredCode);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Kirishni tekshirib bo‘lmadi. Internetni tekshiring.'),
+          ),
+        );
+      }
+      return;
+    }
+
     if (!mounted) return;
-    if (ok == true) {
+    if (ok) {
       setState(() {
         professionalMode = true;
         paymentDone = false;

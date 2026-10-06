@@ -1825,6 +1825,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           'status': 'push',
           'title': (row['title'] ?? 'Muhajeer Books').toString(),
           'message': (row['body'] ?? '').toString(),
+          'kind': (row['kind'] ?? '').toString(),
+          'order_number': row['order_number'],
           'created_at':
               (row['sent_at'] ?? DateTime.now().toIso8601String()).toString(),
           'read': false,

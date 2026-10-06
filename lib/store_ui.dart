@@ -6056,14 +6056,14 @@ class ProfilePage extends StatelessWidget {
         title: const Text('Profil'),
         actions: [
           IconButton(
-            tooltip: 'Profil ma’lumotlarini tozalash',
+            tooltip: 'Akkaunt va ma’lumotlarni o‘chirish',
             onPressed: () async {
               final shouldClear = await showDialog<bool>(
                 context: context,
                 builder: (dialogContext) => AlertDialog(
-                  title: const Text('Profil ma’lumotlarini tozalash'),
+                  title: const Text('Akkauntni o‘chirish'),
                   content: const Text(
-                    'Saqlangan ism, telefon va manzil shu qurilmadan o‘chiriladi. Do‘kondan foydalanishda davom etasiz.',
+                    'Akkaunt profili, saqlangan ism, telefon va manzil ushbu qurilmadan o‘chiriladi. Buyurtma tarixi buyurtmani yetkazish va hisob yuritish uchun saqlanishi mumkin.',
                   ),
                   actions: [
                     TextButton(
@@ -6072,7 +6072,7 @@ class ProfilePage extends StatelessWidget {
                     ),
                     FilledButton(
                       onPressed: () => Navigator.pop(dialogContext, true),
-                      child: const Text('Tozalash'),
+                      child: const Text('Akkauntni o‘chirish'),
                     ),
                   ],
                 ),
@@ -6081,7 +6081,7 @@ class ProfilePage extends StatelessWidget {
               await context.read<AppState>().signOutCustomer();
               if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Profil ma’lumotlari tozalandi.')),
+                const SnackBar(content: Text('Akkaunt va profil ma’lumotlari o‘chirildi.')),
               );
             },
             icon: const Icon(Icons.person_remove_alt_1_outlined),

@@ -2342,7 +2342,6 @@ class _WebSearchAssist extends StatelessWidget {
               ),
             ),
           ],
-          ),
         ],
       ),
     );

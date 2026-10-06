@@ -4,11 +4,13 @@ const url = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const db = createClient(url, serviceKey, { auth: { persistSession: false } });
 
-const origins = new Set(["https://muhajeer-books-live-production.up.railway.app"]);
+const origins = new Set(["https://muhajeer-books-live-production.up.railway.app","https://muhajeer-books-render-preview.onrender.com"]);
 const allowed = new Set([
   "customer_catalog_delta",
   "customer_store_notice",
   "customer_order_statuses",
+  "customer_order_statuses_v2",
+  "customer_order_submit",
   "customer_register_free",
   "customer_restock_notifications",
   "customer_restock_subscribe",
@@ -23,9 +25,13 @@ const allowed = new Set([
   "customer_push_subscribe",
   "customer_push_open",
   "customer_push_history",
+  "customer_book_reviews",
+  "customer_book_review_submit",
+  "customer_professional_code_verify",
 ]);
 
 const rate = new Map<string, { n: number; until: number }>();
+const professionalRate = new Map<string, { n: number; until: number }>();
 const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function headers(origin: string) {
@@ -55,13 +61,27 @@ function rateOk(k: string) {
   v.n++;
   return true;
 }
+function professionalRateOk(k: string) {
+  const now = Date.now();
+  const v = professionalRate.get(k);
+  if (!v || v.until <= now) {
+    professionalRate.set(k, { n: 1, until: now + 10 * 60_000 });
+    return true;
+  }
+  if (v.n >= 5) return false;
+  v.n++;
+  return true;
+}
+
 function textParam(v: unknown, max: number) {
   return typeof v === "string" && v.trim().length > 0 && v.length <= max;
 }
 function validate(name: string, p: Record<string, unknown>): string | null {
   if (name === "customer_catalog_delta") {
     if (!textParam(p.p_since, 64) || Number.isNaN(Date.parse(String(p.p_since)))) return "Invalid catalog cursor";
-  } else if (name === "customer_order_statuses") {
+  } else if (name === "customer_order_submit") {
+    if (!p.p_order || typeof p.p_order !== "object" || Array.isArray(p.p_order)) return "Invalid order";
+  } else if (name === "customer_order_statuses" || name === "customer_order_statuses_v2") {
     if (!Array.isArray(p.p_ids) || p.p_ids.length > 50 || p.p_ids.some((x) => typeof x !== "string" || !uuidRe.test(x))) return "Invalid order ids";
   } else if (name === "customer_register_free") {
     if (!textParam(p.p_name, 80) || String(p.p_name).trim().length < 2 || !textParam(p.p_phone, 32)) return "Invalid registration";
@@ -77,6 +97,16 @@ function validate(name: string, p: Record<string, unknown>): string | null {
     if (!textParam(p.p_install_id, 120) || String(p.p_install_id).trim().length < 12 || !textParam(p.p_title, 160) || String(p.p_title).trim().length < 2) return "Invalid book request";
   } else if (name === "customer_search_miss_log") {
     if (!textParam(p.p_install_id, 120) || String(p.p_install_id).trim().length < 12 || !textParam(p.p_query, 160) || String(p.p_query).trim().length < 2) return "Invalid search";
+  } else if (name === "customer_professional_code_verify") {
+    if (!textParam(p.p_code, 32) || !/^\d{4,12}$/.test(String(p.p_code).trim())) return "Invalid professional code";
+  } else if (name === "customer_book_reviews") {
+    if (typeof p.p_book_id !== "string" || !uuidRe.test(p.p_book_id)) return "Invalid book id";
+  } else if (name === "customer_book_review_submit") {
+    if (typeof p.p_order_id !== "string" || !uuidRe.test(p.p_order_id) ||
+        typeof p.p_book_id !== "string" || !uuidRe.test(p.p_book_id) ||
+        !textParam(p.p_phone, 32) ||
+        !Number.isInteger(p.p_rating) || Number(p.p_rating) < 1 || Number(p.p_rating) > 5 ||
+        !textParam(p.p_comment, 600) || String(p.p_comment).trim().length < 2) return "Invalid review";
   } else if (name === "customer_push_history") {
     if (p.p_limit !== undefined && (!Number.isInteger(p.p_limit) || Number(p.p_limit) < 1 || Number(p.p_limit) > 100)) return "Invalid push history limit";
   } else if (name === "customer_push_open") {
@@ -106,6 +136,10 @@ Deno.serve(async (req) => {
       ? body.params as Record<string, unknown>
       : {};
     if (!allowed.has(name)) return out(origin, 403, { ok: false, error: "Operation not allowed" });
+    if (name === "customer_professional_code_verify" &&
+        !professionalRateOk(`professional:${key(req)}`)) {
+      return out(origin, 429, { ok: false, error: "Too many attempts" });
+    }
     const invalid = validate(name, params);
     if (invalid) return out(origin, 400, { ok: false, error: invalid });
 

@@ -28,6 +28,7 @@ void main() {
     expect(link.fragment, isEmpty);
     expect(sharedBookId(link), id);
     expect(sharedBookId(Uri.parse('$bookShareOrigin/?book=$id')), id);
+    expect(sharedBookId(Uri.parse('$bookShareOrigin/kitob/$id')), id);
     expect(sharedBookId(Uri.parse('$bookShareOrigin/?book=invalid')), isNull);
     expect(sharedBookId(Uri.parse(bookShareOrigin)), isNull);
   });

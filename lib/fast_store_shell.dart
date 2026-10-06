@@ -152,13 +152,121 @@ class _WebStorefrontFrame extends StatelessWidget {
       child: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1180),
+          constraints: const BoxConstraints(maxWidth: 1440),
           child: DecoratedBox(
             decoration: const BoxDecoration(
               color: UzbekCustomerColors.background,
             ),
             child: child,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WebDesktopHeader extends StatelessWidget {
+  const _WebDesktopHeader({
+    required this.selectedIndex,
+    required this.cartCount,
+    required this.onSelectTab,
+  });
+
+  final int selectedIndex;
+  final int cartCount;
+  final ValueChanged<int> onSelectTab;
+
+  void _open(BuildContext context, Widget page, String routeName) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        settings: RouteSettings(name: routeName),
+        builder: (_) => page,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget nav(String label, int index) => TextButton(
+      onPressed: () => onSelectTab(index),
+      style: TextButton.styleFrom(
+        foregroundColor: selectedIndex == index
+            ? UzbekCustomerColors.navy
+            : UzbekCustomerColors.textMuted,
+        textStyle: TextStyle(
+          fontWeight: selectedIndex == index ? FontWeight.w900 : FontWeight.w700,
+        ),
+      ),
+      child: Text(label),
+    );
+
+    return Material(
+      color: Colors.white,
+      elevation: 0,
+      child: Container(
+        height: 72,
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: UzbekCustomerColors.border)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.menu_book_rounded, color: UzbekCustomerColors.navy, size: 30),
+            const SizedBox(width: 10),
+            const Text(
+              'MUHAJEER BOOKS',
+              style: TextStyle(
+                color: UzbekCustomerColors.navy,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                letterSpacing: .3,
+              ),
+            ),
+            const SizedBox(width: 24),
+            nav('Bosh sahifa', 0),
+            nav('Kategoriyalar', 1),
+            TextButton(
+              onPressed: () => _open(context, const PublishersPage(), 'mb:publishers'),
+              child: const Text('Nashriyotlar'),
+            ),
+            TextButton(
+              onPressed: () => _open(context, const BookBundlesPage(), 'mb:bundles'),
+              child: const Text('Setlar'),
+            ),
+            TextButton(
+              onPressed: () => _open(context, const PreorderBooksPage(), 'mb:preorders'),
+              child: const Text('Oldindan sotuv'),
+            ),
+            const Spacer(),
+            IconButton(
+              tooltip: 'Sevimlilar',
+              onPressed: () => onSelectTab(3),
+              icon: Icon(
+                selectedIndex == 3 ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                color: UzbekCustomerColors.navy,
+              ),
+            ),
+            Badge(
+              isLabelVisible: cartCount > 0,
+              label: Text('$cartCount'),
+              child: IconButton(
+                tooltip: 'Savatcha',
+                onPressed: () => onSelectTab(2),
+                icon: Icon(
+                  selectedIndex == 2
+                      ? Icons.shopping_cart_rounded
+                      : Icons.shopping_cart_outlined,
+                  color: UzbekCustomerColors.navy,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            FilledButton.tonalIcon(
+              onPressed: () => onSelectTab(4),
+              icon: const Icon(Icons.person_outline_rounded, size: 19),
+              label: const Text('Mening'),
+            ),
+          ],
         ),
       ),
     );
@@ -259,121 +367,140 @@ class _FastStoreShellState extends State<FastStoreShell> {
       });
     }
 
-    return Scaffold(
-      backgroundColor: UzbekCustomerColors.background,
-      body: _WebStorefrontFrame(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Home is the only tab intentionally kept alive. It already listens
-            // only to catalog-specific revisions, so cart/favorite changes don't
-            // trigger an expensive hidden catalog rebuild.
-            Offstage(
-              offstage: index != 0,
-              child: TickerMode(
-                enabled: index == 0,
-                child: const HomePage(key: PageStorageKey<String>('home-tab')),
-              ),
+    void selectTab(int value) {
+      storefrontTabRequest.value = value;
+      if (value == index) return;
+      setState(() => index = value);
+    }
+
+    Widget storefrontBody() => _WebStorefrontFrame(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Offstage(
+            offstage: index != 0,
+            child: TickerMode(
+              enabled: index == 0,
+              child: const HomePage(key: PageStorageKey<String>('home-tab')),
             ),
-            if (index != 0)
-              KeyedSubtree(
-                key: ValueKey<int>(index),
-                child: _secondaryPageFor(index),
-              ),
-            if (index == 0)
-              const Positioned.fill(child: _PersistentMuhajeerAiButton()),
+          ),
+          if (index != 0)
+            KeyedSubtree(
+              key: ValueKey<int>(index),
+              child: _secondaryPageFor(index),
+            ),
+          if (index == 0)
+            const Positioned.fill(child: _PersistentMuhajeerAiButton()),
+        ],
+      ),
+    );
+
+    Widget mobileNav() => SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+        decoration: BoxDecoration(
+          color: UzbekCustomerColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: UzbekCustomerColors.border),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0D173F4A),
+              blurRadius: 10,
+              offset: Offset(0, 3),
+            ),
           ],
         ),
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Container(
-          margin: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-          decoration: BoxDecoration(
-            color: UzbekCustomerColors.surface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: UzbekCustomerColors.border),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0D173F4A),
-                blurRadius: 10,
-                offset: Offset(0, 3),
+        clipBehavior: Clip.antiAlias,
+        child: NavigationBarTheme(
+          data: NavigationBarThemeData(
+            height: 66,
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            indicatorColor: UzbekCustomerColors.goldSoft,
+            iconTheme: WidgetStateProperty.resolveWith(
+              (states) => IconThemeData(
+                color: states.contains(WidgetState.selected)
+                    ? UzbekCustomerColors.navy
+                    : UzbekCustomerColors.textMuted,
+                size: 23,
+              ),
+            ),
+            labelTextStyle: WidgetStateProperty.resolveWith(
+              (states) => TextStyle(
+                color: states.contains(WidgetState.selected)
+                    ? UzbekCustomerColors.navy
+                    : UzbekCustomerColors.textMuted,
+                fontSize: 10.8,
+                fontWeight: states.contains(WidgetState.selected)
+                    ? FontWeight.w900
+                    : FontWeight.w600,
+              ),
+            ),
+          ),
+          child: NavigationBar(
+            selectedIndex: index,
+            onDestinationSelected: selectTab,
+            destinations: [
+              const NavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home_rounded),
+                label: 'Bosh sahifa',
+              ),
+              const NavigationDestination(
+                icon: Icon(Icons.grid_view_rounded),
+                selectedIcon: Icon(Icons.grid_view_rounded),
+                label: 'Kategoriya',
+              ),
+              NavigationDestination(
+                icon: Badge(
+                  isLabelVisible: cartCount > 0,
+                  label: Text('$cartCount'),
+                  child: const Icon(Icons.shopping_cart_outlined),
+                ),
+                selectedIcon: Badge(
+                  isLabelVisible: cartCount > 0,
+                  label: Text('$cartCount'),
+                  child: const Icon(Icons.shopping_cart_rounded),
+                ),
+                label: 'Savatcha',
+              ),
+              const NavigationDestination(
+                icon: Icon(Icons.favorite_border_rounded),
+                selectedIcon: Icon(Icons.favorite_rounded),
+                label: 'Sevimlilar',
+              ),
+              const NavigationDestination(
+                icon: Icon(Icons.person_outline_rounded),
+                selectedIcon: Icon(Icons.person_rounded),
+                label: 'Profil',
               ),
             ],
           ),
-          clipBehavior: Clip.antiAlias,
-          child: NavigationBarTheme(
-            data: NavigationBarThemeData(
-              height: 66,
-              backgroundColor: Colors.transparent,
-              surfaceTintColor: Colors.transparent,
-              indicatorColor: UzbekCustomerColors.goldSoft,
-              iconTheme: WidgetStateProperty.resolveWith(
-                (states) => IconThemeData(
-                  color: states.contains(WidgetState.selected)
-                      ? UzbekCustomerColors.navy
-                      : UzbekCustomerColors.textMuted,
-                  size: 23,
-                ),
-              ),
-              labelTextStyle: WidgetStateProperty.resolveWith(
-                (states) => TextStyle(
-                  color: states.contains(WidgetState.selected)
-                      ? UzbekCustomerColors.navy
-                      : UzbekCustomerColors.textMuted,
-                  fontSize: 10.8,
-                  fontWeight: states.contains(WidgetState.selected)
-                      ? FontWeight.w900
-                      : FontWeight.w600,
-                ),
-              ),
-            ),
-            child: NavigationBar(
-              selectedIndex: index,
-              onDestinationSelected: (value) {
-                storefrontTabRequest.value = value;
-                if (value == index) return;
-                setState(() => index = value);
-              },
-              destinations: [
-                const NavigationDestination(
-                  icon: Icon(Icons.home_outlined),
-                  selectedIcon: Icon(Icons.home_rounded),
-                  label: 'Bosh sahifa',
-                ),
-                const NavigationDestination(
-                  icon: Icon(Icons.grid_view_rounded),
-                  selectedIcon: Icon(Icons.grid_view_rounded),
-                  label: 'Kategoriya',
-                ),
-                NavigationDestination(
-                  icon: Badge(
-                    isLabelVisible: cartCount > 0,
-                    label: Text('$cartCount'),
-                    child: const Icon(Icons.shopping_cart_outlined),
-                  ),
-                  selectedIcon: Badge(
-                    isLabelVisible: cartCount > 0,
-                    label: Text('$cartCount'),
-                    child: const Icon(Icons.shopping_cart_rounded),
-                  ),
-                  label: 'Savatcha',
-                ),
-                const NavigationDestination(
-                  icon: Icon(Icons.favorite_border_rounded),
-                  selectedIcon: Icon(Icons.favorite_rounded),
-                  label: 'Sevimlilar',
-                ),
-                const NavigationDestination(
-                  icon: Icon(Icons.person_outline_rounded),
-                  selectedIcon: Icon(Icons.person_rounded),
-                  label: 'Profil',
-                ),
-              ],
-            ),
-          ),
         ),
       ),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final desktop = kIsWeb && constraints.maxWidth >= 1180;
+        return Scaffold(
+          backgroundColor: UzbekCustomerColors.background,
+          body: desktop
+              ? Column(
+                  children: [
+                    _WebDesktopHeader(
+                      selectedIndex: index,
+                      cartCount: cartCount,
+                      onSelectTab: selectTab,
+                    ),
+                    Expanded(child: storefrontBody()),
+                  ],
+                )
+              : storefrontBody(),
+          bottomNavigationBar: desktop ? null : mobileNav(),
+        );
+      },
     );
   }
 }

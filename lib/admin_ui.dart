@@ -584,6 +584,22 @@ class _AdminApi {
     );
   }
 
+  Future<void> updateOrderTracking(
+    String id, {
+    required String carrier,
+    required String trackingNumber,
+  }) async {
+    await _rpc(
+      'admin_update_order_tracking',
+      params: {
+        'p_secret': secret,
+        'p_id': id,
+        'p_carrier': carrier,
+        'p_tracking_number': trackingNumber.trim(),
+      },
+    );
+  }
+
   Future<Map<String, dynamic>> userStats() async {
     final raw = await _rpc(
       'admin_user_stats',
@@ -5690,6 +5706,7 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
                     api: widget.api,
                     loading: busy.contains(orders[i].id),
                     onStatus: (status) => changeStatus(orders[i], status),
+                    onTrackingSaved: reload,
                   ),
                 ),
               ),
@@ -5729,11 +5746,104 @@ class _ProfessionalOrderCard extends StatelessWidget {
     required this.api,
     required this.loading,
     required this.onStatus,
+    required this.onTrackingSaved,
   });
   final ShopOrder order;
   final _AdminApi api;
   final bool loading;
   final ValueChanged<String> onStatus;
+  final VoidCallback onTrackingSaved;
+
+  Future<void> _editTracking(BuildContext context) async {
+    final tracking = TextEditingController(text: order.trackingNumber);
+    var carrier = order.carrier.isEmpty ? 'cj' : order.carrier;
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('Pochta kuzatuvi'),
+          content: SizedBox(
+            width: 430,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: carrier,
+                  decoration: const InputDecoration(
+                    labelText: 'Pochta kompaniyasi',
+                    prefixIcon: Icon(Icons.local_shipping_outlined),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'cj', child: Text('CJ대한통운')),
+                    DropdownMenuItem(value: 'epost', child: Text('우체국')),
+                    DropdownMenuItem(value: 'lotte', child: Text('롯데택배')),
+                    DropdownMenuItem(value: 'hanjin', child: Text('한진택배')),
+                    DropdownMenuItem(value: 'logen', child: Text('로젠택배')),
+                    DropdownMenuItem(value: 'other', child: Text('Boshqa')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) setDialogState(() => carrier = value);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: tracking,
+                  autofocus: order.trackingNumber.isEmpty,
+                  decoration: const InputDecoration(
+                    labelText: '송장번호 / kuzatuv raqami',
+                    hintText: 'Masalan: 123456789012',
+                    prefixIcon: Icon(Icons.numbers_rounded),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Bu raqam mijozning “Mening buyurtmalarim” bo‘limida ko‘rinadi.',
+                  style: TextStyle(fontSize: 12, color: AppColors.muted),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Bekor qilish'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              icon: const Icon(Icons.save_outlined),
+              label: const Text('Saqlash'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (save != true || !context.mounted) {
+      tracking.dispose();
+      return;
+    }
+
+    try {
+      await api.updateOrderTracking(
+        order.id,
+        carrier: carrier,
+        trackingNumber: tracking.text,
+      );
+      if (!context.mounted) return;
+      onTrackingSaved();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kuzatuv raqami saqlandi ✅')),
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Tracking saqlanmadi: $e')),
+        );
+      }
+    } finally {
+      tracking.dispose();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -5892,6 +6002,37 @@ class _ProfessionalOrderCard extends StatelessWidget {
           if (order.hasPaymentProof) ...[
             const SizedBox(height: 12),
             _PaymentProofPanel(api: api, path: order.paymentProofPath),
+          ],
+          if (kIsWeb && order.status != 'cancelled') ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F6FF),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFCFE0FA)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.local_shipping_outlined, color: AppColors.info),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Text(
+                      order.trackingNumber.isEmpty
+                          ? 'Kuzatuv raqami kiritilmagan'
+                          : 'Tracking: ${order.trackingNumber}',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => _editTracking(context),
+                    icon: const Icon(Icons.edit_outlined, size: 17),
+                    label: Text(order.trackingNumber.isEmpty ? 'Kiritish' : 'Tahrirlash'),
+                  ),
+                ],
+              ),
+            ),
           ],
           const SizedBox(height: 14),
           if (loading)

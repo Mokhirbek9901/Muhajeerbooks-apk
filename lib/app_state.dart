@@ -354,6 +354,33 @@ class CartLine {
   int get total => book.currentPrice * quantity;
 }
 
+class BookReview {
+  const BookReview({
+    required this.id,
+    required this.bookId,
+    required this.reviewerName,
+    required this.rating,
+    required this.comment,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String bookId;
+  final String reviewerName;
+  final int rating;
+  final String comment;
+  final DateTime createdAt;
+
+  factory BookReview.fromMap(Map<String, dynamic> map) => BookReview(
+    id: (map['id'] ?? '').toString(),
+    bookId: (map['book_id'] ?? '').toString(),
+    reviewerName: (map['reviewer_name'] ?? 'Muhajeer kitobxoni').toString(),
+    rating: ((map['rating'] as num?)?.toInt() ?? 0).clamp(0, 5).toInt(),
+    comment: (map['comment'] ?? '').toString(),
+    createdAt: DateTime.tryParse((map['created_at'] ?? '').toString()) ?? DateTime.now(),
+  );
+}
+
 class ShopOrder {
   const ShopOrder({
     required this.id,
@@ -372,6 +399,9 @@ class ShopOrder {
     this.paymentProofPath = '',
     this.paymentSubmittedAt,
     this.stockReserved = false,
+    this.carrier = '',
+    this.trackingNumber = '',
+    this.trackingUpdatedAt,
   });
 
   final String id;
@@ -390,6 +420,9 @@ class ShopOrder {
   final String paymentProofPath;
   final DateTime? paymentSubmittedAt;
   final bool stockReserved;
+  final String carrier;
+  final String trackingNumber;
+  final DateTime? trackingUpdatedAt;
 
   bool get hasPaymentProof => paymentProofPath.trim().isNotEmpty;
   bool get isTelegram => source == 'telegram';
@@ -425,6 +458,9 @@ class ShopOrder {
       (map['payment_submitted_at'] ?? '').toString(),
     ),
     stockReserved: map['stock_reserved'] as bool? ?? false,
+    carrier: (map['carrier'] ?? '').toString(),
+    trackingNumber: (map['tracking_number'] ?? '').toString(),
+    trackingUpdatedAt: DateTime.tryParse((map['tracking_updated_at'] ?? '').toString()),
   );
 
   Map<String, dynamic> toMap() => {
@@ -444,6 +480,9 @@ class ShopOrder {
     'payment_proof_path': paymentProofPath,
     'payment_submitted_at': paymentSubmittedAt?.toIso8601String(),
     'stock_reserved': stockReserved,
+    'carrier': carrier,
+    'tracking_number': trackingNumber,
+    'tracking_updated_at': trackingUpdatedAt?.toIso8601String(),
   };
 
   ShopOrder copyWith({
@@ -452,6 +491,9 @@ class ShopOrder {
     String? paymentProofPath,
     DateTime? paymentSubmittedAt,
     bool? stockReserved,
+    String? carrier,
+    String? trackingNumber,
+    DateTime? trackingUpdatedAt,
   }) => ShopOrder(
     id: id,
     customerName: customerName,
@@ -469,6 +511,9 @@ class ShopOrder {
     paymentProofPath: paymentProofPath ?? this.paymentProofPath,
     paymentSubmittedAt: paymentSubmittedAt ?? this.paymentSubmittedAt,
     stockReserved: stockReserved ?? this.stockReserved,
+    carrier: carrier ?? this.carrier,
+    trackingNumber: trackingNumber ?? this.trackingNumber,
+    trackingUpdatedAt: trackingUpdatedAt ?? this.trackingUpdatedAt,
   );
 }
 
@@ -841,7 +886,7 @@ class BackendService {
   ) async {
     if (ids.isEmpty) return {};
     final data = await _customerRpc(
-      'customer_order_statuses',
+      kIsWeb ? 'customer_order_statuses_v2' : 'customer_order_statuses',
       {'p_ids': ids.take(50).toList()},
     );
     final result = <String, Map<String, dynamic>>{};
@@ -850,6 +895,37 @@ class BackendService {
       result[(map['id'] ?? '').toString()] = map;
     }
     return result;
+  }
+
+  Future<List<BookReview>> fetchBookReviews(String bookId) async {
+    final raw = await _customerRpc(
+      'customer_book_reviews',
+      {'p_book_id': bookId},
+    );
+    if (raw is! List) return const <BookReview>[];
+    return raw
+        .whereType<Map>()
+        .map((e) => BookReview.fromMap(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  Future<void> submitBookReview({
+    required String orderId,
+    required String phone,
+    required String bookId,
+    required int rating,
+    required String comment,
+  }) async {
+    await _customerRpc(
+      'customer_book_review_submit',
+      {
+        'p_order_id': orderId,
+        'p_phone': phone.trim(),
+        'p_book_id': bookId,
+        'p_rating': rating,
+        'p_comment': comment.trim(),
+      },
+    );
   }
 
   Future<List<ShopOrder>> restoreOrders({
@@ -2350,6 +2426,32 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  Future<List<BookReview>> bookReviews(String bookId) async {
+    if (!kIsWeb || _backend == null || bookId.isEmpty) {
+      return const <BookReview>[];
+    }
+    return _backend!.fetchBookReviews(bookId);
+  }
+
+  Future<void> submitBookReview({
+    required String orderId,
+    required String phone,
+    required String bookId,
+    required int rating,
+    required String comment,
+  }) async {
+    if (!kIsWeb || _backend == null) {
+      throw StateError('Sharh yozish webda internet orqali ishlaydi.');
+    }
+    await _backend!.submitBookReview(
+      orderId: orderId,
+      phone: phone,
+      bookId: bookId,
+      rating: rating,
+      comment: comment,
+    );
+  }
+
   Future<List<ShopOrder>> customerOrdersByPhone(String phone) async {
     final key = _customerPhoneKey(phone);
     if (key.isEmpty) return [];
@@ -2362,8 +2464,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       try {
         final uuidIds = _localOrders
             .where(
-              (o) =>
-                  !const {'shipping', 'done', 'cancelled'}.contains(o.status),
+              (o) => kIsWeb
+                  ? o.status != 'cancelled'
+                  : !const {'shipping', 'done', 'cancelled'}.contains(o.status),
             )
             .map((o) => o.id)
             .where((id) => RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(id))
@@ -2376,6 +2479,16 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
             status: (row['status'] ?? _localOrders[i].status).toString(),
             stockReserved:
                 row['stock_reserved'] as bool? ?? _localOrders[i].stockReserved,
+            carrier: kIsWeb
+                ? (row['carrier'] ?? _localOrders[i].carrier).toString()
+                : _localOrders[i].carrier,
+            trackingNumber: kIsWeb
+                ? (row['tracking_number'] ?? _localOrders[i].trackingNumber).toString()
+                : _localOrders[i].trackingNumber,
+            trackingUpdatedAt: kIsWeb
+                ? (DateTime.tryParse((row['tracking_updated_at'] ?? '').toString()) ??
+                    _localOrders[i].trackingUpdatedAt)
+                : _localOrders[i].trackingUpdatedAt,
           );
         }
         await _local.saveOrders(_localOrders);
@@ -2452,7 +2565,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     try {
       final uuidIds = _localOrders
           .where(
-            (o) => !const {'shipping', 'done', 'cancelled'}.contains(o.status),
+            (o) => kIsWeb
+                ? o.status != 'cancelled'
+                : !const {'shipping', 'done', 'cancelled'}.contains(o.status),
           )
           .map((o) => o.id)
           .where((id) => RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(id))
@@ -2475,6 +2590,16 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         _localOrders[i] = oldOrder.copyWith(
           status: newStatus,
           stockReserved: newReserved,
+          carrier: kIsWeb
+              ? (row['carrier'] ?? oldOrder.carrier).toString()
+              : oldOrder.carrier,
+          trackingNumber: kIsWeb
+              ? (row['tracking_number'] ?? oldOrder.trackingNumber).toString()
+              : oldOrder.trackingNumber,
+          trackingUpdatedAt: kIsWeb
+              ? (DateTime.tryParse((row['tracking_updated_at'] ?? '').toString()) ??
+                  oldOrder.trackingUpdatedAt)
+              : oldOrder.trackingUpdatedAt,
         );
         ordersChanged = true;
 

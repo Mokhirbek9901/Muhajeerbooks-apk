@@ -2816,7 +2816,16 @@ class _CustomerNotificationsPageState extends State<CustomerNotificationsPage> {
                   (notice['created_at'] ?? '').toString(),
                 );
                 final orderId = (notice['order_id'] ?? '').toString().trim();
-                final orderNumber = (notice['order_number'] as num?)?.toInt();
+                final rawOrderNumber = notice['order_number'];
+                var orderNumber = rawOrderNumber is num
+                    ? rawOrderNumber.toInt()
+                    : int.tryParse((rawOrderNumber ?? '').toString());
+                if (orderNumber == null || orderNumber <= 0) {
+                  final combinedText =
+                      '${notice['title'] ?? ''} ${notice['message'] ?? ''}';
+                  final match = RegExp(r'#\s*(\d+)').firstMatch(combinedText);
+                  orderNumber = int.tryParse(match?.group(1) ?? '');
+                }
                 final canOpenOrder =
                     orderId.isNotEmpty || (orderNumber != null && orderNumber > 0);
                 return Card(

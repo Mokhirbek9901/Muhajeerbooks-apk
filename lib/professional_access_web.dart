@@ -7,10 +7,10 @@ Future<bool> verifyProfessionalAccess(String code) async {
   if (clean.isEmpty || clean.length > 64) return false;
 
   final response = await Supabase.instance.client.functions.invoke(
-    'admin-rpc',
+    'customer-rpc',
     body: {
-      'name': 'admin_verify',
-      'params': {'p_secret': clean},
+      'name': 'customer_professional_code_verify',
+      'params': {'p_code': clean},
     },
   );
 

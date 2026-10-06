@@ -1,9 +1,9 @@
 const bookShareOrigin = 'https://muhajeer-books-live-production.up.railway.app';
 
-// /share/<id> keeps social previews rich; a real tap is redirected to
-// /?book=<id>, where the storefront opens that exact book directly.
+// /kitob/<id> is the canonical SEO/share page. Crawlers get rich metadata;
+ // real visitors are redirected to /?book=<id> and the exact book opens.
 Uri bookShareLink(String id) =>
-    Uri.parse(bookShareOrigin).replace(path: '/share/$id');
+    Uri.parse(bookShareOrigin).replace(path: '/kitob/$id');
 
 Uri bundleShareLink(String id) =>
     Uri.parse(bookShareOrigin).replace(queryParameters: {'bundle': id});
@@ -23,7 +23,8 @@ String? sharedBookId(Uri uri) {
   String? id = uri.queryParameters['book'];
   if ((id == null || id.isEmpty) &&
       uri.pathSegments.length == 2 &&
-      uri.pathSegments.first == 'share') {
+      (uri.pathSegments.first == 'share' ||
+          uri.pathSegments.first == 'kitob')) {
     id = uri.pathSegments[1];
   }
   return _validShareId(id) ? id!.toLowerCase() : null;

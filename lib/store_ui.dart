@@ -2253,7 +2253,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 child: _WebDesktopCatalogFilters(
                   categories: categories
                       .where((value) =>
-                          value != 'Sizga mos kitoblar' &&
                           value != 'Oldindan sotuvda' &&
                           value != 'Nashriyotlar' &&
                           value != 'Setlar')

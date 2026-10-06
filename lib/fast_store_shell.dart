@@ -483,7 +483,7 @@ class _FastStoreShellState extends State<FastStoreShell> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final desktop = kIsWeb && constraints.maxWidth >= 980;
+        final desktop = kIsWeb && constraints.maxWidth >= 1180;
         return Scaffold(
           backgroundColor: UzbekCustomerColors.background,
           body: desktop

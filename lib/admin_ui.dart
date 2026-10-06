@@ -5756,7 +5756,7 @@ class _ProfessionalOrderCard extends StatelessWidget {
 
   Future<void> _editTracking(BuildContext context) async {
     final tracking = TextEditingController(text: order.trackingNumber);
-    var carrier = order.carrier.isEmpty ? 'cj' : order.carrier;
+    var carrier = order.carrier.isEmpty ? 'lotte' : order.carrier;
     final save = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -5774,9 +5774,9 @@ class _ProfessionalOrderCard extends StatelessWidget {
                     prefixIcon: Icon(Icons.local_shipping_outlined),
                   ),
                   items: const [
+                    DropdownMenuItem(value: 'lotte', child: Text('롯데택배')),
                     DropdownMenuItem(value: 'cj', child: Text('CJ대한통운')),
                     DropdownMenuItem(value: 'epost', child: Text('우체국')),
-                    DropdownMenuItem(value: 'lotte', child: Text('롯데택배')),
                     DropdownMenuItem(value: 'hanjin', child: Text('한진택배')),
                     DropdownMenuItem(value: 'logen', child: Text('로젠택배')),
                     DropdownMenuItem(value: 'other', child: Text('Boshqa')),

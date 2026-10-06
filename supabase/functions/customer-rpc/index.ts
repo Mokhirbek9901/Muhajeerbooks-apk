@@ -27,9 +27,11 @@ const allowed = new Set([
   "customer_push_history",
   "customer_book_reviews",
   "customer_book_review_submit",
+  "customer_professional_code_verify",
 ]);
 
 const rate = new Map<string, { n: number; until: number }>();
+const professionalRate = new Map<string, { n: number; until: number }>();
 const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function headers(origin: string) {
@@ -59,6 +61,18 @@ function rateOk(k: string) {
   v.n++;
   return true;
 }
+function professionalRateOk(k: string) {
+  const now = Date.now();
+  const v = professionalRate.get(k);
+  if (!v || v.until <= now) {
+    professionalRate.set(k, { n: 1, until: now + 10 * 60_000 });
+    return true;
+  }
+  if (v.n >= 5) return false;
+  v.n++;
+  return true;
+}
+
 function textParam(v: unknown, max: number) {
   return typeof v === "string" && v.trim().length > 0 && v.length <= max;
 }
@@ -83,6 +97,8 @@ function validate(name: string, p: Record<string, unknown>): string | null {
     if (!textParam(p.p_install_id, 120) || String(p.p_install_id).trim().length < 12 || !textParam(p.p_title, 160) || String(p.p_title).trim().length < 2) return "Invalid book request";
   } else if (name === "customer_search_miss_log") {
     if (!textParam(p.p_install_id, 120) || String(p.p_install_id).trim().length < 12 || !textParam(p.p_query, 160) || String(p.p_query).trim().length < 2) return "Invalid search";
+  } else if (name === "customer_professional_code_verify") {
+    if (!textParam(p.p_code, 32) || !/^\d{4,12}$/.test(String(p.p_code).trim())) return "Invalid professional code";
   } else if (name === "customer_book_reviews") {
     if (typeof p.p_book_id !== "string" || !uuidRe.test(p.p_book_id)) return "Invalid book id";
   } else if (name === "customer_book_review_submit") {
@@ -120,6 +136,10 @@ Deno.serve(async (req) => {
       ? body.params as Record<string, unknown>
       : {};
     if (!allowed.has(name)) return out(origin, 403, { ok: false, error: "Operation not allowed" });
+    if (name === "customer_professional_code_verify" &&
+        !professionalRateOk(`professional:${key(req)}`)) {
+      return out(origin, 429, { ok: false, error: "Too many attempts" });
+    }
     const invalid = validate(name, params);
     if (invalid) return out(origin, 400, { ok: false, error: invalid });
 

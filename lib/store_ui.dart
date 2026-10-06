@@ -2243,7 +2243,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (!kIsWeb) return catalogView;
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 1080) return catalogView;
+        if (constraints.maxWidth < 1180) return catalogView;
         return Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

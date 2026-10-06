@@ -2815,8 +2815,27 @@ class _CustomerNotificationsPageState extends State<CustomerNotificationsPage> {
                 final created = DateTime.tryParse(
                   (notice['created_at'] ?? '').toString(),
                 );
+                final orderId = (notice['order_id'] ?? '').toString().trim();
+                final orderNumber = (notice['order_number'] as num?)?.toInt();
+                final canOpenOrder =
+                    orderId.isNotEmpty || (orderNumber != null && orderNumber > 0);
                 return Card(
                   child: ListTile(
+                    onTap: canOpenOrder
+                        ? () => Navigator.push(
+                              context,
+                              muhajeerPageRoute(
+                                settings: const RouteSettings(name: 'mb:orders'),
+                                builder: (_) => MyOrdersPage(
+                                  focusOrderId: orderId.isEmpty ? null : orderId,
+                                  focusOrderNumber: orderNumber,
+                                ),
+                              ),
+                            )
+                        : null,
+                    trailing: canOpenOrder
+                        ? const Icon(Icons.chevron_right_rounded)
+                        : null,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 8,
@@ -7342,7 +7361,14 @@ class _ProfileIcon extends StatelessWidget {
 }
 
 class MyOrdersPage extends StatefulWidget {
-  const MyOrdersPage({super.key});
+  const MyOrdersPage({
+    super.key,
+    this.focusOrderId,
+    this.focusOrderNumber,
+  });
+
+  final String? focusOrderId;
+  final int? focusOrderNumber;
 
   @override
   State<MyOrdersPage> createState() => _MyOrdersPageState();
@@ -7477,7 +7503,17 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting)
             return const Center(child: CircularProgressIndicator());
-          final orders = snapshot.data ?? const [];
+          final loadedOrders = snapshot.data ?? const <ShopOrder>[];
+          final focusId = widget.focusOrderId?.trim() ?? '';
+          final focusNumber = widget.focusOrderNumber;
+          final focused = loadedOrders.where(
+            (o) =>
+                (focusId.isNotEmpty && o.id == focusId) ||
+                (focusNumber != null &&
+                    (o.displayOrderNumber == focusNumber ||
+                        o.orderNumber == focusNumber)),
+          ).toList();
+          final orders = focused.isNotEmpty ? focused : loadedOrders;
           if (orders.isEmpty) {
             return const _EmptyState(
               icon: Icons.receipt_long_outlined,

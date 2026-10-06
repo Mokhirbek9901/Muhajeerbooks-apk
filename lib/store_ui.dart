@@ -7515,12 +7515,13 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
           final loadedOrders = snapshot.data ?? const <ShopOrder>[];
           final focusId = widget.focusOrderId?.trim() ?? '';
           final focusNumber = widget.focusOrderNumber;
-          final focused = loadedOrders.where(
-            (o) =>
-                (focusId.isNotEmpty && o.id == focusId) ||
-                (focusNumber != null &&
-                    o.displayOrderNumber == focusNumber),
-          ).toList();
+          final focused = focusId.isNotEmpty
+              ? loadedOrders.where((o) => o.id == focusId).toList()
+              : loadedOrders.where(
+                  (o) =>
+                      focusNumber != null &&
+                      o.displayOrderNumber == focusNumber,
+                ).toList();
           final orders = focused.isNotEmpty ? focused : loadedOrders;
           if (orders.isEmpty) {
             return const _EmptyState(

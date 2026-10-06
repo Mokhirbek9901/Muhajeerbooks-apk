@@ -7645,6 +7645,11 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                         ),
                       ),
                     ],
+                    if (kIsWeb &&
+                        order.trackingNumber.trim().isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _WebOrderTrackingCard(order: order),
+                    ],
                     if (order.status == 'paid' ||
                         order.status == 'shipping' ||
                         order.status == 'done') ...[
@@ -7690,6 +7695,105 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
       ),
     );
   }
+}
+
+class _WebOrderTrackingCard extends StatelessWidget {
+  const _WebOrderTrackingCard({required this.order});
+  final ShopOrder order;
+
+  String get carrierLabel => switch (order.carrier) {
+    'cj' => 'CJ대한통운',
+    'epost' => '우체국',
+    'lotte' => '롯데택배',
+    'hanjin' => '한진택배',
+    'logen' => '로젠택배',
+    _ => '택배',
+  };
+
+  Uri? get trackingUri {
+    final n = Uri.encodeQueryComponent(order.trackingNumber.trim());
+    return switch (order.carrier) {
+      'cj' => Uri.parse('https://www.cjlogistics.com/ko/tool/parcel/tracking?gnbInvcNo=$n'),
+      'epost' => Uri.parse('https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=$n'),
+      'lotte' => Uri.parse('https://www.lotteglogis.com/home/reservation/tracking/invoiceView?InvNo=$n'),
+      'hanjin' => Uri.parse('https://www.hanjin.com/kor/Main.do'),
+      'logen' => Uri.parse('https://www.ilogen.com/web/personal/trace'),
+      _ => null,
+    };
+  }
+
+  Future<void> _open(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: order.trackingNumber));
+    final uri = trackingUri;
+    if (uri == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Kuzatuv raqami nusxalandi ✅')),
+        );
+      }
+      return;
+    }
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kuzatuv sahifasi ochilmadi. Raqam nusxalandi.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF0F6FF),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: const Color(0xFFCFE0FA)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.local_shipping_rounded, color: AppColors.info),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                carrierLabel,
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ),
+            const AppInfoPill(
+              icon: Icons.check_circle_outline_rounded,
+              label: 'Jo‘natildi',
+              foreground: AppColors.success,
+              background: AppColors.successSoft,
+              border: Color(0xFFCDEAD7),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        const Text(
+          '송장번호 / Kuzatuv raqami',
+          style: TextStyle(fontSize: 11.5, color: AppColors.muted),
+        ),
+        const SizedBox(height: 3),
+        SelectableText(
+          order.trackingNumber,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: () => _open(context),
+            icon: const Icon(Icons.open_in_new_rounded),
+            label: const Text('Yetkazmani kuzatish'),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 Future<void> _showMuhajeerReceipt(BuildContext context, ShopOrder order) async {

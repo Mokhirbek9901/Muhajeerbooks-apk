@@ -2457,7 +2457,7 @@ class _WebDesktopCatalogFilters extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
         Slider(
-          value: maxPrice.clamp(10000, 100000),
+          value: maxPrice.clamp(10000.0, 100000.0).toDouble(),
           min: 10000,
           max: 100000,
           divisions: 18,

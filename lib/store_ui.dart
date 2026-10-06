@@ -1737,6 +1737,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           await Future.wait([state.refreshBooks(), state.refreshBundles()]);
         },
         child: CustomScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           controller: _scrollController,
           key: const PageStorageKey<String>('muhajeer-home-scroll-v2'),
           physics: const AlwaysScrollableScrollPhysics(),
@@ -1808,6 +1809,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       child: TextField(
                         controller: _searchController,
                         onChanged: _searchChanged,
+                        onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
+                        onSubmitted: (_) => FocusScope.of(context).unfocus(),
+                        textInputAction: TextInputAction.search,
                         decoration: const InputDecoration(
                           hintText: 'Kitob yoki muallif qidiring...',
                           prefixIcon: Icon(Icons.search_rounded),

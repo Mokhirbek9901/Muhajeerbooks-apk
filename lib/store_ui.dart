@@ -2026,14 +2026,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ),
             ),
             if (kIsWeb &&
-                (query.trim().length >= 2 || recentSearches.isNotEmpty))
+                query.trim().length >= 2 &&
+                webSuggestions.isNotEmpty)
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                 sliver: SliverToBoxAdapter(
                   child: _WebSearchAssist(
                     query: query,
                     suggestions: webSuggestions,
-                    recentSearches: recentSearches,
+                    recentSearches: const <String>[],
                     onSearch: _applySearch,
                     onBook: (book) {
                       unawaited(_rememberSearch(query));
@@ -2341,42 +2342,6 @@ class _WebSearchAssist extends StatelessWidget {
               ),
             ),
           ],
-          if (recentSearches.isNotEmpty) ...[
-            const Divider(height: 18),
-            const Row(
-              children: [
-                Icon(Icons.history_rounded, size: 18),
-                SizedBox(width: 7),
-                Text('So‘nggi qidiruvlar', style: TextStyle(fontWeight: FontWeight.w900)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 7,
-              runSpacing: 7,
-              children: recentSearches
-                  .map(
-                    (item) => ActionChip(
-                      avatar: const Icon(Icons.search_rounded, size: 16),
-                      label: Text(item),
-                      onPressed: () => onSearch(item),
-                    ),
-                  )
-                  .toList(),
-            ),
-          ],
-          const Divider(height: 18),
-          const Row(
-            children: [
-              Icon(Icons.auto_awesome_rounded, color: Color(0xFF6D3BE8), size: 19),
-              SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  'Aniq nima qidirayotganingizni bilmasangiz, Muhajeer AI ham yordam beradi.',
-                  style: TextStyle(fontSize: 12.5, color: AppColors.muted),
-                ),
-              ),
-            ],
           ),
         ],
       ),

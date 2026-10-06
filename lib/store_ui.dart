@@ -1560,6 +1560,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String query = '';
   String category = 'Barchasi';
   String sort = 'new';
+  String publisher = 'Barchasi';
+  double maxPrice = 100000;
+  List<String> recentSearches = <String>[];
 
   @override
   void initState() {
@@ -1570,6 +1573,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     query = '';
     category = 'Barchasi';
     sort = 'new';
+    publisher = 'Barchasi';
+    maxPrice = 100000;
+    if (kIsWeb) unawaited(_loadRecentSearches());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
       _scrollController.jumpTo(0);
@@ -1584,6 +1590,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       query = '';
       category = 'Barchasi';
       sort = 'new';
+      publisher = 'Barchasi';
+      maxPrice = 100000;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
@@ -1604,6 +1612,92 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchMissTimer;
   String _lastLoggedMiss = '';
+  static const _recentSearchKey = 'muhajeer_web_recent_searches_v1';
+
+  Future<void> _loadRecentSearches() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getStringList(_recentSearchKey) ?? const <String>[];
+    if (!mounted) return;
+    setState(() => recentSearches = saved.take(6).toList());
+  }
+
+  Future<void> _rememberSearch(String value) async {
+    if (!kIsWeb) return;
+    final clean = value.trim();
+    if (clean.length < 2) return;
+    final next = <String>[
+      clean,
+      ...recentSearches.where((item) => item.toLowerCase() != clean.toLowerCase()),
+    ].take(6).toList();
+    if (mounted) setState(() => recentSearches = next);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_recentSearchKey, next);
+  }
+
+  void _applySearch(String value) {
+    final clean = value.trim();
+    _searchController.text = clean;
+    _searchController.selection = TextSelection.collapsed(offset: clean.length);
+    _searchChanged(clean);
+    unawaited(_rememberSearch(clean));
+  }
+
+  static String _norm(String value) => value
+      .toLowerCase()
+      .replaceAll(RegExp(r"[’ʻ‘']"), '')
+      .replaceAll(RegExp(r'[^a-z0-9\u0400-\u04ff\s]'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+
+  static int _distance(String a, String b) {
+    if (a == b) return 0;
+    if (a.isEmpty) return b.length;
+    if (b.isEmpty) return a.length;
+    final previous = List<int>.generate(b.length + 1, (i) => i);
+    for (var i = 1; i <= a.length; i++) {
+      var diagonal = previous[0];
+      previous[0] = i;
+      for (var j = 1; j <= b.length; j++) {
+        final old = previous[j];
+        final cost = a.codeUnitAt(i - 1) == b.codeUnitAt(j - 1) ? 0 : 1;
+        previous[j] = [
+          previous[j] + 1,
+          previous[j - 1] + 1,
+          diagonal + cost,
+        ].reduce((x, y) => x < y ? x : y);
+        diagonal = old;
+      }
+    }
+    return previous[b.length];
+  }
+
+  static int _webSearchScore(Book book, String rawQuery) {
+    final q = _norm(rawQuery);
+    if (q.isEmpty) return 1;
+    final title = _norm(book.title);
+    final author = _norm(book.author);
+    final pub = _norm(book.publisher);
+    final cat = _norm(book.category);
+    if (title == q) return 100;
+    if (title.startsWith(q)) return 90;
+    if (title.contains(q)) return 80;
+    if (author.contains(q)) return 65;
+    if (pub.contains(q)) return 55;
+    if (cat.contains(q)) return 45;
+
+    if (q.length >= 4) {
+      final words = <String>{...title.split(' '), ...author.split(' ')};
+      var best = 99;
+      for (final word in words) {
+        if (word.length < 3) continue;
+        final d = _distance(q, word);
+        if (d < best) best = d;
+      }
+      if (best <= 1) return 38;
+      if (q.length >= 6 && best <= 2) return 28;
+    }
+    return 0;
+  }
 
   void _searchChanged(String value) {
     setState(() => query = value);
@@ -1615,16 +1709,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final state = context.read<AppState>();
       final q = clean.toLowerCase();
       final found = state.books.any(
-        (book) =>
-            book.isActive &&
-            (book.title.toLowerCase().contains(q) ||
-                book.author.toLowerCase().contains(q) ||
-                book.publisher.toLowerCase().contains(q) ||
-                book.category.toLowerCase().contains(q)),
+        (book) => book.isActive &&
+            (kIsWeb
+                ? _webSearchScore(book, clean) > 0
+                : (book.title.toLowerCase().contains(q) ||
+                    book.author.toLowerCase().contains(q) ||
+                    book.publisher.toLowerCase().contains(q) ||
+                    book.category.toLowerCase().contains(q))),
       );
-      final resultCount = state.books.where((book) => book.isActive &&
-          (book.title.toLowerCase().contains(q) || book.author.toLowerCase().contains(q) ||
-           book.publisher.toLowerCase().contains(q) || book.category.toLowerCase().contains(q))).length;
+      final resultCount = state.books.where((book) =>
+          book.isActive &&
+          (kIsWeb
+              ? _webSearchScore(book, clean) > 0
+              : (book.title.toLowerCase().contains(q) ||
+                  book.author.toLowerCase().contains(q) ||
+                  book.publisher.toLowerCase().contains(q) ||
+                  book.category.toLowerCase().contains(q)))).length;
       unawaited(state.recordSearchEvent(clean, resultCount));
       if (!found && _lastLoggedMiss != q) {
         _lastLoggedMiss = q;
@@ -1677,20 +1777,42 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }.toList();
     final personalized = state.personalizedBooks.take(8).toList();
     if (!categories.contains(category)) category = 'Barchasi';
+    final publishers = <String>[
+      'Barchasi',
+      ...bookPublishers(state.books),
+    ];
+    if (!publishers.contains(publisher)) publisher = 'Barchasi';
+
+    final suggestionBooks = query.trim().length < 2
+        ? const <Book>[]
+        : (state.books
+            .where((book) => book.isActive && _webSearchScore(book, query) > 0)
+            .toList()
+          ..sort((a, b) => _webSearchScore(b, query).compareTo(_webSearchScore(a, query))));
+    final webSuggestions = kIsWeb ? suggestionBooks.take(5).toList() : const <Book>[];
 
     final books = state.books.where((book) {
       final q = query.trim().toLowerCase();
       final matchesQuery =
           q.isEmpty ||
-          book.title.toLowerCase().contains(q) ||
-          book.author.toLowerCase().contains(q) ||
-          book.publisher.toLowerCase().contains(q) ||
-          book.category.toLowerCase().contains(q);
+          (kIsWeb
+              ? _webSearchScore(book, query) > 0
+              : (book.title.toLowerCase().contains(q) ||
+                  book.author.toLowerCase().contains(q) ||
+                  book.publisher.toLowerCase().contains(q) ||
+                  book.category.toLowerCase().contains(q)));
       final matchesCategory =
           category == 'Barchasi' ||
           (category == 'Sizga mos kitoblar' && personalized.any((b) => b.id == book.id)) ||
           book.category == category;
-      return book.isActive && matchesQuery && matchesCategory;
+      final matchesPublisher =
+          !kIsWeb || publisher == 'Barchasi' || publisherKey(book.publisher) == publisherKey(publisher);
+      final matchesPrice = !kIsWeb || book.currentPrice <= maxPrice.round();
+      return book.isActive &&
+          matchesQuery &&
+          matchesCategory &&
+          matchesPublisher &&
+          matchesPrice;
     }).toList();
 
     int selectedOrder(Book a, Book b) {
@@ -1732,7 +1854,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // result, otherwise the visible order no longer matches the chosen filter.
     final catalogItems = <Object>[...books];
 
-    return SafeArea(
+    final catalogView = SafeArea(
       child: RefreshIndicator(
         onRefresh: () async {
           await Future.wait([state.refreshBooks(), state.refreshBundles()]);
@@ -1811,7 +1933,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         controller: _searchController,
                         onChanged: _searchChanged,
                         onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
-                        onSubmitted: (_) => FocusScope.of(context).unfocus(),
+                        onSubmitted: (value) {
+                          FocusScope.of(context).unfocus();
+                          unawaited(_rememberSearch(value));
+                        },
                         textInputAction: TextInputAction.search,
                         decoration: const InputDecoration(
                           hintText: 'Kitob yoki muallif qidiring...',
@@ -1900,6 +2025,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ),
               ),
             ),
+            if (kIsWeb &&
+                (query.trim().length >= 2 || recentSearches.isNotEmpty))
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                sliver: SliverToBoxAdapter(
+                  child: _WebSearchAssist(
+                    query: query,
+                    suggestions: webSuggestions,
+                    recentSearches: recentSearches,
+                    onSearch: _applySearch,
+                    onBook: (book) {
+                      unawaited(_rememberSearch(query));
+                      _openBookDetail(context, book);
+                    },
+                  ),
+                ),
+              ),
             if (query.trim().isNotEmpty)
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
@@ -2097,6 +2239,253 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ],
         ),
       ),
+    );
+    if (!kIsWeb) return catalogView;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 1080) return catalogView;
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              width: 250,
+              child: SafeArea(
+                child: _WebDesktopCatalogFilters(
+                  categories: categories
+                      .where((value) =>
+                          value != 'Sizga mos kitoblar' &&
+                          value != 'Oldindan sotuvda' &&
+                          value != 'Nashriyotlar' &&
+                          value != 'Setlar')
+                      .toList(),
+                  publishers: publishers,
+                  category: category,
+                  publisher: publisher,
+                  maxPrice: maxPrice,
+                  sort: sort,
+                  onCategory: (value) => setState(() => category = value),
+                  onPublisher: (value) => setState(() => publisher = value),
+                  onMaxPrice: (value) => setState(() => maxPrice = value),
+                  onSort: (value) => setState(() => sort = value),
+                  onReset: () => setState(() {
+                    category = 'Barchasi';
+                    publisher = 'Barchasi';
+                    maxPrice = 100000;
+                    sort = 'new';
+                  }),
+                ),
+              ),
+            ),
+            const VerticalDivider(width: 1),
+            Expanded(child: catalogView),
+          ],
+        );
+      },
+    );
+
+  }
+}
+
+class _WebSearchAssist extends StatelessWidget {
+  const _WebSearchAssist({
+    required this.query,
+    required this.suggestions,
+    required this.recentSearches,
+    required this.onSearch,
+    required this.onBook,
+  });
+
+  final String query;
+  final List<Book> suggestions;
+  final List<String> recentSearches;
+  final ValueChanged<String> onSearch;
+  final ValueChanged<Book> onBook;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppSurface(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (query.trim().length >= 2 && suggestions.isNotEmpty) ...[
+            const Text('Tez topish', style: TextStyle(fontWeight: FontWeight.w900)),
+            const SizedBox(height: 8),
+            ...suggestions.map(
+              (book) => ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: SizedBox(
+                  width: 38,
+                  height: 52,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: _BookCover(book: book),
+                  ),
+                ),
+                title: Text(
+                  book.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: Text(
+                  book.author,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: Text(
+                  won(book.currentPrice),
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+                onTap: () => onBook(book),
+              ),
+            ),
+          ],
+          if (recentSearches.isNotEmpty) ...[
+            const Divider(height: 18),
+            const Row(
+              children: [
+                Icon(Icons.history_rounded, size: 18),
+                SizedBox(width: 7),
+                Text('So‘nggi qidiruvlar', style: TextStyle(fontWeight: FontWeight.w900)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 7,
+              runSpacing: 7,
+              children: recentSearches
+                  .map(
+                    (item) => ActionChip(
+                      avatar: const Icon(Icons.search_rounded, size: 16),
+                      label: Text(item),
+                      onPressed: () => onSearch(item),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+          const Divider(height: 18),
+          const Row(
+            children: [
+              Icon(Icons.auto_awesome_rounded, color: Color(0xFF6D3BE8), size: 19),
+              SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  'Aniq nima qidirayotganingizni bilmasangiz, Muhajeer AI ham yordam beradi.',
+                  style: TextStyle(fontSize: 12.5, color: AppColors.muted),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WebDesktopCatalogFilters extends StatelessWidget {
+  const _WebDesktopCatalogFilters({
+    required this.categories,
+    required this.publishers,
+    required this.category,
+    required this.publisher,
+    required this.maxPrice,
+    required this.sort,
+    required this.onCategory,
+    required this.onPublisher,
+    required this.onMaxPrice,
+    required this.onSort,
+    required this.onReset,
+  });
+
+  final List<String> categories;
+  final List<String> publishers;
+  final String category;
+  final String publisher;
+  final double maxPrice;
+  final String sort;
+  final ValueChanged<String> onCategory;
+  final ValueChanged<String> onPublisher;
+  final ValueChanged<double> onMaxPrice;
+  final ValueChanged<String> onSort;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(18, 20, 14, 24),
+      children: [
+        const Row(
+          children: [
+            Icon(Icons.filter_alt_outlined, color: UzbekCustomerColors.navy),
+            SizedBox(width: 8),
+            Text(
+              'Kitoblarni filtrlash',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        DropdownButtonFormField<String>(
+          value: category,
+          isExpanded: true,
+          decoration: const InputDecoration(labelText: 'Kategoriya'),
+          items: categories
+              .map((value) => DropdownMenuItem(value: value, child: Text(value, overflow: TextOverflow.ellipsis)))
+              .toList(),
+          onChanged: (value) {
+            if (value != null) onCategory(value);
+          },
+        ),
+        const SizedBox(height: 14),
+        DropdownButtonFormField<String>(
+          value: publisher,
+          isExpanded: true,
+          decoration: const InputDecoration(labelText: 'Nashriyot'),
+          items: publishers
+              .map((value) => DropdownMenuItem(value: value, child: Text(value, overflow: TextOverflow.ellipsis)))
+              .toList(),
+          onChanged: (value) {
+            if (value != null) onPublisher(value);
+          },
+        ),
+        const SizedBox(height: 18),
+        Text(
+          'Narx: ${won(maxPrice.round())} gacha',
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+        Slider(
+          value: maxPrice.clamp(10000, 100000),
+          min: 10000,
+          max: 100000,
+          divisions: 18,
+          label: won(maxPrice.round()),
+          onChanged: onMaxPrice,
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: sort,
+          decoration: const InputDecoration(labelText: 'Saralash'),
+          items: const [
+            DropdownMenuItem(value: 'new', child: Text('Yangi qo‘shilgan')),
+            DropdownMenuItem(value: 'name', child: Text('Nom bo‘yicha')),
+            DropdownMenuItem(value: 'price_low', child: Text('Arzonidan')),
+            DropdownMenuItem(value: 'price_high', child: Text('Qimmatidan')),
+            DropdownMenuItem(value: 'stock', child: Text('Ko‘p qoldiq')),
+          ],
+          onChanged: (value) {
+            if (value != null) onSort(value);
+          },
+        ),
+        const SizedBox(height: 14),
+        OutlinedButton.icon(
+          onPressed: onReset,
+          icon: const Icon(Icons.restart_alt_rounded),
+          label: const Text('Filtrlarni tozalash'),
+        ),
+      ],
     );
   }
 }

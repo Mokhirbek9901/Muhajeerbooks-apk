@@ -7510,8 +7510,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
             (o) =>
                 (focusId.isNotEmpty && o.id == focusId) ||
                 (focusNumber != null &&
-                    (o.displayOrderNumber == focusNumber ||
-                        o.orderNumber == focusNumber)),
+                    o.displayOrderNumber == focusNumber),
           ).toList();
           final orders = focused.isNotEmpty ? focused : loadedOrders;
           if (orders.isEmpty) {

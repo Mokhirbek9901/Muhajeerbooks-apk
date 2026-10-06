@@ -375,7 +375,7 @@ class BookReview {
     id: (map['id'] ?? '').toString(),
     bookId: (map['book_id'] ?? '').toString(),
     reviewerName: (map['reviewer_name'] ?? 'Muhajeer kitobxoni').toString(),
-    rating: ((map['rating'] as num?)?.toInt() ?? 0).clamp(0, 5),
+    rating: ((map['rating'] as num?)?.toInt() ?? 0).clamp(0, 5).toInt(),
     comment: (map['comment'] ?? '').toString(),
     createdAt: DateTime.tryParse((map['created_at'] ?? '').toString()) ?? DateTime.now(),
   );

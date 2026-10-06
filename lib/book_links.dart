@@ -1,9 +1,12 @@
+import 'package:flutter/foundation.dart';
+
 const bookShareOrigin = 'https://muhajeer-books-live-production.up.railway.app';
 
 // /kitob/<id> is the canonical SEO/share page. Crawlers get rich metadata;
  // real visitors are redirected to /?book=<id> and the exact book opens.
-Uri bookShareLink(String id) =>
-    Uri.parse(bookShareOrigin).replace(path: '/kitob/$id');
+Uri bookShareLink(String id) => Uri.parse(bookShareOrigin).replace(
+      path: kIsWeb ? '/kitob/$id' : '/share/$id',
+    );
 
 Uri bundleShareLink(String id) =>
     Uri.parse(bookShareOrigin).replace(queryParameters: {'bundle': id});

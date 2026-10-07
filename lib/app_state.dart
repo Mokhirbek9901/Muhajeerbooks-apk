@@ -42,6 +42,13 @@ String publisherKey(String value) => normalizePublisher(value).toLowerCase();
 const MethodChannel _deviceAnalyticsChannel =
     MethodChannel('muhajeer/device_analytics');
 
+const bool _playStoreBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
+bool get _enhancedCustomerFeatures =>
+    kIsWeb ||
+    (!kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.android &&
+        _playStoreBuild);
+
 Future<bool> _runningInFirebaseTestLab() async {
   if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return false;
   try {
@@ -893,7 +900,7 @@ class BackendService {
   ) async {
     if (ids.isEmpty) return {};
     final data = await _customerRpc(
-      kIsWeb ? 'customer_order_statuses_v2' : 'customer_order_statuses',
+      _enhancedCustomerFeatures ? 'customer_order_statuses_v2' : 'customer_order_statuses',
       {'p_ids': ids.take(50).toList()},
     );
     final result = <String, Map<String, dynamic>>{};
@@ -2474,7 +2481,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<List<BookReview>> bookReviews(String bookId) async {
-    if (!kIsWeb || _backend == null || bookId.isEmpty) {
+    if (!_enhancedCustomerFeatures || _backend == null || bookId.isEmpty) {
       return const <BookReview>[];
     }
     return _backend!.fetchBookReviews(bookId);
@@ -2487,8 +2494,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     required int rating,
     required String comment,
   }) async {
-    if (!kIsWeb || _backend == null) {
-      throw StateError('Sharh yozish webda internet orqali ishlaydi.');
+    if (!_enhancedCustomerFeatures || _backend == null) {
+      throw StateError('Sharh yozish internet orqali ishlaydi.');
     }
     await _backend!.submitBookReview(
       orderId: orderId,
@@ -2511,7 +2518,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       try {
         final uuidIds = _localOrders
             .where(
-              (o) => kIsWeb
+              (o) => _enhancedCustomerFeatures
                   ? o.status != 'cancelled'
                   : !const {'shipping', 'done', 'cancelled'}.contains(o.status),
             )
@@ -2526,13 +2533,13 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
             status: (row['status'] ?? _localOrders[i].status).toString(),
             stockReserved:
                 row['stock_reserved'] as bool? ?? _localOrders[i].stockReserved,
-            carrier: kIsWeb
+            carrier: _enhancedCustomerFeatures
                 ? (row['carrier'] ?? _localOrders[i].carrier).toString()
                 : _localOrders[i].carrier,
-            trackingNumber: kIsWeb
+            trackingNumber: _enhancedCustomerFeatures
                 ? (row['tracking_number'] ?? _localOrders[i].trackingNumber).toString()
                 : _localOrders[i].trackingNumber,
-            trackingUpdatedAt: kIsWeb
+            trackingUpdatedAt: _enhancedCustomerFeatures
                 ? (DateTime.tryParse((row['tracking_updated_at'] ?? '').toString()) ??
                     _localOrders[i].trackingUpdatedAt)
                 : _localOrders[i].trackingUpdatedAt,
@@ -2612,7 +2619,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     try {
       final uuidIds = _localOrders
           .where(
-            (o) => kIsWeb
+            (o) => _enhancedCustomerFeatures
                 ? o.status != 'cancelled'
                 : !const {'shipping', 'done', 'cancelled'}.contains(o.status),
           )
@@ -2637,13 +2644,13 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         _localOrders[i] = oldOrder.copyWith(
           status: newStatus,
           stockReserved: newReserved,
-          carrier: kIsWeb
+          carrier: _enhancedCustomerFeatures
               ? (row['carrier'] ?? oldOrder.carrier).toString()
               : oldOrder.carrier,
-          trackingNumber: kIsWeb
+          trackingNumber: _enhancedCustomerFeatures
               ? (row['tracking_number'] ?? oldOrder.trackingNumber).toString()
               : oldOrder.trackingNumber,
-          trackingUpdatedAt: kIsWeb
+          trackingUpdatedAt: _enhancedCustomerFeatures
               ? (DateTime.tryParse((row['tracking_updated_at'] ?? '').toString()) ??
                   oldOrder.trackingUpdatedAt)
               : oldOrder.trackingUpdatedAt,

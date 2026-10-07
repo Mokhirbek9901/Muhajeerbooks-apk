@@ -1750,7 +1750,19 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     }
     final installId = await _local.installId();
     await _backend!.registerInstallation(installId, 'web', phone: digits);
+    savedCustomer = {
+      ...savedCustomer,
+      'phone': digits,
+    };
+    await _local.saveCustomer(
+      savedCustomer['name'] ?? '',
+      digits,
+      savedCustomer['address'] ?? '',
+    );
+    notifyListeners();
   }
+
+  String get savedCustomerPhone => (savedCustomer['phone'] ?? '').trim();
 
   Future<void> _checkRestockNotificationsQuietly() async {
     if (_backend == null ||

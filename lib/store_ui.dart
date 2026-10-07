@@ -188,77 +188,121 @@ Future<void> _openBookDetail(BuildContext context, Book book) async {
   );
 }
 
+Future<bool> _openRestockLogin(BuildContext context) async {
+  final state = context.read<AppState>();
+  final name = TextEditingController(text: state.savedCustomer['name'] ?? '');
+  final phone = TextEditingController(text: state.savedCustomer['phone'] ?? '');
+  final address = TextEditingController(text: state.savedCustomer['address'] ?? '');
+  final formKey = GlobalKey<FormState>();
+
+  final saved = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Login qiling'),
+      content: SizedBox(
+        width: 440,
+        child: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Kitobni kutish ro‘yxatiga qo‘shish uchun ma’lumotlaringizni saqlang.',
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: name,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Ism',
+                  prefixIcon: Icon(Icons.person_outline_rounded),
+                ),
+                validator: (v) => (v ?? '').trim().length < 2
+                    ? 'Ismingizni kiriting'
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: phone,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'Telefon raqami',
+                  hintText: '01012345678',
+                  prefixIcon: Icon(Icons.phone_outlined),
+                ),
+                validator: (v) => !_isSupportedCustomerPhone(v ?? '')
+                    ? 'Koreya 010 raqamini to‘liq kiriting'
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: address,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Manzil',
+                  prefixIcon: Icon(Icons.location_on_outlined),
+                ),
+                validator: (v) => (v ?? '').trim().length < 5
+                    ? 'Manzilingizni kiriting'
+                    : null,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Bekor qilish'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (formKey.currentState?.validate() != true) return;
+            Navigator.pop(dialogContext, true);
+          },
+          child: const Text('Saqlash'),
+        ),
+      ],
+    ),
+  );
+
+  if (saved == true && context.mounted) {
+    await state.setAuthenticatedCustomer(
+      name.text,
+      phone.text,
+      address: address.text,
+    );
+  }
+  name.dispose();
+  phone.dispose();
+  address.dispose();
+  return saved == true;
+}
+
 Future<String> _toggleRestockWithWebContact(
   BuildContext context,
   Book book,
 ) async {
   final state = context.read<AppState>();
   final wasSubscribed = state.isRestockSubscribed(book);
-
   if (!kIsWeb || wasSubscribed) {
     return state.toggleRestockNotification(book);
   }
 
-  var phone = state.savedCustomerPhone;
-  if (!_isSupportedCustomerPhone(phone)) {
-    final controller = TextEditingController();
-    final enteredPhone = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Kitob kelganda xabar olish'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Kitob kelganda sizga xabar bera olishimiz uchun Koreya telefon raqamingizni kiriting.',
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: controller,
-              keyboardType: TextInputType.phone,
-              autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Telefon raqami',
-                hintText: '01012345678',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Bekor qilish'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final value = controller.text.trim();
-              if (!_isSupportedCustomerPhone(value)) {
-                ScaffoldMessenger.of(dialogContext).showSnackBar(
-                  const SnackBar(
-                    content: Text('Raqamni 01012345678 ko‘rinishida kiriting.'),
-                  ),
-                );
-                return;
-              }
-              Navigator.pop(dialogContext, value);
-            },
-            child: const Text('Davom etish'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (enteredPhone == null || enteredPhone.isEmpty) {
+  final name = (state.savedCustomer['name'] ?? '').trim();
+  final phone = (state.savedCustomer['phone'] ?? '').trim();
+  final address = (state.savedCustomer['address'] ?? '').trim();
+  if (name.isEmpty || !_isSupportedCustomerPhone(phone) || address.isEmpty) {
+    final loggedIn = await _openRestockLogin(context);
+    if (!loggedIn || !context.mounted) {
       return 'Kutish ro‘yxatiga qo‘shilmadi.';
     }
-    phone = enteredPhone;
-    await state.saveWebRestockPhone(phone);
   }
 
   final message = await state.toggleRestockNotification(book);
   if (state.isRestockSubscribed(book)) {
-    return 'Kitob kelganda sizga xabar beramiz ✅';
+    return 'Kutish yoqildi ✅ Kitob kelganda sizga xabar beramiz.';
   }
   return message;
 }

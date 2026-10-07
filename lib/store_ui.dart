@@ -2,12 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-const bool _playStoreCustomerBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
-bool get _webOrPlayCustomer =>
-    kIsWeb ||
-    (!kIsWeb &&
-        defaultTargetPlatform == TargetPlatform.android &&
-        _playStoreCustomerBuild);
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -30,6 +24,13 @@ import 'book_image_viewer.dart';
 import 'design_system.dart';
 import 'professional_access.dart';
 import 'uzbek_customer_style.dart';
+
+const bool _playStoreCustomerBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
+bool get _webOrPlayCustomer =>
+    kIsWeb ||
+    (!kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.android &&
+        _playStoreCustomerBuild);
 
 const _navy = UzbekCustomerColors.navy;
 const _orange = UzbekCustomerColors.goldDeep;

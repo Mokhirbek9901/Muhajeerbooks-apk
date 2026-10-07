@@ -188,6 +188,71 @@ Future<void> _openBookDetail(BuildContext context, Book book) async {
   );
 }
 
+Future<String> _toggleRestockWithWebContact(
+  BuildContext context,
+  Book book,
+) async {
+  final state = context.read<AppState>();
+  final wasSubscribed = state.isRestockSubscribed(book);
+  final message = await state.toggleRestockNotification(book);
+  if (!kIsWeb || wasSubscribed || !state.isRestockSubscribed(book) || !context.mounted) {
+    return message;
+  }
+
+  final controller = TextEditingController();
+  final phone = await showDialog<String>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Kitob kelganda xabar beramiz'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Web bildirishnomasi ishlamasa ham siz bilan bog‘lana olishimiz uchun Koreya telefon raqamingizni qoldiring.',
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: controller,
+            keyboardType: TextInputType.phone,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'Telefon raqami',
+              hintText: '01012345678',
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text('Hozir emas'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final value = controller.text.trim();
+            if (!_isSupportedCustomerPhone(value)) {
+              ScaffoldMessenger.of(dialogContext).showSnackBar(
+                const SnackBar(content: Text('Raqamni 01012345678 ko‘rinishida kiriting.')),
+              );
+              return;
+            }
+            Navigator.pop(dialogContext, value);
+          },
+          child: const Text('Saqlash'),
+        ),
+      ],
+    ),
+  );
+  controller.dispose();
+
+  if (phone != null && phone.isNotEmpty) {
+    await state.saveWebRestockPhone(phone);
+    return 'Kutish ro‘yxatiga qo‘shildi. Telefon raqamingiz ham saqlandi ✅';
+  }
+  return message;
+}
+
 Future<void> _openTelegramRestock(BuildContext context, Book book) async {
   final telegramId = book.legacyId;
   if (telegramId == null || telegramId <= 0) {
@@ -3836,8 +3901,7 @@ class BookCard extends StatelessWidget {
                                     );
                                 }
                               : () async {
-                                  final message = await state
-                                      .toggleRestockNotification(book);
+                                  final message = await _toggleRestockWithWebContact(context, book);
                                   if (!context.mounted) return;
                                   ScaffoldMessenger.of(context)
                                     ..hideCurrentSnackBar()
@@ -4312,9 +4376,7 @@ class BookDetailPage extends StatelessWidget {
                     Expanded(
                       child: FilledButton.icon(
                         onPressed: () async {
-                          final message = await state.toggleRestockNotification(
-                            b,
-                          );
+                          final message = await _toggleRestockWithWebContact(context, b);
                           if (!context.mounted) return;
                           ScaffoldMessenger.of(context)
                               .showSnackBar(SnackBar(content: Text(message)));

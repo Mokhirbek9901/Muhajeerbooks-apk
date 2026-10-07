@@ -1742,6 +1742,16 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     return 'Kitob kelganda sizga xabar beramiz ✅';
   }
 
+  Future<void> saveWebRestockPhone(String phone) async {
+    if (!kIsWeb || _backend == null) return;
+    final digits = phone.replaceAll(RegExp(r'\\D'), '');
+    if (digits.length != 11 || !digits.startsWith('010')) {
+      throw ArgumentError('Telefon raqamini 01012345678 ko‘rinishida kiriting.');
+    }
+    final installId = await _local.installId();
+    await _backend!.registerInstallation(installId, 'web', phone: digits);
+  }
+
   Future<void> _checkRestockNotificationsQuietly() async {
     if (_backend == null ||
         _restockRefreshing ||

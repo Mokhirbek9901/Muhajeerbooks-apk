@@ -194,61 +194,71 @@ Future<String> _toggleRestockWithWebContact(
 ) async {
   final state = context.read<AppState>();
   final wasSubscribed = state.isRestockSubscribed(book);
-  final message = await state.toggleRestockNotification(book);
-  if (!kIsWeb || wasSubscribed || !state.isRestockSubscribed(book) || !context.mounted) {
-    return message;
+
+  if (!kIsWeb || wasSubscribed) {
+    return state.toggleRestockNotification(book);
   }
 
-  final controller = TextEditingController();
-  final phone = await showDialog<String>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: const Text('Kitob kelganda xabar beramiz'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Web bildirishnomasi ishlamasa ham siz bilan bog‘lana olishimiz uchun Koreya telefon raqamingizni qoldiring.',
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: controller,
-            keyboardType: TextInputType.phone,
-            autofocus: true,
-            decoration: const InputDecoration(
-              labelText: 'Telefon raqami',
-              hintText: '01012345678',
+  var phone = state.savedCustomerPhone;
+  if (!_isSupportedCustomerPhone(phone)) {
+    final controller = TextEditingController();
+    final enteredPhone = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Kitob kelganda xabar olish'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Kitob kelganda sizga xabar bera olishimiz uchun Koreya telefon raqamingizni kiriting.',
             ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.phone,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Telefon raqami',
+                hintText: '01012345678',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Bekor qilish'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final value = controller.text.trim();
+              if (!_isSupportedCustomerPhone(value)) {
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  const SnackBar(
+                    content: Text('Raqamni 01012345678 ko‘rinishida kiriting.'),
+                  ),
+                );
+                return;
+              }
+              Navigator.pop(dialogContext, value);
+            },
+            child: const Text('Davom etish'),
           ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dialogContext),
-          child: const Text('Hozir emas'),
-        ),
-        FilledButton(
-          onPressed: () {
-            final value = controller.text.trim();
-            if (!_isSupportedCustomerPhone(value)) {
-              ScaffoldMessenger.of(dialogContext).showSnackBar(
-                const SnackBar(content: Text('Raqamni 01012345678 ko‘rinishida kiriting.')),
-              );
-              return;
-            }
-            Navigator.pop(dialogContext, value);
-          },
-          child: const Text('Saqlash'),
-        ),
-      ],
-    ),
-  );
-  controller.dispose();
-
-  if (phone != null && phone.isNotEmpty) {
+    );
+    controller.dispose();
+    if (enteredPhone == null || enteredPhone.isEmpty) {
+      return 'Kutish ro‘yxatiga qo‘shilmadi.';
+    }
+    phone = enteredPhone;
     await state.saveWebRestockPhone(phone);
-    return 'Kutish ro‘yxatiga qo‘shildi. Telefon raqamingiz ham saqlandi ✅';
+  }
+
+  final message = await state.toggleRestockNotification(book);
+  if (state.isRestockSubscribed(book)) {
+    return 'Kitob kelganda sizga xabar beramiz ✅';
   }
   return message;
 }

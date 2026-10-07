@@ -6303,6 +6303,52 @@ class _RestockAdminState extends State<_RestockAdmin> {
     }
   }
 
+  Future<void> _showWaiters(Map<String, dynamic> row) async {
+    final bookId = (row['book_id'] ?? '').toString();
+    final title = (row['title'] ?? 'Kitob').toString();
+    if (bookId.isEmpty) return;
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('$title — kutayotganlar'),
+        content: SizedBox(
+          width: 520,
+          child: FutureBuilder<List<Map<String, dynamic>>>(
+            future: widget.api.restockWaiters(bookId),
+            builder: (context, snap) {
+              if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+              final waiters = snap.data!;
+              if (waiters.isEmpty) return const Text('Kutayotgan mijoz yo‘q.');
+              return ListView.separated(
+                shrinkWrap: true,
+                itemCount: waiters.length,
+                separatorBuilder: (_, __) => const Divider(height: 18),
+                itemBuilder: (_, i) {
+                  final w = waiters[i];
+                  final name = (w['customer_name'] ?? '').toString().trim();
+                  final phone = (w['customer_phone'] ?? '').toString().trim();
+                  final platform = (w['platform'] ?? '').toString();
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const CircleAvatar(child: Icon(Icons.person_outline_rounded)),
+                    title: Text(name.isEmpty ? 'Eski so‘rov — mijoz ma’lumoti yo‘q' : name,
+                      style: const TextStyle(fontWeight: FontWeight.w800)),
+                    subtitle: Text([
+                      if (phone.isNotEmpty) phone else 'Telefon raqami yo‘q',
+                      if (platform.isNotEmpty) platform,
+                      _when(w['created_at']),
+                    ].where((e) => e.isNotEmpty).join(' • ')),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Yopish'))],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Map<String, dynamic>>>(
@@ -6489,22 +6535,24 @@ class _RestockAdminState extends State<_RestockAdmin> {
                           ),
                         ),
                         const SizedBox(width: 10),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF4E6),
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: const Color(0xFFFFD6A3)),
-                          ),
-                          child: Text(
-                            '$count kishi kutyapti',
-                            style: const TextStyle(
-                              color: _navy,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 12,
+                        InkWell(
+                          borderRadius: BorderRadius.circular(999),
+                          onTap: () => _showWaiters(row),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF4E6),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(color: const Color(0xFFFFD6A3)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text('$count kishi kutyapti',
+                                  style: const TextStyle(color: _navy,fontWeight: FontWeight.w900,fontSize: 12)),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.chevron_right_rounded, size: 17, color: _navy),
+                              ],
                             ),
                           ),
                         ),

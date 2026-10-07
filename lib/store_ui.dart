@@ -13,6 +13,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -305,6 +306,14 @@ Future<String> _toggleRestockWithWebContact(
     if (!loggedIn || !context.mounted) {
       return 'Kutish ro‘yxatiga qo‘shilmadi.';
     }
+  }
+
+  if (!kIsWeb &&
+      defaultTargetPlatform == TargetPlatform.android &&
+      _playStoreCustomerBuild) {
+    // Android 13+ shows the system notification permission prompt here.
+    // Older Android versions report granted without showing a dialog.
+    await Permission.notification.request();
   }
 
   final message = await state.toggleRestockNotification(book);

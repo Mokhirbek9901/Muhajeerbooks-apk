@@ -35,9 +35,9 @@ jobs:
       ENC_KEYSTORE: .github/signing/upload-keystore.jks.enc
       KEYSTORE_SECRET: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-      # Closed testing track the app is published to; override with the
-      # PLAY_TRACK repository variable when moving to production.
-      PLAY_TRACK: ${{ vars.PLAY_TRACK || 'Muhajeer Books Closed Test 1' }}
+      # Publish the current Android release to Production by default.
+      # PLAY_TRACK can still override this explicitly when a test release is needed.
+      PLAY_TRACK: ${{ vars.PLAY_TRACK || 'production' }}
     steps:
       - uses: actions/checkout@v4
 

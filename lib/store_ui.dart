@@ -1,6 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+
+const bool _playStoreCustomerBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
+bool get _webOrPlayCustomer =>
+    kIsWeb ||
+    (!kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.android &&
+        _playStoreCustomerBuild);
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -286,7 +293,7 @@ Future<String> _toggleRestockWithWebContact(
 ) async {
   final state = context.read<AppState>();
   final wasSubscribed = state.isRestockSubscribed(book);
-  if (!kIsWeb || wasSubscribed) {
+  if (!_webOrPlayCustomer || wasSubscribed) {
     return state.toggleRestockNotification(book);
   }
 
@@ -1694,7 +1701,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     sort = 'new';
     publisher = 'Barchasi';
     maxPrice = 100000;
-    if (kIsWeb) unawaited(_loadRecentSearches());
+    if (_webOrPlayCustomer) unawaited(_loadRecentSearches());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
       _scrollController.jumpTo(0);
@@ -1741,7 +1748,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _rememberSearch(String value) async {
-    if (!kIsWeb) return;
+    if (!_webOrPlayCustomer) return;
     final clean = value.trim();
     if (clean.length < 2) return;
     final next = <String>[
@@ -1829,7 +1836,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final q = clean.toLowerCase();
       final found = state.books.any(
         (book) => book.isActive &&
-            (kIsWeb
+            (_webOrPlayCustomer
                 ? _webSearchScore(book, clean) > 0
                 : (book.title.toLowerCase().contains(q) ||
                     book.author.toLowerCase().contains(q) ||
@@ -1838,7 +1845,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       );
       final resultCount = state.books.where((book) =>
           book.isActive &&
-          (kIsWeb
+          (_webOrPlayCustomer
               ? _webSearchScore(book, clean) > 0
               : (book.title.toLowerCase().contains(q) ||
                   book.author.toLowerCase().contains(q) ||
@@ -1908,13 +1915,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             .where((book) => book.isActive && _webSearchScore(book, query) > 0)
             .toList()
           ..sort((a, b) => _webSearchScore(b, query).compareTo(_webSearchScore(a, query))));
-    final webSuggestions = kIsWeb ? suggestionBooks.take(5).toList() : const <Book>[];
+    final webSuggestions = _webOrPlayCustomer ? suggestionBooks.take(5).toList() : const <Book>[];
 
     final books = state.books.where((book) {
       final q = query.trim().toLowerCase();
       final matchesQuery =
           q.isEmpty ||
-          (kIsWeb
+          (_webOrPlayCustomer
               ? _webSearchScore(book, query) > 0
               : (book.title.toLowerCase().contains(q) ||
                   book.author.toLowerCase().contains(q) ||
@@ -2144,7 +2151,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ),
               ),
             ),
-            if (kIsWeb &&
+            if (_webOrPlayCustomer &&
                 query.trim().length >= 2 &&
                 webSuggestions.isNotEmpty)
               SliverPadding(
@@ -4293,7 +4300,7 @@ class BookDetailPage extends StatelessWidget {
                         : Column(
                             children: [cover, const SizedBox(height: 26), info],
                           ),
-                    if (kIsWeb) ...[
+                    if (_webOrPlayCustomer) ...[
                       const SizedBox(height: 22),
                       _WebBookReviews(book: b),
                     ],
@@ -6996,16 +7003,16 @@ class ProfilePage extends StatelessWidget {
                 ListTile(
                   minTileHeight: 68,
                   leading: _ProfileIcon(
-                    icon: kIsWeb
+                    icon: _webOrPlayCustomer
                         ? Icons.person_outline_rounded
                         : Icons.receipt_long_outlined,
                   ),
                   title: Text(
-                    kIsWeb ? 'Mening ma’lumotlarim' : 'Mening buyurtmalarim',
+                    _webOrPlayCustomer ? 'Mening ma’lumotlarim' : 'Mening buyurtmalarim',
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
                   subtitle: Text(
-                    kIsWeb
+                    _webOrPlayCustomer
                         ? 'Profil, buyurtmalar, manzil va yordam'
                         : 'Holatini kuzatish va tarixni ko‘rish',
                   ),
@@ -7014,9 +7021,9 @@ class ProfilePage extends StatelessWidget {
                     context,
                     muhajeerPageRoute(
                       settings: RouteSettings(
-                        name: kIsWeb ? 'mb:my-profile-web' : 'mb:orders',
+                        name: _webOrPlayCustomer ? 'mb:my-profile-web' : 'mb:orders',
                       ),
-                      builder: (_) => kIsWeb
+                      builder: (_) => _webOrPlayCustomer
                           ? const _WebMyProfilePage()
                           : const MyOrdersPage(),
                     ),
@@ -7769,7 +7776,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                         ),
                       ),
                     ],
-                    if (kIsWeb &&
+                    if (_webOrPlayCustomer &&
                         order.trackingNumber.trim().isNotEmpty) ...[
                       const SizedBox(height: 10),
                       _WebOrderTrackingCard(order: order),

@@ -6314,7 +6314,11 @@ class _RestockAdminState extends State<_RestockAdmin> {
         content: SizedBox(
           width: 520,
           child: FutureBuilder<List<Map<String, dynamic>>>(
-            future: widget.api.restockWaiters(bookId),
+            future: Future.value(
+              ((row['waiters'] as List?) ?? const [])
+                  .map((e) => Map<String, dynamic>.from(e as Map))
+                  .toList(),
+            ),
             builder: (context, snap) {
               if (!snap.hasData) return const Center(child: CircularProgressIndicator());
               final waiters = snap.data!;

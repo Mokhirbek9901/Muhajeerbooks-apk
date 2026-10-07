@@ -690,6 +690,16 @@ class _AdminApi {
         .toList();
   }
 
+  Future<List<Map<String, dynamic>>> restockWaiters(String bookId) async {
+    final raw = await _rpc(
+      'admin_restock_waiters',
+      params: {'p_secret': secret, 'p_book_id': bookId},
+    );
+    return ((raw as List?) ?? const [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
   Future<List<Map<String, dynamic>>> shippingQueue() async {
     final raw = await _rpc(
       'admin_shipping_queue_list',

@@ -678,11 +678,18 @@ class BackendService {
 
   Future<Map<String, dynamic>> subscribeRestock(
     String installId,
-    String bookId,
-  ) async {
+    String bookId, {
+    String name = '',
+    String phone = '',
+  }) async {
     final raw = await _customerRpc(
       'customer_restock_subscribe',
-      {'p_install_id': installId, 'p_book_id': bookId},
+      {
+        'p_install_id': installId,
+        'p_book_id': bookId,
+        'p_name': name.trim(),
+        'p_phone': phone.trim(),
+      },
     );
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
@@ -1730,7 +1737,18 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       return 'Xabar berish bekor qilindi.';
     }
 
-    final result = await _backend!.subscribeRestock(installId, book.id);
+    final phone = (savedCustomer['phone'] ?? '').trim();
+    final name = (savedCustomer['name'] ?? '').trim();
+    if (phone.isEmpty || name.isEmpty) {
+      return 'Kutish ro‘yxatiga qo‘shilish uchun avval login qiling.';
+    }
+
+    final result = await _backend!.subscribeRestock(
+      installId,
+      book.id,
+      name: name,
+      phone: phone,
+    );
     if (result['already_available'] == true) {
       await refreshBooks();
       return 'Kitob hozir sotuvda mavjud.';

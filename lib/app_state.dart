@@ -1478,14 +1478,18 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> setAuthenticatedCustomer(
     String name,
     String phone, {
+    String? address,
     bool verified = true,
   }) async {
     final cleanName = name.trim();
     final cleanPhone = phone.trim();
+    final cleanAddress = address?.trim();
     savedCustomer = {
       'name': cleanName.isEmpty ? (savedCustomer['name'] ?? '') : cleanName,
       'phone': cleanPhone.isEmpty ? (savedCustomer['phone'] ?? '') : cleanPhone,
-      'address': savedCustomer['address'] ?? '',
+      'address': cleanAddress == null
+          ? (savedCustomer['address'] ?? '')
+          : cleanAddress,
     };
     await _local.saveCustomer(
       savedCustomer['name'] ?? '',

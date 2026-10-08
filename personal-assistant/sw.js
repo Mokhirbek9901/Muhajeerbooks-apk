@@ -1,5 +1,5 @@
-const CACHE='bek-yordamchi-v13';
-const ASSETS=['./','./index.html','./styles.css?v=13','./app.js?v=13','./manifest.webmanifest','./icon.svg'];
+const CACHE='bek-yordamchi-v14';
+const ASSETS=['./','./index.html','./styles.css?v=14','./app.js?v=14','./manifest.webmanifest','./icon.svg'];
 
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)));

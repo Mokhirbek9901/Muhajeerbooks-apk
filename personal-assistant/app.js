@@ -593,8 +593,11 @@
     if(!search){setScannerStatus('Qidirish uchun avval ISBN kiriting.',true);return;}
     const query=isbn?isbn+' kitob nashriyot asaxiy ISBN':search+' kitob O‘zbekiston muqova';
     const url='https://www.google.com/search?q='+encodeURIComponent(query);
-    const opened=window.open(url,'_blank','noopener,noreferrer');
-    if(!opened) window.location.href=url;
+    const link=document.createElement('a');
+    link.href=url;
+    link.target='_blank';
+    link.rel='noopener noreferrer';
+    link.click();
   }
 
 
@@ -640,8 +643,11 @@
       return;
     }
     const url='https://www.google.com/search?q='+encodeURIComponent(query+' kitob o‘zbekcha nashriyot muqova');
-    const opened=window.open(url,'_blank','noopener,noreferrer');
-    if(!opened)window.location.href=url;
+    const link=document.createElement('a');
+    link.href=url;
+    link.target='_blank';
+    link.rel='noopener noreferrer';
+    link.click();
   }
 
   function yearFromText(value){

@@ -9,6 +9,37 @@
 
   const DEFAULT_CATEGORIES = ['Roman','Diniy','Tarixiy','Psixologiya','Motivatsiya','Shaxsiy rivojlanish','Detektiv','Badiiy adabiyot'];
 
+  // Mohirbekning avval o‘qib bo‘lgan kitoblari. Tugatilgan sana aniq
+  // berilmagan joylarda sana bo‘sh qoladi, lekin kitob "Tugatilgan" holatida.
+  const READ_LIBRARY_SEED = [
+    {id:'history-001',title:'O‘gay ona',author:'Ahmad Lutfiy Qozonchi',category:'Roman',publisher:'Book Media Nashr',publishedYear:2019,pages:192,startedAt:'2022-04-07',finishedAt:''},
+    {id:'history-002',title:'Iskanja',author:'Omina Shenliko‘g‘li',category:'Roman',publisher:'Ilm-ziyo-zakovat',publishedYear:2021,pages:224,startedAt:'2022-04-15',finishedAt:''},
+    {id:'history-003',title:'So‘nggi to‘fon',author:'Ahmad Lutfiy Qozonchi',category:'Roman',publisher:'Yangi Asr Avlodi',publishedYear:2021,pages:208,startedAt:'2022-04-22',finishedAt:''},
+    {id:'history-004',title:'Hayot yutqazgan joyingdan boshlanar',author:'Mirach Chag‘ri Oqtosh',category:'Shaxsiy rivojlanish',publisher:'Factor Books',publishedYear:2021,pages:240,startedAt:'2022-04-28',finishedAt:''},
+    {id:'history-005',title:'Yashash fursati',author:'Mehmet Olaqosh',category:'Diniy',publisher:'Kitobdor Nashr',publishedYear:0,pages:120,startedAt:'2022-05-14',finishedAt:''},
+    {id:'history-006',title:'500 yildan so‘ng',author:'Omina Shenliko‘g‘li',category:'Roman',publisher:'Azon kitoblari',publishedYear:0,pages:0,startedAt:'',finishedAt:''},
+    {id:'history-007',title:'Alvido, Vatan!',author:'A’zam Hoshimiy',category:'Roman',publisher:'Azon kitoblari',publishedYear:2020,pages:117,startedAt:'',finishedAt:''},
+    {id:'history-008',title:'Kaktuslar ham gullaydi',author:'Songul Unsal',category:'Roman',publisher:'Zukko Kitobxon',publishedYear:2022,pages:160,startedAt:'',finishedAt:''},
+    {id:'history-009',title:'Imomning maneken qizi',author:'Omina Shenliko‘g‘li',category:'Roman',publisher:'Azon kitoblari',publishedYear:2021,pages:172,startedAt:'',finishedAt:''},
+    {id:'history-010',title:'Iymon va huzun',author:'Said Chamlija',category:'Diniy',publisher:'Muharrir',publishedYear:2021,pages:128,startedAt:'',finishedAt:''},
+    {id:'history-011',title:'Iqror',author:'Xolid Ertug‘rul',category:'Roman',publisher:'Misbah',publishedYear:2021,pages:160,startedAt:'',finishedAt:''},
+    {id:'history-012',title:'Chunki Sen Allohsan',author:'Ali ibn Jobir Fayfiy',category:'Diniy',publisher:'Munir',publishedYear:2021,pages:240,startedAt:'',finishedAt:''},
+    {id:'history-013',title:'Jannatga taklifnoma',author:'Adam Uzkusa',category:'Diniy',publisher:'Kitobdor Nashr',publishedYear:2022,pages:128,startedAt:'',finishedAt:''},
+    {id:'history-014',title:'Boshimning toji',author:'Xadicha Kubro Tongar',category:'Diniy',publisher:'Yangi Asr Avlodi',publishedYear:2022,pages:96,startedAt:'',finishedAt:''},
+    {id:'history-015',title:'Huzur eshigi',author:'Abdukarim Mirzayev',category:'Shaxsiy rivojlanish',publisher:'Yasira Bookshop',publishedYear:2022,pages:224,startedAt:'',finishedAt:''},
+    {id:'history-016',title:'Hayotimiz kengurulari',author:'Sanjar Xo‘ja',category:'Shaxsiy rivojlanish',publisher:'Muharrir nashriyoti',publishedYear:2022,pages:160,startedAt:'',finishedAt:''},
+    {id:'history-017',title:'O‘zini qidirgan odam',author:'Xolid Ertug‘rul',category:'Roman',publisher:'Misbah',publishedYear:0,pages:144,startedAt:'',finishedAt:''},
+    {id:'history-018',title:'Katta Shahzoda',author:'Mikoil Adiguzel',category:'Roman',publisher:'Huzur',publishedYear:2024,pages:70,startedAt:'2024-12-08',finishedAt:''},
+    {id:'history-019',title:'Qiyomat va oxirat',author:'Abu Homid G‘azzoliy',category:'Diniy',publisher:'Munir',publishedYear:2022,pages:192,startedAt:'2024-12-10',finishedAt:'2024-12-13'},
+    {id:'history-020',title:'Zalolatdan qutulish',author:'Abu Homid G‘azzoliy',category:'Diniy',publisher:'Munir',publishedYear:2021,pages:96,startedAt:'2024-12-16',finishedAt:'2024-12-19'},
+    {id:'history-021',title:'Men (Bas qil, ey nafs!)',author:'Fotih Duman',category:'Diniy',publisher:'Nasim Kutub',publishedYear:2023,pages:299,startedAt:'2025-02-08',finishedAt:'2025-02-13'},
+    {id:'history-022',title:'Umringizni o‘g‘irlayotgan illatlar',author:'Oysha Oydo‘g‘du',category:'Shaxsiy rivojlanish',publisher:'Misbah',publishedYear:2024,pages:176,startedAt:'',finishedAt:''},
+    {id:'history-023',title:'Ochlik',author:'Knut Hamsun',category:'Roman',publisher:'Yangi Asr Avlodi',publishedYear:2025,pages:192,startedAt:'2025-03-29',finishedAt:'2025-04-06'},
+    {id:'history-024',title:'O‘limdan keyingi hayot',author:'Reymond Mudi',category:'Psixologiya',publisher:'Tahlil',publishedYear:0,pages:192,startedAt:'2025-04-07',finishedAt:'2025-04-11'},
+    {id:'history-025',title:'Allohga chinakam bandalik',author:'Muhammad Amin Yildirim',category:'Diniy',publisher:'Nasim Kutub',publishedYear:2023,pages:176,startedAt:'2025-04-11',finishedAt:'2025-04-17'},
+    {id:'history-026',title:'Maymunlar sayyorasi',author:'Pyer Bul',category:'Roman',publisher:'Huzur',publishedYear:2024,pages:225,startedAt:'2025-04-17',finishedAt:'2025-04-25'}
+  ];
+
   const defaultState = () => ({
     version: 4,
     profile: {
@@ -16,7 +47,8 @@
       yearlyGoal: 24,
       theme: 'light',
       reminderTime: '08:00',
-      customCategories: []
+      customCategories: [],
+      seedReadLibrary20261008: false
     },
     books: [],
     transactions: []
@@ -40,11 +72,65 @@
       if(!raw) continue;
       try{
         const normalized = normalizeState(JSON.parse(raw));
+        mergeReadLibrarySeed(normalized);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
         return normalized;
       }catch(_){}
     }
-    return defaultState();
+    const fresh = defaultState();
+    mergeReadLibrarySeed(fresh);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh));
+    return fresh;
+  }
+
+  function titleKey(value){
+    return String(value||'')
+      .toLowerCase()
+      .replace(/[’‘ʻʼ']/g,'')
+      .replace(/[^a-z0-9\u0400-\u04ff]+/g,'')
+      .trim();
+  }
+
+  function mergeReadLibrarySeed(target){
+    if(target?.profile?.seedReadLibrary20261008 === true) return false;
+    const existingByTitle = new Map((target.books||[]).map(b=>[titleKey(b.title),b]));
+    const seedTime = '2026-10-08T00:00:00.000Z';
+
+    READ_LIBRARY_SEED.forEach((item,index)=>{
+      const existing = existingByTitle.get(titleKey(item.title));
+      if(existing){
+        if(!existing.author) existing.author=item.author;
+        if(!existing.category) existing.category=item.category;
+        if(!existing.publisher) existing.publisher=item.publisher;
+        if(!existing.publishedYear && item.publishedYear) existing.publishedYear=item.publishedYear;
+        if(!existing.pages && item.pages) existing.pages=item.pages;
+        if(!existing.startedAt && item.startedAt) existing.startedAt=item.startedAt;
+        if(!existing.finishedAt && item.finishedAt) existing.finishedAt=item.finishedAt;
+        existing.statusOverride='finished';
+        if(existing.pages && !existing.currentPage) existing.currentPage=existing.pages;
+        existing.updatedAt=existing.updatedAt||seedTime;
+        return;
+      }
+
+      const book={
+        ...item,
+        id:item.id||('history-'+String(index+1).padStart(3,'0')),
+        statusOverride:'finished',
+        cover:'',
+        currentPage:item.pages||0,
+        rating:0,
+        notes:'',
+        readingLog:[],
+        createdAt:seedTime,
+        updatedAt:seedTime
+      };
+      if(item.startedAt) book.readingLog.push({date:item.startedAt,page:0});
+      if(item.finishedAt) book.readingLog.push({date:item.finishedAt,page:item.pages||0});
+      target.books.push(book);
+    });
+
+    target.profile.seedReadLibrary20261008=true;
+    return true;
   }
 
   function normalizeState(input){
@@ -61,7 +147,8 @@
         yearlyGoal: clampInt(profile.yearlyGoal ?? input?.yearlyGoal ?? 24, 1, 500),
         theme: profile.theme === 'dark' ? 'dark' : 'light',
         reminderTime: /^\d{2}:\d{2}$/.test(profile.reminderTime || '') ? profile.reminderTime : '08:00',
-        customCategories: Array.isArray(profile.customCategories) ? profile.customCategories.map(String).filter(Boolean) : []
+        customCategories: Array.isArray(profile.customCategories) ? profile.customCategories.map(String).filter(Boolean) : [],
+        seedReadLibrary20261008: profile.seedReadLibrary20261008 === true
       },
       books: books.map(b => ({
         id: String(b.id || makeId()),
@@ -69,6 +156,8 @@
         author: String(b.author || '').trim(),
         category: String(b.category || '').trim(),
         publisher: String(b.publisher || b.nashriyot || '').trim(),
+        publishedYear: clampInt(b.publishedYear || b.publishYear || 0, 0, 2100),
+        statusOverride: ['wishlist','reading','finished'].includes(b.statusOverride) ? b.statusOverride : '',
         cover: String(b.cover || b.coverUrl || '').trim(),
         pages: numOrZero(b.pages || b.totalPages),
         currentPage: numOrZero(b.currentPage || b.page),
@@ -111,7 +200,16 @@
   function escapeHtml(v){ return String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;'); }
   function formatDate(v){ const d=parseDay(v); return d ? new Intl.DateTimeFormat('uz-UZ',{day:'2-digit',month:'short',year:'numeric'}).format(d) : '—'; }
   function monthName(date){ return new Intl.DateTimeFormat('uz-UZ',{month:'long',year:'numeric'}).format(date); }
-  function statusOf(book){ if(book.finishedAt) return 'finished'; if(book.startedAt) return 'reading'; return 'wishlist'; }
+  function statusOf(book){
+    if(book.finishedAt) return 'finished';
+    if(['wishlist','reading','finished'].includes(book.statusOverride)) return book.statusOverride;
+    if(book.startedAt) return 'reading';
+    return 'wishlist';
+  }
+  function bookFinishedYear(book){
+    const date = book.finishedAt || (statusOf(book)==='finished' ? book.startedAt : '');
+    return parseDay(date)?.getFullYear() || null;
+  }
   function statusLabel(s){ return s==='reading'?'O‘qiyapman':s==='finished'?'Tugatilgan':'Reja qilingan'; }
   function progressOf(book){ if(statusOf(book)==='finished') return 100; if(!book.pages) return 0; return Math.max(0,Math.min(100,Math.round((book.currentPage/book.pages)*100))); }
   function durationDays(book){
@@ -185,7 +283,7 @@
   function renderHome(){
     const reading=state.books.filter(b=>statusOf(b)==='reading');
     const finished=state.books.filter(b=>statusOf(b)==='finished');
-    const finishedYear=finished.filter(b=>parseDay(b.finishedAt)?.getFullYear()===nowYear);
+    const finishedYear=finished.filter(b=>bookFinishedYear(b)===nowYear);
     const goal=state.profile.yearlyGoal||24;
     $('homeTotalBooks').textContent=state.books.length;
     $('homeReadingBooks').textContent=reading.length;
@@ -236,12 +334,16 @@
     list.innerHTML=books.map(book=>{
       const status=statusOf(book), p=progressOf(book);
       const dates=status==='reading'
-        ? '<span>'+escapeHtml(book.startedAt||'')+'</span>'
+        ? '<span>◫ '+(book.startedAt?escapeHtml(formatDate(book.startedAt)):'Boshlangan sana kiritilmagan')+'</span>'
         : status==='finished'
-          ? '<span>'+escapeHtml(book.startedAt||'')+' → '+escapeHtml(book.finishedAt||'')+'</span>'
+          ? '<span>✓ '+(book.finishedAt?escapeHtml(formatDate(book.finishedAt)):'Tugatilgan sana kiritilmagan')+'</span>'+
+            (book.startedAt?'<span>▶ '+escapeHtml(formatDate(book.startedAt))+'</span>':'')
           : '<span>Hali boshlanmagan</span>';
+      const edition=[book.publisher,book.publishedYear?String(book.publishedYear):'',book.pages?book.pages+' bet':'']
+        .filter(Boolean).map(x=>'<span>'+escapeHtml(x)+'</span>').join('');
       return '<article class="book-row" data-book-open="'+book.id+'">'+coverHtml(book)+
-        '<div><h3>'+escapeHtml(book.title)+'</h3><div class="author">'+escapeHtml(book.author||'Muallif kiritilmagan')+'</div>'+
+        '<div class="book-row-main"><h3>'+escapeHtml(book.title)+'</h3><div class="author">'+escapeHtml(book.author||'Muallif kiritilmagan')+'</div>'+
+        (edition?'<div class="book-edition">'+edition+'</div>':'')+
         '<span class="status-pill '+status+'">'+statusLabel(status)+'</span>'+
         (book.pages?'<div class="progress-wrap"><div class="progress-track"><div class="progress-fill" style="width:'+p+'%"></div></div><b>'+p+'%</b></div>':'')+
         '<div class="book-dates">'+dates+'</div></div>'+
@@ -256,13 +358,13 @@
     const status=statusOf(book), p=progressOf(book);
     holder.innerHTML='<div class="detail-top">'+coverHtml(book)+
       '<div class="detail-meta"><h1>'+escapeHtml(book.title)+'</h1><div class="author">'+escapeHtml(book.author||'Muallif kiritilmagan')+'</div>'+
-      '<div class="meta-tags">'+[book.category,book.publisher].filter(Boolean).map(x=>'<span>'+escapeHtml(x)+'</span>').join('')+'</div>'+
+      '<div class="meta-tags">'+[book.category,book.publisher,book.publishedYear?String(book.publishedYear):'',book.pages?book.pages+' bet':''].filter(Boolean).map(x=>'<span>'+escapeHtml(x)+'</span>').join('')+'</div>'+
       '<div class="detail-status-row"><span class="status-pill '+status+'">● '+statusLabel(status)+'</span></div></div></div>'+
       '<div class="detail-progress"><div class="detail-progress-head"><span>Mutolaa progressi</span><b>'+p+'%</b></div>'+
       '<div class="progress-track"><div class="progress-fill" style="width:'+p+'%"></div></div>'+
       '<div class="detail-pages">Sahifalar: '+(book.currentPage||0)+(book.pages?' / '+book.pages:'')+'</div></div>'+
       '<div class="detail-date-grid"><div class="detail-date-card"><small>Mutolaa boshlangan sana</small><b>◫ '+(book.startedAt?formatDate(book.startedAt):'Boshlanmagan')+'</b></div>'+
-      '<div class="detail-date-card"><small>Mutolaa tugatilgan sana</small><b>◫ '+(book.finishedAt?formatDate(book.finishedAt):'Hali tugatilmagan')+'</b></div></div>'+
+      '<div class="detail-date-card"><small>Mutolaa tugatilgan sana</small><b>◫ '+(book.finishedAt?formatDate(book.finishedAt):(status==='finished'?'Sana kiritilmagan':'Hali tugatilmagan'))+'</b></div></div>'+
       '<article class="content-card detail-notes"><div class="section-title-row"><h2>Shaxsiy izoh</h2><button class="text-action" data-edit-book="'+book.id+'">Tahrirlash</button></div>'+
       '<p>'+escapeHtml(book.notes||'Hali shaxsiy izoh yozilmagan.')+'</p>'+
       (book.rating?'<div class="book-dates"><span>★ '+book.rating+' / 5</span><span>'+durationDays(book)+' kun</span></div>':'')+'</article>'+
@@ -281,6 +383,8 @@
     $('bookAuthor').value=book?.author||'';
     $('bookCategory').value=book?.category||'';
     $('bookPublisher').value=book?.publisher||'';
+    $('bookPublishedYear').value=book?.publishedYear||'';
+    $('bookStatusOverride').value=book?.statusOverride||'';
     $('bookPages').value=book?.pages||'';
     $('bookCurrentPage').value=book?.currentPage||'';
     $('bookStartedAt').value=book?.startedAt||'';
@@ -320,7 +424,11 @@
   }
 
   function updateBookStatusPreview(){
-    const status=statusOf({startedAt:$('bookStartedAt').value,finishedAt:$('bookFinishedAt').value});
+    const status=statusOf({
+      startedAt:$('bookStartedAt').value,
+      finishedAt:$('bookFinishedAt').value,
+      statusOverride:$('bookStatusOverride').value
+    });
     const el=$('bookStatusPreview'); el.className='status-pill '+status; el.textContent=statusLabel(status);
   }
 
@@ -343,7 +451,8 @@
     const pages=numOrZero($('bookPages').value);
     let currentPage=numOrZero($('bookCurrentPage').value);
     if(pages) currentPage=Math.min(currentPage,pages);
-    if(finishedAt&&pages) currentPage=pages;
+    const statusOverride=$('bookStatusOverride').value;
+    if((finishedAt||statusOverride==='finished')&&pages) currentPage=pages;
 
     const existing=state.books.find(b=>b.id===id);
     const book={
@@ -352,6 +461,8 @@
       author:$('bookAuthor').value.trim(),
       category:$('bookCategory').value.trim(),
       publisher:$('bookPublisher').value.trim(),
+      publishedYear:clampInt($('bookPublishedYear').value,0,2100),
+      statusOverride,
       cover:pendingCover,
       pages,currentPage,startedAt,finishedAt,
       rating:clampInt($('bookRating').value,0,5),
@@ -373,6 +484,7 @@
     const book=state.books.find(b=>b.id===id); if(!book) return;
     if(!book.startedAt) book.startedAt=today();
     book.finishedAt='';
+    book.statusOverride='';
     book.updatedAt=new Date().toISOString();
     addReadingLog(book,today(),book.currentPage);
     saveState('Mutolaa boshlandi.');
@@ -400,6 +512,7 @@
     const book=state.books.find(b=>b.id===id); if(!book) return;
     if(!book.startedAt) book.startedAt=today();
     book.finishedAt=today();
+    book.statusOverride='';
     if(book.pages) book.currentPage=book.pages;
     book.updatedAt=new Date().toISOString();
     addReadingLog(book,today(),book.currentPage);
@@ -433,7 +546,7 @@
     select.innerHTML=years.map(y=>'<option value="'+y+'">Yil: '+y+'</option>').join('');
     select.value=String(years.includes(currentValue)?currentValue:nowYear);
     const year=Number(select.value)||nowYear;
-    const finishedYear=state.books.filter(b=>statusOf(b)==='finished'&&parseDay(b.finishedAt)?.getFullYear()===year);
+    const finishedYear=state.books.filter(b=>statusOf(b)==='finished'&&bookFinishedYear(b)===year);
     const reading=state.books.filter(b=>statusOf(b)==='reading');
     const wishlist=state.books.filter(b=>statusOf(b)==='wishlist');
     $('statsTotal').textContent=state.books.length;
@@ -454,7 +567,7 @@
       renderHorizontalStats(chart,groupCount(finishedYear,b=>b.author||'Noma’lum'));
     } else {
       const monthCounts=Array(12).fill(0);
-      finishedYear.forEach(b=>{ const d=parseDay(b.finishedAt); if(d) monthCounts[d.getMonth()]++; });
+      finishedYear.forEach(b=>{ const d=parseDay(b.finishedAt||b.startedAt); if(d) monthCounts[d.getMonth()]++; });
       const max=Math.max(1,...monthCounts);
       const labels=['Yan','Fev','Mar','Apr','May','Iyun','Iyul','Avg','Sen','Okt','Noy','Dek'];
       chart.className='bar-chart';
@@ -528,7 +641,7 @@
   function renderProfile(){
     $('profileDisplayName').textContent=state.profile.name||'Mohirbek Ismoilov';
     $('reminderSub').textContent='Har kuni '+state.profile.reminderTime;
-    const finishedYear=state.books.filter(b=>statusOf(b)==='finished'&&parseDay(b.finishedAt)?.getFullYear()===nowYear).length;
+    const finishedYear=state.books.filter(b=>statusOf(b)==='finished'&&bookFinishedYear(b)===nowYear).length;
     const goal=state.profile.yearlyGoal||24;
     $('goalMenuSub').textContent=nowYear+' yil uchun '+goal+' ta kitob';
     $('yearGoalSubtitle').textContent=nowYear+'-yilda '+goal+' ta kitob o‘qish';
@@ -690,6 +803,7 @@
     $('bookForm').addEventListener('submit',saveBook);
     $('bookStartedAt').addEventListener('change',updateBookStatusPreview);
     $('bookFinishedAt').addEventListener('change',updateBookStatusPreview);
+    $('bookStatusOverride').addEventListener('change',updateBookStatusPreview);
     $('bookCoverFile').addEventListener('change',async e=>{
       const file=e.target.files?.[0]; if(!file) return;
       try{pendingCover=await compressImage(file);setCoverPreview(pendingCover);}catch(_){toast('Rasmni o‘qib bo‘lmadi.');}

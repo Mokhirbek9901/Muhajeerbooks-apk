@@ -247,11 +247,13 @@
     <div id="bookScannerPanel" class="scanner-panel" role="tabpanel" aria-labelledby="bookScannerTab" hidden>
       <p>Kitob orqasidagi <strong>ISBN shtrix-kodini</strong> kameraga ko‘rsating. Kitob ma’lumoti avtomatik qidiriladi.</p>
       <div id="isbnScannerReader"></div>
+      <input id="scanBarcodePhotoInput" type="file" accept="image/*" capture="environment" hidden>
       <div id="scanStatus" class="scanner-status" role="status" aria-live="polite">Kamerani ishga tushiring yoki ISBN raqamini kiriting.</div>
       <div class="scanner-actions">
         <button type="button" class="primary-button" id="scanCameraBtn"><svg class="ui-icon" aria-hidden="true"><use href="#ico-camera"></use></svg>Kamerani yoqish</button>
         <button type="button" class="secondary-button" id="scanStopBtn" hidden>Kamerani to‘xtatish</button>
       </div>
+      <button type="button" class="secondary-button" id="scanBarcodePhotoBtn">Shtrix-kodni rasmga olish / tanlash</button>
       <label>ISBN raqami
         <input id="scanIsbnInput" type="text" inputmode="numeric" autocomplete="off" placeholder="Masalan: 978..." maxlength="32">
       </label>
@@ -279,6 +281,7 @@
         <textarea id="photoSearchText" rows="2" placeholder="Rasmdagi nomni tekshiring, kerak bo‘lsa tuzating"></textarea>
       </label>
       <button type="button" class="primary-button" id="photoFindBtn">Internetdan qidirish</button>
+      <button type="button" class="secondary-button" id="photoWebSearchBtn">O‘zbek saytlarda kengroq qidirish ↗</button>
       <small class="scanner-note">Rasmni tanimagan taqdirda ham kitob nomini yozib, shu tugmani darhol bosishingiz mumkin.</small>
       <div id="photoResults" class="photo-results" aria-live="polite"></div>
       <label class="photo-checkbox"><input type="checkbox" id="photoReplaceCover" checked> Katalogdan aniq muqova topilsa, rasmini ishlatish</label>

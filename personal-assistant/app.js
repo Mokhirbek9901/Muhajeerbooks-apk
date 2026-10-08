@@ -112,6 +112,10 @@
   let photoOcrLibraryPromise=null;
   let photoOperation=0;
   let photoManualSearchRequested=false;
+  const bookTitleLookup={
+    request:0,timer:null,candidates:[],autoValues:new Map(),
+    manuallyEdited:new Set(),autoCover:false,coverLocked:false,appliedTitle:''
+  };
 
   function loadState(){
     for(const key of [STORAGE_KEY, ...LEGACY_KEYS]){
@@ -538,6 +542,7 @@
   function openBookDialog(book=null){
     pendingCover=book?.cover||'';
     $('bookDialogTitle').textContent=book?'Kitobni tahrirlash':'Yangi kitob qo‘shish';
+    resetBookTitleLookup(book);
     $('bookId').value=book?.id||'';
     $('bookTitle').value=book?.title||'';
     $('bookAuthor').value=book?.author||'';
@@ -1122,6 +1127,188 @@
     }
     setBookEntryMode('manual');
     toast('Kitob tanlandi. Ma’lumotlarni tekshiring va saqlang.');
+  }
+
+
+  // Yangi kitob kiritilayotganda nomdan metadata topish.
+  // Mosligi aniq bo‘lmagan natijalar maydonlarga majburan yozilmaydi.
+  function resetBookTitleLookup(book=null){
+    clearTimeout(bookTitleLookup.timer);
+    bookTitleLookup.request++;
+    bookTitleLookup.candidates=[];
+    bookTitleLookup.autoValues.clear();
+    bookTitleLookup.manuallyEdited.clear();
+    bookTitleLookup.autoCover=false;
+    bookTitleLookup.coverLocked=Boolean(book?.cover);
+    bookTitleLookup.appliedTitle='';
+    $('bookAutoLookupResults').hidden=true;
+    $('bookAutoLookupResults').replaceChildren();
+    $('bookAutoLookupStatus').textContent=book
+      ?'Kitob nomini o‘zgartirsangiz, mos nashrlarni qidirish mumkin.'
+      :'Kitob nomini yozing — ma’lumotlari va muqovasi qidiriladi.';
+  }
+
+  function clearBookAutoValues(){
+    for(const [id,value] of bookTitleLookup.autoValues){
+      if($(id)?.value===value && !bookTitleLookup.manuallyEdited.has(id))$(id).value='';
+    }
+    bookTitleLookup.autoValues.clear();
+    if(bookTitleLookup.autoCover && !bookTitleLookup.coverLocked){
+      pendingCover='';
+      setCoverPreview('');
+    }
+    bookTitleLookup.autoCover=false;
+    bookTitleLookup.appliedTitle='';
+  }
+
+  function titleMatchScore(query,book){
+    const q=bookMatchKey(query),title=bookMatchKey(book?.title||'');
+    if(!q||!title)return 0;
+    if(q===title)return 100;
+    if(title.startsWith(q)&&q.length>=4)return 85;
+    const words=q.split(' ').filter(w=>w.length>=2);
+    const matched=words.filter(w=>title.split(' ').some(t=>t===w||t.startsWith(w)&&w.length>=4)).length;
+    const ratio=words.length?matched/words.length:0;
+    return words.length>=2 && ratio>=.75 && title.length<=q.length*2.3?Math.round(60+ratio*16):0;
+  }
+
+  function filterTitleMatches(query,candidates){
+    const unique=new Map();
+    for(const book of candidates){
+      const score=titleMatchScore(query,book);
+      if(score<60)continue;
+      const key=bookMatchKey(book.title)+'|'+bookMatchKey(book.author||'');
+      if(!key.trim())continue;
+      const previous=unique.get(key);
+      // Mavjud katalog nashrida yaxshiroq tavsif va muqova bo‘lishi mumkin.
+      const richness=x=>Number(Boolean(x.cover))*3+Number(Boolean(x.publisher))*2+
+        Number(Boolean(x.description))+Number(Boolean(x.pages));
+      const candidate={...book,titleScore:score};
+      if(!previous || score>previous.titleScore ||
+        (score===previous.titleScore && richness(candidate)>richness(previous))){
+        unique.set(key,candidate);
+      }
+    }
+    return [...unique.values()].sort((a,b)=>b.titleScore-a.titleScore ||
+      (Number(Boolean(b.cover))-Number(Boolean(a.cover)))).slice(0,7);
+  }
+
+  function showTitleAutoMatches(matches,query){
+    const holder=$('bookAutoLookupResults');
+    bookTitleLookup.candidates=matches;
+    if(!matches.length){
+      const url='https://www.google.com/search?q='+encodeURIComponent(query+' kitob muallif nashriyot');
+      holder.innerHTML='<div class="book-auto-empty">Ishonchli mos kitob kataloglardan topilmadi. '+
+        'Ma’lumotni qo‘lda to‘ldirishingiz mumkin. '+
+        '<a href="'+escapeHtml(url)+'" target="_blank" rel="noopener noreferrer">Internetda kengroq izlash ↗</a></div>';
+      holder.hidden=false;
+      return;
+    }
+    holder.innerHTML=matches.map((book,index)=>
+      '<button type="button" class="book-auto-result" data-book-auto-index="'+index+'" '+
+      'aria-label="Kitob ma’lumotlarini to‘ldirish: '+escapeHtml(book.title)+'">'+
+      (book.cover?'<img class="book-auto-result-cover" src="'+escapeHtml(book.cover)+'" loading="lazy" alt="">':
+        '<span class="book-auto-result-cover book-auto-cover-placeholder" aria-hidden="true">📚</span>')+
+      '<span class="book-auto-result-copy"><strong>'+escapeHtml(book.title)+'</strong>'+
+      '<small>'+escapeHtml(book.author||'Muallif ko‘rsatilmagan')+'</small>'+
+      '<em>'+escapeHtml([book.publisher,book.year||''].filter(Boolean).join(' · ')||'Nashr ma’lumoti yo‘q')+'</em></span>'+
+      '<span class="book-auto-result-action">Tanlash</span></button>'
+    ).join('');
+    holder.hidden=false;
+  }
+
+  function applyTitleAutoCandidate(book,explicit=false){
+    if(!book || !$('bookDialog').open)return false;
+    const isEdit=Boolean($('bookId').value);
+    if(isEdit && !explicit)return false;
+    const typed=$('bookTitle').value.trim();
+    const score=titleMatchScore(typed,book);
+    if(!explicit && score!==100)return false;
+    if(!explicit && bookTitleLookup.manuallyEdited.has('bookTitle'))return false;
+    if(explicit && !isEdit){
+      $('bookTitle').value=String(book.title||typed);
+    }
+    // Qo‘lda o‘zgartirilgan yoki oldin saqlangan maydonlarga tegmaymiz.
+    const fields={
+      bookAuthor:book.author,bookCategory:book.category,
+      bookPublisher:book.publisher,bookIsbn:book.isbn,
+      bookPublishedYear:book.year,bookPages:book.pages,
+      bookDescription:book.description
+    };
+    let filled=0;
+    for(const [id,value] of Object.entries(fields)){
+      if(value===null||value===undefined||value===''||value===0)continue;
+      if(bookTitleLookup.manuallyEdited.has(id))continue;
+      const input=$(id),oldAuto=bookTitleLookup.autoValues.get(id);
+      if(!input)continue;
+      if(isEdit && input.value && oldAuto===undefined)continue;
+      if(input.value && oldAuto===undefined)continue;
+      if(oldAuto!==undefined && input.value!==oldAuto)continue;
+      const next=String(value).slice(0,Number(input.maxLength)>0?input.maxLength:1600);
+      input.value=next;
+      bookTitleLookup.autoValues.set(id,next);
+      filled++;
+    }
+    if(book.cover && !bookTitleLookup.coverLocked &&
+      (!pendingCover||bookTitleLookup.autoCover)){
+      pendingCover=book.cover;
+      bookTitleLookup.autoCover=true;
+      setCoverPreview(pendingCover);
+      filled++;
+    }
+    if(filled){
+      bookTitleLookup.appliedTitle=bookMatchKey($('bookTitle').value);
+      $('bookAutoLookupStatus').textContent=explicit
+        ?'Tanlangan kitob ma’lumotlari qo‘yildi. Maydonlarni tekshirib, xohlasangiz tahrirlang.'
+        :'Aniq mos kitob topildi! Ma’lumotlari to‘ldirildi. Tekshirib, Saqlashni bosing.';
+      return true;
+    }
+    $('bookAutoLookupStatus').textContent='Bu nashr topildi. Mavjud qo‘lda yozilgan ma’lumotlar saqlandi.';
+    return false;
+  }
+
+  async function runBookTitleLookup(query,request){
+    if(!$('bookDialog').open || bookTitleLookup.request!==request)return;
+    $('bookAutoLookupStatus').textContent='Kitob internet kataloglaridan qidirilmoqda…';
+    $('bookAutoLookupResults').hidden=true;
+    try{
+      const candidates=await findCoverCandidates(query);
+      if(bookTitleLookup.request!==request || !$('bookDialog').open ||
+        bookMatchKey($('bookTitle').value)!==bookMatchKey(query))return;
+      const matches=filterTitleMatches(query,candidates);
+      showTitleAutoMatches(matches,query);
+      const exact=matches.filter(book=>book.titleScore===100);
+      const authorTyped=bookMatchKey($('bookAuthor').value);
+      const sameAuthor=authorTyped?exact.filter(b=>bookMatchKey(b.author)===authorTyped):[];
+      const chosen=sameAuthor.length===1?sameAuthor[0]:
+        (!authorTyped&&exact.length===1?exact[0]:null);
+      if(chosen && !$('bookId').value)applyTitleAutoCandidate(chosen,false);
+      else $('bookAutoLookupStatus').textContent=matches.length
+        ?matches.length+' ta mos variant topildi. To‘g‘ri nashrni bosing — ma’lumotlari to‘ldiriladi.'
+        :'Mos kitob topilmadi. O‘zingiz ma’lumot kiriting yoki kengroq qidiring.';
+    }catch(_){
+      if(bookTitleLookup.request!==request)return;
+      $('bookAutoLookupStatus').textContent='Qidiruvda xatolik. Internetni tekshiring; kitobni qo‘lda saqlash mumkin.';
+      $('bookAutoLookupResults').hidden=true;
+    }
+  }
+
+  function onBookTitleTyping(){
+    clearTimeout(bookTitleLookup.timer);
+    const query=$('bookTitle').value.trim();
+    bookTitleLookup.request++;
+    const request=bookTitleLookup.request;
+    if(bookTitleLookup.appliedTitle &&
+      bookMatchKey(query)!==bookTitleLookup.appliedTitle)clearBookAutoValues();
+    bookTitleLookup.candidates=[];
+    $('bookAutoLookupResults').replaceChildren();
+    $('bookAutoLookupResults').hidden=true;
+    if(bookMatchKey(query).length<3){
+      $('bookAutoLookupStatus').textContent='Qidirish uchun kitob nomidan kamida 3 ta harf yozing.';
+      return;
+    }
+    $('bookAutoLookupStatus').textContent='Yozishni tugating — avtomatik qidiriladi…';
+    bookTitleLookup.timer=setTimeout(()=>void runBookTitleLookup(query,request),800);
   }
 
   function setCoverPreview(src){
@@ -1850,6 +2037,20 @@
 
     qsa('[data-close]').forEach(btn=>btn.addEventListener('click',()=>$(btn.dataset.close).close()));
     $('bookForm').addEventListener('submit',saveBook);
+    $('bookTitle').addEventListener('input',onBookTitleTyping);
+    $('bookAutoLookupResults').addEventListener('click',event=>{
+      const button=event.target.closest('[data-book-auto-index]');
+      if(!button)return;
+      const book=bookTitleLookup.candidates[Number(button.dataset.bookAutoIndex)];
+      if(book)applyTitleAutoCandidate(book,true);
+    });
+    for(const id of ['bookAuthor','bookCategory','bookPublisher','bookIsbn',
+      'bookPublishedYear','bookPages','bookDescription']){
+      $(id).addEventListener('input',()=>{
+        bookTitleLookup.manuallyEdited.add(id);
+        bookTitleLookup.autoValues.delete(id);
+      });
+    }
     $('bookManualTab').addEventListener('click',()=>setBookEntryMode('manual'));
     $('bookScannerTab').addEventListener('click',()=>setBookEntryMode('scanner'));
     $('bookPhotoTab').addEventListener('click',()=>setBookEntryMode('photo'));
@@ -1887,6 +2088,8 @@
       if(event.key==='Enter'){event.preventDefault();void lookupIsbnAndFill(event.target.value);}
     });
     $('bookDialog').addEventListener('close',()=>{
+      clearTimeout(bookTitleLookup.timer);
+      bookTitleLookup.request++;
       photoOperation++;
       photoManualSearchRequested=false;
       void stopIsbnScanner();
@@ -1897,7 +2100,12 @@
     $('bookStatusOverride').addEventListener('change',updateBookStatusPreview);
     $('bookCoverFile').addEventListener('change',async e=>{
       const file=e.target.files?.[0]; if(!file) return;
-      try{pendingCover=await compressImage(file);setCoverPreview(pendingCover);}catch(_){toast('Rasmni o‘qib bo‘lmadi.');}
+      try{
+        pendingCover=await compressImage(file);
+        bookTitleLookup.coverLocked=true;
+        bookTitleLookup.autoCover=false;
+        setCoverPreview(pendingCover);
+      }catch(_){toast('Rasmni o‘qib bo‘lmadi.');}
     });
     $('bookSearch').addEventListener('input',renderBooks);
     $('bookSort').addEventListener('change',renderBooks);

@@ -376,15 +376,16 @@
         <label>Kitob nomi *
           <input id="bookTitle" required maxlength="120" autocomplete="off" aria-describedby="bookAutoLookupStatus" aria-controls="bookAutoLookupResults">
         </label>
-        <div class="book-auto-search" id="bookAutoLookup">
+
+        <label>Muallif<input id="bookAuthor" maxlength="100"></label>
+      </div>
+    </div>
+            <div class="book-auto-search" id="bookAutoLookup">
           <div class="book-auto-search-heading"><svg class="ui-icon" aria-hidden="true"><use href="#ico-search"></use></svg>
             <span id="bookAutoLookupStatus" role="status" aria-live="polite">Nomini yozing — mos kitoblar avtomatik qidiriladi.</span>
           </div>
           <div id="bookAutoLookupResults" class="book-auto-results" aria-label="Topilgan kitoblar" hidden></div>
         </div>
-        <label>Muallif<input id="bookAuthor" maxlength="100"></label>
-      </div>
-    </div>
     <div class="form-grid">
       <label>Kategoriya<input id="bookCategory" list="categoryOptions" placeholder="Roman"></label>
       <label>Nashriyot<input id="bookPublisher" maxlength="80"></label>

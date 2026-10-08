@@ -96,6 +96,7 @@
   let financeCurrency = 'KRW';
   let statTab = 'general';
   let statsSelectedYear = nowYear;
+  let calendarMode = 'year';
   let calendarDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   let selectedCalendarDay = today();
   let pendingCover = '';
@@ -1174,28 +1175,40 @@
 
   // Faqat foydalanuvchi kiritgan real sanalar asosida yillik natija hisoblanadi.
   function datedReadingYears(){
-    const fromBooks=state.books.flatMap(b=>[
-      b.startedAt,b.finishedAt,
-      ...(Array.isArray(b.readingLog)?b.readingLog.map(x=>x.date):[])
-    ]).map(s=>Number(String(s||'').slice(0,4))).filter(y=>y>=1900&&y<=2100);
-    // Kalendar navigatsiyasi bilan oldingi/kelgusi yilga o‘tilsa,
-    // yil tanlash menyusi o‘sha yilni ham doim o‘z ichiga oladi.
-    const displayedYears=[...fromBooks,calendarDate.getFullYear(),statsSelectedYear];
-    const min=Math.max(1900,Math.min(nowYear-10,...displayedYears));
-    const max=Math.min(2100,Math.max(nowYear+1,...displayedYears));
-    return Array.from({length:max-min+1},(_,i)=>max-i);
+    // Faqat foydalanuvchining haqiqiy boshlash/tugatish va mutolaa qaydi bor yillar.
+    // Kalendarda oldinga-orqaga yurish menyuga yangi, bo‘sh yillar qo‘shmaydi.
+    const years=new Set();
+    for(const book of state.books){
+      const dates=[book.startedAt,book.finishedAt,...(Array.isArray(book.readingLog)?book.readingLog.map(entry=>entry.date):[])];
+      for(const date of dates){
+        const value=String(date||'');
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(value))continue;
+        const [y,m,d]=value.split('-').map(Number);
+        if(y<1900||y>2100||m<1||m>12||d<1||d>31)continue;
+        const parsed=new Date(y,m-1,d);
+        if(parsed.getFullYear()===y&&parsed.getMonth()===m-1&&parsed.getDate()===d)years.add(y);
+      }
+    }
+    return [...years].sort((x,y)=>y-x);
   }
 
   function syncYearSelect(element,year){
     const years=datedReadingYears();
-    const value=years.includes(Number(year))?Number(year):nowYear;
     const signature=years.join(',');
     if(element.dataset.years!==signature){
-      element.innerHTML=years.map(y=>'<option value="'+y+'">'+y+'-yil</option>').join('');
+      element.innerHTML=years.length
+        ? years.map(y=>'<option value="'+y+'">'+y+'-yil</option>').join('')
+        : '<option value="">O‘qilgan yil yo‘q</option>';
       element.dataset.years=signature;
     }
-    element.value=String(value);
-    return value;
+    element.disabled=!years.length;
+    if(!years.length){
+      element.value='';
+      return nowYear;
+    }
+    const choice=years.includes(Number(year))?Number(year):years[0];
+    element.value=String(choice);
+    return choice;
   }
 
   function readingActivity(){
@@ -1336,35 +1349,101 @@
   }
 
   function setCalendarMonth(year,month){
+    calendarMode='month';
     calendarDate=new Date(Number(year),Number(month),1);
-    const current=today().slice(0,7);
+    const nowPrefix=today().slice(0,7);
     const prefix=String(calendarDate.getFullYear())+'-'+String(calendarDate.getMonth()+1).padStart(2,'0');
-    if(!selectedCalendarDay.startsWith(prefix)){
-      selectedCalendarDay=prefix===current?today():prefix+'-01';
-    }
+    if(!selectedCalendarDay.startsWith(prefix))
+      selectedCalendarDay=prefix===nowPrefix?today():prefix+'-01';
+    renderCalendar();
+  }
+
+  function setCalendarYear(year){
+    calendarMode='year';
+    calendarDate=new Date(Number(year),calendarDate.getMonth(),1);
+    renderCalendar();
+  }
+
+  function setCalendarMode(mode){
+    calendarMode=mode==='month'?'month':'year';
     renderCalendar();
   }
 
   function showCalendarFromStats(month=null){
-    const targetYear=statsSelectedYear;
-    const currentMonth=month==null?(targetYear===nowYear?new Date().getMonth():0):Number(month);
-    calendarDate=new Date(targetYear,currentMonth,1);
-    selectedCalendarDay=targetYear===nowYear&&currentMonth===new Date().getMonth()?today():String(targetYear)+'-'+String(currentMonth+1).padStart(2,'0')+'-01';
+    const year=statsSelectedYear;
+    const hasMonth=month!==null;
+    calendarMode=hasMonth?'month':'year';
+    const calendarMonth=hasMonth?Number(month):(year===nowYear?new Date().getMonth():0);
+    calendarDate=new Date(year,calendarMonth,1);
+    selectedCalendarDay=year===nowYear&&calendarMonth===new Date().getMonth()
+      ?today()
+      :year+'-'+String(calendarMonth+1).padStart(2,'0')+'-01';
     navigate('calendar');
   }
 
+  function renderYearOverview(year,summary,activity){
+    const shortMonths=['Yanvar','Fevral','Mart','Aprel','May','Iyun',
+      'Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'];
+    $('calendarYearOverview').innerHTML=summary.monthTotals.map(row=>{
+      const month=row.month;
+      const last=new Date(year,month+1,0).getDate();
+      const offset=(new Date(year,month,1).getDay()+6)%7;
+      const prefix=year+'-'+String(month+1).padStart(2,'0')+'-';
+      let days='';
+      for(let pad=0;pad<offset;pad++)days+='<span class="year-mini-day empty" aria-hidden="true"></span>';
+      for(let day=1;day<=last;day++){
+        const key=prefix+String(day).padStart(2,'0');
+        const events=activity.get(key);
+        const cls=['year-mini-day'];
+        if(events?.books.size)cls.push('read');
+        if(events?.finished.size)cls.push('finish');
+        if(key===today())cls.push('today');
+        const title=day+'-'+shortMonths[month]+': '+(
+          events?.finished.size?'Kitob tugatilgan':events?.books.size?'Mutolaa qaydi':'Qayd yo‘q');
+        days+='<span class="'+cls.join(' ')+'" title="'+title+'">'+day+'</span>';
+      }
+      const total=offset+last;
+      for(let pad=total;pad<42;pad++)days+='<span class="year-mini-day empty" aria-hidden="true"></span>';
+      return '<button type="button" class="year-calendar-month" data-year-month="'+month+
+        '" aria-label="'+year+'-yil '+shortMonths[month]+': '+row.days+' faol kun, '+row.finished+' ta tugatilgan">'+
+        '<span class="year-calendar-month-heading"><b>'+shortMonths[month]+'</b><span>'+row.days+' faol kun</span></span>'+
+        '<span class="year-mini-weekdays" aria-hidden="true"><span>D</span><span>S</span><span>Ch</span><span>P</span><span>J</span><span>Sh</span><span>Y</span></span>'+
+        '<span class="year-mini-grid" aria-hidden="true">'+days+'</span>'+
+        '<span class="year-calendar-month-footer"><b>'+row.finished+' tugatilgan</b><span>Oyni ochish ↗</span></span>'+
+        '</button>';
+    }).join('');
+  }
+
   function renderCalendar(){
-    const year=calendarDate.getFullYear(),month=calendarDate.getMonth();
-    syncYearSelect($('calendarYear'),year);
+    // Kalendar yili faqat real qaydlar mavjud bo‘lgan yildan tanlanadi.
+    const year=syncYearSelect($('calendarYear'),calendarDate.getFullYear());
+    if(year!==calendarDate.getFullYear())calendarDate=new Date(year,calendarDate.getMonth(),1);
+    const month=calendarDate.getMonth();
+    const yearMode=calendarMode==='year';
+    $('calendarFullYearBtn').classList.toggle('active',yearMode);
+    $('calendarFullYearBtn').setAttribute('aria-pressed',String(yearMode));
+    $('calendarSingleMonthBtn').classList.toggle('active',!yearMode);
+    $('calendarSingleMonthBtn').setAttribute('aria-pressed',String(!yearMode));
+    $('calendarMonthView').hidden=yearMode;
+    $('calendarYearOverview').closest('.calendar-year-card').hidden=!yearMode;
+    $('calendarTodayCard').hidden=yearMode;
     $('calendarMonth').value=String(month);
     $('calendarMonthLabel').textContent=monthName(calendarDate);
-    $('calYearOverviewTitle').textContent=year+'-yil faolligi';
+    $('calYearOverviewTitle').textContent=year+'-yil: barcha 12 oy';
     const activity=readingActivity();
     const summary=annualReadingSummary(year,activity);
     const monthData=summary.monthTotals[month];
-    $('calMonthActive').textContent=monthData.days;
-    $('calMonthFinished').textContent=monthData.finished;
+    $('calMonthActive').textContent=yearMode?summary.activityDays.length:monthData.days;
+    $('calMonthFinished').textContent=yearMode?summary.finished.length:monthData.finished;
     $('calStreak').textContent=summary.streak;
+    $('calActivePeriod').textContent=yearMode?year+'-yil':'Tanlangan oy';
+    $('calFinishedPeriod').textContent=yearMode?'Shu yilda':'Tanlangan oy';
+    $('calStreakPeriod').textContent=year+'-yil';
+
+    if(yearMode){
+      renderYearOverview(year,summary,activity);
+      return;
+    }
     const first=new Date(year,month,1),last=new Date(year,month+1,0);
     const offset=(first.getDay()+6)%7;
     const todayKey=today(),prefix=year+'-'+String(month+1).padStart(2,'0')+'-';
@@ -1388,16 +1467,6 @@
     const total=offset+last.getDate();
     for(let i=total;i<42;i++)html+='<span class="day-cell empty" aria-hidden="true"></span>';
     $('calendarGrid').innerHTML=html;
-
-    const shortMonths=['Yan','Fev','Mar','Apr','May','Iyun','Iyul','Avg','Sen','Okt','Noy','Dek'];
-    const maxDays=Math.max(1,...summary.monthTotals.map(x=>x.days));
-    $('calendarYearOverview').innerHTML=summary.monthTotals.map(row=>{
-      const selected=row.month===month;
-      return '<button type="button" class="year-month '+(selected?'selected':'')+
-        '" data-year-month="'+row.month+'" aria-pressed="'+selected+'" aria-label="'+shortMonths[row.month]+': '+row.days+' faol kun">'+
-        '<b>'+shortMonths[row.month]+'</b><span class="year-month-bar"><i style="height:'+(row.days?Math.max(12,Math.round(row.days/maxDays*100)):4)+'%"></i></span>'+
-        '<small>'+row.days+' kun</small></button>';
-    }).join('');
     renderCalendarDay(selectedCalendarDay);
   }
 
@@ -1666,7 +1735,9 @@
     });
     $('prevMonth').addEventListener('click',()=>setCalendarMonth(calendarDate.getFullYear(),calendarDate.getMonth()-1));
     $('nextMonth').addEventListener('click',()=>setCalendarMonth(calendarDate.getFullYear(),calendarDate.getMonth()+1));
-    $('calendarYear').addEventListener('change',event=>setCalendarMonth(Number(event.target.value),calendarDate.getMonth()));
+    $('calendarYear').addEventListener('change',event=>setCalendarYear(Number(event.target.value))); 
+    $('calendarFullYearBtn').addEventListener('click',()=>setCalendarMode('year'));
+    $('calendarSingleMonthBtn').addEventListener('click',()=>setCalendarMode('month'));
     $('calendarMonth').addEventListener('change',event=>setCalendarMonth(calendarDate.getFullYear(),Number(event.target.value)));
     $('calendarTodayBtn').addEventListener('click',()=>{
       calendarDate=new Date(nowYear,new Date().getMonth(),1);

@@ -59,7 +59,7 @@
     'history-015': "O‘zini anglash, hayotga teranroq nazar tashlash va ko‘ngil xotirjamligiga yetaklovchi savollar hamda kundalik mulohazalar.",
     'history-016': "Jamiyat, kundalik hayot va insoniy munosabatlarga doir kuzatuvlar, savollar hamda tanqidiy mulohazalar jamlangan asar.",
     'history-017': "Inson o‘zini tanishi, o‘zligi va hayotdagi o‘rnini izlashi haqidagi ruhiy-ma’naviy mulohazalarga boy badiiy asar.",
-    'history-018': "Mikoil Adiguzelning “Katta Shahzoda” nomli badiiy asari. Syujet tafsilotlari ishonchli manbada aniqlanmagani uchun kiritilmadi.",
+    'history-018': "Kichkina shahzoda ulg‘ayib, qaytadan safarga chiqadi. Asar uning katta bo‘lgach dunyoga va insoniy munosabatlarga boshqa ko‘z bilan qarashi, bolalikdagi poklikni asrash haqidagi falsafiy savollarini yoritadi.",
     'history-019': "Qabr hayoti, Qiyomat va oxiratga oid voqealar Qur’on hamda hadislar asosida bayon qilingan diniy-ma’rifiy risola.",
     'history-020': "Imom G‘azzoliyning haqiqat va ma’rifat izlash yo‘lidagi ruhiy-ilmiy tajribalari, shubha va ishonch haqidagi mulohazalari.",
     'history-021': "Insonning o‘z nafsi bilan kurashi va Aziz Mahmud Xudoiy hayotidan ilhomlangan voqealar orqali ma’naviy poklanish haqida.",
@@ -80,7 +80,8 @@
       customCategories: [],
       seedReadLibrary20261008: false,
       seedBookMetadata20261008v2: false,
-      seedBookDescriptions20261008v1: false
+      seedBookDescriptions20261008v1: false,
+      seedBookCatalogSync20261008v3: false
     },
     books: [],
     transactions: []
@@ -124,53 +125,48 @@
   }
 
   function mergeReadLibrarySeed(target){
-    const libraryAlreadySeeded = target?.profile?.seedReadLibrary20261008 === true;
-    const metadataAlreadyEnriched = target?.profile?.seedBookMetadata20261008v2 === true;
-    const descriptionsAlreadyEnriched = target?.profile?.seedBookDescriptions20261008v1 === true;
-    if(libraryAlreadySeeded && metadataAlreadyEnriched && descriptionsAlreadyEnriched) return false;
-
-    const existingByTitle = new Map((target.books||[]).map(b=>[titleKey(b.title),b]));
-    const seedTime = '2026-10-08T00:00:00.000Z';
-    let changed = false;
-
+    // Avval saqlangan localStorage yozuvlariga bibliografik yangilanish.
+    const catalogSynced=target?.profile?.seedBookCatalogSync20261008v3 === true;
+    if(catalogSynced) return false;
+    target.books=Array.isArray(target.books)?target.books:[];
+    target.profile=target.profile||{};
+    const byId=new Map(target.books.map(b=>[b.id,b]));
+    const byTitle=new Map(target.books.map(b=>[titleKey(b.title),b]));
+    const seedTime='2026-10-08T00:00:00.000Z';
+    let changed=false;
     READ_LIBRARY_SEED.forEach((item,index)=>{
-      const existing = existingByTitle.get(titleKey(item.title));
-      const description = READ_LIBRARY_DESCRIPTIONS[item.id] || '';
+      const existing=byId.get(item.id)||byTitle.get(titleKey(item.title));
+      const description=READ_LIBRARY_DESCRIPTIONS[item.id]||'';
       if(existing){
-        // Avvalgi muqova, o‘qish holati, sana, sahifalar, baho va izohlar
-        // foydalanuvchiniki: avtomatik to‘ldirish ularni o‘zgartirmaydi.
-        if(!existing.author && item.author){ existing.author=item.author; changed=true; }
-        if(!existing.category && item.category){ existing.category=item.category; changed=true; }
-        if(!existing.publisher && item.publisher){ existing.publisher=item.publisher; changed=true; }
-        if(!existing.publishedYear && item.publishedYear){ existing.publishedYear=item.publishedYear; changed=true; }
-        if(!existing.pages && item.pages){ existing.pages=item.pages; changed=true; }
-        if(!existing.cover && item.cover){ existing.cover=item.cover; changed=true; }
-        if(!existing.description && description){ existing.description=description; changed=true; }
+        // O‘qish holati, sanalar, joriy sahifa, baho, shaxsiy izoh va log saqlanadi.
+        for(const key of ['author','category','publisher','publishedYear','pages']){
+          if(item[key] && existing[key]!==item[key]){existing[key]=item[key];changed=true;}
+        }
+        // Shaxsiy yuklangan data-image muqovasiga tegilmaydi.
+        const userUploaded=/^data:image\//i.test(existing.cover||'');
+        if(item.cover && !userUploaded && existing.cover!==item.cover){
+          existing.cover=item.cover;changed=true;
+        }
+        if(description && existing.description!==description){existing.description=description;changed=true;}
         return;
       }
-
       const book={
         ...item,
         id:item.id||('history-'+String(index+1).padStart(3,'0')),
-        description,
-        statusOverride:'finished',
-        currentPage:item.pages||0,
-        rating:0,
-        notes:'',
-        readingLog:[],
-        createdAt:seedTime,
-        updatedAt:seedTime
+        description,statusOverride:'finished',currentPage:item.pages||0,
+        rating:0,notes:'',readingLog:[],createdAt:seedTime,updatedAt:seedTime
       };
       if(item.startedAt) book.readingLog.push({date:item.startedAt,page:0});
       if(item.finishedAt) book.readingLog.push({date:item.finishedAt,page:item.pages||0});
       target.books.push(book);
-      existingByTitle.set(titleKey(item.title),book);
+      byId.set(book.id,book);
+      byTitle.set(titleKey(book.title),book);
       changed=true;
     });
-
     target.profile.seedReadLibrary20261008=true;
     target.profile.seedBookMetadata20261008v2=true;
     target.profile.seedBookDescriptions20261008v1=true;
+    target.profile.seedBookCatalogSync20261008v3=true;
     return changed;
   }
 
@@ -191,7 +187,8 @@
         customCategories: Array.isArray(profile.customCategories) ? profile.customCategories.map(String).filter(Boolean) : [],
         seedReadLibrary20261008: profile.seedReadLibrary20261008 === true,
         seedBookMetadata20261008v2: profile.seedBookMetadata20261008v2 === true,
-        seedBookDescriptions20261008v1: profile.seedBookDescriptions20261008v1 === true
+        seedBookDescriptions20261008v1: profile.seedBookDescriptions20261008v1 === true,
+        seedBookCatalogSync20261008v3: profile.seedBookCatalogSync20261008v3 === true
       },
       books: books.map(b => ({
         id: String(b.id || makeId()),
@@ -276,9 +273,19 @@
     return '▣';
   }
   function coverHtml(book, cls=''){
-    if(book.cover) return '<div class="cover '+cls+'"><img src="'+escapeHtml(book.cover)+'" alt=""></div>';
-    return '<div class="cover '+cls+'"><span>'+escapeHtml((book.title||'K').slice(0,1).toUpperCase())+'</span></div>';
+    const letter=escapeHtml((book.title||'K').slice(0,1).toUpperCase());
+    if(book.cover) return '<div class="cover '+cls+'"><img loading="lazy" decoding="async" src="'+escapeHtml(book.cover)+'" alt="'+escapeHtml((book.title||'Kitob')+' muqovasi')+'"><span class="cover-fallback" hidden>'+letter+'</span></div>';
+    return '<div class="cover '+cls+'"><span>'+letter+'</span></div>';
   }
+
+  document.addEventListener('error',event=>{
+    const img=event.target;
+    if(img?.tagName!=='IMG' || !img.closest('.cover')) return;
+    img.hidden=true;
+    const placeholder=img.parentElement?.querySelector('.cover-fallback');
+    if(placeholder) placeholder.hidden=false;
+  },true);
+
   function toast(message){
     const el=$('toast'); el.textContent=message; el.classList.add('show');
     clearTimeout(toast.timer); toast.timer=setTimeout(()=>el.classList.remove('show'),2200);

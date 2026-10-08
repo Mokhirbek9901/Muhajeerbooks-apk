@@ -106,6 +106,7 @@
   let photoOriginalCover='';
   let photoOcrLibraryPromise=null;
   let photoOperation=0;
+  let photoManualSearchRequested=false;
 
   function loadState(){
     for(const key of [STORAGE_KEY, ...LEGACY_KEYS]){
@@ -456,6 +457,7 @@
     $('bookDescription').value=book?.description||'';
     $('scanIsbnInput').value=book?.isbn||'';
     photoOperation++;
+    photoManualSearchRequested=false;
     photoCandidates=[];
     photoOriginalCover='';
     $('photoPreviewWrap').hidden=true;
@@ -581,6 +583,16 @@
     }
   }
 
+  function openUzbekIsbnWebSearch(){
+    const isbn=normalizedIsbn($('scanIsbnInput').value||$('bookIsbn').value);
+    const search=isbn || $('bookTitle').value.trim();
+    if(!search){setScannerStatus('Qidirish uchun avval ISBN kiriting.',true);return;}
+    const query=isbn?isbn+' kitob nashriyot asaxiy ISBN':search+' kitob O‘zbekiston muqova';
+    const url='https://www.google.com/search?q='+encodeURIComponent(query);
+    const opened=window.open(url,'_blank','noopener,noreferrer');
+    if(!opened) window.location.href=url;
+  }
+
   function yearFromText(value){
     const m=String(value||'').match(/(?:18|19|20)\d{2}/g);
     return m?Number(m[m.length-1]):0;
@@ -665,7 +677,7 @@
     try{
       const info=await findIsbnMetadata(isbn);
       if(!info.title){
-        setScannerStatus('Bu ISBN uchun kataloglardan ma’lumot topilmadi. Qo‘lda kiritish orqali davom eting.',true);
+        setScannerStatus('Bu ISBN xalqaro kataloglardan topilmadi. “O‘zbek saytlardan qidirish” yoki “Muqovadan qidirish” tugmasidan foydalaning. ISBN saqlandi.',true);
         return;
       }
       const values={
@@ -739,10 +751,12 @@
       setPhotoStatus('Rasm juda katta. 20 MB dan kichik rasm tanlang.',true);return;
     }
     const ticket=++photoOperation;
+    photoManualSearchRequested=false;
     photoCandidates=[];
     $('photoResults').replaceChildren();
     $('photoSearchText').value='';
-    $('photoFindBtn').disabled=true;
+    // OCR sekin yuklansa ham foydalanuvchining matn bilan qidirish tugmasi faol qoladi.
+    $('photoFindBtn').disabled=false;
     photoBusy=true;
     let worker=null;
     setPhotoStatus('Rasm tayyorlanmoqda...');
@@ -770,6 +784,7 @@
         return;
       }
       const guess=extractCoverSearchTerm(raw);
+      if(photoManualSearchRequested || $('photoSearchText').value.trim())return;
       $('photoSearchText').value=guess;
       if(!guess){
         setPhotoStatus('Rasmdagi yozuvni aniqlab bo‘lmadi. Kitob nomini pastga qo‘lda yozib qidiring.',true);
@@ -782,7 +797,7 @@
         setPhotoStatus('Rasmdagi yozuvni o‘qib bo‘lmadi. Kitob nomini qo‘lda yozib qidiring.',true);
     }finally{
       if(worker){try{await worker.terminate();}catch(_){}}
-      if(ticket===photoOperation){photoBusy=false;$('photoFindBtn').disabled=false;}
+      if(ticket===photoOperation){photoBusy=false;}
     }
   }
 
@@ -1330,7 +1345,11 @@
         event.target.value='';
       });
     }
-    $('photoFindBtn').addEventListener('click',()=>void findCoverByText($('photoSearchText').value));
+    $('photoSearchText').addEventListener('input',()=>{photoManualSearchRequested=true;});
+    $('photoFindBtn').addEventListener('click',()=>{
+      photoManualSearchRequested=true;
+      void findCoverByText($('photoSearchText').value);
+    });
     $('photoResults').addEventListener('click',event=>{
       const row=event.target.closest('[data-photo-result]');
       if(row)chooseCoverCandidate(Number(row.dataset.photoResult));
@@ -1338,11 +1357,14 @@
     $('scanCameraBtn').addEventListener('click',()=>void startIsbnScanner());
     $('scanStopBtn').addEventListener('click',()=>void stopIsbnScanner());
     $('scanLookupBtn').addEventListener('click',()=>void lookupIsbnAndFill($('scanIsbnInput').value));
+    $('scanWebSearchBtn').addEventListener('click',()=>openUzbekIsbnWebSearch());
+    $('scanToPhotoBtn').addEventListener('click',()=>setBookEntryMode('photo'));
     $('scanIsbnInput').addEventListener('keydown',event=>{
       if(event.key==='Enter'){event.preventDefault();void lookupIsbnAndFill(event.target.value);}
     });
     $('bookDialog').addEventListener('close',()=>{
       photoOperation++;
+      photoManualSearchRequested=false;
       void stopIsbnScanner();
       setBookEntryMode('manual');
     });

@@ -278,7 +278,7 @@
   // YYYY-MM-DD sanalari orasini soat mintaqasi/DST ta'sirisiz hisoblaymiz.
   function calendarDayNumber(value){
     const text=String(value||'');
-    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(text))return null;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(text))return null;
     const [year,month,day]=text.split('-').map(Number);
     if(year<1900||year>2100||month<1||month>12||day<1||day>31)return null;
     const time=Date.UTC(year,month-1,day);

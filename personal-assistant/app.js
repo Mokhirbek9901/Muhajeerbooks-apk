@@ -402,7 +402,7 @@
         '<span class="status-pill '+status+'">'+statusLabel(status)+'</span>'+
         (book.pages?'<div class="progress-wrap"><div class="progress-track"><div class="progress-fill" style="width:'+p+'%"></div></div><b>'+p+'%</b></div>':'')+
         '<div class="book-dates">'+dates+'</div></div>'+
-        '<button class="row-menu" data-book-menu="'+book.id+'">⋮</button></article>';
+        '<button class="row-menu" data-book-menu="'+book.id+'" aria-label="Kitob menyusi"><svg class="ui-icon" aria-hidden="true"><use href="#ico-more"></use></svg></button></article>';
     }).join('');
   }
 
@@ -413,7 +413,7 @@
     const status=statusOf(book), p=progressOf(book);
     holder.innerHTML='<div class="detail-top">'+coverHtml(book)+
       '<div class="detail-meta"><h1>'+escapeHtml(book.title)+'</h1><div class="author">'+escapeHtml(book.author||'Muallif kiritilmagan')+'</div>'+
-      '<div class="meta-tags">'+[book.category,book.publisher,book.publishedYear?String(book.publishedYear):'',book.pages?book.pages+' bet':''].filter(Boolean).map(x=>'<span>'+escapeHtml(x)+'</span>').join('')+'</div>'+
+      '<div class="meta-tags">'+[book.category,book.publisher,book.publishedYear?String(book.publishedYear):'',book.pages?book.pages+' bet':'',book.isbn?'ISBN '+book.isbn:''].filter(Boolean).map(x=>'<span>'+escapeHtml(x)+'</span>').join('')+'</div>'+
       '<div class="detail-status-row"><span class="status-pill '+status+'">● '+statusLabel(status)+'</span></div></div></div>'+
       '<div class="detail-progress"><div class="detail-progress-head"><span>Mutolaa progressi</span><b>'+p+'%</b></div>'+
       '<div class="progress-track"><div class="progress-fill" style="width:'+p+'%"></div></div>'+
@@ -571,9 +571,9 @@
   function plainDescription(value){
     const input=typeof value==='string'?value:(value?.value||'');
     if(!input) return '';
-    const el=document.createElement('div');
-    el.innerHTML=input;
-    return String(el.textContent||'').replace(/\s+/g,' ').trim().slice(0,1550);
+    const doc=new DOMParser().parseFromString(input,'text/html');
+    doc.querySelectorAll('script,style,iframe,object').forEach(el=>el.remove());
+    return String(doc.body?.textContent||'').replace(/\s+/g,' ').trim().slice(0,1550);
   }
 
   function httpsImage(value){
@@ -656,7 +656,7 @@
         bookDescription:info.description
       };
       for(const [id,value] of Object.entries(values)){
-        if(value && !$('bookId').value || (value && !$(id).value)){
+        if(value && (!$('bookId').value || !$(id).value)){
           $(id).value=String(value);
         }
       }

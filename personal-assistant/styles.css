@@ -533,3 +533,10 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 #isbnScannerReader img{max-width:100%}
 .scanner-note{font-size:.66rem;color:var(--muted);line-height:1.6}
 @media(max-width:340px){.scanner-actions{grid-template-columns:1fr}}
+
+/* Final scanner touch-ups */
+#scanCameraBtn{display:flex;align-items:center;justify-content:center;gap:8px}
+#scanCameraBtn .ui-icon{width:19px;height:19px}
+.cover-upload #coverPlaceholder{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px}
+.cover-upload #coverPlaceholder .ui-icon{width:27px;height:27px;stroke-width:1.7}
+.row-menu .ui-icon{width:20px;height:20px;stroke-width:1.9}

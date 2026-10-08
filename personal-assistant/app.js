@@ -1178,8 +1178,11 @@
       b.startedAt,b.finishedAt,
       ...(Array.isArray(b.readingLog)?b.readingLog.map(x=>x.date):[])
     ]).map(s=>Number(String(s||'').slice(0,4))).filter(y=>y>=1900&&y<=2100);
-    const min=Math.max(1900,Math.min(nowYear-6,...fromBooks));
-    const max=Math.min(2100,Math.max(nowYear+1,...fromBooks));
+    // Kalendar navigatsiyasi bilan oldingi/kelgusi yilga o‘tilsa,
+    // yil tanlash menyusi o‘sha yilni ham doim o‘z ichiga oladi.
+    const displayedYears=[...fromBooks,calendarDate.getFullYear(),statsSelectedYear];
+    const min=Math.max(1900,Math.min(nowYear-10,...displayedYears));
+    const max=Math.min(2100,Math.max(nowYear+1,...displayedYears));
     return Array.from({length:max-min+1},(_,i)=>max-i);
   }
 
@@ -1408,7 +1411,6 @@
     const books=state.books.filter(b=>
       b.startedAt===date||b.finishedAt===date||(b.readingLog||[]).some(x=>x.date===date)
     );
-    const activity=readingActivity().get(date);
     const holder=$('calendarTodayCard');
     holder.innerHTML='<div class="section-title-row"><div><small>KUN TAFSILOTLARI</small><h2>'+escapeHtml(formatDate(date))+'</h2></div>'+
       '<span class="day-events-count">'+books.length+' kitob</span></div>'+

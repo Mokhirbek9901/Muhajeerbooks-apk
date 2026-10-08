@@ -623,7 +623,15 @@
   }
 
   async function findIsbnMetadata(isbn){
-    // ISBN bo‘yicha aynan shu nashrni izlash: taxminiy kitob qidirmaymiz.
+    // Avval shu telefondagi mavjud kitoblarning ISBN ma’lumotlarini tekshiramiz.
+    const ownBook=(state.books||[]).find(b=>b.isbn&&normalizedIsbn(b.isbn)===isbn);
+    if(ownBook) return {
+      title:ownBook.title,author:ownBook.author||'',publisher:ownBook.publisher||'',
+      year:Number(ownBook.publishedYear||0),pages:Number(ownBook.pages||0),
+      category:ownBook.category||'',description:ownBook.description||'',
+      cover:ownBook.cover||''
+    };
+    // Xalqaro kataloglar O‘zbekistondagi nashrlarni har doim ham qamramaydi.
     const [google,edition,search]=await Promise.all([
       fetchIsbnJson('https://www.googleapis.com/books/v1/volumes?q=isbn:'+encodeURIComponent(isbn)+'&maxResults=10'),
       fetchIsbnJson('https://openlibrary.org/isbn/'+encodeURIComponent(isbn)+'.json'),
@@ -802,9 +810,41 @@
   }
 
   function bookMatchKey(value){
+    // O‘zbek kirill va lotin kitob nomlarini bir xil shaklga keltiramiz.
+    const cyr={а:'a',б:'b',в:'v',г:'g',ғ:'g',д:'d',е:'e',ё:'yo',ж:'j',з:'z',
+      и:'i',й:'y',к:'k',қ:'q',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',
+      у:'u',ф:'f',х:'x',ҳ:'h',ц:'ts',ч:'ch',ш:'sh',щ:'sh',ъ:'',ь:'',ы:'i',
+      э:'e',ю:'yu',я:'ya',ў:'o',і:'i'};
     return String(value||'').toLocaleLowerCase().normalize('NFD')
-      .replace(/[\u0300-\u036f]/g,'').replace(/[‘’ʻʼ']/g,'')
-      .replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+      .replace(/[\u0300-\u036f]/g,'').replace(/[\u0400-\u052f]/g,ch=>cyr[ch]??ch)
+      .replace(/[‘’ʻʼ']/g,'').replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+  }
+
+  function localBookCandidates(query){
+    const queryLines=String(query||'').split(/[\r\n]+/).map(bookMatchKey).filter(Boolean);
+    const complete=bookMatchKey(query);
+    const words=complete.split(' ').filter(w=>w.length>=3);
+    const candidates=[...(state?.books||[]),...READ_LIBRARY_SEED];
+    const unique=new Map(),found=[];
+    for(const item of candidates){
+      const title=bookMatchKey(item.title);
+      if(!title||unique.has(title))continue;
+      unique.set(title,true);
+      const titleWords=title.split(' ').filter(w=>w.length>=3);
+      if(!titleWords.length)continue;
+      const exactLine=queryLines.some(line=>line===title||line.includes(title));
+      const matched=titleWords.filter(w=>words.includes(w)||complete.includes(w)).length;
+      const coverage=matched/titleWords.length;
+      if(!exactLine && (matched<1||coverage<0.65))continue;
+      const score=(exactLine?80:40)+matched*6+bookMatchScore(query,item);
+      found.push({
+        title:item.title,author:item.author||'',publisher:item.publisher||'',
+        year:Number(item.publishedYear||0),pages:Number(item.pages||0),
+        category:item.category||'',description:item.description||READ_LIBRARY_DESCRIPTIONS[item.id]||'',
+        isbn:item.isbn||'',cover:item.cover||'',score,source:'shaxsiy kutubxona'
+      });
+    }
+    return found.sort((a,b)=>b.score-a.score).slice(0,8);
   }
 
   function bookMatchScore(query,record){
@@ -818,11 +858,13 @@
   async function findCoverCandidates(query){
     const q=cleanCoverText(query).slice(0,150);
     if(q.length<3) return [];
+    const local=localBookCandidates(q);
+    if(local.length && local[0].score>=80) return local;
     const [google,openlib]=await Promise.all([
       fetchIsbnJson('https://www.googleapis.com/books/v1/volumes?q='+encodeURIComponent(q)+'&maxResults=18&printType=books'),
       fetchIsbnJson('https://openlibrary.org/search.json?q='+encodeURIComponent(q)+'&limit=16&fields=title,author_name,publisher,first_publish_year,number_of_pages_median,isbn,cover_i')
     ]);
-    const results=[];
+    const results=[...local];
     for(const entry of google?.items||[]){
       const v=entry?.volumeInfo||{};
       if(!v.title) continue;

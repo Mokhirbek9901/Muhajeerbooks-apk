@@ -12,7 +12,7 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon.svg">
-  <link rel="stylesheet" href="./styles.css?v=8">
+  <link rel="stylesheet" href="./styles.css?v=9">
 </head>
 <body>
 <div id="app">
@@ -267,6 +267,7 @@
       <label>Mutolaa tugatilgan sana<input id="bookFinishedAt" type="date"></label>
       <label>Baho<select id="bookRating"><option value="0">Baholanmagan</option><option value="1">1 / 5</option><option value="2">2 / 5</option><option value="3">3 / 5</option><option value="4">4 / 5</option><option value="5">5 / 5</option></select></label>
       <div class="auto-status-field"><span>Natijaviy holat</span><b id="bookStatusPreview" class="status-pill wishlist">Reja qilingan</b></div>
+      <label class="wide">Kitob haqida<textarea id="bookDescription" rows="4" maxlength="1600" placeholder="Kitob mazmuni haqida qisqacha ma’lumot"></textarea></label>
       <label class="wide">Shaxsiy izoh<textarea id="bookNotes" rows="4" maxlength="1200"></textarea></label>
     </div>
     <datalist id="categoryOptions"></datalist>
@@ -299,6 +300,6 @@
 
 <input type="file" id="importInput" accept="application/json" hidden>
 <div id="toast" class="toast"></div>
-<script src="./app.js?v=8"></script>
+<script src="./app.js?v=9"></script>
 </body>
 </html>

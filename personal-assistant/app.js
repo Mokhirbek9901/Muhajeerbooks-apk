@@ -275,10 +275,40 @@
   }
   function statusLabel(s){ return s==='reading'?'O‘qiyapman':s==='finished'?'Tugatilgan':'Reja qilingan'; }
   function progressOf(book){ if(statusOf(book)==='finished') return 100; if(!book.pages) return 0; return Math.max(0,Math.min(100,Math.round((book.currentPage/book.pages)*100))); }
-  function durationDays(book){
-    const start=parseDay(book.startedAt); if(!start) return 0;
-    const end=parseDay(book.finishedAt)||parseDay(today());
-    return Math.max(1,Math.floor((end-start)/86400000)+1);
+  // YYYY-MM-DD sanalari orasini soat mintaqasi/DST ta'sirisiz hisoblaymiz.
+  function calendarDayNumber(value){
+    const text=String(value||'');
+    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(text))return null;
+    const [year,month,day]=text.split('-').map(Number);
+    if(year<1900||year>2100||month<1||month>12||day<1||day>31)return null;
+    const time=Date.UTC(year,month-1,day);
+    const verified=new Date(time);
+    if(verified.getUTCFullYear()!==year||verified.getUTCMonth()!==month-1||verified.getUTCDate()!==day)return null;
+    return Math.round(time/86400000);
+  }
+
+  function readingDurationInfo(book,referenceDate=today()){
+    const status=statusOf(book);
+    if(status!=='reading'&&status!=='finished')return null;
+    const start=calendarDayNumber(book.startedAt);
+    const end=calendarDayNumber(status==='finished'?book.finishedAt:referenceDate);
+    if(start===null||end===null||end<start)return null;
+    if(status==='reading'){
+      const days=end-start;
+      return {days,label:'Boshlanganiga '+days+' kun bo‘ldi',status};
+    }
+    // Boshlagan va tugatgan kun ham mutolaa kuni hisoblanadi.
+    const days=end-start+1;
+    return {days,label:days+' kunda tugatilgan',status};
+  }
+
+  function readingDurationHtml(book){
+    const info=readingDurationInfo(book);
+    if(!info)return '';
+    return '<div class="reading-duration '+info.status+'" title="'+
+      (info.status==='reading'?'Boshlangan sanadan hozirgacha o‘tgan vaqt':'Boshlangan va tugatilgan kunlar ham hisoblangan')+'">'+
+      '<svg class="ui-icon" aria-hidden="true"><use href="#ico-calendar"></use></svg>'+
+      '<span>'+escapeHtml(info.label)+'</span></div>';
   }
   function allCategories(){
     return [...new Set([...DEFAULT_CATEGORIES,...state.profile.customCategories,...state.books.map(b=>b.category).filter(Boolean)])];
@@ -509,7 +539,7 @@
         (edition?'<div class="book-edition">'+edition+'</div>':'')+
         '<span class="status-pill '+status+'">'+statusLabel(status)+'</span>'+
         (book.pages?'<div class="progress-wrap"><div class="progress-track"><div class="progress-fill" style="width:'+p+'%"></div></div><b>'+p+'%</b></div>':'')+
-        '<div class="book-dates">'+dates+'</div></div>'+
+        '<div class="book-dates">'+dates+'</div>'+readingDurationHtml(book)+'</div>'+
         '<button class="row-menu" data-book-menu="'+book.id+'" aria-label="Kitob menyusi"><svg class="ui-icon" aria-hidden="true"><use href="#ico-more"></use></svg></button></article>';
     }).join('');
   }
@@ -529,9 +559,10 @@
       (book.description?'<article class="content-card detail-notes"><h2>Kitob haqida</h2><p>'+escapeHtml(book.description)+'</p></article>':'')+
       '<div class="detail-date-grid"><div class="detail-date-card"><small>Mutolaa boshlangan sana</small><b>◫ '+(book.startedAt?formatDate(book.startedAt):(status==='finished'?'Sana kiritilmagan':'Boshlanmagan'))+'</b></div>'+
       '<div class="detail-date-card"><small>Mutolaa tugatilgan sana</small><b>◫ '+(book.finishedAt?formatDate(book.finishedAt):(status==='finished'?'Sana kiritilmagan':'Hali tugatilmagan'))+'</b></div></div>'+
+      readingDurationHtml(book)+
       '<article class="content-card detail-notes"><div class="section-title-row"><h2>Shaxsiy izoh</h2><button class="text-action" data-edit-book="'+book.id+'">Tahrirlash</button></div>'+
       '<p>'+escapeHtml(book.notes||'Hali shaxsiy izoh yozilmagan.')+'</p>'+
-      (book.rating?'<div class="book-dates"><span>★ '+book.rating+' / 5</span><span>'+durationDays(book)+' kun</span></div>':'')+'</article>'+
+      (book.rating?'<div class="book-dates"><span>★ '+book.rating+' / 5</span></div>':'')+'</article>'+
       (status==='wishlist'
         ? '<button class="detail-action" data-start-book="'+book.id+'">▶ Mutolaani boshlash</button>'
         : status==='reading'

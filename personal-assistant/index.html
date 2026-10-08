@@ -63,6 +63,16 @@
             <strong id="statYearFinished">0</strong>
             <small>tugatilgan</small>
           </article>
+          <article class="stat-card">
+            <span class="stat-label">O‘qilgan sahifa</span>
+            <strong id="statPagesRead">0</strong>
+            <small>taxminiy jami</small>
+          </article>
+          <article class="stat-card">
+            <span class="stat-label">O‘rtacha baho</span>
+            <strong id="statAvgRating">—</strong>
+            <small>5 ballik tizim</small>
+          </article>
         </div>
 
         <div class="section-head">
@@ -125,6 +135,8 @@
             <option value="title">Nom bo‘yicha</option>
             <option value="started">Boshlangan sana</option>
             <option value="finished">Tugatilgan sana</option>
+            <option value="rating">Baho yuqoridan</option>
+            <option value="progress">Progress yuqoridan</option>
           </select>
         </div>
 
@@ -133,6 +145,7 @@
           <button data-filter="reading">O‘qiyapman <span id="countReading">0</span></button>
           <button data-filter="wishlist">O‘qimoqchiman <span id="countWishlist">0</span></button>
           <button data-filter="finished">Tugatdim <span id="countFinished">0</span></button>
+          <button data-filter="favorite">★ Sevimli <span id="countFavorite">0</span></button>
         </div>
 
         <div id="booksGrid" class="books-grid"></div>
@@ -262,10 +275,22 @@
         <button type="button" class="icon-btn close-dialog" data-close="bookDialog">×</button>
       </div>
       <input id="bookId" type="hidden">
+      <input id="bookCoverData" type="hidden">
+      <div class="cover-editor wide">
+        <div id="bookCoverPreview" class="cover cover-preview"><span>MUQOVA</span></div>
+        <div class="cover-editor-actions">
+          <label class="secondary-btn file-btn">📷 Rasm tanlash
+            <input id="bookCoverFile" type="file" accept="image/*">
+          </label>
+          <button id="removeBookCoverBtn" type="button" class="mini-btn">Rasmni olib tashlash</button>
+          <small class="muted">Telefon galereyasidan yoki kameradan rasm tanlang. Rasm avtomatik siqiladi.</small>
+        </div>
+      </div>
       <div class="form-grid">
         <label class="field wide"><span>Kitob nomi *</span><input id="bookTitle" required maxlength="120"></label>
-        <label class="field wide"><span>Muallif</span><input id="bookAuthor" maxlength="100"></label>
-        <label class="field wide"><span>Muqova rasmi URL</span><input id="bookCover" type="url" placeholder="https://..."></label>
+        <label class="field"><span>Muallif</span><input id="bookAuthor" maxlength="100"></label>
+        <label class="field"><span>Kategoriya</span><input id="bookCategory" maxlength="60" placeholder="Roman, biznes, diniy..."></label>
+        <label class="field wide"><span>Muqova rasmi URL (ixtiyoriy)</span><input id="bookCover" type="url" placeholder="https://..."></label>
         <label class="field"><span>Jami sahifa</span><input id="bookPages" type="number" min="1"></label>
         <label class="field"><span>Hozirgi sahifa</span><input id="bookCurrentPage" type="number" min="0"></label>
         <label class="field"><span>Mutolaa boshlangan sana</span><input id="bookStartedAt" type="date"></label>
@@ -273,15 +298,17 @@
         <label class="field"><span>Baho</span>
           <select id="bookRating">
             <option value="0">Baholanmagan</option>
-            <option value="1">1 / 5</option>
-            <option value="2">2 / 5</option>
-            <option value="3">3 / 5</option>
-            <option value="4">4 / 5</option>
-            <option value="5">5 / 5</option>
+            <option value="1">★ 1 / 5</option>
+            <option value="2">★★ 2 / 5</option>
+            <option value="3">★★★ 3 / 5</option>
+            <option value="4">★★★★ 4 / 5</option>
+            <option value="5">★★★★★ 5 / 5</option>
           </select>
         </label>
+        <label class="field favorite-field"><span>Sevimli kitob</span><input id="bookFavorite" type="checkbox"></label>
         <div class="field status-preview-field"><span>Avtomatik holat</span><div id="bookStatusPreview" class="status-badge wishlist">O‘qimoqchiman</div></div>
-        <label class="field wide"><span>Qaydlar / taassurot</span><textarea id="bookNotes" rows="4" maxlength="1000"></textarea></label>
+        <label class="field wide"><span>Sevimli iqtibos</span><textarea id="bookQuote" rows="3" maxlength="700" placeholder="Kitobdan eslab qolmoqchi bo‘lgan jumla..."></textarea></label>
+        <label class="field wide"><span>Qaydlar / taassurot</span><textarea id="bookNotes" rows="5" maxlength="2000" placeholder="Fikrlar, xulosalar, o‘rgangan narsalar..."></textarea></label>
       </div>
       <div class="modal-actions">
         <button type="button" class="secondary-btn close-dialog" data-close="bookDialog">Bekor qilish</button>

@@ -1,13 +1,13 @@
 (() => {
   'use strict';
 
-  const STORAGE_KEY = 'bek_personal_assistant_v3';
-  const LEGACY_KEYS = ['bek_personal_assistant_v2', 'shaxsiy_yordamchi', 'personalAssistantData'];
+  const STORAGE_KEY = 'bek_personal_assistant_v4';
+  const LEGACY_KEYS = ['bek_personal_assistant_v3', 'bek_personal_assistant_v2', 'shaxsiy_yordamchi', 'personalAssistantData'];
   const $ = (id) => document.getElementById(id);
   const qsa = (selector, root = document) => [...root.querySelectorAll(selector)];
 
   const defaultState = () => ({
-    version: 3,
+    version: 4,
     profile: { name: 'Mohirbek', yearlyGoal: 24, theme: 'light' },
     books: [],
     transactions: []
@@ -19,6 +19,7 @@
   let financePeriod = 'month';
   let financeCurrency = 'KRW';
   let installPrompt = null;
+  let coverProcessing = false;
 
   function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -48,7 +49,7 @@
         ? input.finance
         : [];
     return {
-      version: 3,
+      version: 4,
       profile: {
         name: String(profile.name || input?.name || base.profile.name),
         yearlyGoal: clampInt(profile.yearlyGoal ?? input?.yearlyGoal ?? 24, 1, 500),
@@ -58,12 +59,15 @@
         id: String(b.id || makeId()),
         title: String(b.title || b.name || '').trim(),
         author: String(b.author || '').trim(),
+        category: String(b.category || b.genre || '').trim(),
         cover: String(b.cover || b.coverUrl || '').trim(),
         pages: numOrZero(b.pages || b.totalPages),
         currentPage: numOrZero(b.currentPage || b.page),
         startedAt: normalizeDate(b.startedAt || b.startDate || ''),
         finishedAt: normalizeDate(b.finishedAt || b.finishDate || ''),
         rating: clampInt(b.rating || 0, 0, 5),
+        favorite: b.favorite === true,
+        quote: String(b.quote || '').trim(),
         notes: String(b.notes || b.note || ''),
         createdAt: b.createdAt || new Date().toISOString(),
         updatedAt: b.updatedAt || new Date().toISOString()
@@ -167,6 +171,64 @@
     return `<div class="cover"><span>${initial}</span></div>`;
   }
 
+  function updateCoverPreview(source = '') {
+    const preview = $('bookCoverPreview');
+    if (!preview) return;
+    const safe = String(source || '').trim();
+    if (!safe) {
+      preview.innerHTML = '<span>MUQOVA</span>';
+      return;
+    }
+    preview.innerHTML = `<img src="${escapeHtml(safe)}" alt="Kitob muqovasi">`;
+  }
+
+  async function compressBookCover(file) {
+    if (!file || !file.type?.startsWith('image/')) {
+      throw new Error('Rasm faylini tanlang.');
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      throw new Error('Rasm 15 MB dan katta bo‘lmasin.');
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    try {
+      const image = new Image();
+      image.decoding = 'async';
+      image.src = objectUrl;
+      await new Promise((resolve, reject) => {
+        image.onload = resolve;
+        image.onerror = () => reject(new Error('Rasmni ochib bo‘lmadi.'));
+      });
+
+      const maxWidth = 900;
+      const maxHeight = 1350;
+      const scale = Math.min(1, maxWidth / image.width, maxHeight / image.height);
+      const width = Math.max(1, Math.round(image.width * scale));
+      const height = Math.max(1, Math.round(image.height * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d', { alpha: false });
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(image, 0, 0, width, height);
+      return canvas.toDataURL('image/jpeg', 0.78);
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+
+  function pagesReadOf(book) {
+    if (statusOf(book) === 'finished') return book.pages || book.currentPage || 0;
+    return Math.min(book.currentPage || 0, book.pages || book.currentPage || 0);
+  }
+
+  function averageRatingOf(books) {
+    const rated = books.filter((b) => (b.rating || 0) > 0);
+    if (!rated.length) return 0;
+    return rated.reduce((sum, b) => sum + b.rating, 0) / rated.length;
+  }
+
   function toast(message) {
     const el = $('toast');
     el.textContent = message;
@@ -221,6 +283,10 @@
     $('statFinished').textContent = finished.length;
     $('statWishlist').textContent = wishlist.length;
     $('statYearFinished').textContent = finishedThisYear.length;
+    const totalPagesRead = state.books.reduce((sum, book) => sum + pagesReadOf(book), 0);
+    const avgRating = averageRatingOf(state.books);
+    $('statPagesRead').textContent = totalPagesRead.toLocaleString('en-US');
+    $('statAvgRating').textContent = avgRating ? avgRating.toFixed(1) : '—';
 
     const goal = Math.max(1, state.profile.yearlyGoal || 24);
     const pct = Math.min(100, Math.round((finishedThisYear.length / goal) * 100));
@@ -261,17 +327,35 @@
       all: state.books.length,
       reading: state.books.filter((b) => statusOf(b) === 'reading').length,
       wishlist: state.books.filter((b) => statusOf(b) === 'wishlist').length,
-      finished: state.books.filter((b) => statusOf(b) === 'finished').length
+      finished: state.books.filter((b) => statusOf(b) === 'finished').length,
+      favorite: state.books.filter((b) => b.favorite === true).length
     };
     $('countAll').textContent = counts.all;
     $('countReading').textContent = counts.reading;
     $('countWishlist').textContent = counts.wishlist;
     $('countFinished').textContent = counts.finished;
+    $('countFavorite').textContent = counts.favorite;
+
+    const totalPages = state.books.reduce((sum, book) => sum + pagesReadOf(book), 0);
+    const avgRating = averageRatingOf(state.books);
+    const categories = {};
+    state.books.forEach((book) => {
+      const category = (book.category || '').trim();
+      if (category) categories[category] = (categories[category] || 0) + 1;
+    });
+    const topCategory = Object.entries(categories).sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
+    $('libraryInsight').innerHTML = [
+      ['Jami kitob', state.books.length.toLocaleString('en-US')],
+      ['O‘qilgan sahifa', totalPages.toLocaleString('en-US')],
+      ['O‘rtacha baho', avgRating ? `${avgRating.toFixed(1)} / 5` : '—'],
+      ['Ko‘p kategoriya', topCategory]
+    ].map(([label, value]) => `<div class="snapshot-item"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join('');
 
     const query = $('bookSearch')?.value?.trim().toLowerCase() || '';
     let books = state.books.filter((book) => {
-      const matchFilter = bookFilter === 'all' || statusOf(book) === bookFilter;
-      const hay = `${book.title} ${book.author} ${book.notes}`.toLowerCase();
+      const matchFilter = bookFilter === 'all'
+        || (bookFilter === 'favorite' ? book.favorite === true : statusOf(book) === bookFilter);
+      const hay = `${book.title} ${book.author} ${book.category || ''} ${book.quote || ''} ${book.notes}`.toLowerCase();
       return matchFilter && (!query || hay.includes(query));
     });
 
@@ -280,6 +364,8 @@
       if (sort === 'title') return a.title.localeCompare(b.title, 'uz');
       if (sort === 'started') return (b.startedAt || '').localeCompare(a.startedAt || '');
       if (sort === 'finished') return (b.finishedAt || '').localeCompare(a.finishedAt || '');
+      if (sort === 'rating') return (b.rating || 0) - (a.rating || 0);
+      if (sort === 'progress') return progressOf(b) - progressOf(a);
       return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
     });
 
@@ -303,14 +389,17 @@
       if (status === 'wishlist') quick = `<button class="primary" data-action="start" data-id="${book.id}">Bugun boshlash</button>`;
       if (status === 'reading') quick = `<button class="primary" data-action="progress" data-id="${book.id}">Sahifa yangilash</button><button data-action="finish" data-id="${book.id}">Tugatdim</button>`;
 
-      return `<article class="book-card">
+      return `<article class="book-card ${book.favorite ? 'favorite' : ''}">
+        <button class="favorite-mark" data-action="favorite" data-id="${book.id}" title="Sevimli">${book.favorite ? '★' : '☆'}</button>
         ${coverHtml(book)}
         <div class="book-meta">
           <h3 title="${escapeHtml(book.title)}">${escapeHtml(book.title)}</h3>
           <div class="author">${escapeHtml(book.author || 'Muallif kiritilmagan')}</div>
+          ${book.category ? `<div class="category-pill">${escapeHtml(book.category)}</div>` : ''}
           <div class="status-badge ${status}">${statusLabel(status)}</div>
           ${book.pages ? `<div class="progress-track"><div class="progress-fill" style="width:${progress}%"></div></div>` : ''}
           <div class="book-facts">${facts.map((f) => `<span class="fact">${escapeHtml(f)}</span>`).join('')}</div>
+          ${book.quote ? `<div class="quote-preview">“${escapeHtml(book.quote)}”</div>` : ''}
           <div class="card-actions">
             ${quick}
             <button data-action="edit" data-id="${book.id}">Tahrirlash</button>
@@ -326,12 +415,19 @@
     $('bookId').value = book?.id || '';
     $('bookTitle').value = book?.title || '';
     $('bookAuthor').value = book?.author || '';
-    $('bookCover').value = book?.cover || '';
+    $('bookCategory').value = book?.category || '';
+    const existingCover = book?.cover || '';
+    $('bookCover').value = /^https?:\/\//i.test(existingCover) ? existingCover : '';
+    $('bookCoverData').value = existingCover && !/^https?:\/\//i.test(existingCover) ? existingCover : '';
+    $('bookCoverFile').value = '';
+    updateCoverPreview(existingCover);
     $('bookPages').value = book?.pages || '';
     $('bookCurrentPage').value = book?.currentPage || '';
     $('bookStartedAt').value = book?.startedAt || '';
     $('bookFinishedAt').value = book?.finishedAt || '';
     $('bookRating').value = String(book?.rating || 0);
+    $('bookFavorite').checked = book?.favorite === true;
+    $('bookQuote').value = book?.quote || '';
     $('bookNotes').value = book?.notes || '';
     updateBookStatusPreview();
     $('bookDialog').showModal();
@@ -350,6 +446,7 @@
 
   function saveBookFromForm(event) {
     event.preventDefault();
+    if (coverProcessing) return toast('Rasm tayyorlanmoqda, bir oz kuting.');
     const id = $('bookId').value;
     const title = $('bookTitle').value.trim();
     if (!title) return toast('Kitob nomini kiriting.');
@@ -366,16 +463,21 @@
     if (finishedAt && pages) currentPage = pages;
 
     const existing = state.books.find((b) => b.id === id);
+    const uploadedCover = $('bookCoverData').value.trim();
+    const remoteCover = $('bookCover').value.trim();
     const book = {
       id: existing?.id || makeId(),
       title,
       author: $('bookAuthor').value.trim(),
-      cover: $('bookCover').value.trim(),
+      category: $('bookCategory').value.trim(),
+      cover: uploadedCover || remoteCover,
       pages,
       currentPage,
       startedAt,
       finishedAt,
       rating: clampInt($('bookRating').value, 0, 5),
+      favorite: $('bookFavorite').checked,
+      quote: $('bookQuote').value.trim(),
       notes: $('bookNotes').value.trim(),
       createdAt: existing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -384,8 +486,14 @@
     if (existing) Object.assign(existing, book);
     else state.books.unshift(book);
 
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (_) {
+      return toast('Rasm juda katta yoki xotira to‘ldi. Kichikroq rasm tanlang.');
+    }
     $('bookDialog').close();
-    saveState(existing ? 'Kitob yangilandi.' : 'Kitob qo‘shildi.');
+    renderAll();
+    toast(existing ? 'Kitob yangilandi.' : 'Kitob qo‘shildi.');
   }
 
   function handleBookAction(action, id) {
@@ -393,6 +501,11 @@
     if (!book) return;
 
     if (action === 'edit') return openBookDialog(book);
+    if (action === 'favorite') {
+      book.favorite = !book.favorite;
+      book.updatedAt = new Date().toISOString();
+      return saveState(book.favorite ? 'Sevimlilarga qo‘shildi.' : 'Sevimlilardan olindi.');
+    }
     if (action === 'delete') {
       if (!confirm(`“${book.title}” kitobini o‘chirasizmi?`)) return;
       state.books = state.books.filter((b) => b.id !== id);
@@ -608,6 +721,39 @@
 
     $('addBookBtn').addEventListener('click', () => openBookDialog());
     $('bookForm').addEventListener('submit', saveBookFromForm);
+    $('bookCoverFile').addEventListener('change', async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      coverProcessing = true;
+      $('bookForm').classList.add('uploading');
+      try {
+        const dataUrl = await compressBookCover(file);
+        $('bookCoverData').value = dataUrl;
+        $('bookCover').value = '';
+        updateCoverPreview(dataUrl);
+        toast('Muqova rasmi tayyor.');
+      } catch (error) {
+        toast(error?.message || 'Rasmni yuklab bo‘lmadi.');
+      } finally {
+        coverProcessing = false;
+        $('bookForm').classList.remove('uploading');
+      }
+    });
+    $('bookCover').addEventListener('input', () => {
+      const url = $('bookCover').value.trim();
+      if (url) {
+        $('bookCoverData').value = '';
+        updateCoverPreview(url);
+      } else if (!$('bookCoverData').value) {
+        updateCoverPreview('');
+      }
+    });
+    $('removeBookCoverBtn').addEventListener('click', () => {
+      $('bookCover').value = '';
+      $('bookCoverData').value = '';
+      $('bookCoverFile').value = '';
+      updateCoverPreview('');
+    });
     $('bookStartedAt').addEventListener('change', updateBookStatusPreview);
     $('bookFinishedAt').addEventListener('change', updateBookStatusPreview);
     $('bookSearch').addEventListener('input', renderBooks);

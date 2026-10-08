@@ -12,21 +12,22 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon.svg">
-  <link rel="stylesheet" href="./styles.css?v=10">
+  <link rel="stylesheet" href="./styles.css?v=11">
 </head>
 <body>
+<svg class="ui-icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"><defs><symbol id="ico-book" viewBox="0 0 24 24"><path d="M12 6C9 4 6 4 3 5v14c3-1 6-1 9 1m0-14c3-2 6-2 9-1v14c-3-1-6-1-9 1V6"/></symbol><symbol id="ico-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></symbol><symbol id="ico-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 8.5-3 9h18c0-.5-3-2-3-9M10 21h4"/></symbol><symbol id="ico-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></symbol><symbol id="ico-library" viewBox="0 0 24 24"><rect x="3" y="3.5" width="18" height="17" rx="2"/><path d="M8 3.5v17M11 8h7M11 12h7M11 16h6"/></symbol><symbol id="ico-chart" viewBox="0 0 24 24"><path d="M4 20V4m0 16h17M8 17v-6m5 6V6m5 11v-8"/></symbol><symbol id="ico-user" viewBox="0 0 24 24"><circle cx="12" cy="7.5" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></symbol><symbol id="ico-plus" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></symbol><symbol id="ico-back" viewBox="0 0 24 24"><path d="m14.8 5.5-6.5 6.5 6.5 6.5M8.4 12H21"/></symbol><symbol id="ico-more" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"/></symbol><symbol id="ico-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18"/></symbol><symbol id="ico-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol><symbol id="ico-check" viewBox="0 0 24 24"><path d="m5 12 4.5 4.5L19 7"/></symbol><symbol id="ico-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></symbol><symbol id="ico-cloud" viewBox="0 0 24 24"><path d="M5.5 19a4 4 0 0 1-.2-8A7 7 0 0 1 19 9.8a4.7 4.7 0 0 1 .1 9.2H5.5z"/><path d="M12 12v6m-3-3 3 3 3-3"/></symbol><symbol id="ico-settings" viewBox="0 0 24 24"><path d="M12 3 14 4l2.3-.6 1.6 1.6-.6 2.3 1 2L21 11v2l-2.7 1.7-1 2 .6 2.3-1.6 1.6-2.3-.6-2 1-2-1-2.3.6-1.6-1.6.6-2.3-1-2L3 13v-2l2.7-1.7 1-2-.6-2.3L7.7 3.4 10 4z"/><circle cx="12" cy="12" r="3"/></symbol><symbol id="ico-heart" viewBox="0 0 24 24"><path d="M20.8 9c0 4-8.8 10-8.8 10S3.2 13 3.2 9a4.7 4.7 0 0 1 8.8-2.1A4.7 4.7 0 0 1 20.8 9z"/></symbol><symbol id="ico-wallet" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M3 11h18M6 7V4h12v3m-1 9h1"/></symbol><symbol id="ico-flag" viewBox="0 0 24 24"><path d="M5 21V3m0 2c5-3 9 3 15 0v10c-6 3-10-3-15 0"/></symbol><symbol id="ico-chevronLeft" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol><symbol id="ico-chevronRight" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol></defs></svg>
 <div id="app">
   <header class="app-header">
     <div class="brand">
-      <div class="brand-mark">📖</div>
+      <div class="brand-mark"><svg class="ui-icon" aria-hidden="true"><use href="#ico-book"></use></svg></div>
       <div>
         <strong>Yordamchi</strong>
         <span>Kitoblar bilan yaxshi hayot</span>
       </div>
     </div>
     <div class="header-actions">
-      <button class="icon-button" id="globalSearchBtn" aria-label="Qidirish">⌕</button>
-      <button class="icon-button" id="bellBtn" aria-label="Eslatmalar">♢<i></i></button>
+      <button class="icon-button" id="globalSearchBtn" aria-label="Qidirish" title="Qidirish"><svg class="ui-icon" aria-hidden="true"><use href="#ico-search"></use></svg></button>
+      <button class="icon-button" id="bellBtn" aria-label="Eslatmalar" title="Eslatmalar"><svg class="ui-icon" aria-hidden="true"><use href="#ico-bell"></use></svg><i></i></button>
     </div>
   </header>
 
@@ -46,16 +47,16 @@
 
       <div class="home-metrics">
         <button class="metric-card" data-nav="library">
-          <span class="metric-icon blue">▣</span><div><strong id="homeTotalBooks">0</strong><small>Mening kitoblarim</small></div>
+          <span class="metric-icon blue"><svg class="ui-icon" aria-hidden="true"><use href="#ico-library"></use></svg></span><div><strong id="homeTotalBooks">0</strong><small>Mening kitoblarim</small></div>
         </button>
         <button class="metric-card" data-filter-home="reading">
-          <span class="metric-icon green">▤</span><div><strong id="homeReadingBooks">0</strong><small>O‘qiyapman</small></div>
+          <span class="metric-icon green"><svg class="ui-icon" aria-hidden="true"><use href="#ico-book"></use></svg></span><div><strong id="homeReadingBooks">0</strong><small>O‘qiyapman</small></div>
         </button>
         <button class="metric-card" data-filter-home="finished">
-          <span class="metric-icon gold">✓</span><div><strong id="homeFinishedBooks">0</strong><small>Tugatilgan</small></div>
+          <span class="metric-icon gold"><svg class="ui-icon" aria-hidden="true"><use href="#ico-check"></use></svg></span><div><strong id="homeFinishedBooks">0</strong><small>Tugatilgan</small></div>
         </button>
         <button class="metric-card" data-nav="stats">
-          <span class="metric-icon red">♟</span><div><strong id="homeGoalRemaining">0</strong><small>Reja qolgan</small></div>
+          <span class="metric-icon red"><svg class="ui-icon" aria-hidden="true"><use href="#ico-flag"></use></svg></span><div><strong id="homeGoalRemaining">0</strong><small>Reja qolgan</small></div>
         </button>
       </div>
 
@@ -68,19 +69,19 @@
       </section>
 
       <div class="home-shortcuts">
-        <button class="shortcut-card" data-open="calendar"><span>◫</span><b>Mutolaa kalendari</b><small>Kunlik izchillik</small></button>
-        <button class="shortcut-card" data-open="categories"><span>⌘</span><b>Kategoriyalar</b><small>Janrlar bo‘yicha</small></button>
+        <button class="shortcut-card" data-open="calendar"><span><svg class="ui-icon" aria-hidden="true"><use href="#ico-calendar"></use></svg></span><b>Mutolaa kalendari</b><small>Kunlik izchillik</small></button>
+        <button class="shortcut-card" data-open="categories"><span><svg class="ui-icon" aria-hidden="true"><use href="#ico-grid"></use></svg></span><b>Kategoriyalar</b><small>Janrlar bo‘yicha</small></button>
       </div>
     </section>
 
     <section class="screen" id="screen-library">
       <div class="page-top">
         <h1>Mening kitoblarim</h1>
-        <button class="circle-add" data-add-book>+</button>
+        <button class="circle-add" data-add-book aria-label="Kitob qo‘shish"><svg class="ui-icon" aria-hidden="true"><use href="#ico-plus"></use></svg></button>
       </div>
 
       <label class="search-field">
-        <span>⌕</span>
+        <span><svg class="ui-icon" aria-hidden="true"><use href="#ico-search"></use></svg></span>
         <input id="bookSearch" type="search" placeholder="Kitob yoki muallif qidirish">
       </label>
 
@@ -106,8 +107,8 @@
 
     <section class="screen" id="screen-detail">
       <div class="subpage-head">
-        <button class="back-button" data-back>←</button>
-        <button class="more-button" id="detailMore">⋮</button>
+        <button class="back-button" data-back aria-label="Orqaga"><svg class="ui-icon" aria-hidden="true"><use href="#ico-back"></use></svg></button>
+        <button class="more-button" id="detailMore" aria-label="Kitob menyusi"><svg class="ui-icon" aria-hidden="true"><use href="#ico-more"></use></svg></button>
       </div>
       <div id="bookDetail"></div>
     </section>
@@ -147,13 +148,13 @@
 
     <section class="screen" id="screen-calendar">
       <div class="subpage-head">
-        <button class="back-button" data-back>←</button>
+        <button class="back-button" data-back aria-label="Orqaga"><svg class="ui-icon" aria-hidden="true"><use href="#ico-back"></use></svg></button>
         <h1>Mutolaa kalendari</h1>
         <span></span>
       </div>
       <article class="content-card calendar-card">
         <div class="calendar-month-head">
-          <button id="prevMonth">‹</button><strong id="calendarMonthLabel"></strong><button id="nextMonth">›</button>
+          <button id="prevMonth" aria-label="Oldingi oy"><svg class="ui-icon" aria-hidden="true"><use href="#ico-chevronLeft"></use></svg></button><strong id="calendarMonthLabel"></strong><button id="nextMonth" aria-label="Keyingi oy"><svg class="ui-icon" aria-hidden="true"><use href="#ico-chevronRight"></use></svg></button>
         </div>
         <div class="weekdays"><span>Du</span><span>Se</span><span>Cho</span><span>Pa</span><span>Ju</span><span>Sh</span><span>Ya</span></div>
         <div id="calendarGrid" class="calendar-grid"></div>
@@ -164,9 +165,9 @@
 
     <section class="screen" id="screen-categories">
       <div class="subpage-head">
-        <button class="back-button" data-back>←</button>
+        <button class="back-button" data-back aria-label="Orqaga"><svg class="ui-icon" aria-hidden="true"><use href="#ico-back"></use></svg></button>
         <h1>Kategoriyalar</h1>
-        <button class="more-button" id="addCategoryBtn">+</button>
+        <button class="more-button" id="addCategoryBtn" aria-label="Kategoriya qo‘shish"><svg class="ui-icon" aria-hidden="true"><use href="#ico-plus"></use></svg></button>
       </div>
       <div id="categoriesGrid" class="categories-grid"></div>
     </section>
@@ -178,13 +179,13 @@
       </div>
 
       <div class="profile-menu">
-        <button data-nav="stats"><span>◫</span><div><b>Mening statistikam</b><small>Mutolaa natijalari</small></div><em>›</em></button>
-        <button id="goalMenu"><span>✓</span><div><b>Mutolaa maqsadlari</b><small id="goalMenuSub">Yillik reja</small></div><em>›</em></button>
-        <button id="reminderMenu"><span>♢</span><div><b>Eslatmalar</b><small id="reminderSub">Har kuni 08:00</small></div><em>›</em></button>
-        <button id="financeMenu"><span>₩</span><div><b>Hisob-kitob</b><small>Shaxsiy kirim va chiqim</small></div><em>›</em></button>
-        <button id="backupMenu"><span>☁</span><div><b>Backup / Sinxronlash</b><small>Saqlash va tiklash</small></div><em>›</em></button>
-        <button id="settingsMenu"><span>⚙</span><div><b>Ilova sozlamalari</b><small>Profil va ko‘rinish</small></div><em>›</em></button>
-        <button id="themeMenu"><span>♡</span><div><b>Mavzu</b><small id="themeLabel">Yorug‘</small></div><em>›</em></button>
+        <button data-nav="stats"><span><svg class="ui-icon" aria-hidden="true"><use href="#ico-chart"></use></svg></span><div><b>Mening statistikam</b><small>Mutolaa natijalari</small></div><em>›</em></button>
+        <button id="goalMenu"><span><svg class="ui-icon" aria-hidden="true"><use href="#ico-target"></use></svg></span><div><b>Mutolaa maqsadlari</b><small id="goalMenuSub">Yillik reja</small></div><em>›</em></button>
+        <button id="reminderMenu"><span><svg class="ui-icon" aria-hidden="true"><use href="#ico-bell"></use></svg></span><div><b>Eslatmalar</b><small id="reminderSub">Har kuni 08:00</small></div><em>›</em></button>
+        <button id="financeMenu"><span><svg class="ui-icon" aria-hidden="true"><use href="#ico-wallet"></use></svg></span><div><b>Hisob-kitob</b><small>Shaxsiy kirim va chiqim</small></div><em>›</em></button>
+        <button id="backupMenu"><span><svg class="ui-icon" aria-hidden="true"><use href="#ico-cloud"></use></svg></span><div><b>Backup / Sinxronlash</b><small>Saqlash va tiklash</small></div><em>›</em></button>
+        <button id="settingsMenu"><span><svg class="ui-icon" aria-hidden="true"><use href="#ico-settings"></use></svg></span><div><b>Ilova sozlamalari</b><small>Profil va ko‘rinish</small></div><em>›</em></button>
+        <button id="themeMenu"><span><svg class="ui-icon" aria-hidden="true"><use href="#ico-heart"></use></svg></span><div><b>Mavzu</b><small id="themeLabel">Yorug‘</small></div><em>›</em></button>
       </div>
 
       <article class="year-goal-card">
@@ -200,9 +201,9 @@
 
     <section class="screen" id="screen-finance">
       <div class="subpage-head">
-        <button class="back-button" data-back>←</button>
+        <button class="back-button" data-back aria-label="Orqaga"><svg class="ui-icon" aria-hidden="true"><use href="#ico-back"></use></svg></button>
         <h1>Hisob-kitob</h1>
-        <button class="circle-add small" id="addTxBtn">+</button>
+        <button class="circle-add small" id="addTxBtn" aria-label="Tranzaksiya qo‘shish"><svg class="ui-icon" aria-hidden="true"><use href="#ico-plus"></use></svg></button>
       </div>
 
       <div class="chip-row compact" id="periodFilters">
@@ -225,12 +226,12 @@
     </section>
   </main>
 
-  <nav class="bottom-nav">
-    <button class="active" data-nav="home"><span>⌂</span><small>Bosh sahifa</small></button>
-    <button data-nav="library"><span>▤</span><small>Kitoblarim</small></button>
-    <button class="nav-add" data-add-book aria-label="Kitob qo‘shish">+</button>
-    <button data-nav="stats"><span>▥</span><small>Statistika</small></button>
-    <button data-nav="profile"><span>◉</span><small>Profil</small></button>
+  <nav class="bottom-nav" aria-label="Asosiy menyu">
+    <button class="active" data-nav="home"><svg class="ui-icon" aria-hidden="true"><use href="#ico-home"></use></svg><small>Bosh sahifa</small></button>
+    <button data-nav="library"><svg class="ui-icon" aria-hidden="true"><use href="#ico-library"></use></svg><small>Kitoblarim</small></button>
+    <button class="nav-add" data-add-book aria-label="Kitob qo‘shish"><svg class="ui-icon" aria-hidden="true"><use href="#ico-plus"></use></svg></button>
+    <button data-nav="stats"><svg class="ui-icon" aria-hidden="true"><use href="#ico-chart"></use></svg><small>Statistika</small></button>
+    <button data-nav="profile"><svg class="ui-icon" aria-hidden="true"><use href="#ico-user"></use></svg><small>Profil</small></button>
   </nav>
 </div>
 
@@ -300,6 +301,6 @@
 
 <input type="file" id="importInput" accept="application/json" hidden>
 <div id="toast" class="toast"></div>
-<script src="./app.js?v=10"></script>
+<script src="./app.js?v=11"></script>
 </body>
 </html>

@@ -239,6 +239,25 @@
   <form id="bookForm" method="dialog">
     <div class="sheet-head"><div><small>YANGI KITOB</small><h2 id="bookDialogTitle">Kitob qo‘shish</h2></div><button type="button" class="sheet-close" data-close="bookDialog">×</button></div>
     <input type="hidden" id="bookId">
+    <div class="book-add-switch" role="tablist" aria-label="Kitob kiritish usuli">
+      <button type="button" id="bookManualTab" role="tab" aria-selected="true" aria-controls="bookManualPanel"><svg class="ui-icon" aria-hidden="true"><use href="#ico-book"></use></svg>Qo‘lda kiritish</button>
+      <button type="button" id="bookScannerTab" role="tab" aria-selected="false" aria-controls="bookScannerPanel"><svg class="ui-icon" aria-hidden="true"><use href="#ico-search"></use></svg>QR / Skaner</button>
+    </div>
+    <div id="bookScannerPanel" class="scanner-panel" role="tabpanel" aria-labelledby="bookScannerTab" hidden>
+      <p>Kitob orqasidagi <strong>ISBN shtrix-kodini</strong> kameraga ko‘rsating. Kitob ma’lumoti avtomatik qidiriladi.</p>
+      <div id="isbnScannerReader"></div>
+      <div id="scanStatus" class="scanner-status" role="status" aria-live="polite">Kamerani ishga tushiring yoki ISBN raqamini kiriting.</div>
+      <div class="scanner-actions">
+        <button type="button" class="primary-button" id="scanCameraBtn">Kamerani yoqish</button>
+        <button type="button" class="secondary-button" id="scanStopBtn" hidden>Kamerani to‘xtatish</button>
+      </div>
+      <label>ISBN raqami
+        <input id="scanIsbnInput" type="text" inputmode="numeric" autocomplete="off" placeholder="Masalan: 978..." maxlength="32">
+      </label>
+      <button type="button" class="secondary-button" id="scanLookupBtn">ISBN orqali ma’lumot topish</button>
+      <small class="scanner-note">Google Books va Open Library kataloglaridan ma’lumot qidiriladi. Hamma nashrlar bazada mavjud emas; topilmagan joylarni qo‘lda to‘ldirishingiz mumkin.</small>
+    </div>
+    <div id="bookManualPanel" role="tabpanel" aria-labelledby="bookManualTab">
     <div class="cover-editor">
       <label class="cover-upload">
         <img id="coverPreview" alt="">
@@ -253,6 +272,7 @@
     <div class="form-grid">
       <label>Kategoriya<input id="bookCategory" list="categoryOptions" placeholder="Roman"></label>
       <label>Nashriyot<input id="bookPublisher" maxlength="80"></label>
+      <label>ISBN<input id="bookIsbn" inputmode="numeric" autocomplete="off" maxlength="20" placeholder="978..."></label>
       <label>Nashr yili<input id="bookPublishedYear" type="number" min="1800" max="2100" placeholder="2024"></label>
       <label>Jami sahifa<input id="bookPages" type="number" min="1"></label>
       <label>Hozirgi sahifa<input id="bookCurrentPage" type="number" min="0"></label>
@@ -273,6 +293,7 @@
     </div>
     <datalist id="categoryOptions"></datalist>
     <div class="sheet-actions"><button type="button" class="secondary-button" data-close="bookDialog">Bekor qilish</button><button type="submit" class="primary-button">Saqlash</button></div>
+    </div>
   </form>
 </dialog>
 

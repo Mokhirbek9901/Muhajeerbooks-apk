@@ -95,6 +95,7 @@
   let financePeriod = 'month';
   let financeCurrency = 'KRW';
   let statTab = 'general';
+  let statsSelectedYear = nowYear;
   let calendarDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   let selectedCalendarDay = today();
   let pendingCover = '';
@@ -1171,90 +1172,258 @@
       '<button class="secondary-button" data-simple-action="delete" data-id="'+id+'">O‘chirish</button></div>');
   }
 
-  function renderStats(){
-    const years=[...new Set([nowYear,...state.books.flatMap(b=>[parseDay(b.startedAt)?.getFullYear(),parseDay(b.finishedAt)?.getFullYear()]).filter(Boolean)])].sort((a,b)=>b-a);
-    const select=$('statsYear');
-    const currentValue=Number(select.value)||nowYear;
-    select.innerHTML=years.map(y=>'<option value="'+y+'">Yil: '+y+'</option>').join('');
-    select.value=String(years.includes(currentValue)?currentValue:nowYear);
-    const year=Number(select.value)||nowYear;
-    const finishedYear=state.books.filter(b=>statusOf(b)==='finished'&&bookFinishedYear(b)===year);
-    const reading=state.books.filter(b=>statusOf(b)==='reading');
-    const wishlist=state.books.filter(b=>statusOf(b)==='wishlist');
-    $('statsTotal').textContent=state.books.length;
-    $('statsFinished').textContent=finishedYear.length;
-    $('statsReading').textContent=reading.length;
-    $('statsWishlist').textContent=wishlist.length;
-    $('statsPages').textContent=finishedYear.reduce((s,b)=>s+(b.pages||0),0).toLocaleString('en-US');
-    const rated=finishedYear.filter(b=>b.rating>0);
-    const avg=rated.length?rated.reduce((s,b)=>s+b.rating,0)/rated.length:0;
-    $('statsRating').textContent=avg.toFixed(avg?1:0)+' / 5';
-    $('statsThisYear').textContent=finishedYear.length+' ta kitob';
-    $('statsMonthlyAvg').textContent=(finishedYear.length/12).toFixed(1)+' ta kitob';
+  // Faqat foydalanuvchi kiritgan real sanalar asosida yillik natija hisoblanadi.
+  function datedReadingYears(){
+    const fromBooks=state.books.flatMap(b=>[
+      b.startedAt,b.finishedAt,
+      ...(Array.isArray(b.readingLog)?b.readingLog.map(x=>x.date):[])
+    ]).map(s=>Number(String(s||'').slice(0,4))).filter(y=>y>=1900&&y<=2100);
+    const min=Math.max(1900,Math.min(nowYear-6,...fromBooks));
+    const max=Math.min(2100,Math.max(nowYear+1,...fromBooks));
+    return Array.from({length:max-min+1},(_,i)=>max-i);
+  }
 
+  function syncYearSelect(element,year){
+    const years=datedReadingYears();
+    const value=years.includes(Number(year))?Number(year):nowYear;
+    const signature=years.join(',');
+    if(element.dataset.years!==signature){
+      element.innerHTML=years.map(y=>'<option value="'+y+'">'+y+'-yil</option>').join('');
+      element.dataset.years=signature;
+    }
+    element.value=String(value);
+    return value;
+  }
+
+  function readingActivity(){
+    const activity=new Map();
+    const get=(date)=>{
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(String(date||'')))return null;
+      if(!activity.has(date))activity.set(date,{books:new Set(),finished:new Set(),started:new Set(),logs:0});
+      return activity.get(date);
+    };
+    for(const book of state.books){
+      const start=get(book.startedAt);
+      if(start){start.started.add(book.id);start.books.add(book.id);}
+      const end=get(book.finishedAt);
+      if(end){end.finished.add(book.id);end.books.add(book.id);}
+      const logDays=new Set();
+      for(const entry of book.readingLog||[]){
+        const date=entry.date;
+        const day=get(date);
+        if(day){day.books.add(book.id);if(!logDays.has(date))day.logs++;logDays.add(date);}
+      }
+    }
+    return activity;
+  }
+
+  function activityYearDays(activity,year){
+    return [...activity.keys()].filter(date=>date.startsWith(String(year)+'-'));
+  }
+
+  function longestReadingStreak(dates){
+    if(!dates.length)return 0;
+    const timestamps=[...new Set(dates)].sort().map(key=>{
+      const [y,m,d]=key.split('-').map(Number);
+      return Math.round(Date.UTC(y,m-1,d)/86400000);
+    });
+    let best=1,run=1;
+    for(let i=1;i<timestamps.length;i++){
+      run=timestamps[i]===timestamps[i-1]+1?run+1:1;
+      best=Math.max(best,run);
+    }
+    return best;
+  }
+
+  function booksCompletedInYear(year){
+    return state.books.filter(b=>b.finishedAt?.startsWith(String(year)+'-'));
+  }
+
+  function annualReadingSummary(year,activity=readingActivity()){
+    const started=state.books.filter(b=>b.startedAt?.startsWith(String(year)+'-'));
+    const finished=booksCompletedInYear(year);
+    const activityDays=activityYearDays(activity,year);
+    const monthTotals=Array.from({length:12},(_,month)=>{
+      const prefix=String(year)+'-'+String(month+1).padStart(2,'0')+'-';
+      const finishedMonth=finished.filter(b=>b.finishedAt.startsWith(prefix));
+      const startedMonth=started.filter(b=>b.startedAt.startsWith(prefix));
+      return {month,finished:finishedMonth.length,started:startedMonth.length,days:activityDays.filter(d=>d.startsWith(prefix)).length};
+    });
+    return {
+      year,started,finished,activityDays,monthTotals,
+      pages:finished.reduce((sum,b)=>sum+(Number(b.pages)||0),0),
+      streak:longestReadingStreak(activityDays)
+    };
+  }
+
+  function renderStats(){
+    statsSelectedYear=syncYearSelect($('statsYear'),statsSelectedYear);
+    const year=statsSelectedYear,activity=readingActivity();
+    const summary=annualReadingSummary(year,activity);
+    const goal=state.profile.yearlyGoal||24;
+    const progress=Math.min(100,Math.round(summary.finished.length/goal*100));
+    $('statsYearLabel').textContent=year+' YIL NATIJASI';
+    $('statsHeroFinished').textContent=summary.finished.length;
+    $('statsHeroSubtitle').textContent=year+'-yilda yakunlangan mutolaa';
+    $('statsGoalFill').style.width=progress+'%';
+    $('statsGoalText').textContent=goal+' ta kitoblik yillik maqsad';
+    $('statsGoalPercent').textContent=progress+'%';
+    $('statsTotal').textContent=summary.started.length;
+    $('statsFinished').textContent=summary.finished.length;
+    $('statsReading').textContent=summary.activityDays.length;
+    $('statsWishlist').textContent=summary.pages.toLocaleString('en-US');
+    $('statsPages').textContent=summary.pages.toLocaleString('en-US');
+    const rated=summary.finished.filter(b=>Number(b.rating)>0);
+    const avg=rated.length?rated.reduce((s,b)=>s+Number(b.rating),0)/rated.length:0;
+    $('statsRating').textContent=rated.length?avg.toFixed(1)+' / 5':'—';
+    $('statsThisYear').textContent=summary.finished.length+' ta kitob';
+    const now=new Date();
+    const periods=year===nowYear?now.getMonth()+1:12;
+    $('statsMonthlyAvg').textContent=(summary.finished.length/periods).toFixed(1)+' ta kitob';
     const chart=$('monthlyChart');
     if(statTab==='genres'){
-      renderHorizontalStats(chart,groupCount(finishedYear,b=>b.category||'Boshqa'));
+      $('statsChartTitle').textContent='Eng ko‘p o‘qilgan janrlar';
+      $('statsChartEyebrow').textContent=year+'-YIL · JANRLAR';
+      renderHorizontalStats(chart,groupCount(summary.finished,b=>b.category||'Boshqa'));
     } else if(statTab==='authors'){
-      renderHorizontalStats(chart,groupCount(finishedYear,b=>b.author||'Noma’lum'));
+      $('statsChartTitle').textContent='Eng ko‘p o‘qilgan mualliflar';
+      $('statsChartEyebrow').textContent=year+'-YIL · MUALLIFLAR';
+      renderHorizontalStats(chart,groupCount(summary.finished,b=>b.author||'Noma’lum'));
+    } else if(statTab==='months'){
+      $('statsChartTitle').textContent='Oyma-oy natijalar';
+      $('statsChartEyebrow').textContent=year+'-YIL · 12 OY';
+      chart.className='monthly-list';
+      const labels=['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'];
+      chart.innerHTML=summary.monthTotals.map(row=>
+        '<button type="button" class="monthly-result" data-calendar-month="'+row.month+'">'+
+        '<span class="monthly-result-month">'+labels[row.month]+'</span>'+
+        '<span class="monthly-result-details">'+row.started+' boshlangan · '+row.days+' faol kun</span>'+
+        '<b>'+row.finished+' tugatilgan</b><span aria-hidden="true">›</span></button>'
+      ).join('');
     } else {
-      const monthCounts=Array(12).fill(0);
-      finishedYear.forEach(b=>{ const d=parseDay(b.finishedAt||b.startedAt); if(d) monthCounts[d.getMonth()]++; });
-      const max=Math.max(1,...monthCounts);
+      $('statsChartTitle').textContent='Oylar bo‘yicha tugatilgan kitoblar';
+      $('statsChartEyebrow').textContent=year+'-YIL · YILLIK KO‘RSATKICH';
+      const max=Math.max(1,...summary.monthTotals.map(x=>x.finished));
       const labels=['Yan','Fev','Mar','Apr','May','Iyun','Iyul','Avg','Sen','Okt','Noy','Dek'];
       chart.className='bar-chart';
-      chart.innerHTML=monthCounts.map((v,i)=>'<div class="month-bar"><b>'+v+'</b><div class="bar" style="height:'+Math.max(3,(v/max)*135)+'px"></div><span>'+labels[i]+'</span></div>').join('');
+      chart.innerHTML=summary.monthTotals.map(row=>{
+        const percent=Math.max(row.finished?8:3,Math.round(row.finished/max*100));
+        const title=labels[row.month]+': '+row.finished+' ta tugatilgan';
+        return '<button type="button" class="month-bar" data-calendar-month="'+row.month+'" aria-label="'+title+'" title="'+title+'">'+
+          '<b>'+row.finished+'</b><span class="bar" style="height:'+percent+'%"></span><span>'+labels[row.month]+'</span></button>';
+      }).join('');
     }
   }
 
   function groupCount(list,getter){
-    const m={}; list.forEach(x=>{const k=getter(x);m[k]=(m[k]||0)+1;}); return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,8);
+    const m={};list.forEach(x=>{const k=getter(x);m[k]=(m[k]||0)+1;});
+    return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,8);
   }
 
   function renderHorizontalStats(holder,entries){
-    holder.className='category-bars';
-    if(!entries.length){holder.innerHTML='<div class="empty-state">Ma’lumot yetarli emas.</div>';return;}
+    holder.className='category-bars stat-category-bars';
+    if(!entries.length){
+      holder.innerHTML='<div class="empty-state"><strong>Hozircha ma’lumot yo‘q</strong>Bu yilda tugatilgan sanasi kiritilgan kitoblar bo‘yicha natija chiqadi.</div>';
+      return;
+    }
     const max=Math.max(...entries.map(x=>x[1]),1);
-    holder.innerHTML=entries.map(([k,v])=>'<div class="bar-row"><b>'+escapeHtml(k)+'</b><div class="bar-shell"><div class="bar-fill" style="width:'+((v/max)*100)+'%"></div></div><strong>'+v+'</strong></div>').join('');
+    holder.innerHTML=entries.map(([k,v])=>'<div class="bar-row">'+
+      '<b title="'+escapeHtml(k)+'">'+escapeHtml(k)+'</b>'+
+      '<div class="bar-shell"><div class="bar-fill" style="width:'+((v/max)*100)+'%"></div></div><strong>'+v+'</strong></div>').join('');
   }
 
-  function activityDates(){
-    const map=new Map();
-    state.books.forEach(book=>{
-      (book.readingLog||[]).forEach(x=>map.set(x.date,(map.get(x.date)||'read')));
-      if(book.startedAt&&!map.has(book.startedAt)) map.set(book.startedAt,'read');
-      if(book.finishedAt) map.set(book.finishedAt,'finish');
-    });
-    return map;
+  function setCalendarMonth(year,month){
+    calendarDate=new Date(Number(year),Number(month),1);
+    const current=today().slice(0,7);
+    const prefix=String(calendarDate.getFullYear())+'-'+String(calendarDate.getMonth()+1).padStart(2,'0');
+    if(!selectedCalendarDay.startsWith(prefix)){
+      selectedCalendarDay=prefix===current?today():prefix+'-01';
+    }
+    renderCalendar();
+  }
+
+  function showCalendarFromStats(month=null){
+    const targetYear=statsSelectedYear;
+    const currentMonth=month==null?(targetYear===nowYear?new Date().getMonth():0):Number(month);
+    calendarDate=new Date(targetYear,currentMonth,1);
+    selectedCalendarDay=targetYear===nowYear&&currentMonth===new Date().getMonth()?today():String(targetYear)+'-'+String(currentMonth+1).padStart(2,'0')+'-01';
+    navigate('calendar');
   }
 
   function renderCalendar(){
+    const year=calendarDate.getFullYear(),month=calendarDate.getMonth();
+    syncYearSelect($('calendarYear'),year);
+    $('calendarMonth').value=String(month);
     $('calendarMonthLabel').textContent=monthName(calendarDate);
-    const year=calendarDate.getFullYear(), month=calendarDate.getMonth();
-    const first=new Date(year,month,1);
-    const last=new Date(year,month+1,0);
+    $('calYearOverviewTitle').textContent=year+'-yil faolligi';
+    const activity=readingActivity();
+    const summary=annualReadingSummary(year,activity);
+    const monthData=summary.monthTotals[month];
+    $('calMonthActive').textContent=monthData.days;
+    $('calMonthFinished').textContent=monthData.finished;
+    $('calStreak').textContent=summary.streak;
+    const first=new Date(year,month,1),last=new Date(year,month+1,0);
     const offset=(first.getDay()+6)%7;
-    const activity=activityDates();
+    const todayKey=today(),prefix=year+'-'+String(month+1).padStart(2,'0')+'-';
+    if(!selectedCalendarDay.startsWith(prefix))selectedCalendarDay=prefix+'01';
     let html='';
-    for(let i=0;i<offset;i++) html+='<div class="day-cell empty"></div>';
-    for(let d=1;d<=last.getDate();d++){
-      const key=[year,String(month+1).padStart(2,'0'),String(d).padStart(2,'0')].join('-');
-      const type=activity.get(key)||'';
-      html+='<button class="day-cell '+type+(key===today()?' today':'')+'" data-calendar-day="'+key+'">'+d+'</button>';
+    for(let i=0;i<offset;i++)html+='<span class="day-cell empty" aria-hidden="true"></span>';
+    for(let day=1;day<=last.getDate();day++){
+      const key=prefix+String(day).padStart(2,'0'),events=activity.get(key);
+      const finished=Boolean(events?.finished.size);
+      const active=Boolean(events?.books.size);
+      const classes=['day-cell'];
+      if(active)classes.push('read');
+      if(finished)classes.push('finish');
+      if(key===todayKey)classes.push('today');
+      if(key===selectedCalendarDay)classes.push('selected');
+      const aria=key+' — '+(finished?'Kitob tugatilgan':active?'Mutolaa qayd qilingan':'Qayd yo‘q');
+      html+='<button type="button" class="'+classes.join(' ')+'" data-calendar-day="'+key+
+        '" aria-label="'+aria+'" aria-pressed="'+(key===selectedCalendarDay)+'">'+day+
+        (active?'<i class="day-indicator" aria-hidden="true"></i>':'')+'</button>';
     }
+    const total=offset+last.getDate();
+    for(let i=total;i<42;i++)html+='<span class="day-cell empty" aria-hidden="true"></span>';
     $('calendarGrid').innerHTML=html;
+
+    const shortMonths=['Yan','Fev','Mar','Apr','May','Iyun','Iyul','Avg','Sen','Okt','Noy','Dek'];
+    const maxDays=Math.max(1,...summary.monthTotals.map(x=>x.days));
+    $('calendarYearOverview').innerHTML=summary.monthTotals.map(row=>{
+      const selected=row.month===month;
+      return '<button type="button" class="year-month '+(selected?'selected':'')+
+        '" data-year-month="'+row.month+'" aria-pressed="'+selected+'" aria-label="'+shortMonths[row.month]+': '+row.days+' faol kun">'+
+        '<b>'+shortMonths[row.month]+'</b><span class="year-month-bar"><i style="height:'+(row.days?Math.max(12,Math.round(row.days/maxDays*100)):4)+'%"></i></span>'+
+        '<small>'+row.days+' kun</small></button>';
+    }).join('');
     renderCalendarDay(selectedCalendarDay);
   }
 
   function renderCalendarDay(date){
     selectedCalendarDay=date;
+    document.querySelectorAll('#calendarGrid [data-calendar-day]').forEach(button=>{
+      const selected=button.dataset.calendarDay===date;
+      button.classList.toggle('selected',selected);
+      button.setAttribute('aria-pressed',String(selected));
+    });
     const books=state.books.filter(b=>
       b.startedAt===date||b.finishedAt===date||(b.readingLog||[]).some(x=>x.date===date)
     );
+    const activity=readingActivity().get(date);
     const holder=$('calendarTodayCard');
-    holder.innerHTML='<div class="section-title-row"><div><small>'+escapeHtml(formatDate(date))+'</small><h2>Mutolaa</h2></div></div>'+
-      (books.length?books.map(b=>'<div class="current-book" data-book-open="'+b.id+'">'+coverHtml(b)+'<div><h3>'+escapeHtml(b.title)+'</h3><p>'+escapeHtml(b.author||'')+'</p><span class="status-pill '+statusOf(b)+'">'+statusLabel(statusOf(b))+'</span></div></div>').join('')
-      :'<div class="empty-state">Bu kunda mutolaa qaydi yo‘q.</div>');
+    holder.innerHTML='<div class="section-title-row"><div><small>KUN TAFSILOTLARI</small><h2>'+escapeHtml(formatDate(date))+'</h2></div>'+
+      '<span class="day-events-count">'+books.length+' kitob</span></div>'+
+      (books.length?'<div class="calendar-book-events">'+books.map(book=>{
+        const notes=[];
+        if(book.startedAt===date)notes.push('Mutolaa boshlangan');
+        if(book.finishedAt===date)notes.push('Kitob tugatilgan');
+        const entry=(book.readingLog||[]).find(x=>x.date===date);
+        if(entry && entry.page>0)notes.push(entry.page+'-sahifagacha qayd');
+        if(!notes.length)notes.push('Mutolaa qaydi');
+        return '<button type="button" class="calendar-book-event" data-book-open="'+escapeHtml(book.id)+'">'+
+          coverHtml(book)+'<span><b>'+escapeHtml(book.title)+'</b><small>'+escapeHtml(book.author||'Muallif kiritilmagan')+'</small>'+
+          '<em>'+notes.map(escapeHtml).join(' · ')+'</em></span><span class="calendar-event-arrow">›</span></button>';
+      }).join('')+'</div>'
+      :'<div class="empty-state"><strong>Bu kuni qayd yo‘q</strong>Mutolaa boshlangan yoki tugatilgan sanani kiritishingiz mumkin.</div>');
   }
 
   function renderCategories(){
@@ -1392,7 +1561,7 @@
       const nav=e.target.closest('[data-nav]'); if(nav){navigate(nav.dataset.nav);return;}
       const back=e.target.closest('[data-back]'); if(back){goBack();return;}
       const add=e.target.closest('[data-add-book]'); if(add){openBookDialog();return;}
-      const open=e.target.closest('[data-open]'); if(open){navigate(open.dataset.open);return;}
+      const open=e.target.closest('[data-open]'); if(open){if(open.dataset.open==='calendar'&&currentView==='stats')showCalendarFromStats();else navigate(open.dataset.open);return;}
       const homeFilter=e.target.closest('[data-filter-home]'); if(homeFilter){bookFilter=homeFilter.dataset.filter;qsa('#bookFilters button').forEach(b=>b.classList.toggle('active',b.dataset.filter===bookFilter));navigate('library');renderBooks();return;}
       const bookOpen=e.target.closest('[data-book-open]'); if(bookOpen && !e.target.closest('[data-book-menu]')){selectedBookId=bookOpen.dataset.bookOpen;navigate('detail');return;}
       const menu=e.target.closest('[data-book-menu]'); if(menu){e.stopPropagation();openBookMenu(menu.dataset.bookMenu);return;}
@@ -1488,13 +1657,27 @@
       const btn=e.target.closest('[data-filter]'); if(!btn) return;
       bookFilter=btn.dataset.filter;qsa('#bookFilters button').forEach(b=>b.classList.toggle('active',b===btn));renderBooks();
     });
-    $('statsYear').addEventListener('change',renderStats);
+    $('statsYear').addEventListener('change',event=>{statsSelectedYear=Number(event.target.value)||nowYear;renderStats();});
     $('statTabs').addEventListener('click',e=>{
       const btn=e.target.closest('[data-stat-tab]');if(!btn)return;
       statTab=btn.dataset.statTab;qsa('#statTabs button').forEach(b=>b.classList.toggle('active',b===btn));renderStats();
     });
-    $('prevMonth').addEventListener('click',()=>{calendarDate=new Date(calendarDate.getFullYear(),calendarDate.getMonth()-1,1);renderCalendar();});
-    $('nextMonth').addEventListener('click',()=>{calendarDate=new Date(calendarDate.getFullYear(),calendarDate.getMonth()+1,1);renderCalendar();});
+    $('prevMonth').addEventListener('click',()=>setCalendarMonth(calendarDate.getFullYear(),calendarDate.getMonth()-1));
+    $('nextMonth').addEventListener('click',()=>setCalendarMonth(calendarDate.getFullYear(),calendarDate.getMonth()+1));
+    $('calendarYear').addEventListener('change',event=>setCalendarMonth(Number(event.target.value),calendarDate.getMonth()));
+    $('calendarMonth').addEventListener('change',event=>setCalendarMonth(calendarDate.getFullYear(),Number(event.target.value)));
+    $('calendarTodayBtn').addEventListener('click',()=>{
+      calendarDate=new Date(nowYear,new Date().getMonth(),1);
+      selectedCalendarDay=today();renderCalendar();
+    });
+    $('calendarYearOverview').addEventListener('click',event=>{
+      const month=event.target.closest('[data-year-month]');
+      if(month)setCalendarMonth(calendarDate.getFullYear(),Number(month.dataset.yearMonth));
+    });
+    $('monthlyChart').addEventListener('click',event=>{
+      const month=event.target.closest('[data-calendar-month]');
+      if(month)showCalendarFromStats(Number(month.dataset.calendarMonth));
+    });
     $('addCategoryBtn').addEventListener('click',()=>{
       const name=prompt('Yangi kategoriya nomi:'); if(!name?.trim()) return;
       const clean=name.trim(); if(!state.profile.customCategories.includes(clean))state.profile.customCategories.push(clean);saveState('Kategoriya qo‘shildi.');

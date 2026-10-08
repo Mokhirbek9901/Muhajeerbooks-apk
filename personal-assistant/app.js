@@ -77,6 +77,7 @@
       yearlyGoal: 24,
       dailyPageGoal: 32,
       dailyMinutesGoal: 20,
+      dailyPlanBookId: '',
       theme: 'light',
       reminderTime: '08:00',
       customCategories: [],
@@ -197,6 +198,7 @@
         yearlyGoal: clampInt(profile.yearlyGoal ?? input?.yearlyGoal ?? 24, 1, 500),
         dailyPageGoal: clampInt(profile.dailyPageGoal ?? 32, 1, 300),
         dailyMinutesGoal: clampInt(profile.dailyMinutesGoal ?? 20, 5, 240),
+        dailyPlanBookId: String(profile.dailyPlanBookId || '').trim(),
         theme: profile.theme === 'dark' ? 'dark' : 'light',
         reminderTime: /^\d{2}:\d{2}$/.test(profile.reminderTime || '') ? profile.reminderTime : '08:00',
         customCategories: Array.isArray(profile.customCategories) ? profile.customCategories.map(String).filter(Boolean) : [],
@@ -347,9 +349,22 @@
     $('themeLabel').textContent=state.profile.theme==='dark'?'Qorong‘i':'Yorug‘';
   }
 
+  function selectableDailyBooks(){
+    return state.books.filter(book=>statusOf(book)!=='finished')
+      .sort((a,b)=>{
+        const rank=x=>statusOf(x)==='reading'?0:1;
+        return rank(a)-rank(b)||String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))||
+          String(a.title||'').localeCompare(String(b.title||''),'uz');
+      });
+  }
+
   function getHomeReadingBook(){
-    const active=state.books.filter(book=>statusOf(book)==='reading');
-    return [...active].sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')))[0]||null;
+    const userChoice=String(state.profile.dailyPlanBookId||'');
+    if(userChoice){
+      const chosen=state.books.find(book=>String(book.id)===userChoice&&statusOf(book)!=='finished');
+      if(chosen) return chosen;
+    }
+    return selectableDailyBooks().find(book=>statusOf(book)==='reading')||null;
   }
 
   function pagesReadOnDate(date){
@@ -394,6 +409,8 @@
     $('homeHeroHeadline').innerHTML=(left?left+' sahifa o‘qing':'Bugungi reja bajarildi!')+
       ' <span aria-hidden="true">'+(left?'🎯':'✅')+'</span>';
     $('homeHeroBook').textContent=book?.title||'Kitob tanlang';
+    $('homeHeroChangeBook').disabled=selectableDailyBooks().length===0;
+    $('homeHeroChangeBook').title=book?'Bugungi kitobni almashtirish':'Bugungi kitobni tanlash';
     $('homeHeroPages').textContent='Bugun: '+readToday+' / '+pagesGoal+' sahifa';
     $('homeHeroMinutes').textContent=minuteGoal+' daqiqa';
     $('homeHeroStreak').textContent=currentReadingStreak()+' kunlik';
@@ -440,7 +457,8 @@
       holder.innerHTML='<div class="current-book">'+coverHtml(book)+
         '<div><h3>'+escapeHtml(book.title)+'</h3><p>'+escapeHtml(book.author||'Muallif kiritilmagan')+'</p>'+
         '<div class="progress-wrap"><div class="progress-track"><div class="progress-fill" style="width:'+p+'%"></div></div><b>'+p+'%</b></div></div>'+
-        '<button class="continue-button" data-book-open="'+escapeHtml(book.id)+'">Mutolaani davom ettirish →</button></div>';
+        '<button class="continue-button" data-book-open="'+escapeHtml(book.id)+'">'+
+        (statusOf(book)==='reading'?'Mutolaani davom ettirish →':'Kitobni ochish →')+'</button></div>';
     }
   }
 
@@ -1679,6 +1697,48 @@
     $('simpleDialog').showModal();
   }
 
+  function openDailyBookPicker(search=''){
+    const current=String(state.profile.dailyPlanBookId||'');
+    const books=selectableDailyBooks();
+    const q=String(search||'').trim().toLocaleLowerCase();
+    const result=books.filter(book=>
+      !q||[book.title,book.author,book.category].some(x=>String(x||'').toLocaleLowerCase().includes(q))
+    );
+    const rows=result.map(book=>{
+      const active=current===String(book.id);
+      return '<button type="button" class="daily-plan-book-option'+(active?' selected':'')+
+        '" data-select-daily-book="'+escapeHtml(book.id)+'" aria-pressed="'+active+'">'+
+        coverHtml(book,'daily-plan-option-cover')+
+        '<span class="daily-plan-book-meta"><strong>'+escapeHtml(book.title)+'</strong>'+
+        '<small>'+escapeHtml(book.author||'Muallif kiritilmagan')+'</small>'+
+        '<em>'+statusLabel(statusOf(book))+'</em></span>'+
+        '<span class="daily-plan-book-check" aria-hidden="true">'+(active?'✓':'›')+'</span></button>';
+    }).join('');
+    const html='<div class="daily-plan-picker">'+
+      '<p class="daily-plan-picker-info">Bugungi rejaga kutubxonangizdan kitob tanlang. Tanlov saqlanadi; o‘qish tarixi va kitob holati o‘zgarmaydi.</p>'+
+      '<label class="daily-plan-search-label">Kitob qidirish'+
+      '<input type="search" id="dailyPlanBookSearch" autocomplete="off" placeholder="Kitob yoki muallif nomi" value="'+escapeHtml(search)+'"></label>'+
+      '<div class="daily-plan-book-list">'+
+      '<button type="button" class="daily-plan-book-option daily-plan-auto-option'+(!current?' selected':'')+
+      '" data-select-daily-book="" aria-pressed="'+(!current)+'">'+
+      '<span class="daily-plan-auto-icon" aria-hidden="true">↻</span>'+
+      '<span class="daily-plan-book-meta"><strong>Avtomatik tanlash</strong><small>Oxirgi faol mutolaa</small></span>'+
+      '<span class="daily-plan-book-check" aria-hidden="true">'+(!current?'✓':'›')+'</span></button>'+
+      (rows||'<p class="daily-plan-no-books">'+(books.length?'Qidiruvga mos kitob topilmadi.':'O‘qilayotgan yoki rejalashtirilgan kitob mavjud emas.')+'</p>')+
+      '</div></div>';
+    // The search control must keep its focus and cursor while results are refreshed.
+    if($('simpleDialog').open && $('simpleDialogTitle').textContent==='Bugungi kitobni tanlash'){
+      const holder=$('simpleDialogBody');
+      const oldInput=$('dailyPlanBookSearch');
+      const pos=oldInput?.selectionStart??null;
+      holder.innerHTML=html;
+      const next=$('dailyPlanBookSearch');
+      if(oldInput){next.focus();try{if(pos!==null)next.setSelectionRange(pos,pos);}catch(_){}}
+    }else{
+      openSimple('Bugungi kitobni tanlash',html);
+    }
+  }
+
   function openDailyGoalDialog(){
     openSimple('Bugungi mutolaa rejasi',
       '<div class="setting-form">'+
@@ -1742,6 +1802,18 @@
       const cat=e.target.closest('[data-category]'); if(cat){$('bookSearch').value=cat.dataset.category;bookFilter='all';navigate('library');renderBooks();return;}
       const txEdit=e.target.closest('[data-tx-edit]'); if(txEdit){openTxDialog(state.transactions.find(t=>t.id===txEdit.dataset.txEdit));return;}
       const txDelete=e.target.closest('[data-tx-delete]'); if(txDelete){if(confirm('Tranzaksiyani o‘chirasizmi?')){state.transactions=state.transactions.filter(t=>t.id!==txDelete.dataset.txDelete);saveState('Tranzaksiya o‘chirildi.');}return;}
+
+      const dailyPick=e.target.closest('[data-select-daily-book]');
+      if(dailyPick){
+        const id=String(dailyPick.dataset.selectDailyBook||'');
+        if(id && !selectableDailyBooks().some(book=>String(book.id)===id)){
+          toast('Bu kitobni tanlab bo‘lmaydi.');return;
+        }
+        state.profile.dailyPlanBookId=id;
+        $('simpleDialog').close();
+        saveState(id?'Bugungi rejadagi kitob o‘zgartirildi.':'Avtomatik tanlash yoqildi.');
+        return;
+      }
 
       const simple=e.target.closest('[data-simple-action]');
       if(simple){
@@ -1877,6 +1949,7 @@
     $('periodFilters').addEventListener('click',e=>{const b=e.target.closest('[data-period]');if(!b)return;financePeriod=b.dataset.period;renderFinance();});
     $('currencyToggle').addEventListener('click',e=>{const b=e.target.closest('[data-currency]');if(!b)return;financeCurrency=b.dataset.currency;renderFinance();});
     $('importInput').addEventListener('change',e=>{importBackup(e.target.files?.[0]);e.target.value='';});
+    $('homeHeroChangeBook').addEventListener('click',()=>openDailyBookPicker());
     $('homeHeroContinue').addEventListener('click',()=>{
       const book=getHomeReadingBook();
       if(book){selectedBookId=book.id;navigate('detail');}
@@ -1884,6 +1957,9 @@
     });
     $('homeHeroStreakBtn').addEventListener('click',()=>navigate('calendar'));
     $('homeHeroGoalBtn').addEventListener('click',openDailyGoalDialog);
+    $('simpleDialogBody').addEventListener('input',event=>{
+      if(event.target.id==='dailyPlanBookSearch')openDailyBookPicker(event.target.value);
+    });
     $('globalSearchBtn').addEventListener('click',()=>{navigate('library');setTimeout(()=>$('bookSearch').focus(),100);});
     $('bellBtn').addEventListener('click',openReminderDialog);
     $('detailMore').addEventListener('click',()=>selectedBookId&&openBookMenu(selectedBookId));

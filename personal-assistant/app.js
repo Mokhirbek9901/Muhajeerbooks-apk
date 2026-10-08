@@ -98,6 +98,9 @@
   let calendarDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   let selectedCalendarDay = today();
   let pendingCover = '';
+  let isbnScanner=null;
+  let scannerLibraryPromise=null;
+  let scannerBusy=false;
 
   function loadState(){
     for(const key of [STORAGE_KEY, ...LEGACY_KEYS]){
@@ -196,6 +199,7 @@
         author: String(b.author || '').trim(),
         category: String(b.category || '').trim(),
         publisher: String(b.publisher || b.nashriyot || '').trim(),
+        isbn: String(b.isbn || '').replace(/[^0-9Xx]/g,'').slice(0,13),
         description: String(b.description || '').trim(),
         publishedYear: clampInt(b.publishedYear || b.publishYear || 0, 0, 2100),
         statusOverride: ['wishlist','reading','finished'].includes(b.statusOverride) ? b.statusOverride : '',
@@ -435,6 +439,7 @@
     $('bookAuthor').value=book?.author||'';
     $('bookCategory').value=book?.category||'';
     $('bookPublisher').value=book?.publisher||'';
+    $('bookIsbn').value=book?.isbn||'';
     $('bookPublishedYear').value=book?.publishedYear||'';
     $('bookStatusOverride').value=book?.statusOverride||'';
     $('bookPages').value=book?.pages||'';
@@ -444,9 +449,229 @@
     $('bookRating').value=String(book?.rating||0);
     $('bookNotes').value=book?.notes||'';
     $('bookDescription').value=book?.description||'';
+    $('scanIsbnInput').value=book?.isbn||'';
+    setBookEntryMode('manual');
     setCoverPreview(pendingCover);
     updateBookStatusPreview();
     $('bookDialog').showModal();
+  }
+
+
+  function setScannerStatus(message,isError=false){
+    const el=$('scanStatus');
+    if(!el) return;
+    el.textContent=message;
+    el.dataset.error=String(Boolean(isError));
+  }
+
+  function setBookEntryMode(mode){
+    const scanning=mode==='scanner';
+    $('bookManualTab').setAttribute('aria-selected',String(!scanning));
+    $('bookScannerTab').setAttribute('aria-selected',String(scanning));
+    $('bookManualPanel').hidden=scanning;
+    $('bookScannerPanel').hidden=!scanning;
+    if(!scanning) void stopIsbnScanner();
+  }
+
+  function normalizedIsbn(input){
+    const raw=String(input||'').toUpperCase();
+    const candidate=raw.match(/97[89][\s-]*\d(?:[\s-]*\d){9,10}/)?.[0] ||
+      raw.match(/(?:\d[\s-]*){9}[\dX]/)?.[0] || raw.trim();
+    return candidate.replace(/[^0-9X]/g,'');
+  }
+
+  function validIsbn(isbn){
+    if(/^\d{13}$/.test(isbn)){
+      if(!/^97[89]/.test(isbn)) return false;
+      const sum=isbn.split('').reduce((s,c,i)=>s+Number(c)*(i%2?3:1),0);
+      return sum%10===0;
+    }
+    if(/^\d{9}[\dX]$/.test(isbn)){
+      const sum=isbn.split('').reduce((s,c,i)=>s+(c==='X'?10:Number(c))*(10-i),0);
+      return sum%11===0;
+    }
+    return false;
+  }
+
+  async function stopIsbnScanner(){
+    const instance=isbnScanner;
+    isbnScanner=null;
+    $('scanStopBtn').hidden=true;
+    $('scanCameraBtn').disabled=false;
+    if(!instance) return;
+    try{if(instance.isScanning) await instance.stop();}catch(_){}
+    try{await instance.clear();}catch(_){}
+  }
+
+  async function loadScannerLibrary(){
+    if(window.Html5Qrcode) return;
+    if(scannerLibraryPromise) return scannerLibraryPromise;
+    scannerLibraryPromise=new Promise((resolve,reject)=>{
+      const script=document.createElement('script');
+      script.src='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';
+      script.async=true;
+      script.onload=()=>window.Html5Qrcode?resolve():reject(new Error('Skaner kutubxonasi ochilmadi.'));
+      script.onerror=()=>reject(new Error('Skaner yuklanmadi. Internetni tekshiring.'));
+      document.head.appendChild(script);
+    }).catch(error=>{scannerLibraryPromise=null;throw error;});
+    return scannerLibraryPromise;
+  }
+
+  async function startIsbnScanner(){
+    if(isbnScanner || scannerBusy) return;
+    if(!navigator.mediaDevices?.getUserMedia){
+      setScannerStatus('Brauzer kameraga ruxsat bermadi. HTTPS orqali kiring yoki ISBNni qo‘lda kiriting.',true);
+      return;
+    }
+    $('scanCameraBtn').disabled=true;
+    setScannerStatus('Kamera ishga tushirilmoqda. Ruxsat so‘ralsa, tasdiqlang.');
+    try{
+      await loadScannerLibrary();
+      if(!$('bookDialog').open || $('bookScannerPanel').hidden) return;
+      const F=window.Html5QrcodeSupportedFormats;
+      isbnScanner=new window.Html5Qrcode('isbnScannerReader',{
+        formatsToSupport:[F.EAN_13,F.EAN_8,F.UPC_A,F.QR_CODE,F.CODE_128],
+        verbose:false
+      });
+      await isbnScanner.start(
+        {facingMode:'environment'},
+        {fps:10,qrbox:{width:230,height:140}},
+        text=>{
+          const isbn=normalizedIsbn(text);
+          if(!validIsbn(isbn) || scannerBusy) return;
+          scannerBusy=true;
+          $('scanIsbnInput').value=isbn;
+          void (async()=>{
+            await stopIsbnScanner();
+            scannerBusy=false;
+            await lookupIsbnAndFill(isbn);
+          })();
+        },
+        ()=>{}
+      );
+      if(!$('bookDialog').open || $('bookScannerPanel').hidden){
+        await stopIsbnScanner();return;
+      }
+      $('scanStopBtn').hidden=false;
+      $('scanCameraBtn').disabled=true;
+      setScannerStatus('Kamera tayyor. Kitob orqasidagi ISBN shtrix-kodini ramkaga tuting.');
+    }catch(e){
+      await stopIsbnScanner();
+      setScannerStatus('Kamera ochilmadi. Ruxsatni tekshiring yoki ISBNni qo‘lda kiriting.',true);
+    }finally{
+      if(!isbnScanner) $('scanCameraBtn').disabled=false;
+    }
+  }
+
+  function yearFromText(value){
+    const m=String(value||'').match(/(?:18|19|20)\d{2}/g);
+    return m?Number(m[m.length-1]):0;
+  }
+
+  function plainDescription(value){
+    const input=typeof value==='string'?value:(value?.value||'');
+    if(!input) return '';
+    const el=document.createElement('div');
+    el.innerHTML=input;
+    return String(el.textContent||'').replace(/\s+/g,' ').trim().slice(0,1550);
+  }
+
+  function httpsImage(value){
+    const src=String(value||'').replace(/^http:\/\//,'https://');
+    return /^https:\/\//.test(src)?src:'';
+  }
+
+  async function fetchIsbnJson(url){
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),10000);
+    try{
+      const response=await fetch(url,{signal:controller.signal});
+      if(!response.ok) return null;
+      return await response.json();
+    }catch(_){return null;}
+    finally{clearTimeout(timeout);}
+  }
+
+  async function findIsbnMetadata(isbn){
+    // ISBN bo‘yicha aynan shu nashrni izlash: taxminiy kitob qidirmaymiz.
+    const [google,edition,search]=await Promise.all([
+      fetchIsbnJson('https://www.googleapis.com/books/v1/volumes?q=isbn:'+encodeURIComponent(isbn)+'&maxResults=10'),
+      fetchIsbnJson('https://openlibrary.org/isbn/'+encodeURIComponent(isbn)+'.json'),
+      fetchIsbnJson('https://openlibrary.org/search.json?isbn='+encodeURIComponent(isbn)+'&limit=3&fields=title,author_name,publisher,first_publish_year,number_of_pages_median,isbn,cover_i,subject')
+    ]);
+    const googleItems=Array.isArray(google?.items)?google.items:[];
+    const g=googleItems.map(item=>item.volumeInfo||{}).find(v=>
+      (v.industryIdentifiers||[]).some(id=>String(id.identifier||'').replace(/[^0-9X]/g,'')===isbn)
+    )||null;
+    const exactEdition=edition?.title?edition:null;
+    const olDocs=Array.isArray(search?.docs)?search.docs:[];
+    const s=olDocs.find(d=>d.isbn?.includes(isbn))||null;
+    let olAuthor='';
+    if(exactEdition?.authors?.length){
+      const authorKey=exactEdition.authors[0]?.key;
+      if(authorKey?.startsWith('/authors/')){
+        const a=await fetchIsbnJson('https://openlibrary.org'+authorKey+'.json');
+        olAuthor=a?.name||'';
+      }
+    }
+    const title=exactEdition?.title||g?.title||s?.title||'';
+    const coverId=exactEdition?.covers?.find(n=>Number(n)>0);
+    const urlFromId=coverId?'https://covers.openlibrary.org/b/id/'+coverId+'-L.jpg':'';
+    const img=g?.imageLinks||{};
+    const image=httpsImage(urlFromId||img.extraLarge||img.large||img.medium||img.thumbnail||img.smallThumbnail||(s?.cover_i?'https://covers.openlibrary.org/b/id/'+s.cover_i+'-L.jpg':''));
+    return {
+      title,
+      author:(Array.isArray(g?.authors)?g.authors.join(', '):'')||olAuthor||(Array.isArray(s?.author_name)?s.author_name.join(', '):''),
+      publisher:(exactEdition?.publishers?.[0]||g?.publisher||s?.publisher?.[0]||''),
+      year:yearFromText(exactEdition?.publish_date)||yearFromText(g?.publishedDate)||0,
+      pages:Number(exactEdition?.number_of_pages||g?.pageCount||s?.number_of_pages_median||0),
+      category:g?.categories?.[0]||'',
+      description:plainDescription(g?.description||exactEdition?.description),
+      cover:image
+    };
+  }
+
+  async function lookupIsbnAndFill(input){
+    const isbn=normalizedIsbn(input);
+    if(!validIsbn(isbn)){
+      setScannerStatus('ISBN raqami noto‘g‘ri. 10 yoki 13 xonali haqiqiy ISBN kiriting.',true);
+      return;
+    }
+    if(scannerBusy)return;
+    scannerBusy=true;
+    $('scanLookupBtn').disabled=true;
+    $('scanIsbnInput').value=isbn;
+    $('bookIsbn').value=isbn;
+    await stopIsbnScanner();
+    setScannerStatus('ISBN '+isbn+' bo‘yicha kitob qidirilmoqda...');
+    try{
+      const info=await findIsbnMetadata(isbn);
+      if(!info.title){
+        setScannerStatus('Bu ISBN uchun kataloglardan ma’lumot topilmadi. Qo‘lda kiritish orqali davom eting.',true);
+        return;
+      }
+      const values={
+        bookTitle:info.title,bookAuthor:info.author,bookPublisher:info.publisher,
+        bookPublishedYear:info.year,bookPages:info.pages,bookCategory:info.category,
+        bookDescription:info.description
+      };
+      for(const [id,value] of Object.entries(values)){
+        if(value && !$('bookId').value || (value && !$(id).value)){
+          $(id).value=String(value);
+        }
+      }
+      if(info.cover && !pendingCover){
+        pendingCover=info.cover;
+        setCoverPreview(pendingCover);
+      }
+      setBookEntryMode('manual');
+      toast('Kitob topildi! Ma’lumotlarni tekshirib saqlang.');
+    }catch(_){
+      setScannerStatus('Qidiruvda xatolik. Internetni tekshiring yoki qo‘lda kiriting.',true);
+    }finally{
+      scannerBusy=false;
+      $('scanLookupBtn').disabled=false;
+    }
   }
 
   function setCoverPreview(src){
@@ -514,6 +739,7 @@
       author:$('bookAuthor').value.trim(),
       category:$('bookCategory').value.trim(),
       publisher:$('bookPublisher').value.trim(),
+      isbn:$('bookIsbn').value.replace(/[^0-9Xx]/g,''),
       publishedYear:clampInt($('bookPublishedYear').value,0,2100),
       statusOverride,
       cover:pendingCover,
@@ -855,6 +1081,15 @@
 
     qsa('[data-close]').forEach(btn=>btn.addEventListener('click',()=>$(btn.dataset.close).close()));
     $('bookForm').addEventListener('submit',saveBook);
+    $('bookManualTab').addEventListener('click',()=>setBookEntryMode('manual'));
+    $('bookScannerTab').addEventListener('click',()=>setBookEntryMode('scanner'));
+    $('scanCameraBtn').addEventListener('click',()=>void startIsbnScanner());
+    $('scanStopBtn').addEventListener('click',()=>void stopIsbnScanner());
+    $('scanLookupBtn').addEventListener('click',()=>void lookupIsbnAndFill($('scanIsbnInput').value));
+    $('scanIsbnInput').addEventListener('keydown',event=>{
+      if(event.key==='Enter'){event.preventDefault();void lookupIsbnAndFill(event.target.value);}
+    });
+    $('bookDialog').addEventListener('close',()=>{void stopIsbnScanner();setBookEntryMode('manual');});
     $('bookStartedAt').addEventListener('change',updateBookStatusPreview);
     $('bookFinishedAt').addEventListener('change',updateBookStatusPreview);
     $('bookStatusOverride').addEventListener('change',updateBookStatusPreview);

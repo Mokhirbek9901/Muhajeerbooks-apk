@@ -75,6 +75,8 @@
     profile: {
       name: 'Mohirbek Ismoilov',
       yearlyGoal: 24,
+      dailyPageGoal: 32,
+      dailyMinutesGoal: 20,
       theme: 'light',
       reminderTime: '08:00',
       customCategories: [],
@@ -193,6 +195,8 @@
       profile: {
         name: String(profile.name || input?.name || base.profile.name),
         yearlyGoal: clampInt(profile.yearlyGoal ?? input?.yearlyGoal ?? 24, 1, 500),
+        dailyPageGoal: clampInt(profile.dailyPageGoal ?? 32, 1, 300),
+        dailyMinutesGoal: clampInt(profile.dailyMinutesGoal ?? 20, 5, 240),
         theme: profile.theme === 'dark' ? 'dark' : 'light',
         reminderTime: /^\d{2}:\d{2}$/.test(profile.reminderTime || '') ? profile.reminderTime : '08:00',
         customCategories: Array.isArray(profile.customCategories) ? profile.customCategories.map(String).filter(Boolean) : [],
@@ -343,6 +347,80 @@
     $('themeLabel').textContent=state.profile.theme==='dark'?'Qorong‘i':'Yorug‘';
   }
 
+  function getHomeReadingBook(){
+    const active=state.books.filter(book=>statusOf(book)==='reading');
+    return [...active].sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')))[0]||null;
+  }
+
+  function pagesReadOnDate(date){
+    let total=0;
+    for(const book of state.books){
+      const logs=(book.readingLog||[])
+        .filter(entry=>entry.date && entry.date<=date && Number.isFinite(Number(entry.page)))
+        .map(entry=>({date:entry.date,page:Math.max(0,Number(entry.page))}));
+      const todayLogs=logs.filter(entry=>entry.date===date);
+      if(!todayLogs.length) continue;
+      // Har bir kitobdagi oldingi eng katta sahifadan bugungi eng katta sahifagacha farq.
+      // Bir kun ichida bir necha marta saqlangan progress ikki marta hisoblanmaydi.
+      const before=Math.max(0,...logs.filter(entry=>entry.date<date).map(entry=>entry.page));
+      const todayMax=Math.max(0,...todayLogs.map(entry=>entry.page));
+      total+=Math.max(0,todayMax-before);
+    }
+    return Math.round(total);
+  }
+
+  function currentReadingStreak(day=today()){
+    const active=readingActivity();
+    const start=parseDay(day);
+    if(!start) return 0;
+    // Bugungi qayd bo‘lmasa, kechagi uzilmagan ketma-ketlik ham ko‘rinadi.
+    if(!active.has(day))start.setDate(start.getDate()-1);
+    let days=0;
+    for(let index=0;index<3660;index++){
+      const date=[start.getFullYear(),String(start.getMonth()+1).padStart(2,'0'),
+        String(start.getDate()).padStart(2,'0')].join('-');
+      if(!active.has(date))break;
+      days++;
+      start.setDate(start.getDate()-1);
+    }
+    return days;
+  }
+
+  function renderDailyHero(reading,book){
+    const pagesGoal=state.profile.dailyPageGoal||32;
+    const minuteGoal=state.profile.dailyMinutesGoal||20;
+    const readToday=pagesReadOnDate(today());
+    const left=Math.max(0,pagesGoal-readToday);
+    $('homeHeroHeadline').innerHTML=(left?left+' sahifa o‘qing':'Bugungi reja bajarildi!')+
+      ' <span aria-hidden="true">'+(left?'🎯':'✅')+'</span>';
+    $('homeHeroBook').textContent=book?.title||'Kitob tanlang';
+    $('homeHeroPages').textContent='Bugun: '+readToday+' / '+pagesGoal+' sahifa';
+    $('homeHeroMinutes').textContent=minuteGoal+' daqiqa';
+    $('homeHeroStreak').textContent=currentReadingStreak()+' kunlik';
+    $('homeHeroReading').textContent=reading.length+' kitob';
+    const cta=$('homeHeroContinue');
+    $('homeHeroContinueLabel').textContent=book?'Davom etish':'Kitob tanlash';
+    cta.setAttribute('aria-label',book?'Mutolaani davom ettirish: '+book.title:'O‘qish uchun kitob tanlash');
+    const art=$('homeHeroCover');
+    art.innerHTML=book?coverHtml(book,'hero-book-cover'):'<span class="daily-empty-book">📚</span>';
+    if(book?.pages){
+      const start=progressOf(book);
+      const next=Math.min(100,Math.round(Math.min(book.pages,Number(book.currentPage||0)+left)/book.pages*100));
+      $('homeHeroProgressStart').textContent=start+'%';
+      $('homeHeroProgressEnd').textContent=Math.max(start,next)+'%';
+      $('homeHeroProgressLabels').hidden=false;
+      $('homeHeroProgressFill').style.width=start+'%';
+      $('homeHeroProgressFill').parentElement.setAttribute('aria-label',
+        'Kitobning '+start+' foizi o‘qilgan. Bugungi maqsad bajarilsa '+Math.max(start,next)+' foiz bo‘ladi.');
+    }else{
+      $('homeHeroProgressStart').textContent=book?'Sahifalar noma’lum':'Boshlashga tayyor';
+      $('homeHeroProgressEnd').textContent='';
+      $('homeHeroProgressLabels').hidden=!book;
+      $('homeHeroProgressFill').style.width='0%';
+      $('homeHeroProgressFill').parentElement.setAttribute('aria-label','O‘qish progressi hali mavjud emas.');
+    }
+  }
+
   function renderHome(){
     const reading=state.books.filter(b=>statusOf(b)==='reading');
     const finished=state.books.filter(b=>statusOf(b)==='finished');
@@ -352,17 +430,17 @@
     $('homeReadingBooks').textContent=reading.length;
     $('homeFinishedBooks').textContent=finished.length;
     $('homeGoalRemaining').textContent=Math.max(0,goal-finishedYear.length);
-
+    const book=getHomeReadingBook();
+    renderDailyHero(reading,book);
     const holder=$('homeCurrentReading');
-    if(!reading.length){
+    if(!book){
       holder.innerHTML='<div class="empty-state"><strong>Hozir o‘qilayotgan kitob yo‘q</strong>Kitob qo‘shib, mutolaa boshlangan sanani kiriting.</div>';
     } else {
-      const book=[...reading].sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)))[0];
       const p=progressOf(book);
       holder.innerHTML='<div class="current-book">'+coverHtml(book)+
         '<div><h3>'+escapeHtml(book.title)+'</h3><p>'+escapeHtml(book.author||'Muallif kiritilmagan')+'</p>'+
         '<div class="progress-wrap"><div class="progress-track"><div class="progress-fill" style="width:'+p+'%"></div></div><b>'+p+'%</b></div></div>'+
-        '<button class="continue-button" data-book-open="'+book.id+'">Mutolaani davom ettirish →</button></div>';
+        '<button class="continue-button" data-book-open="'+escapeHtml(book.id)+'">Mutolaani davom ettirish →</button></div>';
     }
   }
 
@@ -1601,6 +1679,15 @@
     $('simpleDialog').showModal();
   }
 
+  function openDailyGoalDialog(){
+    openSimple('Bugungi mutolaa rejasi',
+      '<div class="setting-form">'+
+      '<p class="daily-goal-note">Bu raqamlar reja hisoblanadi. Haqiqiy o‘qilgan sahifalar mutolaa qaydlaridan olinadi.</p>'+
+      '<label>Kunlik sahifa maqsadi<input id="dailyPageGoalInput" type="number" min="1" max="300" value="'+state.profile.dailyPageGoal+'"></label>'+
+      '<label>Kunlik mutolaa vaqti (daqiqa)<input id="dailyMinutesGoalInput" type="number" min="5" max="240" value="'+state.profile.dailyMinutesGoal+'"></label>'+
+      '<div class="setting-actions"><button type="button" class="primary-button" data-save-daily-goal>Saqlash</button></div></div>');
+  }
+
   function openGoalDialog(){
     openSimple('Mutolaa maqsadi','<div class="setting-form"><label>Yillik kitob maqsadi<input id="goalInput" type="number" min="1" max="500" value="'+state.profile.yearlyGoal+'"></label><div class="setting-actions"><button class="primary-button" data-save-goal>Saqlash</button></div></div>');
   }
@@ -1669,6 +1756,13 @@
         return;
       }
 
+      if(e.target.closest('[data-save-daily-goal]')){
+        state.profile.dailyPageGoal=clampInt($('dailyPageGoalInput').value,1,300);
+        state.profile.dailyMinutesGoal=clampInt($('dailyMinutesGoalInput').value,5,240);
+        $('simpleDialog').close();
+        saveState('Kunlik reja saqlandi.');
+        return;
+      }
       if(e.target.closest('[data-save-goal]')){
         state.profile.yearlyGoal=clampInt($('goalInput').value,1,500);$('simpleDialog').close();saveState('Maqsad saqlandi.');return;
       }
@@ -1783,6 +1877,13 @@
     $('periodFilters').addEventListener('click',e=>{const b=e.target.closest('[data-period]');if(!b)return;financePeriod=b.dataset.period;renderFinance();});
     $('currencyToggle').addEventListener('click',e=>{const b=e.target.closest('[data-currency]');if(!b)return;financeCurrency=b.dataset.currency;renderFinance();});
     $('importInput').addEventListener('change',e=>{importBackup(e.target.files?.[0]);e.target.value='';});
+    $('homeHeroContinue').addEventListener('click',()=>{
+      const book=getHomeReadingBook();
+      if(book){selectedBookId=book.id;navigate('detail');}
+      else navigate('library');
+    });
+    $('homeHeroStreakBtn').addEventListener('click',()=>navigate('calendar'));
+    $('homeHeroGoalBtn').addEventListener('click',openDailyGoalDialog);
     $('globalSearchBtn').addEventListener('click',()=>{navigate('library');setTimeout(()=>$('bookSearch').focus(),100);});
     $('bellBtn').addEventListener('click',openReminderDialog);
     $('detailMore').addEventListener('click',()=>selectedBookId&&openBookMenu(selectedBookId));

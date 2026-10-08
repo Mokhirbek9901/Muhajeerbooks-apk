@@ -558,7 +558,11 @@
         {fps:10,qrbox:{width:230,height:140}},
         text=>{
           const isbn=normalizedIsbn(text);
-          if(!validIsbn(isbn) || scannerBusy) return;
+          if(!validIsbn(isbn)){
+            if(!scannerBusy) setScannerStatus('Kod o‘qildi, lekin ISBN aniqlanmadi. 978 yoki 979 bilan boshlanuvchi kitob shtrix-kodini ko‘rsating.',true);
+            return;
+          }
+          if(scannerBusy) return;
           scannerBusy=true;
           $('scanIsbnInput').value=isbn;
           void (async()=>{
@@ -801,7 +805,7 @@
       setPhotoStatus('Matn aniqlandi. Topilgan nomni tekshiring, kerak bo‘lsa tahrirlang.');
       await findCoverByText(guess,ticket);
     }catch(error){
-      if(ticket===photoOperation && $('bookDialog').open)
+      if(ticket===photoOperation && $('bookDialog').open && !photoManualSearchRequested)
         setPhotoStatus('Rasmdagi yozuvni o‘qib bo‘lmadi. Kitob nomini qo‘lda yozib qidiring.',true);
     }finally{
       if(worker){try{await worker.terminate();}catch(_){}}
@@ -815,8 +819,9 @@
       и:'i',й:'y',к:'k',қ:'q',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',
       у:'u',ф:'f',х:'x',ҳ:'h',ц:'ts',ч:'ch',ш:'sh',щ:'sh',ъ:'',ь:'',ы:'i',
       э:'e',ю:'yu',я:'ya',ў:'o',і:'i'};
-    return String(value||'').toLocaleLowerCase().normalize('NFD')
-      .replace(/[\u0300-\u036f]/g,'').replace(/[\u0400-\u052f]/g,ch=>cyr[ch]??ch)
+    return String(value||'').toLocaleLowerCase()
+      .replace(/[\u0400-\u052f]/g,ch=>cyr[ch]??ch).normalize('NFD')
+      .replace(/[\u0300-\u036f]/g,'')
       .replace(/[‘’ʻʼ']/g,'').replace(/[^\p{L}\p{N}]+/gu,' ').trim();
   }
 

@@ -2042,7 +2042,12 @@
       const button=event.target.closest('[data-book-auto-index]');
       if(!button)return;
       const book=bookTitleLookup.candidates[Number(button.dataset.bookAutoIndex)];
-      if(book)applyTitleAutoCandidate(book,true);
+      if(book){
+        clearTimeout(bookTitleLookup.timer);
+        bookTitleLookup.request++;
+        applyTitleAutoCandidate(book,true);
+        $('bookAutoLookupResults').hidden=true;
+      }
     });
     for(const id of ['bookAuthor','bookCategory','bookPublisher','bookIsbn',
       'bookPublishedYear','bookPages','bookDescription']){

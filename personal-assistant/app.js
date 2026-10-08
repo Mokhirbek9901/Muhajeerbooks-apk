@@ -12,32 +12,32 @@
   // Mohirbekning avval o‘qib bo‘lgan kitoblari. Tugatilgan sana aniq
   // berilmagan joylarda sana bo‘sh qoladi, lekin kitob "Tugatilgan" holatida.
   const READ_LIBRARY_SEED = [
-    {id:'history-001',title:'O‘gay ona',author:'Ahmad Lutfiy Qozonchi',category:'Roman',publisher:'Book Media Nashr',publishedYear:2019,pages:192,startedAt:'2022-04-07',finishedAt:''},
-    {id:'history-002',title:'Iskanja',author:'Omina Shenliko‘g‘li',category:'Roman',publisher:'Ilm-ziyo-zakovat',publishedYear:2021,pages:224,startedAt:'2022-04-15',finishedAt:''},
-    {id:'history-003',title:'So‘nggi to‘fon',author:'Ahmad Lutfiy Qozonchi',category:'Roman',publisher:'Yangi Asr Avlodi',publishedYear:2021,pages:208,startedAt:'2022-04-22',finishedAt:''},
-    {id:'history-004',title:'Hayot yutqazgan joyingdan boshlanar',author:'Mirach Chag‘ri Oqtosh',category:'Shaxsiy rivojlanish',publisher:'Factor Books',publishedYear:2021,pages:240,startedAt:'2022-04-28',finishedAt:''},
-    {id:'history-005',title:'Yashash fursati',author:'Mehmet Olaqosh',category:'Diniy',publisher:'Kitobdor Nashr',publishedYear:0,pages:120,startedAt:'2022-05-14',finishedAt:''},
-    {id:'history-006',title:'500 yildan so‘ng',author:'Omina Shenliko‘g‘li',category:'Roman',publisher:'Azon kitoblari',publishedYear:0,pages:0,startedAt:'',finishedAt:''},
-    {id:'history-007',title:'Alvido, Vatan!',author:'A’zam Hoshimiy',category:'Roman',publisher:'Azon kitoblari',publishedYear:2020,pages:117,startedAt:'',finishedAt:''},
-    {id:'history-008',title:'Kaktuslar ham gullaydi',author:'Songul Unsal',category:'Roman',publisher:'Zukko Kitobxon',publishedYear:2022,pages:160,startedAt:'',finishedAt:''},
-    {id:'history-009',title:'Imomning maneken qizi',author:'Omina Shenliko‘g‘li',category:'Roman',publisher:'Azon kitoblari',publishedYear:2021,pages:172,startedAt:'',finishedAt:''},
-    {id:'history-010',title:'Iymon va huzun',author:'Said Chamlija',category:'Diniy',publisher:'Muharrir',publishedYear:2021,pages:128,startedAt:'',finishedAt:''},
-    {id:'history-011',title:'Iqror',author:'Xolid Ertug‘rul',category:'Roman',publisher:'Misbah',publishedYear:2021,pages:160,startedAt:'',finishedAt:''},
-    {id:'history-012',title:'Chunki Sen Allohsan',author:'Ali ibn Jobir Fayfiy',category:'Diniy',publisher:'Munir',publishedYear:2021,pages:240,startedAt:'',finishedAt:''},
-    {id:'history-013',title:'Jannatga taklifnoma',author:'Adam Uzkusa',category:'Diniy',publisher:'Kitobdor Nashr',publishedYear:2022,pages:128,startedAt:'',finishedAt:''},
-    {id:'history-014',title:'Boshimning toji',author:'Xadicha Kubro Tongar',category:'Diniy',publisher:'Yangi Asr Avlodi',publishedYear:2022,pages:96,startedAt:'',finishedAt:''},
-    {id:'history-015',title:'Huzur eshigi',author:'Abdukarim Mirzayev',category:'Shaxsiy rivojlanish',publisher:'Yasira Bookshop',publishedYear:2022,pages:224,startedAt:'',finishedAt:''},
-    {id:'history-016',title:'Hayotimiz kengurulari',author:'Sanjar Xo‘ja',category:'Shaxsiy rivojlanish',publisher:'Muharrir nashriyoti',publishedYear:2022,pages:160,startedAt:'',finishedAt:''},
-    {id:'history-017',title:'O‘zini qidirgan odam',author:'Xolid Ertug‘rul',category:'Roman',publisher:'Misbah',publishedYear:0,pages:144,startedAt:'',finishedAt:''},
-    {id:'history-018',title:'Katta Shahzoda',author:'Mikoil Adiguzel',category:'Roman',publisher:'Huzur',publishedYear:2024,pages:70,startedAt:'2024-12-08',finishedAt:''},
-    {id:'history-019',title:'Qiyomat va oxirat',author:'Abu Homid G‘azzoliy',category:'Diniy',publisher:'Munir',publishedYear:2022,pages:192,startedAt:'2024-12-10',finishedAt:'2024-12-13'},
-    {id:'history-020',title:'Zalolatdan qutulish',author:'Abu Homid G‘azzoliy',category:'Diniy',publisher:'Munir',publishedYear:2021,pages:96,startedAt:'2024-12-16',finishedAt:'2024-12-19'},
-    {id:'history-021',title:'Men (Bas qil, ey nafs!)',author:'Fotih Duman',category:'Diniy',publisher:'Nasim Kutub',publishedYear:2023,pages:299,startedAt:'2025-02-08',finishedAt:'2025-02-13'},
-    {id:'history-022',title:'Umringizni o‘g‘irlayotgan illatlar',author:'Oysha Oydo‘g‘du',category:'Shaxsiy rivojlanish',publisher:'Misbah',publishedYear:2024,pages:176,startedAt:'',finishedAt:''},
-    {id:'history-023',title:'Ochlik',author:'Knut Hamsun',category:'Roman',publisher:'Yangi Asr Avlodi',publishedYear:2025,pages:192,startedAt:'2025-03-29',finishedAt:'2025-04-06'},
-    {id:'history-024',title:'O‘limdan keyingi hayot',author:'Reymond Mudi',category:'Psixologiya',publisher:'Tahlil',publishedYear:0,pages:192,startedAt:'2025-04-07',finishedAt:'2025-04-11'},
-    {id:'history-025',title:'Allohga chinakam bandalik',author:'Muhammad Amin Yildirim',category:'Diniy',publisher:'Nasim Kutub',publishedYear:2023,pages:176,startedAt:'2025-04-11',finishedAt:'2025-04-17'},
-    {id:'history-026',title:'Maymunlar sayyorasi',author:'Pyer Bul',category:'Roman',publisher:'Huzur',publishedYear:2024,pages:225,startedAt:'2025-04-17',finishedAt:'2025-04-25'}
+    {id:'history-001',title:'O‘gay ona',author:'Ahmad Lutfiy Qozonchi',category:'Roman',publisher:'Book Media Nashr',publishedYear:2019,pages:192,cover:'https://cdn.asaxiy.uz/asaxiy-content/product/items/desktop/bca82e41ee7b0833588399b1fcd177c720220615114843583200ZYOxYI1iZ.jpg.webp',startedAt:'2022-04-07',finishedAt:''},
+    {id:'history-002',title:'Iskanja',author:'Omina Shenliko‘g‘li',category:'Roman',publisher:'Ilm-ziyo-zakovat',publishedYear:2021,pages:224,cover:'https://assets.asaxiy.uz/product/items/desktop/76dc611d6ebaafc66cc0879c71b5db5c2022061213371742964SMVxjjT8cX.jpg.webp',startedAt:'2022-04-15',finishedAt:''},
+    {id:'history-003',title:'So‘nggi to‘fon',author:'Ahmad Lutfiy Qozonchi',category:'Roman',publisher:'Yangi Asr Avlodi',publishedYear:2021,pages:208,cover:'https://assets.asaxiy.uz/product/items/desktop/9dcb88e0137649590b755372b040afad20220612153732837805CPkTK5Ue3.jpg.webp',startedAt:'2022-04-22',finishedAt:''},
+    {id:'history-004',title:'Hayot yutqazgan joyingdan boshlanar',author:'Mirach Chag‘ri Oqtosh',category:'Shaxsiy rivojlanish',publisher:'Factor Books',publishedYear:2021,pages:240,cover:'https://olcha.uz/image/700x700/products/2022-09-17/mirach-chari-otosh-aet-yutazgan-zhoyingdan-boshlanar-119724-0.jpeg',startedAt:'2022-04-28',finishedAt:''},
+    {id:'history-005',title:'Yashash fursati',author:'Mehmet Olaqosh',category:'Diniy',publisher:'Kitobdor Nashr',publishedYear:2022,pages:120,cover:'https://qamar.uz/cdn/shop/files/yashash-fursati-mahmud-olaqosh-_-00000818-1.jpg?v=1754585512',startedAt:'2022-05-14',finishedAt:''},
+    {id:'history-006',title:'500 yildan so‘ng',author:'Omina Shenliko‘g‘li',category:'Roman',publisher:'Azon kitoblari',publishedYear:2022,pages:120,cover:'https://assets.asaxiy.uz/product/items/desktop/3fa146219c48a4393aace23e8f3531252022061518071853068KLWlctZFxN.jpg.webp',startedAt:'',finishedAt:''},
+    {id:'history-007',title:'Alvido, Vatan!',author:'A’zam Hoshimiy',category:'Roman',publisher:'Azon kitoblari',publishedYear:2020,pages:117,cover:'https://assets.asaxiy.uz/product/items/desktop/62459f4e225e2f4f196c9d42f4ad71112022110517321176002wjMkrBEREV.jpg.webp',startedAt:'',finishedAt:''},
+    {id:'history-008',title:'Kaktuslar ham gullaydi',author:'Songul Unsal',category:'Roman',publisher:'Zukko Kitobxon',publishedYear:2022,pages:160,cover:'https://olcha.uz/image/original/products/2022-09-28/songul-unsal-kaktuslar-am-gullaydi-124061-0.jpeg',startedAt:'',finishedAt:''},
+    {id:'history-009',title:'Imomning maneken qizi',author:'Omina Shenliko‘g‘li',category:'Roman',publisher:'Azon kitoblari',publishedYear:2021,pages:172,cover:'https://assets.asaxiy.uz/product/items/desktop/f171891aff2c3a9f84532cc5be354cdb2023030318482360283lRTCy1Qzum.jpg.webp',startedAt:'',finishedAt:''},
+    {id:'history-010',title:'Iymon va huzun',author:'Said Chamlija',category:'Diniy',publisher:'Muharrir',publishedYear:2021,pages:128,cover:'https://assets.asaxiy.uz/product/items/desktop/8ae659d035234fc38b249672984984cb2022061018364063945jcHRU2ppdE.jpg.webp',startedAt:'',finishedAt:''},
+    {id:'history-011',title:'Iqror',author:'Xolid Ertug‘rul',category:'Roman',publisher:'Misbah',publishedYear:2021,pages:160,cover:'https://nashriyot.qamar.uz/cdn/shop/files/14_13.png?v=1734433535&width=416',startedAt:'',finishedAt:''},
+    {id:'history-012',title:'Chunki Sen Allohsan',author:'Ali ibn Jobir Fayfiy',category:'Diniy',publisher:'Munir',publishedYear:2021,pages:240,cover:'https://cdn.asaxiy.uz/asaxiy-content/product/items/desktop/d38ee19a4815c4aeba48227913092a6e2022050812210851736PcAqwale7t.jpg.webp',startedAt:'',finishedAt:''},
+    {id:'history-013',title:'Jannatga taklifnoma',author:'Adam Uzkusa',category:'Diniy',publisher:'Kitobdor Nashr',publishedYear:2022,pages:128,cover:'https://olcha.uz/image/original/products/2022-03-02/adam-uzkusa-zhannatga-taklifnoma-38930-0.jpeg',startedAt:'',finishedAt:''},
+    {id:'history-014',title:'Boshimning toji',author:'Xadicha Kubro Tongar',category:'Diniy',publisher:'Yangi Asr Avlodi',publishedYear:2022,pages:96,cover:'https://assets.asaxiy.uz/product/items/desktop/27669f3f141da48bfe5e6b7aa37c38f92022071213385623478HBoFf7cWum.jpg.webp',startedAt:'',finishedAt:''},
+    {id:'history-015',title:'Huzur eshigi',author:'Abdukarim Mirzayev',category:'Shaxsiy rivojlanish',publisher:'Yasira Bookshop',publishedYear:2022,pages:224,cover:'https://cdn.asaxiy.uz/asaxiy-content/product/items/mobile/26657d5ff9020d2abefe558796b995842022061211375152623CkR7Pa2ocq.jpg.webp',startedAt:'',finishedAt:''},
+    {id:'history-016',title:'Hayotimiz kengurulari',author:'Sanjar Xo‘ja',category:'Shaxsiy rivojlanish',publisher:'Muharrir nashriyoti',publishedYear:2022,pages:160,cover:'https://cdn.asaxiy.uz/asaxiy-content/product/items/mobile/37a749d808e46495a8da1e5352d03cae2022061214254669310xRZFUClJQm.jpg.webp',startedAt:'',finishedAt:''},
+    {id:'history-017',title:'O‘zini qidirgan odam',author:'Xolid Ertug‘rul',category:'Roman',publisher:'Misbah',publishedYear:2021,pages:144,cover:'https://olcha.uz/image/700x700/products/2022-11-10/kholid-erturul-zini-idirgan-odam-167961-0.jpeg',startedAt:'',finishedAt:''},
+    {id:'history-018',title:'Katta Shahzoda',author:'Mikoil Adiguzel',category:'Roman',publisher:'Huzur',publishedYear:2024,pages:70,cover:'https://nashriyot.qamar.uz/cdn/shop/files/102.png?v=1733749685&width=416',startedAt:'2024-12-08',finishedAt:''},
+    {id:'history-019',title:'Qiyomat va oxirat',author:'Abu Homid G‘azzoliy',category:'Diniy',publisher:'Munir',publishedYear:2022,pages:192,cover:'https://olcha.uz/image/700x700/products/2022-09-24/iemat-va-okhirat-122927-0.jpeg',startedAt:'2024-12-10',finishedAt:'2024-12-13'},
+    {id:'history-020',title:'Zalolatdan qutulish',author:'Abu Homid G‘azzoliy',category:'Diniy',publisher:'Munir',publishedYear:2021,pages:96,cover:'https://hilolnashr.uz/image/cache/catalog/001-Kitoblar/003_boshqalar/001_diniy/2022/zalolatdan-qutilish-web-500x750.jpg',startedAt:'2024-12-16',finishedAt:'2024-12-19'},
+    {id:'history-021',title:'Men (Bas qil, ey nafs!)',author:'Fotih Duman',category:'Diniy',publisher:'Nasim Kutub',publishedYear:2023,pages:299,cover:'https://assets.asaxiy.uz/product/items/desktop/2f93aebfae41c062f7ee6a140116a74c2025082012461054813QZBWtCwd66.jpg.webp',startedAt:'2025-02-08',finishedAt:'2025-02-13'},
+    {id:'history-022',title:'Umringizni o‘g‘irlayotgan illatlar',author:'Oysha Oydo‘g‘du',category:'Shaxsiy rivojlanish',publisher:'Misbah',publishedYear:2024,pages:176,cover:'https://library.softly.uz/files/95a0a06a-16cd-4682-9e56-c2a029bb9ccb.jpg',startedAt:'',finishedAt:''},
+    {id:'history-023',title:'Ochlik',author:'Knut Hamsun',category:'Roman',publisher:'Huzur',publishedYear:2025,pages:266,cover:'https://assets.asaxiy.uz/product/main_image/desktop/68107b3a5c31e.jpg.webp',startedAt:'2025-03-29',finishedAt:'2025-04-06'},
+    {id:'history-024',title:'O‘limdan keyingi hayot',author:'Reymond Mudi',category:'Psixologiya',publisher:'Tahlil',publishedYear:2025,pages:192,cover:'https://rytfhjvhjxnbhgitowho.supabase.co/storage/v1/object/public/book-covers/covers/1789466629272-370d329f-135c-4445-9a4f-0153fe7a624c-optimized-5062bc32-2e27-4d27-af6a-750286513981-0.jpg',startedAt:'2025-04-07',finishedAt:'2025-04-11'},
+    {id:'history-025',title:'Allohga chinakam bandalik',author:'Muhammad Amin Yildirim',category:'Diniy',publisher:'Nasim Kutub',publishedYear:2023,pages:176,cover:'https://olcha.uz/image/675x900/products/supplier/stores/1/2024-02-23/Q4vDvBqnx2koJY6ig7syWduO5pjuMkCzxrCMJ1seaiDXIKtwxVBbK7PxR1aJ.jpg',startedAt:'2025-04-11',finishedAt:'2025-04-17'},
+    {id:'history-026',title:'Maymunlar sayyorasi',author:'Pyer Bul',category:'Roman',publisher:'Huzur',publishedYear:2024,pages:225,cover:'https://nashriyot.qamar.uz/cdn/shop/files/33333.png?v=1735975252&width=1946',startedAt:'2025-04-17',finishedAt:'2025-04-25'}
   ];
 
   const defaultState = () => ({
@@ -48,7 +48,8 @@
       theme: 'light',
       reminderTime: '08:00',
       customCategories: [],
-      seedReadLibrary20261008: false
+      seedReadLibrary20261008: false,
+      seedBookMetadata20261008v2: false
     },
     books: [],
     transactions: []
@@ -92,22 +93,37 @@
   }
 
   function mergeReadLibrarySeed(target){
-    if(target?.profile?.seedReadLibrary20261008 === true) return false;
+    const libraryAlreadySeeded = target?.profile?.seedReadLibrary20261008 === true;
+    const metadataAlreadyEnriched = target?.profile?.seedBookMetadata20261008v2 === true;
+    if(libraryAlreadySeeded && metadataAlreadyEnriched) return false;
+
     const existingByTitle = new Map((target.books||[]).map(b=>[titleKey(b.title),b]));
     const seedTime = '2026-10-08T00:00:00.000Z';
+    let changed = false;
 
     READ_LIBRARY_SEED.forEach((item,index)=>{
       const existing = existingByTitle.get(titleKey(item.title));
       if(existing){
-        if(!existing.author) existing.author=item.author;
-        if(!existing.category) existing.category=item.category;
-        if(!existing.publisher) existing.publisher=item.publisher;
-        if(!existing.publishedYear && item.publishedYear) existing.publishedYear=item.publishedYear;
-        if(!existing.pages && item.pages) existing.pages=item.pages;
-        if(!existing.startedAt && item.startedAt) existing.startedAt=item.startedAt;
-        if(!existing.finishedAt && item.finishedAt) existing.finishedAt=item.finishedAt;
+        if(!metadataAlreadyEnriched){
+          // These 26 entries are the app's built-in reading history. Refresh
+          // bibliographic fields once, while preserving personal dates,
+          // ratings, notes, reading logs and any user-selected custom cover.
+          existing.author=item.author;
+          existing.category=item.category;
+          existing.publisher=item.publisher;
+          existing.publishedYear=item.publishedYear;
+          existing.pages=item.pages;
+          if(!existing.cover && item.cover) existing.cover=item.cover;
+          if(existing.statusOverride==='finished' && item.pages){
+            existing.currentPage=item.pages;
+          }else if(existing.currentPage>item.pages && item.pages){
+            existing.currentPage=item.pages;
+          }
+          changed=true;
+        }
+        if(!existing.startedAt && item.startedAt){ existing.startedAt=item.startedAt; changed=true; }
+        if(!existing.finishedAt && item.finishedAt){ existing.finishedAt=item.finishedAt; changed=true; }
         existing.statusOverride='finished';
-        if(existing.pages && !existing.currentPage) existing.currentPage=existing.pages;
         existing.updatedAt=existing.updatedAt||seedTime;
         return;
       }
@@ -116,7 +132,6 @@
         ...item,
         id:item.id||('history-'+String(index+1).padStart(3,'0')),
         statusOverride:'finished',
-        cover:'',
         currentPage:item.pages||0,
         rating:0,
         notes:'',
@@ -127,10 +142,13 @@
       if(item.startedAt) book.readingLog.push({date:item.startedAt,page:0});
       if(item.finishedAt) book.readingLog.push({date:item.finishedAt,page:item.pages||0});
       target.books.push(book);
+      existingByTitle.set(titleKey(item.title),book);
+      changed=true;
     });
 
     target.profile.seedReadLibrary20261008=true;
-    return true;
+    target.profile.seedBookMetadata20261008v2=true;
+    return changed;
   }
 
   function normalizeState(input){
@@ -148,7 +166,8 @@
         theme: profile.theme === 'dark' ? 'dark' : 'light',
         reminderTime: /^\d{2}:\d{2}$/.test(profile.reminderTime || '') ? profile.reminderTime : '08:00',
         customCategories: Array.isArray(profile.customCategories) ? profile.customCategories.map(String).filter(Boolean) : [],
-        seedReadLibrary20261008: profile.seedReadLibrary20261008 === true
+        seedReadLibrary20261008: profile.seedReadLibrary20261008 === true,
+        seedBookMetadata20261008v2: profile.seedBookMetadata20261008v2 === true
       },
       books: books.map(b => ({
         id: String(b.id || makeId()),

@@ -678,7 +678,8 @@
           $(id).value=String(value);
         }
       }
-      if(info.cover && !pendingCover){
+      const fromCoverPhoto=photoOriginalCover && pendingCover===photoOriginalCover;
+      if(info.cover && (!pendingCover || (fromCoverPhoto && $('photoReplaceCover').checked))){
         pendingCover=info.cover;
         setCoverPreview(pendingCover);
       }
@@ -726,7 +727,7 @@
         !/^(isbn|www\.|http|nashriyot|publish|kitoblar|copyright|©)/i.test(line) &&
         /[\p{L}]{3}/u.test(line));
     const unique=[...new Set(lines)];
-    return unique.slice(0,3).join(' ').slice(0,135);
+    return unique.slice(0,3).join('\n').slice(0,135);
   }
 
   async function loadCoverPhoto(file){
@@ -749,8 +750,7 @@
       const cover=await compressImage(file);
       if(ticket!==photoOperation || !$('bookDialog').open) return;
       photoOriginalCover=cover;
-      pendingCover=cover;
-      setCoverPreview(pendingCover);
+      if(!$('bookId').value || !pendingCover){pendingCover=cover;setCoverPreview(pendingCover);}
       $('photoPreview').src=cover;
       $('photoPreviewWrap').hidden=false;
       setPhotoStatus('Muqovadagi yozuv aniqlanmoqda. Birinchi urinish biroz vaqt olishi mumkin...');
@@ -865,9 +865,15 @@
     setPhotoStatus('Google Books va Open Library kataloglaridan mos kitoblar izlanmoqda...');
     try{
       let matches=await findCoverCandidates(q);
-      if(!matches.length&&q.includes(' ')){
-        const shortened=q.split(/\s+/).slice(0,3).join(' ');
-        matches=await findCoverCandidates(shortened);
+      if(!matches.length){
+        const lines=String(text||'').split(/[\r\n]+/)
+          .map(cleanCoverText).filter(line=>line.length>=4);
+        const alternatives=[...new Set([...lines,q.split(/\s+/).slice(0,4).join(' ')])]
+          .filter(part=>part&&part!==q).slice(0,3);
+        for(const part of alternatives){
+          const extra=await findCoverCandidates(part);
+          if(extra.length){matches=extra;break;}
+        }
       }
       if(expectedTicket!==photoOperation || !$('bookDialog').open) return;
       showCoverCandidates(matches);

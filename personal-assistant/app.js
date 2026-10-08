@@ -40,6 +40,36 @@
     {id:'history-026',title:'Maymunlar sayyorasi',author:'Pyer Bul',category:'Roman',publisher:'Huzur',publishedYear:2024,pages:225,cover:'https://nashriyot.qamar.uz/cdn/shop/files/33333.png?v=1735975252&width=1946',startedAt:'2025-04-17',finishedAt:'2025-04-25'}
   ];
 
+  // Kitobning umumiy tavsifi shaxsiy o‘qish qaydlaridan alohida saqlanadi.
+  const READ_LIBRARY_DESCRIPTIONS = {
+    'history-001': "Fotima ismli yosh qizning ikki farzandli otaga turmushga chiqishi orqali o‘gay onalik, mehr-oqibat, tarbiya va oilaviy mas’uliyat haqida hikoya qilinadi.",
+    'history-002': "Asarda kommunistik zulm ostida qolgan uyg‘ur musulmon oilasining qismati, diniy va milliy o‘zlikni saqlash yo‘lidagi kurashi tasvirlanadi.",
+    'history-003': "Hasan va uning onasi boshiga tushgan qiyinchiliklar, mehrsiz insonlarning zulmi hamda beg‘araz yordam va umidning kuchi haqida roman.",
+    'history-004': "Hayotdagi mag‘lubiyat va qiyinchiliklardan keyin qayta kuch topish, sabr, shukr, yaxshilik va kechirimlilik haqida mulohazalar.",
+    'history-005': "Og‘ir sinovlar ichida hayoti uchun muhim qaror qabul qilishga majbur bo‘lgan insonlar qismati orqali vaqt va umrning qadrini yoritadi.",
+    'history-006': "Omina Shenliko‘g‘lining inson taqdiri va hayotiy tanlovlar haqida o‘ylashga undaydigan badiiy asari.",
+    'history-007': "Vatan, ayriliq va insonning o‘z ildizlariga munosabati haqida mulohaza uyg‘otadigan badiiy asar.",
+    'history-008': "Ko‘ngildagi iztirob va yo‘qotishlardan keyin ham hayotni davom ettirish, o‘zini tiklash va umidni yo‘qotmaslik haqida.",
+    'history-009': "Imomning qizi Fotimaning tanlovlari, oilasi bilan ziddiyatlari va o‘zligini izlash jarayoni orqali tarbiya hamda qadriyatlar masalasi yoritiladi.",
+    'history-010': "Tushkunlik, xavotir va umidsizlikni yengishda iymon, sabr, shukr va qalb xotirjamligining o‘rni haqida diniy-ma’rifiy kitob.",
+    'history-011': "Xolid Ertug‘rul qalamiga mansub, insonning ichki kechinmalari va hayotiy qarorlari ustida fikr yuritishga chorlaydigan asar.",
+    'history-012': "Allohning go‘zal ismlari va sifatlarini tushunish orqali imonni mustahkamlash, Unga yaqinlashish va qalbga taskin topish haqida.",
+    'history-013': "Turli mamlakat va e’tiqod vakillarining Islomni qabul qilishiga oid haqiqiy hayotiy hikoyalar to‘plami.",
+    'history-014': "Qizlar uchun hayo, iffat, o‘z qadrini bilish va ma’naviy poklik tushunchalarini sodda va tushunarli tarzda yorituvchi kitob.",
+    'history-015': "O‘zini anglash, hayotga teranroq nazar tashlash va ko‘ngil xotirjamligiga yetaklovchi savollar hamda kundalik mulohazalar.",
+    'history-016': "Jamiyat, kundalik hayot va insoniy munosabatlarga doir kuzatuvlar, savollar hamda tanqidiy mulohazalar jamlangan asar.",
+    'history-017': "Inson o‘zini tanishi, o‘zligi va hayotdagi o‘rnini izlashi haqidagi ruhiy-ma’naviy mulohazalarga boy badiiy asar.",
+    'history-018': "Mikoil Adiguzelning “Katta Shahzoda” nomli badiiy asari. Syujet tafsilotlari ishonchli manbada aniqlanmagani uchun kiritilmadi.",
+    'history-019': "Qabr hayoti, Qiyomat va oxiratga oid voqealar Qur’on hamda hadislar asosida bayon qilingan diniy-ma’rifiy risola.",
+    'history-020': "Imom G‘azzoliyning haqiqat va ma’rifat izlash yo‘lidagi ruhiy-ilmiy tajribalari, shubha va ishonch haqidagi mulohazalari.",
+    'history-021': "Insonning o‘z nafsi bilan kurashi va Aziz Mahmud Xudoiy hayotidan ilhomlangan voqealar orqali ma’naviy poklanish haqida.",
+    'history-022': "Inson vaqtini va umrini behuda sarflaydigan odatlarni anglash, ulardan qutulish va mazmunli yashash haqida mulohazalar.",
+    'history-023': "Ochlik va qashshoqlik girdobida yashashga urinayotgan yosh ijodkorning ruhiy kechinmalari tasvirlangan psixologik roman.",
+    'history-024': "Reymond Mudi klinik o‘limga yaqin tajribalarni boshdan kechirgan odamlarning hikoyalarini tahlil qilib, hayot va o‘lim haqidagi savollarni o‘rtaga qo‘yadi.",
+    'history-025': "Ibodat, Allohdan yordam so‘rash va tavakkul tushunchalarini kundalik hayot hamda inson amallari bilan bog‘lab sharhlovchi kitob.",
+    'history-026': "Aqlli maymunlar hukmron bo‘lgan g‘ayrioddiy sayyoradagi voqealar orqali insoniyat, jamiyat va ustunlik haqidagi tasavvurlarni so‘roqqa tutuvchi fantastik roman."
+  };
+
   const defaultState = () => ({
     version: 4,
     profile: {
@@ -49,7 +79,8 @@
       reminderTime: '08:00',
       customCategories: [],
       seedReadLibrary20261008: false,
-      seedBookMetadata20261008v2: false
+      seedBookMetadata20261008v2: false,
+      seedBookDescriptions20261008v1: false
     },
     books: [],
     transactions: []
@@ -95,7 +126,8 @@
   function mergeReadLibrarySeed(target){
     const libraryAlreadySeeded = target?.profile?.seedReadLibrary20261008 === true;
     const metadataAlreadyEnriched = target?.profile?.seedBookMetadata20261008v2 === true;
-    if(libraryAlreadySeeded && metadataAlreadyEnriched) return false;
+    const descriptionsAlreadyEnriched = target?.profile?.seedBookDescriptions20261008v1 === true;
+    if(libraryAlreadySeeded && metadataAlreadyEnriched && descriptionsAlreadyEnriched) return false;
 
     const existingByTitle = new Map((target.books||[]).map(b=>[titleKey(b.title),b]));
     const seedTime = '2026-10-08T00:00:00.000Z';
@@ -103,34 +135,24 @@
 
     READ_LIBRARY_SEED.forEach((item,index)=>{
       const existing = existingByTitle.get(titleKey(item.title));
+      const description = READ_LIBRARY_DESCRIPTIONS[item.id] || '';
       if(existing){
-        if(!metadataAlreadyEnriched){
-          // These 26 entries are the app's built-in reading history. Refresh
-          // bibliographic fields once, while preserving personal dates,
-          // ratings, notes, reading logs and any user-selected custom cover.
-          existing.author=item.author;
-          existing.category=item.category;
-          existing.publisher=item.publisher;
-          existing.publishedYear=item.publishedYear;
-          existing.pages=item.pages;
-          if(!existing.cover && item.cover) existing.cover=item.cover;
-          if(existing.statusOverride==='finished' && item.pages){
-            existing.currentPage=item.pages;
-          }else if(existing.currentPage>item.pages && item.pages){
-            existing.currentPage=item.pages;
-          }
-          changed=true;
-        }
-        if(!existing.startedAt && item.startedAt){ existing.startedAt=item.startedAt; changed=true; }
-        if(!existing.finishedAt && item.finishedAt){ existing.finishedAt=item.finishedAt; changed=true; }
-        existing.statusOverride='finished';
-        existing.updatedAt=existing.updatedAt||seedTime;
+        // Avvalgi muqova, o‘qish holati, sana, sahifalar, baho va izohlar
+        // foydalanuvchiniki: avtomatik to‘ldirish ularni o‘zgartirmaydi.
+        if(!existing.author && item.author){ existing.author=item.author; changed=true; }
+        if(!existing.category && item.category){ existing.category=item.category; changed=true; }
+        if(!existing.publisher && item.publisher){ existing.publisher=item.publisher; changed=true; }
+        if(!existing.publishedYear && item.publishedYear){ existing.publishedYear=item.publishedYear; changed=true; }
+        if(!existing.pages && item.pages){ existing.pages=item.pages; changed=true; }
+        if(!existing.cover && item.cover){ existing.cover=item.cover; changed=true; }
+        if(!existing.description && description){ existing.description=description; changed=true; }
         return;
       }
 
       const book={
         ...item,
         id:item.id||('history-'+String(index+1).padStart(3,'0')),
+        description,
         statusOverride:'finished',
         currentPage:item.pages||0,
         rating:0,
@@ -148,6 +170,7 @@
 
     target.profile.seedReadLibrary20261008=true;
     target.profile.seedBookMetadata20261008v2=true;
+    target.profile.seedBookDescriptions20261008v1=true;
     return changed;
   }
 
@@ -167,7 +190,8 @@
         reminderTime: /^\d{2}:\d{2}$/.test(profile.reminderTime || '') ? profile.reminderTime : '08:00',
         customCategories: Array.isArray(profile.customCategories) ? profile.customCategories.map(String).filter(Boolean) : [],
         seedReadLibrary20261008: profile.seedReadLibrary20261008 === true,
-        seedBookMetadata20261008v2: profile.seedBookMetadata20261008v2 === true
+        seedBookMetadata20261008v2: profile.seedBookMetadata20261008v2 === true,
+        seedBookDescriptions20261008v1: profile.seedBookDescriptions20261008v1 === true
       },
       books: books.map(b => ({
         id: String(b.id || makeId()),
@@ -175,6 +199,7 @@
         author: String(b.author || '').trim(),
         category: String(b.category || '').trim(),
         publisher: String(b.publisher || b.nashriyot || '').trim(),
+        description: String(b.description || '').trim(),
         publishedYear: clampInt(b.publishedYear || b.publishYear || 0, 0, 2100),
         statusOverride: ['wishlist','reading','finished'].includes(b.statusOverride) ? b.statusOverride : '',
         cover: String(b.cover || b.coverUrl || '').trim(),
@@ -382,6 +407,7 @@
       '<div class="detail-progress"><div class="detail-progress-head"><span>Mutolaa progressi</span><b>'+p+'%</b></div>'+
       '<div class="progress-track"><div class="progress-fill" style="width:'+p+'%"></div></div>'+
       '<div class="detail-pages">Sahifalar: '+(book.currentPage||0)+(book.pages?' / '+book.pages:'')+'</div></div>'+
+      (book.description?'<article class="content-card detail-notes"><h2>Kitob haqida</h2><p>'+escapeHtml(book.description)+'</p></article>':'')+
       '<div class="detail-date-grid"><div class="detail-date-card"><small>Mutolaa boshlangan sana</small><b>◫ '+(book.startedAt?formatDate(book.startedAt):(status==='finished'?'Sana kiritilmagan':'Boshlanmagan'))+'</b></div>'+
       '<div class="detail-date-card"><small>Mutolaa tugatilgan sana</small><b>◫ '+(book.finishedAt?formatDate(book.finishedAt):(status==='finished'?'Sana kiritilmagan':'Hali tugatilmagan'))+'</b></div></div>'+
       '<article class="content-card detail-notes"><div class="section-title-row"><h2>Shaxsiy izoh</h2><button class="text-action" data-edit-book="'+book.id+'">Tahrirlash</button></div>'+
@@ -410,6 +436,7 @@
     $('bookFinishedAt').value=book?.finishedAt||'';
     $('bookRating').value=String(book?.rating||0);
     $('bookNotes').value=book?.notes||'';
+    $('bookDescription').value=book?.description||'';
     setCoverPreview(pendingCover);
     updateBookStatusPreview();
     $('bookDialog').showModal();
@@ -486,6 +513,7 @@
       pages,currentPage,startedAt,finishedAt,
       rating:clampInt($('bookRating').value,0,5),
       notes:$('bookNotes').value.trim(),
+      description:$('bookDescription').value.trim(),
       readingLog:existing?.readingLog||[],
       createdAt:existing?.createdAt||new Date().toISOString(),
       updatedAt:new Date().toISOString()

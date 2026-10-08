@@ -363,7 +363,7 @@
       '<div class="detail-progress"><div class="detail-progress-head"><span>Mutolaa progressi</span><b>'+p+'%</b></div>'+
       '<div class="progress-track"><div class="progress-fill" style="width:'+p+'%"></div></div>'+
       '<div class="detail-pages">Sahifalar: '+(book.currentPage||0)+(book.pages?' / '+book.pages:'')+'</div></div>'+
-      '<div class="detail-date-grid"><div class="detail-date-card"><small>Mutolaa boshlangan sana</small><b>◫ '+(book.startedAt?formatDate(book.startedAt):'Boshlanmagan')+'</b></div>'+
+      '<div class="detail-date-grid"><div class="detail-date-card"><small>Mutolaa boshlangan sana</small><b>◫ '+(book.startedAt?formatDate(book.startedAt):(status==='finished'?'Sana kiritilmagan':'Boshlanmagan'))+'</b></div>'+
       '<div class="detail-date-card"><small>Mutolaa tugatilgan sana</small><b>◫ '+(book.finishedAt?formatDate(book.finishedAt):(status==='finished'?'Sana kiritilmagan':'Hali tugatilmagan'))+'</b></div></div>'+
       '<article class="content-card detail-notes"><div class="section-title-row"><h2>Shaxsiy izoh</h2><button class="text-action" data-edit-book="'+book.id+'">Tahrirlash</button></div>'+
       '<p>'+escapeHtml(book.notes||'Hali shaxsiy izoh yozilmagan.')+'</p>'+

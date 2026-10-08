@@ -1350,7 +1350,18 @@
 
   function setCalendarMonth(year,month){
     calendarMode='month';
-    calendarDate=new Date(Number(year),Number(month),1);
+    const requested=new Date(Number(year),Number(month),1);
+    const eligible=datedReadingYears();
+    if(eligible.length && !eligible.includes(requested.getFullYear())){
+      // Bo‘sh yillar orqali navigatsiyada eng yaqin mutolaa qilingan yilga o‘tish.
+      const direction=requested>calendarDate?1:-1;
+      const candidates=eligible.filter(y=>direction>0?y>calendarDate.getFullYear():y<calendarDate.getFullYear());
+      if(!candidates.length){renderCalendar();return;}
+      const closest=direction>0?Math.min(...candidates):Math.max(...candidates);
+      calendarDate=new Date(closest,direction>0?0:11,1);
+    } else {
+      calendarDate=requested;
+    }
     const nowPrefix=today().slice(0,7);
     const prefix=String(calendarDate.getFullYear())+'-'+String(calendarDate.getMonth()+1).padStart(2,'0');
     if(!selectedCalendarDay.startsWith(prefix))
@@ -1740,8 +1751,14 @@
     $('calendarSingleMonthBtn').addEventListener('click',()=>setCalendarMode('month'));
     $('calendarMonth').addEventListener('change',event=>setCalendarMonth(calendarDate.getFullYear(),Number(event.target.value)));
     $('calendarTodayBtn').addEventListener('click',()=>{
+      if(!datedReadingYears().includes(nowYear)){
+        toast('Bu yil hali mutolaa qaydi yo‘q.');
+        return;
+      }
+      calendarMode='month';
       calendarDate=new Date(nowYear,new Date().getMonth(),1);
-      selectedCalendarDay=today();renderCalendar();
+      selectedCalendarDay=today();
+      renderCalendar();
     });
     $('calendarYearOverview').addEventListener('click',event=>{
       const month=event.target.closest('[data-year-month]');

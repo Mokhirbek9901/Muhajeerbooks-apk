@@ -252,12 +252,21 @@
     <div class="form-grid">
       <label>Kategoriya<input id="bookCategory" list="categoryOptions" placeholder="Roman"></label>
       <label>Nashriyot<input id="bookPublisher" maxlength="80"></label>
+      <label>Nashr yili<input id="bookPublishedYear" type="number" min="1800" max="2100" placeholder="2024"></label>
       <label>Jami sahifa<input id="bookPages" type="number" min="1"></label>
       <label>Hozirgi sahifa<input id="bookCurrentPage" type="number" min="0"></label>
+      <label>Holat
+        <select id="bookStatusOverride">
+          <option value="">Avtomatik</option>
+          <option value="wishlist">Reja qilingan</option>
+          <option value="reading">O‘qiyapman</option>
+          <option value="finished">Tugatilgan</option>
+        </select>
+      </label>
       <label>Mutolaa boshlangan sana<input id="bookStartedAt" type="date"></label>
       <label>Mutolaa tugatilgan sana<input id="bookFinishedAt" type="date"></label>
       <label>Baho<select id="bookRating"><option value="0">Baholanmagan</option><option value="1">1 / 5</option><option value="2">2 / 5</option><option value="3">3 / 5</option><option value="4">4 / 5</option><option value="5">5 / 5</option></select></label>
-      <div class="auto-status-field"><span>Avtomatik status</span><b id="bookStatusPreview" class="status-pill wishlist">Reja qilingan</b></div>
+      <div class="auto-status-field"><span>Natijaviy holat</span><b id="bookStatusPreview" class="status-pill wishlist">Reja qilingan</b></div>
       <label class="wide">Shaxsiy izoh<textarea id="bookNotes" rows="4" maxlength="1200"></textarea></label>
     </div>
     <datalist id="categoryOptions"></datalist>

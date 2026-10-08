@@ -597,6 +597,53 @@
     if(!opened) window.location.href=url;
   }
 
+
+  async function scanBarcodeFromImage(file){
+    if(!file)return;
+    if(!file.type.startsWith('image/')){
+      setScannerStatus('Shtrix-kod rasmini tanlang.',true);return;
+    }
+    let reader=null;
+    $('scanBarcodePhotoBtn').disabled=true;
+    try{
+      await stopIsbnScanner();
+      setScannerStatus('Rasmdagi shtrix-kod o‘qilmoqda...');
+      await loadScannerLibrary();
+      if(!$('bookDialog').open)return;
+      const F=window.Html5QrcodeSupportedFormats;
+      reader=new window.Html5Qrcode('isbnScannerReader',{
+        formatsToSupport:[F.EAN_13,F.EAN_8,F.UPC_A,F.QR_CODE,F.CODE_128],verbose:false
+      });
+      const value=await reader.scanFile(file,true);
+      const isbn=normalizedIsbn(value);
+      if(!validIsbn(isbn)){
+        setScannerStatus('Shtrix-kod o‘qildi, ammo kitob ISBN raqami aniqlanmadi. 978 yoki 979 bilan boshlanuvchi kodni oling.',true);
+        return;
+      }
+      $('scanIsbnInput').value=isbn;
+      $('bookIsbn').value=isbn;
+      setScannerStatus('ISBN '+isbn+' aniqlandi. Kitob kataloglardan tekshirilmoqda...');
+      await lookupIsbnAndFill(isbn);
+    }catch(_){
+      setScannerStatus('Rasmdan shtrix-kod o‘qilmadi. Yaqinroq va yorug‘roq rasm oling yoki ISBNni qo‘lda kiriting.',true);
+    }finally{
+      if(reader){try{await reader.clear();}catch(_){}}
+      $('scanBarcodePhotoBtn').disabled=false;
+    }
+  }
+
+  function openPhotoWebSearch(){
+    const query=$('photoSearchText').value.trim()||$('bookTitle').value.trim();
+    if(!query){
+      setPhotoStatus('Avval kitob nomini yozing yoki muqovani rasmga oling.',true);
+      $('photoSearchText').focus();
+      return;
+    }
+    const url='https://www.google.com/search?q='+encodeURIComponent(query+' kitob o‘zbekcha nashriyot muqova');
+    const opened=window.open(url,'_blank','noopener,noreferrer');
+    if(!opened)window.location.href=url;
+  }
+
   function yearFromText(value){
     const m=String(value||'').match(/(?:18|19|20)\d{2}/g);
     return m?Number(m[m.length-1]):0;
@@ -1406,6 +1453,13 @@
     $('scanLookupBtn').addEventListener('click',()=>void lookupIsbnAndFill($('scanIsbnInput').value));
     $('scanWebSearchBtn').addEventListener('click',()=>openUzbekIsbnWebSearch());
     $('scanToPhotoBtn').addEventListener('click',()=>setBookEntryMode('photo'));
+    $('scanBarcodePhotoBtn').addEventListener('click',()=>$('scanBarcodePhotoInput').click());
+    $('scanBarcodePhotoInput').addEventListener('change',event=>{
+      const file=event.target.files?.[0];
+      if(file)void scanBarcodeFromImage(file);
+      event.target.value='';
+    });
+    $('photoWebSearchBtn').addEventListener('click',openPhotoWebSearch);
     $('scanIsbnInput').addEventListener('keydown',event=>{
       if(event.key==='Enter'){event.preventDefault();void lookupIsbnAndFill(event.target.value);}
     });

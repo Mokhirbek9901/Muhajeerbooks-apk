@@ -98,6 +98,8 @@
   let financePeriod = 'month';
   let financeCurrency = 'KRW';
   let statTab = 'general';
+  let detailTab = 'general';
+  const readingTimer={bookId:'',startedAt:0,interval:null};
   let statsSelectedYear = nowYear;
   let calendarMode = 'year';
   let calendarDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -233,7 +235,9 @@
             date: normalizeDate(x.date),
             page: numOrZero(x.page),
             ...(Number.isFinite(Number(x.readPages)) && x.readPages !== undefined && x.readPages !== null
-              ? {readPages: Math.max(0,Math.round(Number(x.readPages)))} : {})
+              ? {readPages: Math.max(0,Math.round(Number(x.readPages)))} : {}),
+            ...(Number.isFinite(Number(x.minutes)) && x.minutes !== undefined && x.minutes !== null
+              ? {minutes:Math.max(0,Math.round(Number(x.minutes)))} : {})
           }))
           .filter(x => x.date) : [],
         createdAt: b.createdAt || new Date().toISOString(),
@@ -462,6 +466,90 @@
 
   function pagesReadOnDate(date){
     return dailyReadingPages().get(date)?.pages||0;
+  }
+
+  function minutesReadOnDate(date){
+    return state.books.reduce((sum,book)=>sum+(book.readingLog||[])
+      .filter(entry=>entry.date===date)
+      .reduce((n,entry)=>n+Math.max(0,Number(entry.minutes)||0),0),0);
+  }
+
+  function totalReadingMinutes(book){
+    return (book.readingLog||[]).reduce((sum,entry)=>sum+
+      Math.max(0,Number(entry.minutes)||0),0);
+  }
+
+  function saveReadingMinutes(bookId,elapsedMinutes){
+    const book=state.books.find(b=>b.id===bookId);
+    if(!book)return false;
+    const minutes=Math.max(0,Math.round(Number(elapsedMinutes)||0));
+    if(!minutes)return false;
+    book.readingLog=Array.isArray(book.readingLog)?book.readingLog:[];
+    const date=today();
+    let log=book.readingLog.find(entry=>entry.date===date);
+    if(!log){
+      log={date,page:Math.max(0,Number(book.currentPage)||0),readPages:0,minutes:0};
+      book.readingLog.push(log);
+    }
+    log.minutes=Math.max(0,Number(log.minutes)||0)+minutes;
+    book.updatedAt=new Date().toISOString();
+    saveState(minutes+' daqiqa mutolaa vaqti saqlandi.');
+    return true;
+  }
+
+  function stopReadingTimer(save=true){
+    if(readingTimer.interval!==null){
+      clearInterval(readingTimer.interval);
+      readingTimer.interval=null;
+    }
+    if(!readingTimer.bookId)return;
+    const bookId=readingTimer.bookId;
+    const elapsed=Math.max(0,Date.now()-readingTimer.startedAt);
+    readingTimer.bookId='';
+    readingTimer.startedAt=0;
+    if(save && elapsed>=1000)saveReadingMinutes(bookId,Math.max(1,Math.ceil(elapsed/60000)));
+    if(currentView==='detail')renderBookDetail();
+  }
+
+  function toggleReadingTimer(bookId){
+    if(readingTimer.bookId===bookId){stopReadingTimer(true);return;}
+    if(readingTimer.bookId)stopReadingTimer(true);
+    readingTimer.bookId=bookId;
+    readingTimer.startedAt=Date.now();
+    readingTimer.interval=setInterval(()=>{
+      const label=$('readingTimerClock');
+      if(label && readingTimer.bookId===bookId){
+        const elapsed=Math.max(0,Math.floor((Date.now()-readingTimer.startedAt)/1000));
+        label.textContent=String(Math.floor(elapsed/60)).padStart(2,'0')+':'+
+          String(elapsed%60).padStart(2,'0');
+      }
+    },1000);
+    renderBookDetail();
+  }
+
+  function readingHistoryRows(book){
+    const byDay=dailyBookPages(book);
+    const dates=[...new Set([
+      ...(book.readingLog||[]).map(entry=>entry.date),
+      book.startedAt,book.finishedAt
+    ].filter(Boolean))].sort((a,b)=>b.localeCompare(a));
+    if(!dates.length)return '<div class="empty-state"><strong>Mutolaa tarixi yo‘q</strong>Sahifangizni yangilang yoki vaqt hisoblagichini yoqing.</div>';
+    return '<div class="reading-timeline">'+dates.map(date=>{
+      const pages=byDay.get(date)||0;
+      const entries=(book.readingLog||[]).filter(entry=>entry.date===date);
+      const minutes=entries.reduce((sum,entry)=>sum+Math.max(0,Number(entry.minutes)||0),0);
+      const lastPage=Math.max(0,...entries.map(entry=>Number(entry.page)||0));
+      const pieces=[];
+      if(pages>0)pieces.push('+'+pages+' sahifa');
+      if(minutes>0)pieces.push(minutes+' daqiqa');
+      if(!pieces.length)pieces.push(book.finishedAt===date?'Tugatilgan':'Qayd');
+      return '<div class="reading-timeline-day"><span class="reading-timeline-dot" aria-hidden="true"></span>'+
+        '<div><b>'+escapeHtml(formatDate(date))+'</b>'+
+        '<small>'+(lastPage?lastPage+'-sahifagacha · ':'')+
+        (book.startedAt===date?'Boshlangan · ':'')+
+        (book.finishedAt===date?'Tugatilgan':'')+'</small></div>'+
+        '<strong>'+pieces.join(' · ')+'</strong></div>';
+    }).join('')+'</div>';
   }
 
   function currentReadingStreak(day=today()){

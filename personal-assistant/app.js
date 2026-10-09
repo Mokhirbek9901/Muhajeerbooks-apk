@@ -1160,7 +1160,7 @@
         new Promise((_,reject)=>setTimeout(()=>reject(new Error('scan timeout')),3800))
       ]);
       host=document.createElement('div');
-      host.id='photo-barcode-reader';
+      host.id='photo-barcode-reader-'+Date.now()+'-'+Math.floor(Math.random()*100000);
       host.style.cssText='position:fixed;left:-9999px;top:0;width:360px;height:260px;overflow:hidden;opacity:.01;pointer-events:none;';
       document.body.appendChild(host);
       const F=window.Html5QrcodeSupportedFormats;

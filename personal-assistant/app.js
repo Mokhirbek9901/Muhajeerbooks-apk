@@ -1238,47 +1238,124 @@
     return matches*3+authorMatches+(title.length?1:0);
   }
 
-  async function findCoverCandidates(query){
-    const q=cleanCoverText(query).slice(0,150);
-    if(q.length<3) return [];
-    const local=localBookCandidates(q);
-    if(local.length && local[0].score>=80) return local;
-    const [google,openlib]=await Promise.all([
-      fetchIsbnJson('https://www.googleapis.com/books/v1/volumes?q='+encodeURIComponent(q)+'&maxResults=18&printType=books'),
-      fetchIsbnJson('https://openlibrary.org/search.json?q='+encodeURIComponent(q)+'&limit=16&fields=title,author_name,publisher,first_publish_year,number_of_pages_median,isbn,cover_i')
-    ]);
-    const results=[...local];
-    for(const entry of google?.items||[]){
-      const v=entry?.volumeInfo||{};
-      if(!v.title) continue;
-      const ident=(v.industryIdentifiers||[]).map(o=>normalizedIsbn(o.identifier)).find(validIsbn)||'';
-      const images=v.imageLinks||{};
-      results.push({
-        title:v.title,author:(v.authors||[]).join(', '),
-        publisher:v.publisher||'',year:yearFromText(v.publishedDate),pages:Number(v.pageCount||0),
-        category:(v.categories||[])[0]||'',description:plainDescription(v.description),
-        isbn:ident,
-        cover:httpsImage(images.extraLarge||images.large||images.medium||images.thumbnail||images.smallThumbnail)
-      });
-    }
-    for(const entry of openlib?.docs||[]){
-      if(!entry?.title) continue;
-      results.push({
-        title:entry.title,author:(entry.author_name||[]).join(', '),
-        publisher:(entry.publisher||[])[0]||'',year:Number(entry.first_publish_year||0),
-        pages:Number(entry.number_of_pages_median||0),category:'',description:'',
-        isbn:(entry.isbn||[]).map(normalizedIsbn).find(validIsbn)||'',
-        cover:entry.cover_i?'https://covers.openlibrary.org/b/id/'+entry.cover_i+'-L.jpg':''
-      });
-    }
+  function searchQuality(query,record){
+    const q=bookMatchKey(query);
+    const title=bookMatchKey(record.title);
+    if(!q||!title)return 0;
+    if(q===title)return 110;
+    if(title.startsWith(q)&&q.length>=4)return 91;
+    if(q.includes(title)&&title.length>=5)return 88;
+    const queryTokens=q.split(' ').filter(x=>x.length>=3);
+    const titleTokens=title.split(' ').filter(x=>x.length>=3);
+    if(!queryTokens.length||!titleTokens.length)return 0;
+    const matched=titleTokens.filter(token=>queryTokens.some(word=>
+      word===token||(word.length>=4&&token.startsWith(word))||(token.length>=4&&word.startsWith(token))
+    )).length;
+    const coverage=matched/titleTokens.length;
+    const queryCoverage=matched/queryTokens.length;
+    if(!matched||coverage<.50||queryCoverage<.45)return 0;
+    return Math.round(40+coverage*35+queryCoverage*12);
+  }
+
+  function catalogVariants(query){
+    const raw=cleanCoverText(query).slice(0,130).trim();
+    const normalized=bookMatchKey(raw);
+    const candidates=[raw];
+    // Google Books/Open Library ba'zan o'zbekcha tutuq belgisini ajrata olmaydi.
+    const noMarks=raw.replace(/[’‘ʻʼ']/g,'').replace(/'/g,'');
+    if(noMarks!==raw)candidates.push(noMarks);
+    const cyrillic=/[\u0400-\u052f]/.test(raw);
+    if(cyrillic && normalized!==bookMatchKey(raw.toLowerCase()))candidates.push(normalized);
+    // Shovqinli OCR matnida muallif bilan birga kelgan nomni ham izlash.
+    return [...new Set(candidates.map(v=>v.trim()).filter(x=>x.length>=3))].slice(0,3);
+  }
+
+  function mergeCatalogMatches(query,records){
     const unique=new Map();
-    for(const rec of results){
-      const key=bookMatchKey(rec.title)+'|'+bookMatchKey(rec.author).slice(0,40);
-      if(!key.trim()||unique.has(key))continue;
-      rec.score=bookMatchScore(q,rec);
-      unique.set(key,rec);
+    for(const book of records){
+      if(!book?.title)continue;
+      const quality=searchQuality(query,book);
+      if(quality<50)continue;
+      // Bitta asarning turli nashrlari (ISBN/nashriyot) aralashtirilmasin.
+      const key=bookMatchKey(book.title)+'|'+bookMatchKey(book.author||'')+
+        '|'+(book.isbn?String(book.isbn):bookMatchKey(book.publisher||''));
+      const completeness=entry=>Number(Boolean(entry.cover))*4+
+        Number(Boolean(entry.description))*2+Number(Boolean(entry.publisher))+
+        Number(Boolean(entry.pages))+Number(Boolean(entry.isbn));
+      const next={...book,score:quality,source:book.source||'Katalog'};
+      const old=unique.get(key);
+      if(!old||completeness(next)>completeness(old))unique.set(key,next);
     }
-    return [...unique.values()].sort((a,b)=>b.score-a.score).slice(0,12);
+    return [...unique.values()].sort((a,b)=>b.score-a.score||
+      Number(Boolean(b.cover))-Number(Boolean(a.cover))||
+      Number(Boolean(b.description))-Number(Boolean(a.description))).slice(0,22);
+  }
+
+  async function findCoverCandidates(query){
+    const q=cleanCoverText(query).slice(0,130).trim();
+    if(bookMatchKey(q).length<3)return [];
+    const local=localBookCandidates(q).map(b=>({...b,source:b.source||'Kutubxona'}));
+    const terms=catalogVariants(q);
+    const variants=terms.length>1?[terms[0],terms[1]]:[terms[0]];
+    const searches=[
+      ...variants.map(term=>
+        fetchIsbnJson('https://www.googleapis.com/books/v1/volumes?q='+
+          encodeURIComponent(term)+'&maxResults=30&printType=books')),
+      fetchIsbnJson('https://openlibrary.org/search.json?q='+encodeURIComponent(q)+
+        '&limit=24&fields=title,author_name,publisher,first_publish_year,number_of_pages_median,isbn,cover_i,language'),
+      fetchIsbnJson('https://openlibrary.org/search.json?title='+encodeURIComponent(q)+
+        '&limit=18&fields=title,author_name,publisher,first_publish_year,number_of_pages_median,isbn,cover_i,language')
+    ];
+    // Har bir katalog mustaqil so'raladi. Ulardan biri ishlamasa qolganlari ishlaydi.
+    const batches=await Promise.all(searches);
+    const results=[...local];
+    const addGoogle=json=>{
+      for(const entry of json?.items||[]){
+        const v=entry?.volumeInfo||{};
+        if(!v.title)continue;
+        const image=v.imageLinks||{};
+        results.push({
+          title:v.title,author:(v.authors||[]).join(', '),
+          publisher:v.publisher||'',year:yearFromText(v.publishedDate),
+          pages:Number(v.pageCount||0),category:(v.categories||[])[0]||'',
+          description:plainDescription(v.description),
+          isbn:(v.industryIdentifiers||[]).map(item=>normalizedIsbn(item.identifier)).find(validIsbn)||'',
+          cover:httpsImage(image.extraLarge||image.large||image.medium||image.thumbnail||image.smallThumbnail),
+          source:'Google Books'
+        });
+      }
+    };
+    const addOpenLib=json=>{
+      for(const entry of json?.docs||[]){
+        if(!entry?.title)continue;
+        results.push({
+          title:entry.title,author:(entry.author_name||[]).join(', '),
+          publisher:(entry.publisher||[])[0]||'',year:Number(entry.first_publish_year||0),
+          pages:Number(entry.number_of_pages_median||0),category:'',description:'',
+          isbn:(entry.isbn||[]).map(normalizedIsbn).find(validIsbn)||'',
+          cover:entry.cover_i?'https://covers.openlibrary.org/b/id/'+entry.cover_i+'-L.jpg':'',
+          source:'Open Library'
+        });
+      }
+    };
+    variants.forEach((_,i)=>addGoogle(batches[i]));
+    addOpenLib(batches[variants.length]);
+    addOpenLib(batches[variants.length+1]);
+    const good=mergeCatalogMatches(q,results);
+    if(good.length)return good;
+    // Muallif yoki qo'shimcha so'zlar bilan yozilgan nom uchun soddaroq izlash.
+    const shorter=q.split(/\s+/).slice(0,3).join(' ');
+    if(shorter.length>=4 && bookMatchKey(shorter)!==bookMatchKey(q)){
+      const fallback=await Promise.all([
+        fetchIsbnJson('https://www.googleapis.com/books/v1/volumes?q='+
+          encodeURIComponent(shorter)+'&maxResults=20&printType=books'),
+        fetchIsbnJson('https://openlibrary.org/search.json?title='+
+          encodeURIComponent(shorter)+'&limit=15&fields=title,author_name,publisher,first_publish_year,number_of_pages_median,isbn,cover_i')
+      ]);
+      addGoogle(fallback[0]);addOpenLib(fallback[1]);
+      return mergeCatalogMatches(shorter,results);
+    }
+    return good;
   }
 
   function showCoverCandidates(results){

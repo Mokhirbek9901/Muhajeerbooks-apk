@@ -216,3 +216,18 @@ http.createServer(async(req,res)=>{
     send(res,503,{query,results:[],searchAvailable:false,error:'Qidiruv xizmati vaqtincha mavjud emas'});
   }
 }).listen(PORT,'0.0.0.0',()=>console.log('Yordamchi book discovery API running on port '+PORT));
+
+// Search-provider smoke test once per deploy. Does not change user data or serve false results.
+setTimeout(async()=>{
+  try{
+    const probe=await search('O‘gay ona');
+    console.log('[web-search-probe]',JSON.stringify({
+      active:probe.searchAvailable,
+      total:probe.results.length,
+      sources:probe.results.slice(0,4).map(x=>x.domain)
+    }));
+  }catch(error){
+    console.log('[web-search-probe]',JSON.stringify({active:false,reason:String(error?.message||'probe failed').slice(0,80)}));
+  }
+},3500);
+

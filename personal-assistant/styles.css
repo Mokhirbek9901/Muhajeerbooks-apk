@@ -1449,3 +1449,19 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
   .book-auto-results>.book-search-original-link{margin-left:45px;font-size:.64rem}
   .photo-results>.book-search-original-link{font-size:.64rem}
 }
+
+
+/* ZOOM LOCK v25 — iPhone PWA: no pinch/double-tap or form-focus magnification */
+html,body,#app{
+  touch-action:pan-x pan-y;
+  -ms-touch-action:pan-x pan-y;
+}
+/* iOS Safari magnifies a page on input focus when the font is smaller than 16px.
+   Do not enlarge text everywhere: only editable/form controls on touch devices. */
+@media (hover:none) and (pointer:coarse){
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select,
+  textarea{
+    font-size:16px !important;
+  }
+}

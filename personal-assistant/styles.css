@@ -1301,3 +1301,79 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 @media(prefers-reduced-motion:reduce){
  #screen-home,#screen-library,#screen-stats,#screen-calendar,#screen-detail{animation:none}
 }
+
+
+/* READING PERIOD SWITCH v21 */
+.stats-time-control{margin:0 0 14px;display:grid;gap:10px}
+.stats-period-switch{
+ background:var(--surface2);border:1px solid var(--line);border-radius:15px;padding:4px;
+ display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px
+}
+.stats-period-switch button{
+ border:none;background:none;color:var(--muted);min-height:39px;padding:8px 5px;
+ font-size:.78rem;font-weight:850;border-radius:11px
+}
+.stats-period-switch button.active{
+ background:var(--green);color:#fff;box-shadow:0 3px 11px rgba(7,75,69,.13)
+}
+.stats-period-switch button:focus-visible{outline:2px solid var(--green2);outline-offset:2px}
+.stats-period-picker:has(label:not([hidden])){display:flex;gap:10px}
+.stats-period-picker label{
+ display:flex;align-items:center;justify-content:space-between;gap:9px;
+ background:var(--surface);border:1px solid var(--line);border-radius:12px;
+ padding:6px 12px;font-size:.74rem;font-weight:850;color:var(--muted);width:100%
+}
+.stats-period-picker label[hidden]{display:none}
+.stats-period-picker select,.stats-period-picker input{
+ width:auto;max-width:80%;min-height:33px;border:none;
+ background:transparent;color:var(--ink);font-size:.77rem;font-weight:850;
+ outline:none
+}
+.reading-range-scroll{
+ width:100%;overflow-x:auto;overscroll-behavior-x:contain;
+ padding:9px 0 6px;scrollbar-width:thin;min-height:227px
+}
+.reading-range-bars{
+ display:flex;align-items:stretch;gap:8px;width:100%;min-width:480px;height:206px
+}
+.reading-range-scroll.compact .reading-range-bars{min-width:910px;gap:5px}
+.period-page-bar{
+ display:flex;align-items:center;flex-direction:column;justify-content:flex-end;
+ flex:1;min-width:19px;gap:5px;text-align:center;height:100%;
+ color:var(--muted);font-variant-numeric:tabular-nums;
+}
+.period-page-bar b{font-size:.65rem;font-weight:850;color:var(--green2);min-height:13px}
+.period-page-bar small{font-size:.57rem;white-space:nowrap}
+.period-page-bar-track{
+ height:160px;width:100%;display:flex;align-items:flex-end;justify-content:center;
+ border-bottom:1px solid var(--line)
+}
+.period-page-bar-track i{
+ width:70%;max-width:32px;min-height:3px;border-radius:7px 7px 2px 2px;
+ background:linear-gradient(180deg,#77ccb1,#0d7068)
+}
+.reading-day-summary{display:grid;gap:8px}
+.reading-day-total{
+ padding:15px;border-radius:15px;
+ background:var(--mint);color:var(--green2);
+ display:flex;align-items:baseline;gap:6px
+}
+.reading-day-total b{font-size:1.75rem;font-weight:950}
+.reading-day-total span{font-size:.75rem;font-weight:850}
+.reading-day-book{
+ display:grid;grid-template-columns:45px minmax(0,1fr) auto;
+ gap:10px;align-items:center;border:1px solid var(--line);
+ border-radius:12px;padding:8px 10px;background:var(--surface)
+}
+.reading-day-book .cover{width:43px;height:60px;aspect-ratio:auto;border-radius:7px}
+.reading-day-book>div:nth-child(2){display:grid;gap:4px;min-width:0}
+.reading-day-book>div b{font-size:.78rem;overflow-wrap:anywhere}
+.reading-day-book small{font-size:.66rem;color:var(--muted)}
+.reading-day-book strong{font-size:.74rem;white-space:nowrap;color:var(--green2)}
+@media(max-width:390px){
+ .reading-day-book{grid-template-columns:37px minmax(0,1fr) auto;gap:7px;padding:7px}
+ .reading-day-book .cover{width:37px;height:52px}
+ .reading-day-book strong{font-size:.68rem}
+ .reading-range-bars{gap:6px}
+ .period-page-bar small{font-size:.53rem}
+}

@@ -1365,13 +1365,54 @@
       Number(Boolean(b.description))-Number(Boolean(a.description))).slice(0,22);
   }
 
+  const PUBLIC_BOOK_SEARCH_URL='https://bek-yordamchi-book-search.onrender.com/api/search';
+  let bookWebSearchStatus='unknown';
+  async function fetchWebBookCandidates(query){
+    const q=String(query||'').trim().slice(0,110);
+    if(bookMatchKey(q).length<3)return [];
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),15500);
+    try{
+      const response=await fetch(PUBLIC_BOOK_SEARCH_URL+'?q='+encodeURIComponent(q),{
+        signal:controller.signal,mode:'cors',headers:{'accept':'application/json'}
+      });
+      if(!response.ok){
+        bookWebSearchStatus='unavailable';
+        return [];
+      }
+      const data=await response.json();
+      bookWebSearchStatus=data.searchAvailable?'ok':'limited';
+      if(!Array.isArray(data.results))return [];
+      return data.results.slice(0,14).map(x=>({
+        title:String(x.title||'').slice(0,160),
+        author:String(x.author||'').slice(0,160),
+        publisher:String(x.publisher||'').slice(0,150),
+        description:String(x.description||'').slice(0,1550),
+        cover:httpsImage(x.cover),
+        pages:Math.min(10000,Math.max(0,Number(x.pages)||0)),
+        isbn:validIsbn(normalizedIsbn(x.isbn))?normalizedIsbn(x.isbn):'',
+        category:'',
+        year:Number(x.year||0)||0,
+        source:String(x.source||'Internet sahifasi').slice(0,100),
+        sourceUrl:/^https:\/\//i.test(String(x.sourceUrl||''))?String(x.sourceUrl).slice(0,800):'',
+        verifiedSource:Boolean(x.verifiedSource),
+        isWebResult:true
+      })).filter(x=>x.title&&searchQuality(q,x)>=50);
+    }catch(_){
+      bookWebSearchStatus='unavailable';
+      return [];
+    }finally{clearTimeout(timeout)}
+  }
+
   async function findCoverCandidates(query){
     const q=cleanCoverText(query).slice(0,130).trim();
     if(bookMatchKey(q).length<3)return [];
     const local=localBookCandidates(q).map(b=>({...b,source:b.source||'Kutubxona'}));
     const terms=catalogVariants(q);
     const variants=terms.length>1?[terms[0],terms[1]]:[terms[0]];
+    bookWebSearchStatus='searching';
     const searches=[
+      fetchWebBookCandidates(q),
       ...variants.map(term=>
         fetchIsbnJson('https://www.googleapis.com/books/v1/volumes?q='+
           encodeURIComponent(term)+'&maxResults=30&printType=books')),
@@ -1382,7 +1423,7 @@
     ];
     // Har bir katalog mustaqil so'raladi. Ulardan biri ishlamasa qolganlari ishlaydi.
     const batches=await Promise.all(searches);
-    const results=[...local];
+    const results=[...local,...(batches[0]||[])];
     const addGoogle=json=>{
       for(const entry of json?.items||[]){
         const v=entry?.volumeInfo||{};
@@ -1412,21 +1453,22 @@
         });
       }
     };
-    variants.forEach((_,i)=>addGoogle(batches[i]));
-    addOpenLib(batches[variants.length]);
+    variants.forEach((_,i)=>addGoogle(batches[i+1]));
     addOpenLib(batches[variants.length+1]);
+    addOpenLib(batches[variants.length+2]);
     const good=mergeCatalogMatches(q,results);
     if(good.length)return good;
     // Muallif yoki qo'shimcha so'zlar bilan yozilgan nom uchun soddaroq izlash.
     const shorter=q.split(/\s+/).slice(0,3).join(' ');
     if(shorter.length>=4 && bookMatchKey(shorter)!==bookMatchKey(q)){
       const fallback=await Promise.all([
+        fetchWebBookCandidates(shorter),
         fetchIsbnJson('https://www.googleapis.com/books/v1/volumes?q='+
           encodeURIComponent(shorter)+'&maxResults=20&printType=books'),
         fetchIsbnJson('https://openlibrary.org/search.json?title='+
           encodeURIComponent(shorter)+'&limit=15&fields=title,author_name,publisher,first_publish_year,number_of_pages_median,isbn,cover_i')
       ]);
-      addGoogle(fallback[0]);addOpenLib(fallback[1]);
+      results.push(...(fallback[0]||[]));addGoogle(fallback[1]);addOpenLib(fallback[2]);
       return mergeCatalogMatches(shorter,results);
     }
     return good;

@@ -1879,7 +1879,11 @@
           '<b>'+row.finished+'</b><span class="bar" style="height:'+percent+'%"></span><span>'+labels[row.month]+'</span></button>';
       }).join('');
     }
-    renderGenreDonut(summary.finished);
+    const readingGenres=state.books.filter(book=>statusOf(book)==='reading' &&
+      Number(book.currentPage||0)>0 &&
+      (book.startedAt?.startsWith(String(year)+'-') ||
+        (book.readingLog||[]).some(entry=>entry.date.startsWith(String(year)+'-'))));
+    renderGenreDonut([...summary.finished,...readingGenres]);
   }
 
   function renderPagesPeriodChart(year,summary,chart){
@@ -1951,7 +1955,7 @@
     if(!total){
       root.style.background='var(--surface2)';
       root.innerHTML='<div class="genre-donut-center"><b>0</b><small>kitob</small></div>';
-      legend.innerHTML='<p class="genre-donut-empty">Bu yilda tugatilgan kitob bo‘yicha janr statistikasi hali yo‘q.</p>';
+      legend.innerHTML='<p class="genre-donut-empty">Bu yil o‘qilgan kitoblar bo‘yicha janr statistikasi hali yo‘q.</p>';
       root.setAttribute('aria-label','Tugatilgan kitoblar hali yo‘q');
       return;
     }

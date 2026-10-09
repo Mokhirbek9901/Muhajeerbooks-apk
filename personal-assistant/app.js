@@ -363,7 +363,7 @@
   function incompleteBook(book){
     if(!book?.title||bookMatchKey(book.title).length<3)return false;
     return !book.author||!book.publisher||!book.category||
-      !book.description||!Number(book.pages)||!book.cover||
+      !book.description||!Number(book.pages)||!Number(book.publishedYear)||!book.cover||
       metadataJob.brokenCovers.has(String(book.id));
   }
   function metadataAttemptHistory(){

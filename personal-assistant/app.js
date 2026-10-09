@@ -1265,7 +1265,7 @@
     const noMarks=raw.replace(/[’‘ʻʼ']/g,'').replace(/'/g,'');
     if(noMarks!==raw)candidates.push(noMarks);
     const cyrillic=/[\u0400-\u052f]/.test(raw);
-    if(cyrillic && normalized!==bookMatchKey(raw.toLowerCase()))candidates.push(normalized);
+    if(cyrillic && normalized!==raw.toLowerCase())candidates.push(normalized);
     // Shovqinli OCR matnida muallif bilan birga kelgan nomni ham izlash.
     return [...new Set(candidates.map(v=>v.trim()).filter(x=>x.length>=3))].slice(0,3);
   }
@@ -1358,19 +1358,43 @@
     return good;
   }
 
+  function externalBookSearchLinks(query){
+    const q=cleanCoverText(query).slice(0,130).trim();
+    if(q.length<3)return '';
+    const sources=[
+      ['Google',q+' kitob muallif nashriyot'],
+      ['Google rasmlar',q+' kitob muqova'],
+      ['Instagram',q+' kitob site:instagram.com'],
+      ['Asaxiy',q+' site:asaxiy.uz kitob'],
+      ['Hilol',q+' site:hilolnashr.uz kitob'],
+      ['Kitobxon',q+' site:kitobxon.com']
+    ];
+    return '<div class="book-web-sources" aria-label="Qo‘shimcha internet qidiruvi">'+
+      '<small>Yana manbalardan izlash (tashqi sahifada ochiladi):</small>'+
+      '<div>'+sources.map(([label,term])=>{
+        const img=label==='Google rasmlar'?'&udm=2':'';
+        const url='https://www.google.com/search?q='+encodeURIComponent(term)+img;
+        return '<a href="'+escapeHtml(url)+'" target="_blank" rel="noopener noreferrer">'+
+          escapeHtml(label)+' ↗</a>';
+      }).join('')+'</div>'+
+      '</div>';
+  }
+
   function showCoverCandidates(results){
     photoCandidates=results;
     const holder=$('photoResults');
     if(!results.length){
-      holder.innerHTML='<p class="photo-empty">Mos kitob topilmadi. Qidiruv matnini o‘zgartirib qayta urinib ko‘ring yoki qo‘lda kiriting.</p>';
+      holder.innerHTML='<p class="photo-empty">Kataloglarda aniq kitob topilmadi. Google, Instagram yoki o‘zbek do‘konlarida kengroq tekshiring.</p>'+
+        externalBookSearchLinks($('photoSearchText').value||$('bookTitle').value);
       return;
     }
     holder.innerHTML='<strong class="photo-results-heading">Topilgan kitoblar — mosini tanlang</strong>'+
       results.map((item,i)=>'<button type="button" class="photo-result" data-photo-result="'+i+'">'+
       (item.cover?'<img loading="lazy" src="'+escapeHtml(item.cover)+'" alt="">':'<span class="photo-result-no-cover">📖</span>')+
       '<span class="photo-result-text"><b>'+escapeHtml(item.title)+'</b><small>'+escapeHtml(item.author||'Muallif noma’lum')+'</small>'+
-      '<small>'+escapeHtml([item.publisher,item.year||''].filter(Boolean).join(' · '))+'</small></span>'+
-      '<span class="photo-result-arrow">›</span></button>').join('');
+      '<small>'+escapeHtml([item.publisher,item.year||'',item.source||'Katalog'].filter(Boolean).join(' · '))+'</small></span>'+
+      '<span class="photo-result-arrow">›</span></button>').join('')+
+      externalBookSearchLinks($('photoSearchText').value||$('bookTitle').value);
   }
 
   async function findCoverByText(text,expectedTicket=photoOperation){
@@ -1496,10 +1520,9 @@
     const holder=$('bookAutoLookupResults');
     bookTitleLookup.candidates=matches;
     if(!matches.length){
-      const url='https://www.google.com/search?q='+encodeURIComponent(query+' kitob muallif nashriyot');
-      holder.innerHTML='<div class="book-auto-empty">Ishonchli mos kitob kataloglardan topilmadi. '+
-        'Ma’lumotni qo‘lda to‘ldirishingiz mumkin. '+
-        '<a href="'+escapeHtml(url)+'" target="_blank" rel="noopener noreferrer">Internetda kengroq izlash ↗</a></div>';
+      holder.innerHTML='<div class="book-auto-empty">Kataloglarda mos nashr aniqlanmadi. '+
+        'Google, Instagram va o‘zbek do‘konlarini ham tekshiring. Ma’lumotni qo‘lda saqlash mumkin.</div>'+
+        externalBookSearchLinks(query);
       holder.hidden=false;
       return;
     }
@@ -1510,9 +1533,9 @@
         '<span class="book-auto-result-cover book-auto-cover-placeholder" aria-hidden="true">📚</span>')+
       '<span class="book-auto-result-copy"><strong>'+escapeHtml(book.title)+'</strong>'+
       '<small>'+escapeHtml(book.author||'Muallif ko‘rsatilmagan')+'</small>'+
-      '<em>'+escapeHtml([book.publisher,book.year||''].filter(Boolean).join(' · ')||'Nashr ma’lumoti yo‘q')+'</em></span>'+
+      '<em>'+escapeHtml([book.publisher,book.year||'',book.source||'Katalog'].filter(Boolean).join(' · '))+'</em></span>'+
       '<span class="book-auto-result-action">Tanlash</span></button>'
-    ).join('');
+    ).join('')+externalBookSearchLinks(query);
     holder.hidden=false;
   }
 

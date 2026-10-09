@@ -416,6 +416,13 @@
         date:entry.date,page:Math.max(0,Math.round(Number(entry.page)||0)),
         readPages:entry.readPages===undefined?null:Math.max(0,Math.round(Number(entry.readPages)||0))
       })).sort((a,b)=>a.date.localeCompare(b.date));
+    // Dastlab yuklangan tarixiy kitoblarda boshlanish=0 va tugash=jami sahifa
+    // avtomatik yozilgan edi. Buni "o‘sha kuni butun kitob o‘qilgan" demaymiz.
+    const importedHistory=String(book.id||'').startsWith('history-') &&
+      entries.length===2 && entries.every(e=>e.readPages===null) &&
+      entries[0].page===0 && entries[0].date===book.startedAt &&
+      entries[1].date===book.finishedAt && entries[1].page===Number(book.pages||0);
+    if(importedHistory)return new Map();
     const byDay=new Map();
     let previousMax=0;
     for(const entry of entries){
@@ -1668,7 +1675,11 @@
     $('statsFinished').textContent=summary.finished.length;
     $('statsReading').textContent=summary.activityDays.length;
     $('statsWishlist').textContent=summary.pages.toLocaleString('en-US');
-    $('statsPages').textContent=summary.pages.toLocaleString('en-US');
+    const pageDays=dailyReadingPages();
+    const yearRecords=[...pageDays.entries()].filter(([date,data])=>
+      date.startsWith(String(year)+'-')&&data.pages>0);
+    $('statsPages').textContent=(yearRecords.length?
+      Math.max(...yearRecords.map(([,data])=>data.pages)):0)+' sahifa';
     $('statsTodayPages').textContent=pagesReadOnDate(today())+' sahifa';
     $('statsAvgPagesPerDay').textContent=(summary.activityDays.length
       ?Math.round(summary.pages/summary.activityDays.length):0)+' sahifa';

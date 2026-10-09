@@ -1500,7 +1500,10 @@
     photoCandidates=results;
     const holder=$('photoResults');
     if(!results.length){
-      holder.innerHTML='<p class="photo-empty">Kataloglarda aniq kitob topilmadi. Google, Instagram yoki o‘zbek do‘konlarida kengroq tekshiring.</p>'+
+      holder.innerHTML='<p class="photo-empty">'+
+        (bookWebSearchStatus==='unavailable'?'Veb-qidiruv xizmatiga ulanishda uzilish bo‘ldi.':
+        'Ochiq katalog va veb natijalaridan aniq kitobni ajratishning imkoni bo‘lmadi.')+
+        ' Google, Instagram yoki o‘zbek do‘konlarida kengroq tekshiring.</p>'+
         externalBookSearchLinks($('photoSearchText').value||$('bookTitle').value);
       return;
     }
@@ -1509,8 +1512,10 @@
       (item.cover?'<img loading="lazy" src="'+escapeHtml(item.cover)+'" alt="">':'<span class="photo-result-no-cover">📖</span>')+
       '<span class="photo-result-text"><b>'+escapeHtml(item.title)+'</b><small>'+escapeHtml(item.author||'Muallif noma’lum')+'</small>'+
       '<small>'+escapeHtml([item.publisher,item.year||'',item.source||'Katalog'].filter(Boolean).join(' · '))+'</small></span>'+
-      '<span class="photo-result-arrow">›</span></button>').join('')+
-      externalBookSearchLinks($('photoSearchText').value||$('bookTitle').value);
+      '<span class="photo-result-arrow">›</span></button>'+
+      (item.sourceUrl?'<a class="book-search-original-link" href="'+escapeHtml(item.sourceUrl)+
+        '" target="_blank" rel="noopener noreferrer">Manbani tekshirish: '+escapeHtml(item.source||'Veb sahifa')+' ↗</a>':'')
+      ).join('')+externalBookSearchLinks($('photoSearchText').value||$('bookTitle').value);
   }
 
   async function findCoverByText(text,expectedTicket=photoOperation){
@@ -1629,7 +1634,8 @@
     for(const book of candidates){
       const score=titleMatchScore(query,book);
       if(score<60)continue;
-      const key=bookMatchKey(book.title)+'|'+bookMatchKey(book.author||'');
+      const key=bookMatchKey(book.title)+'|'+bookMatchKey(book.author||'')+
+        '|'+(book.isbn||book.sourceUrl||book.publisher||'').toString().toLowerCase().slice(0,70);
       if(!key.trim())continue;
       const previous=unique.get(key);
       // Mavjud katalog nashrida yaxshiroq tavsif va muqova bo‘lishi mumkin.
@@ -1649,8 +1655,11 @@
     const holder=$('bookAutoLookupResults');
     bookTitleLookup.candidates=matches;
     if(!matches.length){
-      holder.innerHTML='<div class="book-auto-empty">Kataloglarda mos nashr aniqlanmadi. '+
-        'Google, Instagram va o‘zbek do‘konlarini ham tekshiring. Ma’lumotni qo‘lda saqlash mumkin.</div>'+
+      holder.innerHTML='<div class="book-auto-empty">'+
+        (bookWebSearchStatus==='unavailable'?'Veb-qidiruv serveriga hozir ulanib bo‘lmadi. Qayta urinib ko‘ring yoki quyidagi tashqi manbalarni oching.':
+        bookWebSearchStatus==='limited'?'Ochiq veb-qidiruvdan hozir natija olinmadi. Boshqa manbadan tekshiring.':
+        'Veb va kitob kataloglarida bu nom uchun ishonchli nashr ajratib bo‘lmadi. Tashqi manbalardan tekshiring.')+
+        ' Qo‘lda to‘ldirib saqlash mumkin.</div>'+
         externalBookSearchLinks(query);
       holder.hidden=false;
       return;
@@ -1663,7 +1672,9 @@
       '<span class="book-auto-result-copy"><strong>'+escapeHtml(book.title)+'</strong>'+
       '<small>'+escapeHtml(book.author||'Muallif ko‘rsatilmagan')+'</small>'+
       '<em>'+escapeHtml([book.publisher,book.year||'',book.source||'Katalog'].filter(Boolean).join(' · '))+'</em></span>'+
-      '<span class="book-auto-result-action">Tanlash</span></button>'
+      '<span class="book-auto-result-action">'+(book.isWebResult&&!book.verifiedSource?'Tekshirish':'Tanlash')+'</span></button>'+
+      (book.sourceUrl?'<a class="book-search-original-link" href="'+escapeHtml(book.sourceUrl)+
+        '" target="_blank" rel="noopener noreferrer">Asl manba: '+escapeHtml(book.source||'Kitob sahifasi')+' ↗</a>':'')
     ).join('')+externalBookSearchLinks(query);
     holder.hidden=false;
   }
@@ -1674,7 +1685,7 @@
     if(isEdit && !explicit)return false;
     const typed=$('bookTitle').value.trim();
     const score=titleMatchScore(typed,book);
-    if(!explicit && score!==100)return false;
+    if(!explicit && (score!==100 || (book.isWebResult && !book.verifiedSource)))return false;
     if(!explicit && bookTitleLookup.manuallyEdited.has('bookTitle'))return false;
     if(explicit && !isEdit){
       $('bookTitle').value=String(book.title||typed);
@@ -1728,7 +1739,8 @@
         bookMatchKey($('bookTitle').value)!==bookMatchKey(query))return;
       const matches=filterTitleMatches(query,candidates);
       showTitleAutoMatches(matches,query);
-      const exact=matches.filter(book=>book.titleScore===100);
+      const exact=matches.filter(book=>book.titleScore===100&&
+        !(book.isWebResult&&!book.verifiedSource));
       const authorTyped=bookMatchKey($('bookAuthor').value);
       const sameAuthor=authorTyped?exact.filter(b=>bookMatchKey(b.author)===authorTyped):[];
       // Bir xil nomli manbalar bitta muallifga tegishli bo'lsa eng to'liq nashrni tanlash.

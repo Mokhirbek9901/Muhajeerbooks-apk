@@ -7,6 +7,24 @@
   const qsa = (selector, root=document) => [...root.querySelectorAll(selector)];
   const nowYear = new Date().getFullYear();
 
+  // Apple iOS Safari / home-screen PWA: pinch and double-tap must not magnify
+  // the entire interface. Single-finger scroll and ordinary taps still work.
+  function disableAppZoom(){
+    const stopZoom=event=>{
+      if(event.cancelable)event.preventDefault();
+    };
+    for(const eventName of ['gesturestart','gesturechange','gestureend']){
+      document.addEventListener(eventName,stopZoom,{passive:false});
+    }
+    document.addEventListener('touchmove',event=>{
+      if(event.touches && event.touches.length>1 && event.cancelable){
+        event.preventDefault();
+      }
+    },{passive:false});
+    document.addEventListener('dblclick',stopZoom,{passive:false});
+  }
+  disableAppZoom();
+
   const DEFAULT_CATEGORIES = ['Roman','Diniy','Tarixiy','Psixologiya','Motivatsiya','Shaxsiy rivojlanish','Detektiv','Badiiy adabiyot'];
 
   // Mohirbekning avval o‘qib bo‘lgan kitoblari. Tugatilgan sana aniq

@@ -1157,7 +1157,7 @@
     try{
       await Promise.race([
         loadScannerLibrary(),
-        new Promise((_,reject)=>setTimeout(()=>reject(new Error('scan timeout')),6500))
+        new Promise((_,reject)=>setTimeout(()=>reject(new Error('scan timeout')),3800))
       ]);
       host=document.createElement('div');
       host.id='photo-barcode-reader';
@@ -1168,7 +1168,7 @@
         [F.EAN_13,F.CODE_128,F.QR_CODE],verbose:false});
       const value=await Promise.race([
         scanner.scanFile(file,true),
-        new Promise((_,reject)=>setTimeout(()=>reject(new Error('barcode not found')),6000))
+        new Promise((_,reject)=>setTimeout(()=>reject(new Error('barcode not found')),4000))
       ]);
       const isbn=normalizedIsbn(value);
       return validIsbn(isbn)?isbn:'';
@@ -1482,7 +1482,7 @@
     setPhotoStatus('Kitoblar kataloglari tekshirilmoqda...');
     try{
       const options=lines.length>1
-        ?[lines.slice(0,2).join(' '),...lines.slice(0,3)]
+        ?[lines[0],lines[1],lines.slice(0,2).join(' '),lines[2]]
         :[q];
       if(!options.includes(q)&&options.length<4)options.push(q);
       const unique=[...new Set(options.map(x=>cleanCoverText(x)).filter(x=>x.length>=3))].slice(0,4);

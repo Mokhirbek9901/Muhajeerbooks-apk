@@ -168,6 +168,23 @@
         <label class="year-select-wrap"><span>Yil</span><select id="statsYear" aria-label="Statistika yili"></select></label>
       </div>
 
+      <div class="stats-time-control">
+        <div class="stats-period-switch" id="statsPeriodSwitch" role="group" aria-label="Grafik davrini tanlash">
+          <button type="button" class="active" data-stats-period="year">Yil</button>
+          <button type="button" data-stats-period="month">Oy</button>
+          <button type="button" data-stats-period="day">Kun</button>
+          <button type="button" data-stats-period="all">Jami</button>
+        </div>
+        <div class="stats-period-picker">
+          <label id="statsMonthPicker" hidden>Oy<select id="statsPeriodMonth" aria-label="Statistika oyi">
+            <option value="0">Yanvar</option><option value="1">Fevral</option><option value="2">Mart</option>
+            <option value="3">Aprel</option><option value="4">May</option><option value="5">Iyun</option>
+            <option value="6">Iyul</option><option value="7">Avgust</option><option value="8">Sentabr</option>
+            <option value="9">Oktabr</option><option value="10">Noyabr</option><option value="11">Dekabr</option>
+          </select></label>
+          <label id="statsDayPicker" hidden>Kun<input type="date" id="statsPeriodDay" aria-label="Statistika kuni"></label>
+        </div>
+      </div>
       <article class="stats-highlight">
         <div>
           <span class="stats-highlight-eyebrow" id="statsYearLabel">Yillik natija</span>

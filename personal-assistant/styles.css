@@ -1425,3 +1425,27 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 @media(max-width:345px){
  .book-auto-result-action{grid-column:2;justify-self:start}
 }
+
+
+/* LIVE WEB SEARCH v23 */
+.book-search-original-link{
+  display:inline-flex;align-items:center;gap:5px;
+  margin:0 2px 6px;padding:5px 8px 7px;
+  border-left:2px solid var(--green2);
+  color:var(--green2);font-weight:850;font-size:.68rem;line-height:1.4;
+  overflow-wrap:anywhere;text-decoration:underline;text-underline-offset:2px;
+}
+.book-search-original-link:hover{background:var(--mint);border-radius:5px}
+.book-search-original-link:focus-visible{outline:2px solid var(--green2);outline-offset:3px}
+.book-auto-results>.book-search-original-link{
+  width:max-content;max-width:100%;margin:-5px 4px 6px 56px
+}
+.book-auto-result:has(+.book-search-original-link){margin-bottom:1px}
+.photo-results>.book-search-original-link{
+  display:flex;width:max-content;max-width:100%;
+  margin:0 4px 8px 8px;padding:6px 9px
+}
+@media(max-width:430px){
+  .book-auto-results>.book-search-original-link{margin-left:45px;font-size:.64rem}
+  .photo-results>.book-search-original-link{font-size:.64rem}
+}

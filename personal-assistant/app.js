@@ -450,8 +450,9 @@
     // Mahalliy to‘liq nashr bo‘lsa internet javobini kutish shart emas.
     let match=selectMetadataCandidate(book,records);
     const wantCover=!book.cover||metadataJob.brokenCovers.has(String(book.id));
+    const broken=metadataJob.brokenCovers.has(String(book.id));
     const localComplete=Boolean(match?.author&&match?.publisher&&match?.pages&&match?.description&&
-      (!wantCover||match?.cover));
+      (!wantCover||match?.cover)&&!broken);
     if(!localComplete){
       const remote=await findCoverCandidates(title);
       records=records.concat(remote.filter(x=>x.source!=='shaxsiy kutubxona'));
@@ -489,13 +490,29 @@
       }
       changed=true;
     }
-    if(wantCover && match.cover &&
-      !/^data:image\//i.test(String(book.cover||'')) &&
-      await verifyBookCover(match.cover)){
-      if(!book.cover || metadataJob.brokenCovers.has(String(book.id))){
-        book.cover=match.cover;
-        metadataJob.brokenCovers.delete(String(book.id));
-        changed=true;
+    if(wantCover && !/^data:image\//i.test(String(book.cover||''))){
+      const covers=[match,...records].filter(x=>x?.cover &&
+        bookMatchKey(x.title)===bookMatchKey(book.title) &&
+        authorMatchesMetadata(book.author,x.author) &&
+        !(x.isWebResult&&!x.verifiedSource) &&
+        // Rasm aynan shu nashrga tegishli bo‘lishi kerak.
+        (!book.publisher||!x.publisher||
+          bookMatchKey(book.publisher)===bookMatchKey(x.publisher)||x.isSeed)
+      );
+      const tested=new Set();
+      for(const candidate of covers){
+        const url=candidate.cover;
+        if(tested.has(url)||url===book.cover&&broken)continue;
+        tested.add(url);
+        if(await verifyBookCover(url)){
+          if(!book.cover||metadataJob.brokenCovers.has(String(book.id))){
+            book.cover=url;
+            metadataJob.brokenCovers.delete(String(book.id));
+            changed=true;
+          }
+          break;
+        }
+        if(tested.size>=5)break;
       }
     }
     return changed;

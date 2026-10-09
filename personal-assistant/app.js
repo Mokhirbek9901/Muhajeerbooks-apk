@@ -1371,7 +1371,7 @@
     const q=String(query||'').trim().slice(0,110);
     if(bookMatchKey(q).length<3)return [];
     const controller=new AbortController();
-    const timeout=setTimeout(()=>controller.abort(),15500);
+    const timeout=setTimeout(()=>controller.abort(),52000);
     try{
       const response=await fetch(PUBLIC_BOOK_SEARCH_URL+'?q='+encodeURIComponent(q),{
         signal:controller.signal,mode:'cors',headers:{'accept':'application/json'}
@@ -1526,7 +1526,7 @@
       showCoverCandidates([]);return;
     }
     $('photoFindBtn').disabled=true;
-    setPhotoStatus('Kitoblar kataloglari tekshirilmoqda...');
+    setPhotoStatus('Kitob kataloglari va ochiq veb sahifalardan qidirilmoqda. Bepul server birinchi so‘rovda 30–60 soniya uyg‘onishi mumkin...');
     try{
       const options=lines.length>1
         ?[lines[0],lines[1],lines.slice(0,2).join(' '),lines[2]]
@@ -1731,8 +1731,12 @@
 
   async function runBookTitleLookup(query,request){
     if(!$('bookDialog').open || bookTitleLookup.request!==request)return;
-    $('bookAutoLookupStatus').textContent='Kitob internet kataloglaridan qidirilmoqda…';
+    $('bookAutoLookupStatus').textContent='Kitob kataloglari va o‘zbekcha veb-saytlardan qidirilmoqda…';
     $('bookAutoLookupResults').hidden=true;
+    const warmup=setTimeout(()=>{
+      if(bookTitleLookup.request===request && $('bookDialog').open)
+        $('bookAutoLookupStatus').textContent='Internet qidiruv serveri uyg‘onmoqda. Birinchi qidiruv 30–60 soniya olishi mumkin, kuting…';
+    },8500);
     try{
       const candidates=await findCoverCandidates(query);
       if(bookTitleLookup.request!==request || !$('bookDialog').open ||
@@ -1760,6 +1764,8 @@
       if(bookTitleLookup.request!==request)return;
       $('bookAutoLookupStatus').textContent='Qidiruvda xatolik. Internetni tekshiring; kitobni qo‘lda saqlash mumkin.';
       $('bookAutoLookupResults').hidden=true;
+    }finally{
+      clearTimeout(warmup);
     }
   }
 

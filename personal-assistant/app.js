@@ -458,16 +458,16 @@
   }
 
   function currentReadingStreak(day=today()){
-    const active=readingActivity();
+    const active=dailyReadingPages();
     const start=parseDay(day);
     if(!start) return 0;
-    // Bugungi qayd bo‘lmasa, kechagi uzilmagan ketma-ketlik ham ko‘rinadi.
-    if(!active.has(day))start.setDate(start.getDate()-1);
+    // Izchillikka faqat haqiqiy o‘qilgan sahifalari bor kunlar kiradi.
+    if(!(active.get(day)?.pages>0))start.setDate(start.getDate()-1);
     let days=0;
     for(let index=0;index<3660;index++){
       const date=[start.getFullYear(),String(start.getMonth()+1).padStart(2,'0'),
         String(start.getDate()).padStart(2,'0')].join('-');
-      if(!active.has(date))break;
+      if(!(active.get(date)?.pages>0))break;
       days++;
       start.setDate(start.getDate()-1);
     }
@@ -1632,19 +1632,22 @@
     return state.books.filter(b=>b.finishedAt?.startsWith(String(year)+'-'));
   }
 
-  function annualReadingSummary(year,activity=readingActivity()){
+  function annualReadingSummary(year,activity=readingActivity(),dayPages=dailyReadingPages()){
     const started=state.books.filter(b=>b.startedAt?.startsWith(String(year)+'-'));
     const finished=booksCompletedInYear(year);
-    const activityDays=activityYearDays(activity,year);
+    const activityDays=[...dayPages.entries()].filter(([date,data])=>
+      date.startsWith(String(year)+'-') && data.pages>0).map(([date])=>date);
     const monthTotals=Array.from({length:12},(_,month)=>{
       const prefix=String(year)+'-'+String(month+1).padStart(2,'0')+'-';
       const finishedMonth=finished.filter(b=>b.finishedAt.startsWith(prefix));
       const startedMonth=started.filter(b=>b.startedAt.startsWith(prefix));
-      return {month,finished:finishedMonth.length,started:startedMonth.length,days:activityDays.filter(d=>d.startsWith(prefix)).length};
+      const days=activityDays.filter(d=>d.startsWith(prefix));
+      const pages=days.reduce((sum,d)=>sum+(dayPages.get(d)?.pages||0),0);
+      return {month,finished:finishedMonth.length,started:startedMonth.length,days:days.length,pages};
     });
     return {
       year,started,finished,activityDays,monthTotals,
-      pages:finished.reduce((sum,b)=>sum+(Number(b.pages)||0),0),
+      pages:monthTotals.reduce((sum,x)=>sum+x.pages,0),
       streak:longestReadingStreak(activityDays)
     };
   }
@@ -1666,6 +1669,9 @@
     $('statsReading').textContent=summary.activityDays.length;
     $('statsWishlist').textContent=summary.pages.toLocaleString('en-US');
     $('statsPages').textContent=summary.pages.toLocaleString('en-US');
+    $('statsTodayPages').textContent=pagesReadOnDate(today())+' sahifa';
+    $('statsAvgPagesPerDay').textContent=(summary.activityDays.length
+      ?Math.round(summary.pages/summary.activityDays.length):0)+' sahifa';
     const rated=summary.finished.filter(b=>Number(b.rating)>0);
     const avg=rated.length?rated.reduce((s,b)=>s+Number(b.rating),0)/rated.length:0;
     $('statsRating').textContent=rated.length?avg.toFixed(1)+' / 5':'—';
@@ -1690,9 +1696,22 @@
       chart.innerHTML=summary.monthTotals.map(row=>
         '<button type="button" class="monthly-result" data-calendar-month="'+row.month+'">'+
         '<span class="monthly-result-month">'+labels[row.month]+'</span>'+
-        '<span class="monthly-result-details">'+row.started+' boshlangan · '+row.days+' faol kun</span>'+
+        '<span class="monthly-result-details">'+row.days+' faol kun · '+row.pages+' sahifa</span>'+
         '<b>'+row.finished+' tugatilgan</b><span aria-hidden="true">›</span></button>'
       ).join('');
+    } else if(statTab==='pages'){
+      $('statsChartTitle').textContent='Oylik o‘qilgan sahifalar';
+      $('statsChartEyebrow').textContent=year+'-YIL · 12 OY · SAHIFALAR';
+      const max=Math.max(1,...summary.monthTotals.map(x=>x.pages));
+      const labels=['Yan','Fev','Mar','Apr','May','Iyun','Iyul','Avg','Sen','Okt','Noy','Dek'];
+      chart.className='bar-chart pages-chart';
+      chart.innerHTML=summary.monthTotals.map(row=>{
+        const percent=Math.max(row.pages?9:3,Math.round(row.pages/max*100));
+        const title=labels[row.month]+': '+row.pages+' sahifa o‘qilgan';
+        return '<button type="button" class="month-bar" data-calendar-month="'+row.month+
+          '" aria-label="'+title+'" title="'+title+'">'+
+          '<b>'+row.pages+'</b><span class="bar" style="height:'+percent+'%"></span><span>'+labels[row.month]+'</span></button>';
+      }).join('');
     } else {
       $('statsChartTitle').textContent='Oylar bo‘yicha tugatilgan kitoblar';
       $('statsChartEyebrow').textContent=year+'-YIL · YILLIK KO‘RSATKICH';
@@ -1772,6 +1791,7 @@
   function renderYearOverview(year,summary,activity){
     const shortMonths=['Yanvar','Fevral','Mart','Aprel','May','Iyun',
       'Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'];
+    const dayPages=dailyReadingPages();
     $('calendarYearOverview').innerHTML=summary.monthTotals.map(row=>{
       const month=row.month;
       const last=new Date(year,month+1,0).getDate();
@@ -1782,22 +1802,24 @@
       for(let day=1;day<=last;day++){
         const key=prefix+String(day).padStart(2,'0');
         const events=activity.get(key);
+        const pages=dayPages.get(key)?.pages||0;
         const cls=['year-mini-day'];
-        if(events?.books.size)cls.push('read');
+        if(pages>0)cls.push('read');
+        if(pages>=20)cls.push('read-strong');
         if(events?.finished.size)cls.push('finish');
         if(key===today())cls.push('today');
-        const title=day+'-'+shortMonths[month]+': '+(
-          events?.finished.size?'Kitob tugatilgan':events?.books.size?'Mutolaa qaydi':'Qayd yo‘q');
+        const title=day+'-'+shortMonths[month]+': '+pages+' sahifa'+
+          (events?.finished.size?' · Kitob tugatilgan':'');
         days+='<span class="'+cls.join(' ')+'" title="'+title+'">'+day+'</span>';
       }
       const total=offset+last;
       for(let pad=total;pad<42;pad++)days+='<span class="year-mini-day empty" aria-hidden="true"></span>';
       return '<button type="button" class="year-calendar-month" data-year-month="'+month+
-        '" aria-label="'+year+'-yil '+shortMonths[month]+': '+row.days+' faol kun, '+row.finished+' ta tugatilgan">'+
+        '" aria-label="'+year+'-yil '+shortMonths[month]+': '+row.pages+' sahifa, '+row.days+' faol kun, '+row.finished+' ta tugatilgan">'+
         '<span class="year-calendar-month-heading"><b>'+shortMonths[month]+'</b><span>'+row.days+' faol kun</span></span>'+
         '<span class="year-mini-weekdays" aria-hidden="true"><span>D</span><span>S</span><span>Ch</span><span>P</span><span>J</span><span>Sh</span><span>Y</span></span>'+
         '<span class="year-mini-grid" aria-hidden="true">'+days+'</span>'+
-        '<span class="year-calendar-month-footer"><b>'+row.finished+' tugatilgan</b><span>Oyni ochish ↗</span></span>'+
+        '<span class="year-calendar-month-footer"><b>'+row.pages+' sahifa</b><span>'+row.finished+' kitob ✓</span></span>'+
         '</button>';
     }).join('');
   }
@@ -1824,6 +1846,8 @@
     $('calMonthActive').textContent=yearMode?summary.activityDays.length:monthData.days;
     $('calMonthFinished').textContent=yearMode?summary.finished.length:monthData.finished;
     $('calStreak').textContent=summary.streak;
+    $('calReadPages').textContent=yearMode?summary.pages:monthData.pages;
+    $('calPagesPeriod').textContent=yearMode?year+'-yil':'Tanlangan oy';
     $('calActivePeriod').textContent=yearMode?year+'-yil':'Tanlangan oy';
     $('calFinishedPeriod').textContent=yearMode?'Shu yilda':'Tanlangan oy';
     $('calStreakPeriod').textContent=year+'-yil';
@@ -1832,6 +1856,7 @@
       renderYearOverview(year,summary,activity);
       return;
     }
+    const dayPages=dailyReadingPages();
     const first=new Date(year,month,1),last=new Date(year,month+1,0);
     const offset=(first.getDay()+6)%7;
     const todayKey=today(),prefix=year+'-'+String(month+1).padStart(2,'0')+'-';
@@ -1840,17 +1865,19 @@
     for(let i=0;i<offset;i++)html+='<span class="day-cell empty" aria-hidden="true"></span>';
     for(let day=1;day<=last.getDate();day++){
       const key=prefix+String(day).padStart(2,'0'),events=activity.get(key);
+      const readPages=dayPages.get(key)?.pages||0;
       const finished=Boolean(events?.finished.size);
-      const active=Boolean(events?.books.size);
+      const active=readPages>0;
       const classes=['day-cell'];
       if(active)classes.push('read');
+      if(readPages>=20)classes.push('read-strong');
       if(finished)classes.push('finish');
       if(key===todayKey)classes.push('today');
       if(key===selectedCalendarDay)classes.push('selected');
-      const aria=key+' — '+(finished?'Kitob tugatilgan':active?'Mutolaa qayd qilingan':'Qayd yo‘q');
+      const aria=key+' — '+readPages+' sahifa o‘qilgan'+(finished?', kitob tugatilgan':'');
       html+='<button type="button" class="'+classes.join(' ')+'" data-calendar-day="'+key+
         '" aria-label="'+aria+'" aria-pressed="'+(key===selectedCalendarDay)+'">'+day+
-        (active?'<i class="day-indicator" aria-hidden="true"></i>':'')+'</button>';
+        (active?'<small class="day-pages" aria-hidden="true">'+readPages+'</small>':'')+'</button>';
     }
     const total=offset+last.getDate();
     for(let i=total;i<42;i++)html+='<span class="day-cell empty" aria-hidden="true"></span>';
@@ -1870,13 +1897,15 @@
     );
     const holder=$('calendarTodayCard');
     holder.innerHTML='<div class="section-title-row"><div><small>KUN TAFSILOTLARI</small><h2>'+escapeHtml(formatDate(date))+'</h2></div>'+
-      '<span class="day-events-count">'+books.length+' kitob</span></div>'+
+      '<span class="day-events-count">'+pagesReadOnDate(date)+' sahifa · '+books.length+' kitob</span></div>'+
       (books.length?'<div class="calendar-book-events">'+books.map(book=>{
         const notes=[];
         if(book.startedAt===date)notes.push('Mutolaa boshlangan');
         if(book.finishedAt===date)notes.push('Kitob tugatilgan');
         const entry=(book.readingLog||[]).find(x=>x.date===date);
-        if(entry && entry.page>0)notes.push(entry.page+'-sahifagacha qayd');
+        const readPages=dailyBookPages(book).get(date)||0;
+        if(readPages>0)notes.push('Bugun '+readPages+' sahifa o‘qilgan');
+        if(entry && entry.page>0)notes.push(entry.page+'-sahifagacha yetilgan');
         if(!notes.length)notes.push('Mutolaa qaydi');
         return '<button type="button" class="calendar-book-event" data-book-open="'+escapeHtml(book.id)+'">'+
           coverHtml(book)+'<span><b>'+escapeHtml(book.title)+'</b><small>'+escapeHtml(book.author||'Muallif kiritilmagan')+'</small>'+

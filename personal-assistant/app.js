@@ -1122,18 +1122,65 @@
       .replace(/\s+/g,' ').trim();
   }
 
-  function extractCoverSearchTerm(text){
-    const lines=String(text||'').split(/\r?\n/)
+  function coverSearchLines(text){
+    return [...new Set(String(text||'').split(/\r?\n/)
       .map(cleanCoverText)
-      .filter(line=>line.length>=3 && line.length<=90 &&
-        !/^(isbn|www\.|http|nashriyot|publish|kitoblar|copyright|©)/i.test(line) &&
-        /[\p{L}]{3}/u.test(line));
-    const unique=[...new Set(lines)];
-    return unique.slice(0,3).join('\n').slice(0,135);
+      .filter(line=>line.length>=3&&line.length<=95&&
+        /[\p{L}]{3}/u.test(line)&&
+        !/^(isbn|www[.]|https?[:]|nashriyot|publish|copyright|kitoblar|@|©)/i.test(line)&&
+        !/^[\d\s.,:()-]+$/.test(line))
+    )].slice(0,9);
+  }
+
+  function extractCoverSearchTerm(text){
+    // OCR satrlarini saqlaymiz: kitob nomi / muallif alohida qidiriladi.
+    return coverSearchLines(text).slice(0,4).join('\n').slice(0,210);
+  }
+
+  async function scanPhotoIsbn(file){
+    // Qurilmada BarcodeDetector mavjud bo‘lsa serverga rasm uzatilmaydi.
+    if(typeof window.BarcodeDetector==='function'){
+      let bitmap=null;
+      try{
+        const reader=new window.BarcodeDetector({formats:['ean_13','code_128','ean_8']});
+        bitmap=await createImageBitmap(file);
+        const found=await reader.detect(bitmap);
+        for(const entry of found||[]){
+          const isbn=normalizedIsbn(entry.rawValue);
+          if(validIsbn(isbn))return isbn;
+        }
+      }catch(_){}
+      finally{try{bitmap?.close();}catch(_){}}
+    }
+    // iOS va boshqa brauzerlarda ISBN foto-skanerlash kutubxonasi.
+    let scanner=null,host=null;
+    try{
+      await Promise.race([
+        loadScannerLibrary(),
+        new Promise((_,reject)=>setTimeout(()=>reject(new Error('scan timeout')),6500))
+      ]);
+      host=document.createElement('div');
+      host.id='photo-barcode-reader';
+      host.style.cssText='position:fixed;left:-9999px;top:0;width:360px;height:260px;overflow:hidden;opacity:.01;pointer-events:none;';
+      document.body.appendChild(host);
+      const F=window.Html5QrcodeSupportedFormats;
+      scanner=new window.Html5Qrcode(host.id,{formatsToSupport:
+        [F.EAN_13,F.CODE_128,F.QR_CODE],verbose:false});
+      const value=await Promise.race([
+        scanner.scanFile(file,true),
+        new Promise((_,reject)=>setTimeout(()=>reject(new Error('barcode not found')),6000))
+      ]);
+      const isbn=normalizedIsbn(value);
+      return validIsbn(isbn)?isbn:'';
+    }catch(_){return '';}
+    finally{
+      if(scanner){try{await scanner.clear();}catch(_){}}
+      host?.remove();
+    }
   }
 
   async function loadCoverPhoto(file){
-    if(!file) return;
+    if(!file)return;
     if(!file.type.startsWith('image/')){
       setPhotoStatus('Faqat rasm faylini tanlang.',true);return;
     }
@@ -1145,49 +1192,76 @@
     photoCandidates=[];
     $('photoResults').replaceChildren();
     $('photoSearchText').value='';
-    // OCR sekin yuklansa ham foydalanuvchining matn bilan qidirish tugmasi faol qoladi.
     $('photoFindBtn').disabled=false;
     photoBusy=true;
     let worker=null;
     setPhotoStatus('Rasm tayyorlanmoqda...');
     try{
       const cover=await compressImage(file);
-      if(ticket!==photoOperation || !$('bookDialog').open) return;
+      if(ticket!==photoOperation||!$('bookDialog').open)return;
       photoOriginalCover=cover;
-      if(!$('bookId').value || !pendingCover){pendingCover=cover;setCoverPreview(pendingCover);}
+      if(!$('bookId').value||!pendingCover){pendingCover=cover;setCoverPreview(pendingCover);}
       $('photoPreview').src=cover;
       $('photoPreviewWrap').hidden=false;
-      setPhotoStatus('Muqovadagi yozuv aniqlanmoqda. Birinchi urinish biroz vaqt olishi mumkin...');
-      await loadPhotoOcrLibrary();
-      if(ticket!==photoOperation || !$('bookDialog').open) return;
-      worker=await window.Tesseract.createWorker(['eng','rus'],1);
-      const result=await worker.recognize(file);
-      if(ticket!==photoOperation || !$('bookDialog').open) return;
-      const raw=String(result?.data?.text||'').trim();
-      const possibleIsbn=raw.match(/(?:97[89][\s-]*)?(?:\d[\s-]*){9}[\dX]/i)?.[0];
-      if(possibleIsbn && validIsbn(normalizedIsbn(possibleIsbn))){
-        const isbn=normalizedIsbn(possibleIsbn);
+      setPhotoStatus('Avval ISBN shtrix-kodi tekshirilmoqda...');
+      const isbn=await scanPhotoIsbn(file);
+      if(ticket!==photoOperation||!$('bookDialog').open)return;
+      if(isbn){
         $('scanIsbnInput').value=isbn;
         $('bookIsbn').value=isbn;
-        setPhotoStatus('Rasmdan ISBN topildi: '+isbn+'. Katalog tekshirilmoqda...');
-        await lookupIsbnAndFill(isbn);
-        return;
+        setPhotoStatus('ISBN '+isbn+' topildi. Kitob haqida ma’lumot qidirilmoqda...');
+        const info=await findIsbnMetadata(isbn);
+        if(ticket!==photoOperation||!$('bookDialog').open)return;
+        if(info?.title){
+          photoCandidates=[{...info,isbn,source:'ISBN katalogi'}];
+          chooseCoverCandidate(0);
+          return;
+        }
+        setPhotoStatus('ISBN saqlandi, ammo katalogda nashr topilmadi. Muqova matni tekshirilmoqda...');
+      }
+      setPhotoStatus('Muqovadagi o‘zbekcha yoki kirill yozuvlar o‘qilmoqda...');
+      await loadPhotoOcrLibrary();
+      if(ticket!==photoOperation||!$('bookDialog').open)return;
+      try{
+        worker=await window.Tesseract.createWorker(['uzb','rus','eng'],1);
+      }catch(_){
+        // Til modellari qurilmada yuklanmasa oddiy OCR ham ishlasin.
+        worker=await window.Tesseract.createWorker(['eng','rus'],1);
+      }
+      const result=await worker.recognize(file);
+      if(ticket!==photoOperation||!$('bookDialog').open)return;
+      const raw=String(result?.data?.text||'').trim();
+      const foundIsbn=raw.match(/97[89](?:[\s-]*\d){10}|(?:\d[\s-]*){9}[\dX]/i)?.[0]||'';
+      const ocrIsbn=normalizedIsbn(foundIsbn);
+      if(!isbn && validIsbn(ocrIsbn)){
+        $('scanIsbnInput').value=ocrIsbn;
+        $('bookIsbn').value=ocrIsbn;
+        const info=await findIsbnMetadata(ocrIsbn);
+        if(ticket!==photoOperation||!$('bookDialog').open)return;
+        if(info?.title){
+          photoCandidates=[{...info,isbn:ocrIsbn,source:'ISBN katalogi'}];
+          chooseCoverCandidate(0);
+          return;
+        }
       }
       const guess=extractCoverSearchTerm(raw);
-      if(photoManualSearchRequested || $('photoSearchText').value.trim())return;
+      if(photoManualSearchRequested||$('photoSearchText').value.trim())return;
       $('photoSearchText').value=guess;
       if(!guess){
-        setPhotoStatus('Rasmdagi yozuvni aniqlab bo‘lmadi. Kitob nomini pastga qo‘lda yozib qidiring.',true);
+        setPhotoStatus('Rasmdagi matn aniq o‘qilmadi. Muqovadan tiniqroq surat olib ko‘ring yoki Google rasmlardan izlang.',true);
+        showCoverCandidates([]);
         return;
       }
-      setPhotoStatus('Matn aniqlandi. Topilgan nomni tekshiring, kerak bo‘lsa tahrirlang.');
+      setPhotoStatus('Muqovadagi satrlar o‘qildi. Internetdan mos kitob qidirilmoqda...');
       await findCoverByText(guess,ticket);
-    }catch(error){
-      if(ticket===photoOperation && $('bookDialog').open && !photoManualSearchRequested)
-        setPhotoStatus('Rasmdagi yozuvni o‘qib bo‘lmadi. Kitob nomini qo‘lda yozib qidiring.',true);
+    }catch(_){
+      if(ticket===photoOperation&&$('bookDialog').open&&!photoManualSearchRequested){
+        setPhotoStatus('Rasmni avtomatik o‘qish ishlamadi. Google va Instagram orqali qidirish tugmalaridan foydalaning.',true);
+        showCoverCandidates([]);
+      }
     }finally{
       if(worker){try{await worker.terminate();}catch(_){}}
-      if(ticket===photoOperation){photoBusy=false;}
+      if(ticket===photoOperation)photoBusy=false;
     }
   }
 
@@ -1398,33 +1472,46 @@
   }
 
   async function findCoverByText(text,expectedTicket=photoOperation){
+    const lines=coverSearchLines(text);
     const q=cleanCoverText(text);
-    if(q.length<3){
-      setPhotoStatus('Qidirish uchun kitob nomini kiriting.',true);return;
+    if(!q||q.length<3){
+      setPhotoStatus('Muqovadagi nomni yozing yoki boshqa surat yuklang.',true);
+      showCoverCandidates([]);return;
     }
     $('photoFindBtn').disabled=true;
-    setPhotoStatus('Google Books va Open Library kataloglaridan mos kitoblar izlanmoqda...');
+    setPhotoStatus('Kitoblar kataloglari tekshirilmoqda...');
     try{
-      let matches=await findCoverCandidates(q);
-      if(!matches.length){
-        const lines=String(text||'').split(/[\r\n]+/)
-          .map(cleanCoverText).filter(line=>line.length>=4);
-        const alternatives=[...new Set([...lines,q.split(/\s+/).slice(0,4).join(' ')])]
-          .filter(part=>part&&part!==q).slice(0,3);
-        for(const part of alternatives){
-          const extra=await findCoverCandidates(part);
-          if(extra.length){matches=extra;break;}
-        }
+      const options=lines.length>1
+        ?[lines.slice(0,2).join(' '),...lines.slice(0,3)]
+        :[q];
+      if(!options.includes(q)&&options.length<4)options.push(q);
+      const unique=[...new Set(options.map(x=>cleanCoverText(x)).filter(x=>x.length>=3))].slice(0,4);
+      const first=await Promise.all(unique.slice(0,2).map(findCoverCandidates));
+      if(expectedTicket!==photoOperation||!$('bookDialog').open)return;
+      let candidates=first.flat();
+      if(!candidates.length && unique.length>2){
+        const second=await Promise.all(unique.slice(2).map(findCoverCandidates));
+        candidates.push(...second.flat());
       }
-      if(expectedTicket!==photoOperation || !$('bookDialog').open) return;
+      if(expectedTicket!==photoOperation||!$('bookDialog').open)return;
+      const uniqueResults=new Map();
+      for(const item of candidates){
+        const key=bookMatchKey(item.title)+'|'+bookMatchKey(item.author||'')+'|'+String(item.isbn||'');
+        if(!uniqueResults.has(key) || (item.cover&&!uniqueResults.get(key)?.cover))
+          uniqueResults.set(key,item);
+      }
+      const matches=[...uniqueResults.values()].sort((a,b)=>Number(b.score||0)-Number(a.score||0)).slice(0,16);
       showCoverCandidates(matches);
       setPhotoStatus(matches.length
-        ?matches.length+' ta variant topildi. To‘g‘ri kitobni tanlang.'
-        :'Kitob topilmadi. Nom yoki muallifni tuzatib qayta urinib ko‘ring.',!matches.length);
+        ?matches.length+' ta mos variant topildi. To‘g‘ri muqova va nashrni tanlang.'
+        :'Kataloglarda mos kitob topilmadi. Google, Instagram va o‘zbek do‘konlarida izlash havolalari quyida.',!matches.length);
     }catch(_){
-      if(expectedTicket===photoOperation) setPhotoStatus('Internetdan qidirib bo‘lmadi. Keyinroq urinib ko‘ring.',true);
+      if(expectedTicket===photoOperation){
+        setPhotoStatus('Internet kataloglari vaqtincha ishlamayapti. Qo‘shimcha qidiruv havolalaridan foydalaning.',true);
+        showCoverCandidates([]);
+      }
     }finally{
-      if(expectedTicket===photoOperation) $('photoFindBtn').disabled=false;
+      if(expectedTicket===photoOperation)$('photoFindBtn').disabled=false;
     }
   }
 

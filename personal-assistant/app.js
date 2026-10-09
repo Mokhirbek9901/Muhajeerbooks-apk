@@ -2508,6 +2508,12 @@
     });
     $('statsPeriodDay').addEventListener('change',event=>{
       if(!event.target.value)return;
+      const chosenYear=Number(event.target.value.slice(0,4));
+      if(!datedReadingYears().includes(chosenYear)){
+        toast('Bu yilda mutolaa qaydlari topilmadi.');
+        renderStats();return;
+      }
+      statsSelectedYear=chosenYear;
       statsPeriodDay=event.target.value;
       statsPeriod='day';statTab='pages';renderStats();
     });
@@ -2574,6 +2580,9 @@
     $('globalSearchBtn').addEventListener('click',()=>{navigate('library');setTimeout(()=>$('bookSearch').focus(),100);});
     $('bellBtn').addEventListener('click',openReminderDialog);
     $('detailMore').addEventListener('click',()=>selectedBookId&&openBookMenu(selectedBookId));
+    document.addEventListener('visibilitychange',()=>{
+      if(document.hidden && readingTimer.bookId)stopReadingTimer(true);
+    });
   }
 
   if('serviceWorker' in navigator){

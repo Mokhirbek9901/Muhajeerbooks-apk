@@ -681,27 +681,69 @@
   function renderBookDetail(){
     const book=state.books.find(b=>b.id===selectedBookId);
     const holder=$('bookDetail');
-    if(!book){ holder.innerHTML='<div class="empty-state"><strong>Kitob topilmadi</strong></div>'; return; }
-    const status=statusOf(book), p=progressOf(book);
-    holder.innerHTML='<div class="detail-top">'+coverHtml(book)+
-      '<div class="detail-meta"><h1>'+escapeHtml(book.title)+'</h1><div class="author">'+escapeHtml(book.author||'Muallif kiritilmagan')+'</div>'+
-      '<div class="meta-tags">'+[book.category,book.publisher,book.publishedYear?String(book.publishedYear):'',book.pages?book.pages+' bet':'',book.isbn?'ISBN '+book.isbn:''].filter(Boolean).map(x=>'<span>'+escapeHtml(x)+'</span>').join('')+'</div>'+
-      '<div class="detail-status-row"><span class="status-pill '+status+'">● '+statusLabel(status)+'</span></div></div></div>'+
-      '<div class="detail-progress"><div class="detail-progress-head"><span>Mutolaa progressi</span><b>'+p+'%</b></div>'+
+    if(!book){holder.innerHTML='<div class="empty-state"><strong>Kitob topilmadi</strong></div>';return;}
+    const status=statusOf(book),p=progressOf(book);
+    const todayPages=dailyBookPages(book).get(today())||0;
+    const totalMinutes=totalReadingMinutes(book);
+    const progress='<div class="detail-progress"><div class="detail-progress-head">'+
+      '<span>Mutolaa progressi</span><b>'+p+'%</b></div>'+
       '<div class="progress-track"><div class="progress-fill" style="width:'+p+'%"></div></div>'+
-      '<div class="detail-pages">Sahifalar: '+(book.currentPage||0)+(book.pages?' / '+book.pages:'')+'</div></div>'+
-      (book.description?'<article class="content-card detail-notes"><h2>Kitob haqida</h2><p>'+escapeHtml(book.description)+'</p></article>':'')+
-      '<div class="detail-date-grid"><div class="detail-date-card"><small>Mutolaa boshlangan sana</small><b>◫ '+(book.startedAt?formatDate(book.startedAt):(status==='finished'?'Sana kiritilmagan':'Boshlanmagan'))+'</b></div>'+
-      '<div class="detail-date-card"><small>Mutolaa tugatilgan sana</small><b>◫ '+(book.finishedAt?formatDate(book.finishedAt):(status==='finished'?'Sana kiritilmagan':'Hali tugatilmagan'))+'</b></div></div>'+
+      '<div class="detail-pages">Sahifalar: '+(book.currentPage||0)+(book.pages?' / '+book.pages:'')+'</div></div>';
+    const tabs='<div class="detail-sections" role="tablist" aria-label="Kitob bo‘limlari">'+
+      [['general','Umumiy'],['history','Tarix'],['notes','Eslatmalar']]
+      .map(([id,name])=>'<button type="button" role="tab" data-detail-tab="'+id+
+        '" class="'+(detailTab===id?'active':'')+'" aria-selected="'+(detailTab===id)+'">'+name+'</button>')
+      .join('')+'</div>';
+    const timerActive=readingTimer.bookId===book.id;
+    const timerElapsed=timerActive?Math.max(0,Math.floor((Date.now()-readingTimer.startedAt)/1000)):0;
+    const clock=String(Math.floor(timerElapsed/60)).padStart(2,'0')+':'+
+      String(timerElapsed%60).padStart(2,'0');
+    const timePanel='<div class="detail-reading-timer"><div class="detail-timer-top">'+
+      '<span class="detail-timer-icon">◷</span>'+
+      '<div><strong>Mutolaa vaqti</strong><small>Bugun '+minutesReadOnDate(today())+
+      ' daqiqa · Shu kitob '+totalMinutes+' daqiqa</small></div>'+
+      '<b id="readingTimerClock">'+clock+'</b></div>'+
+      '<button type="button" class="detail-timer-button'+(timerActive?' running':'')+
+      '" data-reading-timer="'+escapeHtml(book.id)+'">'+
+      (timerActive?'■ To‘xtatish va saqlash':'▶ Vaqtni boshlash')+'</button>'+
+      '<small class="detail-timer-help">Vaqtni to‘xtatganingizda shu kitobning bugungi qaydiga yoziladi.</small></div>';
+    const general=progress+
+      '<div class="detail-reading-numbers">'+
+      '<div><small>Bugun o‘qilgan</small><b>'+todayPages+' sahifa</b></div>'+
+      '<div><small>Jami mutolaa vaqti</small><b>'+totalMinutes+' daqiqa</b></div></div>'+
+      '<div class="detail-date-grid"><div class="detail-date-card"><small>Mutolaa boshlangan sana</small><b>◫ '+
+      (book.startedAt?escapeHtml(formatDate(book.startedAt)):
+        (status==='finished'?'Sana kiritilmagan':'Boshlanmagan'))+'</b></div>'+
+      '<div class="detail-date-card"><small>Mutolaa tugatilgan sana</small><b>◫ '+
+      (book.finishedAt?escapeHtml(formatDate(book.finishedAt)):
+        (status==='finished'?'Sana kiritilmagan':'Hali tugatilmagan'))+'</b></div></div>'+
       readingDurationHtml(book)+
-      '<article class="content-card detail-notes"><div class="section-title-row"><h2>Shaxsiy izoh</h2><button class="text-action" data-edit-book="'+book.id+'">Tahrirlash</button></div>'+
+      (book.description?'<article class="content-card detail-notes"><h2>Kitob haqida</h2><p>'+
+        escapeHtml(book.description)+'</p></article>':'');
+    const diary='<article class="content-card book-timeline-panel">'+
+      '<div class="section-title-row"><div><small>KUNLIK TARIX</small><h2>Mutolaa kundaligi</h2></div>'+
+      '<b class="book-timeline-count">'+totalMinutes+' daqiqa</b></div>'+
+      '<p>Qaysi kuni nechta sahifa o‘qiganingiz va vaqt qaydlari.</p>'+
+      readingHistoryRows(book)+'</article>';
+    const note='<article class="content-card detail-notes"><div class="section-title-row"><h2>Shaxsiy eslatmalar</h2>'+
+      '<button class="text-action" data-edit-book="'+escapeHtml(book.id)+'">Tahrirlash</button></div>'+
       '<p>'+escapeHtml(book.notes||'Hali shaxsiy izoh yozilmagan.')+'</p>'+
-      (book.rating?'<div class="book-dates"><span>★ '+book.rating+' / 5</span></div>':'')+'</article>'+
+      (book.rating?'<div class="book-dates"><span>★ '+book.rating+' / 5</span></div>':'')+'</article>';
+    holder.innerHTML='<div class="detail-top detail-premium-top">'+coverHtml(book)+
+      '<div class="detail-meta"><h1>'+escapeHtml(book.title)+'</h1><div class="author">'+
+      escapeHtml(book.author||'Muallif kiritilmagan')+'</div>'+
+      '<div class="meta-tags">'+[book.category,book.publisher,book.publishedYear?String(book.publishedYear):'',book.pages?book.pages+' bet':'',book.isbn?'ISBN '+book.isbn:'']
+      .filter(Boolean).map(x=>'<span>'+escapeHtml(x)+'</span>').join('')+'</div>'+
+      '<div class="detail-status-row"><span class="status-pill '+status+'">● '+
+      statusLabel(status)+'</span></div></div></div>'+tabs+
+      (detailTab==='history'?diary:detailTab==='notes'?note:general)+
+      (status!=='finished'?timePanel:'')+
       (status==='wishlist'
-        ? '<button class="detail-action" data-start-book="'+book.id+'">▶ Mutolaani boshlash</button>'
-        : status==='reading'
-          ? '<button class="detail-action" data-progress-book="'+book.id+'">▶ Mutolaani davom ettirish</button><button class="detail-secondary" data-finish-book="'+book.id+'">✓ Tugatdim</button>'
-          : '<button class="detail-action" data-edit-book="'+book.id+'">Kitob ma’lumotini tahrirlash</button>');
+        ?'<button class="detail-action" data-start-book="'+escapeHtml(book.id)+'">▶ Mutolaani boshlash</button>'
+        :status==='reading'
+          ?'<button class="detail-action" data-progress-book="'+escapeHtml(book.id)+'">▶ Sahifani yangilash</button>'+
+           '<button class="detail-secondary" data-finish-book="'+escapeHtml(book.id)+'">✓ Tugatdim</button>'
+          :'<button class="detail-action" data-edit-book="'+escapeHtml(book.id)+'">Kitob ma’lumotini tahrirlash</button>');
   }
 
   function openBookDialog(book=null){
@@ -2201,7 +2243,11 @@
       const add=e.target.closest('[data-add-book]'); if(add){openBookDialog();return;}
       const open=e.target.closest('[data-open]'); if(open){if(open.dataset.open==='calendar'&&currentView==='stats')showCalendarFromStats();else navigate(open.dataset.open);return;}
       const homeFilter=e.target.closest('[data-filter-home]'); if(homeFilter){bookFilter=homeFilter.dataset.filter;qsa('#bookFilters button').forEach(b=>b.classList.toggle('active',b.dataset.filter===bookFilter));navigate('library');renderBooks();return;}
-      const bookOpen=e.target.closest('[data-book-open]'); if(bookOpen && !e.target.closest('[data-book-menu]')){selectedBookId=bookOpen.dataset.bookOpen;navigate('detail');return;}
+      const bookOpen=e.target.closest('[data-book-open]'); if(bookOpen && !e.target.closest('[data-book-menu]')){selectedBookId=bookOpen.dataset.bookOpen;detailTab='general';navigate('detail');return;}
+      const tab=e.target.closest('[data-detail-tab]');
+      if(tab){detailTab=tab.dataset.detailTab;renderBookDetail();return;}
+      const timer=e.target.closest('[data-reading-timer]');
+      if(timer){toggleReadingTimer(timer.dataset.readingTimer);return;}
       const menu=e.target.closest('[data-book-menu]'); if(menu){e.stopPropagation();openBookMenu(menu.dataset.bookMenu);return;}
       const edit=e.target.closest('[data-edit-book]'); if(edit){openBookDialog(state.books.find(b=>b.id===edit.dataset.editBook));return;}
       const start=e.target.closest('[data-start-book]'); if(start){startBook(start.dataset.startBook);return;}

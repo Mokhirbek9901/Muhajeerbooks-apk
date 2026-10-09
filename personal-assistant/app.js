@@ -98,6 +98,9 @@
   let financePeriod = 'month';
   let financeCurrency = 'KRW';
   let statTab = 'general';
+  let statsPeriod='year';
+  let statsPeriodMonth=new Date().getMonth();
+  let statsPeriodDay=today();
   let detailTab = 'general';
   const readingTimer={bookId:'',startedAt:0,interval:null};
   let statsSelectedYear = nowYear;
@@ -1803,6 +1806,15 @@
 
   function renderStats(){
     statsSelectedYear=syncYearSelect($('statsYear'),statsSelectedYear);
+    $('statsPeriodMonth').value=String(statsPeriodMonth);
+    if(!statsPeriodDay.startsWith(String(statsSelectedYear)+'-')){
+      statsPeriodDay=statsSelectedYear+'-'+String(statsPeriodMonth+1).padStart(2,'0')+'-01';
+    }
+    $('statsPeriodDay').value=statsPeriodDay;
+    $('statsMonthPicker').hidden=statsPeriod!=='month';
+    $('statsDayPicker').hidden=statsPeriod!=='day';
+    qsa('#statsPeriodSwitch [data-stats-period]').forEach(button=>
+      button.classList.toggle('active',button.dataset.statsPeriod===statsPeriod));
     const year=statsSelectedYear,activity=readingActivity();
     const summary=annualReadingSummary(year,activity);
     const goal=state.profile.yearlyGoal||24;
@@ -1853,18 +1865,7 @@
         '<b>'+row.finished+' tugatilgan</b><span aria-hidden="true">›</span></button>'
       ).join('');
     } else if(statTab==='pages'){
-      $('statsChartTitle').textContent='Oylik o‘qilgan sahifalar';
-      $('statsChartEyebrow').textContent=year+'-YIL · 12 OY · SAHIFALAR';
-      const max=Math.max(1,...summary.monthTotals.map(x=>x.pages));
-      const labels=['Yan','Fev','Mar','Apr','May','Iyun','Iyul','Avg','Sen','Okt','Noy','Dek'];
-      chart.className='bar-chart pages-chart';
-      chart.innerHTML=summary.monthTotals.map(row=>{
-        const percent=Math.max(row.pages?9:3,Math.round(row.pages/max*100));
-        const title=labels[row.month]+': '+row.pages+' sahifa o‘qilgan';
-        return '<button type="button" class="month-bar" data-calendar-month="'+row.month+
-          '" aria-label="'+title+'" title="'+title+'">'+
-          '<b>'+row.pages+'</b><span class="bar" style="height:'+percent+'%"></span><span>'+labels[row.month]+'</span></button>';
-      }).join('');
+      renderPagesPeriodChart(year,summary,chart);
     } else {
       $('statsChartTitle').textContent='Oylar bo‘yicha tugatilgan kitoblar';
       $('statsChartEyebrow').textContent=year+'-YIL · YILLIK KO‘RSATKICH';
@@ -1879,6 +1880,67 @@
       }).join('');
     }
     renderGenreDonut(summary.finished);
+  }
+
+  function renderPagesPeriodChart(year,summary,chart){
+    const labels=['Yan','Fev','Mar','Apr','May','Iyun','Iyul','Avg','Sen','Okt','Noy','Dek'];
+    const pageRecords=dailyReadingPages();
+    const makeBars=(rows,compact=false)=>{
+      const max=Math.max(1,...rows.map(x=>x.count));
+      const unit=compact?'':' sahifa';
+      const bars=rows.map(row=>{
+        const value=Math.max(0,Number(row.count)||0);
+        const height=Math.max(value?10:3,Math.round(value/max*100));
+        return '<div class="period-page-bar" title="'+escapeHtml(row.full||row.label)+': '+value+' sahifa">'+
+          '<b>'+value+'</b><span class="period-page-bar-track"><i style="height:'+height+'%"></i></span>'+
+          '<small>'+escapeHtml(row.label)+'</small></div>';
+      }).join('');
+      chart.className='reading-range-scroll'+(compact?' compact':'');
+      chart.innerHTML='<div class="reading-range-bars">'+bars+'</div>';
+    };
+    if(statsPeriod==='month'){
+      const month=statsPeriodMonth;
+      const dates=new Date(year,month+1,0).getDate();
+      const prefix=year+'-'+String(month+1).padStart(2,'0')+'-';
+      const rows=Array.from({length:dates},(_,i)=>{
+        const date=prefix+String(i+1).padStart(2,'0');
+        return {label:String(i+1),full:date,count:pageRecords.get(date)?.pages||0};
+      });
+      $('statsChartTitle').textContent=labels[month]+' · kunlik sahifalar';
+      $('statsChartEyebrow').textContent=year+'-YIL · KUNMA-KUN';
+      makeBars(rows,true);
+      return;
+    }
+    if(statsPeriod==='day'){
+      const date=statsPeriodDay;
+      const rows=state.books.map(book=>({
+        title:book.title,
+        author:book.author||'',
+        pages:dailyBookPages(book).get(date)||0,
+        cover:book
+      })).filter(x=>x.pages>0).sort((a,b)=>b.pages-a.pages);
+      const total=rows.reduce((n,x)=>n+x.pages,0);
+      $('statsChartTitle').textContent='Tanlangan kun mutolaasi';
+      $('statsChartEyebrow').textContent=date+' · KUNLIK NATIJA';
+      chart.className='reading-day-summary';
+      chart.innerHTML='<div class="reading-day-total"><b>'+total+'</b><span> sahifa o‘qilgan · '+rows.length+' kitob</span></div>'+
+        (rows.length?rows.map(x=>'<div class="reading-day-book">'+coverHtml(x.cover)+
+          '<div><b>'+escapeHtml(x.title)+'</b><small>'+escapeHtml(x.author)+'</small></div>'+
+          '<strong>+'+x.pages+' sahifa</strong></div>').join('')
+          :'<p class="genre-donut-empty">Bu kun uchun sahifa qaydi yo‘q.</p>');
+      return;
+    }
+    if(statsPeriod==='all'){
+      const years=datedReadingYears().slice().reverse();
+      const rows=years.map(y=>({label:String(y),count:annualReadingSummary(y).pages}));
+      $('statsChartTitle').textContent='Barcha yillar · o‘qilgan sahifalar';
+      $('statsChartEyebrow').textContent='BARCHA YILLAR';
+      makeBars(rows);
+      return;
+    }
+    $('statsChartTitle').textContent='Oylar bo‘yicha o‘qilgan sahifalar';
+    $('statsChartEyebrow').textContent=year+'-YIL · 12 OY';
+    makeBars(summary.monthTotals.map(x=>({label:labels[x.month],count:x.pages})));
   }
 
   function renderGenreDonut(finished){
@@ -2432,6 +2494,23 @@
       bookFilter=btn.dataset.filter;qsa('#bookFilters button').forEach(b=>b.classList.toggle('active',b===btn));renderBooks();
     });
     $('statsYear').addEventListener('change',event=>{statsSelectedYear=Number(event.target.value)||nowYear;renderStats();});
+    $('statsPeriodSwitch').addEventListener('click',event=>{
+      const button=event.target.closest('[data-stats-period]');
+      if(!button)return;
+      statsPeriod=button.dataset.statsPeriod;
+      statTab='pages';
+      qsa('#statTabs button').forEach(b=>b.classList.toggle('active',b.dataset.statTab==='pages'));
+      renderStats();
+    });
+    $('statsPeriodMonth').addEventListener('change',event=>{
+      statsPeriodMonth=Number(event.target.value)||0;
+      statsPeriod='month';statTab='pages';renderStats();
+    });
+    $('statsPeriodDay').addEventListener('change',event=>{
+      if(!event.target.value)return;
+      statsPeriodDay=event.target.value;
+      statsPeriod='day';statTab='pages';renderStats();
+    });
     $('genreDonutToggle').addEventListener('click',()=>{
       statTab='genres';
       qsa('#statTabs button').forEach(button=>button.classList.toggle('active',button.dataset.statTab==='genres'));

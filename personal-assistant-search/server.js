@@ -6,7 +6,7 @@ const MAX_QUERY=110;
 const AGENT='Mozilla/5.0 (compatible; YordamchiBooks/1.0; book metadata research)';
 const cache=new Map();
 const requests=new Map();
-const STORE_DOMAINS=['asaxiy.uz','hilolnashr.uz','kitobxon.com','kitob.uz','mutolaa.com','ziyouz.com'];
+const STORE_DOMAINS=['asaxiy.uz','hilolnashr.uz','kitobxon.com','kitob.uz','mutolaa.com','ziyouz.com','asarlar.uz'];
 const BOOK_TERMS=/kitob|китоб|books|book|nashr|нашр|roman|роман|asar|асар|o.qi|ўқи|o'qi|mutolaa/i;
 const escapeXml=s=>String(s||'').replace(/&(?:amp|lt|gt|quot|apos);|&#x[0-9a-f]+;|&#[0-9]+;/gi,code=>{
   const basic={amp:'&',lt:'<',gt:'>',quot:'"',apos:"'"};
@@ -145,6 +145,26 @@ async function enrich(result,query){
     isbn:/^(?:\d{13}|\d{9}[\dX])$/.test(isbn)?isbn:'',
     source:'Veb · '+result.domain,verifiedSource:true};
 }
+function bookSlug(query){
+  return normalize(query).replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'').replace(/-+/g,'-').slice(0,105);
+}
+async function directUzbekLiterature(query){
+  const slug=bookSlug(query);
+  if(slug.length<3)return null;
+  const url='https://asarlar.uz/kitob/'+slug;
+  const html=await fetchText(url,6500);
+  if(!html)return null;
+  const titleHead=noTags(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1]||'');
+  const ogTitle=htmlMeta(html,'og:title')||'';
+  const bookTitle=stripBookTitle(titleHead||ogTitle,query);
+  if(!bookTitle)return null;
+  const parts=ogTitle.split(/\s*[—–]\s*/);
+  const author=parts.length>1?parts[1].split(/[|:]/)[0].trim().slice(0,120):'';
+  const cover=imageUrl(htmlMeta(html,'og:image')||htmlMeta(html,'twitter:image'));
+  const description=noTags(htmlMeta(html,'description')||htmlMeta(html,'og:description')).slice(0,650);
+  return {title:bookTitle,author,publisher:'',cover,description,pages:0,year:0,isbn:'',
+    source:'Asarlar.uz · kitob kartasi',sourceUrl:url,domain:'asarlar.uz',verifiedSource:true};
+}
 function sourceCandidate(row,query){
   if(!isMatch(query,row.title)&&!isMatch(query,row.description))return null;
   const title=stripBookTitle(row.title,query);
@@ -155,12 +175,13 @@ function sourceCandidate(row,query){
 }
 async function search(query){
   const variants=[
-    query+' kitob muallif nashriyot',
-    '"'+query+'" site:asaxiy.uz OR site:hilolnashr.uz OR site:kitobxon.com',
-    '"'+query+'" kitob site:instagram.com'
+    query,
+    query+' kitob',
+    query+' asaxiy hilolnashr kitob'
   ];
   const bodies=await Promise.all(variants.map(q=>
     fetchText('https://www.bing.com/search?format=rss&q='+encodeURIComponent(q),7800)));
+  const direct=await directUzbekLiterature(query);
   const raw=bodies.flatMap(rssItems);
   const dedup=new Map();
   for(const row of raw){
@@ -170,6 +191,7 @@ async function search(query){
   const enriched=await Promise.all(rows.filter(row=>hostAllowed(row.url)).slice(0,5).map(row=>enrich(row,query)));
   const byUrl=new Map(enriched.map(row=>[row.url,row]));
   const results=[];
+  if(direct)results.push(direct);
   for(const row of rows){
     const item=sourceCandidate(byUrl.get(row.url)||row,query);
     if(!item)continue;
@@ -179,7 +201,8 @@ async function search(query){
   results.sort((a,b)=>Number(Boolean(b.cover))*7+
     Number(Boolean(b.author))*4+Number(Boolean(b.verifiedSource))*2-
     (Number(Boolean(a.cover))*7+Number(Boolean(a.author))*4+Number(Boolean(a.verifiedSource))*2));
-  return {results:results.slice(0,14),searchAvailable:bodies.some(Boolean),sources:['Bing RSS','Ochiq nashriyot/do‘kon sahifalari']};
+  return {results:results.slice(0,14),searchAvailable:Boolean(direct)||bodies.some(Boolean),
+    sources:['Asarlar.uz','Bing RSS','Ochiq nashriyot/do‘kon sahifalari']};
 }
 function send(res,status,data){
   res.writeHead(status,{'content-type':'application/json; charset=utf-8',
@@ -224,7 +247,8 @@ setTimeout(async()=>{
     console.log('[web-search-probe]',JSON.stringify({
       active:probe.searchAvailable,
       total:probe.results.length,
-      sources:probe.results.slice(0,4).map(x=>x.domain)
+      sources:probe.results.slice(0,4).map(x=>x.source),
+      example:probe.results.slice(0,2).map(x=>x.title)
     }));
   }catch(error){
     console.log('[web-search-probe]',JSON.stringify({active:false,reason:String(error?.message||'probe failed').slice(0,80)}));

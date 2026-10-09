@@ -354,9 +354,222 @@
     if(n.includes('roman')) return '▤';
     return '▣';
   }
+
+  const BOOK_METADATA_CHECK_KEY='bek_yordamchi_book_metadata_checks_v26';
+  const metadataJob={
+    running:false,cancel:false,done:0,total:0,changed:0,unmatched:0,
+    brokenCovers:new Set(),timer:null
+  };
+  function incompleteBook(book){
+    if(!book?.title||bookMatchKey(book.title).length<3)return false;
+    return !book.author||!book.publisher||!book.category||
+      !book.description||!Number(book.pages)||!book.cover||
+      metadataJob.brokenCovers.has(String(book.id));
+  }
+  function metadataAttemptHistory(){
+    try{return JSON.parse(localStorage.getItem(BOOK_METADATA_CHECK_KEY)||'{}')||{};}
+    catch(_){return {};}
+  }
+  function updateMetadataStatus(message,percentage=null){
+    const status=$('metadataFillStatus'),bar=$('metadataFillProgress'),fill=$('metadataFillProgressBar'),button=$('metadataFillBtn');
+    if(!status||!bar||!fill||!button)return;
+    status.textContent=message;
+    bar.hidden=percentage===null;
+    if(percentage!==null)fill.style.width=Math.min(100,Math.max(0,percentage))+'%';
+    button.textContent=metadataJob.running?'To‘xtatish':'To‘ldirish';
+    button.disabled=false;
+  }
+  function metadataCandidates(book){
+    const exactSeed=READ_LIBRARY_SEED.filter(x=>bookMatchKey(x.title)===bookMatchKey(book.title));
+    return exactSeed.map(x=>({...x,description:READ_LIBRARY_DESCRIPTIONS[x.id]||'',
+      source:'Tekshirilgan kutubxona',verifiedSource:true,isSeed:true,year:x.publishedYear}));
+  }
+  function authorMatchesMetadata(a,b){
+    const aKey=bookMatchKey(a),bKey=bookMatchKey(b);
+    if(!aKey||!bKey)return true;
+    if(aKey===bKey)return true;
+    const at=aKey.split(' ').filter(x=>x.length>2);
+    const bt=bKey.split(' ').filter(x=>x.length>2);
+    const shared=at.filter(x=>bt.includes(x)).length;
+    return shared>0 && shared/Math.min(at.length||1,bt.length||1)>=.65;
+  }
+  function selectMetadataCandidate(book,records){
+    const ownTitle=bookMatchKey(book.title);
+    const matches=records.filter(x=>x?.title&&bookMatchKey(x.title)===ownTitle &&
+      authorMatchesMetadata(book.author,x.author) &&
+      !(x.isWebResult && !x.verifiedSource));
+    if(!matches.length)return null;
+    const knownAuthor=bookMatchKey(book.author);
+    // Nomi bir xil, mualliflari boshqa kitoblarni avtomatik aralashtirmaymiz.
+    if(!knownAuthor){
+      const authors=[...new Set(matches.map(x=>bookMatchKey(x.author)).filter(Boolean))];
+      if(authors.length>1)return null;
+    }
+    const publisher=bookMatchKey(book.publisher);
+    if(publisher){
+      const samePublisher=matches.filter(x=>bookMatchKey(x.publisher)===publisher);
+      if(samePublisher.length)return samePublisher.sort((a,b)=>Number(Boolean(b.cover))-Number(Boolean(a.cover)))[0];
+    }
+    const isbn=normalizedIsbn(book.isbn);
+    if(validIsbn(isbn)){
+      const isbnExact=matches.find(x=>normalizedIsbn(x.isbn)===isbn);
+      if(isbnExact)return isbnExact;
+    }
+    const score=x=>Number(Boolean(x.isSeed))*12+
+      Number(Boolean(x.verifiedSource))*7+
+      Number(Boolean(x.author))*3+
+      Number(Boolean(x.description))*3+
+      Number(Boolean(x.cover))*3+
+      Number(Boolean(x.publisher))*2+
+      Number(Boolean(x.pages));
+    return [...matches].sort((a,b)=>score(b)-score(a))[0];
+  }
+  function verifyBookCover(url){
+    if(!/^https:\/\//i.test(String(url||'')))return Promise.resolve(false);
+    if(typeof Image!=='function')return Promise.resolve(false);
+    return new Promise(resolve=>{
+      const image=new Image();
+      let ended=false;
+      const finish=ok=>{
+        if(ended)return;
+        ended=true;
+        clearTimeout(timer);
+        image.onload=null;image.onerror=null;
+        resolve(Boolean(ok));
+      };
+      const timer=setTimeout(()=>finish(false),6500);
+      image.onload=()=>finish(image.naturalWidth>60&&image.naturalHeight>60);
+      image.onerror=()=>finish(false);
+      image.src=url;
+    });
+  }
+  async function fillBookMetadata(book){
+    const title=String(book.title||'').trim();
+    if(!title)return false;
+    let records=metadataCandidates(book);
+    // Mahalliy to‘liq nashr bo‘lsa internet javobini kutish shart emas.
+    let match=selectMetadataCandidate(book,records);
+    const wantCover=!book.cover||metadataJob.brokenCovers.has(String(book.id));
+    const localComplete=Boolean(match?.author&&match?.publisher&&match?.pages&&match?.description&&
+      (!wantCover||match?.cover));
+    if(!localComplete){
+      const remote=await findCoverCandidates(title);
+      records=records.concat(remote.filter(x=>x.source!=='shaxsiy kutubxona'));
+      match=selectMetadataCandidate(book,records)||match;
+    }
+    if(!match)return false;
+    // ISBN/nashriyot/chiqarilgan yil sahifalar kabi nashrga bog‘liq
+    // ma'lumotlar faqat mos nashr/ISBN yoki o‘z kutubxonamizning yozuvidan olinadi.
+    const editionVerified=Boolean(match.isSeed)||
+      Boolean(book.isbn&&normalizedIsbn(book.isbn)===normalizedIsbn(match.isbn)&&validIsbn(normalizedIsbn(book.isbn)))||
+      Boolean(book.publisher&&bookMatchKey(book.publisher)===bookMatchKey(match.publisher)&&
+        authorMatchesMetadata(book.author,match.author));
+    const fields=[
+      ['author',match.author],
+      ['category',match.category],
+      ['description',match.description],
+      ...(editionVerified?[
+        ['publisher',match.publisher],
+        ['publishedYear',match.year||match.publishedYear],
+        ['pages',match.pages],
+        ['isbn',match.isbn]
+      ]:[])
+    ];
+    let changed=false;
+    for(const [field,value] of fields){
+      if(!value||book[field])continue;
+      if(field==='publishedYear'||field==='pages'){
+        const v=Number(value);
+        if(!Number.isInteger(v)||v<=0||v>2100 && field==='publishedYear'||v>3000)continue;
+        book[field]=v;
+      }else{
+        const v=String(value).trim();
+        if(!v)continue;
+        book[field]=v.slice(0,field==='description'?1800:200);
+      }
+      changed=true;
+    }
+    if(wantCover && match.cover &&
+      !/^data:image\//i.test(String(book.cover||'')) &&
+      await verifyBookCover(match.cover)){
+      if(!book.cover || metadataJob.brokenCovers.has(String(book.id))){
+        book.cover=match.cover;
+        metadataJob.brokenCovers.delete(String(book.id));
+        changed=true;
+      }
+    }
+    return changed;
+  }
+  async function fillAllMissingMetadata(force=false){
+    if(metadataJob.running){
+      if(force){
+        metadataJob.cancel=true;
+        updateMetadataStatus('Joriy qidiruv tugagach to‘xtaydi.',metadataJob.total?
+          metadataJob.done/metadataJob.total*100:0);
+      }
+      return;
+    }
+    clearTimeout(metadataJob.timer);
+    const history=metadataAttemptHistory();
+    const now=Date.now(),retryAfter=24*60*60*1000;
+    const incomplete=state.books.filter(incompleteBook);
+    const targets=force?incomplete:incomplete.filter(book=>{
+      const last=Number(history[String(book.id)+'|'+book.title]||0);
+      return !last || now-last>retryAfter;
+    });
+    if(!targets.length){
+      updateMetadataStatus(incomplete.length?
+        incomplete.length+' ta kitob uchun yaqinda qidiruv qilingan. Qayta sinash uchun “To‘ldirish”ni bosing.':
+        'Barcha kitoblarda asosiy ma’lumot va muqova havolasi mavjud.');
+      return;
+    }
+    metadataJob.running=true;metadataJob.cancel=false;
+    metadataJob.done=0;metadataJob.total=targets.length;
+    metadataJob.changed=0;metadataJob.unmatched=0;
+    updateMetadataStatus('0 / '+targets.length+' kitob tekshirildi. Internetdan mos nashr izlanmoqda…',0);
+    let next=0;
+    async function worker(){
+      while(next<targets.length&&!metadataJob.cancel){
+        const book=targets[next++];
+        let changed=false;
+        try{
+          changed=await fillBookMetadata(book);
+        }catch(_){}
+        if(changed){
+          metadataJob.changed++;
+          try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state));}
+          catch(_){updateMetadataStatus('Saqlash xatosi. Qurilmada joy yetarliligini tekshiring.');metadataJob.cancel=true;}
+          renderBooks();
+          if(currentView==='detail'&&selectedBookId===book.id)renderBookDetail();
+        }else metadataJob.unmatched++;
+        history[String(book.id)+'|'+book.title]=Date.now();
+        metadataJob.done++;
+        updateMetadataStatus(metadataJob.done+' / '+metadataJob.total+' kitob tekshirildi · '+
+          metadataJob.changed+' tasi to‘ldirildi · '+metadataJob.unmatched+' tasiga aniq moslik topilmadi.',
+          metadataJob.total?metadataJob.done/metadataJob.total*100:100);
+      }
+    }
+    try{
+      await Promise.all([worker(),worker()]);
+    }finally{
+      try{localStorage.setItem(BOOK_METADATA_CHECK_KEY,JSON.stringify(history));}catch(_){}
+      const stopped=metadataJob.cancel;
+      metadataJob.running=false;
+      updateMetadataStatus((stopped?'Tekshiruv to‘xtatildi. ':'Tekshiruv yakunlandi. ')+
+        metadataJob.changed+' ta kitob yangilandi; '+
+        metadataJob.unmatched+' tasida ishonchli mos nashr topilmadi.');
+      if(metadataJob.changed){renderAll();}
+    }
+  }
+  function scheduleMissingMetadataAuto(){
+    if(metadataJob.running)return;
+    clearTimeout(metadataJob.timer);
+    metadataJob.timer=setTimeout(()=>void fillAllMissingMetadata(false),1700);
+  }
+
   function coverHtml(book, cls=''){
     const letter=escapeHtml((book.title||'K').slice(0,1).toUpperCase());
-    if(book.cover) return '<div class="cover '+cls+'"><img loading="lazy" decoding="async" src="'+escapeHtml(book.cover)+'" alt="'+escapeHtml((book.title||'Kitob')+' muqovasi')+'"><span class="cover-fallback" hidden>'+letter+'</span></div>';
+    if(book.cover) return '<div class="cover '+cls+'"><img data-book-cover-id="'+escapeHtml(book.id)+'" loading="lazy" decoding="async" src="'+escapeHtml(book.cover)+'" alt="'+escapeHtml((book.title||'Kitob')+' muqovasi')+'"><span class="cover-fallback" hidden>'+letter+'</span></div>';
     return '<div class="cover '+cls+'"><span>'+letter+'</span></div>';
   }
 
@@ -366,6 +579,11 @@
     img.hidden=true;
     const placeholder=img.parentElement?.querySelector('.cover-fallback');
     if(placeholder) placeholder.hidden=false;
+    const id=img.dataset.bookCoverId;
+    if(id && !metadataJob.brokenCovers.has(id)){
+      metadataJob.brokenCovers.add(id);
+      scheduleMissingMetadataAuto();
+    }
   },true);
 
   function toast(message){
@@ -2763,6 +2981,7 @@
         setCoverPreview(pendingCover);
       }catch(_){toast('Rasmni o‘qib bo‘lmadi.');}
     });
+    $('metadataFillBtn').addEventListener('click',()=>void fillAllMissingMetadata(true));
     $('bookSearch').addEventListener('input',renderBooks);
     $('bookSort').addEventListener('change',renderBooks);
     $('bookFilters').addEventListener('click',e=>{
@@ -2869,4 +3088,5 @@
   renderAll();
   navigate('home',false);
   maybeDailyReminder();
+  scheduleMissingMetadataAuto();
 })();

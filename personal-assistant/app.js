@@ -1878,6 +1878,35 @@
           '<b>'+row.finished+'</b><span class="bar" style="height:'+percent+'%"></span><span>'+labels[row.month]+'</span></button>';
       }).join('');
     }
+    renderGenreDonut(summary.finished);
+  }
+
+  function renderGenreDonut(finished){
+    const root=$('genreDonut'),legend=$('genreDonutLegend');
+    if(!root||!legend)return;
+    const entries=groupCount(finished,book=>book.category||'Boshqa').slice(0,5);
+    const total=entries.reduce((sum,[,n])=>sum+n,0);
+    if(!total){
+      root.style.background='var(--surface2)';
+      root.innerHTML='<div class="genre-donut-center"><b>0</b><small>kitob</small></div>';
+      legend.innerHTML='<p class="genre-donut-empty">Bu yilda tugatilgan kitob bo‘yicha janr statistikasi hali yo‘q.</p>';
+      root.setAttribute('aria-label','Tugatilgan kitoblar hali yo‘q');
+      return;
+    }
+    const colors=['#0c6a62','#1fa88e','#3b95b6','#bb79a7','#d8c39d'];
+    let start=0;
+    const gradients=entries.map(([,n],index)=>{
+      const next=start+n/total*100;
+      const segment=colors[index]+' '+start.toFixed(3)+'% '+next.toFixed(3)+'%';
+      start=next;
+      return segment;
+    });
+    root.style.background='conic-gradient('+gradients.join(',')+')';
+    root.innerHTML='<div class="genre-donut-center"><b>'+total+'</b><small>kitob</small></div>';
+    root.setAttribute('aria-label','Janrlar: '+entries.map(([name,n])=>name+' '+n+' ta').join(', '));
+    legend.innerHTML=entries.map(([name,n],i)=>
+      '<div class="genre-donut-legend-row"><i style="background:'+colors[i]+'"></i>'+
+      '<span>'+escapeHtml(name)+'</span><b>'+Math.round(n/total*100)+'%</b></div>').join('');
   }
 
   function groupCount(list,getter){
@@ -2050,13 +2079,17 @@
     );
     const holder=$('calendarTodayCard');
     holder.innerHTML='<div class="section-title-row"><div><small>KUN TAFSILOTLARI</small><h2>'+escapeHtml(formatDate(date))+'</h2></div>'+
-      '<span class="day-events-count">'+pagesReadOnDate(date)+' sahifa · '+books.length+' kitob</span></div>'+
+      '<span class="day-events-count">'+pagesReadOnDate(date)+' sahifa · '+
+      minutesReadOnDate(date)+' daq · '+books.length+' kitob</span></div>'+
       (books.length?'<div class="calendar-book-events">'+books.map(book=>{
         const notes=[];
         if(book.startedAt===date)notes.push('Mutolaa boshlangan');
         if(book.finishedAt===date)notes.push('Kitob tugatilgan');
         const entry=(book.readingLog||[]).find(x=>x.date===date);
         const readPages=dailyBookPages(book).get(date)||0;
+        const readMinutes=(book.readingLog||[]).filter(x=>x.date===date)
+          .reduce((s,x)=>s+Math.max(0,Number(x.minutes)||0),0);
+        if(readMinutes)notes.push(readMinutes+' daqiqa');
         if(readPages>0)notes.push('Bugun '+readPages+' sahifa o‘qilgan');
         if(entry && entry.page>0)notes.push(entry.page+'-sahifagacha yetilgan');
         if(!notes.length)notes.push('Mutolaa qaydi');
@@ -2399,6 +2432,12 @@
       bookFilter=btn.dataset.filter;qsa('#bookFilters button').forEach(b=>b.classList.toggle('active',b===btn));renderBooks();
     });
     $('statsYear').addEventListener('change',event=>{statsSelectedYear=Number(event.target.value)||nowYear;renderStats();});
+    $('genreDonutToggle').addEventListener('click',()=>{
+      statTab='genres';
+      qsa('#statTabs button').forEach(button=>button.classList.toggle('active',button.dataset.statTab==='genres'));
+      renderStats();
+      $('monthlyChart').scrollIntoView({behavior:'smooth',block:'nearest'});
+    });
     $('statTabs').addEventListener('click',e=>{
       const btn=e.target.closest('[data-stat-tab]');if(!btn)return;
       statTab=btn.dataset.statTab;qsa('#statTabs button').forEach(b=>b.classList.toggle('active',b===btn));renderStats();

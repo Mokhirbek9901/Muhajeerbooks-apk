@@ -229,7 +229,12 @@
         rating: clampInt(b.rating || 0, 0, 5),
         notes: String(b.notes || b.note || ''),
         readingLog: Array.isArray(b.readingLog) ? b.readingLog
-          .map(x => ({date: normalizeDate(x.date), page: numOrZero(x.page)}))
+          .map(x => ({
+            date: normalizeDate(x.date),
+            page: numOrZero(x.page),
+            ...(Number.isFinite(Number(x.readPages)) && x.readPages !== undefined && x.readPages !== null
+              ? {readPages: Math.max(0,Math.round(Number(x.readPages)))} : {})
+          }))
           .filter(x => x.date) : [],
         createdAt: b.createdAt || new Date().toISOString(),
         updatedAt: b.updatedAt || new Date().toISOString()
@@ -401,21 +406,55 @@
     return selectableDailyBooks().find(book=>statusOf(book)==='reading')||null;
   }
 
-  function pagesReadOnDate(date){
-    let total=0;
-    for(const book of state.books){
-      const logs=(book.readingLog||[])
-        .filter(entry=>entry.date && entry.date<=date && Number.isFinite(Number(entry.page)))
-        .map(entry=>({date:entry.date,page:Math.max(0,Number(entry.page))}));
-      const todayLogs=logs.filter(entry=>entry.date===date);
-      if(!todayLogs.length) continue;
-      // Har bir kitobdagi oldingi eng katta sahifadan bugungi eng katta sahifagacha farq.
-      // Bir kun ichida bir necha marta saqlangan progress ikki marta hisoblanmaydi.
-      const before=Math.max(0,...logs.filter(entry=>entry.date<date).map(entry=>entry.page));
-      const todayMax=Math.max(0,...todayLogs.map(entry=>entry.page));
-      total+=Math.max(0,todayMax-before);
+  function dailyBookPages(book){
+    // Sahifa raqami kumulyativ: 25 -> 45 -> 60 bo‘lsa, +20 va +15 sahifa.
+    // readPages maydoni yangi yangilanishlarda aniq farqni saqlaydi.
+    // Eski yozuvlarda esa faqat mavjud sana/sahifa snapshotlarining ortishi olinadi.
+    const entries=(book.readingLog||[])
+      .filter(entry=>/^\d{4}-\d{2}-\d{2}$/.test(entry.date||''))
+      .map(entry=>({
+        date:entry.date,page:Math.max(0,Math.round(Number(entry.page)||0)),
+        readPages:entry.readPages===undefined?null:Math.max(0,Math.round(Number(entry.readPages)||0))
+      })).sort((a,b)=>a.date.localeCompare(b.date));
+    const byDay=new Map();
+    let previousMax=0;
+    for(const entry of entries){
+      const prior=byDay.get(entry.date);
+      const priorPage=prior?.page||0;
+      const effectiveMax=Math.max(previousMax,priorPage);
+      const inferred=Math.max(0,entry.page-effectiveMax);
+      const pages=entry.readPages===null?inferred:entry.readPages;
+      if(prior){
+        // Ikkita legacy snapshot bo‘lsa, bir kundagi ortishlar qo‘shiladi.
+        // Explicit readPages esa jamlanma raqam; uni ikki marta qo‘shmaymiz.
+        prior.pages=entry.readPages===null?prior.pages+pages:
+          Math.max(prior.pages,pages);
+        prior.page=Math.max(prior.page,entry.page);
+      }else{
+        byDay.set(entry.date,{pages,page:entry.page});
+      }
+      previousMax=Math.max(previousMax,entry.page);
     }
-    return Math.round(total);
+    return new Map([...byDay.entries()].map(([date,v])=>[date,Math.max(0,v.pages)]));
+  }
+
+  function dailyReadingPages(){
+    const byDay=new Map();
+    for(const book of state.books){
+      const pages=dailyBookPages(book);
+      for(const [date,count] of pages){
+        if(!byDay.has(date))byDay.set(date,{pages:0,books:new Map()});
+        if(count<=0)continue;
+        const summary=byDay.get(date);
+        summary.pages+=count;
+        summary.books.set(book.id,count);
+      }
+    }
+    return byDay;
+  }
+
+  function pagesReadOnDate(date){
+    return dailyReadingPages().get(date)?.pages||0;
   }
 
   function currentReadingStreak(day=today()){
@@ -1378,11 +1417,28 @@
     const el=$('bookStatusPreview'); el.className='status-pill '+status; el.textContent=statusLabel(status);
   }
 
-  function addReadingLog(book,date,page){
+  function addReadingLog(book,date,page,readPagesDelta=0){
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(String(date||'')))return;
     book.readingLog=Array.isArray(book.readingLog)?book.readingLog:[];
+    const safePage=Math.max(0,Math.round(Number(page)||0));
+    const addition=Math.max(0,Math.round(Number(readPagesDelta)||0));
+    const oldTotal=dailyBookPages(book).get(date)||0;
     const existing=book.readingLog.find(x=>x.date===date);
-    if(existing) existing.page=Math.max(existing.page||0,page||0);
-    else book.readingLog.push({date,page:page||0});
+    if(existing){
+      existing.page=Math.max(existing.page||0,safePage);
+      existing.readPages=oldTotal+addition;
+    }else{
+      book.readingLog.push({date,page:safePage,readPages:addition});
+    }
+  }
+
+  function readingProgressIncrement(book,page,referenceDate=today()){
+    const seen=Math.max(
+      Math.max(0,Math.round(Number(book.currentPage)||0)),
+      ...(book.readingLog||[])
+        .filter(x=>x.date<=referenceDate).map(x=>Math.max(0,Math.round(Number(x.page)||0)))
+    );
+    return Math.max(0,page-seen);
   }
 
   function saveBook(event){
@@ -1401,6 +1457,9 @@
     if((finishedAt||statusOverride==='finished')&&pages) currentPage=pages;
 
     const existing=state.books.find(b=>b.id===id);
+    const typedPage=numOrZero($('bookCurrentPage').value);
+    const explicitIncrease=existing && typedPage>Number(existing.currentPage||0)
+      ?readingProgressIncrement(existing,Math.min(typedPage,pages||typedPage)):0;
     const book={
       id:existing?.id||makeId(),
       title,
@@ -1419,8 +1478,9 @@
       createdAt:existing?.createdAt||new Date().toISOString(),
       updatedAt:new Date().toISOString()
     };
-    if(startedAt) addReadingLog(book,startedAt,currentPage);
-    if(finishedAt) addReadingLog(book,finishedAt,currentPage);
+    // Yangi kitob qo‘shish yoki sanani o‘zgartirish avval o‘qilgan sahifalarni
+    // hech qaysi kunga taxminan qo‘shmaydi. Faqat aniq sahifa ortishi qayd etiladi.
+    if(explicitIncrease>0) addReadingLog(book,today(),currentPage,explicitIncrease);
     if(existing) Object.assign(existing,book); else state.books.unshift(book);
     $('bookDialog').close();
     selectedBookId=book.id;
@@ -1434,7 +1494,7 @@
     book.finishedAt='';
     book.statusOverride='';
     book.updatedAt=new Date().toISOString();
-    addReadingLog(book,today(),book.currentPage);
+    addReadingLog(book,today(),book.currentPage,0);
     saveState('Mutolaa boshlandi.');
     selectedBookId=id; renderBookDetail();
   }
@@ -1445,10 +1505,12 @@
       String(book.currentPage||''));
     if(value===null) return;
     const n=Math.max(0,Math.round(Number(value)||0));
-    book.currentPage=book.pages?Math.min(n,book.pages):n;
+    const nextPage=book.pages?Math.min(n,book.pages):n;
+    const newlyRead=readingProgressIncrement(book,nextPage);
+    book.currentPage=nextPage;
     if(!book.startedAt) book.startedAt=today();
     book.updatedAt=new Date().toISOString();
-    addReadingLog(book,today(),book.currentPage);
+    addReadingLog(book,today(),book.currentPage,newlyRead);
     if(book.pages && book.currentPage>=book.pages){
       if(confirm('Oxirgi sahifaga yetdingiz. Kitobni “Tugatilgan” qilaymi?')) book.finishedAt=today();
     }
@@ -1463,7 +1525,8 @@
     book.statusOverride='';
     if(book.pages) book.currentPage=book.pages;
     book.updatedAt=new Date().toISOString();
-    addReadingLog(book,today(),book.currentPage);
+    // "Tugatdim" tugmasi qolgan sahifalar o‘sha kuni o‘qildi degani emas.
+    addReadingLog(book,today(),book.currentPage,0);
     saveState('Kitob tugatildi.');
     renderBookDetail();
   }

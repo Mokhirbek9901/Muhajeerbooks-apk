@@ -580,6 +580,8 @@
     $('homeHeroChangeBook').disabled=selectableDailyBooks().length===0;
     $('homeHeroChangeBook').title=book?'Bugungi kitobni almashtirish':'Bugungi kitobni tanlash';
     $('homeHeroPages').textContent='Bugun: '+readToday+' / '+pagesGoal+' sahifa';
+    $('homeHeroBookPages').textContent=book?
+      (book.currentPage||0)+' / '+(book.pages||'—')+' sahifa':'Kitob tanlang';
     $('homeHeroMinutes').textContent=minuteGoal+' daqiqa';
     $('homeHeroStreak').textContent=currentReadingStreak()+' kunlik';
     $('homeHeroReading').textContent=reading.length+' kitob';
@@ -617,6 +619,14 @@
     $('homeGoalRemaining').textContent=Math.max(0,goal-finishedYear.length);
     const book=getHomeReadingBook();
     renderDailyHero(reading,book);
+    const todayPages=pagesReadOnDate(today());
+    const percentage=Math.min(100,Math.round(todayPages/(state.profile.dailyPageGoal||32)*100));
+    $('homeActivityPages').textContent=todayPages;
+    $('homeActivityStreak').textContent=currentReadingStreak()+' kun';
+    $('homeActivityMinutes').textContent=minutesReadOnDate(today())+' daq';
+    $('homeActivityGoalText').textContent='Kunlik reja: '+(state.profile.dailyPageGoal||32)+' sahifa';
+    $('homeActivityGoalPercent').textContent=percentage+'%';
+    $('homeActivityGoalFill').style.width=percentage+'%';
     const holder=$('homeCurrentReading');
     if(!book){
       holder.innerHTML='<div class="empty-state"><strong>Hozir o‘qilayotgan kitob yo‘q</strong>Kitob qo‘shib, mutolaa boshlangan sanani kiriting.</div>';
@@ -673,7 +683,9 @@
         (edition?'<div class="book-edition">'+edition+'</div>':'')+
         '<span class="status-pill '+status+'">'+statusLabel(status)+'</span>'+
         (book.pages?'<div class="progress-wrap"><div class="progress-track"><div class="progress-fill" style="width:'+p+'%"></div></div><b>'+p+'%</b></div>':'')+
-        '<div class="book-dates">'+dates+'</div>'+readingDurationHtml(book)+'</div>'+
+        '<div class="book-dates">'+dates+'</div>'+readingDurationHtml(book)+
+        '<div class="library-book-today">◷ Bugun '+(dailyBookPages(book).get(today())||0)+
+        ' sahifa'+(totalReadingMinutes(book)?' · '+totalReadingMinutes(book)+' daqiqa mutolaa':'')+'</div></div>'+
         '<button class="row-menu" data-book-menu="'+book.id+'" aria-label="Kitob menyusi"><svg class="ui-icon" aria-hidden="true"><use href="#ico-more"></use></svg></button></article>';
     }).join('');
   }

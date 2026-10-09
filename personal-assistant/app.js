@@ -1689,12 +1689,19 @@
       const exact=matches.filter(book=>book.titleScore===100);
       const authorTyped=bookMatchKey($('bookAuthor').value);
       const sameAuthor=authorTyped?exact.filter(b=>bookMatchKey(b.author)===authorTyped):[];
+      // Bir xil nomli manbalar bitta muallifga tegishli bo'lsa eng to'liq nashrni tanlash.
+      const authors=[...new Set(exact.map(x=>bookMatchKey(x.author)).filter(Boolean))];
+      const ranked=[...exact].sort((a,b)=>
+        Number(b.source==='shaxsiy kutubxona'||b.source==='Kutubxona')-
+          Number(a.source==='shaxsiy kutubxona'||a.source==='Kutubxona') ||
+        Number(Boolean(b.cover))-Number(Boolean(a.cover)) ||
+        Number(Boolean(b.description))-Number(Boolean(a.description)));
       const chosen=sameAuthor.length===1?sameAuthor[0]:
-        (!authorTyped&&exact.length===1?exact[0]:null);
+        (exact.length===1?exact[0]:(!authorTyped&&authors.length<=1?ranked[0]||null:null));
       if(chosen && !$('bookId').value)applyTitleAutoCandidate(chosen,false);
       else $('bookAutoLookupStatus').textContent=matches.length
         ?matches.length+' ta mos variant topildi. To‘g‘ri nashrni bosing — ma’lumotlari to‘ldiriladi.'
-        :'Mos kitob topilmadi. O‘zingiz ma’lumot kiriting yoki kengroq qidiring.';
+        :'Kataloglarda topilmadi. Google, Instagram yoki o‘zbek saytlarda qo‘shimcha izlang.';
     }catch(_){
       if(bookTitleLookup.request!==request)return;
       $('bookAutoLookupStatus').textContent='Qidiruvda xatolik. Internetni tekshiring; kitobni qo‘lda saqlash mumkin.';

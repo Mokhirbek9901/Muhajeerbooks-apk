@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {paidBookRequest} from './paid-book-ai.js';
 
 const PORT=Number(process.env.PORT||10000);
 const ALLOWED_ORIGIN='https://bek-shaxsiy-yordamchi-pro.onrender.com';
@@ -6,6 +7,7 @@ const MAX_QUERY=110;
 const AGENT='Mozilla/5.0 (compatible; YordamchiBooks/1.0; book metadata research)';
 const cache=new Map();
 const requests=new Map();
+const aiRequests=new Map();
 const STORE_DOMAINS=['asaxiy.uz','hilolnashr.uz','kitobxon.com','kitob.uz','mutolaa.com','ziyouz.com','asarlar.uz'];
 const BOOK_TERMS=/kitob|китоб|books|book|nashr|нашр|roman|роман|asar|асар|o.qi|ўқи|o'qi|mutolaa/i;
 const escapeXml=s=>String(s||'').replace(/&(?:amp|lt|gt|quot|apos);|&#x[0-9a-f]+;|&#[0-9]+;/gi,code=>{
@@ -207,15 +209,41 @@ async function search(query){
 function send(res,status,data){
   res.writeHead(status,{'content-type':'application/json; charset=utf-8',
     'access-control-allow-origin':ALLOWED_ORIGIN,
-    'access-control-allow-methods':'GET,OPTIONS',
+    'access-control-allow-methods':'GET,POST,OPTIONS',
     'access-control-allow-headers':'Content-Type',
-    'cache-control':'public, max-age=120',
+    'cache-control':'no-store',
     'x-content-type-options':'nosniff'});
   res.end(JSON.stringify(data));
 }
 http.createServer(async(req,res)=>{
   if(req.method==='OPTIONS'){res.writeHead(204,{'access-control-allow-origin':ALLOWED_ORIGIN,
-    'access-control-allow-methods':'GET,OPTIONS','access-control-allow-headers':'Content-Type'});res.end();return;}
+    'access-control-allow-methods':'GET,POST,OPTIONS','access-control-allow-headers':'Content-Type'});res.end();return;}
+  if(req.method==='POST'){
+    const path=new URL(req.url||'/', 'https://localhost').pathname;
+    if(!['/api/ai-connect','/api/ai-book'].includes(path)){send(res,404,{error:'Not found'});return;}
+    if(req.headers.origin!==ALLOWED_ORIGIN){send(res,403,{error:'Origin not allowed'});return;}
+    const ip=String(req.headers['x-forwarded-for']||req.socket.remoteAddress||'anonymous').split(',')[0].trim();
+    const now=Date.now();
+    if(aiRequests.size>10000)for(const [k,v] of aiRequests)if(now-v.time>3600000)aiRequests.delete(k);
+    const hit=aiRequests.get(ip)||{time:now,count:0,busy:false};
+    if(now-hit.time>3600000){hit.time=now;hit.count=0;}
+    if(hit.busy || hit.count>=30){send(res,429,{error:'AI so‘rovi ketmoqda yoki soatlik chegara tugagan. Keyinroq urinib ko‘ring.'});return;}
+    hit.count++;hit.busy=true;aiRequests.set(ip,hit);
+    try{
+      let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>4096){send(res,413,{error:'So‘rov juda katta.'});return;}}
+      const result=await paidBookRequest(JSON.parse(raw),path==='/api/ai-connect');
+      if(result.status===200 && result.data.book){
+        const book=result.data.book;
+        // Existing free discovery supplies a real cover URL; the model never invents one.
+        const found=await search(book.title);
+        const exact=found.results.find(x=>normalize(x.title)===normalize(book.title)&&x.verifiedSource&&x.cover);
+        if(exact)book.cover=exact.cover;
+      }
+      send(res,result.status,result.data);
+    }catch{send(res,400,{error:'So‘rovni o‘qib bo‘lmadi.'});}
+    finally{hit.busy=false;}
+    return;
+  }
   if(req.method!=='GET'){send(res,405,{error:'Method not allowed'});return;}
   const url=new URL(req.url||'/', 'https://localhost');
   if(url.pathname==='/health'){send(res,200,{ok:true,service:'Yordamchi book web-search',version:1});return;}

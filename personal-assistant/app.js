@@ -284,6 +284,7 @@
       bookCostAutoSync: input?.bookCostAutoSync!==false,
       bookCostRate: costs.rate(input?.bookCostRate),
       bookCostComparisons: costs.normalizeRates(input?.bookCostComparisons,makeId),
+      bookCostMetadata: input?.bookCostMetadata && typeof input.bookCostMetadata==='object' && !Array.isArray(input.bookCostMetadata)?input.bookCostMetadata:{},
       bookCosts: costs.normalize(input?.bookCosts,makeId),
       transactions: transactions.map(t => ({
         id: String(t.id || makeId()),
@@ -1642,6 +1643,82 @@
   }
 
   const PUBLIC_BOOK_SEARCH_URL='https://bek-yordamchi-book-search.onrender.com/api/search';
+  let paidAiCode='',paidAiEnabled=false,paidAiEpoch=0,costAiTimer=null,costAiRequest=0,costAiCandidate=null;
+  const paidAiCache=new Map(),paidAiPending=new Map(),paidAiRequests=new Set();
+  function renderPaidAi(){
+    ['book','cost'].forEach(prefix=>{$(prefix+'AiOn').checked=paidAiEnabled;});
+  }
+  function disconnectPaidAi(){
+    for(const controller of paidAiRequests)controller.abort();paidAiRequests.clear();
+    paidAiEpoch++;paidAiCode='';paidAiEnabled=false;clearTimeout(costAiTimer);costAiRequest++;costAiCandidate=null;paidAiCache.clear();paidAiPending.clear();
+    ['book','cost'].forEach(prefix=>{$(prefix+'AiCode').value='';$(prefix+'AiStatus').textContent='AI ulanishi uzildi. Qayta yoqish uchun admin kodi bilan ulaning.';});renderPaidAi();
+  }
+  async function paidAiRequest(path,body){
+    if(document.visibilityState==='hidden')throw Error('Ilova yopiq. AI bilan qayta ulaning.');
+    const controller=new AbortController();costCloudRequests.add(controller);
+    paidAiRequests.add(controller);
+    const timeout=setTimeout(()=>controller.abort(),150000);
+    try{
+      const response=await fetch(PUBLIC_BOOK_SEARCH_URL.replace('/api/search',path),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:controller.signal});
+      const data=await response.json();if(!response.ok || data.ok!==true)throw Error(data.error||'AI qidiruvi ishlamadi.');return data;
+    }finally{clearTimeout(timeout);costCloudRequests.delete(controller);paidAiRequests.delete(controller);}
+  }
+  async function enablePaidAi(prefix){
+    const code=$(prefix+'AiCode').value.trim()||costCloudCode||paidAiCode,epoch=paidAiEpoch;
+    if(!code){$(prefix+'AiStatus').textContent='Avval Muhajeer Books admin kodini kiriting.';return;}
+    $(prefix+'AiConnect').disabled=true;$(prefix+'AiStatus').textContent='AI ulanishi tekshirilmoqda…';
+    try{await paidAiRequest('/api/ai-connect',{admin_code:code});if(epoch!==paidAiEpoch)return;
+      paidAiCode=code;paidAiEnabled=true;$(prefix+'AiCode').value='';renderPaidAi();
+      $(prefix+'AiStatus').textContent='✓ Pullik AI yoqildi. Kitobning to‘liq nomini yozing — avtomatik qidiriladi.';
+      if(prefix==='book' && $('bookTitle').value.trim())onBookTitleTyping();
+      if(prefix==='cost' && $('costAiTitle').value.trim())schedulePaidCostLookup();
+    }catch(error){if(epoch===paidAiEpoch)$(prefix+'AiStatus').textContent=error.message;}
+    finally{$(prefix+'AiConnect').disabled=false;}
+  }
+  async function paidBookCandidate(title,author='',publisher=''){
+    if(!paidAiEnabled || !(paidAiCode||costCloudCode))throw Error('Pullik AI qidiruvini admin kodi bilan yoqing.');
+    const key=bookMatchKey(title)+'|'+bookMatchKey(author)+'|'+bookMatchKey(publisher),epoch=paidAiEpoch;
+    if(paidAiCache.has(key))return paidAiCache.get(key);
+    if(paidAiPending.has(key))return paidAiPending.get(key);
+    const pending=paidAiRequest('/api/ai-book',{admin_code:paidAiCode||costCloudCode,title,author,publisher}).then(data=>{
+      if(epoch!==paidAiEpoch || document.visibilityState==='hidden')throw Error('AI ulanishi uzildi.');
+      const book={...data.book,cover:httpsImage(data.book?.cover)};paidAiCache.set(key,book);return book;
+    }).finally(()=>paidAiPending.delete(key));
+    paidAiPending.set(key,pending);return pending;
+  }
+  function applyPaidCostCandidate(book){
+    if(!book?.title)return;
+    const key=costs.key(book.title);let row=state.bookCosts.find(r=>costs.key(r.title)===key);
+    if(!row){row={id:makeId(),title:book.title,price:null,grams:null,salePrice:null,saved:true};state.bookCosts.push(row);}
+    state.bookCostMetadata=state.bookCostMetadata||{};state.bookCostMetadata[key]={title:book.title,author:book.author,cover:book.cover||'',pages:book.pages,description:book.description,publisher:book.publisher};
+    persistBookCosts('AI topgan kitob tan narxi ro‘yxatiga qo‘shildi. Xarid narxi va vaznini kiriting.');renderBookCosts();
+    $('costAiStatus').textContent='✓ '+book.title+' ro‘yxatda. Narx va gramm qo‘lda kiritiladi.';
+  }
+  async function runPaidCostLookup(){
+    clearTimeout(costAiTimer);const title=$('costAiTitle').value.trim(),request=++costAiRequest,epoch=paidAiEpoch;
+    if(title.length<3){$('costAiStatus').textContent='Kitob nomini kamida 3 harf bilan yozing.';return;}
+    $('costAiStatus').textContent='AI internetdan kitob ma’lumotlarini qidirmoqda…';$('costAiSearch').disabled=true;$('costAiResult').innerHTML='';
+    try{const book=await paidBookCandidate(title);if(request!==costAiRequest || epoch!==paidAiEpoch || $('costAiTitle').value.trim()!==title)return;
+      costAiCandidate=book;
+      if(book.confidence==='high')applyPaidCostCandidate(book);
+      else{$('costAiStatus').textContent='AI variant topdi, lekin moslikni tekshiring. '+(book.notes||'');$('costAiResult').innerHTML='<button type="button" class="soft-button" data-cost-ai-apply>'+escapeHtml(book.title)+' · '+escapeHtml(book.author||'Muallif noma’lum')+' — Ro‘yxatga qo‘shish</button>';}
+    }catch(error){if(request===costAiRequest && epoch===paidAiEpoch)$('costAiStatus').textContent=error.message;}
+    finally{if(request===costAiRequest)$('costAiSearch').disabled=false;}
+  }
+  function schedulePaidCostLookup(){
+    clearTimeout(costAiTimer);costAiRequest++;
+    if(!paidAiEnabled)return;
+    if($('costAiTitle').value.trim().length>=3)costAiTimer=setTimeout(()=>void runPaidCostLookup(),2000);
+  }
+  function bindPaidAi(){
+    ['book','cost'].forEach(prefix=>{
+      $(prefix+'AiConnect').addEventListener('click',()=>enablePaidAi(prefix));
+      $(prefix+'AiOn').addEventListener('change',()=>{if($(prefix+'AiOn').checked){if(paidAiCode||costCloudCode){paidAiCode=paidAiCode||costCloudCode;paidAiEnabled=true;renderPaidAi();}else{renderPaidAi();$(prefix+'AiStatus').textContent='Avval admin kodini kiritib AI qidiruvini yoqing.';}}else{paidAiEnabled=false;paidAiEpoch++;costAiRequest++;bookTitleLookup.request++;clearTimeout(bookTitleLookup.timer);for(const controller of paidAiRequests)controller.abort();renderPaidAi();clearTimeout(costAiTimer);$('costAiSearch').disabled=false;}});
+    });
+    $('bookAiSearch').addEventListener('click',()=>{const title=$('bookTitle').value.trim();if(!paidAiEnabled){$('bookAiStatus').textContent='Avval pullik AI qidiruvini yoqing.';return;}if(title.length>=3){clearTimeout(bookTitleLookup.timer);const request=++bookTitleLookup.request;void runBookTitleLookup(title,request);}});
+    $('costAiTitle').addEventListener('input',schedulePaidCostLookup);$('costAiSearch').addEventListener('click',()=>runPaidCostLookup());
+    $('costAiResult').addEventListener('click',event=>{if(event.target.closest('[data-cost-ai-apply]'))applyPaidCostCandidate(costAiCandidate);});
+  }
   let bookWebSearchStatus='unknown';
   async function fetchWebBookCandidates(query){
     const q=String(query||'').trim().slice(0,110);
@@ -2007,17 +2084,25 @@
 
   async function runBookTitleLookup(query,request){
     if(!$('bookDialog').open || bookTitleLookup.request!==request)return;
-    $('bookAutoLookupStatus').textContent='Kitob kataloglari va o‘zbekcha veb-saytlardan qidirilmoqda…';
+    $('bookAutoLookupStatus').textContent=paidAiEnabled?'Muhajeer AI internetdan kitob ma’lumotlarini qidirmoqda…':'Kitob kataloglari va o‘zbekcha veb-saytlardan qidirilmoqda…';
     $('bookAutoLookupResults').hidden=true;
     const warmup=setTimeout(()=>{
       if(bookTitleLookup.request===request && $('bookDialog').open)
         $('bookAutoLookupStatus').textContent='Internet qidiruv serveri uyg‘onmoqda. Birinchi qidiruv 30–60 soniya olishi mumkin, kuting…';
     },8500);
     try{
-      const candidates=await findCoverCandidates(query);
+      const candidates=paidAiEnabled?[await paidBookCandidate(query,$('bookAuthor').value,$('bookPublisher').value)]:await findCoverCandidates(query);
       if(bookTitleLookup.request!==request || !$('bookDialog').open ||
         bookMatchKey($('bookTitle').value)!==bookMatchKey(query))return;
-      const matches=filterTitleMatches(query,candidates);
+      const aiBook=paidAiEnabled?candidates[0]:null;
+      if(aiBook?.confidence==='high' && !$('bookId').value){
+        applyTitleAutoCandidate(aiBook,true);
+        const duplicate=state.books.some(book=>bookMatchKey(book.title)===bookMatchKey(aiBook.title)&&authorMatchesMetadata(book.author,aiBook.author));
+        if($('bookAiAutoAdd').checked && !duplicate){saveBook({preventDefault(){}});return;}
+        $('bookAiStatus').textContent=duplicate?'Bu kitob kutubxonangizda mavjud. Takror qo‘shilmadi.':'✓ AI topgan ma’lumotlar kiritildi. Saqlashni bosing.';
+        showTitleAutoMatches([aiBook],aiBook.title);return;
+      }
+      const matches=aiBook?[aiBook]:filterTitleMatches(query,candidates);
       showTitleAutoMatches(matches,query);
       const exact=matches.filter(book=>book.titleScore===100&&
         !(book.isWebResult&&!book.verifiedSource));
@@ -2036,8 +2121,9 @@
       else $('bookAutoLookupStatus').textContent=matches.length
         ?matches.length+' ta mos variant topildi. To‘g‘ri nashrni bosing — ma’lumotlari to‘ldiriladi.'
         :'Kataloglarda topilmadi. Google, Instagram yoki o‘zbek saytlarda qo‘shimcha izlang.';
-    }catch(_){
+    }catch(error){
       if(bookTitleLookup.request!==request)return;
+      if(paidAiEnabled)$('bookAiStatus').textContent=error.message||'AI qidiruvida xato.';
       $('bookAutoLookupStatus').textContent='Qidiruvda xatolik. Internetni tekshiring; kitobni qo‘lda saqlash mumkin.';
       $('bookAutoLookupResults').hidden=true;
     }finally{
@@ -2060,7 +2146,7 @@
       return;
     }
     $('bookAutoLookupStatus').textContent='Yozishni tugating — avtomatik qidiriladi…';
-    bookTitleLookup.timer=setTimeout(()=>void runBookTitleLookup(query,request),800);
+    bookTitleLookup.timer=setTimeout(()=>void runBookTitleLookup(query,request),paidAiEnabled?2000:800);
   }
 
   function setCoverPreview(src){
@@ -2808,6 +2894,7 @@
     ['costCloudConnect','costCloudRefresh','costCloudPush'].forEach(id=>{$(id).disabled=costCloudBusy;});
   }
   function disconnectCostCloud(message='Ilovadan chiqilgani uchun ulanish uzildi. Qayta ulanishni bosing.'){
+    disconnectPaidAi();
     costCloudEpoch++;clearTimeout(costCloudTimer);costCloudTimer=null;clearTimeout(costDeviceTimer);costDeviceTimer=null;costDeviceBusy=false;costDeviceAgain=false;
     for(const controller of costCloudRequests)controller.abort();costCloudRequests.clear();
     costCloudCode='';costCloudCatalog=[];costCloudLastRead=0;costCloudBusy=false;
@@ -2943,7 +3030,8 @@
       const result=costs.calculate(row,state.bookCostRate),profit=costs.profit(row,state.bookCostRate);
       const pending=row.price===null && row.grams===null?'Narx va vazn kutilmoqda':row.grams===null?'Vazn kutilmoqda':row.price===null?'Narx kutilmoqda':'';
       const book=state.books.find(b=>costs.key(b.title)===costs.key(row.title));
-      const cover=book?coverHtml(book,'cost-cover'):'<div class="cost-cover cost-cover-placeholder" aria-hidden="true"><svg class="ui-icon" aria-hidden="true"><use href="#ico-book"></use></svg></div>';
+      const aiMetadata=state.bookCostMetadata?.[costs.key(row.title)];
+      const cover=book?coverHtml(book,'cost-cover'):aiMetadata?.cover?coverHtml(aiMetadata,'cost-cover'):'<div class="cost-cover cost-cover-placeholder" aria-hidden="true"><svg class="ui-icon" aria-hidden="true"><use href="#ico-book"></use></svg></div>';
       if(costView==='main')return '<article class="cost-main-row"><div class="cost-main-heading">'+cover+'<div class="cost-main-copy"><h3>'+escapeHtml(row.title||'Nomsiz kitob')+'</h3><small class="cost-main-weight">Vazni: <b>'+(row.grams===null?'Kiritilmagan':row.grams+' g')+'</b></small></div></div><div class="cost-main-prices"><span><small>Xarid narxi</small><b>'+(row.price===null?'—':formatMoney(row.price,'KRW'))+'</b></span><span><small>Tan narxi</small><b>'+(result.total===null?'—':formatMoney(result.total,'KRW'))+'</b></span><span><small>Sotuv narxi</small><b>'+(costs.amount(row.salePrice)===null?'—':formatMoney(row.salePrice,'KRW'))+'</b></span></div><details class="cost-main-profit '+(profit!==null && profit<0?'cost-loss':'')+'"><summary><span>Kutilayotgan sof foyda</span><strong>'+(profit===null?'—':formatMoney(profit,'KRW'))+'</strong></summary><p>Sotuv narxi − jami tan narxi (xarid + yetkazish). '+(profit===null?'Hisoblash uchun narx, vazn va sotuv narxi kerak.':formatMoney(row.salePrice,'KRW')+' − '+formatMoney(result.total,'KRW')+' = '+formatMoney(profit,'KRW'))+'</p></details>'+costTariffTable(row)+(costs.tariffs(state.bookCostRate,state.bookCostComparisons).length===1?'<p class="cost-main-shipping">Yetkazish ('+formatMoney(state.bookCostRate,'KRW')+' / kg): <b>'+(result.shipping===null?'—':formatMoney(result.shipping,'KRW'))+'</b></p>':'')+'</article>';
       const field=(key,label,value,placeholder)=>'<label>'+label+'<input '+(key==='salePrice' && row.muhajeerId?'readonly aria-readonly="true" ':'')+' data-cost-quick="'+key+'" inputmode="decimal" value="'+(value??'')+'" placeholder="'+placeholder+'"></label>';
       return '<article class="cost-ready-row" data-cost-quick-id="'+escapeHtml(row.id)+'"><div class="cost-ready-heading">'+(costSelecting?'<input type="checkbox" data-cost-select="'+escapeHtml(row.id)+'" aria-label="'+escapeHtml(row.title||'Nomsiz kitob')+'ni tanlash" '+(costSelectedIds.has(row.id)?'checked':'')+'>':'')+cover+'<div class="cost-heading-copy"><h3>'+escapeHtml(row.title||'Nomsiz kitob')+'</h3>'+(pending?'<small class="cost-pending-badge">'+pending+'</small>':'')+'</div><button type="button" class="soft-button" data-cost-edit="'+escapeHtml(row.id)+'">Tahrirlash</button></div>'+
@@ -3028,6 +3116,7 @@
   }
 
   function bindBookCosts(){
+    bindPaidAi();
     $('costRateAddBtn').addEventListener('click',()=>{state.bookCostComparisons.push({id:makeId(),label:'Variant '+(state.bookCostComparisons.length+2),rate:null});persistBookCosts('Yangi kg tarifini kiriting.',false);renderCostRates();});
     $('costRatesList').addEventListener('input',event=>{
       const field=event.target.dataset.costTariffField;if(!field)return;

@@ -1730,3 +1730,5 @@ html,body,#app{
 .cost-main-profit summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;padding:13px 14px;font-size:.78rem;list-style:none}
 .cost-main-profit summary::-webkit-details-marker{display:none}.cost-main-profit strong{font-size:1rem;white-space:nowrap;font-variant-numeric:tabular-nums}
 .cost-main-profit p{margin:0;padding:0 14px 14px;font-size:.75rem;line-height:1.6}.cost-main-profit.cost-loss{color:#a54136;background:#fff1ee}
+
+.paid-ai-panel{padding:13px;border:1px solid var(--line);border-radius:14px;background:var(--surface);margin:12px 0}.paid-ai-panel summary{cursor:pointer;color:var(--green);font-weight:700;font-size:.85rem}.paid-ai-panel p{font-size:.76rem;line-height:1.6;color:var(--muted)}.paid-ai-panel label{display:block;margin:12px 0;font-size:.8rem}.paid-ai-panel .cost-cloud-auto{display:flex}.paid-ai-panel input:not([type=checkbox]){width:100%;min-height:44px}.paid-ai-panel .cost-actions input{flex:1;min-width:0}

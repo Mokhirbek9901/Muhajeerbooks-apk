@@ -35,7 +35,7 @@ test('saved cost records survive JSON reload and old backups default to empty',(
 function appHarness(extra={}){
   const nodes=new Map();
   const node=id=>{
-    if(!nodes.has(id))nodes.set(id,{value:'',textContent:'',innerHTML:'',listeners:{},setAttribute(){},addEventListener(t,fn){this.listeners[t]=fn;},querySelectorAll:()=>[],scrollIntoView(){},classList:{add(){},remove(){}}});
+    if(!nodes.has(id))nodes.set(id,{value:'',textContent:'',innerHTML:'',listeners:{},replaceChildren(){this.innerHTML='';},close(){this.open=false;},setAttribute(){},addEventListener(t,fn){this.listeners[t]=fn;},querySelectorAll:()=>[],scrollIntoView(){},classList:{add(){},remove(){}}});
     return nodes.get(id);
   };
   const data=new Map();
@@ -43,7 +43,7 @@ function appHarness(extra={}){
   const document={visibilityState:'visible',getElementById:node,addEventListener:(name,fn)=>documentEvents.set(name,fn),querySelectorAll:()=>[]};
   const localStorage={getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v)};
   const ctx={window:{BookCosts:costs,BookCostSync:require('../personal-assistant/book-cost-sync.js'),BookCostSyncConfig:{url:'https://test',key:'public-test'},addEventListener:(name,fn)=>windowEvents.set(name,fn)},document,localStorage,crypto:require('node:crypto').webcrypto,navigator:{},console,AbortController,setTimeout:()=>0,clearTimeout(){},confirm:()=>true,...extra};
-  const source=fs.readFileSync(require.resolve('../personal-assistant/app.js'),'utf8').replace('  bindBookCosts();\n  bindEvents();\n  renderAll();\n  navigate(\'home\',false);\n  maybeDailyReminder();\n  scheduleMissingMetadataAuto();',`window.testing={pushCostCloud,setCostView,setCurrentView:value=>currentView=value,syncCostDevice,normalizeState,addCostTitles,bindBookCosts,renderBookCosts,costIsReady,renderCostReadyList,refreshCostCloud,getState:()=>state};`);
+  const source=fs.readFileSync(require.resolve('../personal-assistant/app.js'),'utf8').replace('  bindBookCosts();\n  bindEvents();\n  renderAll();\n  navigate(\'home\',false);\n  maybeDailyReminder();\n  scheduleMissingMetadataAuto();',`window.testing={runBookTitleLookup,enablePaidAi,runPaidCostLookup,paidBookCandidate,applyPaidCostCandidate,pushCostCloud,setCostView,setCurrentView:value=>currentView=value,syncCostDevice,normalizeState,addCostTitles,bindBookCosts,renderBookCosts,costIsReady,renderCostReadyList,refreshCostCloud,getState:()=>state};`);
   if(extra.deviceSync)ctx.window.BookCostDeviceSync=require('../personal-assistant/book-cost-device-sync.js');
   vm.runInNewContext(source.replace("let costView='main';","let costView='list';"),ctx);
   return {api:ctx.window.testing,node,data,document,documentEvents,windowEvents};
@@ -408,4 +408,25 @@ test('connect restores cloud books, resolves verified spelling and author varian
 test('main profit panel preserves missing values, losses and existing tariff details',()=>{
  const {api,node}=appHarness();api.bindBookCosts();api.getState().bookCosts.push({id:'a',title:'A',price:8000,grams:300,salePrice:9000,saved:true},{id:'b',title:'B',price:8000,grams:null,salePrice:15000,saved:true});
  api.setCostView('main');const html=node('costReadyList').innerHTML;assert.match(html,/Kutilayotgan sof foyda/);assert.match(html,/cost-main-profit cost-loss/);assert.match(html,/−?₩-?2,000|−₩2,000|-₩2,000/);assert.match(html,/Hisoblash uchun narx, vazn va sotuv narxi kerak/);assert.match(html,/Yetkazish/);
+});
+
+test('paid AI name lookup adds a saved cost book once, leaves costs empty and caches the same research',async()=>{
+ let research=0;const fetch=async(url,options)=>{const body=JSON.parse(options.body);if(url.endsWith('/api/ai-connect'))return {ok:true,json:async()=>({ok:true})};
+ research++;assert.equal(body.admin_code,'test-code');return {ok:true,json:async()=>({ok:true,book:{title:'Harvard metodi',author:'Vey Syuin',publisher:'Test',pages:200,confidence:'high',description:'Verified metadata',cover:''}})};};
+ const {api,node,data}=appHarness({fetch});api.bindBookCosts();node('costAiCode').value='test-code';await api.enablePaidAi('cost');node('costAiTitle').value='Harvad metodi';await api.runPaidCostLookup();await api.runPaidCostLookup();
+ assert.equal(research,1);assert.equal(api.getState().bookCosts.length,1);const row=api.getState().bookCosts[0];assert.equal(row.title,'Harvard metodi');assert.equal(row.saved,true);assert.equal(row.price,null);assert.equal(row.grams,null);assert.equal(row.salePrice,null);
+ assert.equal(node('costAiCode').value,'');assert.doesNotMatch([...data.values()].join(''),/test-code/);
+});
+test('paid AI refuses weak matches until selection and never applies a response after leaving',async()=>{
+ let resolve;const fetch=async(url)=>url.endsWith('/api/ai-connect')?{ok:true,json:async()=>({ok:true})}:new Promise(done=>resolve=()=>done({ok:true,json:async()=>({ok:true,book:{title:'Uncertain',confidence:'low',notes:'Check edition'}})}));
+ const {api,node,document,documentEvents}=appHarness({fetch});api.bindBookCosts();node('costAiCode').value='test-code';await api.enablePaidAi('cost');node('costAiTitle').value='Uncertain';const request=api.runPaidCostLookup();await Promise.resolve();resolve();await request;assert.equal(api.getState().bookCosts.length,0);assert.match(node('costAiResult').innerHTML,/data-cost-ai-apply/);
+ node('costAiResult').listeners.click({target:{closest:()=>true}});assert.equal(api.getState().bookCosts.length,1);
+ node('costAiTitle').value='Another';const late=api.runPaidCostLookup();await Promise.resolve();document.visibilityState='hidden';documentEvents.get('visibilitychange')();resolve();await late;assert.equal(api.getState().bookCosts.length,1);assert.equal(node('costAiOn').checked,false);
+});
+
+test('paid reading lookup fills book metadata, preserves manual fields and can auto-add a new library book',async()=>{
+ const fetch=async(url)=>({ok:true,json:async()=>url.endsWith('/api/ai-connect')?{ok:true}:{ok:true,book:{title:'Unique AI Book',author:'Verified Author',publisher:'Verified Publisher',category:'Roman',description:'Verified description',pages:244,confidence:'high',cover:''}}});
+ const {api,node,data}=appHarness({fetch});api.bindBookCosts();node('bookAiCode').value='test-code';await api.enablePaidAi('book');node('bookDialog').open=true;node('bookTitle').value='Unique AI Book';node('bookAuthor').value='My entered author';node('bookAiAutoAdd').checked=false;
+ await api.runBookTitleLookup('Unique AI Book',0);assert.equal(node('bookAuthor').value,'My entered author');assert.equal(node('bookPublisher').value,'Verified Publisher');assert.equal(node('bookPages').value,'244');assert.equal(node('bookDescription').value,'Verified description');assert.equal(api.getState().books.some(b=>b.title==='Unique AI Book'),false);
+ node('bookAiAutoAdd').checked=true;await api.runBookTitleLookup('Unique AI Book',0);assert.equal(api.getState().books.filter(b=>b.title==='Unique AI Book').length,1);assert.equal(node('bookDialog').open,false);assert.equal(JSON.parse(data.get('bek_personal_assistant_v4')).books[0].pages,244);
 });

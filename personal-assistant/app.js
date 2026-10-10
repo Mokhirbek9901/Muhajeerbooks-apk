@@ -2912,24 +2912,39 @@
     $('costSelectVisibleBtn').addEventListener('click',()=>{costVisibleRows.forEach(row=>costSelectedIds.add(row.id));renderCostReadyList();});
     $('costReadyList').addEventListener('change',event=>{const id=event.target.dataset.costSelect;if(!id)return;if(event.target.checked)costSelectedIds.add(id);else costSelectedIds.delete(id);$('costSelectedCount').textContent=costSelectedIds.size+' ta tanlandi';$('costEditSelectedBtn').disabled=costSelectedIds.size===0;});
     $('costEditSelectedBtn').addEventListener('click',()=>{if(!costSelectedIds.size)return;costEditingIds=new Set(costSelectedIds);costEditingId='';costEditingAll=false;costView='entry';renderBookCosts();});
-    const exportRows=async(rows,toSheets=false)=>{
+    const exportRows=rows=>{
       if(!rows.length){toast('Chiqarish uchun kitob yo‘q.');return;}
       const bytes=window.BookCostExport.build(rows,state.bookCostRate);
       const name='kitob-tan-narxi-'+today()+'.xlsx';
-      if(toSheets){
-        const result=await window.BookCostExport.share(bytes,name);
-        if(result==='cancelled')return;
-        if(result==='shared'){$('costSaveStatus').textContent='Fayl ulashildi. Google Sheets orqali ochishingiz mumkin.';return;}
-        $('costSaveStatus').textContent='Fayl yuklandi. Uni Google Sheets orqali oching.';
-      }
       const url=URL.createObjectURL(new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
       const link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-      toast(toSheets?'Faylni Google Sheets orqali oching.':rows.length+' ta kitob Excelga chiqarildi.');
+      toast(rows.length+' ta kitob Excelga chiqarildi.');
     };
+    const copySheets=async rows=>{
+      if(!rows.length){toast('Nusxalash uchun kitob yo‘q.');return;}
+      const text=window.BookCostExport.textTable(rows,state.bookCostRate);
+      $('costSheetsText').value=text;$('costSheetsCopyPanel').hidden=false;
+      $('costSheetsCopyStatus').textContent=rows.length+' ta kitob tayyor. Nusxalab, Sheets’da A1 katagiga qo‘ying.';
+      try{
+        if(!navigator.clipboard?.writeText)throw new Error('clipboard unavailable');
+        await navigator.clipboard.writeText(text);
+        $('costSheetsCopyStatus').textContent=rows.length+' ta kitob nusxalandi. Sheets’da A1 katagini bosib, “Qo‘yish / Paste”ni tanlang.';
+        toast('Jadval nusxalandi. Sheets’da A1 katagiga qo‘ying.');
+      }catch{
+        $('costSheetsText').focus();$('costSheetsText').select();$('costSheetsText').setSelectionRange(0,text.length);
+        $('costSheetsCopyStatus').textContent='Quyidagi matnni bosib turing → Hammasini tanlash → Nusxalash. Keyin Sheets’da A1 katagiga qo‘ying.';
+      }
+      $('costSheetsCopyPanel').scrollIntoView({block:'center',behavior:'smooth'});
+    };
+    $('costSheetsCopyAgainBtn').addEventListener('click',async()=>{
+      try{await navigator.clipboard.writeText($('costSheetsText').value);$('costSheetsCopyStatus').textContent='Nusxalandi. Sheets’da A1 katagiga qo‘ying.';}
+      catch{$('costSheetsText').focus();$('costSheetsText').select();$('costSheetsText').setSelectionRange(0,$('costSheetsText').value.length);$('costSheetsCopyStatus').textContent='Matnni bosib turing va Nusxalashni tanlang.';}
+    });
+    $('costSheetsCopyCloseBtn').addEventListener('click',()=>{$('costSheetsCopyPanel').hidden=true;});
     $('costExportBtn').addEventListener('click',()=>exportRows(costSelecting && costSelectedIds.size?state.bookCosts.filter(r=>costSelectedIds.has(r.id)):costVisibleRows));
     $('costReportExportBtn').addEventListener('click',()=>exportRows(state.bookCosts.filter(costIsReady)));
-    $('costSheetsBtn').addEventListener('click',()=>exportRows(costSelecting && costSelectedIds.size?state.bookCosts.filter(r=>costSelectedIds.has(r.id)):costVisibleRows,true));
-    $('costReportSheetsBtn').addEventListener('click',()=>exportRows(state.bookCosts.filter(costIsReady),true));
+    $('costSheetsBtn').addEventListener('click',()=>copySheets(costSelecting && costSelectedIds.size?state.bookCosts.filter(r=>costSelectedIds.has(r.id)):costVisibleRows));
+    $('costReportSheetsBtn').addEventListener('click',()=>copySheets(state.bookCosts.filter(costIsReady)));
     $('costBulkNames').addEventListener('paste',event=>{
       const text=event.clipboardData?.getData('text/plain');
       if(!text?.trim())return;

@@ -1659,3 +1659,5 @@ html,body,#app{
 .cost-editor-profit{font-size:.8rem;color:var(--green2);line-height:1.5}.cost-editor-profit strong{font-variant-numeric:tabular-nums}
 
 .cost-report>button{margin:6px 6px 6px 0}.cost-toolbar .primary-button{color:white;background:#0b4e4b}
+
+.cost-sheets-copy{margin:16px 0}.cost-sheets-copy textarea{width:100%;box-sizing:border-box;white-space:pre;font-family:monospace;font-size:14px;margin:10px 0;overflow:auto;user-select:text;-webkit-user-select:text}.cost-sheets-copy[hidden]{display:none}

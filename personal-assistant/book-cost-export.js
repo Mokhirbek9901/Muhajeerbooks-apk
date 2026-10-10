@@ -42,5 +42,11 @@
       return 'shared';
     }catch(error){return error?.name==='AbortError'?'cancelled':'download';}
   }
-  const api={build,share};if(typeof module==='object' && module.exports)module.exports=api;else root.BookCostExport=api;
+  function textTable(rows,wonPerKg){
+    const rate=costs.rate(wonPerKg);
+    const title=value=>{const text=String(value||'Nomsiz kitob').replace(/[\t\r\n]+/g,' ');return /^\s*[=+@-]/.test(text)?"'"+text:text;};
+    const table=[['Kitob nomi','Xarid narxi (₩)','Vazni (g)','Yetkazish (₩)','Tan narxi (₩)','Sotuv narxi (₩)','Kutiladigan foyda (₩)','1 kg narxi (₩)'],...rows.map(row=>{const c=costs.calculate(row,rate);return [title(row.title),costs.amount(row.price),costs.amount(row.grams),c.shipping,c.total,costs.amount(row.salePrice),costs.profit(row,rate),rate];})];
+    return table.map(row=>row.map(value=>value===null?'':String(value)).join('\t')).join('\n');
+  }
+  const api={build,share,textTable};if(typeof module==='object' && module.exports)module.exports=api;else root.BookCostExport=api;
 })(typeof globalThis==='object'?globalThis:this);

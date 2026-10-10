@@ -4,6 +4,14 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const costs=require('../personal-assistant/book-costs.js');
 
+test('Sheets clipboard table separates columns, recalculates rate and leaves unknown values empty',()=>{
+  const exporter=require('../personal-assistant/book-cost-export.js');
+  const table=exporter.textTable([{title:'Arosat',price:8000,grams:300,salePrice:15000},{title:'=SUM(1,2)\nKitob',price:0,grams:null}],12000).split('\n').map(row=>row.split('\t'));
+  assert.equal(table[0].length,8);
+  assert.deepEqual(table[1],['Arosat','8000','300','3600','11600','15000','3400','12000']);
+  assert.deepEqual(table[2],["'=SUM(1,2) Kitob",'0','','','','','','12000']);
+});
+
 test('10,000 won per kilogram, including decimal weights and missing fields',()=>{
   for(const [grams,shipping] of [[100,1000],[1000,10000],[300.5,3005]]){
     assert.deepEqual(costs.calculate({price:8000,grams}),{shipping,total:8000+shipping});

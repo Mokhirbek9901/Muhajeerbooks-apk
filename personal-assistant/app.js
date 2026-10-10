@@ -2912,15 +2912,24 @@
     $('costSelectVisibleBtn').addEventListener('click',()=>{costVisibleRows.forEach(row=>costSelectedIds.add(row.id));renderCostReadyList();});
     $('costReadyList').addEventListener('change',event=>{const id=event.target.dataset.costSelect;if(!id)return;if(event.target.checked)costSelectedIds.add(id);else costSelectedIds.delete(id);$('costSelectedCount').textContent=costSelectedIds.size+' ta tanlandi';$('costEditSelectedBtn').disabled=costSelectedIds.size===0;});
     $('costEditSelectedBtn').addEventListener('click',()=>{if(!costSelectedIds.size)return;costEditingIds=new Set(costSelectedIds);costEditingId='';costEditingAll=false;costView='entry';renderBookCosts();});
-    const exportRows=rows=>{
+    const exportRows=async(rows,toSheets=false)=>{
       if(!rows.length){toast('Chiqarish uchun kitob yo‘q.');return;}
       const bytes=window.BookCostExport.build(rows,state.bookCostRate);
+      const name='kitob-tan-narxi-'+today()+'.xlsx';
+      if(toSheets){
+        const result=await window.BookCostExport.share(bytes,name);
+        if(result==='cancelled')return;
+        if(result==='shared'){$('costSaveStatus').textContent='Fayl ulashildi. Google Sheets orqali ochishingiz mumkin.';return;}
+        $('costSaveStatus').textContent='Fayl yuklandi. Uni Google Sheets orqali oching.';
+      }
       const url=URL.createObjectURL(new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
-      const link=document.createElement('a');link.href=url;link.download='kitob-tan-narxi-'+today()+'.xlsx';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-      toast(rows.length+' ta kitob Excelga chiqarildi.');
+      const link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+      toast(toSheets?'Faylni Google Sheets orqali oching.':rows.length+' ta kitob Excelga chiqarildi.');
     };
     $('costExportBtn').addEventListener('click',()=>exportRows(costSelecting && costSelectedIds.size?state.bookCosts.filter(r=>costSelectedIds.has(r.id)):costVisibleRows));
     $('costReportExportBtn').addEventListener('click',()=>exportRows(state.bookCosts.filter(costIsReady)));
+    $('costSheetsBtn').addEventListener('click',()=>exportRows(costSelecting && costSelectedIds.size?state.bookCosts.filter(r=>costSelectedIds.has(r.id)):costVisibleRows,true));
+    $('costReportSheetsBtn').addEventListener('click',()=>exportRows(state.bookCosts.filter(costIsReady),true));
     $('costBulkNames').addEventListener('paste',event=>{
       const text=event.clipboardData?.getData('text/plain');
       if(!text?.trim())return;

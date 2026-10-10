@@ -207,3 +207,22 @@ test('quick save validates fields and selection edits only selected saved record
   assert.equal(rows[2].saved,false);assert.equal(rows[0].salePrice,15000);
   assert.match(node('costReportValues').innerHTML,/Kutiladigan foyda/);
 });
+
+
+test('Sheets file sharing uses XLSX, respects cancellation and falls back when unsupported',async()=>{
+  const excel=require('../personal-assistant/book-cost-export.js');
+  const bytes=excel.build([{title:'Arosat',price:8000,grams:300,salePrice:15000}],10000);
+  class FakeFile{constructor(parts,name,options){this.parts=parts;this.name=name;this.type=options.type;}}
+  let shared;
+  const env={File:FakeFile,navigator:{canShare:()=>true,share:async data=>{shared=data;}}};
+  assert.equal(await excel.share(bytes,'kitob.xlsx',env),'shared');
+  assert.equal(shared.files[0].name,'kitob.xlsx');
+  assert.equal(shared.files[0].type,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  assert.equal(shared.files[0].parts[0],bytes);
+  assert.equal(await excel.share(bytes,'kitob.xlsx',{navigator:{}}),'download');
+  env.navigator.canShare=()=>false;assert.equal(await excel.share(bytes,'kitob.xlsx',env),'download');
+  env.navigator.canShare=()=>true;env.navigator.share=async()=>{throw {name:'AbortError'};};
+  assert.equal(await excel.share(bytes,'kitob.xlsx',env),'cancelled');
+  env.navigator.share=async()=>{throw {name:'NotAllowedError'};};
+  assert.equal(await excel.share(bytes,'kitob.xlsx',env),'download');
+});

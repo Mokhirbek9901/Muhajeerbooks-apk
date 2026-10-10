@@ -1657,3 +1657,5 @@ html,body,#app{
 @media(min-width:768px){.cost-dashboard article{padding:24px}.cost-dashboard strong{font-size:1.55rem}.cost-dashboard small,.cost-dashboard span{font-size:.8rem}.cost-quick-fields input{font-size:20px}.cost-ready-heading .cost-cover{width:52px;height:74px}.cost-fields{grid-template-columns:repeat(3,minmax(0,1fr))}}
 
 .cost-editor-profit{font-size:.8rem;color:var(--green2);line-height:1.5}.cost-editor-profit strong{font-variant-numeric:tabular-nums}
+
+.cost-report>button{margin:6px 6px 6px 0}.cost-toolbar .primary-button{color:white;background:#0b4e4b}

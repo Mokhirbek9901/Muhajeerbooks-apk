@@ -32,5 +32,15 @@
       ['xl/worksheets/sheet1.xml','<worksheet xmlns="'+ns+'"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="1" width="36" customWidth="1"/><col min="2" max="8" width="23" customWidth="1"/></cols><sheetData>'+rowXml+'</sheetData><autoFilter ref="A1:H'+table.length+'"/></worksheet>']
     ]);
   }
-  const api={build};if(typeof module==='object' && module.exports)module.exports=api;else root.BookCostExport=api;
+  async function share(bytes,name,env=root){
+    try{
+      if(typeof env.File!=='function' || typeof env.navigator?.share!=='function')return 'download';
+      const file=new env.File([bytes],name,{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+      const data={files:[file]};
+      if(typeof env.navigator.canShare==='function' && !env.navigator.canShare(data))return 'download';
+      await env.navigator.share(data);
+      return 'shared';
+    }catch(error){return error?.name==='AbortError'?'cancelled':'download';}
+  }
+  const api={build,share};if(typeof module==='object' && module.exports)module.exports=api;else root.BookCostExport=api;
 })(typeof globalThis==='object'?globalThis:this);

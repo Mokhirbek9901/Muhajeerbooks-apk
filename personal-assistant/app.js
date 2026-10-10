@@ -108,6 +108,7 @@
     books: [],
     transactions: [],
     bookCostRate: costs.DEFAULT_WON_PER_KG,
+    bookCostAutoSync:true,
     bookCosts: []
   });
 
@@ -120,6 +121,8 @@
   let costSelectedIds=new Set();
   let costSelecting=false;
   let costVisibleRows=[];
+  let costCloudCode='',costCloudCatalog=[],costCloudBusy=false,costCloudTimer=null,costCloudLastRead=0;
+  let costCloudMessage='Ulanish uchun Muhajeer Books admin kodini kiriting.';
   const viewStack = [];
   let selectedBookId = null;
   let bookFilter = 'all';
@@ -274,6 +277,7 @@
         createdAt: b.createdAt || new Date().toISOString(),
         updatedAt: b.updatedAt || new Date().toISOString()
       })).filter(b => b.title),
+      bookCostAutoSync: input?.bookCostAutoSync!==false,
       bookCostRate: costs.rate(input?.bookCostRate),
       bookCosts: costs.normalize(input?.bookCosts,makeId),
       transactions: transactions.map(t => ({
@@ -2744,10 +2748,12 @@
       :'<div class="empty-state">Tranzaksiya yo‘q.</div>';
   }
 
-  function persistBookCosts(message='Avtomatik saqlandi.'){
+  function persistBookCosts(message='Avtomatik saqlandi.',schedule=true){
     try{
+      if(costCloudCode)window.BookCostSync.match(state.bookCosts,costCloudCatalog);
       localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
       $('costSaveStatus').textContent=message;
+      if(schedule && state.bookCostAutoSync && costCloudCode){clearTimeout(costCloudTimer);costCloudTimer=setTimeout(()=>pushCostCloud(null,true),1000);}
       return true;
     }catch(_){
       $('costSaveStatus').textContent='Saqlab bo‘lmadi. Qurilma xotirasini tekshiring; sahifani yopishdan oldin Backup oling.';
@@ -2755,6 +2761,62 @@
     }
   }
 
+  function renderCostCloud(){
+    $('costCloudLogin').hidden=Boolean(costCloudCode);
+    $('costCloudConnected').hidden=!costCloudCode;
+    $('costCloudStatus').textContent=costCloudMessage;
+    $('costCloudAuto').checked=state.bookCostAutoSync===true;
+    ['costCloudConnect','costCloudRefresh','costCloudPush'].forEach(id=>{$(id).disabled=costCloudBusy;});
+  }
+  async function costCloudRequest(action,changes,code=costCloudCode){
+    const response=await fetch(window.BookCostSyncConfig.url,{method:'POST',headers:{'Content-Type':'application/json',apikey:window.BookCostSyncConfig.key,Authorization:'Bearer '+window.BookCostSyncConfig.key},body:JSON.stringify({action,admin_code:code,...(changes?{changes}:{})}),signal:AbortSignal.timeout(20000)});
+    const result=await response.json();
+    if(!response.ok || result.ok!==true)throw Error(result.error||'Ulanish amalga oshmadi.');
+    return result.data;
+  }
+  async function refreshCostCloud(connect=false,schedule=true){
+    if(costCloudBusy)return;
+    const code=connect?$('costCloudAdminCode').value.trim():costCloudCode;
+    if(!code){toast('Muhajeer Books admin kodini kiriting.');return;}
+    costCloudBusy=true;costCloudMessage='Muhajeer Books bilan ulanmoqda…';renderCostCloud();
+    try{
+      const catalog=await costCloudRequest('catalog',null,code);
+      if(!Array.isArray(catalog))throw Error('Kitoblar ro‘yxati olinmadi.');
+      costCloudCode=code;costCloudCatalog=catalog;costCloudLastRead=Date.now();$('costCloudAdminCode').value='';
+      const linked=window.BookCostSync.match(state.bookCosts,catalog);
+      costCloudMessage='Ulandi. Sotuv narxlari yangilandi.'+(linked?' '+linked+' ta kitob nomi bo‘yicha bog‘landi.':'');
+      persistBookCosts('Sotuv narxlari Muhajeer Books’dan olindi.',schedule);renderBookCosts();
+    }catch(error){costCloudMessage=error.message||'Internetni tekshiring.';}
+    finally{costCloudBusy=false;renderCostCloud();}
+  }
+  async function pushCostCloud(id=null,automatic=false){
+    if(automatic && !state.bookCostAutoSync)return;
+    if(costCloudBusy){if(automatic){clearTimeout(costCloudTimer);costCloudTimer=setTimeout(()=>pushCostCloud(null,true),1500);}return;}
+    if(!costCloudCode){toast('Avval Muhajeer Books bilan ulaning.');return;}
+    if(Date.now()-costCloudLastRead>60000 || state.bookCosts.some(row=>costIsReady(row) && !row.muhajeerId) && Date.now()-costCloudLastRead>5000)await refreshCostCloud(false,false);
+    const rows=id?state.bookCosts.filter(row=>row.id===id):automatic?state.bookCosts.filter(costIsReady):costSelecting && costSelectedIds.size?state.bookCosts.filter(row=>costSelectedIds.has(row.id)):costVisibleRows;
+    let plan;
+    try{plan=window.BookCostSync.plan(rows,costCloudCatalog,state.bookCostRate);}catch(error){costCloudMessage=error.message;renderCostCloud();return;}
+    if(!plan.changes.length){if(!automatic){costCloudMessage='Yuboriladigan o‘zgarish yo‘q. Kitob bog‘langan, narxi va vazni kiritilgan bo‘lsin.';renderCostCloud();}return;}
+    if(!automatic){
+      const lines=plan.changes.map(change=>{const book=costCloudCatalog.find(b=>b.id===change.id);return book.title+': '+(change.expected_cost_price===null?'—':formatMoney(change.expected_cost_price,'KRW'))+' → '+formatMoney(change.cost_price,'KRW');});
+      if(!confirm('Faqat tan narxi yangilanadi:\n\n'+lines.join('\n')+'\n\n'+(plan.skipped.length?plan.skipped.length+' ta bog‘lanmagan yoki to‘liq bo‘lmagan kitob yuborilmaydi.\n':'')+'Sotuv narxi o‘zgarmaydi. Yuborilsinmi?'))return;
+    }
+    costCloudBusy=true;costCloudMessage='Tan narxlari yuborilmoqda…';renderCostCloud();
+    try{
+      const updated=await costCloudRequest('update-costs',plan.changes);
+      for(const item of updated){const book=costCloudCatalog.find(b=>b.id===item.id);if(book)book.cost_price=item.cost_price;}
+      window.BookCostSync.match(state.bookCosts,costCloudCatalog);
+      costCloudMessage=updated.length+' ta kitobning tan narxi yangilandi. Sotuv narxiga tegilmadi.';
+      persistBookCosts(costCloudMessage,false);renderBookCosts();
+    }catch(error){costCloudMessage=error.message||'Yuborish amalga oshmadi.';}
+    finally{costCloudBusy=false;renderCostCloud();}
+  }
+  function costCloudRow(row){
+    const book=costCloudCatalog.find(b=>b.id===row.muhajeerId);
+    if(!costCloudCode)return row.muhajeerId?'<p class="cost-cloud-row-note">Muhajeer Books: '+escapeHtml(row.muhajeerTitle||row.title)+' · Sotuv narxi faqat ko‘rish uchun</p>':'';
+    return '<div class="cost-cloud-row"><label>Muhajeer Books kitobi<select data-cost-cloud-link="'+escapeHtml(row.id)+'"><option value="">Bog‘lanmagan — kitobni tanlang</option>'+costCloudCatalog.map(b=>'<option value="'+escapeHtml(b.id)+'" '+(row.muhajeerId===b.id?'selected':'')+'>'+escapeHtml(b.title+(b.author?' · '+b.author:''))+'</option>').join('')+'</select></label>'+(book?'<small>Muhajeer tan narxi: '+(book.cost_price===null?'—':formatMoney(book.cost_price,'KRW'))+'</small><button type="button" class="soft-button" data-cost-cloud-push="'+escapeHtml(row.id)+'" '+(costs.calculate(row,state.bookCostRate).total===null?'disabled':'')+'>Tan narxini yuborish</button>':'')+'</div>';
+  }
   function costHasData(row){return Boolean(row.title.trim()) || row.price!==null || row.grams!==null || costs.amount(row.salePrice)!==null;}
   function costIsReady(row){return row.saved && costHasData(row);}
 
@@ -2806,11 +2868,11 @@
       const pending=row.price===null && row.grams===null?'Narx va vazn kutilmoqda':row.grams===null?'Vazn kutilmoqda':row.price===null?'Narx kutilmoqda':'';
       const book=state.books.find(b=>costs.key(b.title)===costs.key(row.title));
       const cover=book?coverHtml(book,'cost-cover'):'<div class="cost-cover cost-cover-placeholder" aria-hidden="true"><svg class="ui-icon" aria-hidden="true"><use href="#ico-book"></use></svg></div>';
-      const field=(key,label,value,placeholder)=>'<label>'+label+'<input data-cost-quick="'+key+'" inputmode="decimal" value="'+(value??'')+'" placeholder="'+placeholder+'"></label>';
+      const field=(key,label,value,placeholder)=>'<label>'+label+'<input '+(key==='salePrice' && row.muhajeerId?'readonly aria-readonly="true" ':'')+' data-cost-quick="'+key+'" inputmode="decimal" value="'+(value??'')+'" placeholder="'+placeholder+'"></label>';
       return '<article class="cost-ready-row" data-cost-quick-id="'+escapeHtml(row.id)+'"><div class="cost-ready-heading">'+(costSelecting?'<input type="checkbox" data-cost-select="'+escapeHtml(row.id)+'" aria-label="'+escapeHtml(row.title||'Nomsiz kitob')+'ni tanlash" '+(costSelectedIds.has(row.id)?'checked':'')+'>':'')+cover+'<div class="cost-heading-copy"><h3>'+escapeHtml(row.title||'Nomsiz kitob')+'</h3>'+(pending?'<small class="cost-pending-badge">'+pending+'</small>':'')+'</div><button type="button" class="soft-button" data-cost-edit="'+escapeHtml(row.id)+'">Tahrirlash</button></div>'+
         '<div class="cost-ready-values"><span><small>Xarid narxi</small><b>'+(row.price===null?'—':formatMoney(row.price,'KRW'))+'</b></span><span><small>Vazni</small><b>'+(row.grams===null?'—':row.grams+' g')+'</b></span><span><small>Yetkazish</small><b>'+(result.shipping===null?'—':formatMoney(result.shipping,'KRW'))+'</b></span><span class="cost-ready-total"><small>Tan narxi</small><strong>'+(result.total===null?'—':formatMoney(result.total,'KRW'))+'</strong></span></div>'+
         '<div class="cost-profit-row"><span>Sotuv narxi <b>'+(costs.amount(row.salePrice)===null?'—':formatMoney(row.salePrice,'KRW'))+'</b></span><span class="'+(profit!==null && profit<0?'cost-loss':'cost-profit')+'">Kutiladigan foyda <strong>'+(profit===null?'—':formatMoney(profit,'KRW'))+'</strong></span></div>'+
-        '<details class="cost-quick-editor"><summary>Tez tahrirlash</summary><div class="cost-quick-fields">'+field('price','Xarid (₩)',row.price,'Narx kiriting')+field('grams','Vazn (g)',row.grams,'Vazn kiriting')+field('salePrice','Sotuv (₩)',row.salePrice,'Sotuv narxi')+'</div><small data-cost-quick-error role="alert"></small><button type="button" class="primary-button" data-cost-quick-save>Saqlash</button></details></article>';
+        costCloudRow(row)+'<details class="cost-quick-editor"><summary>Tez tahrirlash</summary><div class="cost-quick-fields">'+field('price','Xarid (₩)',row.price,'Narx kiriting')+field('grams','Vazn (g)',row.grams,'Vazn kiriting')+field('salePrice','Sotuv (₩)',row.salePrice,'Sotuv narxi')+'</div><small data-cost-quick-error role="alert"></small><button type="button" class="primary-button" data-cost-quick-save>Saqlash</button></details></article>';
     }).join(''):'<div class="empty-state"><strong>'+(query || filter!=='all'?'Mos kitob topilmadi':'Saqlangan kitoblar hali yo‘q')+'</strong>'+(query || filter!=='all'?'Filtr yoki qidiruvni o‘zgartiring.':'Nomlarini yoki narxlarini kiritib saqlang. Vaznini keyin qo‘shishingiz mumkin.')+'</div>';
   }
 
@@ -2819,6 +2881,7 @@
   }
 
   function renderBookCosts(){
+    renderCostCloud();
     $('costKgRate').value=state.bookCostRate;
     $('costKgRate').setAttribute('aria-invalid','false');
     $('costRateError').textContent='';
@@ -2837,7 +2900,7 @@
         '<div class="cost-book-heading"><label>Kitob nomi<input data-cost-field="title" maxlength="300" value="'+escapeHtml(row.title)+'" placeholder="Kitob nomini yozing"></label>'+
         '<button type="button" class="cost-delete" data-cost-delete aria-label="Kitobni ro‘yxatdan o‘chirish">×</button></div>'+
         '<div class="cost-fields"><label>Xarid narxi (₩)<input data-cost-field="price" inputmode="decimal" value="'+(row.price??'')+'" placeholder="Masalan: 8000"></label>'+
-        '<label>Kitob vazni (gramm)<input data-cost-field="grams" inputmode="decimal" value="'+(row.grams??'')+'" placeholder="Masalan: 300"></label><label>Sotuv narxi (₩)<input data-cost-field="salePrice" inputmode="decimal" value="'+(row.salePrice??'')+'" placeholder="Masalan: 15000"></label></div>'+
+        '<label>Kitob vazni (gramm)<input data-cost-field="grams" inputmode="decimal" value="'+(row.grams??'')+'" placeholder="Masalan: 300"></label><label>Sotuv narxi (₩)<input data-cost-field="salePrice" inputmode="decimal" value="'+(row.salePrice??'')+'" placeholder="Masalan: 15000" '+(row.muhajeerId?'readonly aria-readonly="true"':'')+'></label></div>'+
         '<div class="cost-result"><span>Yetkazish <b data-cost-shipping>'+ (result.shipping===null?'—':formatMoney(result.shipping,'KRW'))+'</b></span>'+
         '<span>Jami tan narxi <strong data-cost-total>'+ (result.total===null?'—':formatMoney(result.total,'KRW'))+'</strong></span></div>'+
         '<p class="cost-editor-profit">Kutiladigan foyda: <strong data-cost-profit>'+(costs.profit(row,state.bookCostRate)===null?'—':formatMoney(costs.profit(row,state.bookCostRate),'KRW'))+'</strong></p>'+
@@ -2863,6 +2926,14 @@
   }
 
   function bindBookCosts(){
+    window.addEventListener?.('focus',()=>{if(currentView==='book-costs' && costCloudCode && !costCloudBusy && Date.now()-costCloudLastRead>60000)refreshCostCloud();});
+    $('costCloudConnect').addEventListener('click',()=>refreshCostCloud(true));
+    $('costCloudAdminCode').addEventListener('keydown',event=>{if(event.key==='Enter')refreshCostCloud(true);});
+    $('costCloudRefresh').addEventListener('click',()=>refreshCostCloud());
+    $('costCloudPush').addEventListener('click',()=>pushCostCloud());
+    $('costCloudDisconnect').addEventListener('click',()=>{clearTimeout(costCloudTimer);costCloudCode='';costCloudCatalog=[];state.bookCostAutoSync=false;costCloudMessage='Ulanish uzildi. Kitoblarni qayta ulanishda ID orqali topadi.';persistBookCosts('Ulanish uzildi.',false);renderBookCosts();});
+    $('costCloudAuto').addEventListener('change',()=>{state.bookCostAutoSync=$('costCloudAuto').checked;persistBookCosts(state.bookCostAutoSync?'Bog‘langan kitoblar saqlanganda tan narxi yuboriladi.':'Avtomatik yuborish o‘chirildi.');});
+
     $('costRateSaveBtn').addEventListener('click',()=>{
       const value=costs.amount($('costKgRate').value);
       if(value===null){
@@ -2891,12 +2962,13 @@
     $('costSort').addEventListener('change',renderCostReadyList);
     $('costFilter').addEventListener('change',renderCostReadyList);
     $('costReadyList').addEventListener('click',event=>{
+      const cloudPush=event.target.closest('[data-cost-cloud-push]');if(cloudPush){pushCostCloud(cloudPush.dataset.costCloudPush);return;}
       const quick=event.target.closest('[data-cost-quick-save]');
       if(quick){
         const card=quick.closest('[data-cost-quick-id]'),row=state.bookCosts.find(r=>r.id===card.dataset.costQuickId);
         if(!row)return;
         const updates={};let invalid=false;
-        qsa('[data-cost-quick]',card).forEach(input=>{const value=costs.amount(input.value);const bad=input.value.trim()!=='' && value===null;input.setAttribute('aria-invalid',String(bad));invalid=invalid||bad;updates[input.dataset.costQuick]=value;});
+        qsa('[data-cost-quick]',card).forEach(input=>{if(input.dataset.costQuick==='salePrice' && row.muhajeerId)return;const value=costs.amount(input.value);const bad=input.value.trim()!=='' && value===null;input.setAttribute('aria-invalid',String(bad));invalid=invalid||bad;updates[input.dataset.costQuick]=value;});
         if(invalid){card.querySelector('[data-cost-quick-error]').textContent='Raqamlarni tuzating yoki maydonni bo‘sh qoldiring.';return;}
         const previous={...row};Object.assign(row,updates);
         if(!costHasData(row)){Object.assign(row,previous);card.querySelector('[data-cost-quick-error]').textContent='Kamida nomi yoki narxi bo‘lsin.';return;}
@@ -2910,7 +2982,7 @@
     qsa('[data-cost-filter]').forEach(button=>button.addEventListener('click',()=>{$('costFilter').value=button.dataset.costFilter;renderCostReadyList();}));
     $('costSelectBtn').addEventListener('click',()=>{costSelecting=!costSelecting;if(!costSelecting)costSelectedIds.clear();renderCostReadyList();});
     $('costSelectVisibleBtn').addEventListener('click',()=>{costVisibleRows.forEach(row=>costSelectedIds.add(row.id));renderCostReadyList();});
-    $('costReadyList').addEventListener('change',event=>{const id=event.target.dataset.costSelect;if(!id)return;if(event.target.checked)costSelectedIds.add(id);else costSelectedIds.delete(id);$('costSelectedCount').textContent=costSelectedIds.size+' ta tanlandi';$('costEditSelectedBtn').disabled=costSelectedIds.size===0;});
+    $('costReadyList').addEventListener('change',event=>{const linkId=event.target.dataset.costCloudLink;if(linkId){const row=state.bookCosts.find(r=>r.id===linkId);if(!row)return;const book=costCloudCatalog.find(b=>b.id===event.target.value);if(book){row.muhajeerId=book.id;row.muhajeerTitle=book.title;row.muhajeerCost=book.cost_price;row.salePrice=window.BookCostSync.salePrice(book);}else{delete row.muhajeerId;delete row.muhajeerTitle;delete row.muhajeerCost;}persistBookCosts('Kitob bog‘lanishi saqlandi.',false);renderBookCosts();return;}const id=event.target.dataset.costSelect;if(!id)return;if(event.target.checked)costSelectedIds.add(id);else costSelectedIds.delete(id);$('costSelectedCount').textContent=costSelectedIds.size+' ta tanlandi';$('costEditSelectedBtn').disabled=costSelectedIds.size===0;});
     $('costEditSelectedBtn').addEventListener('click',()=>{if(!costSelectedIds.size)return;costEditingIds=new Set(costSelectedIds);costEditingId='';costEditingAll=false;costView='entry';renderBookCosts();});
     const exportRows=rows=>{
       if(!rows.length){toast('Chiqarish uchun kitob yo‘q.');return;}
@@ -2963,6 +3035,7 @@
       const card=event.target.closest('[data-cost-id]');
       const row=state.bookCosts.find(item=>item.id===card.dataset.costId);
       if(!row)return;
+      if(field==='salePrice' && row.muhajeerId)return;
       row[field]=field==='title'?event.target.value:costs.amount(event.target.value);
       const invalid=field!=='title' && event.target.value.trim()!=='' && row[field]===null;
       event.target.setAttribute('aria-invalid',String(invalid));

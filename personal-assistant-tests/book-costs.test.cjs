@@ -46,6 +46,23 @@ function appHarness(){
   vm.runInNewContext(source,ctx);
   return {api:ctx.window.testing,node,data};
 }
+
+test('linked sale price is read-only in both editors and ignored by save handlers',()=>{
+  const {api,node}=appHarness();api.bindBookCosts();
+  const row={id:'local',title:'Arosat',price:3000,grams:200,salePrice:15000,saved:true,muhajeerId:'00000000-0000-4000-8000-000000000001'};
+  api.getState().bookCosts.push(row);api.renderBookCosts();
+  assert.match(node('costReadyList').innerHTML,/readonly aria-readonly="true"[^>]*data-cost-quick="salePrice"/);
+  node('costEditAllBtn').listeners.click();
+  assert.match(node('costBooksList').innerHTML,/data-cost-field="salePrice"[^>]*readonly/);
+  const card={dataset:{costId:row.id}};
+  node('costBooksList').listeners.input({target:{dataset:{costField:'salePrice'},value:'1',closest:()=>card}});
+  assert.equal(row.salePrice,15000);
+  const fields=[['price','3000'],['grams','200'],['salePrice','1']].map(([field,value])=>({dataset:{costQuick:field},value,setAttribute(){}}));
+  const quickCard={dataset:{costQuickId:row.id},querySelectorAll:()=>fields,querySelector:()=>({})};
+  const quick={closest:()=>quickCard};
+  node('costReadyList').listeners.click({target:{closest:s=>s==='[data-cost-quick-save]'?quick:null}});
+  assert.equal(row.salePrice,15000);
+});
 test('app import, duplicate handling, input calculation, persistence, backup migration',()=>{
   const {api,node,data}=appHarness();
   api.addCostTitles('Arosat\nKo‘rlik');api.addCostTitles('Arosat\nOq nilufarlar');

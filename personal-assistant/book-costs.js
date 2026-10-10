@@ -37,6 +37,7 @@
     return (Array.isArray(rows)?rows:[]).filter(row=>row && typeof row==='object').map(row=>({
       id:String(row.id||makeId()),title:String(row.title||'').slice(0,300),
       price:amount(row.price),grams:amount(row.grams),salePrice:amount(row.salePrice),
+      ...(typeof row.muhajeerId==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(row.muhajeerId)?{muhajeerId:row.muhajeerId,muhajeerTitle:String(row.muhajeerTitle||'').slice(0,300),muhajeerCost:amount(row.muhajeerCost)}:{}),
       saved:typeof row.saved==='boolean'?row.saved:Boolean(String(row.title||'').trim() && calculate(row).total!==null)
     }));
   }

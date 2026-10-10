@@ -123,6 +123,8 @@
   let costSelecting=false;
   let costVisibleRows=[];
   let costCloudCode='',costCloudCatalog=[],costCloudBusy=false,costCloudTimer=null,costCloudLastRead=0,costCloudEpoch=0;
+  let costDeviceTimer=null,costDeviceBusy=false,costDeviceAgain=false;
+  const COST_DEVICE_BASE_KEY='bek_cost_device_base_v1';
   const costCloudRequests=new Set();
   let costCloudMessage='Ulanish uchun Muhajeer Books admin kodini kiriting.';
   const viewStack = [];
@@ -2756,6 +2758,7 @@
       if(costCloudCode)window.BookCostSync.match(state.bookCosts,costCloudCatalog);
       localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
       $('costSaveStatus').textContent=message;
+      scheduleCostDevice();
       if(schedule && state.bookCostAutoSync && costCloudCode){clearTimeout(costCloudTimer);costCloudTimer=setTimeout(()=>pushCostCloud(null,true),1000);}
       return true;
     }catch(_){
@@ -2764,6 +2767,39 @@
     }
   }
 
+  function scheduleCostDevice(){
+    if(!window.BookCostDeviceSync || !costCloudCode || document.visibilityState==='hidden')return;
+    clearTimeout(costDeviceTimer);costDeviceTimer=setTimeout(()=>syncCostDevice(),2500);
+  }
+  async function syncCostDevice(){
+    if(!costCloudCode || document.visibilityState==='hidden' || !window.BookCostDeviceSync)return;
+    if(costDeviceBusy){costDeviceAgain=true;return;}
+    const epoch=costCloudEpoch;costDeviceBusy=true;
+    $('costDeviceStatus').textContent='Qurilmalar ro‘yxati sinxronlanmoqda…';
+    try{
+      const remote=await costCloudRequest('load-list');
+      if(epoch!==costCloudEpoch || document.visibilityState==='hidden')return;
+      let base=null;try{base=JSON.parse(localStorage.getItem(COST_DEVICE_BASE_KEY)||'null');}catch(_){}
+      const local=window.BookCostDeviceSync.snapshot(state);
+      const merged=window.BookCostDeviceSync.merge(base,local,remote.payload);
+      if(merged.conflicts.length)throw Error('Bir xil ma’lumot ikki qurilmada turlicha tahrirlangan: '+merged.conflicts.slice(0,3).join(', ')+'. Ro‘yxatlar almashtirilmadi. Backup olib, qarama-qarshi maydonlarni bir xil qiymatga keltiring va yangilang.');
+      if(!remote.payload && !local.books.length && !local.tariffs.length){$('costDeviceStatus').textContent='Bulutda hali ro‘yxat yo‘q. Avval ro‘yxati bor telefonda ulaning.';return;}
+      let saved=remote;
+      if(!window.BookCostDeviceSync.equal(merged.value,remote.payload))saved=await costCloudRequest('save-list',{version:remote.version,payload:merged.value});
+      if(epoch!==costCloudEpoch || document.visibilityState==='hidden')return;
+      const current=window.BookCostDeviceSync.snapshot(state);
+      const late=window.BookCostDeviceSync.merge(local,current,saved.payload);
+      if(late.conflicts.length)throw Error('Sinxronlash paytida shu maydon qayta tahrirlandi. Mahalliy nusxa saqlangan; ro‘yxatni yangilang.');
+      localStorage.setItem(COST_DEVICE_BASE_KEY,JSON.stringify(saved.payload));
+      state.bookCosts=costs.normalize(late.value.books,makeId);state.bookCostRate=costs.rate(late.value.rate);state.bookCostComparisons=costs.normalizeRates(late.value.tariffs,makeId);
+      window.BookCostSync.match(state.bookCosts,costCloudCatalog);
+      localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+      if(currentView==='book-costs' && costView!=='entry')renderBookCosts();
+      if(!window.BookCostDeviceSync.equal(late.value,saved.payload))costDeviceAgain=true;
+      $('costDeviceStatus').textContent='✓ '+saved.payload.books.length+' ta kitob bulutda saqlandi. Boshqa qurilmada shu admin kodi bilan ulaning.';
+    }catch(error){if(epoch===costCloudEpoch)$('costDeviceStatus').textContent=error.message||'Ro‘yxat sinxronlanmadi. Mahalliy nusxa saqlangan.';}
+    finally{if(epoch===costCloudEpoch){costDeviceBusy=false;if(costDeviceAgain){costDeviceAgain=false;scheduleCostDevice();}}}
+  }
   function renderCostCloud(){
     $('costCloudLogin').hidden=Boolean(costCloudCode);
     $('costCloudConnected').hidden=!costCloudCode;
@@ -2772,10 +2808,10 @@
     ['costCloudConnect','costCloudRefresh','costCloudPush'].forEach(id=>{$(id).disabled=costCloudBusy;});
   }
   function disconnectCostCloud(message='Ilovadan chiqilgani uchun ulanish uzildi. Qayta ulanishni bosing.'){
-    costCloudEpoch++;clearTimeout(costCloudTimer);costCloudTimer=null;
+    costCloudEpoch++;clearTimeout(costCloudTimer);costCloudTimer=null;clearTimeout(costDeviceTimer);costDeviceTimer=null;costDeviceBusy=false;costDeviceAgain=false;
     for(const controller of costCloudRequests)controller.abort();costCloudRequests.clear();
     costCloudCode='';costCloudCatalog=[];costCloudLastRead=0;costCloudBusy=false;
-    $('costCloudAdminCode').value='';costCloudMessage=message;renderCostCloud();
+    $('costCloudAdminCode').value='';$('costDeviceStatus').textContent='Ulanish uzilgan. Ro‘yxat shu qurilmada saqlangan.';costCloudMessage=message;renderCostCloud();
     renderCostReadyList();
   }
   async function costCloudRequest(action,changes,code=costCloudCode){
@@ -2800,6 +2836,8 @@
       if(epoch!==costCloudEpoch || document.visibilityState==='hidden')return;
       if(!Array.isArray(catalog))throw Error('Kitoblar ro‘yxati olinmadi.');
       costCloudCode=code;costCloudCatalog=catalog;costCloudLastRead=Date.now();$('costCloudAdminCode').value='';
+      if(window.BookCostDeviceSync)await syncCostDevice();
+      if(epoch!==costCloudEpoch || document.visibilityState==='hidden')return;
       window.BookCostSync.match(state.bookCosts,catalog);
       const saved=state.bookCosts.filter(costIsReady),matched=saved.filter(row=>catalog.some(book=>book.id===row.muhajeerId));
       const missing=saved.length-matched.length;
@@ -2927,6 +2965,7 @@
     $('costEditorVisibleCount').textContent=shown+' ta kitob ko‘rinmoqda';
     $('costEditorEmpty').hidden=shown!==0 || !state.bookCosts.length;
   }
+  function returnCostList(){setCostView('list');$('costListPanel').scrollIntoView({block:'start',behavior:'smooth'});}
   function focusCostEditor(){
     $('costEditorSearch').value='';$('costEditorFilter').value='all';renderBookCosts();
     $('costEntryPanel').scrollIntoView({block:'start',behavior:'smooth'});
@@ -3006,6 +3045,7 @@
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')disconnectCostCloud();});
     window.addEventListener('pagehide',()=>disconnectCostCloud());
     window.addEventListener?.('focus',()=>{if(currentView==='book-costs' && costCloudCode && !costCloudBusy && Date.now()-costCloudLastRead>60000)refreshCostCloud();});
+    $('costDeviceRefresh').addEventListener('click',()=>{if(!costCloudCode){toast('Avval admin kodi bilan ulaning.');return;}syncCostDevice();});
     $('costCloudConnect').addEventListener('click',()=>refreshCostCloud(true));
     $('costCloudAdminCode').addEventListener('keydown',event=>{if(event.key==='Enter')refreshCostCloud(true);});
     $('costCloudRefresh').addEventListener('click',()=>refreshCostCloud());
@@ -3037,7 +3077,14 @@
       costView='list';costEditingId='';costEditingAll=false;costEditingIds.clear();$('costSearch').value='';renderBookCosts();
       if(persistBookCosts(filled.length+' ta kitob saqlandi.'))toast(filled.length+' ta kitob saqlandi.');
     });
-    $('costEditorBackBtn').addEventListener('click',()=>{setCostView('list');$('costListPanel').scrollIntoView({block:'start',behavior:'smooth'});});
+    $('costEditorBackBtn').addEventListener('click',returnCostList);
+    let costSwipe=null;
+    $('screen-book-costs').addEventListener('touchstart',event=>{
+      const t=event.touches[0];costSwipe=event.touches.length===1 && t.clientX<=28 && costView==='entry' && (costEditingId || costEditingAll || costEditingIds.size)?{x:t.clientX,y:t.clientY}:null;
+    },{passive:true});
+    $('screen-book-costs').addEventListener('touchmove',event=>{if(!costSwipe)return;const t=event.touches[0];if(Math.abs(t.clientY-costSwipe.y)>60){costSwipe=null;return;}if(t.clientX-costSwipe.x>30 && event.cancelable)event.preventDefault();},{passive:false});
+    $('screen-book-costs').addEventListener('touchend',event=>{if(!costSwipe)return;const t=event.changedTouches[0],start=costSwipe;costSwipe=null;if(t && t.clientX-start.x>=90 && Math.abs(t.clientY-start.y)<60)returnCostList();},{passive:true});
+    $('screen-book-costs').addEventListener('touchcancel',()=>{costSwipe=null;},{passive:true});
     $('costEditorSearch').addEventListener('input',filterCostEditor);
     $('costEditorFilter').addEventListener('change',filterCostEditor);
     $('costSearch').addEventListener('input',renderCostReadyList);

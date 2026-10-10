@@ -17,12 +17,25 @@ Deno.serve(async req=>{
   const now=Date.now();if(hits.size>10000){for(const [key,value] of hits)if(value.until<now)hits.delete(key);}
   const hit=hits.get(ip);if(hit && hit.until>now){if(hit.count>=30)return reply(429,{ok:false,error:'Biroz kutib, qayta urinib ko‘ring.'});hit.count++;}else hits.set(ip,{count:1,until:now+60000});
   try{
-    const raw=await req.text();if(raw.length>65000)return reply(413,{ok:false,error:'So‘rov juda katta.'});
+    const raw=await req.text();if(raw.length>1000000)return reply(413,{ok:false,error:'So‘rov juda katta.'});
     const body=JSON.parse(raw);
-    if(!body || typeof body!=='object' || Array.isArray(body) || Object.keys(body).some(k=>!['action','admin_code','changes'].includes(k)) || !['catalog','update-costs'].includes(body.action))return reply(400,{ok:false,error:'Amal ruxsat etilmagan.'});
+    if(!body || typeof body!=='object' || Array.isArray(body) || Object.keys(body).some(k=>!['action','admin_code','changes'].includes(k)) || !['catalog','update-costs','load-list','save-list'].includes(body.action))return reply(400,{ok:false,error:'Amal ruxsat etilmagan.'});
     if(typeof body.admin_code!=='string' || !body.admin_code || body.admin_code.length>512)return reply(401,{ok:false,error:'Admin kodini kiriting.'});
     const verified=await database('rpc/admin_verify',{p_secret:body.admin_code});
     if(!verified.response.ok || verified.data!==true)return reply(401,{ok:false,error:'Admin kodi noto‘g‘ri.'});
+    if(body.action==='load-list'){
+      const result=await database('yordamchi_device_list?select=version,payload&id=eq.true');
+      if(!result.response.ok)return reply(502,{ok:false,error:'Qurilmalar ro‘yxatini olib bo‘lmadi.'});
+      return reply(200,{ok:true,data:result.data[0]||{version:0,payload:null}});
+    }
+    if(body.action==='save-list'){
+      const c=body.changes,p=c?.payload;
+      const number=(v:unknown)=>v===null || typeof v==='number' && Number.isFinite(v) && v>=0 && v<=1e9;
+      if(!c || Object.keys(c).sort().join(',')!=='payload,version' || !Number.isSafeInteger(c.version) || c.version<0 || !p || Object.keys(p).sort().join(',')!=='books,rate,tariffs' || !Array.isArray(p.books) || !Array.isArray(p.tariffs) || !number(p.rate) || p.rate===null || p.books.some((r:Record<string,unknown>)=>!r || Object.keys(r).sort().join(',')!=='grams,id,muhajeerId,price,salePrice,saved,title' || typeof r.id!=='string' || r.id.length>100 || typeof r.title!=='string' || r.title.length>300 || typeof r.saved!=='boolean' || !number(r.price) || !number(r.grams) || !number(r.salePrice) || (r.muhajeerId!==null && (typeof r.muhajeerId!=='string' || !/^[0-9a-f-]{36}$/i.test(r.muhajeerId)))) || new Set(p.books.map((r:{id:string})=>r.id)).size!==p.books.length || p.tariffs.some((t:Record<string,unknown>)=>!t || Object.keys(t).sort().join(',')!=='id,label,rate' || typeof t.id!=='string' || t.id.length>100 || typeof t.label!=='string' || t.label.length>80 || !number(t.rate)))return reply(400,{ok:false,error:'Ro‘yxat ma’lumotlari yaroqsiz.'});
+      const result=await database('rpc/yordamchi_save_device_list',{p_version:c.version,p_payload:p});
+      if(!result.response.ok)return reply(result.data?.code==='40001'?409:400,{ok:false,error:'Ro‘yxat boshqa qurilmada o‘zgargan. Ro‘yxatni yangilashni bosing.'});
+      return reply(200,{ok:true,data:result.data});
+    }
     if(body.action==='catalog'){
       // Only catalog fields needed for matching, cost comparison and current sale price.
       const result=await database('books?select=id,title,author,publisher,cost_price,price,discount_percent,discount_ends_at,is_active&order=title.asc&limit=1000');

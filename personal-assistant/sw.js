@@ -1,5 +1,5 @@
-const CACHE='bek-yordamchi-v42';
-const ASSETS=['./','./index.html','./styles.css?v=42','./app.js?v=42','./book-costs.js?v=42','./book-cost-export.js?v=42','./book-cost-sync.js?v=42','./book-cost-sync-config.js?v=42','./manifest.webmanifest','./icon.svg'];
+const CACHE='bek-yordamchi-v43';
+const ASSETS=['./','./index.html','./styles.css?v=43','./app.js?v=43','./book-costs.js?v=43','./book-cost-device-sync.js?v=43','./book-cost-export.js?v=43','./book-cost-sync.js?v=43','./book-cost-sync-config.js?v=43','./manifest.webmanifest','./icon.svg'];
 
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)));

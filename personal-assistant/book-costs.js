@@ -25,7 +25,8 @@
   function normalize(rows,makeId){
     return (Array.isArray(rows)?rows:[]).filter(row=>row && typeof row==='object').map(row=>({
       id:String(row.id||makeId()),title:String(row.title||'').slice(0,300),
-      price:amount(row.price),grams:amount(row.grams)
+      price:amount(row.price),grams:amount(row.grams),
+      saved:typeof row.saved==='boolean'?row.saved:Boolean(String(row.title||'').trim() && calculate(row).total!==null)
     }));
   }
   const api={WON_PER_GRAM,amount,calculate,key,parseTitles,normalize};

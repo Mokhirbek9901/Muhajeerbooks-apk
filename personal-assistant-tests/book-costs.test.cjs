@@ -20,7 +20,7 @@ test('bulk pasted names preserve punctuation, strip list prefixes, skip repeats'
 });
 test('saved cost records survive JSON reload and old backups default to empty',()=>{
   assert.deepEqual(costs.normalize(undefined,()=> 'new'),[]);
-  const rows=[{id:'a',title:'Arosat',price:8000,grams:300},{id:'b',title:'',price:null,grams:null}];
+  const rows=[{id:'a',title:'Arosat',price:8000,grams:300,saved:true},{id:'b',title:'',price:null,grams:null,saved:false}];
   assert.deepEqual(costs.normalize(JSON.parse(JSON.stringify(rows)),()=> 'new'),rows);
 });
 
@@ -34,7 +34,7 @@ function appHarness(){
   const document={getElementById:node,addEventListener(){},querySelectorAll:()=>[]};
   const localStorage={getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v)};
   const ctx={window:{BookCosts:costs,addEventListener(){}},document,localStorage,crypto:require('node:crypto').webcrypto,navigator:{},console,setTimeout:()=>0,clearTimeout(){},confirm:()=>true};
-  const source=fs.readFileSync(require.resolve('../personal-assistant/app.js'),'utf8').replace('  bindBookCosts();\n  bindEvents();\n  renderAll();\n  navigate(\'home\',false);\n  maybeDailyReminder();\n  scheduleMissingMetadataAuto();',`window.testing={normalizeState,addCostTitles,bindBookCosts,renderBookCosts,getState:()=>state};`);
+  const source=fs.readFileSync(require.resolve('../personal-assistant/app.js'),'utf8').replace('  bindBookCosts();\n  bindEvents();\n  renderAll();\n  navigate(\'home\',false);\n  maybeDailyReminder();\n  scheduleMissingMetadataAuto();',`window.testing={normalizeState,addCostTitles,bindBookCosts,renderBookCosts,costIsReady,renderCostReadyList,getState:()=>state};`);
   vm.runInNewContext(source,ctx);
   return {api:ctx.window.testing,node,data};
 }
@@ -55,6 +55,19 @@ test('app import, duplicate handling, input calculation, persistence, backup mig
   input('grams','100');assert.equal(fields.get('[data-cost-total]').textContent,'₩9,000');
   const restored=api.normalizeState(JSON.parse(data.get('bek_personal_assistant_v4')));
   assert.equal(restored.bookCosts[0].grams,100);
+  assert.equal(api.costIsReady(row),false);
+  let savedTarget={closest(selector){return selector==='[data-cost-save]'?{}:card;}};
+  node('costBooksList').listeners.click({target:savedTarget});
+  assert.equal(api.costIsReady(row),true);
+  assert.equal(node('costReadyCount').textContent,1);
+  assert.match(node('costReadyList').innerHTML,/Arosat/);
+  assert.match(node('costReadyList').innerHTML,/₩9,000/);
+  node('costSearch').value='Ko‘rlik';api.renderCostReadyList();
+  assert.doesNotMatch(node('costReadyList').innerHTML,/Arosat/);
+  node('costSearch').value='';
+  const migrated=api.normalizeState({bookCosts:[{id:'old',title:'Old',price:5000,grams:100}]});
+  assert.equal(migrated.bookCosts[0].saved,true);
+  assert.equal(api.normalizeState({bookCosts:[{id:'draft',title:'Draft',price:5000,grams:null}]}).bookCosts[0].saved,false);
   const old=api.normalizeState({profile:{name:'Bek'},books:[],transactions:[{id:'tx1',amount:500,date:'2026-10-10'}]});
   assert.equal(old.transactions[0].amount,500);assert.equal(old.profile.name,'Bek');assert.equal(old.bookCosts.length,0);
   let prevented=false;

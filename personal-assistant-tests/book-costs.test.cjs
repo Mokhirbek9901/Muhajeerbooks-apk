@@ -27,7 +27,7 @@ test('saved cost records survive JSON reload and old backups default to empty',(
 function appHarness(){
   const nodes=new Map();
   const node=id=>{
-    if(!nodes.has(id))nodes.set(id,{value:'',textContent:'',innerHTML:'',listeners:{},addEventListener(t,fn){this.listeners[t]=fn;},querySelectorAll:()=>[],scrollIntoView(){},classList:{add(){},remove(){}}});
+    if(!nodes.has(id))nodes.set(id,{value:'',textContent:'',innerHTML:'',listeners:{},setAttribute(){},addEventListener(t,fn){this.listeners[t]=fn;},querySelectorAll:()=>[],scrollIntoView(){},classList:{add(){},remove(){}}});
     return nodes.get(id);
   };
   const data=new Map();
@@ -148,4 +148,31 @@ test('missing price, missing weight and both filters combine with search, sortin
   assert.deepEqual(filter('missing-price'),['price','both']);
   assert.equal(rows[1].grams,300);
   assert.equal(node('costReadyCount').textContent,5);
+});
+
+
+test('custom kg rate recalculates existing and draft books, persists and restores with backups',()=>{
+  assert.deepEqual(costs.calculate({price:8000,grams:300},12000),{shipping:3600,total:11600});
+  assert.deepEqual(costs.calculate({price:null,grams:300.5},15000),{shipping:4508,total:null});
+  assert.deepEqual(costs.calculate({price:8000,grams:null},12000),{shipping:null,total:null});
+  assert.deepEqual(costs.calculate({price:8000,grams:300},0),{shipping:0,total:8000});
+  const {api,node,data}=appHarness();api.bindBookCosts();
+  const rows=api.getState().bookCosts;
+  rows.push({id:'saved',title:'Mavjud',price:8000,grams:300,saved:true},{id:'draft',title:'Yangi',price:8000,grams:100,saved:false});
+  node('costKgRate').value='12,000';node('costRateSaveBtn').listeners.click();
+  assert.equal(api.getState().bookCostRate,12000);
+  assert.match(node('costReadyList').innerHTML,/₩11,600/);
+  assert.match(node('costBooksList').innerHTML,/₩9,200/);
+  assert.match(node('costRateSummary').textContent,/₩12,000/);
+  assert.equal(api.normalizeState(JSON.parse(data.get('bek_personal_assistant_v4'))).bookCostRate,12000);
+  assert.equal(api.normalizeState({bookCosts:rows}).bookCostRate,10000);
+  assert.equal(api.normalizeState({bookCostRate:0}).bookCostRate,0);
+  for(const invalid of ['', '-5', 'abc']){
+    node('costKgRate').value=invalid;node('costRateSaveBtn').listeners.click();
+    assert.equal(api.getState().bookCostRate,12000);
+    assert.match(node('costRateError').textContent,/raqam/);
+  }
+  node('costKgRate').value='15000';node('costRateSaveBtn').listeners.click();
+  assert.match(node('costReadyList').innerHTML,/₩12,500/);
+  assert.equal(rows[0].price,8000);assert.equal(rows[0].grams,300);assert.equal(rows[0].saved,true);
 });

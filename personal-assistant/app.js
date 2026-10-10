@@ -107,6 +107,7 @@
     },
     books: [],
     transactions: [],
+    bookCostRate: costs.DEFAULT_WON_PER_KG,
     bookCosts: []
   });
 
@@ -269,6 +270,7 @@
         createdAt: b.createdAt || new Date().toISOString(),
         updatedAt: b.updatedAt || new Date().toISOString()
       })).filter(b => b.title),
+      bookCostRate: costs.rate(input?.bookCostRate),
       bookCosts: costs.normalize(input?.bookCosts,makeId),
       transactions: transactions.map(t => ({
         id: String(t.id || makeId()),
@@ -2753,6 +2755,7 @@
   function costIsReady(row){return row.saved && costHasData(row);}
 
   function renderCostReadyList(){
+    $('costRateSummary').textContent='1 kg = '+formatMoney(state.bookCostRate,'KRW')+' · 100 g = '+formatMoney(Math.round(state.bookCostRate/10),'KRW');
     const ready=state.bookCosts.filter(costIsReady);
     const drafts=state.bookCosts.length-ready.length;
     $('costReadyCount').textContent=ready.length;
@@ -2772,14 +2775,14 @@
     const sort=$('costSort').value;
     if(sort==='title')rows.sort((a,b)=>a.title.localeCompare(b.title,'uz'));
     else if(sort==='low' || sort==='high')rows.sort((a,b)=>{
-      const first=costs.calculate(a).total,second=costs.calculate(b).total;
+      const first=costs.calculate(a,state.bookCostRate).total,second=costs.calculate(b,state.bookCostRate).total;
       if(first===null)return second===null?0:1;
       if(second===null)return -1;
       return (first-second)*(sort==='low'?1:-1);
     });
     else if(sort!=='oldest') rows.reverse();
     $('costReadyList').innerHTML=rows.length?rows.map(row=>{
-      const result=costs.calculate(row);
+      const result=costs.calculate(row,state.bookCostRate);
       const pending=row.price===null && row.grams===null?'Narx va vazn kutilmoqda':row.grams===null?'Vazn kutilmoqda':row.price===null?'Narx kutilmoqda':'';
       return '<article class="cost-ready-row"><div class="cost-ready-heading"><div><h3>'+escapeHtml(row.title||'Nomsiz kitob')+(pending?'</h3><small class="cost-pending-badge">'+pending+'</small>':'</h3>')+'</div><button type="button" class="soft-button" data-cost-edit="'+escapeHtml(row.id)+'">Tahrirlash</button></div>'+
         '<div class="cost-ready-values"><span><small>Xarid narxi</small><b>'+(row.price===null?'—':formatMoney(row.price,'KRW'))+'</b></span><span><small>Vazni</small><b>'+(row.grams===null?'—':row.grams+' g')+'</b></span><span><small>Yetkazish</small><b>'+(result.shipping===null?'—':formatMoney(result.shipping,'KRW'))+'</b></span><span class="cost-ready-total"><small>Jami tan narxi</small><strong>'+(result.total===null?'—':formatMoney(result.total,'KRW'))+'</strong></span></div></article>';
@@ -2791,6 +2794,9 @@
   }
 
   function renderBookCosts(){
+    $('costKgRate').value=state.bookCostRate;
+    $('costKgRate').setAttribute('aria-invalid','false');
+    $('costRateError').textContent='';
     $('costListPanel').hidden=costView!=='list';
     $('costEntryPanel').hidden=costView!=='entry';
     qsa('[data-cost-view]').forEach(button=>button.classList.toggle('active',button.dataset.costView===costView));
@@ -2800,7 +2806,7 @@
     $('costSaveAllBtn').hidden=Boolean(costEditingId) || rows.length===0;
     $('costBulkPanel').open=!costEditingId && !costEditingAll;
     $('costBooksList').innerHTML=rows.length?rows.map(row=>{
-      const result=costs.calculate(row);
+      const result=costs.calculate(row,state.bookCostRate);
       return '<article class="cost-book" data-cost-id="'+escapeHtml(row.id)+'">'+
         '<div class="cost-book-heading"><label>Kitob nomi<input data-cost-field="title" maxlength="300" value="'+escapeHtml(row.title)+'" placeholder="Kitob nomini yozing"></label>'+
         '<button type="button" class="cost-delete" data-cost-delete aria-label="Kitobni ro‘yxatdan o‘chirish">×</button></div>'+
@@ -2808,7 +2814,7 @@
         '<label>Kitob vazni (gramm)<input data-cost-field="grams" inputmode="decimal" value="'+(row.grams??'')+'" placeholder="Masalan: 300"></label></div>'+
         '<div class="cost-result"><span>Yetkazish <b data-cost-shipping>'+ (result.shipping===null?'—':formatMoney(result.shipping,'KRW'))+'</b></span>'+
         '<span>Jami tan narxi <strong data-cost-total>'+ (result.total===null?'—':formatMoney(result.total,'KRW'))+'</strong></span></div>'+
-        '<small data-cost-hint>'+(result.total===null?'Hozir saqlashingiz mumkin. Jami narx va vazn kiritilganda hisoblanadi.':'Xarid narxi + '+row.grams+' g × 10 ₩')+'</small>'+
+        '<small data-cost-hint>'+(result.total===null?'Hozir saqlashingiz mumkin. Jami narx va vazn kiritilganda hisoblanadi.':'Xarid narxi + '+row.grams+' g ÷ 1000 × '+formatMoney(state.bookCostRate,'KRW'))+'</small>'+
         '<button type="button" class="primary-button cost-save-button" data-cost-save>✓ Ro‘yxatga saqlash</button></article>';
     }).join(''):'<div class="empty-state"><strong>Chala kitoblar yo‘q</strong>Nomlarni nusxalab kiriting yoki bitta kitob qo‘shing.</div>';
   }
@@ -2830,6 +2836,19 @@
   }
 
   function bindBookCosts(){
+    $('costRateSaveBtn').addEventListener('click',()=>{
+      const value=costs.amount($('costKgRate').value);
+      if(value===null){
+        $('costKgRate').setAttribute('aria-invalid','true');
+        $('costRateError').textContent='1 kg narxini raqam bilan kiriting (masalan: 12000).';
+        return;
+      }
+      const previous=state.bookCostRate;
+      state.bookCostRate=value;
+      if(!persistBookCosts('1 kg narxi saqlandi. Hamma kitoblar yangi narxda hisoblandi.')){state.bookCostRate=previous;return;}
+      renderBookCosts();
+      toast('1 kg narxi yangilandi.');
+    });
     qsa('[data-cost-view]').forEach(button=>button.addEventListener('click',()=>setCostView(button.dataset.costView)));
     $('costEditAllBtn').addEventListener('click',()=>{costView='entry';costEditingId='';costEditingAll=true;renderBookCosts();});
     $('costSaveAllBtn').addEventListener('click',()=>{
@@ -2870,10 +2889,10 @@
       row[field]=field==='title'?event.target.value:costs.amount(event.target.value);
       const invalid=field!=='title' && event.target.value.trim()!=='' && row[field]===null;
       event.target.setAttribute('aria-invalid',String(invalid));
-      const result=costs.calculate(row);
+      const result=costs.calculate(row,state.bookCostRate);
       card.querySelector('[data-cost-shipping]').textContent=result.shipping===null?'—':formatMoney(result.shipping,'KRW');
       card.querySelector('[data-cost-total]').textContent=result.total===null?'—':formatMoney(result.total,'KRW');
-      card.querySelector('[data-cost-hint]').textContent=invalid?'Musbat raqam kiriting (masalan: 300 yoki 300.5).':result.total===null?'Hozir saqlashingiz mumkin. Jami narx va vazn kiritilganda hisoblanadi.':'Xarid narxi + '+row.grams+' g × 10 ₩';
+      card.querySelector('[data-cost-hint]').textContent=invalid?'Musbat raqam kiriting (masalan: 300 yoki 300.5).':result.total===null?'Hozir saqlashingiz mumkin. Jami narx va vazn kiritilganda hisoblanadi.':'Xarid narxi + '+row.grams+' g ÷ 1000 × '+formatMoney(state.bookCostRate,'KRW');
       renderCostReadyList();persistBookCosts();
     });
     $('costBooksList').addEventListener('click',event=>{

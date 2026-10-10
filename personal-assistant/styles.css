@@ -1603,3 +1603,16 @@ html,body,#app{
 .cost-filter-tools select{width:100%;min-width:0;min-height:46px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font-size:.8rem}
 .cost-filter-tools small{grid-column:2;font-size:.7rem;color:var(--muted)}
 @media(min-width:768px){.cost-filter-tools{grid-template-columns:auto minmax(0,1fr) auto;gap:16px}.cost-filter-tools select{min-height:56px;font-size:.85rem}.cost-filter-tools small{grid-column:auto;font-size:.8rem}}
+
+
+.cost-rate-settings{margin:0 0 18px;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
+.cost-rate-settings label{display:block;font-size:.85rem;font-weight:700;margin-bottom:10px}
+.cost-rate-settings>div{display:flex;gap:10px;align-items:stretch}
+.cost-rate-settings input{width:100%;min-width:0;flex:1;font-size:16px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface2);color:var(--ink)}
+.cost-rate-settings button{flex-shrink:0;font-size:.8rem}
+.cost-rate-settings small{display:block;font-size:.72rem;line-height:1.6;color:var(--muted);margin-top:8px}
+.cost-rate-settings #costRateError{color:var(--red)}
+.cost-rate-settings #costRateError:empty{display:none}
+.cost-rate-settings input[aria-invalid="true"]{border-color:var(--red)}
+@media(min-width:768px){.cost-rate-settings{padding:22px 24px}.cost-rate-settings input{font-size:20px}.cost-rate-settings small{font-size:.8rem}}
+@media(max-width:350px){.cost-rate-settings>div{flex-direction:column}}

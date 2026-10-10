@@ -2769,7 +2769,7 @@
       if(second===null)return -1;
       return (first-second)*(sort==='low'?1:-1);
     });
-    else rows.reverse();
+    else if(sort!=='oldest') rows.reverse();
     $('costReadyList').innerHTML=rows.length?rows.map(row=>{
       const result=costs.calculate(row);
       const pending=row.price===null && row.grams===null?'Narx va vazn kutilmoqda':row.grams===null?'Vazn kutilmoqda':row.price===null?'Narx kutilmoqda':'';

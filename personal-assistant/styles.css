@@ -1667,3 +1667,58 @@ html,body,#app{
 .cost-cloud-missing{flex-basis:100%;margin:0;font-size:.8rem;color:#8c571e;background:#fff3d5;border-radius:10px;padding:10px}
 
 .cost-tariffs-settings{margin:16px 0}.cost-tariffs-settings h2{font-size:1.05rem}.cost-tariffs-settings p{font-size:.85rem;color:var(--muted)}.cost-tariff-editor{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:10px;align-items:end;margin-top:12px}.cost-tariff-editor label{display:grid;gap:5px;font-size:.8rem}.cost-tariff-editor input{width:100%;min-width:0;box-sizing:border-box;font-size:16px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface2);color:var(--ink)}.cost-tariff-actions{display:flex;gap:6px}.cost-tariff-editor small{grid-column:1/-1;color:#a44229}.cost-tariff-table-wrap{overflow:auto;margin:14px 0;border:1px solid var(--line);border-radius:12px}.cost-tariff-table{border-collapse:collapse;width:100%;font-size:.78rem;text-align:left;white-space:nowrap}.cost-tariff-table caption{font-weight:700;text-align:left;padding:10px 12px;white-space:normal}.cost-tariff-table th,.cost-tariff-table td{padding:10px;border-top:1px solid var(--line)}.cost-tariff-table thead{color:var(--muted)}.cost-tariff-table small{display:block;font-weight:400;font-size:.7rem;margin-top:4px;color:var(--muted)}.cost-tariff-main{background:#e1f2ed}@media(max-width:600px){.cost-tariff-editor{grid-template-columns:1fr 1fr}.cost-tariff-actions{grid-column:1/-1}.cost-tariffs-settings .section-title-row{flex-wrap:wrap;gap:10px}.cost-tariff-table th,.cost-tariff-table td{padding:8px}}
+/* Focused cost workspace */
+.bottom-nav{grid-template-columns:repeat(6,minmax(0,1fr))}
+.bottom-nav .nav-add{width:54px;height:54px;justify-self:center;transform:translateY(-8px)}
+.bottom-nav button small{font-size:.54rem}
+.cost-page-head h1{flex:1;margin-right:0}
+.cost-settings-open{display:flex;align-items:center;gap:6px;min-height:44px;font-size:.75rem}
+.cost-settings-open .ui-icon{width:20px;height:20px}
+.cost-overview{padding:12px 16px;margin-bottom:12px}
+.cost-dashboard{margin-bottom:12px}
+.cost-view-tabs{position:sticky;top:var(--header-height,90px);z-index:8;background:var(--surface2);margin-top:12px}
+.cost-list-tools{margin-bottom:10px}
+.cost-list-tools .search-field{min-height:48px}
+.cost-more-actions{margin:10px 0 16px;border-bottom:1px solid var(--line)}
+.cost-more-actions>summary{padding:12px 4px;cursor:pointer;font-size:.8rem;color:var(--green);font-weight:700;min-height:44px}
+.cost-more-actions .cost-toolbar{padding:10px 0}
+.cost-ready-row{box-shadow:none;padding:14px}
+.cost-ready-heading{align-items:center;margin-bottom:10px}
+.cost-ready-heading h3{font-size:1rem}
+.cost-ready-heading button{min-height:44px;padding:10px 12px;font-size:.75rem}
+.cost-ready-values{grid-template-columns:1fr .7fr 1.15fr;gap:10px}
+.cost-ready-values>span:nth-child(3){display:none}
+.cost-ready-total{grid-column:auto;display:block;padding:10px}
+.cost-ready-total small{margin-bottom:5px}
+.cost-ready-total strong{font-size:1rem}
+.cost-row-details{margin-top:10px;border-top:1px solid var(--line)}
+.cost-row-details>summary,.cost-editor-comparison>summary{cursor:pointer;min-height:44px;padding:12px 0;font-size:.78rem;font-weight:700;color:var(--green)}
+.cost-quick-editor{margin-top:0;border-top:1px solid var(--line)}
+.cost-editing>.cost-dashboard,.cost-editing>.cost-overview,.cost-editing>.cost-view-tabs,.cost-editing>.cost-save-status{display:none}
+.cost-editor-toolbar{position:sticky;top:82px;z-index:10;background:var(--surface2);padding:10px 0 12px;box-shadow:0 8px 12px var(--surface2)}
+.cost-editor-toolbar .cost-list-title{margin:0 0 12px;gap:10px}
+.cost-editor-toolbar h2{font-size:1.05rem;margin:0 0 5px}
+.cost-editor-toolbar small{color:var(--muted);font-size:.75rem}
+.cost-editor-toolbar button{min-height:44px}
+.cost-editor-toolbar .cost-save-all{margin:10px 0 0}
+.cost-editor-search{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.cost-editor-search .search-field{flex:1;min-width:0;margin:0}
+.cost-editor-search select{max-width:145px;min-height:48px;padding:8px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font-size:.78rem}
+.cost-books-list{display:block}
+.cost-book{padding:0;margin-bottom:10px;box-shadow:none;scroll-margin-top:220px;overflow:hidden}
+.cost-book[hidden]{display:none}
+.cost-editor-card>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px;min-height:70px;cursor:pointer;list-style:none}
+.cost-editor-card>summary::-webkit-details-marker{display:none}
+.cost-editor-card>summary b{font-size:.95rem;line-height:1.4;display:block;overflow-wrap:anywhere}
+.cost-editor-card>summary small{display:block;font-size:.75rem;color:var(--muted);margin-top:5px}
+.cost-edit-badge{flex-shrink:0;font-size:.72rem;font-weight:700;border:1px solid var(--line);padding:10px;border-radius:10px;color:var(--green)}
+.cost-editor-card[open]>summary{background:var(--mint);border-bottom:1px solid var(--line)}
+.cost-editor-card[open] .cost-edit-badge{background:var(--surface)}
+.cost-editor-body{padding:16px}
+.cost-editor-body>small{display:block;color:var(--muted);font-size:.75rem;line-height:1.5;margin-top:8px}
+.cost-editor-comparison{border-top:1px solid var(--line);margin-top:10px}
+.cost-editor-body .cost-result{padding:12px}
+.cost-editor-body .cost-editor-profit{font-size:.8rem;margin:10px 0}
+#costEntryPanel,#costListPanel{scroll-margin-top:100px}
+@media(max-width:420px){.bottom-nav{padding-left:3px;padding-right:3px;grid-template-columns:repeat(6,minmax(0,1fr))}.bottom-nav .nav-add{width:48px;height:48px}.bottom-nav button>.ui-icon{width:22px;height:22px}.bottom-nav button small{font-size:.49rem}.cost-editor-search{flex-direction:column;align-items:stretch}.cost-editor-search select{max-width:none;min-height:42px}.cost-ready-heading .cost-cover{width:32px;height:46px}.cost-ready-heading{gap:8px}.cost-ready-values b,.cost-ready-values strong{font-size:.84rem}.cost-editor-card>summary{padding:14px}.cost-edit-badge{font-size:.65rem;padding:9px 7px}}
+@media(min-width:768px){.bottom-nav{grid-template-columns:repeat(6,minmax(0,1fr))}.bottom-nav .nav-add{width:68px;height:68px}.bottom-nav button small{font-size:.72rem}.cost-editor-toolbar{top:106px}.cost-editor-body{padding:24px}.cost-editor-card>summary{padding:20px 24px}.cost-editor-card>summary b{font-size:1.1rem}.cost-editor-card>summary small{font-size:.85rem}.cost-editor-body .cost-fields{grid-template-columns:repeat(3,minmax(0,1fr))}.cost-editor-toolbar .cost-save-all{width:auto}.cost-books-list{max-width:1050px;margin:0 auto}.cost-view-tabs{top:106px}#costEntryPanel,#costListPanel{scroll-margin-top:125px}}

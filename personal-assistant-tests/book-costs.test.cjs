@@ -337,3 +337,22 @@ test('Sheets and Excel include every populated tariff, including columns beyond 
  const xml=new TextDecoder().decode(exporter.build([row],10000,extras));
  assert.match(xml,/ref="A1:AR2"/);assert.match(xml,/r="AA2"/);assert.match(xml,/max="44"/);
 });
+
+test('bulk editor search and missing-field filters preserve and save hidden books',()=>{
+  const {api,node}=appHarness();api.bindBookCosts();
+  api.getState().bookCosts.push({id:'a',title:'Ko‘rlik',price:9000,grams:0,saved:true},{id:'b',title:'Arosat',price:0,grams:null,saved:true},{id:'c',title:'Yashamoq',price:null,grams:null,saved:true});
+  node('costEditAllBtn').listeners.click();
+  assert.equal(node('costBulkPanel').hidden,true);
+  assert.match(node('costBooksList').innerHTML,/name="cost-editor-book"/);
+  assert.doesNotMatch(node('costBooksList').innerHTML,/name="cost-editor-book" open/);
+  const cards=['a','b','c'].map(id=>({dataset:{costId:id},hidden:false}));
+  node('costBooksList').querySelectorAll=()=>cards;
+  node('costEditorSearch').value='arosat';node('costEditorSearch').listeners.input();
+  assert.deepEqual(cards.map(c=>c.hidden),[true,false,true]);
+  node('costEditorSearch').value='';node('costEditorFilter').value='missing-both';node('costEditorFilter').listeners.change();
+  assert.deepEqual(cards.map(c=>c.hidden),[true,true,false]);
+  node('costSaveAllBtn').listeners.click();
+  assert.equal(api.getState().bookCosts.length,3);
+  assert.equal(api.getState().bookCosts[1].price,0);
+  assert.equal(api.getState().bookCosts[0].grams,0);
+});

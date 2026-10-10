@@ -121,7 +121,8 @@
   let costSelectedIds=new Set();
   let costSelecting=false;
   let costVisibleRows=[];
-  let costCloudCode='',costCloudCatalog=[],costCloudBusy=false,costCloudTimer=null,costCloudLastRead=0;
+  let costCloudCode='',costCloudCatalog=[],costCloudBusy=false,costCloudTimer=null,costCloudLastRead=0,costCloudEpoch=0;
+  const costCloudRequests=new Set();
   let costCloudMessage='Ulanish uchun Muhajeer Books admin kodini kiriting.';
   const viewStack = [];
   let selectedBookId = null;
@@ -2768,19 +2769,33 @@
     $('costCloudAuto').checked=state.bookCostAutoSync===true;
     ['costCloudConnect','costCloudRefresh','costCloudPush'].forEach(id=>{$(id).disabled=costCloudBusy;});
   }
+  function disconnectCostCloud(message='Ilovadan chiqilgani uchun ulanish uzildi. Qayta ulanishni bosing.'){
+    costCloudEpoch++;clearTimeout(costCloudTimer);costCloudTimer=null;
+    for(const controller of costCloudRequests)controller.abort();costCloudRequests.clear();
+    costCloudCode='';costCloudCatalog=[];costCloudLastRead=0;costCloudBusy=false;
+    $('costCloudAdminCode').value='';costCloudMessage=message;renderCostCloud();
+    renderCostReadyList();
+  }
   async function costCloudRequest(action,changes,code=costCloudCode){
-    const response=await fetch(window.BookCostSyncConfig.url,{method:'POST',headers:{'Content-Type':'application/json',apikey:window.BookCostSyncConfig.key,Authorization:'Bearer '+window.BookCostSyncConfig.key},body:JSON.stringify({action,admin_code:code,...(changes?{changes}:{})}),signal:AbortSignal.timeout(20000)});
-    const result=await response.json();
-    if(!response.ok || result.ok!==true)throw Error(result.error||'Ulanish amalga oshmadi.');
-    return result.data;
+    if(document.visibilityState==='hidden')throw new Error('Ilova yopiq. Avval qayta ulaning.');
+    const controller=new AbortController();costCloudRequests.add(controller);
+    const timer=setTimeout(()=>controller.abort(),20000);
+    try{
+      const response=await fetch(window.BookCostSyncConfig.url,{method:'POST',headers:{'Content-Type':'application/json',apikey:window.BookCostSyncConfig.key,Authorization:'Bearer '+window.BookCostSyncConfig.key},body:JSON.stringify({action,admin_code:code,...(changes?{changes}:{})}),signal:controller.signal});
+      const result=await response.json();
+      if(!response.ok || result.ok!==true)throw Error(result.error||'Ulanish amalga oshmadi.');
+      return result.data;
+    }finally{clearTimeout(timer);costCloudRequests.delete(controller);}
   }
   async function refreshCostCloud(connect=false,schedule=true){
-    if(costCloudBusy)return;
+    if(costCloudBusy || document.visibilityState==='hidden')return;
+    const epoch=costCloudEpoch;
     const code=connect?$('costCloudAdminCode').value.trim():costCloudCode;
     if(!code){toast('Muhajeer Books admin kodini kiriting.');return;}
     costCloudBusy=true;costCloudMessage='Muhajeer Books bilan ulanmoqda…';renderCostCloud();
     try{
       const catalog=await costCloudRequest('catalog',null,code);
+      if(epoch!==costCloudEpoch || document.visibilityState==='hidden')return;
       if(!Array.isArray(catalog))throw Error('Kitoblar ro‘yxati olinmadi.');
       costCloudCode=code;costCloudCatalog=catalog;costCloudLastRead=Date.now();$('costCloudAdminCode').value='';
       window.BookCostSync.match(state.bookCosts,catalog);
@@ -2788,14 +2803,17 @@
       const missing=saved.length-matched.length;
       costCloudMessage=matched.length+' / '+saved.length+' ta kitobning sotuv narxi olindi.'+(missing?' '+missing+' ta kitob bog‘lanmagan: kartadagi “Muhajeer Books kitobi”dan mos kitobni tanlang.':'');
       persistBookCosts(costCloudMessage,schedule);renderBookCosts();
-    }catch(error){costCloudMessage=error.message||'Internetni tekshiring.';}
-    finally{costCloudBusy=false;renderCostCloud();}
+    }catch(error){if(epoch===costCloudEpoch)costCloudMessage=error.message||'Internetni tekshiring.';}
+    finally{if(epoch===costCloudEpoch){costCloudBusy=false;renderCostCloud();}}
   }
   async function pushCostCloud(id=null,automatic=false){
+    if(document.visibilityState==='hidden')return;
+    const epoch=costCloudEpoch;
     if(automatic && !state.bookCostAutoSync)return;
     if(costCloudBusy){if(automatic){clearTimeout(costCloudTimer);costCloudTimer=setTimeout(()=>pushCostCloud(null,true),1500);}return;}
     if(!costCloudCode){toast('Avval Muhajeer Books bilan ulaning.');return;}
     if(Date.now()-costCloudLastRead>60000 || state.bookCosts.some(row=>costIsReady(row) && !row.muhajeerId) && Date.now()-costCloudLastRead>5000)await refreshCostCloud(false,false);
+    if(epoch!==costCloudEpoch || !costCloudCode || document.visibilityState==='hidden')return;
     const rows=id?state.bookCosts.filter(row=>row.id===id):automatic?state.bookCosts.filter(costIsReady):costSelecting && costSelectedIds.size?state.bookCosts.filter(row=>costSelectedIds.has(row.id)):costVisibleRows;
     let plan;
     try{plan=window.BookCostSync.plan(rows,costCloudCatalog,state.bookCostRate);}catch(error){costCloudMessage=error.message;renderCostCloud();return;}
@@ -2807,12 +2825,13 @@
     costCloudBusy=true;costCloudMessage='Tan narxlari yuborilmoqda…';renderCostCloud();
     try{
       const updated=await costCloudRequest('update-costs',plan.changes);
+      if(epoch!==costCloudEpoch || document.visibilityState==='hidden')return;
       for(const item of updated){const book=costCloudCatalog.find(b=>b.id===item.id);if(book)book.cost_price=item.cost_price;}
       window.BookCostSync.match(state.bookCosts,costCloudCatalog);
       costCloudMessage=updated.length+' ta kitobning tan narxi yangilandi. Sotuv narxiga tegilmadi.';
       persistBookCosts(costCloudMessage,false);renderBookCosts();
-    }catch(error){costCloudMessage=error.message||'Yuborish amalga oshmadi.';}
-    finally{costCloudBusy=false;renderCostCloud();}
+    }catch(error){if(epoch===costCloudEpoch)costCloudMessage=error.message||'Yuborish amalga oshmadi.';}
+    finally{if(epoch===costCloudEpoch){costCloudBusy=false;renderCostCloud();}}
   }
   function costCloudRow(row){
     const book=costCloudCatalog.find(b=>b.id===row.muhajeerId);
@@ -2928,12 +2947,14 @@
   }
 
   function bindBookCosts(){
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')disconnectCostCloud();});
+    window.addEventListener('pagehide',()=>disconnectCostCloud());
     window.addEventListener?.('focus',()=>{if(currentView==='book-costs' && costCloudCode && !costCloudBusy && Date.now()-costCloudLastRead>60000)refreshCostCloud();});
     $('costCloudConnect').addEventListener('click',()=>refreshCostCloud(true));
     $('costCloudAdminCode').addEventListener('keydown',event=>{if(event.key==='Enter')refreshCostCloud(true);});
     $('costCloudRefresh').addEventListener('click',()=>refreshCostCloud());
     $('costCloudPush').addEventListener('click',()=>pushCostCloud());
-    $('costCloudDisconnect').addEventListener('click',()=>{clearTimeout(costCloudTimer);costCloudCode='';costCloudCatalog=[];state.bookCostAutoSync=false;costCloudMessage='Ulanish uzildi. Kitoblarni qayta ulanishda ID orqali topadi.';persistBookCosts('Ulanish uzildi.',false);renderBookCosts();});
+    $('costCloudDisconnect').addEventListener('click',()=>{disconnectCostCloud('Ulanish uzildi. Kitoblarni qayta ulanishda ID orqali topadi.');state.bookCostAutoSync=false;persistBookCosts('Ulanish uzildi.',false);renderBookCosts();});
     $('costCloudAuto').addEventListener('change',()=>{state.bookCostAutoSync=$('costCloudAuto').checked;persistBookCosts(state.bookCostAutoSync?'Bog‘langan kitoblar saqlanganda tan narxi yuboriladi.':'Avtomatik yuborish o‘chirildi.');});
 
     $('costRateSaveBtn').addEventListener('click',()=>{

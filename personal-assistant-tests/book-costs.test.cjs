@@ -39,12 +39,13 @@ function appHarness(extra={}){
     return nodes.get(id);
   };
   const data=new Map();
-  const document={getElementById:node,addEventListener(){},querySelectorAll:()=>[]};
+  const documentEvents=new Map(),windowEvents=new Map();
+  const document={visibilityState:'visible',getElementById:node,addEventListener:(name,fn)=>documentEvents.set(name,fn),querySelectorAll:()=>[]};
   const localStorage={getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v)};
-  const ctx={window:{BookCosts:costs,BookCostSync:require('../personal-assistant/book-cost-sync.js'),BookCostSyncConfig:{url:'https://test',key:'public-test'},addEventListener(){}},document,localStorage,crypto:require('node:crypto').webcrypto,navigator:{},console,setTimeout:()=>0,clearTimeout(){},confirm:()=>true,...extra};
+  const ctx={window:{BookCosts:costs,BookCostSync:require('../personal-assistant/book-cost-sync.js'),BookCostSyncConfig:{url:'https://test',key:'public-test'},addEventListener:(name,fn)=>windowEvents.set(name,fn)},document,localStorage,crypto:require('node:crypto').webcrypto,navigator:{},console,AbortController,setTimeout:()=>0,clearTimeout(){},confirm:()=>true,...extra};
   const source=fs.readFileSync(require.resolve('../personal-assistant/app.js'),'utf8').replace('  bindBookCosts();\n  bindEvents();\n  renderAll();\n  navigate(\'home\',false);\n  maybeDailyReminder();\n  scheduleMissingMetadataAuto();',`window.testing={normalizeState,addCostTitles,bindBookCosts,renderBookCosts,costIsReady,renderCostReadyList,refreshCostCloud,getState:()=>state};`);
   vm.runInNewContext(source,ctx);
-  return {api:ctx.window.testing,node,data};
+  return {api:ctx.window.testing,node,data,document,documentEvents,windowEvents};
 }
 
 test('linked sale price is read-only in both editors and ignored by save handlers',()=>{
@@ -263,4 +264,35 @@ test('connecting renders imported sale prices and reports unmatched rows accurat
  assert.match(node('costReadyList').innerHTML,/Sotuv narxi kelishi uchun/);
  assert.equal(JSON.parse(data.get('bek_personal_assistant_v4')).bookCosts[0].salePrice,19000);
  assert.doesNotMatch(data.get('bek_personal_assistant_v4'),/test-admin-code/);
+});
+
+test('background and pagehide disconnect; reopening never reconnects automatically',async()=>{
+ let calls=0;
+ const {api,node,document,documentEvents,windowEvents}=appHarness({fetch:async()=>{calls++;return {ok:true,json:async()=>({ok:true,data:[]})};}});
+ api.bindBookCosts();node('costCloudAdminCode').value='test-code';await api.refreshCostCloud(true);
+ assert.equal(node('costCloudConnected').hidden,false);assert.equal(calls,1);
+ document.visibilityState='hidden';documentEvents.get('visibilitychange')();
+ assert.equal(node('costCloudConnected').hidden,true);assert.equal(node('costCloudLogin').hidden,false);
+ await api.refreshCostCloud();assert.equal(calls,1);
+ document.visibilityState='visible';documentEvents.get('visibilitychange')();windowEvents.get('focus')();
+ await api.refreshCostCloud();assert.equal(calls,1);
+ node('costCloudAdminCode').value='test-code';await api.refreshCostCloud(true);assert.equal(calls,2);
+ windowEvents.get('pagehide')();assert.equal(node('costCloudConnected').hidden,true);
+ await api.refreshCostCloud();assert.equal(calls,2);
+});
+
+test('leaving during connection aborts request and ignores late response',async()=>{
+ let resolve,signal;
+ const {api,node,document,documentEvents}=appHarness({fetch:async(url,options)=>{signal=options.signal;return new Promise(r=>{resolve=r;});}});
+ api.bindBookCosts();node('costCloudAdminCode').value='test-code';
+ api.getState().bookCosts.push({id:'a',title:'Arosat',price:null,grams:null,salePrice:null,saved:true});
+ const pending=api.refreshCostCloud(true);
+ document.visibilityState='hidden';documentEvents.get('visibilitychange')();
+ assert.equal(signal.aborted,true);assert.equal(node('costCloudAdminCode').value,'');
+ document.visibilityState='visible';
+ resolve({ok:true,json:async()=>({ok:true,data:[{id:'00000000-0000-4000-8000-000000000001',title:'Arosat',price:15000}]})});
+ await pending;
+ assert.equal(api.getState().bookCosts[0].salePrice,null);assert.equal(api.getState().bookCosts[0].muhajeerId,undefined);
+ assert.equal(node('costCloudConnected').hidden,true);
+ assert.match(node('costCloudStatus').textContent,/ulanish uzildi/);
 });

@@ -1616,3 +1616,44 @@ html,body,#app{
 .cost-rate-settings input[aria-invalid="true"]{border-color:var(--red)}
 @media(min-width:768px){.cost-rate-settings{padding:22px 24px}.cost-rate-settings input{font-size:20px}.cost-rate-settings small{font-size:.8rem}}
 @media(max-width:350px){.cost-rate-settings>div{flex-direction:column}}
+
+
+/* Cost workspace: overview, quick updates, selection and report. */
+.cost-dashboard{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:12px 0 16px}
+.cost-dashboard article{padding:18px;border:1px solid var(--line);border-radius:18px;background:var(--mint);min-width:0}
+.cost-dashboard small,.cost-dashboard span{display:block;font-size:.7rem;line-height:1.4;color:var(--muted)}
+.cost-dashboard strong{display:block;font-size:1.3rem;color:var(--green);margin:8px 0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.cost-dashboard .cost-summary-pending{background:var(--goldsoft)}
+.cost-overview{padding:10px 16px;margin:0 0 12px;background:transparent;border:none}
+.cost-overview b{font-size:1rem}
+.cost-view-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
+.cost-toolbar,.cost-selection-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 16px}
+.cost-toolbar button{flex:1;min-height:44px;font-size:.75rem}
+.cost-selection-bar{padding:12px;border-radius:14px;background:var(--mint);font-size:.8rem}
+.cost-selection-bar span{flex:1}.cost-selection-bar button:disabled{opacity:.5;cursor:default}
+.cost-quick-filters{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap}
+.cost-quick-filters button{background:var(--surface);border:1px solid var(--line);border-radius:99px;color:var(--ink);padding:9px 14px;font-size:.75rem;min-height:44px}
+.cost-quick-filters button.active{background:var(--green);color:var(--bg);border-color:var(--green)}
+.cost-quick-filters span{display:inline-block;padding:3px 7px;border-radius:99px;background:var(--goldsoft);color:var(--ink);margin-left:4px}
+.cost-heading-copy{flex:1;min-width:0}
+.cost-ready-heading .cost-cover{width:44px;height:62px;min-height:0;aspect-ratio:auto;flex-shrink:0;border-radius:8px}
+.cost-cover-placeholder{display:grid;place-items:center;background:var(--surface2);color:var(--green);border:1px solid var(--line)}
+.cost-ready-heading>input[type="checkbox"]{width:22px;height:22px;flex-shrink:0;accent-color:var(--green)}
+.cost-profit-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;border-top:1px solid var(--line);margin-top:16px;padding-top:14px;font-size:.72rem;color:var(--muted)}
+.cost-profit-row b,.cost-profit-row strong{display:block;font-size:1rem;margin-top:7px;color:var(--ink);font-variant-numeric:tabular-nums}
+.cost-profit-row .cost-profit strong{color:var(--green2)}.cost-profit-row .cost-loss strong{color:var(--red)}
+.cost-quick-editor{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.cost-quick-editor summary{font-size:.8rem;font-weight:700;color:var(--green2);cursor:pointer;min-height:32px}
+.cost-quick-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0}
+.cost-quick-fields label{min-width:0;font-size:.7rem;color:var(--muted)}
+.cost-quick-fields input{display:block;width:100%;min-width:0;border:1px solid var(--line);border-radius:10px;background:var(--surface2);color:var(--ink);padding:10px;font-size:16px;margin-top:7px}
+.cost-quick-fields input[aria-invalid="true"]{border-color:var(--red)}
+.cost-quick-editor>small{display:block;color:var(--red);font-size:.7rem;line-height:1.5}
+.cost-quick-editor>button{margin-top:8px;width:100%;font-size:.8rem}
+.cost-report p{color:var(--muted);line-height:1.7;font-size:.8rem}
+.cost-report dl{margin:20px 0}.cost-report dl>div{display:flex;justify-content:space-between;gap:18px;padding:16px 0;border-bottom:1px solid var(--line)}
+.cost-report dt{font-size:.8rem;color:var(--muted)}.cost-report dd{margin:0;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+@media(max-width:600px){.cost-dashboard{gap:7px}.cost-dashboard article{padding:12px 9px}.cost-dashboard strong{font-size:1rem}.cost-dashboard small{font-size:.62rem}.cost-dashboard span{font-size:.57rem}.cost-toolbar button:last-child{flex-basis:100%}.cost-quick-fields{grid-template-columns:1fr 1fr}.cost-quick-fields label:last-child{grid-column:1/-1}}
+@media(min-width:768px){.cost-dashboard article{padding:24px}.cost-dashboard strong{font-size:1.55rem}.cost-dashboard small,.cost-dashboard span{font-size:.8rem}.cost-quick-fields input{font-size:20px}.cost-ready-heading .cost-cover{width:52px;height:74px}.cost-fields{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+.cost-editor-profit{font-size:.8rem;color:var(--green2);line-height:1.5}.cost-editor-profit strong{font-variant-numeric:tabular-nums}

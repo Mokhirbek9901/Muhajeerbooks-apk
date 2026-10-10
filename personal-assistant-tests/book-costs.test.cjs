@@ -21,7 +21,7 @@ test('bulk pasted names preserve punctuation, strip list prefixes, skip repeats'
 test('saved cost records survive JSON reload and old backups default to empty',()=>{
   assert.deepEqual(costs.normalize(undefined,()=> 'new'),[]);
   const rows=[{id:'a',title:'Arosat',price:8000,grams:300,saved:true},{id:'b',title:'',price:null,grams:null,saved:false}];
-  assert.deepEqual(costs.normalize(JSON.parse(JSON.stringify(rows)),()=> 'new'),rows);
+  assert.deepEqual(costs.normalize(JSON.parse(JSON.stringify(rows)),()=> 'new'),rows.map(row=>({...row,salePrice:null})));
 });
 
 function appHarness(){
@@ -175,4 +175,35 @@ test('custom kg rate recalculates existing and draft books, persists and restore
   node('costKgRate').value='15000';node('costRateSaveBtn').listeners.click();
   assert.match(node('costReadyList').innerHTML,/₩12,500/);
   assert.equal(rows[0].price,8000);assert.equal(rows[0].grams,300);assert.equal(rows[0].saved,true);
+});
+
+
+test('profit and summary exclude incomplete rows and preserve losses and zero sale prices',()=>{
+  const rows=[{title:'A',price:8000,grams:300,salePrice:15000},{title:'B',price:8000,grams:null,salePrice:16000},{title:'C',price:8000,grams:100,salePrice:0}];
+  assert.equal(costs.profit(rows[0]),4000);assert.equal(costs.profit(rows[1]),null);assert.equal(costs.profit(rows[2]),-9000);
+  assert.deepEqual(costs.summary(rows),{total:20000,ready:2,pending:1,profitTotal:-5000,profitCount:2});
+  assert.equal(costs.profit(rows[0],12000),3400);
+  assert.equal(costs.normalize(rows,()=> 'id')[0].salePrice,15000);
+});
+
+test('quick save validates fields and selection edits only selected saved records',()=>{
+  const {api,node,data}=appHarness();api.bindBookCosts();
+  const rows=api.getState().bookCosts;
+  rows.push({id:'a',title:'Arosat',price:8000,grams:null,saved:true},{id:'b',title:'Ko‘rlik',price:9000,grams:null,saved:true},{id:'c',title:'Draft',price:null,grams:null,saved:false});
+  api.renderBookCosts();
+  const fields=[['price','8000'],['grams','300'],['salePrice','15000']].map(([field,value])=>({dataset:{costQuick:field},value,setAttribute(){}}));
+  const error={textContent:''};const card={dataset:{costQuickId:'a'},querySelectorAll:()=>fields,querySelector:()=>error};
+  const quick={closest:()=>card};const target={closest:s=>s==='[data-cost-quick-save]'?quick:null};
+  fields[1].value='bad';node('costReadyList').listeners.click({target});assert.equal(rows[0].grams,null);assert.match(error.textContent,/Raqam/);
+  fields[1].value='300';node('costReadyList').listeners.click({target});
+  assert.equal(rows[0].grams,300);assert.equal(rows[0].salePrice,15000);assert.match(node('costReadyList').innerHTML,/₩4,000/);
+  assert.equal(JSON.parse(data.get('bek_personal_assistant_v4')).bookCosts[0].salePrice,15000);
+  node('costSelectBtn').listeners.click();
+  node('costReadyList').listeners.change({target:{dataset:{costSelect:'b'},checked:true}});
+  node('costEditSelectedBtn').listeners.click();
+  assert.equal(node('costEditorTitle').textContent,'Tanlangan kitoblarni tahrirlash');
+  assert.match(node('costBooksList').innerHTML,/Ko‘rlik/);assert.doesNotMatch(node('costBooksList').innerHTML,/Arosat|Draft/);
+  node('costSaveAllBtn').listeners.click();
+  assert.equal(rows[2].saved,false);assert.equal(rows[0].salePrice,15000);
+  assert.match(node('costReportValues').innerHTML,/Kutiladigan foyda/);
 });

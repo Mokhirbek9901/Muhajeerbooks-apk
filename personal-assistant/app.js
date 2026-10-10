@@ -2756,7 +2756,7 @@
     $('costReadyCount').textContent=ready.length;
     $('costListCount').textContent=ready.length;
     $('costDraftCount').textContent=drafts;
-    $('costBookCount').textContent=drafts+' ta';
+    $('costBookCount').textContent=(costEditingId?1:drafts)+' ta';
     const query=costs.key($('costSearch').value||'');
     const rows=ready.filter(row=>!query || costs.key(row.title).includes(query));
     const sort=$('costSort').value;

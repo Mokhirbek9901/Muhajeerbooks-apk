@@ -18,10 +18,16 @@
     e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,size,true);e.setUint32(16,offset,true);
     const result=new Uint8Array(offset+size+22);let pos=0;for(const b of [...chunks,...central,end]){result.set(b,pos);pos+=b.length;}return result;
   }
-  function build(rows,wonPerKg){
-    const rate=costs.rate(wonPerKg);
-    const table=[['Kitob nomi','Xarid narxi (₩)','Vazni (g)','Yetkazish (₩)','Tan narxi (₩)','Sotuv narxi (₩)','Kutiladigan foyda (₩)','1 kg narxi (₩)'],...rows.map(row=>{const c=costs.calculate(row,rate);return [row.title||'Nomsiz kitob',costs.amount(row.price),costs.amount(row.grams),c.shipping,c.total,costs.amount(row.salePrice),costs.profit(row,rate),rate];})];
-    const rowXml=table.map((row,i)=>'<row r="'+(i+1)+'">'+row.map((value,j)=>{const ref=String.fromCharCode(65+j)+(i+1),style=i===0?' s="1"':j===2?' s="3"':j>0?' s="2"':'';return value===null?'<c r="'+ref+'"/>':typeof value==='number'?'<c r="'+ref+'"'+style+'><v>'+value+'</v></c>':'<c r="'+ref+'" t="inlineStr"'+style+'><is><t xml:space="preserve">'+xml(value)+'</t></is></c>';}).join('')+'</row>').join('');
+  function columnName(index){let name='';for(let n=index+1;n>0;n=Math.floor((n-1)/26))name=String.fromCharCode(65+(n-1)%26)+name;return name;}
+  function tableData(rows,wonPerKg,extra=[]){
+    const rate=costs.rate(wonPerKg),tariffs=costs.tariffs(rate,extra).slice(1);
+    const header=['Kitob nomi','Xarid narxi (₩)','Vazni (g)','Yetkazish (₩)','Tan narxi (₩)','Sotuv narxi (₩)','Kutiladigan foyda (₩)','1 kg narxi (₩)'];
+    for(const t of tariffs){const prefix=String(t.label||'Tarif')+' · '+t.rate+' ₩/kg';header.push(prefix+' — Yetkazish (₩)',prefix+' — Tan narxi (₩)',prefix+' — Foyda (₩)');}
+    return [header,...rows.map(row=>{const c=costs.calculate(row,rate);const values=[row.title||'Nomsiz kitob',costs.amount(row.price),costs.amount(row.grams),c.shipping,c.total,costs.amount(row.salePrice),costs.profit(row,rate),rate];for(const t of tariffs){const result=costs.calculate(row,t.rate);values.push(result.shipping,result.total,costs.profit(row,t.rate));}return values;})];
+  }
+  function build(rows,wonPerKg,extra=[]){
+    const table=tableData(rows,wonPerKg,extra),lastColumn=columnName(table[0].length-1);
+    const rowXml=table.map((row,i)=>'<row r="'+(i+1)+'">'+row.map((value,j)=>{const ref=columnName(j)+(i+1),style=i===0?' s="1"':j===2?' s="3"':j>0?' s="2"':'';return value===null?'<c r="'+ref+'"/>':typeof value==='number'?'<c r="'+ref+'"'+style+'><v>'+value+'</v></c>':'<c r="'+ref+'" t="inlineStr"'+style+'><is><t xml:space="preserve">'+xml(value)+'</t></is></c>';}).join('')+'</row>').join('');
     const ns='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
     return zip([
       ['[Content_Types].xml','<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'],
@@ -29,7 +35,7 @@
       ['xl/workbook.xml','<workbook xmlns="'+ns+'" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Kitob tan narxi" sheetId="1" r:id="rId1"/></sheets></workbook>'],
       ['xl/_rels/workbook.xml.rels','<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'],
       ['xl/styles.xml','<styleSheet xmlns="'+ns+'"><numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0.###"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF0B4E4B"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0"/><xf numFmtId="3" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'],
-      ['xl/worksheets/sheet1.xml','<worksheet xmlns="'+ns+'"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="1" width="36" customWidth="1"/><col min="2" max="8" width="23" customWidth="1"/></cols><sheetData>'+rowXml+'</sheetData><autoFilter ref="A1:H'+table.length+'"/></worksheet>']
+      ['xl/worksheets/sheet1.xml','<worksheet xmlns="'+ns+'"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="1" width="36" customWidth="1"/><col min="2" max="'+table[0].length+'" width="23" customWidth="1"/></cols><sheetData>'+rowXml+'</sheetData><autoFilter ref="A1:'+lastColumn+table.length+'"/></worksheet>']
     ]);
   }
   async function share(bytes,name,env=root){
@@ -42,11 +48,9 @@
       return 'shared';
     }catch(error){return error?.name==='AbortError'?'cancelled':'download';}
   }
-  function textTable(rows,wonPerKg){
-    const rate=costs.rate(wonPerKg);
-    const title=value=>{const text=String(value||'Nomsiz kitob').replace(/[\t\r\n]+/g,' ');return /^\s*[=+@-]/.test(text)?"'"+text:text;};
-    const table=[['Kitob nomi','Xarid narxi (₩)','Vazni (g)','Yetkazish (₩)','Tan narxi (₩)','Sotuv narxi (₩)','Kutiladigan foyda (₩)','1 kg narxi (₩)'],...rows.map(row=>{const c=costs.calculate(row,rate);return [title(row.title),costs.amount(row.price),costs.amount(row.grams),c.shipping,c.total,costs.amount(row.salePrice),costs.profit(row,rate),rate];})];
-    return table.map(row=>row.map(value=>value===null?'':String(value)).join('\t')).join('\n');
+  function textTable(rows,wonPerKg,extra=[]){
+    const safe=value=>{const text=String(value).replace(/[\t\r\n]+/g,' ');return /^\s*[=+@-]/.test(text)?"'"+text:text;};
+    return tableData(rows,wonPerKg,extra).map(row=>row.map(value=>value===null?'':typeof value==='number'?String(value):safe(value)).join('\t')).join('\n');
   }
   const api={build,share,textTable};if(typeof module==='object' && module.exports)module.exports=api;else root.BookCostExport=api;
 })(typeof globalThis==='object'?globalThis:this);

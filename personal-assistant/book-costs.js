@@ -24,6 +24,18 @@
     for(const row of rows){const cost=calculate(row,wonPerKg).total,p=profit(row,wonPerKg);if(cost!==null){total+=cost;ready++;}if(p!==null){profitTotal+=p;profitCount++;}}
     return {total,ready,pending:rows.length-ready,profitTotal,profitCount};
   }
+  function normalizeRates(rows,makeId){
+    return (Array.isArray(rows)?rows:[]).filter(row=>row && typeof row==='object').map((row,index)=>({id:String(row.id||makeId()),label:String(row.label||'Variant '+(index+2)).slice(0,80),rate:amount(row.rate)}));
+  }
+  function tariffs(main,extra=[]){
+    return [{id:'primary',label:'Asosiy',rate:rate(main)},...extra.filter(row=>amount(row.rate)!==null).map(row=>({...row,rate:amount(row.rate)}))];
+  }
+  function compare(rows,main,extra=[]){
+    return tariffs(main,extra).map(tariff=>{
+      const complete=rows.filter(row=>calculate(row,tariff.rate).total!==null);
+      return {...tariff,...summary(rows,tariff.rate),shipping:complete.reduce((sum,row)=>sum+calculate(row,tariff.rate).shipping,0)};
+    });
+  }
   function key(title){return String(title).normalize('NFKC').toLowerCase().replace(/[‘’ʻʼ`]/g,"'").replace(/\s+/g,' ').trim();}
   function parseTitles(text){
     const seen=new Set();
@@ -41,7 +53,7 @@
       saved:typeof row.saved==='boolean'?row.saved:Boolean(String(row.title||'').trim() && calculate(row).total!==null)
     }));
   }
-  const api={DEFAULT_WON_PER_KG,WON_PER_GRAM,rate,amount,calculate,profit,summary,key,parseTitles,normalize};
+  const api={DEFAULT_WON_PER_KG,WON_PER_GRAM,rate,amount,calculate,profit,summary,key,parseTitles,normalize,normalizeRates,tariffs,compare};
   if(typeof module==='object' && module.exports)module.exports=api;
   else root.BookCosts=api;
 })(typeof globalThis==='object'?globalThis:this);

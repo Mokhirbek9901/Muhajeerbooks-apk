@@ -296,3 +296,44 @@ test('leaving during connection aborts request and ignores late response',async(
  assert.equal(node('costCloudConnected').hidden,true);
  assert.match(node('costCloudStatus').textContent,/ulanish uzildi/);
 });
+
+test('multiple kg tariffs calculate independently, skip blanks and preserve primary sync cost',()=>{
+ const extra=[{id:'seven',label:'Arzon',rate:7000},{id:'blank',label:'Bo‘sh',rate:null},{id:'zero',label:'Bepul',rate:0}];
+ const rows=[{title:'A',price:3000,grams:200,salePrice:6000},{title:'B',price:1000,grams:100,salePrice:3000},{title:'Pending',price:null,grams:50,salePrice:5000}];
+ const values=costs.compare(rows,10000,extra);
+ assert.equal(values.length,3);
+ assert.equal(values[0].total,7000);assert.equal(values[0].shipping,3000);assert.equal(values[0].profitTotal,2000);
+ assert.equal(values[1].total,6100);assert.equal(values[1].shipping,2100);assert.equal(values[1].profitTotal,2900);
+ assert.equal(values[2].total,4000);assert.equal(values[2].shipping,0);
+ assert.equal(values[1].ready,2);assert.equal(values[1].pending,1);
+ assert.equal(costs.compare(rows,7000,[]).length,1);
+ assert.equal(costs.calculate(rows[0],10000).total,5000);assert.equal(costs.calculate(rows[0],7000).total,4400);
+});
+
+test('tariffs save and restore, live calculations update and primary changes only by explicit selection',()=>{
+ const {api,node,data}=appHarness();api.bindBookCosts();
+ api.getState().bookCosts.push({id:'a',title:'Arosat',price:3000,grams:200,salePrice:6000,saved:true});
+ node('costRateAddBtn').listeners.click();
+ const tariff=api.getState().bookCostComparisons[0];const fields={};
+ const card={dataset:{costTariffId:tariff.id},querySelector:s=>fields[s]||=({})};
+ node('costRatesList').listeners.input({target:{dataset:{costTariffField:'rate'},value:'7000',closest:()=>card,setAttribute(){}}});
+ assert.equal(api.getState().bookCostRate,10000);
+ assert.match(node('costReadyList').innerHTML,/₩4,400/);assert.match(node('costReportComparisons').innerHTML,/₩4,400/);
+ const restored=api.normalizeState(JSON.parse(data.get('bek_personal_assistant_v4')));
+ assert.equal(restored.bookCostComparisons[0].rate,7000);assert.equal(restored.bookCostRate,10000);
+ assert.equal(api.normalizeState({}).bookCostComparisons.length,0);
+ node('costRatesList').listeners.click({target:{closest:s=>s==='[data-cost-tariff-id]'?card:s==='[data-cost-tariff-primary]'?{}:null}});
+ assert.equal(api.getState().bookCostRate,7000);assert.equal(tariff.rate,10000);
+ node('costRatesList').listeners.click({target:{closest:s=>s==='[data-cost-tariff-id]'?card:s==='[data-cost-tariff-remove]'?{}:null}});
+ assert.equal(api.getState().bookCostComparisons.length,0);assert.equal(api.getState().bookCostRate,7000);
+});
+
+test('Sheets and Excel include every populated tariff, including columns beyond Z',()=>{
+ const exporter=require('../personal-assistant/book-cost-export.js');
+ const extras=Array.from({length:12},(_,i)=>({id:String(i),label:'Tarif '+i,rate:7000+i*1000}));
+ const row={title:'A',price:3000,grams:200,salePrice:6000};
+ const table=exporter.textTable([row],10000,[...extras,{id:'blank',rate:null}]).split('\n').map(r=>r.split('\t'));
+ assert.equal(table[0].length,44);assert.equal(table[1].length,44);assert.deepEqual(table[1].slice(8,11),['1400','4400','1600']);
+ const xml=new TextDecoder().decode(exporter.build([row],10000,extras));
+ assert.match(xml,/ref="A1:AR2"/);assert.match(xml,/r="AA2"/);assert.match(xml,/max="44"/);
+});

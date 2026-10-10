@@ -2760,7 +2760,15 @@
     $('costDraftCount').textContent=drafts;
     $('costBookCount').textContent=(costEditingId?1:costEditingAll?state.bookCosts.length:drafts)+' ta';
     const query=costs.key($('costSearch').value||'');
-    const rows=ready.filter(row=>!query || costs.key(row.title).includes(query));
+    const filter=$('costFilter').value||'all';
+    const rows=ready.filter(row=>{
+      if(query && !costs.key(row.title).includes(query))return false;
+      if(filter==='missing-price')return row.price===null;
+      if(filter==='missing-weight')return row.grams===null;
+      if(filter==='missing-both')return row.price===null && row.grams===null;
+      return true;
+    });
+    $('costFilteredCount').textContent=rows.length+' / '+ready.length+' ta kitob';
     const sort=$('costSort').value;
     if(sort==='title')rows.sort((a,b)=>a.title.localeCompare(b.title,'uz'));
     else if(sort==='low' || sort==='high')rows.sort((a,b)=>{
@@ -2775,7 +2783,7 @@
       const pending=row.price===null && row.grams===null?'Narx va vazn kutilmoqda':row.grams===null?'Vazn kutilmoqda':row.price===null?'Narx kutilmoqda':'';
       return '<article class="cost-ready-row"><div class="cost-ready-heading"><div><h3>'+escapeHtml(row.title||'Nomsiz kitob')+(pending?'</h3><small class="cost-pending-badge">'+pending+'</small>':'</h3>')+'</div><button type="button" class="soft-button" data-cost-edit="'+escapeHtml(row.id)+'">Tahrirlash</button></div>'+
         '<div class="cost-ready-values"><span><small>Xarid narxi</small><b>'+(row.price===null?'—':formatMoney(row.price,'KRW'))+'</b></span><span><small>Vazni</small><b>'+(row.grams===null?'—':row.grams+' g')+'</b></span><span><small>Yetkazish</small><b>'+(result.shipping===null?'—':formatMoney(result.shipping,'KRW'))+'</b></span><span class="cost-ready-total"><small>Jami tan narxi</small><strong>'+(result.total===null?'—':formatMoney(result.total,'KRW'))+'</strong></span></div></article>';
-    }).join(''):'<div class="empty-state"><strong>'+(query?'Mos kitob topilmadi':'Saqlangan kitoblar hali yo‘q')+'</strong>'+(query?'Qidiruv so‘zini o‘zgartiring.':'Nomlarini yoki narxlarini kiritib saqlang. Vaznini keyin qo‘shishingiz mumkin.')+'</div>';
+    }).join(''):'<div class="empty-state"><strong>'+(query || filter!=='all'?'Mos kitob topilmadi':'Saqlangan kitoblar hali yo‘q')+'</strong>'+(query || filter!=='all'?'Filtr yoki qidiruvni o‘zgartiring.':'Nomlarini yoki narxlarini kiritib saqlang. Vaznini keyin qo‘shishingiz mumkin.')+'</div>';
   }
 
   function setCostView(view){
@@ -2835,6 +2843,7 @@
     });
     $('costSearch').addEventListener('input',renderCostReadyList);
     $('costSort').addEventListener('change',renderCostReadyList);
+    $('costFilter').addEventListener('change',renderCostReadyList);
     $('costReadyList').addEventListener('click',event=>{
       const button=event.target.closest('[data-cost-edit]');if(!button)return;
       costView='entry';costEditingId=button.dataset.costEdit;costEditingAll=false;renderBookCosts();

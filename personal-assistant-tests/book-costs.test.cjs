@@ -110,3 +110,42 @@ test('names-only and price-only save individually; batch edit keeps missing weig
   assert.equal(all.bookCosts[1].grams,100);
   assert.equal(costs.calculate(all.bookCosts[1]).total,10000);
 });
+
+
+test('missing price, missing weight and both filters combine with search, sorting and edits',()=>{
+  const {api,node}=appHarness();
+  api.bindBookCosts();
+  const rows=api.getState().bookCosts;
+  rows.push(
+    {id:'both',title:'Keladigan A',price:null,grams:null,saved:true},
+    {id:'weight',title:'Keladigan B',price:8000,grams:null,saved:true},
+    {id:'price',title:'Keladigan C',price:null,grams:100,saved:true},
+    {id:'complete',title:'Tayyor',price:8000,grams:100,saved:true},
+    {id:'zero',title:'Nol qiymatlar',price:0,grams:0,saved:true},
+    {id:'draft',title:'Saqlanmagan',price:null,grams:null,saved:false}
+  );
+  const visible=()=>[...node('costReadyList').innerHTML.matchAll(/data-cost-edit="([^"]+)"/g)].map(m=>m[1]);
+  function filter(value){node('costFilter').value=value;node('costFilter').listeners.change();return visible();}
+  node('costSort').value='oldest';
+  assert.deepEqual(filter('all'),['both','weight','price','complete','zero']);
+  assert.deepEqual(filter('missing-price'),['both','price']);
+  assert.deepEqual(filter('missing-weight'),['both','weight']);
+  assert.deepEqual(filter('missing-both'),['both']);
+  assert.equal(node('costFilteredCount').textContent,'1 / 5 ta kitob');
+  node('costSearch').value='B';
+  assert.deepEqual(filter('missing-weight'),['weight']);
+  node('costSearch').value='Tayyor';node('costSearch').listeners.input();
+  assert.deepEqual(visible(),[]);
+  assert.match(node('costReadyList').innerHTML,/Mos kitob topilmadi/);
+  assert.equal(node('costFilteredCount').textContent,'0 / 5 ta kitob');
+  node('costSearch').value='';node('costSort').value='recent';node('costSort').listeners.change();
+  assert.deepEqual(visible(),['weight','both']);
+  const fields=new Map();
+  const card={dataset:{costId:'weight'},querySelector:s=>{if(!fields.has(s))fields.set(s,{});return fields.get(s);}};
+  node('costBooksList').listeners.input({target:{dataset:{costField:'grams'},value:'300',closest:()=>card,setAttribute(){}}});
+  assert.deepEqual(visible(),['both']);
+  assert.equal(node('costFilteredCount').textContent,'1 / 5 ta kitob');
+  assert.deepEqual(filter('missing-price'),['price','both']);
+  assert.equal(rows[1].grams,300);
+  assert.equal(node('costReadyCount').textContent,5);
+});

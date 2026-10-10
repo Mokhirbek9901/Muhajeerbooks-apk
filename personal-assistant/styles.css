@@ -1596,3 +1596,10 @@ html,body,#app{
   .cost-ready-list,.cost-books-list{grid-template-columns:repeat(2,minmax(0,1fr))}
   .cost-ready-list>.empty-state,.cost-books-list>.empty-state{grid-column:1/-1}
 }
+
+
+.cost-filter-tools{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;align-items:center;margin:0 0 16px}
+.cost-filter-tools label{font-size:.8rem;font-weight:700;color:var(--ink)}
+.cost-filter-tools select{width:100%;min-width:0;min-height:46px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font-size:.8rem}
+.cost-filter-tools small{grid-column:2;font-size:.7rem;color:var(--muted)}
+@media(min-width:768px){.cost-filter-tools{grid-template-columns:auto minmax(0,1fr) auto;gap:16px}.cost-filter-tools select{min-height:56px;font-size:.85rem}.cost-filter-tools small{grid-column:auto;font-size:.8rem}}

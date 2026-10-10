@@ -27,7 +27,7 @@ test('saved cost records survive JSON reload and old backups default to empty',(
 function appHarness(){
   const nodes=new Map();
   const node=id=>{
-    if(!nodes.has(id))nodes.set(id,{value:'',textContent:'',innerHTML:'',listeners:{},addEventListener(t,fn){this.listeners[t]=fn;},classList:{add(){},remove(){}}});
+    if(!nodes.has(id))nodes.set(id,{value:'',textContent:'',innerHTML:'',listeners:{},addEventListener(t,fn){this.listeners[t]=fn;},querySelectorAll:()=>[],scrollIntoView(){},classList:{add(){},remove(){}}});
     return nodes.get(id);
   };
   const data=new Map();
@@ -45,7 +45,7 @@ test('app import, duplicate handling, input calculation, persistence, backup mig
   api.bindBookCosts();
   const row=api.getState().bookCosts[0];
   const fields=new Map();
-  const card={dataset:{costId:row.id},querySelector:s=>{if(!fields.has(s))fields.set(s,{});return fields.get(s);}};
+  const card={querySelectorAll:()=>[],dataset:{costId:row.id},querySelector:s=>{if(!fields.has(s))fields.set(s,{});return fields.get(s);}};
   function input(field,value){node('costBooksList').listeners.input({target:{dataset:{costField:field},value,closest:()=>card,setAttribute(){}}});}
   input('price','8,000');input('grams','300');
   assert.equal(fields.get('[data-cost-total]').textContent,'₩11,000');
@@ -73,4 +73,40 @@ test('app import, duplicate handling, input calculation, persistence, backup mig
   let prevented=false;
   node('costBulkNames').listeners.paste({clipboardData:{getData:()=> 'Yashamoq\nArosat'},preventDefault(){prevented=true;}});
   assert.equal(prevented,true);assert.equal(api.getState().bookCosts.length,4);
+});
+
+
+test('names-only and price-only save individually; batch edit keeps missing weight and later totals',()=>{
+  const {api,node,data}=appHarness();
+  api.bindBookCosts();api.addCostTitles('Keladigan kitob\nIkkinchi kitob');
+  const rows=api.getState().bookCosts;
+  const card={dataset:{costId:rows[0].id},querySelectorAll:()=>[]};
+  node('costBooksList').listeners.click({target:{closest:s=>s==='[data-cost-save]'?{}:card}});
+  assert.equal(api.costIsReady(rows[0]),true);
+  assert.equal(rows[0].grams,null);
+  assert.match(node('costReadyList').innerHTML,/Narx va vazn kutilmoqda/);
+  assert.doesNotMatch(node('costReadyList').innerHTML,/₩0/);
+  rows[1].price=9000;
+  node('costSaveAllBtn').listeners.click();
+  assert.equal(api.costIsReady(rows[1]),true);
+  assert.match(node('costReadyList').innerHTML,/Vazn kutilmoqda/);
+  const reload=api.normalizeState(JSON.parse(data.get('bek_personal_assistant_v4')));
+  assert.equal(api.costIsReady(reload.bookCosts[0]),true);
+  assert.equal(reload.bookCosts[1].price,9000);
+  assert.equal(reload.bookCosts[1].grams,null);
+  const unnamed={id:'only-price',title:'',price:3000,grams:null,saved:false};rows.push(unnamed);
+  node('costEditAllBtn').listeners.click();
+  assert.equal(node('costEditorTitle').textContent,'Hamma kitoblarni tahrirlash');
+  assert.match(node('costBooksList').innerHTML,/Keladigan kitob/);
+  assert.match(node('costBooksList').innerHTML,/Ikkinchi kitob/);
+  rows[1].grams=100;
+  node('costSaveAllBtn').listeners.click();
+  assert.equal(api.costIsReady(unnamed),true);
+  assert.match(node('costReadyList').innerHTML,/Nomsiz kitob/);
+  assert.match(node('costReadyList').innerHTML,/₩10,000/);
+  node('costSort').value='high';api.renderCostReadyList();
+  assert.ok(node('costReadyList').innerHTML.indexOf('Ikkinchi kitob')<node('costReadyList').innerHTML.indexOf('Keladigan kitob'));
+  const all=api.normalizeState(JSON.parse(data.get('bek_personal_assistant_v4')));
+  assert.equal(all.bookCosts[1].grams,100);
+  assert.equal(costs.calculate(all.bookCosts[1]).total,10000);
 });

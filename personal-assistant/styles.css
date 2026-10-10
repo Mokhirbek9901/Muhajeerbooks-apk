@@ -1516,3 +1516,5 @@ html,body,#app{
  .metadata-fill-copy small{font-size:.65rem}
  .metadata-fill-button{font-size:.68rem;padding:9px 10px}
 }
+
+.cost-edit-all{display:block;width:100%;margin:0 0 14px}.cost-save-all{display:block;width:100%;margin:0 0 10px}.cost-entry-note{font-size:.75rem;line-height:1.6;color:var(--muted);margin:0 0 16px}.cost-pending-badge{display:inline-block;margin-top:7px;border-radius:6px;padding:4px 7px;background:var(--goldsoft);color:var(--muted);font-size:.65rem}

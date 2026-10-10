@@ -115,7 +115,7 @@
 
   let state = loadState();
   let currentView = 'home';
-  let costView='list';
+  let costView='main';
   let costEditingId='';
   let costEditingAll=false;
   let costEditingIds=new Set();
@@ -2933,7 +2933,7 @@
     else if(sort!=='oldest') rows.reverse();
     costVisibleRows=rows;
     for(const id of costSelectedIds){if(!ready.some(r=>r.id===id))costSelectedIds.delete(id);}
-    $('costSelectionBar').hidden=!costSelecting;
+    $('costSelectionBar').hidden=costView!=='list' || !costSelecting;
     $('costSelectBtn').textContent=costSelecting?'Tanlashni tugatish':'Tanlash';
     $('costSelectedCount').textContent=costSelectedIds.size+' ta tanlandi';
     $('costEditSelectedBtn').disabled=costSelectedIds.size===0;
@@ -2942,6 +2942,7 @@
       const pending=row.price===null && row.grams===null?'Narx va vazn kutilmoqda':row.grams===null?'Vazn kutilmoqda':row.price===null?'Narx kutilmoqda':'';
       const book=state.books.find(b=>costs.key(b.title)===costs.key(row.title));
       const cover=book?coverHtml(book,'cost-cover'):'<div class="cost-cover cost-cover-placeholder" aria-hidden="true"><svg class="ui-icon" aria-hidden="true"><use href="#ico-book"></use></svg></div>';
+      if(costView==='main')return '<article class="cost-main-row">'+cover+'<div class="cost-main-copy"><h3>'+escapeHtml(row.title||'Nomsiz kitob')+'</h3><div class="cost-main-prices"><span><small>Xarid narxi</small><b>'+(row.price===null?'—':formatMoney(row.price,'KRW'))+'</b></span><span><small>Tan narxi</small><b>'+(result.total===null?'—':formatMoney(result.total,'KRW'))+'</b></span><span><small>Sotuv narxi</small><b>'+(costs.amount(row.salePrice)===null?'—':formatMoney(row.salePrice,'KRW'))+'</b></span></div></div></article>';
       const field=(key,label,value,placeholder)=>'<label>'+label+'<input '+(key==='salePrice' && row.muhajeerId?'readonly aria-readonly="true" ':'')+' data-cost-quick="'+key+'" inputmode="decimal" value="'+(value??'')+'" placeholder="'+placeholder+'"></label>';
       return '<article class="cost-ready-row" data-cost-quick-id="'+escapeHtml(row.id)+'"><div class="cost-ready-heading">'+(costSelecting?'<input type="checkbox" data-cost-select="'+escapeHtml(row.id)+'" aria-label="'+escapeHtml(row.title||'Nomsiz kitob')+'ni tanlash" '+(costSelectedIds.has(row.id)?'checked':'')+'>':'')+cover+'<div class="cost-heading-copy"><h3>'+escapeHtml(row.title||'Nomsiz kitob')+'</h3>'+(pending?'<small class="cost-pending-badge">'+pending+'</small>':'')+'</div><button type="button" class="soft-button" data-cost-edit="'+escapeHtml(row.id)+'">Tahrirlash</button></div>'+
         '<div class="cost-ready-values"><span><small>Xarid narxi</small><b>'+(row.price===null?'—':formatMoney(row.price,'KRW'))+'</b></span><span><small>Vazni</small><b>'+(row.grams===null?'—':row.grams+' g')+'</b></span><span><small>Yetkazish</small><b>'+(result.shipping===null?'—':formatMoney(result.shipping,'KRW'))+'</b></span><span class="cost-ready-total"><small>Tan narxi</small><strong>'+(result.total===null?'—':formatMoney(result.total,'KRW'))+'</strong></span></div>'+
@@ -2951,7 +2952,7 @@
   }
 
   function setCostView(view){
-    costView=view;costEditingId='';costEditingAll=false;costEditingIds.clear();renderBookCosts();
+    costView=view;if(view!=='list'){costSelecting=false;costSelectedIds.clear();}costEditingId='';costEditingAll=false;costEditingIds.clear();renderBookCosts();
   }
 
   function filterCostEditor(){
@@ -2978,7 +2979,8 @@
     $('costSettingsPanel').hidden=costView!=='settings';
     const editing=costView==='entry' && Boolean(costEditingId || costEditingAll || costEditingIds.size);
     $('screen-book-costs').classList[editing?'add':'remove']('cost-editing');
-    $('costListPanel').hidden=costView!=='list';
+    $('costListPanel').hidden=!['main','list'].includes(costView);
+    $('costListActions').hidden=costView!=='list';
     $('costEntryPanel').hidden=costView!=='entry';
     $('costReportPanel').hidden=costView!=='report';
     qsa('[data-cost-view]').forEach(button=>button.classList.toggle('active',button.dataset.costView===costView));
@@ -3324,7 +3326,7 @@
 
   function bindEvents(){
     document.addEventListener('click',e=>{
-      const nav=e.target.closest('[data-nav]'); if(nav){if(nav.dataset.nav==='book-costs')setCostView('list');navigate(nav.dataset.nav);return;}
+      const nav=e.target.closest('[data-nav]'); if(nav){if(nav.dataset.nav==='book-costs')setCostView('main');navigate(nav.dataset.nav);return;}
       const back=e.target.closest('[data-back]'); if(back){if(currentView==='book-costs' && costView==='entry' && (costEditingId || costEditingAll || costEditingIds.size))returnCostList();else goBack();return;}
       const add=e.target.closest('[data-add-book]'); if(add){openBookDialog();return;}
       const open=e.target.closest('[data-open]'); if(open){if(open.dataset.open==='calendar'&&currentView==='stats')showCalendarFromStats();else navigate(open.dataset.open);return;}

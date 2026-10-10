@@ -43,9 +43,9 @@ function appHarness(extra={}){
   const document={visibilityState:'visible',getElementById:node,addEventListener:(name,fn)=>documentEvents.set(name,fn),querySelectorAll:()=>[]};
   const localStorage={getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v)};
   const ctx={window:{BookCosts:costs,BookCostSync:require('../personal-assistant/book-cost-sync.js'),BookCostSyncConfig:{url:'https://test',key:'public-test'},addEventListener:(name,fn)=>windowEvents.set(name,fn)},document,localStorage,crypto:require('node:crypto').webcrypto,navigator:{},console,AbortController,setTimeout:()=>0,clearTimeout(){},confirm:()=>true,...extra};
-  const source=fs.readFileSync(require.resolve('../personal-assistant/app.js'),'utf8').replace('  bindBookCosts();\n  bindEvents();\n  renderAll();\n  navigate(\'home\',false);\n  maybeDailyReminder();\n  scheduleMissingMetadataAuto();',`window.testing={setCurrentView:value=>currentView=value,syncCostDevice,normalizeState,addCostTitles,bindBookCosts,renderBookCosts,costIsReady,renderCostReadyList,refreshCostCloud,getState:()=>state};`);
+  const source=fs.readFileSync(require.resolve('../personal-assistant/app.js'),'utf8').replace('  bindBookCosts();\n  bindEvents();\n  renderAll();\n  navigate(\'home\',false);\n  maybeDailyReminder();\n  scheduleMissingMetadataAuto();',`window.testing={setCostView,setCurrentView:value=>currentView=value,syncCostDevice,normalizeState,addCostTitles,bindBookCosts,renderBookCosts,costIsReady,renderCostReadyList,refreshCostCloud,getState:()=>state};`);
   if(extra.deviceSync)ctx.window.BookCostDeviceSync=require('../personal-assistant/book-cost-device-sync.js');
-  vm.runInNewContext(source,ctx);
+  vm.runInNewContext(source.replace("let costView='main';","let costView='list';"),ctx);
   return {api:ctx.window.testing,node,data,document,documentEvents,windowEvents};
 }
 
@@ -378,4 +378,10 @@ test('editor back button and left-edge swipe preserve edits; vertical gestures s
  const screen={listeners:Object.fromEntries(windowEvents)};screen.listeners.touchstart({touches:[{clientX:10,clientY:300}]});screen.listeners.touchend({changedTouches:[{clientX:110,clientY:500}]});assert.equal(node('costEntryPanel').hidden,false);
  screen.listeners.touchstart({touches:[{clientX:10,clientY:300}]});screen.listeners.touchend({changedTouches:[{clientX:130,clientY:320}]});assert.equal(node('costListPanel').hidden,false);assert.equal(api.getState().bookCosts[0].price,6600);
  node('costEditAllBtn').listeners.click();node('costEditorBackBtn').listeners.click();assert.equal(node('costEntryPanel').hidden,true);
+});
+test('main tab is read-only and edit tab retains full editing controls',()=>{
+ const {api,node}=appHarness();api.bindBookCosts();api.getState().bookCosts.push({id:'a',title:'Arosat',price:8000,grams:300,salePrice:15000,saved:true});
+ api.setCostView('main');assert.equal(node('costListPanel').hidden,false);assert.equal(node('costListActions').hidden,true);
+ assert.match(node('costReadyList').innerHTML,/Arosat|₩11,000/);assert.doesNotMatch(node('costReadyList').innerHTML,/data-cost-edit|data-cost-quick|Tahrirlash|<input|<button/);
+ api.setCostView('list');assert.equal(node('costListActions').hidden,false);assert.match(node('costReadyList').innerHTML,/data-cost-edit|Tez tahrirlash/);
 });

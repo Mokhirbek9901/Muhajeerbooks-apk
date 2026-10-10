@@ -1518,3 +1518,81 @@ html,body,#app{
 }
 
 .cost-edit-all{display:block;width:100%;margin:0 0 14px}.cost-save-all{display:block;width:100%;margin:0 0 10px}.cost-entry-note{font-size:.75rem;line-height:1.6;color:var(--muted);margin:0 0 16px}.cost-pending-badge{display:inline-block;margin-top:7px;border-radius:6px;padding:4px 7px;background:var(--goldsoft);color:var(--muted);font-size:.65rem}
+
+
+/* Spacious tablet layout, including iPad portrait and landscape. */
+@media (min-width:768px){
+  :root{font-size:20px}
+  #app{min-height:100vh;min-height:100dvh}
+  .app-main{
+    width:100%;max-width:none;
+    padding:28px max(24px,env(safe-area-inset-right)) calc(132px + env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left));
+  }
+  .app-header{
+    min-height:92px;
+    padding:calc(16px + env(safe-area-inset-top)) max(24px,env(safe-area-inset-right)) 16px max(24px,env(safe-area-inset-left));
+  }
+  .brand-mark{width:56px;height:56px;border-radius:18px}
+  .brand-mark .ui-icon{width:32px;height:32px}
+  .brand span{font-size:.72rem}
+  .header-actions{gap:12px}
+  .icon-button,.back-button,.more-button{width:52px;height:52px}
+  .icon-button .ui-icon,.back-button .ui-icon,.more-button .ui-icon{width:28px;height:28px}
+  .page-top,.subpage-head{margin-bottom:22px}
+  .bottom-nav{
+    width:100%;height:calc(90px + env(safe-area-inset-bottom));
+    grid-template-columns:1fr 1fr 100px 1fr 1fr;
+    padding:12px max(24px,env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left));
+  }
+  .bottom-nav button{min-height:64px;gap:8px}
+  .bottom-nav button>.ui-icon{width:30px;height:30px}
+  .bottom-nav button small{font-size:.72rem}
+  .bottom-nav .nav-add{width:78px;height:78px}
+  .bottom-nav .nav-add .ui-icon{width:36px;height:36px}
+  .toast{bottom:calc(108px + env(safe-area-inset-bottom))}
+  .content-card,.cost-book,.cost-ready-row{padding:24px}
+  .home-metrics,.home-shortcuts,.books-list,.cost-ready-list,.cost-books-list{gap:18px}
+  .metric-card{min-height:110px;padding:20px}
+  .home-daily-hero{padding:26px;min-height:340px}
+  .home-daily-hero .daily-hero-content{min-height:205px}
+  .home-daily-hero .daily-hero-main h1{max-width:none;font-size:2.2rem}
+  .daily-hero-book-info>strong{max-width:none}
+  .daily-hero-art{max-width:320px;width:100%;justify-self:end}
+  .daily-decor-book-cover{height:155px}
+  .daily-hero-badge{min-height:72px;padding:12px}
+  .daily-hero-continue,.daily-hero-change-book,.soft-button,.text-action,.chip-row button{min-height:48px}
+  .search-field{min-height:56px}
+  .search-field input,.cost-list-tools input,.cost-book input,.cost-import textarea{font-size:20px}
+  .profile-menu button{padding:22px 24px;grid-template-columns:44px minmax(0,1fr) auto;gap:16px}
+  .profile-menu button>span{width:42px;height:42px;border-radius:12px}
+  .profile-menu b{font-size:.95rem}
+  .profile-menu small{font-size:.75rem}
+  .profile-head{margin-bottom:24px}
+  .avatar{width:76px;height:76px}
+  .cost-list-tools{gap:16px}
+  .cost-list-tools select{max-width:230px;min-height:56px;padding:12px;font-size:.85rem}
+  .cost-overview{padding:22px 24px;margin-bottom:24px}
+  .cost-view-tabs button{min-height:58px}
+  .cost-ready-heading{margin-bottom:20px}
+  .cost-ready-heading h3{font-size:1.1rem}
+  .cost-ready-heading button{min-height:46px;font-size:.8rem;padding:10px 16px}
+  .cost-ready-values{gap:16px;grid-template-columns:repeat(3,minmax(0,1fr)) minmax(0,1.3fr)}
+  .cost-ready-values small{font-size:.75rem}
+  .cost-ready-values b,.cost-ready-values strong{font-size:1rem}
+  .cost-ready-total{padding:16px}
+  .cost-ready-total strong{font-size:1.2rem}
+  .cost-pending-badge,.cost-save-status,.cost-entry-note{font-size:.8rem}
+  .cost-delete{flex-basis:46px;height:46px}
+  .cost-fields{gap:20px}
+  .sheet-dialog{width:min(760px,calc(100% - 48px))}
+  .mini-dialog{width:min(560px,calc(100% - 48px))}
+  .sheet-dialog form,.mini-dialog form{padding:26px}
+  .sheet-close{width:48px;height:48px}
+}
+@media (min-width:1100px){
+  #screen-home.active{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+  #screen-home>.home-daily-hero,#screen-home>.home-metrics,#screen-home>.home-shortcuts{grid-column:1/-1}
+  #screen-home>.home-metrics,#screen-home>.home-shortcuts,#screen-home>.content-card{margin:0}
+  .cost-ready-list,.cost-books-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cost-ready-list>.empty-state,.cost-books-list>.empty-state{grid-column:1/-1}
+}

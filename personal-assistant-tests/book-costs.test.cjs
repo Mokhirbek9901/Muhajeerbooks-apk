@@ -43,7 +43,7 @@ function appHarness(extra={}){
   const document={visibilityState:'visible',getElementById:node,addEventListener:(name,fn)=>documentEvents.set(name,fn),querySelectorAll:()=>[]};
   const localStorage={getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v)};
   const ctx={window:{BookCosts:costs,BookCostSync:require('../personal-assistant/book-cost-sync.js'),BookCostSyncConfig:{url:'https://test',key:'public-test'},addEventListener:(name,fn)=>windowEvents.set(name,fn)},document,localStorage,crypto:require('node:crypto').webcrypto,navigator:{},console,AbortController,setTimeout:()=>0,clearTimeout(){},confirm:()=>true,...extra};
-  const source=fs.readFileSync(require.resolve('../personal-assistant/app.js'),'utf8').replace('  bindBookCosts();\n  bindEvents();\n  renderAll();\n  navigate(\'home\',false);\n  maybeDailyReminder();\n  scheduleMissingMetadataAuto();',`window.testing={syncCostDevice,normalizeState,addCostTitles,bindBookCosts,renderBookCosts,costIsReady,renderCostReadyList,refreshCostCloud,getState:()=>state};`);
+  const source=fs.readFileSync(require.resolve('../personal-assistant/app.js'),'utf8').replace('  bindBookCosts();\n  bindEvents();\n  renderAll();\n  navigate(\'home\',false);\n  maybeDailyReminder();\n  scheduleMissingMetadataAuto();',`window.testing={setCurrentView:value=>currentView=value,syncCostDevice,normalizeState,addCostTitles,bindBookCosts,renderBookCosts,costIsReady,renderCostReadyList,refreshCostCloud,getState:()=>state};`);
   if(extra.deviceSync)ctx.window.BookCostDeviceSync=require('../personal-assistant/book-cost-device-sync.js');
   vm.runInNewContext(source,ctx);
   return {api:ctx.window.testing,node,data,document,documentEvents,windowEvents};
@@ -373,9 +373,9 @@ test('two devices restore a shared list and edits, while leaving stops device re
  first.document.visibilityState='visible';await first.api.syncCostDevice();assert.equal(calls,before);
 });
 test('editor back button and left-edge swipe preserve edits; vertical gestures stay in editor',()=>{
- const {api,node}=appHarness();api.bindBookCosts();api.getState().bookCosts.push({id:'a',title:'Book',price:6600,grams:null,saved:true});
+ const {api,node,windowEvents}=appHarness();api.bindBookCosts();api.setCurrentView('book-costs');api.getState().bookCosts.push({id:'a',title:'Book',price:6600,grams:null,saved:true});
  node('costEditAllBtn').listeners.click();assert.equal(node('costEntryPanel').hidden,false);
- const screen=node('screen-book-costs');screen.listeners.touchstart({touches:[{clientX:10,clientY:300}]});screen.listeners.touchend({changedTouches:[{clientX:110,clientY:500}]});assert.equal(node('costEntryPanel').hidden,false);
+ const screen={listeners:Object.fromEntries(windowEvents)};screen.listeners.touchstart({touches:[{clientX:10,clientY:300}]});screen.listeners.touchend({changedTouches:[{clientX:110,clientY:500}]});assert.equal(node('costEntryPanel').hidden,false);
  screen.listeners.touchstart({touches:[{clientX:10,clientY:300}]});screen.listeners.touchend({changedTouches:[{clientX:130,clientY:320}]});assert.equal(node('costListPanel').hidden,false);assert.equal(api.getState().bookCosts[0].price,6600);
  node('costEditAllBtn').listeners.click();node('costEditorBackBtn').listeners.click();assert.equal(node('costEntryPanel').hidden,true);
 });

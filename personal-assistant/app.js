@@ -3079,12 +3079,12 @@
     });
     $('costEditorBackBtn').addEventListener('click',returnCostList);
     let costSwipe=null;
-    $('screen-book-costs').addEventListener('touchstart',event=>{
-      const t=event.touches[0];costSwipe=event.touches.length===1 && t.clientX<=28 && costView==='entry' && (costEditingId || costEditingAll || costEditingIds.size)?{x:t.clientX,y:t.clientY}:null;
+    window.addEventListener('touchstart',event=>{
+      const t=event.touches[0];costSwipe=currentView==='book-costs' && event.touches.length===1 && t.clientX<=28 && costView==='entry' && (costEditingId || costEditingAll || costEditingIds.size)?{x:t.clientX,y:t.clientY}:null;
     },{passive:true});
-    $('screen-book-costs').addEventListener('touchmove',event=>{if(!costSwipe)return;const t=event.touches[0];if(Math.abs(t.clientY-costSwipe.y)>60){costSwipe=null;return;}if(t.clientX-costSwipe.x>30 && event.cancelable)event.preventDefault();},{passive:false});
-    $('screen-book-costs').addEventListener('touchend',event=>{if(!costSwipe)return;const t=event.changedTouches[0],start=costSwipe;costSwipe=null;if(t && t.clientX-start.x>=90 && Math.abs(t.clientY-start.y)<60)returnCostList();},{passive:true});
-    $('screen-book-costs').addEventListener('touchcancel',()=>{costSwipe=null;},{passive:true});
+    window.addEventListener('touchmove',event=>{if(!costSwipe)return;const t=event.touches[0];if(Math.abs(t.clientY-costSwipe.y)>60){costSwipe=null;return;}if(t.clientX-costSwipe.x>30 && event.cancelable)event.preventDefault();},{passive:false});
+    window.addEventListener('touchend',event=>{if(!costSwipe)return;const t=event.changedTouches[0],start=costSwipe;costSwipe=null;if(t && t.clientX-start.x>=90 && Math.abs(t.clientY-start.y)<60)returnCostList();},{passive:true});
+    window.addEventListener('touchcancel',()=>{costSwipe=null;},{passive:true});
     $('costEditorSearch').addEventListener('input',filterCostEditor);
     $('costEditorFilter').addEventListener('change',filterCostEditor);
     $('costSearch').addEventListener('input',renderCostReadyList);
@@ -3325,7 +3325,7 @@
   function bindEvents(){
     document.addEventListener('click',e=>{
       const nav=e.target.closest('[data-nav]'); if(nav){if(nav.dataset.nav==='book-costs')setCostView('list');navigate(nav.dataset.nav);return;}
-      const back=e.target.closest('[data-back]'); if(back){goBack();return;}
+      const back=e.target.closest('[data-back]'); if(back){if(currentView==='book-costs' && costView==='entry' && (costEditingId || costEditingAll || costEditingIds.size))returnCostList();else goBack();return;}
       const add=e.target.closest('[data-add-book]'); if(add){openBookDialog();return;}
       const open=e.target.closest('[data-open]'); if(open){if(open.dataset.open==='calendar'&&currentView==='stats')showCalendarFromStats();else navigate(open.dataset.open);return;}
       const homeFilter=e.target.closest('[data-filter-home]'); if(homeFilter){bookFilter=homeFilter.dataset.filter;qsa('#bookFilters button').forEach(b=>b.classList.toggle('active',b.dataset.filter===bookFilter));navigate('library');renderBooks();return;}

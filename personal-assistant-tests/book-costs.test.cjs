@@ -32,7 +32,7 @@ test('saved cost records survive JSON reload and old backups default to empty',(
   assert.deepEqual(costs.normalize(JSON.parse(JSON.stringify(rows)),()=> 'new'),rows.map(row=>({...row,salePrice:null})));
 });
 
-function appHarness(){
+function appHarness(extra={}){
   const nodes=new Map();
   const node=id=>{
     if(!nodes.has(id))nodes.set(id,{value:'',textContent:'',innerHTML:'',listeners:{},setAttribute(){},addEventListener(t,fn){this.listeners[t]=fn;},querySelectorAll:()=>[],scrollIntoView(){},classList:{add(){},remove(){}}});
@@ -41,8 +41,8 @@ function appHarness(){
   const data=new Map();
   const document={getElementById:node,addEventListener(){},querySelectorAll:()=>[]};
   const localStorage={getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v)};
-  const ctx={window:{BookCosts:costs,addEventListener(){}},document,localStorage,crypto:require('node:crypto').webcrypto,navigator:{},console,setTimeout:()=>0,clearTimeout(){},confirm:()=>true};
-  const source=fs.readFileSync(require.resolve('../personal-assistant/app.js'),'utf8').replace('  bindBookCosts();\n  bindEvents();\n  renderAll();\n  navigate(\'home\',false);\n  maybeDailyReminder();\n  scheduleMissingMetadataAuto();',`window.testing={normalizeState,addCostTitles,bindBookCosts,renderBookCosts,costIsReady,renderCostReadyList,getState:()=>state};`);
+  const ctx={window:{BookCosts:costs,BookCostSync:require('../personal-assistant/book-cost-sync.js'),BookCostSyncConfig:{url:'https://test',key:'public-test'},addEventListener(){}},document,localStorage,crypto:require('node:crypto').webcrypto,navigator:{},console,setTimeout:()=>0,clearTimeout(){},confirm:()=>true,...extra};
+  const source=fs.readFileSync(require.resolve('../personal-assistant/app.js'),'utf8').replace('  bindBookCosts();\n  bindEvents();\n  renderAll();\n  navigate(\'home\',false);\n  maybeDailyReminder();\n  scheduleMissingMetadataAuto();',`window.testing={normalizeState,addCostTitles,bindBookCosts,renderBookCosts,costIsReady,renderCostReadyList,refreshCostCloud,getState:()=>state};`);
   vm.runInNewContext(source,ctx);
   return {api:ctx.window.testing,node,data};
 }
@@ -250,4 +250,17 @@ test('Sheets file sharing uses XLSX, respects cancellation and falls back when u
   assert.equal(await excel.share(bytes,'kitob.xlsx',env),'cancelled');
   env.navigator.share=async()=>{throw {name:'NotAllowedError'};};
   assert.equal(await excel.share(bytes,'kitob.xlsx',env),'download');
+});
+
+test('connecting renders imported sale prices and reports unmatched rows accurately',async()=>{
+ const {api,node,data}=appHarness({AbortSignal,fetch:async()=>({ok:true,json:async()=>({ok:true,data:[{id:'00000000-0000-4000-8000-000000000001',title:"Binafsha shu'lasi 1-qism",price:19000,cost_price:8000,discount_percent:0}]})})});
+ api.bindBookCosts();api.getState().bookCosts.push({id:'a',title:'Binafsha shulasi 1-qism',price:null,grams:null,salePrice:null,saved:true},{id:'b',title:'Not in Muhajeer',price:null,grams:null,salePrice:null,saved:true});
+ node('costCloudAdminCode').value='test-admin-code';await api.refreshCostCloud(true);
+ assert.equal(api.getState().bookCosts[0].salePrice,19000);
+ assert.match(node('costReadyList').innerHTML,/Muhajeer sotuv narxi <b>₩19,000/);
+ assert.match(node('costCloudStatus').textContent,/1 \/ 2 ta kitobning sotuv narxi olindi/);
+ assert.match(node('costCloudStatus').textContent,/1 ta kitob bog‘lanmagan/);
+ assert.match(node('costReadyList').innerHTML,/Sotuv narxi kelishi uchun/);
+ assert.equal(JSON.parse(data.get('bek_personal_assistant_v4')).bookCosts[0].salePrice,19000);
+ assert.doesNotMatch(data.get('bek_personal_assistant_v4'),/test-admin-code/);
 });

@@ -43,7 +43,7 @@ function appHarness(extra={}){
   const document={visibilityState:'visible',getElementById:node,addEventListener:(name,fn)=>documentEvents.set(name,fn),querySelectorAll:()=>[]};
   const localStorage={getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v)};
   const ctx={window:{BookCosts:costs,BookCostSync:require('../personal-assistant/book-cost-sync.js'),BookCostSyncConfig:{url:'https://test',key:'public-test'},addEventListener:(name,fn)=>windowEvents.set(name,fn)},document,localStorage,crypto:require('node:crypto').webcrypto,navigator:{},console,AbortController,setTimeout:()=>0,clearTimeout(){},confirm:()=>true,...extra};
-  const source=fs.readFileSync(require.resolve('../personal-assistant/app.js'),'utf8').replace('  bindBookCosts();\n  bindEvents();\n  renderAll();\n  navigate(\'home\',false);\n  maybeDailyReminder();\n  scheduleMissingMetadataAuto();',`window.testing={setCostView,setCurrentView:value=>currentView=value,syncCostDevice,normalizeState,addCostTitles,bindBookCosts,renderBookCosts,costIsReady,renderCostReadyList,refreshCostCloud,getState:()=>state};`);
+  const source=fs.readFileSync(require.resolve('../personal-assistant/app.js'),'utf8').replace('  bindBookCosts();\n  bindEvents();\n  renderAll();\n  navigate(\'home\',false);\n  maybeDailyReminder();\n  scheduleMissingMetadataAuto();',`window.testing={pushCostCloud,setCostView,setCurrentView:value=>currentView=value,syncCostDevice,normalizeState,addCostTitles,bindBookCosts,renderBookCosts,costIsReady,renderCostReadyList,refreshCostCloud,getState:()=>state};`);
   if(extra.deviceSync)ctx.window.BookCostDeviceSync=require('../personal-assistant/book-cost-device-sync.js');
   vm.runInNewContext(source.replace("let costView='main';","let costView='list';"),ctx);
   return {api:ctx.window.testing,node,data,document,documentEvents,windowEvents};
@@ -390,4 +390,22 @@ test('read-only main list shows weight and every populated tariff calculation',(
  api.getState().bookCostComparisons.push({id:'t',label:'7 ming',rate:7000},{id:'empty',label:'Bo‘sh',rate:null});
  api.setCostView('main');const html=node('costReadyList').innerHTML;
  assert.match(html,/200 g/);assert.match(html,/₩5,000/);assert.match(html,/₩4,400/);assert.match(html,/7 ming/);assert.doesNotMatch(html,/Bo‘sh|data-cost-edit|data-cost-quick|<input|<button/);
+});
+
+test('connect restores cloud books, resolves verified spelling and author variants, and sends only landed cost',async()=>{
+ const catalog=[{id:'00000000-0000-4000-8000-000000000001',title:'Harvard metodi',price:15000,cost_price:9000,discount_percent:0}];
+ const calls=[];let remote={version:1,payload:{books:[{id:'a',title:'Harvad metodi',price:8850,grams:280,salePrice:null,saved:true,muhajeerId:null}],rate:7000,tariffs:[]}};
+ const fetch=async(url,options)=>{const body=JSON.parse(options.body);calls.push(body);let result=catalog;
+ if(body.action==='load-list')result=remote;
+ if(body.action==='save-list'){remote={version:remote.version+1,payload:body.changes.payload};result=remote;}
+ if(body.action==='update-costs'){assert.deepEqual(body.changes,[{id:catalog[0].id,cost_price:10810,expected_cost_price:9000}]);catalog[0].cost_price=10810;result=[{id:catalog[0].id,cost_price:10810}];}
+ return {ok:true,json:async()=>({ok:true,data:result})};};
+ const {api,node,document,documentEvents}=appHarness({deviceSync:true,fetch});api.bindBookCosts();api.getState().bookCostAutoSync=false;
+ node('costCloudAdminCode').value='test-code';await api.refreshCostCloud(true);assert.equal(api.getState().bookCostAutoSync,true);
+ assert.equal(api.getState().bookCosts[0].salePrice,15000);await api.pushCostCloud(null,true);assert.equal(catalog[0].cost_price,10810);assert.equal(catalog[0].price,15000);
+ document.visibilityState='hidden';documentEvents.get('visibilitychange')();const count=calls.length;await api.pushCostCloud(null,true);assert.equal(calls.length,count);
+});
+test('main profit panel preserves missing values, losses and existing tariff details',()=>{
+ const {api,node}=appHarness();api.bindBookCosts();api.getState().bookCosts.push({id:'a',title:'A',price:8000,grams:300,salePrice:9000,saved:true},{id:'b',title:'B',price:8000,grams:null,salePrice:15000,saved:true});
+ api.setCostView('main');const html=node('costReadyList').innerHTML;assert.match(html,/Kutilayotgan sof foyda/);assert.match(html,/cost-main-profit cost-loss/);assert.match(html,/−?₩-?2,000|−₩2,000|-₩2,000/);assert.match(html,/Hisoblash uchun narx, vazn va sotuv narxi kerak/);assert.match(html,/Yetkazish/);
 });

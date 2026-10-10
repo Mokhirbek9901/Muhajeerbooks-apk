@@ -32,3 +32,11 @@ test('sale prices respect discount expiry; matching uses IDs and skips duplicate
  const restored=costs.normalize(JSON.parse(JSON.stringify(rows)),()=> 'id');assert.equal(restored[0].muhajeerId,id);
  assert.equal(restored[0].salePrice,16000);
 });
+
+test('verified spelling, author suffix and bundle aliases match only unique exact catalog identities',()=>{
+ const sync=require('../personal-assistant/book-cost-sync.js');
+ const catalog=[{id:'a',title:'Harvard metodi',price:15000},{id:'b',title:'Devona',author:'Fotih Duman',price:15000},{id:'c',title:'Saodat asri qissalari. 1–4 kitoblar',price:51000}];
+ const rows=['Harvad metodi','Devona Fotih Duman','Saodat asri qissalari 4 talik','Devona boshqa muallif','Saodat asri qissalari 2 talik'].map(title=>({title}));sync.match(rows,catalog);
+ assert.deepEqual(rows.map(r=>r.muhajeerId),['a','b','c',undefined,undefined]);
+ const duplicate=[{title:'Harvad metodi'}];sync.match(duplicate,[...catalog,{id:'d',title:'Harvard metodi',price:20000}]);assert.equal(duplicate[0].muhajeerId,undefined);
+});

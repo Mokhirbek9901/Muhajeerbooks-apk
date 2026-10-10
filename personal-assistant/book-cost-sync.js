@@ -5,6 +5,22 @@
   function titleKey(title){
     return costs.key(title).normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/['’‘ʻʼ`ʹ"“”]/g,'').replace(/[^\p{L}\p{N}]+/gu,' ').trim();
   }
+  // Verified spellings and bundle titles; never use fuzzy matching for cost writes.
+  const aliases=new Map([
+    ['Tobeyinlardan maktublar','Tobe’iynlardan maktublar'],
+    ['Harvad metodi','Harvard metodi'],
+    ['Barzah hayoti','Barzax hayoti'],
+    ['Men bas qi ey nafs','Men (Bas qil, ey nafs!)'],
+    ['Yoz qisqartir','Yoz, qisqartir: Kuchli matn yozish siri'],
+    ['Yashil kitob Muhammar kazzofiy','Yashil kitob'],
+    ['Saodat asri qissalari 4 talik','Saodat asri qissalari. 1–4 kitoblar'],
+    ['Payg’ambarlar tarixi 4 talik',"Payg'ambarlar tarixi"]
+  ].map(([a,b])=>[titleKey(a),titleKey(b)]));
+  function candidates(title,catalog){
+    const key=titleKey(title),canonical=aliases.get(key)||key;
+    if(!key)return [];
+    return catalog.filter(b=>titleKey(b.title)===canonical || (b.author && titleKey(b.title+' '+b.author)===key));
+  }
   function salePrice(book,now=Date.now()){
     const active=Number(book.discount_percent)>0 && (!book.discount_ends_at || Date.parse(book.discount_ends_at)>now);
     return Math.round(Number(book.price||0)*(100-(active?Number(book.discount_percent):0))/100);
@@ -13,7 +29,7 @@
     const byId=new Map(catalog.map(b=>[b.id,b]));let linked=0;
     for(const row of rows){
       let book=byId.get(row.muhajeerId);
-      if(!book && !row.muhajeerId){const key=titleKey(row.title);const matches=key?catalog.filter(b=>titleKey(b.title)===key):[];if(matches.length===1){book=matches[0];row.muhajeerId=book.id;linked++;}}
+      if(!book && !row.muhajeerId){const matches=candidates(row.title,catalog);if(matches.length===1){book=matches[0];row.muhajeerId=book.id;linked++;}}
       if(book){row.salePrice=salePrice(book);row.muhajeerTitle=book.title;row.muhajeerCost=book.cost_price??null;}
     }
     return linked;

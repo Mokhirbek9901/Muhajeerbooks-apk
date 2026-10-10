@@ -2836,12 +2836,14 @@
       if(epoch!==costCloudEpoch || document.visibilityState==='hidden')return;
       if(!Array.isArray(catalog))throw Error('Kitoblar ro‘yxati olinmadi.');
       costCloudCode=code;costCloudCatalog=catalog;costCloudLastRead=Date.now();$('costCloudAdminCode').value='';
+      if(connect)state.bookCostAutoSync=true;
       if(window.BookCostDeviceSync)await syncCostDevice();
       if(epoch!==costCloudEpoch || document.visibilityState==='hidden')return;
       window.BookCostSync.match(state.bookCosts,catalog);
       const saved=state.bookCosts.filter(costIsReady),matched=saved.filter(row=>catalog.some(book=>book.id===row.muhajeerId));
+      const noSale=matched.filter(row=>row.salePrice===0).length;
       const missing=saved.length-matched.length;
-      costCloudMessage=matched.length+' / '+saved.length+' ta kitobning sotuv narxi olindi.'+(missing?' '+missing+' ta kitob bog‘lanmagan: kartadagi “Muhajeer Books kitobi”dan mos kitobni tanlang.':'');
+      costCloudMessage=matched.length+' / '+saved.length+' ta kitobning sotuv narxi olindi.'+(noSale?' '+noSale+' ta kitobning Muhajeer Books’dagi sotuv narxi 0 ₩.':'')+(missing?' '+missing+' ta kitob bog‘lanmagan: Tahrirlash → Hisob tafsilotlari → Muhajeer Books kitobi orqali mos kitobni tanlang.':'');
       persistBookCosts(costCloudMessage,schedule);renderBookCosts();
     }catch(error){if(epoch===costCloudEpoch)costCloudMessage=error.message||'Internetni tekshiring.';}
     finally{if(epoch===costCloudEpoch){costCloudBusy=false;renderCostCloud();}}
@@ -2942,7 +2944,7 @@
       const pending=row.price===null && row.grams===null?'Narx va vazn kutilmoqda':row.grams===null?'Vazn kutilmoqda':row.price===null?'Narx kutilmoqda':'';
       const book=state.books.find(b=>costs.key(b.title)===costs.key(row.title));
       const cover=book?coverHtml(book,'cost-cover'):'<div class="cost-cover cost-cover-placeholder" aria-hidden="true"><svg class="ui-icon" aria-hidden="true"><use href="#ico-book"></use></svg></div>';
-      if(costView==='main')return '<article class="cost-main-row"><div class="cost-main-heading">'+cover+'<div class="cost-main-copy"><h3>'+escapeHtml(row.title||'Nomsiz kitob')+'</h3><small class="cost-main-weight">Vazni: <b>'+(row.grams===null?'Kiritilmagan':row.grams+' g')+'</b></small></div></div><div class="cost-main-prices"><span><small>Xarid narxi</small><b>'+(row.price===null?'—':formatMoney(row.price,'KRW'))+'</b></span><span><small>Tan narxi</small><b>'+(result.total===null?'—':formatMoney(result.total,'KRW'))+'</b></span><span><small>Sotuv narxi</small><b>'+(costs.amount(row.salePrice)===null?'—':formatMoney(row.salePrice,'KRW'))+'</b></span></div>'+costTariffTable(row)+(costs.tariffs(state.bookCostRate,state.bookCostComparisons).length===1?'<p class="cost-main-shipping">Yetkazish ('+formatMoney(state.bookCostRate,'KRW')+' / kg): <b>'+(result.shipping===null?'—':formatMoney(result.shipping,'KRW'))+'</b></p>':'')+'</article>';
+      if(costView==='main')return '<article class="cost-main-row"><div class="cost-main-heading">'+cover+'<div class="cost-main-copy"><h3>'+escapeHtml(row.title||'Nomsiz kitob')+'</h3><small class="cost-main-weight">Vazni: <b>'+(row.grams===null?'Kiritilmagan':row.grams+' g')+'</b></small></div></div><div class="cost-main-prices"><span><small>Xarid narxi</small><b>'+(row.price===null?'—':formatMoney(row.price,'KRW'))+'</b></span><span><small>Tan narxi</small><b>'+(result.total===null?'—':formatMoney(result.total,'KRW'))+'</b></span><span><small>Sotuv narxi</small><b>'+(costs.amount(row.salePrice)===null?'—':formatMoney(row.salePrice,'KRW'))+'</b></span></div><details class="cost-main-profit '+(profit!==null && profit<0?'cost-loss':'')+'"><summary><span>Kutilayotgan sof foyda</span><strong>'+(profit===null?'—':formatMoney(profit,'KRW'))+'</strong></summary><p>Sotuv narxi − jami tan narxi (xarid + yetkazish). '+(profit===null?'Hisoblash uchun narx, vazn va sotuv narxi kerak.':formatMoney(row.salePrice,'KRW')+' − '+formatMoney(result.total,'KRW')+' = '+formatMoney(profit,'KRW'))+'</p></details>'+costTariffTable(row)+(costs.tariffs(state.bookCostRate,state.bookCostComparisons).length===1?'<p class="cost-main-shipping">Yetkazish ('+formatMoney(state.bookCostRate,'KRW')+' / kg): <b>'+(result.shipping===null?'—':formatMoney(result.shipping,'KRW'))+'</b></p>':'')+'</article>';
       const field=(key,label,value,placeholder)=>'<label>'+label+'<input '+(key==='salePrice' && row.muhajeerId?'readonly aria-readonly="true" ':'')+' data-cost-quick="'+key+'" inputmode="decimal" value="'+(value??'')+'" placeholder="'+placeholder+'"></label>';
       return '<article class="cost-ready-row" data-cost-quick-id="'+escapeHtml(row.id)+'"><div class="cost-ready-heading">'+(costSelecting?'<input type="checkbox" data-cost-select="'+escapeHtml(row.id)+'" aria-label="'+escapeHtml(row.title||'Nomsiz kitob')+'ni tanlash" '+(costSelectedIds.has(row.id)?'checked':'')+'>':'')+cover+'<div class="cost-heading-copy"><h3>'+escapeHtml(row.title||'Nomsiz kitob')+'</h3>'+(pending?'<small class="cost-pending-badge">'+pending+'</small>':'')+'</div><button type="button" class="soft-button" data-cost-edit="'+escapeHtml(row.id)+'">Tahrirlash</button></div>'+
         '<div class="cost-ready-values"><span><small>Xarid narxi</small><b>'+(row.price===null?'—':formatMoney(row.price,'KRW'))+'</b></span><span><small>Vazni</small><b>'+(row.grams===null?'—':row.grams+' g')+'</b></span><span><small>Yetkazish</small><b>'+(result.shipping===null?'—':formatMoney(result.shipping,'KRW'))+'</b></span><span class="cost-ready-total"><small>Tan narxi</small><strong>'+(result.total===null?'—':formatMoney(result.total,'KRW'))+'</strong></span></div>'+
@@ -3052,7 +3054,7 @@
     $('costCloudAdminCode').addEventListener('keydown',event=>{if(event.key==='Enter')refreshCostCloud(true);});
     $('costCloudRefresh').addEventListener('click',()=>refreshCostCloud());
     $('costCloudPush').addEventListener('click',()=>pushCostCloud());
-    $('costCloudDisconnect').addEventListener('click',()=>{disconnectCostCloud('Ulanish uzildi. Kitoblarni qayta ulanishda ID orqali topadi.');state.bookCostAutoSync=false;persistBookCosts('Ulanish uzildi.',false);renderBookCosts();});
+    $('costCloudDisconnect').addEventListener('click',()=>{disconnectCostCloud('Ulanish uzildi. Kitoblarni qayta ulanishda ID orqali topadi.');persistBookCosts('Ulanish uzildi.',false);renderBookCosts();});
     $('costCloudAuto').addEventListener('change',()=>{state.bookCostAutoSync=$('costCloudAuto').checked;persistBookCosts(state.bookCostAutoSync?'Bog‘langan kitoblar saqlanganda tan narxi yuboriladi.':'Avtomatik yuborish o‘chirildi.');});
 
     $('costRateSaveBtn').addEventListener('click',()=>{

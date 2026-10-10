@@ -385,3 +385,9 @@ test('main tab is read-only and edit tab retains full editing controls',()=>{
  assert.match(node('costReadyList').innerHTML,/Arosat|₩11,000/);assert.doesNotMatch(node('costReadyList').innerHTML,/data-cost-edit|data-cost-quick|Tahrirlash|<input|<button/);
  api.setCostView('list');assert.equal(node('costListActions').hidden,false);assert.match(node('costReadyList').innerHTML,/data-cost-edit|Tez tahrirlash/);
 });
+test('read-only main list shows weight and every populated tariff calculation',()=>{
+ const {api,node}=appHarness();api.bindBookCosts();api.getState().bookCosts.push({id:'a',title:'Arosat',price:3000,grams:200,salePrice:9000,saved:true});
+ api.getState().bookCostComparisons.push({id:'t',label:'7 ming',rate:7000},{id:'empty',label:'Bo‘sh',rate:null});
+ api.setCostView('main');const html=node('costReadyList').innerHTML;
+ assert.match(html,/200 g/);assert.match(html,/₩5,000/);assert.match(html,/₩4,400/);assert.match(html,/7 ming/);assert.doesNotMatch(html,/Bo‘sh|data-cost-edit|data-cost-quick|<input|<button/);
+});

@@ -409,6 +409,7 @@ class ShopOrder {
     this.carrier = '',
     this.trackingNumber = '',
     this.trackingUpdatedAt,
+    this.preparedAt,
   });
 
   final String id;
@@ -430,6 +431,7 @@ class ShopOrder {
   final String carrier;
   final String trackingNumber;
   final DateTime? trackingUpdatedAt;
+  final DateTime? preparedAt;
 
   bool get hasPaymentProof => paymentProofPath.trim().isNotEmpty;
   bool get isTelegram => source == 'telegram';
@@ -468,6 +470,7 @@ class ShopOrder {
     carrier: (map['carrier'] ?? '').toString(),
     trackingNumber: (map['tracking_number'] ?? '').toString(),
     trackingUpdatedAt: DateTime.tryParse((map['tracking_updated_at'] ?? '').toString()),
+    preparedAt: DateTime.tryParse((map['prepared_at'] ?? '').toString()),
   );
 
   Map<String, dynamic> toMap() => {
@@ -490,6 +493,7 @@ class ShopOrder {
     'carrier': carrier,
     'tracking_number': trackingNumber,
     'tracking_updated_at': trackingUpdatedAt?.toIso8601String(),
+    'prepared_at': preparedAt?.toIso8601String(),
   };
 
   ShopOrder copyWith({
@@ -501,6 +505,7 @@ class ShopOrder {
     String? carrier,
     String? trackingNumber,
     DateTime? trackingUpdatedAt,
+    DateTime? preparedAt,
   }) => ShopOrder(
     id: id,
     customerName: customerName,
@@ -521,6 +526,7 @@ class ShopOrder {
     carrier: carrier ?? this.carrier,
     trackingNumber: trackingNumber ?? this.trackingNumber,
     trackingUpdatedAt: trackingUpdatedAt ?? this.trackingUpdatedAt,
+    preparedAt: preparedAt ?? this.preparedAt,
   );
 }
 

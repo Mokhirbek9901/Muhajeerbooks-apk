@@ -5518,10 +5518,14 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
     setState(() => busy.add(order.id));
     try {
       await widget.api.updateOrderStatus(order.id, status, customerNote: customerNote);
-      await context.read<AppState>().refreshBooks();
+      if (status != 'prepared') {
+        await context.read<AppState>().refreshBooks();
+      }
       if (mounted) {
         reload();
-        final message = status == 'accepted'
+        final message = status == 'prepared'
+            ? 'Buyurtma tayyorlandi ✅ (mijozga bildirishnoma yuborilmadi)'
+            : status == 'accepted'
             ? 'Buyurtma qabul qilindi. Sotuv va statistika yangilandi ✅'
             : status == 'cancelled'
             ? 'Buyurtma bekor qilindi.'
@@ -6052,8 +6056,22 @@ class _ProfessionalOrderCard extends StatelessWidget {
                 child: CircularProgressIndicator(),
               ),
             )
-          else
+          else ...[
+            if (kIsWeb && order.preparedAt != null &&
+                (order.status == 'accepted' || order.status == 'paid'))
+              const Padding(
+                padding: EdgeInsets.only(bottom: 9),
+                child: Row(
+                  children: [
+                    Icon(Icons.check_circle_rounded, color: AppColors.success, size: 18),
+                    SizedBox(width: 7),
+                    Text('Tayyorlandi — jo‘natishga tayyor',
+                        style: TextStyle(fontWeight: FontWeight.w700)),
+                  ],
+                ),
+              ),
             _OrderActions(order: order, onStatus: onStatus),
+          ],
         ],
       ),
     );
@@ -6080,9 +6098,11 @@ class _OrderActions extends StatelessWidget {
       primaryLabel = 'Qabul qilish';
       primaryIcon = Icons.check_circle_rounded;
     } else if (order.status == 'accepted' || order.status == 'paid') {
-      primaryStatus = 'shipping';
-      primaryLabel = 'Jo‘natildi';
-      primaryIcon = Icons.local_shipping_rounded;
+      primaryStatus = kIsWeb && order.preparedAt == null ? 'prepared' : 'shipping';
+      primaryLabel = kIsWeb && order.preparedAt == null ? 'Tayyorlandi' : 'Jo‘natildi';
+      primaryIcon = kIsWeb && order.preparedAt == null
+          ? Icons.inventory_rounded
+          : Icons.local_shipping_rounded;
     }
 
     return Row(

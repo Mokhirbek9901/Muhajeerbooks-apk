@@ -5559,6 +5559,8 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
             'all' => o.status != 'cancelled',
             'today' => o.status != 'cancelled' && orderDay == today,
             'yesterday' => o.status != 'cancelled' && orderDay == yesterday,
+            'accepted' => (o.status == 'accepted' || o.status == 'paid') && o.preparedAt == null,
+            'prepared' => (o.status == 'accepted' || o.status == 'paid') && o.preparedAt != null,
             _ => o.status == filter,
           };
           final matchQuery =
@@ -5680,6 +5682,13 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
                           selected: filter,
                           onTap: (v) => setState(() => filter = v),
                         ),
+                        if (kIsWeb)
+                          _OrderFilterChip(
+                            label: 'Tayyorlandi',
+                            value: 'prepared',
+                            selected: filter,
+                            onTap: (v) => setState(() => filter = v),
+                          ),
                         _OrderFilterChip(
                           label: 'Jo‘natilgan',
                           value: 'shipping',
@@ -5884,7 +5893,12 @@ class _ProfessionalOrderCard extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.w900),
               ),
             ),
-            _AdminOrderStatusChip(status: order.status),
+            _AdminOrderStatusChip(
+              status: kIsWeb && order.preparedAt != null &&
+                      (order.status == 'accepted' || order.status == 'paid')
+                  ? 'prepared'
+                  : order.status,
+            ),
           ],
         ),
         subtitle: Padding(
@@ -6133,6 +6147,13 @@ class _AdminOrderStatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, fg, bg, border, icon) = switch (status) {
+      'prepared' => (
+        'Tayyorlandi',
+        AppColors.success,
+        AppColors.successSoft,
+        const Color(0xFFCDEAD7),
+        Icons.check_circle_rounded,
+      ),
       'accepted' => (
         'Qabul qilindi',
         AppColors.success,

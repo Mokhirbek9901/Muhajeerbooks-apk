@@ -142,7 +142,8 @@
   let statsPeriodMonth=new Date().getMonth();
   let statsPeriodDay=today();
   let detailTab = 'general';
-  const readingTimer={bookId:'',startedAt:0,interval:null};
+  const READING_TIMER_KEY='bek_reading_timer_v1';
+  const readingTimer={sessionId:'',bookId:'',startedAt:0,interval:null};
   let statsSelectedYear = nowYear;
   let calendarMode = 'year';
   let calendarDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -242,6 +243,7 @@
 
     return {
       version: 4,
+      readingTimerLastSaved: String(input?.readingTimerLastSaved||''),
       profile: {
         name: String(profile.name || input?.name || base.profile.name),
         yearlyGoal: clampInt(profile.yearlyGoal ?? input?.yearlyGoal ?? 24, 1, 500),
@@ -671,6 +673,7 @@
     if(currentView==='detail') renderBookDetail();
     if(currentView==='calendar') renderCalendar();
     renderCategoryOptions();
+    updateReadingTimerClock();
   }
 
   function applyTheme(){
@@ -765,52 +768,64 @@
       Math.max(0,Number(entry.minutes)||0),0);
   }
 
-  function saveReadingMinutes(bookId,elapsedMinutes){
-    const book=state.books.find(b=>b.id===bookId);
-    if(!book)return false;
-    const minutes=Math.max(0,Math.round(Number(elapsedMinutes)||0));
-    if(!minutes)return false;
-    book.readingLog=Array.isArray(book.readingLog)?book.readingLog:[];
-    const date=today();
-    let log=book.readingLog.find(entry=>entry.date===date);
-    if(!log){
-      log={date,page:Math.max(0,Number(book.currentPage)||0),readPages:0,minutes:0};
-      book.readingLog.push(log);
+  function updateReadingTimerClock(){
+    if(!window.ReadingTimer)return;
+    const book=state.books.find(b=>b.id===readingTimer.bookId);
+    const banner=$('readingTimerBanner');if(banner)banner.hidden=!book;
+    if(!book)return;
+    const clock=window.ReadingTimer.clock(window.ReadingTimer.elapsed(readingTimer,Date.now()));
+    if($('readingTimerBannerTitle'))$('readingTimerBannerTitle').textContent=book.title;
+    if($('readingTimerBannerClock'))$('readingTimerBannerClock').textContent=clock;
+    if(currentView==='detail' && selectedBookId===book.id && $('readingTimerClock'))$('readingTimerClock').textContent=clock;
+  }
+  function runReadingTimerDisplay(){
+    if(readingTimer.interval!==null)clearInterval(readingTimer.interval);
+    readingTimer.interval=null;updateReadingTimerClock();
+    if(readingTimer.bookId && !document.hidden)readingTimer.interval=setInterval(updateReadingTimerClock,1000);
+  }
+  function restoreReadingTimer(){
+    if(!window.ReadingTimer)return;
+    let raw=null;try{raw=localStorage.getItem(READING_TIMER_KEY);}catch(_){}
+    const session=window.ReadingTimer.restore(raw,state.books,state.readingTimerLastSaved,Date.now());
+    Object.assign(readingTimer,session||{sessionId:'',bookId:'',startedAt:0});
+    if(!session && raw){try{localStorage.removeItem(READING_TIMER_KEY);}catch(_){} }
+    runReadingTimerDisplay();
+  }
+  function stopReadingTimer(save=true){
+    if(!readingTimer.bookId)return true;
+    const session={sessionId:readingTimer.sessionId,bookId:readingTimer.bookId,startedAt:readingTimer.startedAt};
+    const book=state.books.find(b=>b.id===session.bookId);
+    const portions=window.ReadingTimer.dailyMinutes(session.startedAt,Date.now());
+    let savedState=null;try{savedState=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');}catch(_){}
+    // A reload or a second tab must never save the same session twice.
+    const alreadySaved=state.readingTimerLastSaved===session.sessionId || savedState?.readingTimerLastSaved===session.sessionId;
+    if(alreadySaved && savedState)state=normalizeState(savedState);
+    if(save && book && portions.length && !alreadySaved){
+      const previous=JSON.parse(JSON.stringify(book)),previousMarker=state.readingTimerLastSaved;
+      for(const {date,minutes} of portions){
+        book.readingLog=Array.isArray(book.readingLog)?book.readingLog:[];
+        let log=book.readingLog.find(x=>x.date===date);
+        if(!log){log={date,page:Math.max(0,Number(book.currentPage)||0),readPages:0,minutes:0};book.readingLog.push(log);}
+        log.minutes=Math.max(0,Number(log.minutes)||0)+minutes;
+      }
+      book.updatedAt=new Date().toISOString();state.readingTimerLastSaved=session.sessionId;
+      try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state));}
+      catch(_){Object.assign(book,previous);state.readingTimerLastSaved=previousMarker;toast('Vaqt saqlanmadi. Qurilma xotirasini tekshiring. Taymer davom etmoqda.');return false;}
     }
-    log.minutes=Math.max(0,Number(log.minutes)||0)+minutes;
-    book.updatedAt=new Date().toISOString();
-    saveState(minutes+' daqiqa mutolaa vaqti saqlandi.');
+    Object.assign(readingTimer,{sessionId:'',bookId:'',startedAt:0});
+    try{localStorage.removeItem(READING_TIMER_KEY);}catch(_){}
+    runReadingTimerDisplay();renderAll();scheduleReadingSync();
+    if(save && portions.length && !alreadySaved)toast(portions.reduce((n,p)=>n+p.minutes,0)+' daqiqa mutolaa vaqti saqlandi.');
     return true;
   }
-
-  function stopReadingTimer(save=true){
-    if(readingTimer.interval!==null){
-      clearInterval(readingTimer.interval);
-      readingTimer.interval=null;
-    }
-    if(!readingTimer.bookId)return;
-    const bookId=readingTimer.bookId;
-    const elapsed=Math.max(0,Date.now()-readingTimer.startedAt);
-    readingTimer.bookId='';
-    readingTimer.startedAt=0;
-    if(save && elapsed>=1000)saveReadingMinutes(bookId,Math.max(1,Math.ceil(elapsed/60000)));
-    if(currentView==='detail')renderBookDetail();
-  }
-
   function toggleReadingTimer(bookId){
+    if(!window.ReadingTimer || !state.books.some(b=>b.id===bookId))return;
     if(readingTimer.bookId===bookId){stopReadingTimer(true);return;}
-    if(readingTimer.bookId)stopReadingTimer(true);
-    readingTimer.bookId=bookId;
-    readingTimer.startedAt=Date.now();
-    readingTimer.interval=setInterval(()=>{
-      const label=$('readingTimerClock');
-      if(label && readingTimer.bookId===bookId){
-        const elapsed=Math.max(0,Math.floor((Date.now()-readingTimer.startedAt)/1000));
-        label.textContent=String(Math.floor(elapsed/60)).padStart(2,'0')+':'+
-          String(elapsed%60).padStart(2,'0');
-      }
-    },1000);
-    renderBookDetail();
+    if(readingTimer.bookId && !stopReadingTimer(true))return;
+    const session={sessionId:makeId(),bookId,startedAt:Date.now()};
+    try{localStorage.setItem(READING_TIMER_KEY,JSON.stringify(session));}
+    catch(_){toast('Taymerni boshlab bo‘lmadi. Qurilma xotirasini tekshiring.');return;}
+    Object.assign(readingTimer,session);runReadingTimerDisplay();renderBookDetail();
   }
 
   function readingHistoryRows(book){
@@ -1004,7 +1019,7 @@
       '<button type="button" class="detail-timer-button'+(timerActive?' running':'')+
       '" data-reading-timer="'+escapeHtml(book.id)+'">'+
       (timerActive?'■ To‘xtatish va saqlash':'▶ Vaqtni boshlash')+'</button>'+
-      '<small class="detail-timer-help">Vaqtni to‘xtatganingizda shu kitobning bugungi qaydiga yoziladi.</small></div>';
+      '<small class="detail-timer-help">Telefon qulflansa yoki ilovadan chiqsangiz ham vaqt davom etadi. Faqat “To‘xtatish va saqlash”ni bosganda to‘xtaydi.</small></div>';
     const general=progress+
       '<div class="detail-reading-numbers">'+
       '<div><small>Bugun o‘qilgan</small><b>'+todayPages+' sahifa</b></div>'+
@@ -2308,6 +2323,7 @@
   function deleteBook(id){
     const book=state.books.find(b=>b.id===id); if(!book) return;
     if(!confirm('“'+book.title+'” kitobini o‘chirasizmi?')) return;
+    if(readingTimer.bookId===id)stopReadingTimer(false);
     state.books=state.books.filter(b=>b.id!==id);
     saveState('Kitob o‘chirildi.');
     navigate('library');
@@ -3492,6 +3508,8 @@
       const bookOpen=e.target.closest('[data-book-open]'); if(bookOpen && !e.target.closest('[data-book-menu]')){selectedBookId=bookOpen.dataset.bookOpen;detailTab='general';navigate('detail');return;}
       const tab=e.target.closest('[data-detail-tab]');
       if(tab){detailTab=tab.dataset.detailTab;renderBookDetail();return;}
+      if(e.target.closest('[data-reading-timer-open]')){if(readingTimer.bookId){selectedBookId=readingTimer.bookId;navigate('detail');}return;}
+      if(e.target.closest('[data-reading-timer-stop]')){stopReadingTimer(true);return;}
       const timer=e.target.closest('[data-reading-timer]');
       if(timer){toggleReadingTimer(timer.dataset.readingTimer);return;}
       const menu=e.target.closest('[data-book-menu]'); if(menu){e.stopPropagation();openBookMenu(menu.dataset.bookMenu);return;}
@@ -3726,9 +3744,13 @@
     $('bellBtn').addEventListener('click',openReminderDialog);
     $('detailMore').addEventListener('click',()=>selectedBookId&&openBookMenu(selectedBookId));
     document.addEventListener('visibilitychange',()=>{
-      if(document.hidden && readingTimer.bookId)stopReadingTimer(true);
+      runReadingTimerDisplay();
     });
   }
+
+  restoreReadingTimer();
+  window.addEventListener('pagehide',()=>{if(readingTimer.interval!==null)clearInterval(readingTimer.interval);readingTimer.interval=null;});
+  window.addEventListener('pageshow',()=>{restoreReadingTimer();if(currentView==='detail')renderBookDetail();});
 
   if('serviceWorker' in navigator){
     window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));

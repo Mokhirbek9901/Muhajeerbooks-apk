@@ -124,6 +124,11 @@
   let costVisibleRows=[];
   let costCloudCode='',costCloudCatalog=[],costCloudBusy=false,costCloudTimer=null,costCloudLastRead=0,costCloudEpoch=0;
   let costDeviceTimer=null,costDeviceBusy=false,costDeviceAgain=false;
+  const readingSyncRequests=new Set();
+  let readingSyncEpoch=0;
+  let readingSyncCode='',readingSyncTimer=null,readingSyncBusy=false,readingSyncAgain=false,readingSyncBase=null;
+  let readingSyncMessage='Birinchi marta kitoblaringiz to‘liq turgan telefonda ulaning.';
+  const READING_SYNC_BASE_KEY='bek_reading_device_base_v1';
   const COST_DEVICE_BASE_KEY='bek_cost_device_base_v1';
   const costCloudRequests=new Set();
   let costCloudMessage='Ulanish uchun Muhajeer Books admin kodini kiriting.';
@@ -303,6 +308,7 @@
   function saveState(message){
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     renderAll();
+    scheduleReadingSync();
     if(message) toast(message);
   }
 
@@ -576,7 +582,7 @@
         }catch(_){}
         if(changed){
           metadataJob.changed++;
-          try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state));}
+          try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state));scheduleReadingSync();}
           catch(_){updateMetadataStatus('Saqlash xatosi. Qurilmada joy yetarliligini tekshiring.');metadataJob.cancel=true;}
           renderBooks();
           if(currentView==='detail'&&selectedBookId===book.id)renderBookDetail();
@@ -2886,6 +2892,64 @@
     }catch(error){if(epoch===costCloudEpoch)$('costDeviceStatus').textContent=error.message||'Ro‘yxat sinxronlanmadi. Mahalliy nusxa saqlangan.';}
     finally{if(epoch===costCloudEpoch){costDeviceBusy=false;if(costDeviceAgain){costDeviceAgain=false;scheduleCostDevice();}}}
   }
+  function readingSyncStatus(message){
+    readingSyncMessage=message;
+    if($('readingSyncStatus'))$('readingSyncStatus').textContent=message;
+    if($('librarySyncSub'))$('librarySyncSub').textContent=readingSyncCode?'Ulangan · '+state.books.length+' ta kitob':'Kitoblar, sahifalar va o‘qish tarixi';
+    if($('readingSyncConnect'))$('readingSyncConnect').disabled=readingSyncBusy;
+  }
+  function openReadingSyncDialog(){
+    openSimple('Kitoblar sinxronlash','<div class="setting-form"><p>Kitoblar, muqovalar, o‘qilgan sahifalar, boshlash va tugatish sanalari, baholar, izohlar hamda kunlik mutolaa tarixi birga saqlanadi.</p><p>Avval kitoblaringiz to‘liq turgan telefonda ulaning va “Bulutda saqlandi” yozuvini kuting. Keyin boshqa telefonda shu admin kodi bilan ulaning.</p><label>Muhajeer Books admin kodi<input type="password" id="readingSyncAdminCode" autocomplete="off" maxlength="512" placeholder="Admin kodi"></label><button type="button" class="primary-button" id="readingSyncConnect" data-reading-connect>Ulanish va sinxronlash</button><button type="button" class="secondary-button" data-reading-refresh>Kitoblarni yangilash</button><button type="button" class="soft-button" data-reading-disconnect>Ulanishni uzish</button><p id="readingSyncStatus" role="status" aria-live="polite"></p><small>Ilovadan chiqqanda ulanish uziladi. Qayta kirganda yana ulaning. Kod qurilmada saqlanmaydi.</small></div>');
+    readingSyncStatus(readingSyncMessage);
+  }
+  function disconnectReadingSync(){
+    readingSyncEpoch++;for(const controller of readingSyncRequests)controller.abort();readingSyncRequests.clear();
+    clearTimeout(readingSyncTimer);readingSyncTimer=null;readingSyncCode='';readingSyncBusy=false;readingSyncAgain=false;
+    if($('readingSyncAdminCode'))$('readingSyncAdminCode').value='';
+    readingSyncStatus('Ulanish uzilgan. Kitoblar shu qurilmada saqlangan.');
+  }
+  function scheduleReadingSync(delay=1500){
+    if(!readingSyncCode || document.hidden || !window.ReadingDeviceSync)return;
+    clearTimeout(readingSyncTimer);readingSyncTimer=setTimeout(()=>syncReadingLibrary(),delay);
+  }
+  function initialReadingSnapshot(){
+    const seed=defaultState();mergeReadLibrarySeed(seed);
+    return window.ReadingDeviceSync.snapshot(normalizeState(seed));
+  }
+  async function syncReadingLibrary(connect=false,sharedCode=''){
+    if(document.hidden || !window.ReadingDeviceSync)return;
+    if(readingSyncBusy){readingSyncAgain=true;return;}
+    const code=sharedCode || (connect?$('readingSyncAdminCode')?.value.trim():readingSyncCode);
+    if(!code){readingSyncStatus('Admin kodini kiriting va ulaning.');return;}
+    clearTimeout(readingSyncTimer);
+    const epoch=costCloudEpoch,readingEpoch=readingSyncEpoch;readingSyncBusy=true;
+    readingSyncStatus('Kitoblar va mutolaa tarixi sinxronlanmoqda…');
+    try{
+      const remote=await costCloudRequest('load-library',null,code);
+      if(epoch!==costCloudEpoch || readingEpoch!==readingSyncEpoch || document.hidden)return;
+      readingSyncCode=code;
+      if($('readingSyncAdminCode'))$('readingSyncAdminCode').value='';
+      if(!readingSyncBase){try{readingSyncBase=JSON.parse(localStorage.getItem(READING_SYNC_BASE_KEY)||'null');}catch(_){} }
+      const local=window.ReadingDeviceSync.snapshot(state);
+      const merged=window.ReadingDeviceSync.merge(readingSyncBase,local,remote.payload,initialReadingSnapshot());
+      if(merged.conflicts.length)throw Error('Ikki qurilmada bir maydon turlicha tahrirlangan: '+merged.conflicts.slice(0,3).join(', ')+'. Mahalliy kitoblar saqlangan; Backup oling va qiymatlarni bir xil qilib qayta yangilang.');
+      let saved=remote;
+      if(!window.ReadingDeviceSync.equal(merged.value,remote.payload))saved=await costCloudRequest('save-library',{version:remote.version,payload:merged.value},code);
+      if(epoch!==costCloudEpoch || readingEpoch!==readingSyncEpoch || document.hidden)return;
+      const current=window.ReadingDeviceSync.snapshot(state);
+      const late=window.ReadingDeviceSync.merge(local,current,saved.payload);
+      if(late.conflicts.length)throw Error('Sinxronlash vaqtida kitob qayta tahrirlandi. Mahalliy nusxa saqlangan; kitoblarni yangilang.');
+      const next=normalizeState({...state,books:late.value.books,profile:{...state.profile,...late.value.profile}});
+      localStorage.setItem(STORAGE_KEY,JSON.stringify(next));state=next;readingSyncBase=saved.payload;
+      try{localStorage.setItem(READING_SYNC_BASE_KEY,JSON.stringify(saved.payload));}catch(_){ /* Keep the full baseline in this open session when local storage is full. */ }
+      renderAll();
+      readingSyncStatus('✓ '+saved.payload.books.length+' ta kitob va mutolaa tarixi bulutda saqlandi.');
+      if(!window.ReadingDeviceSync.equal(late.value,saved.payload))readingSyncAgain=true;
+      scheduleReadingSync(readingSyncAgain?1500:45000);
+    }catch(error){if(epoch===costCloudEpoch && readingEpoch===readingSyncEpoch)readingSyncStatus(error.message||'Sinxronlanmadi. Mahalliy kitoblar saqlangan.');}
+    finally{if(epoch===costCloudEpoch && readingEpoch===readingSyncEpoch){readingSyncBusy=false;readingSyncStatus(readingSyncMessage);if(readingSyncAgain){readingSyncAgain=false;scheduleReadingSync();}}}
+  }
+
   function renderCostCloud(){
     $('costCloudLogin').hidden=Boolean(costCloudCode);
     $('costCloudConnected').hidden=!costCloudCode;
@@ -2894,6 +2958,7 @@
     ['costCloudConnect','costCloudRefresh','costCloudPush'].forEach(id=>{$(id).disabled=costCloudBusy;});
   }
   function disconnectCostCloud(message='Ilovadan chiqilgani uchun ulanish uzildi. Qayta ulanishni bosing.'){
+    disconnectReadingSync();
     disconnectPaidAi();
     costCloudEpoch++;clearTimeout(costCloudTimer);costCloudTimer=null;clearTimeout(costDeviceTimer);costDeviceTimer=null;costDeviceBusy=false;costDeviceAgain=false;
     for(const controller of costCloudRequests)controller.abort();costCloudRequests.clear();
@@ -2904,13 +2969,14 @@
   async function costCloudRequest(action,changes,code=costCloudCode){
     if(document.visibilityState==='hidden')throw new Error('Ilova yopiq. Avval qayta ulaning.');
     const controller=new AbortController();costCloudRequests.add(controller);
+    if(action==='load-library' || action==='save-library')readingSyncRequests.add(controller);
     const timer=setTimeout(()=>controller.abort(),20000);
     try{
       const response=await fetch(window.BookCostSyncConfig.url,{method:'POST',headers:{'Content-Type':'application/json',apikey:window.BookCostSyncConfig.key,Authorization:'Bearer '+window.BookCostSyncConfig.key},body:JSON.stringify({action,admin_code:code,...(changes?{changes}:{})}),signal:controller.signal});
       const result=await response.json();
       if(!response.ok || result.ok!==true)throw Error(result.error||'Ulanish amalga oshmadi.');
       return result.data;
-    }finally{clearTimeout(timer);costCloudRequests.delete(controller);}
+    }finally{clearTimeout(timer);costCloudRequests.delete(controller);readingSyncRequests.delete(controller);}
   }
   async function refreshCostCloud(connect=false,schedule=true){
     if(costCloudBusy || document.visibilityState==='hidden')return;
@@ -2925,6 +2991,7 @@
       costCloudCode=code;costCloudCatalog=catalog;costCloudLastRead=Date.now();$('costCloudAdminCode').value='';
       if(connect)state.bookCostAutoSync=true;
       if(window.BookCostDeviceSync)await syncCostDevice();
+      if(epoch===costCloudEpoch && !document.hidden)await syncReadingLibrary(false,code);
       if(epoch!==costCloudEpoch || document.visibilityState==='hidden')return;
       window.BookCostSync.match(state.bookCosts,catalog);
       const saved=state.bookCosts.filter(costIsReady),matched=saved.filter(row=>catalog.some(book=>book.id===row.muhajeerId));
@@ -3388,7 +3455,7 @@
     openSimple('Ilova sozlamalari','<div class="setting-form"><label>Profil nomi<input id="profileNameInput" value="'+escapeHtml(state.profile.name)+'"></label><div class="setting-actions"><button class="primary-button" data-save-profile>Saqlash</button></div></div>');
   }
   function openBackupDialog(){
-    openSimple('Backup / Sinxronlash','<div class="setting-form"><p style="font-size:.75rem;color:var(--muted);line-height:1.5">Kitoblar, mutolaa progressi, moliya va kitob tan narxlarini bitta faylga saqlang.</p><button class="primary-button" data-export>Backup olish</button><button class="secondary-button" data-import>Backup tiklash</button></div>');
+    openSimple('Backup / Sinxronlash','<div class="setting-form"><button type="button" class="primary-button" data-reading-open>Kitoblarni qurilmalar orasida sinxronlash</button><p style="font-size:.75rem;color:var(--muted);line-height:1.5">Kitoblar, mutolaa progressi, moliya va kitob tan narxlarini bitta faylga saqlang.</p><button class="primary-button" data-export>Backup olish</button><button class="secondary-button" data-import>Backup tiklash</button></div>');
   }
 
   function exportBackup(){
@@ -3435,6 +3502,10 @@
       const cal=e.target.closest('[data-calendar-day]'); if(cal){renderCalendarDay(cal.dataset.calendarDay);return;}
       const cat=e.target.closest('[data-category]'); if(cat){$('bookSearch').value=cat.dataset.category;bookFilter='all';navigate('library');renderBooks();return;}
       const txEdit=e.target.closest('[data-tx-edit]'); if(txEdit){openTxDialog(state.transactions.find(t=>t.id===txEdit.dataset.txEdit));return;}
+      if(e.target.closest('[data-reading-open]')){openReadingSyncDialog();return;}
+      const readingConnect=e.target.closest('[data-reading-connect]');if(readingConnect){syncReadingLibrary(true);return;}
+      const readingRefresh=e.target.closest('[data-reading-refresh]');if(readingRefresh){syncReadingLibrary();return;}
+      const readingDisconnect=e.target.closest('[data-reading-disconnect]');if(readingDisconnect){disconnectReadingSync();return;}
       const txDelete=e.target.closest('[data-tx-delete]'); if(txDelete){if(confirm('Tranzaksiyani o‘chirasizmi?')){state.transactions=state.transactions.filter(t=>t.id!==txDelete.dataset.txDelete);saveState('Tranzaksiya o‘chirildi.');}return;}
 
       const dailyPick=e.target.closest('[data-select-daily-book]');
@@ -3632,6 +3703,7 @@
     $('reminderMenu').addEventListener('click',openReminderDialog);
     $('financeMenu').addEventListener('click',()=>navigate('finance'));
     $('backupMenu').addEventListener('click',openBackupDialog);
+    $('librarySyncMenu').addEventListener('click',openReadingSyncDialog);
     $('settingsMenu').addEventListener('click',openSettingsDialog);
     $('themeMenu').addEventListener('click',()=>{state.profile.theme=state.profile.theme==='dark'?'light':'dark';saveState();});
     $('addTxBtn').addEventListener('click',()=>openTxDialog());

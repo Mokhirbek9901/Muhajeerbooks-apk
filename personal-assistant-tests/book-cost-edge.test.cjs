@@ -25,3 +25,9 @@ test('device list storage requires admin verification and cannot call catalog up
  assert.equal((await h.call({action:'save-list',admin_code:'test',changes:{version:0,payload:{...p,admin_code:'secret'}}})).status,400);
  const noAuth=harness(false);assert.equal((await noAuth.call({action:'load-list',admin_code:'invalid'})).status,401);assert.equal(noAuth.calls.length,1);
 });
+test('personal reading library is authenticated and isolated; prices and extra fields are rejected',async()=>{
+ const p={books:[{id:'reading',title:'Arosat',statusOverride:'reading',pages:200,currentPage:50,startedAt:'2026-10-01',finishedAt:'',notes:'Shaxsiy izoh',cover:'https://example.com/image.jpg',readingLog:[{date:'2026-10-11',page:50,readPages:20,minutes:10}]}],profile:{yearlyGoal:24,dailyPageGoal:32,dailyMinutesGoal:20,dailyPlanBookId:'reading',customCategories:[]}};
+ const h=harness();assert.equal((await h.call({action:'save-library',admin_code:'test',changes:{version:0,payload:p}})).status,200);assert.ok(h.calls[1].url.endsWith('rpc/yordamchi_save_reading_library'));assert.deepEqual(h.calls[1].body,{p_version:0,p_payload:p});
+ for(const bad of [{...p,admin_code:'secret'},{...p,books:[{...p.books[0],price:5000}]},{...p,books:[{...p.books[0],cover:'javascript:bad'}]}])assert.equal((await h.call({action:'save-library',admin_code:'test',changes:{version:0,payload:bad}})).status,400);
+ const invalid=harness(false);assert.equal((await invalid.call({action:'load-library',admin_code:'invalid'})).status,401);assert.equal(invalid.calls.length,1);
+});

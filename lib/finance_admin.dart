@@ -45,6 +45,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
   Map<String, dynamic> report = <String, dynamic>{};
   List<Map<String, dynamic>> expenses = <Map<String, dynamic>>[];
   int inventoryStockCost = 0;
+  int inventoryStockSellingValue = 0;
   int allTimeSoldCost = 0;
 
   Future<dynamic> _rpc(
@@ -373,13 +374,35 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
           ? ((rawAllReport['cost_of_goods'] as num?)?.round() ?? 0)
           : 0;
       var stockCost = 0;
+      var stockSellingValue = 0;
+      final now = DateTime.now();
       if (rawBooks is List) {
         for (final row in rawBooks.whereType<Map>()) {
           final stock = (row['stock'] as num?)?.round() ?? 0;
+          if (stock <= 0) continue;
+
           final costPrice = (row['cost_price'] as num?)?.round() ?? 0;
-          if (stock > 0 && costPrice > 0) {
+          if (costPrice > 0) {
             stockCost += stock * costPrice;
           }
+
+          // Book.currentPrice bilan bir xil: amaldagi chegirma muddati
+          // tugamagan bo'lsa uni ham hisobga olamiz. Ombor soni sotuvdan
+          // oldin tushumga yoki foydaga qo'shilmaydi.
+          final price = (row['price'] as num?)?.round() ?? 0;
+          if (price <= 0) continue;
+          final discountPercent =
+              (row['discount_percent'] as num?)?.round() ?? 0;
+          final endsAt = DateTime.tryParse(
+            (row['discount_ends_at'] ?? '').toString(),
+          );
+          final activeDiscount = discountPercent > 0 &&
+              (endsAt == null || endsAt.isAfter(now));
+          final effectivePercent =
+              activeDiscount ? discountPercent.clamp(0, 100).toInt() : 0;
+          final currentSellingPrice =
+              (price * (100 - effectivePercent) / 100).round();
+          stockSellingValue += stock * currentSellingPrice;
         }
       }
       setState(() {
@@ -393,6 +416,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                 .toList()
             : <Map<String, dynamic>>[];
         inventoryStockCost = stockCost;
+        inventoryStockSellingValue = stockSellingValue;
         allTimeSoldCost = soldCostAll;
         loading = false;
       });
@@ -963,6 +987,17 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                         'Sotilgan kitoblar bilan birga jami: ${_financeWon(inventoryStockCost + allTimeSoldCost)}',
                     icon: Icons.inventory_2_outlined,
                   ),
+                  if (kIsWeb ||
+                      defaultTargetPlatform == TargetPlatform.android)
+                    _FinanceCard(
+                      title: 'Ombor sotuv qiymati',
+                      value: _financeWon(inventoryStockSellingValue),
+                      subtitle:
+                          'Hozirgi sotuv narxi × ombordagi qoldiq. '
+                          'Amaldagi chegirmalar hisobga olingan. '
+                          'Bu hali tushum yoki sof foyda emas.',
+                      icon: Icons.sell_outlined,
+                    ),
                   _FinanceCard(
                     title: resultTitle,
                     value: _financeSignedWon(result),

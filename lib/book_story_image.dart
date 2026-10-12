@@ -1832,6 +1832,16 @@ Future<Uint8List> _renderAlternativeBookStory(
   }
 
   switch (template) {
+    // Rendered by _renderSevenStoryDesign before reaching this legacy switch.
+    case BookStoryTemplate.quickPrice:
+    case BookStoryTemplate.cleanEdition:
+    case BookStoryTemplate.premiumEdition:
+    case BookStoryTemplate.nightEdition:
+    case BookStoryTemplate.warmEdition:
+    case BookStoryTemplate.saleEdition:
+    case BookStoryTemplate.editorialEdition:
+      canvas.drawColor(cream, BlendMode.src);
+      break;
     case BookStoryTemplate.oldCurrent:
       canvas.drawColor(cream, BlendMode.src);
       break;

@@ -172,6 +172,13 @@ class _AdminApi {
         .toList();
   }
 
+  Future<void> setCatalogPins(List<String> ids) async {
+    await _rpc('admin_set_catalog_pins', params: {
+      'p_secret': secret,
+      'p_ids': ids,
+    });
+  }
+
   Future<void> saveBook(Book book) async {
     final savedId = await _rpc(
       'admin_save_book',
@@ -2020,6 +2027,22 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
               ),
               const SizedBox(height: 14),
             ],
+            Card(
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
+                minTileHeight: 80,
+                leading: const Icon(Icons.vertical_align_top_rounded,
+                    color: AppColors.navy, size: 30),
+                title: const Text('Katalog tartibini boshqarish',
+                  style: TextStyle(fontWeight: FontWeight.w900)),
+                subtitle: const Text('Eng tepada qaysi kitoblar turishini o‘zingiz tanlang va tartiblang'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => _CatalogPinsAdminPage(api: widget.api),
+                )),
+              ),
+            ),
+            const SizedBox(height: 14),
             LayoutBuilder(
               builder: (context, c) {
                 final cardWidth = c.maxWidth >= 1200
@@ -3225,6 +3248,154 @@ class _AdminProgressStat extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Persistent global merchandising order, shared by all customer platforms.
+class _CatalogPinsAdminPage extends StatefulWidget {
+  const _CatalogPinsAdminPage({required this.api});
+  final _AdminApi api;
+  @override
+  State<_CatalogPinsAdminPage> createState() => _CatalogPinsAdminPageState();
+}
+
+class _CatalogPinsAdminPageState extends State<_CatalogPinsAdminPage> {
+  List<Book> books = [];
+  final List<String> selected = [];
+  String filter = '';
+  bool loading = true;
+  bool saving = false;
+  String? error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final data = await widget.api.books();
+      final pinned = data.where((b) => b.catalogPinRank != null).toList()
+        ..sort((a, b) => a.catalogPinRank!.compareTo(b.catalogPinRank!));
+      if (!mounted) return;
+      setState(() {
+        books = data.where((b) => b.isActive).toList();
+        selected
+          ..clear()
+          ..addAll(pinned.map((b) => b.id));
+        loading = false;
+        error = null;
+      });
+    } catch (e) {
+      if (mounted) setState(() { error = '$e'; loading = false; });
+    }
+  }
+
+  void _move(int index, int delta) {
+    final next = index + delta;
+    if (next < 0 || next >= selected.length) return;
+    setState(() {
+      final item = selected.removeAt(index);
+      selected.insert(next, item);
+    });
+  }
+
+  Future<void> _save() async {
+    if (saving) return;
+    setState(() => saving = true);
+    try {
+      await widget.api.setCatalogPins(selected);
+      if (!mounted) return;
+      await context.read<AppState>().refreshBooks();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Katalog tartibi barcha mijozlar uchun saqlandi')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Tartib saqlanmadi: $e')));
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final byId = {for (final book in books) book.id: book};
+    final available = books.where((b) =>
+      !selected.contains(b.id) &&
+      (filter.isEmpty ||
+       b.title.toLowerCase().contains(filter.toLowerCase()) ||
+       b.author.toLowerCase().contains(filter.toLowerCase()))).toList()
+      ..sort((a,b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+    return Scaffold(
+      appBar: AppBar(title: const Text('Katalog tartibini boshqarish')),
+      body: loading
+        ? const Center(child: CircularProgressIndicator())
+        : error != null
+          ? Center(child: Text(error!))
+          : Column(children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Yuqoriga chiqariladigan kitoblar',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                const SizedBox(height: 5),
+                Text('Tanlangan ${selected.length} ta kitob katalog boshida siz belgilagan tartibda chiqadi. Qolganlar yangi kelish sanasi bo‘yicha.'),
+              ]),
+            ),
+            if (selected.isNotEmpty)
+              Flexible(child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: selected.length,
+                itemBuilder: (_, i) {
+                  final book = byId[selected[i]];
+                  if (book == null) return const SizedBox.shrink();
+                  return ListTile(
+                    leading: CircleAvatar(child: Text('${i+1}')),
+                    title: Text(book.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    subtitle: Text('₩${book.currentPrice} • ${book.stock} dona'),
+                    trailing: Row(mainAxisSize: MainAxisSize.min,children: [
+                      IconButton(tooltip: 'Tepaga', onPressed: i == 0 ? null : () => _move(i,-1),
+                        icon: const Icon(Icons.arrow_upward_rounded)),
+                      IconButton(tooltip: 'Pastga', onPressed: i == selected.length-1 ? null : () => _move(i,1),
+                        icon: const Icon(Icons.arrow_downward_rounded)),
+                      IconButton(tooltip: 'Ro‘yxatdan olib tashlash',
+                        onPressed: () => setState(() => selected.removeAt(i)),
+                        icon: const Icon(Icons.close_rounded)),
+                    ]),
+                  );
+                },
+              )),
+            const Divider(),
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 16),child:
+              TextField(onChanged: (v) => setState(() => filter = v),
+                decoration: const InputDecoration(labelText: 'Kitob qidirish',
+                  prefixIcon: Icon(Icons.search_rounded)))),
+            Expanded(child: ListView.builder(
+              itemCount: available.length,
+              itemBuilder: (_, i) {
+                final book = available[i];
+                return ListTile(
+                  title: Text(book.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  subtitle: Text('${book.stock} dona mavjud'),
+                  trailing: const Icon(Icons.add_circle_outline),
+                  onTap: selected.length >= 60 ? null : () =>
+                    setState(() => selected.add(book.id)),
+                );
+              },
+            )),
+          ]),
+      bottomNavigationBar: SafeArea(child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: FilledButton.icon(
+          onPressed: loading || saving || error != null ? null : _save,
+          icon: saving ? const SizedBox(width: 18,height: 18,child: CircularProgressIndicator(strokeWidth: 2)) :
+            const Icon(Icons.save_rounded),
+          label: Text(saving ? 'Saqlanmoqda...' : 'Tartibni barcha mijozlar uchun saqlash'),
+        ),
+      )),
     );
   }
 }

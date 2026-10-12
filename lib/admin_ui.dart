@@ -7971,6 +7971,14 @@ class _SalesAdminState extends State<_SalesAdmin> {
               dt.month == now.month &&
               dt.day == now.day;
         }).length;
+        final yesterday = DateTime(now.year, now.month, now.day - 1);
+        final yesterdayCount = all.where((row) {
+          final dt = _soldAt(row);
+          return dt != null &&
+              dt.year == yesterday.year &&
+              dt.month == yesterday.month &&
+              dt.day == yesterday.day;
+        }).length;
         final monthCount = all.where((row) {
           final dt = _soldAt(row);
           return dt != null && dt.year == now.year && dt.month == now.month;
@@ -7996,6 +8004,10 @@ class _SalesAdminState extends State<_SalesAdmin> {
               return dt.year == now.year &&
                   dt.month == now.month &&
                   dt.day == now.day;
+            case 'yesterday':
+              return dt.year == yesterday.year &&
+                  dt.month == yesterday.month &&
+                  dt.day == yesterday.day;
             case 'month':
               return dt.year == now.year && dt.month == now.month;
             case 'previous_month':
@@ -8071,6 +8083,18 @@ class _SalesAdminState extends State<_SalesAdmin> {
                           foreground: AppColors.success,
                           background: period == 'today'
                               ? AppColors.successSoft
+                              : Colors.white,
+                          border: AppColors.border,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => setState(() => period = 'yesterday'),
+                        child: AppInfoPill(
+                          icon: Icons.history_toggle_off_rounded,
+                          label: 'Kecha $yesterdayCount ta',
+                          foreground: AppColors.navy,
+                          background: period == 'yesterday'
+                              ? AppColors.infoSoft
                               : Colors.white,
                           border: AppColors.border,
                         ),

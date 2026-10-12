@@ -14,6 +14,17 @@ class CatalogResume extends ChangeNotifier with WidgetsBindingObserver {
   DateTime? _awayAt;
   bool _adminPanelActive = false;
   bool get adminPanelActive => _adminPanelActive;
+  // Instagram Story sharing is a temporary trip outside the app.
+  // Preserve the user's place even if Instagram remains open a long time.
+  int _storyFlowDepth = 0;
+  bool get isStoryFlowActive => _storyFlowDepth > 0;
+
+  void beginStoryFlow() => _storyFlowDepth++;
+
+  void endStoryFlow() {
+    if (_storyFlowDepth > 0) _storyFlowDepth--;
+  }
+
   void setAdminPanelActive(bool value) => _adminPanelActive = value;
   late SharedPreferences _prefs;
 
@@ -50,7 +61,8 @@ class CatalogResume extends ChangeNotifier with WidgetsBindingObserver {
       unawaited(_prefs.remove(awayKey));
       if (leftAt != null &&
           expired(leftAt, _now()) &&
-          !_adminPanelActive) {
+          !_adminPanelActive &&
+          !isStoryFlowActive) {
         // Notify synchronously so a pending scroll restore cannot win the race.
         notifyListeners();
         unawaited(_clearSavedScroll());

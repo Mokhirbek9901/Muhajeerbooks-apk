@@ -1696,7 +1696,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
+class _HomePageState extends State<HomePage> {
   String query = '';
   String category = 'Barchasi';
   String sort = 'new';
@@ -1707,7 +1707,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
+    CatalogResume.instance.addListener(_resetCatalogToNewest);
     // Every fresh app launch starts from the canonical catalog view:
     // all books, newest additions first. Customer filters are session-only.
     query = '';
@@ -1735,14 +1735,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (!mounted || !_scrollController.hasClients) return;
       _scrollController.jumpTo(0);
     });
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed &&
-        !CatalogResume.instance.isStoryFlowActive) {
-      _resetCatalogToNewest();
-    }
   }
 
   final ScrollController _scrollController = _PersistentScrollController(
@@ -1883,7 +1875,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    CatalogResume.instance.removeListener(_resetCatalogToNewest);
     _searchMissTimer?.cancel();
     _scrollController.dispose();
     _searchController.dispose();

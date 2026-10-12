@@ -136,6 +136,7 @@ class Book {
     this.preorderDepositMax = 10000,
     this.preorderPriceMax = 0,
     this.createdAt,
+    this.restockedAt,
   });
 
   final String id;
@@ -164,6 +165,13 @@ class Book {
   final int preorderDepositMax;
   final int preorderPriceMax;
   final DateTime? createdAt;
+  /// Latest verified stock replenishment; does not change original creation date.
+  final DateTime? restockedAt;
+  DateTime get catalogArrivalAt {
+    final first = createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final returned = restockedAt;
+    return returned != null && returned.isAfter(first) ? returned : first;
+  }
 
   bool get discountActive {
     if (discountPercent <= 0) return false;
@@ -243,6 +251,7 @@ class Book {
     preorderDepositMax: (map['preorder_deposit_max'] as num?)?.toInt() ?? 10000,
     preorderPriceMax: (map['preorder_price_max'] as num?)?.toInt() ?? 0,
     createdAt: DateTime.tryParse((map['created_at'] ?? '').toString()),
+    restockedAt: DateTime.tryParse((map['restocked_at'] ?? '').toString()),
   );
 
   factory Book.fromSeed(Map<String, dynamic> map) {
@@ -294,6 +303,7 @@ class Book {
     'id': id,
     ...toDbMap(),
     'created_at': createdAt?.toIso8601String(),
+    'restocked_at': restockedAt?.toIso8601String(),
   };
 
   Book copyWith({
@@ -324,6 +334,7 @@ class Book {
     int? preorderDepositMax,
     int? preorderPriceMax,
     DateTime? createdAt,
+    DateTime? restockedAt,
   }) => Book(
     id: id ?? this.id,
     legacyId: legacyId ?? this.legacyId,
@@ -353,6 +364,7 @@ class Book {
     preorderDepositMax: preorderDepositMax ?? this.preorderDepositMax,
     preorderPriceMax: preorderPriceMax ?? this.preorderPriceMax,
     createdAt: createdAt ?? this.createdAt,
+    restockedAt: restockedAt ?? this.restockedAt,
   );
 }
 
@@ -539,7 +551,7 @@ class BackendService {
   static const String _storefrontBookColumns =
       'id,legacy_id,title,author,publisher,category,description,page_count,price,stock,'
       'discount_percent,discount_ends_at,image_url,thumbnail_url,image_urls,is_active,cover_type,recommended,preorder_enabled,'
-      'preorder_arrival_note,preorder_deposit_min,preorder_deposit_max,preorder_price_max,created_at';
+      'preorder_arrival_note,preorder_deposit_min,preorder_deposit_max,preorder_price_max,created_at,restocked_at';
 
   Future<dynamic> _customerRpc(
     String name,
@@ -580,8 +592,8 @@ class BackendService {
           .where((book) => book.id.isNotEmpty && book.isActive)
           .toList();
       books.sort((a, b) {
-        final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-        final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final aTime = a.catalogArrivalAt;
+        final bTime = b.catalogArrivalAt;
         return bTime.compareTo(aTime);
       });
       return books;
@@ -1558,6 +1570,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           b.pageCount,
           b.price,
           b.stock,
+          b.restockedAt?.toUtc().toIso8601String() ?? '',
           b.discountPercent,
           b.discountEndsAt?.toUtc().toIso8601String() ?? '',
           b.discountFreeDelivery,
@@ -1608,8 +1621,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
       final merged = byId.values.toList()
         ..sort((a, b) {
-          final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-          final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final aTime = a.catalogArrivalAt;
+          final bTime = b.catalogArrivalAt;
           return bTime.compareTo(aTime);
         });
 

@@ -28,6 +28,13 @@ class _BookStoryPageState extends State<BookStoryPage> {
   // Eng yangi dizaynlar tepada ko‘rinsin — foydalanuvchi ularni qidirib
   // pastga tushmasin. Qolganlari avvalgi tartibda saqlanadi.
   static const List<BookStoryTemplate> _templateOrder = [
+    BookStoryTemplate.quickPrice,       // Faqat muqova, narx, yetkazish va mavjudlik
+    BookStoryTemplate.cleanEdition,    // Oq va toza
+    BookStoryTemplate.premiumEdition,  // To‘q yashil va oltin
+    BookStoryTemplate.nightEdition,    // Tun ranglari
+    BookStoryTemplate.warmEdition,     // Iliq va yumshoq
+    BookStoryTemplate.saleEdition,     // Sotuv uchun yorqin
+    BookStoryTemplate.editorialEdition,// Jurnal uslubida
     // Muqova ranglarini o‘zi tahlil qilib, fon/yozuv/aksentlarni moslaydi.
     BookStoryTemplate.current,    // Avto dizayn — yangi kompozitsiyani o‘zi yaratadi
     BookStoryTemplate.oldCurrent, // Hozir — eski tanish dizayn
@@ -221,6 +228,8 @@ class _BookStoryPageState extends State<BookStoryPage> {
                 children: _templateOrder.map((item) {
                   final selected = item == _template;
                   final darkItem =
+                      item == BookStoryTemplate.premiumEdition ||
+                      item == BookStoryTemplate.nightEdition ||
                       item == BookStoryTemplate.library ||
                       item == BookStoryTemplate.emerald ||
                       item == BookStoryTemplate.geometric ||

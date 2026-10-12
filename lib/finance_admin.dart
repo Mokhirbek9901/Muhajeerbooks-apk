@@ -7,6 +7,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'design_system.dart';
 
+// Keep financial totals, profit terminology, inventory selling value and
+// reporting filters identical on web and the new iOS TestFlight client.
+// The already-submitted App Store binary is not modified.
+const bool _iosTesterFinanceParity = bool.fromEnvironment('APP_STORE_BUILD');
+bool get _webFinanceUi =>
+    kIsWeb ||
+    (defaultTargetPlatform == TargetPlatform.iOS && _iosTesterFinanceParity);
+
+
 final _financeMoney = NumberFormat('#,###', 'en_US');
 final _financeDisplayDate = DateFormat('dd.MM.yyyy');
 final _financeServerDate = DateFormat('yyyy-MM-dd');
@@ -786,7 +795,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
   @override
   Widget build(BuildContext context) {
     final webVisibleExpenses =
-        kIsWeb ? _webVisibleExpenseRows() : const <Map<String, dynamic>>[];
+        _webFinanceUi ? _webVisibleExpenseRows() : const <Map<String, dynamic>>[];
     final webExpenseTotal = webVisibleExpenses.fold<int>(
       0,
       (sum, e) => sum + ((e['amount'] as num?)?.round() ?? 0),
@@ -808,8 +817,8 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
         ? 0.0
         : (webPeriodResult / webBooksRevenue) * 100;
     final result =
-        kIsWeb ? webPeriodResult : _cashResult;
-    final margin = kIsWeb
+        _webFinanceUi ? webPeriodResult : _cashResult;
+    final margin = _webFinanceUi
         ? _double('operating_margin_percent')
         : _double('margin_percent');
     final grossPostage = _int('postage_expense');
@@ -828,7 +837,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
-          if (kIsWeb) ...[
+          if (_webFinanceUi) ...[
             _WebFinanceDashboard(
               revenue: _int('total_revenue'),
               expenses: webExpenseTotal,
@@ -950,7 +959,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                     icon: Icons.price_check_outlined,
                   ),
                   _FinanceCard(
-                    title: kIsWeb
+                    title: _webFinanceUi
                         ? 'Kitob savdosidan yalpi foyda'
                         : 'Kitobdan qolgan sof foyda',
                     value: _financeSignedWon(_int('book_profit')),
@@ -987,7 +996,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                         'Sotilgan kitoblar bilan birga jami: ${_financeWon(inventoryStockCost + allTimeSoldCost)}',
                     icon: Icons.inventory_2_outlined,
                   ),
-                  if (kIsWeb ||
+                  if (_webFinanceUi ||
                       defaultTargetPlatform == TargetPlatform.android)
                     _FinanceCard(
                       title: 'Ombor sotuv qiymati',
@@ -1041,7 +1050,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                     Text('✅ Mijoz qoplagan: ${_financeWon(coveredPostage)}'),
                     Text('🏪 Do‘kon hisobidan: ${_financeWon(storePostage)}'),
                     Text(
-                      kIsWeb
+                      _webFinanceUi
                           ? '💸 Pul chiqimi: ${_financeWon(webExpenseTotal)}'
                           : '💸 Jami hisobga kiradigan xarajat: ${_financeWon(_int('cash_outflow_total'))}',
                     ),
@@ -1063,7 +1072,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                       'ℹ️ Sotilgan kitob tannarxi: ${_financeWon(_int('cost_of_goods'))}',
                     ),
                     Text(
-                      kIsWeb
+                      _webFinanceUi
                           ? '📖 Kitob savdosidan yalpi foyda: ${_financeSignedWon(_int('book_profit'))}'
                           : '📖 Kitobdan qolgan sof foyda: ${_financeSignedWon(_int('book_profit'))}',
                     ),
@@ -1090,7 +1099,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
             ],
           ),
           const SizedBox(height: 8),
-          if ((kIsWeb ? webVisibleExpenses : expenses).isEmpty)
+          if ((_webFinanceUi ? webVisibleExpenses : expenses).isEmpty)
             const Card(
               child: Padding(
                 padding: EdgeInsets.all(20),
@@ -1098,7 +1107,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
               ),
             )
           else
-            ...(kIsWeb ? webVisibleExpenses : expenses).map(
+            ...(_webFinanceUi ? webVisibleExpenses : expenses).map(
               (e) {
                 final category = (e['category'] ?? 'other').toString();
                 final date = _expenseDate(e['expense_date']);

@@ -1984,6 +1984,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // The previous second List.sort returned 0 for most books and could scramble
     // "Qimmatidan" and "Yangi qo‘shilgan" because Dart sort is not stable.
     books.sort((a, b) {
+      // Merchandising priority applies to the default catalogue only.
+      // Search and other explicitly selected sorts still behave normally.
+      if (sort == 'new' && query.trim().isEmpty && category == 'Barchasi') {
+        final ar = a.catalogPinRank;
+        final br = b.catalogPinRank;
+        if (ar != null && br != null) return ar.compareTo(br);
+        if (ar != null) return -1;
+        if (br != null) return 1;
+      }
       final availability = (b.inStock ? 1 : 0).compareTo(a.inStock ? 1 : 0);
       if (availability != 0) return availability;
       return selectedOrder(a, b);

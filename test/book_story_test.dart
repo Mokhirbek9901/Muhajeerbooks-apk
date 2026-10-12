@@ -20,6 +20,31 @@ void main() {
     expect(storyPrice(book.copyWith(price: 0)), 'Narxi aniqlanmoqda');
   });
 
+  test('Story frames follow the cover aspect ratio without cropping', () {
+    const portraitArea = ui.Rect.fromLTWH(140, 180, 800, 730);
+    final portrait = fittedStoryCoverRect(
+      portraitArea,
+      const ui.Size(600, 900),
+    );
+    expect(portrait.center, portraitArea.center);
+    expect(portrait.height, closeTo(730, 0.01));
+    expect(portrait.width, closeTo(730 * 2 / 3, 0.01));
+    expect(portrait.left >= portraitArea.left, isTrue);
+    expect(portrait.right <= portraitArea.right, isTrue);
+
+    const wideArea = ui.Rect.fromLTWH(100, 200, 700, 620);
+    final wide = fittedStoryCoverRect(wideArea, const ui.Size(1200, 600));
+    expect(wide.width, closeTo(700, 0.01));
+    expect(wide.height, closeTo(350, 0.01));
+    expect(wide.center, wideArea.center);
+
+    // An invalid cover never crashes export layout.
+    expect(
+      fittedStoryCoverRect(portraitArea, const ui.Size(0, 0)),
+      portraitArea,
+    );
+  });
+
   test('story exports a full portrait PNG with the supplied cover', () async {
     final fontRoot = Platform.environment['FLUTTER_ROOT'];
     if (fontRoot != null) {

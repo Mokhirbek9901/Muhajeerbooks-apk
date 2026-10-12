@@ -922,7 +922,6 @@ Future<Uint8List> _renderSevenStoryDesign(
         const Rect.fromLTWH(180, 1713, 720, 48), 28,
         color: darkTheme ? const Color(0xFF122E32) : Colors.white,
         weight: FontWeight.w900, maxLines: 1);
-        color: foreground, maxLines: 1);
   }
   final picture = recorder.endRecording();
   final image = await picture.toImage(

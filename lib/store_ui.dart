@@ -2381,7 +2381,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ),
       ),
     );
-    if (!kIsWeb) return catalogView;
+    if (!_webOrPlayCustomer) return catalogView;
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < 1180) return catalogView;
@@ -4291,7 +4291,7 @@ class BookDetailPage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     desktop
-                        ? (kIsWeb
+                        ? (_webOrPlayCustomer
                             ? AppSurface(
                                 padding: const EdgeInsets.all(24),
                                 child: Row(

@@ -45,6 +45,51 @@ void main() {
     );
   });
 
+  test('new story designs expose seven distinctly named templates', () {
+    const templates = [
+      BookStoryTemplate.quickPrice,
+      BookStoryTemplate.cleanEdition,
+      BookStoryTemplate.premiumEdition,
+      BookStoryTemplate.nightEdition,
+      BookStoryTemplate.warmEdition,
+      BookStoryTemplate.saleEdition,
+      BookStoryTemplate.editorialEdition,
+    ];
+    expect(templates.map(bookStoryTemplateName).toSet().length, 7);
+    for (final template in templates) {
+      expect(bookStoryTemplateName(template), isNotEmpty);
+    }
+  });
+
+  test('replenished books move above older arrivals without rewriting creation date', () {
+    final original = book.copyWith(createdAt: DateTime.utc(2026, 9, 1));
+    final fresh = book.copyWith(createdAt: DateTime.utc(2026, 10, 10));
+    final returned = original.copyWith(restockedAt: DateTime.utc(2026, 10, 12));
+    final list = [original, fresh, returned]
+      ..sort((a, b) => b.catalogArrivalAt.compareTo(a.catalogArrivalAt));
+    expect(list.first.catalogArrivalAt, DateTime.utc(2026, 10, 12));
+    expect(returned.createdAt, DateTime.utc(2026, 9, 1));
+    expect(list[1].catalogArrivalAt, DateTime.utc(2026, 10, 10));
+  });
+
+  test('simplified and full-information Story exports retain 9:16 format', () async {
+    final cover = (await rootBundle.load('assets/images/muhajeer_logo.jpg'))
+        .buffer.asUint8List();
+    for (final template in [
+      BookStoryTemplate.quickPrice,
+      BookStoryTemplate.cleanEdition,
+    ]) {
+      final png = await renderBookStory(book, coverBytes: cover, template: template);
+      expect(png.take(8), [137, 80, 78, 71, 13, 10, 26, 10]);
+      final codec = await ui.instantiateImageCodec(png);
+      final image = (await codec.getNextFrame()).image;
+      expect(image.width, 1080);
+      expect(image.height, 1920);
+      image.dispose();
+      codec.dispose();
+    }
+  });
+
   test('story exports a full portrait PNG with the supplied cover', () async {
     final fontRoot = Platform.environment['FLUTTER_ROOT'];
     if (fontRoot != null) {

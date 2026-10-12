@@ -8,6 +8,7 @@ import 'admin_session.dart';
 import 'app_state.dart';
 import 'book_links.dart';
 import 'book_story_image.dart';
+import 'catalog_resume.dart';
 
 class BookStoryPage extends StatefulWidget {
   const BookStoryPage({super.key, required this.book});
@@ -90,8 +91,17 @@ class _BookStoryPageState extends State<BookStoryPage> {
   @override
   void initState() {
     super.initState();
+    // Keep the catalogue intact while this Story route or an external
+    // Instagram share sheet is open, including long background sessions.
+    CatalogResume.instance.beginStoryFlow();
     _image = _renderStoryWithRecovery(_template);
     _restoreTemplate();
+  }
+
+  @override
+  void dispose() {
+    CatalogResume.instance.endStoryFlow();
+    super.dispose();
   }
 
   Future<void> _restoreTemplate() async {

@@ -42,6 +42,34 @@ void main() {
     session.dispose();
   });
 
+  test('Instagram Story preserves scroll after long background sharing', () async {
+    SharedPreferences.setMockInitialValues({});
+    var now = DateTime(2026, 10, 13);
+    final session = CatalogResume(now: () => now);
+    await session.initialize();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('scroll:home', 2600.0);
+    var resets = 0;
+    session.addListener(() => resets++);
+
+    session.beginStoryFlow();
+    expect(session.isStoryFlowActive, isTrue);
+    session.didChangeAppLifecycleState(AppLifecycleState.paused);
+    now = now.add(const Duration(minutes: 5));
+    session.didChangeAppLifecycleState(AppLifecycleState.resumed);
+    expect(resets, 0);
+    expect(prefs.getDouble('scroll:home'), 2600.0);
+    session.endStoryFlow();
+    expect(session.isStoryFlowActive, isFalse);
+
+    // Genuine future absences still follow the one-minute reset policy.
+    session.didChangeAppLifecycleState(AppLifecycleState.paused);
+    now = now.add(const Duration(minutes: 2));
+    session.didChangeAppLifecycleState(AppLifecycleState.resumed);
+    expect(resets, 1);
+    session.dispose();
+  });
+
   test('cold restart expires scroll only and preserves customer data', () async {
     final now = DateTime(2026, 9, 12);
     for (final seconds in [40, 80]) {

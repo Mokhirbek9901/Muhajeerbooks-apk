@@ -1,3 +1,5 @@
 2026-10-03 fix iOS white screen caused by draggable AI overlay parent data
 account-deletion-review-fix 2026-10-06
 keyboard-dismiss-fix 2026-10-06
+
+testflight-only-sync 2026-10-12: include latest web and Android Instagram Story cover/frame improvements and other main-branch updates; do not touch App Store submission or version metadata

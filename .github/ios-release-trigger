@@ -5,3 +5,4 @@ keyboard-dismiss-fix 2026-10-06
 testflight-only-sync 2026-10-12: include latest web and Android Instagram Story cover/frame improvements and other main-branch updates; do not touch App Store submission or version metadata
 
 2026-10-13 testflight-only web-parity refresh: iOS customer search/reviews/cart/profile/order tracking, web admin prepared stage, finance dashboard, wide iPad layout; no App Review submission changes
+testflight-only-story-return-scroll-preservation 2026-10-13; include latest web-parity main; keep submitted App Store 2.5.16 build and review unchanged

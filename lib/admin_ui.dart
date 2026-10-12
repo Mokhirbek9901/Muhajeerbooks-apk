@@ -29,6 +29,12 @@ const _navy = Color(0xFF10213D);
 const _orange = Color(0xFFFF8A00);
 final _money = NumberFormat('#,###', 'en_US');
 String _won(int value) => '₩${_money.format(value)}';
+
+// Bring the web administration experience to the new signed iOS tester
+// build. Browser-specific passkeys and URL handling must remain web-only.
+const bool _iosTesterParity = bool.fromEnvironment('APP_STORE_BUILD');
+bool get _enhancedAdminUi =>
+    kIsWeb || (defaultTargetPlatform == TargetPlatform.iOS && _iosTesterParity);
 const Set<String> _canonicalBookCategories = {
   'Badiiy adabiyot','Biznes va moliya','Bolalar adabiyoti','Diniy-ma’rifiy',
   'Islom tarixi','Jahon adabiyoti','Jamiyat va kommunikatsiya','O‘zbek adabiyoti',
@@ -1950,7 +1956,7 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(18),
           children: [
-            if (kIsWeb) ...[
+            if (_enhancedAdminUi) ...[
               _WebAdminDashboardHeader(
                 todayRevenue: todayRevenue,
                 todayOrders: todayOrders,
@@ -5682,7 +5688,7 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
                           selected: filter,
                           onTap: (v) => setState(() => filter = v),
                         ),
-                        if (kIsWeb)
+                        if (_enhancedAdminUi)
                           _OrderFilterChip(
                             label: 'Tayyorlandi',
                             value: 'prepared',
@@ -5894,7 +5900,7 @@ class _ProfessionalOrderCard extends StatelessWidget {
               ),
             ),
             _AdminOrderStatusChip(
-              status: kIsWeb && order.preparedAt != null &&
+              status: _enhancedAdminUi && order.preparedAt != null &&
                       (order.status == 'accepted' || order.status == 'paid')
                   ? 'prepared'
                   : order.status,
@@ -6031,7 +6037,7 @@ class _ProfessionalOrderCard extends StatelessWidget {
             const SizedBox(height: 12),
             _PaymentProofPanel(api: api, path: order.paymentProofPath),
           ],
-          if (kIsWeb && order.status != 'cancelled') ...[
+          if (_enhancedAdminUi && order.status != 'cancelled') ...[
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
@@ -6071,7 +6077,7 @@ class _ProfessionalOrderCard extends StatelessWidget {
               ),
             )
           else ...[
-            if (kIsWeb && order.preparedAt != null &&
+            if (_enhancedAdminUi && order.preparedAt != null &&
                 (order.status == 'accepted' || order.status == 'paid'))
               const Padding(
                 padding: EdgeInsets.only(bottom: 9),
@@ -6112,9 +6118,9 @@ class _OrderActions extends StatelessWidget {
       primaryLabel = 'Qabul qilish';
       primaryIcon = Icons.check_circle_rounded;
     } else if (order.status == 'accepted' || order.status == 'paid') {
-      primaryStatus = kIsWeb && order.preparedAt == null ? 'prepared' : 'shipping';
-      primaryLabel = kIsWeb && order.preparedAt == null ? 'Tayyorlandi' : 'Jo‘natildi';
-      primaryIcon = kIsWeb && order.preparedAt == null
+      primaryStatus = _enhancedAdminUi && order.preparedAt == null ? 'prepared' : 'shipping';
+      primaryLabel = _enhancedAdminUi && order.preparedAt == null ? 'Tayyorlandi' : 'Jo‘natildi';
+      primaryIcon = _enhancedAdminUi && order.preparedAt == null
           ? Icons.inventory_rounded
           : Icons.local_shipping_rounded;
     }

@@ -8,3 +8,4 @@ testflight-only-sync 2026-10-12: include latest web and Android Instagram Story 
 testflight-only-story-return-scroll-preservation 2026-10-13; include latest web-parity main; keep submitted App Store 2.5.16 build and review unchanged
 testflight-only-story-7-designs-restock-sort 2026-10-13; latest web parity; preserve App Store 2.5.16 review build
 testflight-only-admin-curated-catalog-and-story-footer-removal 2026-10-13; preserve App Store 2.5.16 submission
+testflight-only-five-minute-catalog-resume 2026-10-13; preserve existing App Store 2.5.16 review

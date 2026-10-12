@@ -1716,10 +1716,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     publisher = 'Barchasi';
     maxPrice = 100000;
     if (_webOrPlayCustomer) unawaited(_loadRecentSearches());
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scrollController.hasClients) return;
-      _scrollController.jumpTo(0);
-    });
+    // Do not force the scroll position to zero whenever HomePage remounts.
+    // A genuine new browsing session is handled by CatalogResume.
   }
 
   void _resetCatalogToNewest() {
@@ -1741,7 +1739,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.resumed &&
+        !CatalogResume.instance.isStoryFlowActive) {
       _resetCatalogToNewest();
     }
   }

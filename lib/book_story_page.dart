@@ -286,7 +286,7 @@ class _BookStoryPageState extends State<BookStoryPage> {
           ),
           const SizedBox(height: 16),
           Center(child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 270),
+            constraints: const BoxConstraints(maxWidth: 360),
             child: ClipRRect(borderRadius: BorderRadius.circular(18),
               child: Image.memory(bytes, gaplessPlayback: true,
                 semanticLabel: '${widget.book.title}, ${storyPrice(widget.book)} — story rasmi')),

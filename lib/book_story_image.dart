@@ -13,6 +13,25 @@ import 'app_state.dart';
 
 const storyOrderLabel = 'Buyurtma berish uchun bosing';
 
+// Fit the *entire* book cover into its allocated space, then make the frame
+// follow the cover's real aspect ratio. A portrait book must not look tiny
+// inside a wide, mostly empty white rectangle.
+@visibleForTesting
+Rect fittedStoryCoverRect(Rect bounds, Size coverSize) {
+  if (bounds.isEmpty || coverSize.width <= 0 || coverSize.height <= 0) {
+    return bounds;
+  }
+  final scale = Math.min(
+    bounds.width / coverSize.width,
+    bounds.height / coverSize.height,
+  );
+  return Rect.fromCenter(
+    center: bounds.center,
+    width: coverSize.width * scale,
+    height: coverSize.height * scale,
+  );
+}
+
 enum BookStoryTemplate { current, oldCurrent, smartMatch, decorative, spring, summer, autumn, winter, editorial, library, arch, emerald, minimal, sunset, magazine, classic, poster, noir, geometric, paper, split, polaroid, collage, coverFocus, editorialPage, lifestyle, cleanStudio, goldArch, scrapbook, silk, botanical, mosaic, midnight, gallery, atlas, marble, cinema, terracotta, royal, ornament, adras, kokand, khiva, turon, yurt, heritage }
 
 String bookStoryTemplateName(BookStoryTemplate value) => switch (value) {
@@ -396,14 +415,16 @@ Future<ui.Image> _decodeStoryCover(Uint8List encoded) async {
   // iPhone/Safari uchun compressed JPEG/WebP/PNG teksturasini CanvasKit'ga
   // bevosita uzatmaymiz. Muqovani avval oddiy RGBA pikselga aylantiramiz.
   // Bu usul avvalgi barqaror Story rendererda qora frame va raster xatolarini
-  // bartaraf qilgan; 360px limit esa xotira sarfini past ushlab turadi.
+  // bartaraf qilgan. iOS/Safari'da eski 360px xavfsiz limit saqlanadi;
+  // web desktop va Android'da kattaroq Story muqovasi tiniqroq chiqadi.
   final decoded = img.decodeImage(encoded);
   if (decoded == null) throw StateError('Cover decode failed');
 
-  final resized = decoded.width > 360
+  final maxWidth = defaultTargetPlatform == TargetPlatform.iOS ? 360 : 560;
+  final resized = decoded.width > maxWidth
       ? img.copyResize(
           decoded,
-          width: 360,
+          width: maxWidth,
           interpolation: img.Interpolation.average,
         )
       : decoded;
@@ -481,8 +502,12 @@ Future<Uint8List> _renderAiStory(
     Paint()..color = const Color(0xF5F8F5EC),
   );
 
-  const coverRect = Rect.fromLTWH(250, 165, 580, 700);
-  final card = RRect.fromRectAndRadius(coverRect.inflate(20), const Radius.circular(34));
+  // The frame hugs the full, uncropped cover instead of showing empty sides.
+  final coverRect = fittedStoryCoverRect(
+    const Rect.fromLTWH(160, 145, 760, 750),
+    Size(cover.width.toDouble(), cover.height.toDouble()),
+  );
+  final card = RRect.fromRectAndRadius(coverRect.inflate(17), const Radius.circular(28));
   canvas.drawShadow(Path()..addRRect(card), const Color(0x55000000), 22, false);
   canvas.drawRRect(card, Paint()..color = Colors.white);
   paintImage(canvas: canvas, rect: coverRect, image: cover, fit: BoxFit.contain, filterQuality: FilterQuality.high);
@@ -1028,18 +1053,29 @@ Future<Uint8List> renderBookStory(
     canvas.drawPath(Path()..moveTo(55,150)..lineTo(160,85)..lineTo(265,150)..lineTo(370,85),motifPaint);
   }
 
+  // Use more of the upper Story area without disturbing the text below.
+  // Keep the original cover intact: BoxFit.cover cropped titles on tall books.
+  final coverBounds = Rect.fromLTRB(
+    Math.max(72.0, coverRect.left - 40),
+    Math.max(140.0, coverRect.top - 70),
+    Math.min(1008.0, coverRect.right + 40),
+    Math.min(contentStart - 36, coverRect.bottom + 34),
+  );
+  final fittedCover = fittedStoryCoverRect(
+    coverBounds,
+    Size(cover.width.toDouble(), cover.height.toDouble()),
+  );
   final frame = RRect.fromRectAndRadius(
-    coverRect.inflate(autoVariant == 0 ? 22 : 24),
-    Radius.circular(autoVariant == 0 ? 18 : 34),
+    fittedCover.inflate(16),
+    const Radius.circular(24),
   );
   canvas.drawShadow(Path()..addRRect(frame), palette.ink.withAlpha(58), 18, false);
   canvas.drawRRect(frame, Paint()..color = Colors.white);
-  canvas.drawRect(coverRect, Paint()..color = Colors.white);
   paintImage(
     canvas: canvas,
-    rect: coverRect,
+    rect: fittedCover,
     image: cover,
-    fit: autoVariant >= 3 ? BoxFit.contain : BoxFit.cover,
+    fit: BoxFit.contain,
     filterQuality: FilterQuality.high,
   );
 
@@ -1415,8 +1451,11 @@ Future<Uint8List> _renderOldCurrentStory(
 
   centerText('MUHAJEER BOOKS', 82, 43, ink, FontWeight.w900);
 
-  const coverRect=Rect.fromLTWH(185,255,710,650);
-  final card=RRect.fromRectAndRadius(coverRect.inflate(28),const Radius.circular(34));
+  final coverRect=fittedStoryCoverRect(
+    const Rect.fromLTWH(140,180,800,730),
+    Size(cover.width.toDouble(),cover.height.toDouble()),
+  );
+  final card=RRect.fromRectAndRadius(coverRect.inflate(17),const Radius.circular(28));
   canvas.drawShadow(Path()..addRRect(card),const Color(0x33000000),18,false);
   canvas.drawRRect(card,Paint()..color=Colors.white);
   paintImage(canvas:canvas,rect:coverRect,image:cover,fit:BoxFit.contain,filterQuality:FilterQuality.high);
@@ -2397,20 +2436,41 @@ Future<Uint8List> _renderAlternativeBookStory(
     coverRect = const Rect.fromLTWH(235, 290, 610, 700);
   }
 
+  // Every alternative template keeps its composition, but the visible frame
+  // now fits the book instead of leaving broad strips of empty background.
+  final coverBounds = Rect.fromLTRB(
+    Math.max(coverFrame.left + 10, coverRect.left - 16),
+    Math.max(coverFrame.top + 10, coverRect.top - 16),
+    Math.min(coverFrame.right - 10, coverRect.right + 16),
+    Math.min(coverFrame.bottom - 10, coverRect.bottom + 16),
+  );
+  final fittedCover = fittedStoryCoverRect(
+    coverBounds,
+    Size(cover.width.toDouble(), cover.height.toDouble()),
+  );
+  final fittedFrame = fittedCover.inflate(
+    template == BookStoryTemplate.polaroid ? 25 : 15,
+  );
   if (template == BookStoryTemplate.polaroid) {
     canvas.save();
-    final center = coverFrame.center;
+    final center = fittedFrame.center;
     canvas.translate(center.dx, center.dy);
     canvas.rotate(-0.065);
     canvas.translate(-center.dx, -center.dy);
-    rounded(coverFrame, Colors.white, radius: 8, stroke: const Color(0x22000000));
-    paintImage(canvas: canvas, rect: coverRect, image: cover, fit: BoxFit.contain, filterQuality: FilterQuality.high);
+    rounded(fittedFrame, Colors.white, radius: 8, stroke: const Color(0x22000000));
+    paintImage(canvas: canvas, rect: fittedCover, image: cover, fit: BoxFit.contain, filterQuality: FilterQuality.high);
     canvas.restore();
   } else {
-    rounded(coverFrame, dark ? const Color(0xFFF2E8DA) : Colors.white,
-        radius: template == BookStoryTemplate.collage ? 6 : 32,
+    canvas.drawShadow(
+      Path()..addRRect(RRect.fromRectAndRadius(fittedFrame, const Radius.circular(18))),
+      const Color(0x33000000),
+      12,
+      false,
+    );
+    rounded(fittedFrame, dark ? const Color(0xFFF2E8DA) : Colors.white,
+        radius: template == BookStoryTemplate.collage ? 6 : 22,
         stroke: dark ? const Color(0x33FFFFFF) : const Color(0xFFE8E0D2));
-    paintImage(canvas: canvas, rect: coverRect, image: cover, fit: BoxFit.contain, filterQuality: FilterQuality.high);
+    paintImage(canvas: canvas, rect: fittedCover, image: cover, fit: BoxFit.contain, filterQuality: FilterQuality.high);
   }
 
   var infoTop = template == BookStoryTemplate.coverFocus

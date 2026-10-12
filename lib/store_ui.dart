@@ -26,11 +26,15 @@ import 'professional_access.dart';
 import 'uzbek_customer_style.dart';
 
 const bool _playStoreCustomerBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
+const bool _appStoreCustomerBuild = bool.fromEnvironment('APP_STORE_BUILD');
+// Match web/Play customer features in new iOS TestFlight builds without
+// modifying the separately submitted, immutable App Store review binary.
 bool get _webOrPlayCustomer =>
     kIsWeb ||
-    (!kIsWeb &&
-        defaultTargetPlatform == TargetPlatform.android &&
-        _playStoreCustomerBuild);
+    (defaultTargetPlatform == TargetPlatform.android &&
+        _playStoreCustomerBuild) ||
+    (defaultTargetPlatform == TargetPlatform.iOS &&
+        _appStoreCustomerBuild);
 
 const _navy = UzbekCustomerColors.navy;
 const _orange = UzbekCustomerColors.goldDeep;
@@ -1942,8 +1946,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           (category == 'Sizga mos kitoblar' && personalized.any((b) => b.id == book.id)) ||
           book.category == category;
       final matchesPublisher =
-          !kIsWeb || publisher == 'Barchasi' || publisherKey(book.publisher) == publisherKey(publisher);
-      final matchesPrice = !kIsWeb || book.currentPrice <= maxPrice.round();
+          !_webOrPlayCustomer || publisher == 'Barchasi' || publisherKey(book.publisher) == publisherKey(publisher);
+      final matchesPrice = !_webOrPlayCustomer || book.currentPrice <= maxPrice.round();
       return book.isActive &&
           matchesQuery &&
           matchesCategory &&
@@ -5174,7 +5178,7 @@ class CartPage extends StatelessWidget {
     final hasItems = state.cartDisplayCount > 0;
     final deliveryFee = state.cartDeliveryFee;
     final grandTotal = state.cartSubtotal + deliveryFee;
-    if (kIsWeb) {
+    if (_webOrPlayCustomer) {
       return _WebCartPage(
         state: state,
         onContinueShopping: onContinueShopping,

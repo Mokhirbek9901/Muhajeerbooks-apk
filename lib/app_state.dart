@@ -137,6 +137,7 @@ class Book {
     this.preorderPriceMax = 0,
     this.createdAt,
     this.restockedAt,
+    this.catalogPinRank,
   });
 
   final String id;
@@ -167,6 +168,7 @@ class Book {
   final DateTime? createdAt;
   /// Latest verified stock replenishment; does not change original creation date.
   final DateTime? restockedAt;
+  final int? catalogPinRank;
   DateTime get catalogArrivalAt {
     final first = createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
     final returned = restockedAt;
@@ -252,6 +254,7 @@ class Book {
     preorderPriceMax: (map['preorder_price_max'] as num?)?.toInt() ?? 0,
     createdAt: DateTime.tryParse((map['created_at'] ?? '').toString()),
     restockedAt: DateTime.tryParse((map['restocked_at'] ?? '').toString()),
+    catalogPinRank: (map['catalog_pin_rank'] as num?)?.toInt(),
   );
 
   factory Book.fromSeed(Map<String, dynamic> map) {
@@ -304,6 +307,7 @@ class Book {
     ...toDbMap(),
     'created_at': createdAt?.toIso8601String(),
     'restocked_at': restockedAt?.toIso8601String(),
+    'catalog_pin_rank': catalogPinRank,
   };
 
   Book copyWith({
@@ -335,6 +339,7 @@ class Book {
     int? preorderPriceMax,
     DateTime? createdAt,
     DateTime? restockedAt,
+    int? catalogPinRank,
   }) => Book(
     id: id ?? this.id,
     legacyId: legacyId ?? this.legacyId,
@@ -365,6 +370,7 @@ class Book {
     preorderPriceMax: preorderPriceMax ?? this.preorderPriceMax,
     createdAt: createdAt ?? this.createdAt,
     restockedAt: restockedAt ?? this.restockedAt,
+    catalogPinRank: catalogPinRank ?? this.catalogPinRank,
   );
 }
 
@@ -551,7 +557,7 @@ class BackendService {
   static const String _storefrontBookColumns =
       'id,legacy_id,title,author,publisher,category,description,page_count,price,stock,'
       'discount_percent,discount_ends_at,image_url,thumbnail_url,image_urls,is_active,cover_type,recommended,preorder_enabled,'
-      'preorder_arrival_note,preorder_deposit_min,preorder_deposit_max,preorder_price_max,created_at,restocked_at';
+      'preorder_arrival_note,preorder_deposit_min,preorder_deposit_max,preorder_price_max,created_at,restocked_at,catalog_pin_rank';
 
   Future<dynamic> _customerRpc(
     String name,
@@ -1571,6 +1577,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           b.price,
           b.stock,
           b.restockedAt?.toUtc().toIso8601String() ?? '',
+          b.catalogPinRank ?? '',
           b.discountPercent,
           b.discountEndsAt?.toUtc().toIso8601String() ?? '',
           b.discountFreeDelivery,

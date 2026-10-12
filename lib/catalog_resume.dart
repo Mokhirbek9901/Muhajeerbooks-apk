@@ -61,8 +61,7 @@ class CatalogResume extends ChangeNotifier with WidgetsBindingObserver {
       unawaited(_prefs.remove(awayKey));
       if (leftAt != null &&
           expired(leftAt, _now()) &&
-          !_adminPanelActive &&
-          !isStoryFlowActive) {
+          !_adminPanelActive) {
         // Notify synchronously so a pending scroll restore cannot win the race.
         notifyListeners();
         unawaited(_clearSavedScroll());

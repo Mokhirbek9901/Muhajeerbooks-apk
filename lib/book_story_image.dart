@@ -545,7 +545,6 @@ Future<Uint8List> _renderAiStory(
   final arrow=Paint()..color=teal..strokeWidth=5..strokeCap=StrokeCap.round..style=PaintingStyle.stroke;
   canvas.drawLine(const Offset(540,1570),const Offset(540,1618),arrow);
   canvas.drawPath(Path()..moveTo(522,1600)..lineTo(540,1618)..lineTo(558,1600),arrow);
-  center('@muhajeerbooks', 1695, 26, ink, FontWeight.w500, lines:1);
 
   final picture=recorder.endRecording();
   final image=await picture.toImage((1080*safeScale).round(),(1920*safeScale).round());
@@ -923,7 +922,6 @@ Future<Uint8List> _renderSevenStoryDesign(
         const Rect.fromLTWH(180, 1713, 720, 48), 28,
         color: darkTheme ? const Color(0xFF122E32) : Colors.white,
         weight: FontWeight.w900, maxLines: 1);
-    fittedText('@muhajeerbooks', const Rect.fromLTWH(170, 1840, 740, 48), 24,
         color: foreground, maxLines: 1);
   }
   final picture = recorder.endRecording();
@@ -1624,8 +1622,6 @@ Future<Uint8List> renderBookStory(
     arrow,
   );
 
-  simpleText('@muhajeerbooks', 1748, 28);
-
   final picture = recorder.endRecording();
   final image = await picture.toImage(
     (1080 * safeScale).round(),
@@ -1702,7 +1698,6 @@ Future<Uint8List> _renderOldCurrentStory(
   final arrow=Paint()..color=teal..strokeWidth=5..strokeCap=StrokeCap.round..style=PaintingStyle.stroke;
   canvas.drawLine(const Offset(540,1350),const Offset(540,1395),arrow);
   canvas.drawPath(Path()..moveTo(523,1378)..lineTo(540,1395)..lineTo(557,1378),arrow);
-  centerText('@muhajeerbooks', 1790, 27, ink, FontWeight.w500);
 
   final picture=recorder.endRecording();
   final image=await picture.toImage((1080*safeScale).round(),(1920*safeScale).round());
@@ -2857,8 +2852,6 @@ Future<Uint8List> _renderAlternativeBookStory(
       color: ctaText, maxLines: 1);
   // Footer CTA bilan hech qachon ustma-ust tushmasin. Handle Storyning
   // eng pastidagi alohida footer zonasida turadi.
-  textBox('@muhajeerbooks', const Rect.fromLTWH(100, 1860, 880, 34), 20,
-      color: descriptionOnDark ? const Color(0xFFE7DDD1) : muted, maxLines: 1);
 
   final picture = recorder.endRecording();
   final image = await picture.toImage(

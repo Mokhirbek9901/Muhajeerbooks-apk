@@ -1966,15 +1966,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         case 'name':
           result = a.title.toLowerCase().compareTo(b.title.toLowerCase());
         default:
-          final aa = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-          final bb = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final aa = a.catalogArrivalAt;
+          final bb = b.catalogArrivalAt;
           result = bb.compareTo(aa);
       }
       if (result != 0) return result;
 
       // Deterministic tie-breaker so a second sort can never scramble the list.
-      final aa = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final bb = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final aa = a.catalogArrivalAt;
+      final bb = b.catalogArrivalAt;
       final recent = bb.compareTo(aa);
       if (recent != 0) return recent;
       return a.title.toLowerCase().compareTo(b.title.toLowerCase());

@@ -59,6 +59,10 @@ void main() {
     session.didChangeAppLifecycleState(AppLifecycleState.resumed);
     expect(resets, 0);
     expect(prefs.getDouble('scroll:home'), 2600.0);
+    session.didChangeAppLifecycleState(AppLifecycleState.paused);
+    now = now.add(const Duration(minutes: 6));
+    session.didChangeAppLifecycleState(AppLifecycleState.resumed);
+    expect(resets, 1);
     session.endStoryFlow();
     expect(session.isStoryFlowActive, isFalse);
 
@@ -66,7 +70,7 @@ void main() {
     session.didChangeAppLifecycleState(AppLifecycleState.paused);
     now = now.add(const Duration(minutes: 6));
     session.didChangeAppLifecycleState(AppLifecycleState.resumed);
-    expect(resets, 1);
+    expect(resets, 2);
     session.dispose();
   });
 

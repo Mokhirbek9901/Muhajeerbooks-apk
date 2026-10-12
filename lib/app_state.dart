@@ -43,11 +43,13 @@ const MethodChannel _deviceAnalyticsChannel =
     MethodChannel('muhajeer/device_analytics');
 
 const bool _playStoreBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
+const bool _appStoreBuild = bool.fromEnvironment('APP_STORE_BUILD');
+// TestFlight uses the same customer RPCs, tracking and verified reviews
+// as the deployed web and Play clients.
 bool get _enhancedCustomerFeatures =>
     kIsWeb ||
-    (!kIsWeb &&
-        defaultTargetPlatform == TargetPlatform.android &&
-        _playStoreBuild);
+    (defaultTargetPlatform == TargetPlatform.android && _playStoreBuild) ||
+    (defaultTargetPlatform == TargetPlatform.iOS && _appStoreBuild);
 
 Future<bool> _runningInFirebaseTestLab() async {
   if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return false;

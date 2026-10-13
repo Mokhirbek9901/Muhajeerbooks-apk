@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app_state.dart';
 import 'catalog_resume.dart';
 import 'store_ui.dart';
+import 'storefront_navigation.dart';
 import 'uzbek_customer_style.dart';
 import 'muhajeer_ai_page.dart';
 
@@ -286,7 +287,7 @@ class _FastStoreShellState extends State<FastStoreShell> {
 
   void _showHome() {
     if (!mounted) return;
-    homeCatalogScrollToTopRequest.value++;
+    if (shouldScrollHomeToTop(index, 0)) homeCatalogScrollToTopRequest.value++;
     if (index != 0) setState(() => index = 0);
   }
 
@@ -369,7 +370,9 @@ class _FastStoreShellState extends State<FastStoreShell> {
     }
 
     void selectTab(int value) {
-      if (value == 0) homeCatalogScrollToTopRequest.value++;
+      if (shouldScrollHomeToTop(index, value)) {
+        homeCatalogScrollToTopRequest.value++;
+      }
       storefrontTabRequest.value = value;
       if (value == index) return;
       setState(() => index = value);

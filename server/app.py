@@ -438,7 +438,7 @@ def order_push_event():
 
     phone=str(body.get("phone","")).strip()[:40]
     event=str(body.get("event","")).strip().lower()
-    if event not in ("submitted","accepted","admin_new_order"):
+    if event not in ("submitted","accepted","shipping","review_reminder","admin_new_order"):
         return jsonify(error="Invalid event"),400
     if event != "admin_new_order" and len(phone)<8:
         return jsonify(error="Invalid event"),400
@@ -509,6 +509,18 @@ def order_push_event():
           "tag":f"order-{order_no or 'new'}-receipt",
         },
       ]
+    elif event=="shipping":
+      notifications=[{
+        "title":"Buyurtmangiz jo‘natildi 🚚",
+        "body":f"{order_label} pochtaga topshirildi. Yetkazib berish holati va kuzatuv raqamini “Mening buyurtmalarim” bo‘limida tekshiring.",
+        "tag":f"order-{order_no or 'new'}-shipping",
+      }]
+    elif event=="review_reminder":
+      notifications=[{
+        "title":"📚 Kitobingiz haqida fikr bildiring",
+        "body":f"{order_label} kitoblari haqida baho va sharh qoldiring. “Mening buyurtmalarim” bo‘limiga o‘ting.",
+        "tag":f"order-{order_no or 'new'}-review",
+      }]
     else:
       customer_note=str(body.get("customer_note") or "").strip()[:500]
       notifications=[{
@@ -524,6 +536,10 @@ def order_push_event():
     # Transactional xabarni in-app Bildirishnomalar tarixiga ham yozamiz.
     # Web Push yo'qolsa ham mijoz ilovaga kirganda chek/status xabarini ko'radi.
     for note in notifications:
+      if event in ("shipping", "review_reminder"):
+        # Durable in-app message is already recorded by the order/cron
+        # transaction, avoiding a duplicate notification row.
+        continue
       _admin_rpc_call("event_push_message_log",{
         "p_event_secret":supplied,
         "p_phone":phone,

@@ -518,7 +518,7 @@ Future<Uint8List> _renderAiStory(
 
   // The frame hugs the full, uncropped cover instead of showing empty sides.
   final coverRect = fittedStoryCoverRect(
-    const Rect.fromLTWH(160, 145, 760, 750),
+    const Rect.fromLTWH(94, 102, 892, 804),
     Size(cover.width.toDouble(), cover.height.toDouble()),
   );
   final card = RRect.fromRectAndRadius(coverRect.inflate(17), const Radius.circular(28));
@@ -541,10 +541,6 @@ Future<Uint8List> _renderAiStory(
   center(book.preorderEnabled ? 'Oldindan sotuvda' : (book.stock > 0 ? 'Omborda: ${book.stock} dona' : 'Hozircha mavjud emas'), 1300, 28,
       book.stock > 0 ? const Color(0xFF187A55) : const Color(0xFFB53B3B), FontWeight.w800, lines:1);
   center(_storyDescription(book), 1365, 22, ink, FontWeight.w500, width:840, lines:3);
-  center(_storyActionLabel(book), 1515, 33, teal, FontWeight.w900, lines:1);
-  final arrow=Paint()..color=teal..strokeWidth=5..strokeCap=StrokeCap.round..style=PaintingStyle.stroke;
-  canvas.drawLine(const Offset(540,1570),const Offset(540,1618),arrow);
-  canvas.drawPath(Path()..moveTo(522,1600)..lineTo(540,1618)..lineTo(558,1600),arrow);
 
   final picture=recorder.endRecording();
   final image=await picture.toImage((1080*safeScale).round(),(1920*safeScale).round());
@@ -843,7 +839,7 @@ Future<Uint8List> _renderSevenStoryDesign(
 
   final bounds = simple
       ? const Rect.fromLTWH(102, 85, 876, 1330)
-      : const Rect.fromLTWH(90, 142, 900, 883);
+      : const Rect.fromLTWH(90, 142, 900, 950);
   final photoRect = fittedStoryCoverRect(bounds,
       Size(cover.width.toDouble(), cover.height.toDouble()));
   final frameRect = photoRect.inflate(simple ? 15 : 20);
@@ -878,6 +874,10 @@ Future<Uint8List> _renderSevenStoryDesign(
         template == BookStoryTemplate.nightEdition;
     fittedText('MUHAJEER BOOKS', const Rect.fromLTWH(120, 42, 840, 70), 34,
         color: foreground, weight: FontWeight.w900, maxLines: 1);
+    // Use the space freed by removing the bottom action-button to give the
+    // book cover more height while keeping the text card comfortably legible.
+    canvas.save();
+    canvas.translate(0, 67);
     final panel = RRect.fromRectAndRadius(
       const Rect.fromLTWH(56, 1080, 968, 738), const Radius.circular(36));
     final panelColor = darkTheme
@@ -912,16 +912,7 @@ Future<Uint8List> _renderSevenStoryDesign(
     fittedText(_storyDescription(book),
         const Rect.fromLTWH(115, 1518, 850, 148), 28,
         color: textColor, weight: FontWeight.w500, maxLines: 4);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        const Rect.fromLTWH(150, 1690, 780, 94),
-        const Radius.circular(30)),
-      Paint()..color = accent,
-    );
-    fittedText(_storyActionLabel(book),
-        const Rect.fromLTWH(180, 1713, 720, 48), 28,
-        color: darkTheme ? const Color(0xFF122E32) : Colors.white,
-        weight: FontWeight.w900, maxLines: 1);
+    canvas.restore();
   }
   final picture = recorder.endRecording();
   final image = await picture.toImage(
@@ -1281,10 +1272,10 @@ Future<Uint8List> renderBookStory(
   // Use more of the upper Story area without disturbing the text below.
   // Keep the original cover intact: BoxFit.cover cropped titles on tall books.
   final coverBounds = Rect.fromLTRB(
-    Math.max(72.0, coverRect.left - 40),
-    Math.max(140.0, coverRect.top - 70),
-    Math.min(1008.0, coverRect.right + 40),
-    Math.min(contentStart - 36, coverRect.bottom + 34),
+    Math.max(55.0, coverRect.left - 80),
+    Math.max(126.0, coverRect.top - 85),
+    Math.min(1025.0, coverRect.right + 80),
+    Math.min(contentStart - 18, coverRect.bottom + 64),
   );
   final fittedCover = fittedStoryCoverRect(
     coverBounds,
@@ -1363,9 +1354,6 @@ Future<Uint8List> renderBookStory(
   const gapStockPublisher = 11.0;
   const gapPublisherDescription = 16.0;
   const gapStockDescription = 18.0;
-  const gapDescriptionCta = 22.0;
-  const ctaHeight = 46.0;
-  const arrowArea = 62.0;
 
   final minBlockTop = contentStart;
   final maxBlockTop = contentStart + 38;
@@ -1382,9 +1370,7 @@ Future<Uint8List> renderBookStory(
       (hasPublisher
           ? gapStockPublisher + publisherMetrics.size.height + gapPublisherDescription
           : gapStockDescription) +
-      gapDescriptionCta +
-      ctaHeight +
-      arrowArea;
+      22.0;
 
   final descriptionMaxHeight =
       (blockBottom - minBlockTop - fixedHeight).clamp(130.0, 390.0).toDouble();
@@ -1582,44 +1568,7 @@ Future<Uint8List> renderBookStory(
     lineHeight: 1.18,
     maxLines: null,
   );
-  y += descriptionSize.height + gapDescriptionCta;
-
-  final cta = _fitText(
-    value: _storyActionLabel(book),
-    maxWidth: 820,
-    maxHeight: ctaHeight,
-    maxFontSize: 37,
-    minFontSize: 27,
-    lineHeight: 1,
-    maxLines: 1,
-    weight: FontWeight.w800,
-  );
-  final ctaSize = _paintText(
-    canvas,
-    _storyActionLabel(book),
-    y,
-    cta,
-    width: 820,
-    color: teal,
-    weight: FontWeight.w800,
-    lineHeight: 1,
-    maxLines: 1,
-  );
-  y += ctaSize.height + 16;
-
-  final arrow = Paint()
-    ..color = teal
-    ..strokeWidth = 5
-    ..strokeCap = StrokeCap.round
-    ..style = PaintingStyle.stroke;
-  canvas.drawLine(Offset(540, y), Offset(540, y + 46), arrow);
-  canvas.drawPath(
-    Path()
-      ..moveTo(523, y + 29)
-      ..lineTo(540, y + 46)
-      ..lineTo(557, y + 29),
-    arrow,
-  );
+  // Keep the lower section for meaningful book details; no fake CTA.
 
   final picture = recorder.endRecording();
   final image = await picture.toImage(
@@ -1675,7 +1624,7 @@ Future<Uint8List> _renderOldCurrentStory(
   centerText('MUHAJEER BOOKS', 82, 43, ink, FontWeight.w900);
 
   final coverRect=fittedStoryCoverRect(
-    const Rect.fromLTWH(140,180,800,730),
+    const Rect.fromLTWH(100,155,880,775),
     Size(cover.width.toDouble(),cover.height.toDouble()),
   );
   final card=RRect.fromRectAndRadius(coverRect.inflate(17),const Radius.circular(28));
@@ -1692,11 +1641,6 @@ Future<Uint8List> _renderOldCurrentStory(
   centerText('🚚  Yetkazib berish: ₩4,000', 1100, 20, const Color(0xFF49666E), FontWeight.w700);
   centerText(book.preorderEnabled?'Oldindan sotuvda':(book.stock>0?'Omborda: ${book.stock} dona':'Hozircha mavjud emas'), 1152, 27, book.stock>0?const Color(0xFF187A55):const Color(0xFFB53B3B), FontWeight.w800);
   centerText(_storyDescription(book), 1220, 24, ink, FontWeight.w500, width:900);
-  centerText(_storyActionLabel(book), 1295, 34, teal, FontWeight.w900);
-
-  final arrow=Paint()..color=teal..strokeWidth=5..strokeCap=StrokeCap.round..style=PaintingStyle.stroke;
-  canvas.drawLine(const Offset(540,1350),const Offset(540,1395),arrow);
-  canvas.drawPath(Path()..moveTo(523,1378)..lineTo(540,1395)..lineTo(557,1378),arrow);
 
   final picture=recorder.endRecording();
   final image=await picture.toImage((1080*safeScale).round(),(1920*safeScale).round());
@@ -2671,10 +2615,10 @@ Future<Uint8List> _renderAlternativeBookStory(
   // Every alternative template keeps its composition, but the visible frame
   // now fits the book instead of leaving broad strips of empty background.
   final coverBounds = Rect.fromLTRB(
-    Math.max(coverFrame.left + 10, coverRect.left - 16),
-    Math.max(coverFrame.top + 10, coverRect.top - 16),
-    Math.min(coverFrame.right - 10, coverRect.right + 16),
-    Math.min(coverFrame.bottom - 10, coverRect.bottom + 16),
+    Math.max(55.0, coverFrame.left - 28),
+    Math.max(132.0, coverFrame.top - 22),
+    Math.min(1025.0, coverFrame.right + 28),
+    Math.min(1160.0, coverFrame.bottom + 22),
   );
   final fittedCover = fittedStoryCoverRect(
     coverBounds,
@@ -2817,7 +2761,8 @@ Future<Uint8List> _renderAlternativeBookStory(
       template == BookStoryTemplate.khiva ||
       template == BookStoryTemplate.turon ||
       template == BookStoryTemplate.heritage;
-  final descriptionRect = Rect.fromLTWH(90, infoTop + 150, 900, 200);
+  final descriptionRect = Rect.fromLTWH(90, infoTop + 150, 900,
+      Math.min(290.0, 1810.0 - (infoTop + 150)));
   final descriptionBg = descriptionOnDark
       ? const Color(0xCC102F36)
       : const Color(0xEFFFFFFF);
@@ -2838,19 +2783,10 @@ Future<Uint8List> _renderAlternativeBookStory(
     ),
     22,
     color: descriptionText,
-    maxLines: 5,
+    maxLines: 6,
   );
 
-  final buttonY = infoTop + 370;
-  final ctaOnDark = descriptionOnDark || template == BookStoryTemplate.coverFocus;
-  final ctaBg = ctaOnDark ? const Color(0xFFF1E4CC) : teal;
-  final ctaText = ctaOnDark ? const Color(0xFF2C1A10) : Colors.white;
-  rounded(Rect.fromLTWH(170, buttonY, 740, 76), ctaBg, radius: 38);
-  textBox(book.inStock ? 'Buyurtma berish uchun bosing  →' : 'Kitob haqida batafsil  →',
-      Rect.fromLTWH(195, buttonY + 8, 690, 60), 27, weight: FontWeight.w900,
-      color: ctaText, maxLines: 1);
-  // Footer CTA bilan hech qachon ustma-ust tushmasin. Handle Storyning
-  // eng pastidagi alohida footer zonasida turadi.
+  // Story is an image, not a button; show cover and content instead of CTA.
 
   final picture = recorder.endRecording();
   final image = await picture.toImage(

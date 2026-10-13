@@ -6,6 +6,9 @@ external JSBoolean _pushSupported();
 @JS('muhajeerEnablePush')
 external JSPromise<JSBoolean> _enablePush();
 
+@JS('muhajeerExistingPushEndpoint')
+external JSPromise<JSString> _existingPushEndpoint();
+
 @JS('muhajeerSyncPushPhone')
 external JSPromise<JSBoolean> _syncPushPhone(JSString phone);
 
@@ -30,5 +33,13 @@ Future<bool> syncPushIdentity(String phone) async {
     return (await _syncPushPhone(phone.toJS).toDart).toDart;
   } catch (_) {
     return false;
+  }
+}
+
+Future<String> existingWebPushEndpoint() async {
+  try {
+    return (await _existingPushEndpoint().toDart).toDart;
+  } catch (_) {
+    return '';
   }
 }

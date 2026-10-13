@@ -14,3 +14,4 @@ testflight-only-profile-ai-home-scroll-shipping-review-planned-books 2026-10-13;
 testflight-only-profile-ai-home-scroll-shipping-push-review-reminders-planned-books 2026-10-13; preserve pending App Store 2.5.16 review
 testflight-only-home-return-preserves-scroll-second-home-tap-scrolls-top 2026-10-13; preserve existing App Store review
 testflight-only-story-remove-bottom-order-button-enlarge-covers 2026-10-13; keep submitted App Store 2.5.16 unchanged
+testflight-only-admin-order-push-apns-2026-10-14; do not replace App Store 2.5.16 review submission

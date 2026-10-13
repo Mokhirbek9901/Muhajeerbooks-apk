@@ -5,7 +5,7 @@ RUN flutter pub get
 RUN flutter build web --release --pwa-strategy=none
 
 FROM nginx:alpine
-RUN apk add --no-cache python3 py3-pip supervisor && pip3 install --break-system-packages --no-cache-dir flask gunicorn requests pywebpush
+RUN apk add --no-cache python3 py3-pip supervisor && pip3 install --break-system-packages --no-cache-dir flask gunicorn requests pywebpush 'httpx[http2]' 'PyJWT[crypto]'
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/build/web /usr/share/nginx/html
 COPY server /app/server

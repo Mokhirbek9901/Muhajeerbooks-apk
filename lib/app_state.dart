@@ -138,6 +138,7 @@ class Book {
     this.createdAt,
     this.restockedAt,
     this.catalogPinRank,
+    this.planned = false,
   });
 
   final String id;
@@ -169,6 +170,7 @@ class Book {
   /// Latest verified stock replenishment; does not change original creation date.
   final DateTime? restockedAt;
   final int? catalogPinRank;
+  final bool planned;
   DateTime get catalogArrivalAt {
     final first = createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
     final returned = restockedAt;
@@ -255,6 +257,7 @@ class Book {
     createdAt: DateTime.tryParse((map['created_at'] ?? '').toString()),
     restockedAt: DateTime.tryParse((map['restocked_at'] ?? '').toString()),
     catalogPinRank: (map['catalog_pin_rank'] as num?)?.toInt(),
+    planned: map['planned'] as bool? ?? false,
   );
 
   factory Book.fromSeed(Map<String, dynamic> map) {
@@ -308,6 +311,7 @@ class Book {
     'created_at': createdAt?.toIso8601String(),
     'restocked_at': restockedAt?.toIso8601String(),
     'catalog_pin_rank': catalogPinRank,
+    'planned': planned,
   };
 
   Book copyWith({
@@ -340,6 +344,7 @@ class Book {
     DateTime? createdAt,
     DateTime? restockedAt,
     int? catalogPinRank,
+    bool? planned,
   }) => Book(
     id: id ?? this.id,
     legacyId: legacyId ?? this.legacyId,
@@ -371,6 +376,7 @@ class Book {
     createdAt: createdAt ?? this.createdAt,
     restockedAt: restockedAt ?? this.restockedAt,
     catalogPinRank: catalogPinRank ?? this.catalogPinRank,
+    planned: planned ?? this.planned,
   );
 }
 

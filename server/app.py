@@ -428,6 +428,66 @@ def send_push_notification():
     })
     return jsonify(ok=True,id=str(message_id),total=len(subscriptions),success=success,failure=failure)
 
+
+def _send_admin_apns_order_event(event_secret, notification, body):
+    """Only authenticated admin-enrolled iOS devices receive private orders.
+    APNs requires the Apple Developer APNs auth key (not the ASC upload key).
+    """
+    key_id=os.getenv("APPLE_APNS_KEY_ID","").strip()
+    team_id=os.getenv("APPLE_APNS_TEAM_ID","8HJA5K2BQJ").strip()
+    private_key=os.getenv("APPLE_APNS_PRIVATE_KEY","").strip().replace("\\n","\n")
+    if not (key_id and team_id and private_key):
+        print("Admin native APNs disabled: Apple APNs key not configured",flush=True)
+        return {"configured":False,"devices":0,"sent":0,"failed":0}
+    device_rows=_admin_rpc_call("event_admin_apns_devices",{
+        "p_event_secret":event_secret,
+    })
+    if not isinstance(device_rows,list):
+        print("Admin native APNs: recipient lookup unavailable",flush=True)
+        return {"configured":True,"devices":0,"sent":0,"failed":0}
+    tokens=[str(x.get("token","")) for x in device_rows if isinstance(x,dict)]
+    tokens=[x for x in tokens if len(x)>=64 and all(c in "0123456789abcdef" for c in x)]
+    if not tokens:
+        return {"configured":True,"devices":0,"sent":0,"failed":0}
+    try:
+        import httpx
+        import jwt
+        bearer=jwt.encode({"iss":team_id,"iat":int(time.time())},
+            private_key,algorithm="ES256",headers={"kid":key_id})
+        payload={"aps":{"alert":{
+            "title":notification["title"],
+            "body":notification["body"][:950],
+        },"sound":"default"},"kind":"admin_new_order",
+            "order_id":str(body.get("order_id") or "")[:64],
+            "order_number":int(body.get("order_number") or 0)}
+        headers={"authorization":f"bearer {bearer}",
+                 "apns-topic":"com.muhajeerbooks.app",
+                 "apns-push-type":"alert",
+                 "apns-priority":"10"}
+        sent=failed=0
+        with httpx.Client(http2=True,timeout=8.0) as client:
+            for token in tokens:
+                try:
+                    response=client.post(
+                        f"https://api.push.apple.com/3/device/{token}",
+                        json=payload,headers=headers)
+                    if response.status_code==200:
+                        sent+=1
+                    else:
+                        failed+=1
+                        reason=""
+                        try: reason=str(response.json().get("reason",""))[:80]
+                        except Exception: pass
+                        print(f"Admin APNs status={response.status_code} reason={reason}",flush=True)
+                except Exception as exc:
+                    failed+=1
+                    print(f"Admin APNs delivery error: {type(exc).__name__}",flush=True)
+        return {"configured":True,"devices":len(tokens),"sent":sent,"failed":failed}
+    except Exception as exc:
+        print(f"Admin APNs setup error: {type(exc).__name__}",flush=True)
+        return {"configured":True,"devices":len(tokens),"sent":0,"failed":len(tokens)}
+
+
 @app.post("/api/push/order-event")
 def order_push_event():
     body=request.get_json(silent=True) or {}
@@ -563,6 +623,9 @@ def order_push_event():
         "p_order_number":order_no if order_no>0 else None,
       })
 
+    # Admin APNs is independent of Web Push (browser subscription).
+    native_result = _send_admin_apns_order_event(supplied,notifications[0],body) if event=="admin_new_order" else None
+
     import json
     success=0
     failure=0
@@ -602,7 +665,7 @@ def order_push_event():
         except Exception as exc:
           print(f"Order WebPush failed error={type(exc).__name__}",flush=True)
           failure+=1
-    return jsonify(ok=True,subscriptions=len(subscriptions),sent=success,failed=failure)
+    return jsonify(ok=True,subscriptions=len(subscriptions),sent=success,failed=failure,apns=native_result)
 
 
 def _verify_admin_code(code):

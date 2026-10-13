@@ -2008,6 +2008,11 @@ Future<Uint8List> _renderAlternativeBookStory(
     case BookStoryTemplate.warmEdition:
     case BookStoryTemplate.saleEdition:
     case BookStoryTemplate.editorialEdition:
+    case BookStoryTemplate.obsidianEdition:
+    case BookStoryTemplate.pearlEdition:
+    case BookStoryTemplate.sapphireEdition:
+    case BookStoryTemplate.velvetEdition:
+    case BookStoryTemplate.atlasLuxeEdition:
       canvas.drawColor(cream, BlendMode.src);
       break;
     case BookStoryTemplate.oldCurrent:

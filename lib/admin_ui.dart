@@ -24,6 +24,7 @@ import 'design_system.dart';
 import 'finance_admin.dart';
 import 'catalog_resume.dart';
 import 'admin_resume_session.dart';
+import 'push_notifications.dart';
 
 const _navy = Color(0xFF10213D);
 const _orange = Color(0xFFFF8A00);
@@ -152,6 +153,13 @@ class _AdminApi {
       throw StateError((data['error'] ?? 'Admin amali bajarilmadi.').toString());
     }
     return data['data'];
+  }
+
+  Future<void> registerAdminPushDevice(String endpoint) async {
+    await _rpc('admin_register_order_push_device', params: {
+      'p_secret': secret,
+      'p_endpoint': endpoint,
+    });
   }
 
   Future<bool> verify() async {
@@ -1226,6 +1234,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
   late final _AdminApi api;
   Timer? _liveRefreshTimer;
   bool _liveRefreshInFlight = false;
+  bool _adminPushBusy = false;
+  bool _adminPushConfigured = false;
   final _overviewKey = GlobalKey<_OverviewAdminState>();
   final _booksKey = GlobalKey<_BooksAdminState>();
   final _inventoryKey = GlobalKey<_InventoryAdminState>();
@@ -1265,12 +1275,55 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
     _loadedTabs.add(tab);
     api = _AdminApi(widget.secret);
     WidgetsBinding.instance.addObserver(this);
+    if (kIsWeb) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_setupAdminPush(requestPermission: false));
+      });
+    }
     CatalogResume.instance.setAdminPanelActive(true);
     unawaited(AdminResumeSession.start(widget.secret, tab: tab));
     _liveRefreshTimer = Timer.periodic(const Duration(seconds: 20), (_) {
       unawaited(AdminResumeSession.touch(tab: tab));
       unawaited(_refreshActiveTabQuietly());
     });
+  }
+
+  Future<void> _setupAdminPush({required bool requestPermission}) async {
+    if (!kIsWeb || !mounted || _adminPushBusy) return;
+    setState(() => _adminPushBusy = true);
+    try {
+      if (requestPermission) {
+        final granted = await enablePushNotifications();
+        if (!granted) {
+          throw StateError('Brauzer bildirishnoma ruxsatini yoqmadi.');
+        }
+      }
+      final endpoint = await existingWebPushEndpoint();
+      if (endpoint.isEmpty) {
+        if (requestPermission) {
+          throw StateError('Push obunasi topilmadi. Brauzer ruxsatini tekshiring.');
+        }
+        return;
+      }
+      // The server checks the verified admin secret. An ordinary customer
+      // cannot enroll their own endpoint for private order notifications.
+      await api.registerAdminPushDevice(endpoint);
+      if (!mounted) return;
+      setState(() => _adminPushConfigured = true);
+      if (requestPermission) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('✅ Yangi buyurtmalar uchun admin xabarlari yoqildi.'),
+        ));
+      }
+    } catch (error) {
+      if (requestPermission && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Admin push faollashmadi: $error'),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _adminPushBusy = false);
+    }
   }
 
   Future<void> _refreshActiveTabQuietly() async {
@@ -1475,8 +1528,24 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
                 ),
               ],
             ),
-            actions: const [
-              Padding(
+            actions: [
+              if (kIsWeb)
+                IconButton(
+                  tooltip: _adminPushConfigured
+                      ? 'Admin buyurtma xabarlari yoqilgan'
+                      : 'Admin buyurtma xabarlarini yoqish',
+                  onPressed: _adminPushBusy ? null :
+                    () => unawaited(_setupAdminPush(requestPermission: true)),
+                  icon: Icon(
+                    _adminPushConfigured
+                        ? Icons.notifications_active_rounded
+                        : Icons.notifications_none_rounded,
+                    color: _adminPushConfigured
+                        ? AppColors.success
+                        : AppColors.navy,
+                  ),
+                ),
+              const Padding(
                 padding: EdgeInsets.only(right: 14),
                 child: AppInfoPill(
                   icon: Icons.cloud_done_rounded,

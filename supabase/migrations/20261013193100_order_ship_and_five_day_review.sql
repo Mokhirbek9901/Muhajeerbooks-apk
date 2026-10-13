@@ -37,7 +37,7 @@ returns integer language plpgsql security definer
 set search_path=public,private,net,pg_temp as $fn$
 declare o public.orders%rowtype; event_secret text; queued integer:=0;
 begin
- select event_secret into event_secret from private.push_event_config where id=true;
+ select cfg.event_secret into event_secret from private.push_event_config cfg where cfg.id=true;
  for o in
   select * from public.orders
   where status='shipping' and source='app'

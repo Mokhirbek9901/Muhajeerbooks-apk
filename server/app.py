@@ -455,6 +455,20 @@ def order_push_event():
         return jsonify(error="Subscriptions unavailable"),502
     if not isinstance(subscriptions,list):
         subscriptions=[]
+    if event == "admin_new_order":
+        # Only admin-secret-verified browser endpoints may receive order data.
+        # Merge legacy phone-matched endpoints with verified admin devices.
+        verified=_admin_rpc_call("event_admin_order_push_subscriptions",{
+            "p_event_secret":supplied,
+        })
+        if isinstance(verified,list):
+            recipients={str(row.get("endpoint","")):row
+                        for row in subscriptions if isinstance(row,dict)}
+            for row in verified:
+                if isinstance(row,dict) and row.get("endpoint"):
+                    recipients[str(row["endpoint"])]=row
+            subscriptions=list(recipients.values())
+        print(f"Admin new order WebPush recipients: {len(subscriptions)}",flush=True)
 
     private_key=os.getenv("VAPID_PRIVATE_KEY","").strip()
     if not private_key:

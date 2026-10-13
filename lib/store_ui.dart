@@ -369,6 +369,8 @@ String isGyeongsanPickupAddress(String rawAddress, String deliveryType) {
 }
 
 final ValueNotifier<int?> storefrontTabRequest = ValueNotifier<int?>(null);
+/// Explicit Home tab presses return the customer catalogue to its top.
+final ValueNotifier<int> homeCatalogScrollToTopRequest = ValueNotifier<int>(0);
 
 class StoreShell extends StatefulWidget {
   const StoreShell({super.key});
@@ -467,6 +469,7 @@ class _StoreShellState extends State<StoreShell> {
           indicatorColor: UzbekCustomerColors.gold,
           selectedIndex: index,
           onDestinationSelected: (value) {
+            if (value == 0) homeCatalogScrollToTopRequest.value++;
             storefrontTabRequest.value = value;
             if (value != index) setState(() => index = value);
           },
@@ -1708,6 +1711,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     CatalogResume.instance.addListener(_resetCatalogToNewest);
+    homeCatalogScrollToTopRequest.addListener(_scrollCatalogToTop);
     // Every fresh app launch starts from the canonical catalog view:
     // all books, newest additions first. Customer filters are session-only.
     query = '';
@@ -1718,6 +1722,14 @@ class _HomePageState extends State<HomePage> {
     if (_webOrPlayCustomer) unawaited(_loadRecentSearches());
     // Do not force the scroll position to zero whenever HomePage remounts.
     // A genuine new browsing session is handled by CatalogResume.
+  }
+
+  void _scrollCatalogToTop() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _scrollController.hasClients) {
+        _scrollController.jumpTo(0);
+      }
+    });
   }
 
   void _resetCatalogToNewest() {
@@ -1876,6 +1888,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     CatalogResume.instance.removeListener(_resetCatalogToNewest);
+    homeCatalogScrollToTopRequest.removeListener(_scrollCatalogToTop);
     _searchMissTimer?.cancel();
     _scrollController.dispose();
     _searchController.dispose();

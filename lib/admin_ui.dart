@@ -218,6 +218,9 @@ class _AdminApi {
     );
     final id = savedId?.toString().trim() ?? '';
     if (id.isNotEmpty && id != 'null') {
+      await _rpc('admin_set_book_planned', params: {
+        'p_secret': secret, 'p_id': id, 'p_planned': book.planned,
+      });
       await _rpc(
         'admin_set_preorder_price_max',
         params: {
@@ -4833,6 +4836,7 @@ class _BookFormState extends State<_BookForm> {
   String cover = 'Ko‘rsatilmagan';
   bool active = true;
   bool recommended = false;
+  bool planned = false;
   bool preorderEnabled = false;
   bool saving = false;
   bool uploadingImage = false;
@@ -4875,6 +4879,7 @@ class _BookFormState extends State<_BookForm> {
     cover = b?.coverType ?? 'Ko‘rsatilmagan';
     active = b?.isActive ?? true;
     recommended = b?.recommended ?? false;
+    planned = b?.planned ?? false;
     preorderEnabled = widget.preorderMode || (b?.preorderEnabled ?? false);
     preorderArrival = TextEditingController(text: b?.preorderArrivalNote ?? '');
     preorderMin = TextEditingController(text: '${b?.preorderDepositMin ?? 5000}');
@@ -5261,7 +5266,8 @@ class _BookFormState extends State<_BookForm> {
           imageUrl: urls.isEmpty ? '' : urls.first,
           thumbnailUrl: urls.isEmpty ? '' : thumbnailUrl.trim(),
           imageUrls: urls,
-          isActive: active,
+          isActive: active && !planned,
+          planned: planned,
           coverType: cover,
           costPrice: c,
           recommended: recommended,
@@ -5552,21 +5558,39 @@ class _BookFormState extends State<_BookForm> {
               onChanged: (v) => cover = v ?? cover,
             ),
             const SizedBox(height: 8),
-            SwitchListTile(
-              value: active,
-              onChanged: (v) => setState(() => active = v),
-              title: const Text('Sotuvda ko‘rsatish'),
-              contentPadding: EdgeInsets.zero,
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                FilterChip(
+                  label: const Text('Sotuvda'),
+                  selected: active && !planned,
+                  onSelected: (v) => setState(() {
+                    active = v;
+                    if (v) planned = false;
+                  }),
+                ),
+                FilterChip(
+                  label: const Text('Tavsiya etilgan'),
+                  selected: recommended,
+                  onSelected: (v) => setState(() => recommended = v),
+                ),
+                FilterChip(
+                  label: const Text('Rejada'),
+                  selected: planned,
+                  onSelected: (v) => setState(() {
+                    planned = v;
+                    if (v) { active = false; preorderEnabled = false; }
+                  }),
+                ),
+              ],
             ),
-            SwitchListTile(
-              value: recommended,
-              onChanged: (v) => setState(() => recommended = v),
-              title: const Text('Tavsiya etilgan kitob'),
-              contentPadding: EdgeInsets.zero,
-            ),
+            if (planned)
+              const Text('Rejadagi kitob mijozlar katalogida va buyurtmada chiqmaydi.',
+                style: TextStyle(fontSize: 12, color: AppColors.muted)),
             SwitchListTile(
               value: preorderEnabled,
-              onChanged: widget.preorderMode ? null : (v) => setState(() => preorderEnabled = v),
+              onChanged: widget.preorderMode || planned ? null : (v) => setState(() => preorderEnabled = v),
               title: const Text('Oldindan sotuv ochiq'),
               subtitle: const Text('Mijoz kitob kelishidan oldin band qilib, oldindan to‘lov yubora oladi.'),
               contentPadding: EdgeInsets.zero,

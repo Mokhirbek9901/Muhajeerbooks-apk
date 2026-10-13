@@ -4009,7 +4009,7 @@ class _BooksAdminState extends State<_BooksAdmin> {
       case 'hidden':
         return !book.isActive;
       case 'planned':
-        return book.preorderEnabled;
+        return book.planned;
       case 'unsold':
         return _unsold(book);
       case 'problems':
@@ -4348,7 +4348,7 @@ class _BooksAdminState extends State<_BooksAdmin> {
         final missingCost = all.where((b) => b.costPrice <= 0).length;
         final activeBooks = all.where((b) => b.isActive).length;
         final hiddenBooks = all.where((b) => !b.isActive).length;
-        final plannedBooks = all.where((b) => b.preorderEnabled).length;
+        final plannedBooks = all.where((b) => b.planned).length;
         final unsoldBooks = salesLoaded ? all.where(_unsold).length : 0;
         final problemBooks = all.where(_hasProblem).length;
 

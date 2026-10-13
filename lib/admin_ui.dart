@@ -163,6 +163,19 @@ class _AdminApi {
     });
   }
 
+  Future<bool> isApnsProviderConfigured() async {
+    final response = await http.post(
+      _serverUri('/api/push/apns-status'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'admin_code': secret}),
+    ).timeout(const Duration(seconds: 15));
+    if (response.statusCode != 200) {
+      throw StateError('APNs server holatini tekshirib bo‘lmadi.');
+    }
+    final data = jsonDecode(response.body);
+    return data is Map && data['configured'] == true;
+  }
+
   Future<void> registerAdminPushDevice(String endpoint) async {
     await _rpc('admin_register_order_push_device', params: {
       'p_secret': secret,
@@ -1306,8 +1319,17 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
         final token = await NativeAdminPush.requestDeviceToken();
         if (token.isEmpty) throw StateError('iPhone APNs tokeni olinmadi.');
         await api.registerAdminApnsDevice(token);
+        final providerReady = await api.isApnsProviderConfigured();
         if (!mounted) return;
-        setState(() => _adminPushConfigured = true);
+        setState(() => _adminPushConfigured = providerReady);
+        if (!providerReady) {
+          if (requestPermission) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('iPhone ro‘yxatga olindi, ammo Apple APNs kaliti serverda hali sozlanmagan.'),
+            ));
+          }
+          return;
+        }
         if (requestPermission) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('✅ iPhone yangi buyurtma xabarlari uchun ro‘yxatga olindi.'),

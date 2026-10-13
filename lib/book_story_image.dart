@@ -32,7 +32,7 @@ Rect fittedStoryCoverRect(Rect bounds, Size coverSize) {
   );
 }
 
-enum BookStoryTemplate { current, oldCurrent, smartMatch, decorative, spring, summer, autumn, winter, editorial, library, arch, emerald, minimal, sunset, magazine, classic, poster, noir, geometric, paper, split, polaroid, collage, coverFocus, editorialPage, lifestyle, cleanStudio, goldArch, scrapbook, silk, botanical, mosaic, midnight, gallery, atlas, marble, cinema, terracotta, royal, ornament, adras, kokand, khiva, turon, yurt, heritage, quickPrice, cleanEdition, premiumEdition, nightEdition, warmEdition, saleEdition, editorialEdition }
+enum BookStoryTemplate { current, oldCurrent, smartMatch, decorative, spring, summer, autumn, winter, editorial, library, arch, emerald, minimal, sunset, magazine, classic, poster, noir, geometric, paper, split, polaroid, collage, coverFocus, editorialPage, lifestyle, cleanStudio, goldArch, scrapbook, silk, botanical, mosaic, midnight, gallery, atlas, marble, cinema, terracotta, royal, ornament, adras, kokand, khiva, turon, yurt, heritage, quickPrice, cleanEdition, premiumEdition, nightEdition, warmEdition, saleEdition, editorialEdition, obsidianEdition, pearlEdition, sapphireEdition, velvetEdition, atlasLuxeEdition }
 
 String bookStoryTemplateName(BookStoryTemplate value) => switch (value) {
   BookStoryTemplate.quickPrice => 'Faqat narx',
@@ -42,6 +42,11 @@ String bookStoryTemplateName(BookStoryTemplate value) => switch (value) {
   BookStoryTemplate.warmEdition => 'Iliq',
   BookStoryTemplate.saleEdition => 'Sotuv',
   BookStoryTemplate.editorialEdition => 'Editorial',
+  BookStoryTemplate.obsidianEdition => 'Obsidian',
+  BookStoryTemplate.pearlEdition => 'Marvarid',
+  BookStoryTemplate.sapphireEdition => 'Sapphire',
+  BookStoryTemplate.velvetEdition => 'Velvet',
+  BookStoryTemplate.atlasLuxeEdition => 'Atlas Luxe',
   BookStoryTemplate.current => 'Avto dizayn',
   BookStoryTemplate.oldCurrent => 'Hozir',
   BookStoryTemplate.smartMatch => 'Mos dizayn',
@@ -98,6 +103,11 @@ Color bookStoryTemplateColor(BookStoryTemplate value) => switch (value) {
   BookStoryTemplate.warmEdition => const Color(0xFFF5DFCD),
   BookStoryTemplate.saleEdition => const Color(0xFFFFE5D4),
   BookStoryTemplate.editorialEdition => const Color(0xFFF3F0E8),
+  BookStoryTemplate.obsidianEdition => const Color(0xFF17171D),
+  BookStoryTemplate.pearlEdition => const Color(0xFFF3EDE4),
+  BookStoryTemplate.sapphireEdition => const Color(0xFF132C52),
+  BookStoryTemplate.velvetEdition => const Color(0xFF482735),
+  BookStoryTemplate.atlasLuxeEdition => const Color(0xFFF0D7B1),
   BookStoryTemplate.current => const Color(0xFFF8F4E9),
   BookStoryTemplate.oldCurrent => const Color(0xFFF8F4E9),
   BookStoryTemplate.smartMatch => const Color(0xFFEDE8DC),
@@ -730,7 +740,170 @@ Size _paintText(
   return result;
 }
 
-/// Seven reliable local layouts. No paid AI or network-generated background.
+
+const _fullStoryDesigns = <BookStoryTemplate>{
+  BookStoryTemplate.cleanEdition,
+  BookStoryTemplate.premiumEdition,
+  BookStoryTemplate.nightEdition,
+  BookStoryTemplate.warmEdition,
+  BookStoryTemplate.saleEdition,
+  BookStoryTemplate.editorialEdition,
+  BookStoryTemplate.obsidianEdition,
+  BookStoryTemplate.pearlEdition,
+  BookStoryTemplate.sapphireEdition,
+  BookStoryTemplate.velvetEdition,
+  BookStoryTemplate.atlasLuxeEdition,
+};
+
+/// These designs show the entire description. Longer copy is split into
+/// separate 9:16 slides rather than being ellipsized or made unreadable.
+bool bookStorySupportsDescriptionPages(BookStoryTemplate template) =>
+    _fullStoryDesigns.contains(template);
+
+List<String> bookStoryDescriptionPages(Book book) {
+  final description = _storyDescription(book);
+  if (description.isEmpty) return const [''];
+  // Page one lives inside the unchanged product information card; later
+  // pages use a larger text panel with the original theme and book cover.
+  bool fits(String value, bool firstPage) {
+    final painter = TextPainter(
+      text: TextSpan(text: value, style: TextStyle(
+        fontFamily: 'Roboto',
+        fontSize: firstPage ? 27 : 36,
+        height: firstPage ? 1.13 : 1.23,
+        fontWeight: FontWeight.w500,
+      )),
+      textDirection: ui.TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout(maxWidth: firstPage ? 850 : 814);
+    final ok = painter.height <= (firstPage ? 255 : 1060);
+    painter.dispose();
+    return ok;
+  }
+
+  final result = <String>[];
+  var page = '';
+  for (final word in description.split(' ')) {
+    final proposed = page.isEmpty ? word : '$page $word';
+    if (page.isNotEmpty && !fits(proposed, result.isEmpty)) {
+      result.add(page);
+      page = word;
+    } else {
+      page = proposed;
+    }
+  }
+  if (page.isNotEmpty) result.add(page);
+  return result.isEmpty ? <String>[description] : result;
+}
+
+Future<Uint8List> _renderStoryDescriptionContinuation(
+  Book book,
+  BookStoryTemplate template, {
+  required int page,
+  required Uint8List? coverBytes,
+  required double renderScale,
+}) async {
+  final segments = bookStoryDescriptionPages(book);
+  if (page < 1 || page >= segments.length) {
+    throw RangeError.range(page, 1, segments.length - 1, 'page');
+  }
+  Uint8List? bytes = coverBytes ?? await _downloadStoryCover(book);
+  bytes ??= (await rootBundle.load('assets/images/muhajeer_logo.jpg'))
+      .buffer.asUint8List();
+  ui.Image cover;
+  try {
+    cover = await _decodeStoryCover(bytes);
+  } catch (_) {
+    cover = await _decodeStoryCover((await rootBundle.load(
+      'assets/images/muhajeer_logo.jpg')).buffer.asUint8List());
+  }
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder)..scale(renderScale);
+  final background = bookStoryTemplateColor(template);
+  final dark = const <BookStoryTemplate>{
+    BookStoryTemplate.premiumEdition, BookStoryTemplate.nightEdition,
+    BookStoryTemplate.obsidianEdition, BookStoryTemplate.sapphireEdition,
+    BookStoryTemplate.velvetEdition,
+  }.contains(template);
+  final accent = switch (template) {
+    BookStoryTemplate.premiumEdition || BookStoryTemplate.obsidianEdition =>
+      const Color(0xFFE6C385),
+    BookStoryTemplate.nightEdition || BookStoryTemplate.sapphireEdition =>
+      const Color(0xFF9BC7E8),
+    BookStoryTemplate.velvetEdition => const Color(0xFFE7AF91),
+    BookStoryTemplate.atlasLuxeEdition => const Color(0xFF9E613A),
+    BookStoryTemplate.pearlEdition => const Color(0xFFB38D63),
+    _ => const Color(0xFF08786E),
+  };
+  final foreground = dark ? const Color(0xFFFDF4E8) : const Color(0xFF263B3D);
+  final panel = dark ? const Color(0xFF273441) : const Color(0xFFFFFDFC);
+  canvas.drawColor(background, BlendMode.src);
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(const Rect.fromLTWH(48, 45, 984, 1826),
+      const Radius.circular(40)),
+    Paint()..style = PaintingStyle.stroke..strokeWidth = 5..color = accent,
+  );
+  canvas.drawLine(const Offset(100, 124), const Offset(980, 124),
+    Paint()..color = accent..strokeWidth = 4);
+
+  // The small un-cropped cover keeps the follow-up pages visually connected.
+  final coverBox = fittedStoryCoverRect(const Rect.fromLTWH(108, 158, 222, 242),
+      Size(cover.width.toDouble(), cover.height.toDouble()));
+  final coverFrame = RRect.fromRectAndRadius(coverBox.inflate(10),
+      const Radius.circular(16));
+  canvas.drawShadow(Path()..addRRect(coverFrame), const Color(0x33000000), 10, false);
+  canvas.drawRRect(coverFrame, Paint()..color = Colors.white);
+  paintImage(canvas: canvas, rect: coverBox, image: cover,
+      fit: BoxFit.contain, filterQuality: FilterQuality.high);
+
+  void drawText(String content, Rect bounds, double fontSize,
+      {FontWeight weight = FontWeight.w600, Color? color,
+      TextAlign align = TextAlign.center, double lineHeight = 1.12}) {
+    final painter = TextPainter(
+      text: TextSpan(text: content, style: TextStyle(fontFamily: 'Roboto',
+        fontSize: fontSize, fontWeight: weight,
+        color: color ?? foreground, height: lineHeight)),
+      textDirection: ui.TextDirection.ltr,
+      textAlign: align,
+    )..layout(maxWidth: bounds.width);
+    painter.paint(canvas, Offset(bounds.left, bounds.top +
+        (bounds.height - painter.height) / 2));
+    painter.dispose();
+  }
+
+  drawText('MUHAJEER BOOKS', const Rect.fromLTWH(370, 170, 580, 76),
+      40, weight: FontWeight.w900, color: foreground);
+  drawText('KITOB HAQIDA • ${page + 1}/${segments.length}',
+      const Rect.fromLTWH(370, 255, 580, 72), 28,
+      color: accent, weight: FontWeight.w800);
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(const Rect.fromLTWH(74, 430, 932, 1240),
+      const Radius.circular(38)),
+    Paint()..color = panel,
+  );
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(const Rect.fromLTWH(114, 455, 852, 9),
+      const Radius.circular(5)),
+    Paint()..color = accent,
+  );
+
+  drawText(segments[page], const Rect.fromLTWH(133, 530, 814, 1060), 36,
+    weight: FontWeight.w500, color: foreground, lineHeight: 1.23);
+  drawText(book.title, const Rect.fromLTWH(135, 1698, 810, 76), 31,
+    weight: FontWeight.w800, color: foreground);
+  drawText(storyPrice(book), const Rect.fromLTWH(135, 1790, 810, 57), 38,
+    weight: FontWeight.w900, color: accent);
+  final picture = recorder.endRecording();
+  final image = await picture.toImage(
+    (1080 * renderScale).round(), (1920 * renderScale).round());
+  picture.dispose();
+  final png = await _exportStoryPng(image);
+  image.dispose();
+  cover.dispose();
+  return png;
+}
+
+/// Reliable local layouts. No paid AI or network-generated background.
 /// The simplified version intentionally contains only cover, price, delivery
 /// and stock availability; full versions contain the product essentials.
 Future<Uint8List> _renderSevenStoryDesign(
@@ -738,8 +911,13 @@ Future<Uint8List> _renderSevenStoryDesign(
   BookStoryTemplate template, {
   Uint8List? coverBytes,
   double renderScale = 1,
+  int descriptionPage = 0,
 }) async {
   final scale = renderScale.clamp(0.5, 1.0).toDouble();
+  if (descriptionPage > 0) {
+    return _renderStoryDescriptionContinuation(book, template,
+        page: descriptionPage, coverBytes: coverBytes, renderScale: scale);
+  }
   Uint8List? bytes = coverBytes ?? await _downloadStoryCover(book);
   bytes ??= (await rootBundle.load('assets/images/muhajeer_logo.jpg'))
       .buffer.asUint8List();
@@ -770,6 +948,16 @@ Future<Uint8List> _renderSevenStoryDesign(
       const Color(0xFFFDE7D6), const Color(0xFF542B2B), const Color(0xFFD94437)),
     BookStoryTemplate.editorialEdition => (
       const Color(0xFFF2EFE7), const Color(0xFF222F38), const Color(0xFFCC8E4E)),
+    BookStoryTemplate.obsidianEdition => (
+      const Color(0xFF17171D), const Color(0xFFF9F4E8), const Color(0xFFE8C989)),
+    BookStoryTemplate.pearlEdition => (
+      const Color(0xFFF3EDE4), const Color(0xFF342C2A), const Color(0xFFB38D63)),
+    BookStoryTemplate.sapphireEdition => (
+      const Color(0xFF132C52), const Color(0xFFF9F4EE), const Color(0xFF9BC7E8)),
+    BookStoryTemplate.velvetEdition => (
+      const Color(0xFF482735), const Color(0xFFFFE9DB), const Color(0xFFE7AF91)),
+    BookStoryTemplate.atlasLuxeEdition => (
+      const Color(0xFFF0D7B1), const Color(0xFF412C29), const Color(0xFF9E613A)),
     _ => (
       const Color(0xFFF5F0E7), const Color(0xFF123C42), const Color(0xFF0B766B)),
   };
@@ -809,6 +997,36 @@ Future<Uint8List> _renderSevenStoryDesign(
         Paint()..style = PaintingStyle.stroke..strokeWidth = 5..color = accent);
     canvas.drawLine(const Offset(100, 104), const Offset(980, 104),
         Paint()..color = foreground..strokeWidth = 3);
+  } else if (template == BookStoryTemplate.obsidianEdition) {
+    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(46, 48, 988, 1015),
+      const Radius.circular(40)), Paint()..style = PaintingStyle.stroke..strokeWidth = 4..color = accent.withAlpha(165));
+    canvas.drawLine(const Offset(80, 110), const Offset(1000, 110), Paint()..color = accent.withAlpha(110)..strokeWidth = 2);
+    for (var i = 0; i < 5; i++) {
+      canvas.drawCircle(Offset(106.0 + i * 24, 915), 5, Paint()..color = accent);
+    }
+  } else if (template == BookStoryTemplate.pearlEdition) {
+    canvas.drawCircle(const Offset(1020, 340), 390, Paint()..color = const Color(0xFFFBF7F1));
+    canvas.drawCircle(const Offset(1020, 340), 310, Paint()..style = PaintingStyle.stroke..strokeWidth = 7..color = accent.withAlpha(100));
+    canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 12), Paint()..color = accent);
+  } else if (template == BookStoryTemplate.sapphireEdition) {
+    final mesh = Paint()..style = PaintingStyle.stroke..strokeWidth = 2..color = accent.withAlpha(75);
+    for (var i = 0; i < 9; i++) {
+      canvas.drawLine(Offset(i * 150.0 - 150, 0), Offset(i * 150.0 + 480, 1015), mesh);
+    }
+    canvas.drawRect(const Rect.fromLTWH(42, 42, 996, 1000), Paint()..style = PaintingStyle.stroke..strokeWidth = 5..color = accent);
+  } else if (template == BookStoryTemplate.velvetEdition) {
+    canvas.drawCircle(const Offset(0, 510), 420, Paint()..color = const Color(0xFF663A4A));
+    canvas.drawCircle(const Offset(1060, 690), 290, Paint()..color = const Color(0xFF6F3E50));
+    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(54, 46, 972, 1025),
+      const Radius.circular(70)), Paint()..style = PaintingStyle.stroke..strokeWidth = 5..color = accent.withAlpha(180));
+  } else if (template == BookStoryTemplate.atlasLuxeEdition) {
+    final edge = Paint()..color = accent.withAlpha(165)..strokeWidth = 4..style = PaintingStyle.stroke;
+    for (var i = 0; i < 9; i++) {
+      final x = 74.0 + i * 117;
+      canvas.drawLine(Offset(x, 100), Offset(x + 48, 165), edge);
+      canvas.drawLine(Offset(x + 48, 165), Offset(x + 96, 100), edge);
+    }
+    canvas.drawRect(const Rect.fromLTWH(37, 36, 1006, 1029), edge);
   }
 
   void fittedText(String value, Rect box, double preferredSize,
@@ -871,7 +1089,10 @@ Future<Uint8List> _renderSevenStoryDesign(
         color: accent, weight: FontWeight.w800, maxLines: 1);
   } else {
     final darkTheme = template == BookStoryTemplate.premiumEdition ||
-        template == BookStoryTemplate.nightEdition;
+        template == BookStoryTemplate.nightEdition ||
+        template == BookStoryTemplate.obsidianEdition ||
+        template == BookStoryTemplate.sapphireEdition ||
+        template == BookStoryTemplate.velvetEdition;
     fittedText('MUHAJEER BOOKS', const Rect.fromLTWH(120, 42, 840, 70), 34,
         color: foreground, weight: FontWeight.w900, maxLines: 1);
     // Use the space freed by removing the bottom action-button to give the
@@ -909,9 +1130,11 @@ Future<Uint8List> _renderSevenStoryDesign(
     fittedText(availability, const Rect.fromLTWH(100, 1460, 880, 51), 31,
         color: darkTheme ? accent : const Color(0xFF13725E),
         weight: FontWeight.w800, maxLines: 1);
-    fittedText(_storyDescription(book),
-        const Rect.fromLTWH(115, 1518, 850, 148), 28,
-        color: textColor, weight: FontWeight.w500, maxLines: 4);
+    // Use the previously empty lower half of the SAME card. If the copy is
+    // still longer, the rest appears on separate readable story slides.
+    fittedText(bookStoryDescriptionPages(book).first,
+        const Rect.fromLTWH(115, 1518, 850, 255), 27,
+        color: textColor, weight: FontWeight.w500, maxLines: 12);
     canvas.restore();
   }
   final picture = recorder.endRecording();
@@ -931,6 +1154,7 @@ Future<Uint8List> renderBookStory(
   BookStoryTemplate template = BookStoryTemplate.current,
   double renderScale = 1.0,
   String? adminCode,
+  int descriptionPage = 0,
 }) async {
   final safeScale = renderScale.clamp(0.5, 1.0).toDouble();
 
@@ -942,9 +1166,15 @@ Future<Uint8List> renderBookStory(
     BookStoryTemplate.warmEdition,
     BookStoryTemplate.saleEdition,
     BookStoryTemplate.editorialEdition,
+    BookStoryTemplate.obsidianEdition,
+    BookStoryTemplate.pearlEdition,
+    BookStoryTemplate.sapphireEdition,
+    BookStoryTemplate.velvetEdition,
+    BookStoryTemplate.atlasLuxeEdition,
   }.contains(template)) {
     return _renderSevenStoryDesign(
-      book, template, coverBytes: coverBytes, renderScale: safeScale);
+      book, template, coverBytes: coverBytes, renderScale: safeScale,
+      descriptionPage: descriptionPage);
   }
 
   Uint8List? bytes = coverBytes;
@@ -1778,6 +2008,11 @@ Future<Uint8List> _renderAlternativeBookStory(
     case BookStoryTemplate.warmEdition:
     case BookStoryTemplate.saleEdition:
     case BookStoryTemplate.editorialEdition:
+    case BookStoryTemplate.obsidianEdition:
+    case BookStoryTemplate.pearlEdition:
+    case BookStoryTemplate.sapphireEdition:
+    case BookStoryTemplate.velvetEdition:
+    case BookStoryTemplate.atlasLuxeEdition:
       canvas.drawColor(cream, BlendMode.src);
       break;
     case BookStoryTemplate.oldCurrent:

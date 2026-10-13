@@ -22,12 +22,28 @@ class _BookStoryPageState extends State<BookStoryPage> {
   bool _sharing = false;
   bool _copied = false;
   BookStoryTemplate _template = BookStoryTemplate.current;
+  late final List<String> _descriptionPages;
+  int _descriptionPage = 0;
+
+  int get _pageCount => bookStorySupportsDescriptionPages(_template)
+      ? _descriptionPages.length : 1;
+
+  String _filenameForPage(int page) {
+    final suffix = _pageCount > 1 ? '-${page + 1}-of-$_pageCount' : '';
+    return 'muhajeer-${widget.book.id}-${bookStoryTemplateName(_template).toLowerCase()}$suffix-story.png';
+  }
+
 
   static const _templatePreferenceKey = 'book_story_template_v1';
 
   // Eng yangi dizaynlar tepada ko‘rinsin — foydalanuvchi ularni qidirib
   // pastga tushmasin. Qolganlari avvalgi tartibda saqlanadi.
   static const List<BookStoryTemplate> _templateOrder = [
+    BookStoryTemplate.obsidianEdition, // Grafit va oltin
+    BookStoryTemplate.pearlEdition,    // Marvarid, ipak va nozik chiziqlar
+    BookStoryTemplate.sapphireEdition, // Ko‘k kristall
+    BookStoryTemplate.velvetEdition,   // Bordo velvet
+    BookStoryTemplate.atlasLuxeEdition,// Atlas naqshi
     BookStoryTemplate.quickPrice,       // Faqat muqova, narx, yetkazish va mavjudlik
     BookStoryTemplate.cleanEdition,    // Oq va toza
     BookStoryTemplate.premiumEdition,  // To‘q yashil va oltin
@@ -62,15 +78,17 @@ class _BookStoryPageState extends State<BookStoryPage> {
     BookStoryTemplate.coverFocus,
   ];
 
-  Future<Uint8List> _renderStoryWithRecovery(BookStoryTemplate template) async {
+  Future<Uint8List> _renderStoryWithRecovery(BookStoryTemplate template, {int page = 0}) async {
     try {
-      return await renderBookStory(widget.book, template: template, adminCode: AdminSession.code);
+      return await renderBookStory(widget.book, template: template,
+          descriptionPage: page, adminCode: AdminSession.code);
     } catch (_) {
       await Future<void>.delayed(const Duration(milliseconds: 60));
       try {
         return await renderBookStory(
           widget.book,
           template: template,
+          descriptionPage: page,
           renderScale: 2 / 3,
           adminCode: AdminSession.code,
         );
@@ -80,12 +98,14 @@ class _BookStoryPageState extends State<BookStoryPage> {
           return await renderBookStory(
             widget.book,
             template: template,
+            descriptionPage: page,
             renderScale: 0.5,
             adminCode: AdminSession.code,
           );
         } catch (_) {
           // CanvasKit/GPU uchala urinishda ham yiqilsa, Safari'ga bog‘liq
           // bo‘lmagan sof CPU raster yo‘li. Endi sahifa xato bilan tugamaydi.
+          if (page > 0) rethrow; // Never substitute a blank copy slide.
           return renderBookStoryCpuFallback(
             widget.book,
             template: template,
@@ -101,6 +121,7 @@ class _BookStoryPageState extends State<BookStoryPage> {
     // Keep the catalogue intact while this Story route or an external
     // Instagram share sheet is open, including long background sessions.
     CatalogResume.instance.beginStoryFlow();
+    _descriptionPages = bookStoryDescriptionPages(widget.book);
     _image = _renderStoryWithRecovery(_template);
     _restoreTemplate();
   }
@@ -132,6 +153,7 @@ class _BookStoryPageState extends State<BookStoryPage> {
       final restoredTemplate = restored;
       setState(() {
         _template = restoredTemplate;
+        _descriptionPage = 0;
         _image = _renderStoryWithRecovery(restoredTemplate);
       });
     } catch (_) {
@@ -139,13 +161,21 @@ class _BookStoryPageState extends State<BookStoryPage> {
     }
   }
 
-  String get _filename =>
-      'muhajeer-${widget.book.id}-${bookStoryTemplateName(_template).toLowerCase()}-story.png';
+  String get _filename => _filenameForPage(_descriptionPage);
+
+  void _selectDescriptionPage(int page) {
+    if (page < 0 || page >= _pageCount || page == _descriptionPage) return;
+    setState(() {
+      _descriptionPage = page;
+      _image = _renderStoryWithRecovery(_template, page: page);
+    });
+  }
 
   Future<void> _selectTemplate(BookStoryTemplate template) async {
     if (_template == template) return;
     setState(() {
       _template = template;
+      _descriptionPage = 0;
       _image = _renderStoryWithRecovery(template);
     });
     try {
@@ -169,16 +199,28 @@ class _BookStoryPageState extends State<BookStoryPage> {
     }
   }
 
-  Future<void> _share(Uint8List bytes, BuildContext buttonContext) async {
+  Future<void> _share(Uint8List bytes, BuildContext buttonContext,
+      {bool allPages = false}) async {
     if (_sharing) return;
     final box = buttonContext.findRenderObject() as RenderBox?;
     setState(() => _sharing = true);
     try {
       // Only the PNG: Instagram may discard image + URL payloads. The exact
       // book URL is copied separately for its tappable Link sticker.
+      final pageNumbers = allPages
+          ? List<int>.generate(_pageCount, (i) => i)
+          : <int>[_descriptionPage];
+      final files = <XFile>[];
+      final names = <String>[];
+      for (final page in pageNumbers) {
+        final png = page == _descriptionPage
+            ? bytes : await _renderStoryWithRecovery(_template, page: page);
+        files.add(XFile.fromData(png, mimeType: 'image/png'));
+        names.add(_filenameForPage(page));
+      }
       await SharePlus.instance.share(ShareParams(
-        files: [XFile.fromData(bytes, mimeType: 'image/png')],
-        fileNameOverrides: [_filename],
+        files: files,
+        fileNameOverrides: names,
         sharePositionOrigin: box == null ? null : box.localToGlobal(Offset.zero) & box.size,
       ));
     } catch (_) {
@@ -228,6 +270,9 @@ class _BookStoryPageState extends State<BookStoryPage> {
                 children: _templateOrder.map((item) {
                   final selected = item == _template;
                   final darkItem =
+                      item == BookStoryTemplate.obsidianEdition ||
+                      item == BookStoryTemplate.sapphireEdition ||
+                      item == BookStoryTemplate.velvetEdition ||
                       item == BookStoryTemplate.premiumEdition ||
                       item == BookStoryTemplate.nightEdition ||
                       item == BookStoryTemplate.library ||
@@ -310,6 +355,27 @@ class _BookStoryPageState extends State<BookStoryPage> {
               child: Image.memory(bytes, gaplessPlayback: true,
                 semanticLabel: '${widget.book.title}, ${storyPrice(widget.book)} — story rasmi')),
           )),
+          if (_pageCount > 1) ...[
+            const SizedBox(height: 10),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              IconButton(
+                tooltip: 'Oldingi story sahifasi',
+                onPressed: _descriptionPage > 0
+                    ? () => _selectDescriptionPage(_descriptionPage - 1) : null,
+                icon: const Icon(Icons.chevron_left_rounded),
+              ),
+              Text('Tavsif: ${_descriptionPage + 1}/$_pageCount',
+                style: const TextStyle(fontWeight: FontWeight.w900)),
+              IconButton(
+                tooltip: 'Keyingi story sahifasi',
+                onPressed: _descriptionPage + 1 < _pageCount
+                    ? () => _selectDescriptionPage(_descriptionPage + 1) : null,
+                icon: const Icon(Icons.chevron_right_rounded),
+              ),
+            ]),
+            const Text('Tavsif to‘liq chiqishi uchun barcha sahifalarni ketma-ket storyga joylang.',
+              textAlign: TextAlign.center, style: TextStyle(fontSize: 12)),
+          ],
           const SizedBox(height: 20),
           const Text('Story ustiga bosilganda kitob ochilishi uchun:',
               style: TextStyle(fontWeight: FontWeight.bold)),
@@ -325,6 +391,14 @@ class _BookStoryPageState extends State<BookStoryPage> {
             icon: const Icon(Icons.auto_awesome_rounded),
             label: const Text('2. Storyga ulashish'),
           )),
+          if (_pageCount > 1) ...[
+            const SizedBox(height: 8),
+            Builder(builder: (buttonContext) => OutlinedButton.icon(
+              onPressed: _sharing ? null : () => _share(bytes, buttonContext, allPages: true),
+              icon: const Icon(Icons.collections_rounded),
+              label: Text('Barcha $_pageCount ta storyni ulashish'),
+            )),
+          ],
           const SizedBox(height: 8),
           Builder(builder: (buttonContext) => OutlinedButton.icon(
             onPressed: _sharing ? null : () async {

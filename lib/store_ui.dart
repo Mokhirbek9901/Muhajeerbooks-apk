@@ -7535,6 +7535,899 @@ class MyOrdersPage extends StatefulWidget {
 
 class _MyOrdersPageState extends State<MyOrdersPage> {
   late Future<List<ShopOrder>> future;
+  final Set<String> _reviewedBookKeys = <String>{};
+
+  Future<void> _reviewPurchasedBook(ShopOrder order, Map<String, dynamic> item) async {
+    final bookId = (item['book_id'] ?? item['id'] ?? '').toString();
+    final phone = (context.read<AppState>().savedCustomer['phone'] ?? '').trim();
+    if (!RegExp(r'^[0-9a-fA-F-]{36}
+
+  @override
+  void initState() {
+    super.initState();
+    _reload();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(context.read<AppState>().refreshCustomerPushMessages());
+    });
+  }
+
+  void _reload() {
+    final state = context.read<AppState>();
+    future = state.customerOrdersByPhone(state.savedCustomer['phone'] ?? '');
+  }
+
+  Future<void> _restoreOrders() async {
+    final state = context.read<AppState>();
+    final phoneController = TextEditingController(
+      text: state.savedCustomer['phone'] ?? '',
+    );
+    final codeController = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Eski buyurtmalarni tiklash'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Oldingi buyurtmadagi 12 belgili tiklash kodi va telefon raqamingizni kiriting.',
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: phoneController,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                labelText: 'Telefon raqami',
+                hintText: '010-1234-5678',
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: codeController,
+              autocorrect: false,
+              enableSuggestions: false,
+              decoration: const InputDecoration(
+                labelText: 'Tiklash kodi',
+                hintText: '12 belgi',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Bekor qilish'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Tiklash'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) {
+      phoneController.dispose();
+      codeController.dispose();
+      return;
+    }
+
+    try {
+      final count = await state.restoreCustomerOrders(
+        phone: phoneController.text,
+        recoveryCode: codeController.text,
+      );
+      if (!mounted) return;
+      setState(_reload);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            count > 0
+                ? '$count ta buyurtma tiklandi ✅'
+                : 'Tiklanadigan buyurtma topilmadi.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final message = e
+          .toString()
+          .replaceFirst('Exception: ', '')
+          .replaceFirst('PostgrestException(message: ', '');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Tiklash amalga oshmadi: $message')),
+      );
+    } finally {
+      phoneController.dispose();
+      codeController.dispose();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: UzbekCustomerColors.background,
+      appBar: AppBar(
+        backgroundColor: UzbekCustomerColors.background,
+        surfaceTintColor: Colors.transparent,
+        title: const Text('Mening buyurtmalarim'),
+        actions: [
+          IconButton(
+            tooltip: 'Eski buyurtmalarni tiklash',
+            onPressed: _restoreOrders,
+            icon: const Icon(Icons.restore_rounded),
+          ),
+          IconButton(
+            tooltip: 'Yangilash',
+            onPressed: () => setState(_reload),
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: FutureBuilder<List<ShopOrder>>(
+        future: future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting)
+            return const Center(child: CircularProgressIndicator());
+          final loadedOrders = snapshot.data ?? const <ShopOrder>[];
+          final focusId = widget.focusOrderId?.trim() ?? '';
+          final focusNumber = widget.focusOrderNumber;
+          final focused = focusId.isNotEmpty
+              ? loadedOrders.where((o) => o.id == focusId).toList()
+              : loadedOrders.where(
+                  (o) =>
+                      focusNumber != null &&
+                      o.displayOrderNumber == focusNumber,
+                ).toList();
+          final orders = focused.isNotEmpty ? focused : loadedOrders;
+          if (orders.isEmpty) {
+            return const _EmptyState(
+              icon: Icons.receipt_long_outlined,
+              title: 'Buyurtma topilmadi',
+              subtitle: 'Buyurtma berganingizdan keyin uning holati va tarixi shu yerda ko‘rinadi.',
+            );
+          }
+          final reviewReminders = context.watch<AppState>().customerNotices
+              .where((n) => n['kind'] == 'review_reminder').toList();
+          return ListView.separated(
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 28),
+            itemCount: orders.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (_, i) {
+              final order = orders[i];
+              final requestReview = order.isApp &&
+                (order.status == 'shipping' || order.status == 'done') &&
+                reviewReminders.any((n) =>
+                  n['order_id']?.toString() == order.id ||
+                  (order.displayOrderNumber > 0 &&
+                    n['order_number']?.toString() == '${order.displayOrderNumber}'));
+              return AppSurface(
+                padding: const EdgeInsets.all(15),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Buyurtma № ${order.recoveryCode}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                DateFormat('yyyy.MM.dd • HH:mm')
+                                    .format(order.createdAt),
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: AppColors.muted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        _OrderStatusChip(status: order.status),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    _OrderProgress(status: order.status),
+                    const SizedBox(height: 14),
+                    ...order.items
+                        .take(4)
+                        .map(
+                          (item) => Padding(
+                            padding: const EdgeInsets.only(bottom: 5),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.auto_stories_outlined,
+                                  size: 15,
+                                  color: AppColors.muted,
+                                ),
+                                const SizedBox(width: 7),
+                                Expanded(
+                                  child: Text(
+                                    '${item['title']} × ${item['quantity']}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    if (order.items.length > 4)
+                      Text(
+                        '+ yana ${order.items.length - 4} ta',
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 11.5,
+                        ),
+                      ),
+                    if (order.hasPaymentProof) ...[
+                      const SizedBox(height: 8),
+                      const AppInfoPill(
+                        icon: Icons.receipt_rounded,
+                        label: 'To‘lov cheki yuborilgan',
+                        foreground: AppColors.success,
+                        background: AppColors.successSoft,
+                        border: Color(0xFFCDEAD7),
+                      ),
+                    ],
+                    if (order.status == 'shipping' ||
+                        order.status == 'done') ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.successSoft,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFCDEAD7)),
+                        ),
+                        child: const Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.local_shipping_rounded,
+                              color: AppColors.success,
+                              size: 20,
+                            ),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Buyurtma pochtaga topshirildi.\n1–2 ish kunida yetkaziladi.',
+                                style: TextStyle(
+                                  color: AppColors.success,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (_webOrPlayCustomer &&
+                        order.trackingNumber.trim().isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _WebOrderTrackingCard(order: order),
+                    ],
+                    if (requestReview) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: UzbekCustomerColors.goldSoft,
+                          borderRadius: BorderRadius.circular(14)),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('⭐ Kitob haqida fikr bildiring',
+                              style: TextStyle(fontWeight: FontWeight.w900)),
+                            const SizedBox(height: 5),
+                            const Text('Kitoblar sizga yoqdimi? Baho va sharh qoldiring.'),
+                            const SizedBox(height: 8),
+                            ...order.items.where((item) =>
+                                RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(
+                                  (item['book_id'] ?? item['id'] ?? '').toString()))
+                              .map((item) {
+                                final bookId=(item['book_id'] ?? item['id']).toString();
+                                final sent=_reviewedBookKeys.contains('${order.id}:$bookId');
+                                return Padding(padding: const EdgeInsets.only(top: 5),
+                                  child: OutlinedButton.icon(
+                                    onPressed: sent ? null : () => _reviewPurchasedBook(order,item),
+                                    icon: Icon(sent ? Icons.check_circle : Icons.rate_review_outlined),
+                                    label: Text(sent ? 'Fikr yuborildi' :
+                                      '${item['title'] ?? 'Kitob'} — baholash',
+                                      maxLines: 1,overflow: TextOverflow.ellipsis),
+                                  ));
+                              }),
+                          ]),
+                      ),
+                    ],
+                    if (order.status == 'paid' ||
+                        order.status == 'shipping' ||
+                        order.status == 'done') ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _showMuhajeerReceipt(context, order),
+                          icon: const Icon(Icons.receipt_long_rounded),
+                          label: const Text('🧾 Chekni ko‘rish'),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    const Divider(),
+                    const SizedBox(height: 11),
+                    Row(
+                      children: [
+                        const Text(
+                          'Jami',
+                          style: TextStyle(
+                            color: AppColors.muted,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          won(order.total),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 18,
+                            color: AppColors.navy,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _WebOrderTrackingCard extends StatelessWidget {
+  const _WebOrderTrackingCard({required this.order});
+  final ShopOrder order;
+
+  String get carrierLabel => switch (order.carrier) {
+    'cj' => 'CJ대한통운',
+    'epost' => '우체국',
+    'lotte' => '롯데택배',
+    'hanjin' => '한진택배',
+    'logen' => '로젠택배',
+    _ => '택배',
+  };
+
+  Uri? get trackingUri {
+    final n = Uri.encodeQueryComponent(order.trackingNumber.trim());
+    return switch (order.carrier) {
+      'cj' => Uri.parse('https://www.cjlogistics.com/ko/tool/parcel/tracking?gnbInvcNo=$n'),
+      'epost' => Uri.parse('https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=$n'),
+      'lotte' => Uri.parse('https://www.lotteglogis.com/home/reservation/tracking/invoiceView?InvNo=$n'),
+      'hanjin' => Uri.parse('https://www.hanjin.com/kor/Main.do'),
+      'logen' => Uri.parse('https://www.ilogen.com/web/personal/trace'),
+      _ => null,
+    };
+  }
+
+  Future<void> _open(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: order.trackingNumber));
+    final uri = trackingUri;
+    if (uri == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Kuzatuv raqami nusxalandi ✅')),
+        );
+      }
+      return;
+    }
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kuzatuv sahifasi ochilmadi. Raqam nusxalandi.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF0F6FF),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: const Color(0xFFCFE0FA)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.local_shipping_rounded, color: AppColors.info),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                carrierLabel,
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ),
+            const AppInfoPill(
+              icon: Icons.check_circle_outline_rounded,
+              label: 'Jo‘natildi',
+              foreground: AppColors.success,
+              background: AppColors.successSoft,
+              border: Color(0xFFCDEAD7),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        const Text(
+          '송장번호 / Kuzatuv raqami',
+          style: TextStyle(fontSize: 11.5, color: AppColors.muted),
+        ),
+        const SizedBox(height: 3),
+        SelectableText(
+          order.trackingNumber,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: () => _open(context),
+            icon: const Icon(Icons.open_in_new_rounded),
+            label: const Text('Yetkazmani kuzatish'),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Future<void> _showMuhajeerReceipt(BuildContext context, ShopOrder order) async {
+  final originalItemTotal = order.items.fold<int>(0, (sum, item) {
+    final original = (item['original_price'] as num?)?.toInt() ??
+        (item['price'] as num?)?.toInt() ??
+        (item['unit_price'] as num?)?.toInt() ?? 0;
+    final quantity = (item['quantity'] as num?)?.toInt() ?? 1;
+    return sum + original * quantity;
+  });
+  final currentItemTotal = order.items.fold<int>(0, (sum, item) {
+    final price = (item['price'] as num?)?.toInt() ??
+        (item['unit_price'] as num?)?.toInt() ?? 0;
+    final quantity = (item['quantity'] as num?)?.toInt() ?? 1;
+    return sum + price * quantity;
+  });
+  final bookDiscount =
+      (originalItemTotal - currentItemTotal).clamp(0, originalItemTotal).toInt();
+  // Set narxi individual kitoblar yig‘indisidan arzon ham, qimmat ham bo‘lishi
+  // mumkin (masalan, pochta set narxiga kiritilgan bo‘lsa). Chekda farqni
+  // yashirmaymiz: barcha qatorlar oxirida aynan order.subtotal ga tenglashadi.
+  final bundleAdjustment = order.subtotal - currentItemTotal;
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (sheetContext) => SafeArea(
+      child: Container(
+        margin: const EdgeInsets.all(14),
+        padding: const EdgeInsets.fromLTRB(20, 22, 20, 24),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFFCF5),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: UzbekCustomerColors.border),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.auto_stories_rounded,
+                  color: UzbekCustomerColors.navy, size: 34),
+              const SizedBox(height: 8),
+              const Text('MUHAJEER BOOKS',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+              const Text('Xaridingiz uchun rahmat!',
+                  style: TextStyle(color: AppColors.muted)),
+              const SizedBox(height: 18),
+              const Divider(),
+              _ReceiptRow(label: 'Buyurtma', value: '#${order.displayOrderNumber}'),
+              _ReceiptRow(label: 'Sana', value: DateFormat('dd.MM.yyyy  HH:mm').format(order.createdAt)),
+              _ReceiptRow(label: 'Mijoz', value: order.customerName),
+              const Divider(),
+              ...order.items.map((item) {
+                final quantity = (item['quantity'] as num?)?.toInt() ?? 1;
+                final price = (item['price'] as num?)?.toInt() ??
+                    (item['unit_price'] as num?)?.toInt() ?? 0;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        (item['title'] ?? 'Kitob').toString(),
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Text(
+                            '$quantity × ${won(price)}',
+                            style: const TextStyle(
+                              color: AppColors.muted,
+                              fontSize: 12.5,
+                            ),
+                          ),
+                          const Expanded(
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 8),
+                              child: Text(
+                                '············',
+                                overflow: TextOverflow.clip,
+                                maxLines: 1,
+                                style: TextStyle(color: AppColors.border),
+                              ),
+                            ),
+                          ),
+                          Text(
+                            won(price * quantity),
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              const Divider(),
+              _ReceiptRow(
+                label: 'Kitoblar',
+                value: won(originalItemTotal > 0
+                    ? originalItemTotal
+                    : order.subtotal),
+              ),
+              if (bookDiscount > 0)
+                _ReceiptRow(
+                  label: 'Kitob chegirmasi',
+                  value: '-${won(bookDiscount)}',
+                ),
+              if (bundleAdjustment < 0)
+                _ReceiptRow(
+                  label: 'Set chegirmasi',
+                  value: '-${won(-bundleAdjustment)}',
+                ),
+              if (bundleAdjustment > 0)
+                _ReceiptRow(
+                  label: 'Set narxi farqi',
+                  value: '+${won(bundleAdjustment)}',
+                ),
+              if (bundleAdjustment != 0 || bookDiscount > 0)
+                _ReceiptRow(label: 'Oraliq jami', value: won(order.subtotal)),
+              _ReceiptRow(label: 'Yetkazib berish',
+                  value: order.deliveryFee == 0 ? 'Bepul' : won(order.deliveryFee)),
+              const SizedBox(height: 6),
+              _ReceiptRow(label: 'JAMI', value: won(order.total), strong: true),
+              const SizedBox(height: 18),
+              const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20),
+                  SizedBox(width: 7),
+                  Text('To‘lov qabul qilindi',
+                      style: TextStyle(fontWeight: FontWeight.w900, color: AppColors.success)),
+                ],
+              ),
+              const SizedBox(height: 18),
+              const Text('MUHAJEER BOOKS',
+                  style: TextStyle(fontWeight: FontWeight.w900)),
+              const Text('Koreya bo‘ylab kitoblar 📚',
+                  style: TextStyle(fontSize: 12, color: AppColors.muted)),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _ReceiptRow extends StatelessWidget {
+  const _ReceiptRow({required this.label, required this.value, this.strong = false});
+  final String label;
+  final String value;
+  final bool strong;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 5),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Text(label,
+              style: TextStyle(
+                fontWeight: strong ? FontWeight.w900 : FontWeight.w600,
+                color: strong ? AppColors.navy : AppColors.text,
+              )),
+        ),
+        const SizedBox(width: 12),
+        Text(value,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              fontSize: strong ? 18 : 14,
+              fontWeight: strong ? FontWeight.w900 : FontWeight.w700,
+              color: strong ? AppColors.navy : AppColors.text,
+            )),
+      ],
+    ),
+  );
+}
+
+class _OrderProgress extends StatelessWidget {
+  const _OrderProgress({required this.status});
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    if (status == 'cancelled') {
+      return const AppInfoPill(
+        icon: Icons.cancel_rounded,
+        label: 'Buyurtma bekor qilingan',
+        foreground: AppColors.danger,
+        background: AppColors.dangerSoft,
+        border: Color(0xFFFFCCD1),
+      );
+    }
+    final level = switch (status) {
+      'accepted' || 'paid' => 1,
+      'shipping' || 'done' => 2,
+      _ => 0,
+    };
+    const labels = ['Yuborildi', 'Qabul qilindi', 'Jo‘natildi'];
+    const icons = [
+      Icons.outbox_rounded,
+      Icons.inventory_2_rounded,
+      Icons.local_shipping_rounded,
+    ];
+    return Row(
+      children: List.generate(labels.length, (i) {
+        final done = i <= level;
+        return Expanded(
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  if (i > 0)
+                    Expanded(
+                      child: Container(
+                        height: 2,
+                        color: i <= level
+                            ? AppColors.success
+                            : AppColors.border,
+                      ),
+                    ),
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: done ? AppColors.success : AppColors.surfaceSoft,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: done ? AppColors.success : AppColors.border,
+                      ),
+                    ),
+                    child: Icon(
+                      icons[i],
+                      size: 15,
+                      color: done ? Colors.white : AppColors.muted,
+                    ),
+                  ),
+                  if (i < labels.length - 1)
+                    Expanded(
+                      child: Container(
+                        height: 2,
+                        color: i < level ? AppColors.success : AppColors.border,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 5),
+              Text(
+                labels[i],
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                style: TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: done ? FontWeight.w800 : FontWeight.w600,
+                  color: done ? AppColors.text : AppColors.muted,
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _OrderStatusChip extends StatelessWidget {
+  const _OrderStatusChip({required this.status});
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = switch (status) {
+      'accepted' => 'Qabul qilindi',
+      'paid' => 'To‘landi',
+      'shipping' => 'Jo‘natildi',
+      'done' => 'Jo‘natildi',
+      'cancelled' => 'Bekor',
+      _ => 'Yangi',
+    };
+    final color = switch (status) {
+      'accepted' => _green,
+      'paid' => Colors.blue,
+      'shipping' => _orange,
+      'done' => _green,
+      'cancelled' => Colors.red,
+      _ => _navy,
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .10),
+        borderRadius: BorderRadius.circular(100),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w800,
+          fontSize: 11,
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoBanner extends StatelessWidget {
+  const _InfoBanner({required this.icon, required this.text});
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFF4D6),
+      borderRadius: BorderRadius.circular(15),
+      border: Border.all(color: const Color(0xFFFFDF8C)),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: const Color(0xFF8A5A00)),
+        const SizedBox(width: 10),
+        Expanded(child: Text(text, style: const TextStyle(height: 1.35))),
+      ],
+    ),
+  );
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 62, color: Colors.black26),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.black54, height: 1.4),
+          ),
+        ],
+      ),
+    ),
+  );
+}).hasMatch(bookId) || phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Fikr uchun tasdiqlangan kitob va telefon raqami kerak.')));
+      return;
+    }
+    var rating = 5;
+    final controller = TextEditingController();
+    final title = (item['title'] ?? 'Kitob').toString();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, refresh) => AlertDialog(
+          title: const Text('Kitob haqida fikr bildiring'),
+          content: SizedBox(
+            width: 420,
+            child: SingleChildScrollView(child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(title, textAlign: TextAlign.center,
+                  style: const TextStyle(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 8),
+                Row(mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(5, (i) => IconButton(
+                    tooltip: '${i + 1} yulduz',
+                    onPressed: () => refresh(() => rating = i + 1),
+                    icon: Icon(i < rating ? Icons.star_rounded : Icons.star_border_rounded,
+                      color: const Color(0xFFF59E0B)),
+                  )),
+                ),
+                TextField(controller: controller, maxLines: 3, maxLength: 600,
+                  decoration: const InputDecoration(labelText: 'Sharhingiz',
+                    hintText: 'Kitob sizga yoqdimi?')),
+              ],
+            )),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Bekor qilish')),
+            FilledButton(onPressed: () {
+              if (controller.text.trim().length < 2) return;
+              Navigator.pop(ctx, true);
+            }, child: const Text('Yuborish')),
+          ],
+        ),
+      ),
+    );
+    final comment = controller.text.trim();
+    controller.dispose();
+    if (confirmed != true || !mounted) return;
+    try {
+      await context.read<AppState>().submitBookReview(
+        orderId: order.id, phone: phone, bookId: bookId,
+        rating: rating, comment: comment);
+      if (!mounted) return;
+      setState(() => _reviewedBookKeys.add('${order.id}:$bookId'));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Fikringiz uchun rahmat! ✅')));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Fikr yuborilmadi: $error')));
+    }
+  }
+
 
   @override
   void initState() {

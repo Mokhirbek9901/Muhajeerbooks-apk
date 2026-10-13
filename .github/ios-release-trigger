@@ -12,3 +12,4 @@ testflight-only-five-minute-catalog-resume 2026-10-13; preserve existing App Sto
 testflight-only-consistent-five-minute-resume-all-background-paths 2026-10-13; preserve App Store review
 testflight-only-profile-ai-home-scroll-shipping-review-planned-books 2026-10-13; App Store review 2.5.16 unchanged
 testflight-only-profile-ai-home-scroll-shipping-push-review-reminders-planned-books 2026-10-13; preserve pending App Store 2.5.16 review
+testflight-only-home-return-preserves-scroll-second-home-tap-scrolls-top 2026-10-13; preserve existing App Store review

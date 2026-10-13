@@ -214,6 +214,21 @@
         }
       };
 
+      // Read only the current browser's existing subscription. The admin
+      // backend still requires an authenticated admin code to enroll it.
+      window.muhajeerExistingPushEndpoint = async () => {
+        try {
+          if (!window.muhajeerPushSupported() ||
+              Notification.permission !== 'granted') return '';
+          const registration = await navigator.serviceWorker.register('/push-sw.js', { scope: '/' });
+          await navigator.serviceWorker.ready;
+          const subscription = await registration.pushManager.getSubscription();
+          return subscription?.endpoint || '';
+        } catch (_) {
+          return '';
+        }
+      };
+
       // Ruxsat avval berilgan bo‘lsa, endpoint yangilangan bo‘lishi mumkin:
       // foydalanuvchini qayta bezovta qilmasdan bazaga qayta sinxronlaymiz.
       function savedCustomerPhone() {

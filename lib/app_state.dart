@@ -2721,7 +2721,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
                     'Izoh: ${row['customer_accept_note'].toString().trim()}',
                 ].join('\n'),
                 'paid' => 'To‘lov tekshirildi. Buyurtmangiz tayyorlanmoqda.',
-                'shipping' => 'Buyurtmangiz pochtaga topshirildi. 1–2 ish kunida yetkaziladi.',
+                'shipping' => 'Buyurtmangiz jo‘natildi! Pochta kuzatuv raqami va yetkazish holatini “Mening buyurtmalarim” bo‘limida tekshiring.',
                 'cancelled' => 'Buyurtma bekor qilindi. Savol bo‘lsa Muhajeer Books bilan bog‘laning.',
                 _ => 'Buyurtmangiz holati yangilandi.',
               },

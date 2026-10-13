@@ -29,8 +29,8 @@ class _PersistentMuhajeerAiButtonState
     extends State<_PersistentMuhajeerAiButton> {
   static const _xKey = 'muhajeer_ai_fab_x_fraction';
   static const _yKey = 'muhajeer_ai_fab_y_fraction';
-  static const _buttonWidth = 148.0;
-  static const _buttonHeight = 48.0;
+  static const _buttonWidth = 112.0;
+  static const _buttonHeight = 37.0;
   static const _edgeMargin = 12.0;
 
   double _xFraction = 0;
@@ -118,16 +118,16 @@ class _PersistentMuhajeerAiButtonState
                         builder: (_) => const MuhajeerAiPage(),
                       ),
                     ),
-                    icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                    icon: const Icon(Icons.auto_awesome_rounded, size: 14),
                     label: const Text(
                       'Muhajeer AI',
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 10,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     extendedPadding:
-                        const EdgeInsets.symmetric(horizontal: 14),
+                        const EdgeInsets.symmetric(horizontal: 7),
                   ),
                 ),
               ),
@@ -285,8 +285,9 @@ class _FastStoreShellState extends State<FastStoreShell> {
   String? _lastPresentedNoticeId;
 
   void _showHome() {
-    if (!mounted || index == 0) return;
-    setState(() => index = 0);
+    if (!mounted) return;
+    homeCatalogScrollToTopRequest.value++;
+    if (index != 0) setState(() => index = 0);
   }
 
   Widget _secondaryPageFor(int pageIndex) {
@@ -368,6 +369,7 @@ class _FastStoreShellState extends State<FastStoreShell> {
     }
 
     void selectTab(int value) {
+      if (value == 0) homeCatalogScrollToTopRequest.value++;
       storefrontTabRequest.value = value;
       if (value == index) return;
       setState(() => index = value);
@@ -389,7 +391,7 @@ class _FastStoreShellState extends State<FastStoreShell> {
               key: ValueKey<int>(index),
               child: _secondaryPageFor(index),
             ),
-          if (index == 0)
+          if (index == 4)
             const Positioned.fill(child: _PersistentMuhajeerAiButton()),
         ],
       ),

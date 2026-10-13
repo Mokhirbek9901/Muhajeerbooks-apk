@@ -32,6 +32,7 @@ entitlements = plistlib.loads(subprocess.run(['codesign', '-d', '--entitlements'
 require(entitlements['application-identifier'] == f'{TEAM}.{BUNDLE}', 'Wrong signed application identifier.')
 require(entitlements['com.apple.developer.team-identifier'] == TEAM, 'Wrong signed team.')
 require(not entitlements.get('get-task-allow', False), 'IPA is signed for debugging.')
+require(entitlements.get('aps-environment') == 'production', 'TestFlight IPA lacks production Apple Push Notifications entitlement.')
 prefix = str(output / 'certificate-')
 subprocess.run(['codesign', '-d', '--extract-certificates=' + prefix, str(app)], check=True)
 require(hashlib.sha1(Path(prefix + '0').read_bytes()).hexdigest().upper() == os.environ['SIGNING_CERT_SHA1'],

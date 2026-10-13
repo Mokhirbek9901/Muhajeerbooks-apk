@@ -4554,7 +4554,7 @@ class _BooksAdminState extends State<_BooksAdmin> {
                         ),
                         subtitle: Text(
                           [
-                            '${b.author} • ${b.stock} dona • ${_won(b.currentPrice)}${b.isActive ? '' : ' • Yashirilgan'}',
+                            '${b.author} • ${b.stock} dona • ${_won(b.currentPrice)}${b.planned ? ' • Rejada' : (b.isActive ? '' : ' • Yashirilgan')}',
                             if (showCostLine)
                               b.costPrice <= 0
                                   ? 'Tannarx kiritilmagan'

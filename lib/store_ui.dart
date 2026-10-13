@@ -20,6 +20,7 @@ import 'book_story_page.dart';
 import 'bundle_story_page.dart';
 import 'book_share_platform.dart';
 import 'catalog_resume.dart';
+import 'storefront_navigation.dart';
 import 'book_image_viewer.dart';
 import 'design_system.dart';
 import 'professional_access.dart';
@@ -469,7 +470,9 @@ class _StoreShellState extends State<StoreShell> {
           indicatorColor: UzbekCustomerColors.gold,
           selectedIndex: index,
           onDestinationSelected: (value) {
-            if (value == 0) homeCatalogScrollToTopRequest.value++;
+            if (shouldScrollHomeToTop(index, value)) {
+              homeCatalogScrollToTopRequest.value++;
+            }
             storefrontTabRequest.value = value;
             if (value != index) setState(() => index = value);
           },

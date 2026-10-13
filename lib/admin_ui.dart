@@ -25,6 +25,7 @@ import 'finance_admin.dart';
 import 'catalog_resume.dart';
 import 'admin_resume_session.dart';
 import 'push_notifications.dart';
+import 'native_admin_push.dart';
 
 const _navy = Color(0xFF10213D);
 const _orange = Color(0xFFFF8A00);
@@ -153,6 +154,13 @@ class _AdminApi {
       throw StateError((data['error'] ?? 'Admin amali bajarilmadi.').toString());
     }
     return data['data'];
+  }
+
+  Future<void> registerAdminApnsDevice(String token) async {
+    await _rpc('admin_register_apns_device', params: {
+      'p_secret': secret,
+      'p_token': token,
+    });
   }
 
   Future<void> registerAdminPushDevice(String endpoint) async {
@@ -1275,7 +1283,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
     _loadedTabs.add(tab);
     api = _AdminApi(widget.secret);
     WidgetsBinding.instance.addObserver(this);
-    if (kIsWeb) {
+    if (kIsWeb || NativeAdminPush.supported) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_setupAdminPush(requestPermission: false));
       });
@@ -1289,9 +1297,24 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
   }
 
   Future<void> _setupAdminPush({required bool requestPermission}) async {
-    if (!kIsWeb || !mounted || _adminPushBusy) return;
+    if ((!kIsWeb && !NativeAdminPush.supported) || !mounted || _adminPushBusy) return;
     setState(() => _adminPushBusy = true);
     try {
+      if (NativeAdminPush.supported) {
+        // Only an authenticated administrator can associate an iPhone with
+        // private order notifications; ordinary customers cannot enroll.
+        final token = await NativeAdminPush.requestDeviceToken();
+        if (token.isEmpty) throw StateError('iPhone APNs tokeni olinmadi.');
+        await api.registerAdminApnsDevice(token);
+        if (!mounted) return;
+        setState(() => _adminPushConfigured = true);
+        if (requestPermission) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('✅ iPhone yangi buyurtma xabarlari uchun ro‘yxatga olindi.'),
+          ));
+        }
+        return;
+      }
       if (requestPermission) {
         final granted = await enablePushNotifications();
         if (!granted) {
@@ -1529,7 +1552,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
               ],
             ),
             actions: [
-              if (kIsWeb)
+              if (kIsWeb || NativeAdminPush.supported)
                 IconButton(
                   tooltip: _adminPushConfigured
                       ? 'Admin buyurtma xabarlari yoqilgan'

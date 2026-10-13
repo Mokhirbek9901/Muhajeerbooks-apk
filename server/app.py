@@ -553,11 +553,19 @@ def order_push_event():
     success=0
     failure=0
     for note in notifications:
+      exact_order_link = event in ("shipping", "review_reminder")
+      order_id = str(body.get("order_id") or "").strip()
+      order_target = "/?open=orders"
+      if order_id:
+        from urllib.parse import quote
+        order_target += "&order_id=" + quote(order_id[:64], safe="")
+      if order_no > 0:
+        order_target += "&order_number=" + str(order_no)
       payload=json.dumps({
         "title":note["title"],
         "body":note["body"],
-        "url":"/?open=notifications",
-        "open_inbox":True,
+        "url":order_target if exact_order_link else "/?open=notifications",
+        "open_inbox":not exact_order_link,
         "tag":note["tag"],
         "icon":"/icons/Icon-192.png",
         "badge":"/icons/Icon-192.png",

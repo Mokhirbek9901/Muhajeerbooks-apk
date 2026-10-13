@@ -61,6 +61,50 @@ void main() {
     }
   });
 
+
+  test('five additional premium layouts have unique names and support full copy', () {
+    const newTemplates = [
+      BookStoryTemplate.obsidianEdition,
+      BookStoryTemplate.pearlEdition,
+      BookStoryTemplate.sapphireEdition,
+      BookStoryTemplate.velvetEdition,
+      BookStoryTemplate.atlasLuxeEdition,
+    ];
+    expect(newTemplates.map(bookStoryTemplateName).toSet().length, 5);
+    for (final template in newTemplates) {
+      expect(bookStorySupportsDescriptionPages(template), isTrue);
+    }
+    expect(bookStorySupportsDescriptionPages(BookStoryTemplate.quickPrice), isFalse);
+  });
+
+  test('a long description is preserved word for word across story pages', () {
+    final longCopy = List<String>.generate(170,
+      (index) => 'Kitobning tafsiloti va mazmuni ${index + 1}').join(' ');
+    final product = book.copyWith(description: longCopy);
+    final segments = bookStoryDescriptionPages(product);
+    expect(segments.length, greaterThan(1));
+    expect(segments.join(' '), longCopy);
+    expect(segments.every((segment) => segment.isNotEmpty), isTrue);
+    expect(bookStoryDescriptionPages(book).length, 1);
+  });
+
+  test('long story continuation exports a full-size 9:16 PNG', () async {
+    final cover = (await rootBundle.load('assets/images/muhajeer_logo.jpg'))
+        .buffer.asUint8List();
+    final product = book.copyWith(description: List.filled(125,
+      'O‘quvchini o‘ylantiradigan mazmunli satrlar').join(' '));
+    expect(bookStoryDescriptionPages(product).length, greaterThan(1));
+    final png = await renderBookStory(product, coverBytes: cover,
+      template: BookStoryTemplate.obsidianEdition, descriptionPage: 1);
+    expect(png.take(8), [137, 80, 78, 71, 13, 10, 26, 10]);
+    final codec = await ui.instantiateImageCodec(png);
+    final image = (await codec.getNextFrame()).image;
+    expect(image.width, 1080);
+    expect(image.height, 1920);
+    image.dispose();
+    codec.dispose();
+  });
+
   test('replenished books move above older arrivals without rewriting creation date', () {
     final original = book.copyWith(createdAt: DateTime.utc(2026, 9, 1));
     final fresh = book.copyWith(createdAt: DateTime.utc(2026, 10, 10));

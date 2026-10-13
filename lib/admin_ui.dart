@@ -4005,6 +4005,8 @@ class _BooksAdminState extends State<_BooksAdmin> {
         return book.isActive;
       case 'hidden':
         return !book.isActive;
+      case 'planned':
+        return book.preorderEnabled;
       case 'unsold':
         return _unsold(book);
       case 'problems':
@@ -4343,6 +4345,7 @@ class _BooksAdminState extends State<_BooksAdmin> {
         final missingCost = all.where((b) => b.costPrice <= 0).length;
         final activeBooks = all.where((b) => b.isActive).length;
         final hiddenBooks = all.where((b) => !b.isActive).length;
+        final plannedBooks = all.where((b) => b.preorderEnabled).length;
         final unsoldBooks = salesLoaded ? all.where(_unsold).length : 0;
         final problemBooks = all.where(_hasProblem).length;
 
@@ -4404,6 +4407,18 @@ class _BooksAdminState extends State<_BooksAdmin> {
                         selected: filter == 'hidden',
                         onTap: () => setState(() => filter = 'hidden'),
                       ),
+                      _MiniStat(
+
+                        label: 'Rejadagi kitoblar',
+
+                        value: '$plannedBooks',
+
+                        selected: filter == 'planned',
+
+                        onTap: () => setState(() => filter = 'planned'),
+
+                      ),
+
                       _MiniStat(
                         label: 'Sotilmagan kitoblar',
                         value: salesLoaded ? '$unsoldBooks' : '…',

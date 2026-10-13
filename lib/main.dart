@@ -139,8 +139,20 @@ class _AdminResumeBootstrapState extends State<_AdminResumeBootstrap> {
 
   void _openPushLink() {
     if (_pushLinkOpened || !mounted || !kIsWeb) return;
-    if (Uri.base.queryParameters['open'] != 'notifications') return;
+    final open = Uri.base.queryParameters['open'];
+    if (open != 'notifications' && open != 'orders') return;
     _pushLinkOpened = true;
+    if (open == 'orders') {
+      final number = int.tryParse(Uri.base.queryParameters['order_number'] ?? '');
+      Navigator.of(context).push(MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'mb:orders'),
+        builder: (_) => MyOrdersPage(
+          focusOrderId: Uri.base.queryParameters['order_id'],
+          focusOrderNumber: number,
+        ),
+      ));
+      return;
+    }
     Navigator.of(context).push(MaterialPageRoute<void>(
       settings: const RouteSettings(name: 'mb:notifications'),
       builder: (_) => const CustomerNotificationsPage(),

@@ -42,7 +42,7 @@ begin
   select * from public.orders
   where status='shipping' and source='app'
     and shipped_at is not null
-    and shipped_at<=now()-interval '5 days'
+    and shipped_at<=now()-interval '4 days'
     and review_reminded_at is null
     and length(regexp_replace(coalesce(phone,''),'[^0-9]','','g'))>=8
   order by shipped_at

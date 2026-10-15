@@ -18,3 +18,5 @@ testflight-only-admin-order-push-apns-2026-10-14; do not replace App Store 2.5.1
 testflight-only-premium-story-five-styles-full-description-pages 2026-10-14; preserve pending App Store 2.5.16 review, upload new build to TestFlight only
 
 testflight-only-instagram-feed-4x5-post-save-2026-10-15; iOS-only button for every Story template, preserve the pending App Store review submission
+
+testflight-only-edge-to-edge-4x5-book-post-2026-10-15; render cover + price + postage + compact description, no standalone metadata, preserve existing App Store review submission

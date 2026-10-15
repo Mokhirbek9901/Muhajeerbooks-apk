@@ -235,16 +235,17 @@ class _BookStoryPageState extends State<BookStoryPage> {
     }
   }
 
-  Future<void> _saveInstagramPost(
-    Uint8List storyBytes,
-    BuildContext buttonContext,
-  ) async {
+  Future<void> _saveInstagramPost(BuildContext buttonContext) async {
     if (_sharing) return;
     final box = buttonContext.findRenderObject() as RenderBox?;
     setState(() => _sharing = true);
     try {
-      // Reuse the selected Story design; only adapt the canvas to feed 4:5.
-      final postPng = await renderBookInstagramPost(storyBytes);
+      // Dedicated edge-to-edge 4:5 composition; never shrink a full Story.
+      final postPng = await renderBookInstagramPost(
+        widget.book,
+        template: _template,
+        description: _descriptionPages[_descriptionPage],
+      );
       final postFilename = _filename.replaceFirst(
         '-story.png',
         '-post-1080x1350.png',
@@ -467,7 +468,7 @@ class _BookStoryPageState extends State<BookStoryPage> {
             Builder(builder: (buttonContext) => OutlinedButton.icon(
               onPressed: _sharing
                   ? null
-                  : () => _saveInstagramPost(bytes, buttonContext),
+                  : () => _saveInstagramPost(buttonContext),
               icon: const Icon(Icons.crop_portrait_rounded),
               label: const Text('Post uchun saqlash'),
             )),

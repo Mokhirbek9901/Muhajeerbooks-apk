@@ -8,6 +8,7 @@ import 'admin_session.dart';
 import 'app_state.dart';
 import 'book_links.dart';
 import 'book_story_image.dart';
+import 'book_post_image.dart';
 import 'catalog_resume.dart';
 
 class BookStoryPage extends StatefulWidget {
@@ -234,6 +235,45 @@ class _BookStoryPageState extends State<BookStoryPage> {
     }
   }
 
+  Future<void> _saveInstagramPost(
+    Uint8List storyBytes,
+    BuildContext buttonContext,
+  ) async {
+    if (_sharing) return;
+    final box = buttonContext.findRenderObject() as RenderBox?;
+    setState(() => _sharing = true);
+    try {
+      // Reuse the selected Story design; only adapt the canvas to feed 4:5.
+      final postPng = await renderBookInstagramPost(storyBytes);
+      final postFilename = _filename.replaceFirst(
+        '-story.png',
+        '-post-1080x1350.png',
+      );
+      await SharePlus.instance.share(ShareParams(
+        files: [XFile.fromData(postPng, mimeType: 'image/png')],
+        fileNameOverrides: [postFilename],
+        sharePositionOrigin: box == null
+            ? null
+            : box.localToGlobal(Offset.zero) & box.size,
+      ));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+            'Instagram posti 1080×1350 tayyor. Telefoningizga saqlash uchun “Save Image / Rasmni saqlash”ni tanlang.',
+          ),
+        ));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Post rasmini saqlab bo‘lmadi. Qayta urinib ko‘ring.'),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _sharing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Instagram story')),
@@ -420,6 +460,18 @@ class _BookStoryPageState extends State<BookStoryPage> {
             icon: const Icon(Icons.download_rounded),
             label: const Text('Rasmni saqlash'),
           )),
+          // For now, feed-post export is deliberately an iOS-only feature.
+          // The shared Flutter code must not change Android or web UI.
+          if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) ...[
+            const SizedBox(height: 8),
+            Builder(builder: (buttonContext) => OutlinedButton.icon(
+              onPressed: _sharing
+                  ? null
+                  : () => _saveInstagramPost(bytes, buttonContext),
+              icon: const Icon(Icons.crop_portrait_rounded),
+              label: const Text('Post uchun saqlash'),
+            )),
+          ],
           const SizedBox(height: 8),
           const Text('Instagram ulashish ro‘yxatida chiqmasa, rasmni saqlab, Instagram’da story sifatida tanlang. Rasmdagi yozuvning o‘zi bosiladigan havola emas — Link stikeri kerak.',
               style: TextStyle(fontSize: 12)),

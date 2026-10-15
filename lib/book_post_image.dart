@@ -19,9 +19,7 @@ Future<Uint8List> renderBookInstagramPost(Uint8List storyPng) async {
 
     final sourceWidth = source.width.toDouble();
     final sourceHeight = source.height.toDouble();
-    final bounds = const ui.Rect.fromLTWH(
-      0, 0, postWidth.toDouble(), postHeight.toDouble(),
-    );
+    final bounds = const ui.Rect.fromLTWH(0, 0, 1080, 1350);
 
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder);

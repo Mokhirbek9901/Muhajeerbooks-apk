@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -39,7 +38,7 @@ Future<Uint8List> renderBookInstagramPost(
       cover = (await codec.getNextFrame()).image;
     }
 
-    final decodedCover = cover!;
+    final decodedCover = cover;
     final base = bookStoryTemplateColor(template);
     final dark = base.computeLuminance() < 0.32;
     final ink = dark ? const Color(0xFFF9F2E7) : const Color(0xFF1F3036);
@@ -88,9 +87,15 @@ Future<Uint8List> renderBookInstagramPost(
 
     // Keep the actual full book-cover artwork; no cropping or false title
     // recreated outside the book itself.
-    final coverRect = fittedStoryCoverRect(
-      const Rect.fromLTWH(82, 42, 916, 840),
-      Size(decodedCover.width.toDouble(), decodedCover.height.toDouble()),
+    const coverArea = Rect.fromLTWH(82, 42, 916, 840);
+    final coverScale = math.min(
+      coverArea.width / decodedCover.width,
+      coverArea.height / decodedCover.height,
+    );
+    final coverRect = Rect.fromCenter(
+      center: coverArea.center,
+      width: decodedCover.width * coverScale,
+      height: decodedCover.height * coverScale,
     );
     final roundedCover = RRect.fromRectAndRadius(
       coverRect,
@@ -228,7 +233,7 @@ void _paintPostDescription(Canvas canvas, String copy, Color ink) {
       ellipsis: '…',
     )..layout(maxWidth: maxWidth);
   }
-  final y = 1090 + math.max(0, (222 - painter.height) / 2);
+  final y = 1090 + math.max(0.0, (222 - painter.height) / 2);
   painter.paint(canvas, Offset((1080 - maxWidth) / 2, y));
   painter.dispose();
 }

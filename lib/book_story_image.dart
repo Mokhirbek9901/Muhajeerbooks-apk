@@ -584,6 +584,9 @@ Future<Uint8List?> _downloadStoryCover(Book book) async {
   return null;
 }
 
+/// Reuse the same resilient cover download logic for iOS feed exports.
+Future<Uint8List?> loadBookStoryCover(Book book) => _downloadStoryCover(book);
+
 Future<Uint8List> renderBookStoryCpuFallback(
   Book book, {
   BookStoryTemplate template = BookStoryTemplate.current,

@@ -39,6 +39,7 @@ Future<Uint8List> renderBookInstagramPost(
       cover = (await codec.getNextFrame()).image;
     }
 
+    final decodedCover = cover!;
     final base = bookStoryTemplateColor(template);
     final dark = base.computeLuminance() < 0.32;
     final ink = dark ? const Color(0xFFF9F2E7) : const Color(0xFF1F3036);
@@ -89,7 +90,7 @@ Future<Uint8List> renderBookInstagramPost(
     // recreated outside the book itself.
     final coverRect = fittedStoryCoverRect(
       const Rect.fromLTWH(82, 42, 916, 840),
-      Size(cover.width.toDouble(), cover.height.toDouble()),
+      Size(decodedCover.width.toDouble(), decodedCover.height.toDouble()),
     );
     final roundedCover = RRect.fromRectAndRadius(
       coverRect,
@@ -104,8 +105,8 @@ Future<Uint8List> renderBookInstagramPost(
     canvas.save();
     canvas.clipRRect(roundedCover);
     canvas.drawImageRect(
-      cover,
-      Rect.fromLTWH(0, 0, cover.width.toDouble(), cover.height.toDouble()),
+      decodedCover,
+      Rect.fromLTWH(0, 0, decodedCover.width.toDouble(), decodedCover.height.toDouble()),
       coverRect,
       Paint()..filterQuality = FilterQuality.high,
     );

@@ -233,7 +233,7 @@ void _paintPostDescription(Canvas canvas, String copy, Color ink) {
       ellipsis: '…',
     )..layout(maxWidth: maxWidth);
   }
-  final y = 1090 + math.max(0.0, (222 - painter.height) / 2);
+  final y = 1090.0 + math.max(0.0, (222 - painter.height) / 2);
   painter.paint(canvas, Offset((1080 - maxWidth) / 2, y));
   painter.dispose();
 }

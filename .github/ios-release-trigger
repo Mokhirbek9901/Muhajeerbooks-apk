@@ -16,3 +16,5 @@ testflight-only-home-return-preserves-scroll-second-home-tap-scrolls-top 2026-10
 testflight-only-story-remove-bottom-order-button-enlarge-covers 2026-10-13; keep submitted App Store 2.5.16 unchanged
 testflight-only-admin-order-push-apns-2026-10-14; do not replace App Store 2.5.16 review submission
 testflight-only-premium-story-five-styles-full-description-pages 2026-10-14; preserve pending App Store 2.5.16 review, upload new build to TestFlight only
+
+testflight-only-instagram-feed-4x5-post-save-2026-10-15; iOS-only button for every Story template, preserve the pending App Store review submission

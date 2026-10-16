@@ -110,7 +110,9 @@
     bookCostRate: costs.DEFAULT_WON_PER_KG,
     bookCostComparisons: [],
     bookCostAutoSync:true,
-    bookCosts: []
+    bookCosts: [],
+    krwToUzsPer1000: null,
+    koreaProducts: []
   });
 
   let state = loadState();
@@ -293,6 +295,8 @@
       bookCostComparisons: costs.normalizeRates(input?.bookCostComparisons,makeId),
       bookCostMetadata: input?.bookCostMetadata && typeof input.bookCostMetadata==='object' && !Array.isArray(input.bookCostMetadata)?input.bookCostMetadata:{},
       bookCosts: costs.normalize(input?.bookCosts,makeId),
+      krwToUzsPer1000: window.KoreaProducts.fx(input?.krwToUzsPer1000),
+      koreaProducts: window.KoreaProducts.normalize(input?.koreaProducts,makeId),
       transactions: transactions.map(t => ({
         id: String(t.id || makeId()),
         type: t.type === 'income' ? 'income' : 'expense',
@@ -644,7 +648,7 @@
     currentView=view;
     qsa('.screen').forEach(el=>el.classList.toggle('active',el.id==='screen-'+view));
     qsa('.bottom-nav button[data-nav]').forEach(btn=>btn.classList.toggle('active',btn.dataset.nav===view));
-    const mainViews=['home','library','stats','book-costs','profile'];
+    const mainViews=['home','library','stats','book-costs','korea-products','profile'];
     if(!mainViews.includes(view)) qsa('.bottom-nav button[data-nav]').forEach(btn=>btn.classList.remove('active'));
     window.scrollTo({top:0,behavior:'smooth'});
     if(view==='library') setTimeout(()=>$('bookSearch')?.blur(),0);
@@ -654,6 +658,7 @@
     if(view==='stats') renderStats();
     if(view==='finance') renderFinance();
     if(view==='book-costs') renderBookCosts();
+    if(view==='korea-products') window.KoreaProducts.render();
   }
 
   function goBack(){
@@ -669,6 +674,7 @@
     renderProfile();
     renderFinance();
     renderBookCosts();
+    window.KoreaProducts.render();
     renderCategories();
     if(currentView==='detail') renderBookDetail();
     if(currentView==='calendar') renderCalendar();
@@ -3122,6 +3128,7 @@
         '<details class="cost-row-details"><summary>Hisob tafsilotlari</summary><div class="cost-profit-row"><span>'+ (row.muhajeerId?'Muhajeer sotuv narxi':'Sotuv narxi')+' <b>'+(costs.amount(row.salePrice)===null?'—':formatMoney(row.salePrice,'KRW'))+'</b></span><span class="'+(profit!==null && profit<0?'cost-loss':'cost-profit')+'">Kutiladigan foyda <strong>'+(profit===null?'—':formatMoney(profit,'KRW'))+'</strong></span></div>'+
         costTariffTable(row)+costCloudRow(row)+'</details><details class="cost-quick-editor"><summary>Tez tahrirlash</summary><div class="cost-quick-fields">'+field('price','Xarid (₩)',row.price,'Narx kiriting')+field('grams','Vazn (g)',row.grams,'Vazn kiriting')+field('salePrice','Sotuv (₩)',row.salePrice,'Sotuv narxi')+'</div><small data-cost-quick-error role="alert"></small><button type="button" class="primary-button" data-cost-quick-save>Saqlash</button></details></article>';
     }).join(''):'<div class="empty-state"><strong>'+(query || filter!=='all'?'Mos kitob topilmadi':'Saqlangan kitoblar hali yo‘q')+'</strong>'+(query || filter!=='all'?'Filtr yoki qidiruvni o‘zgartiring.':'Nomlarini yoki narxlarini kiritib saqlang. Vaznini keyin qo‘shishingiz mumkin.')+'</div>';
+    window.KoreaProducts.renderBookList(rows);
   }
 
   function setCostView(view){
@@ -3180,6 +3187,7 @@
         '<button type="button" class="primary-button cost-save-button" data-cost-save>✓ Saqlash va ro‘yxatga qaytish</button></div></details></article>';
     }).join(''):'<div class="empty-state"><strong>Chala kitoblar yo‘q</strong>Nomlarni nusxalab kiriting yoki bitta kitob qo‘shing.</div>';
     filterCostEditor();
+    window.KoreaProducts.renderBookEntry();
   }
 
   function addCostTitles(text){
@@ -3756,6 +3764,7 @@
     window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
   }
 
+  window.KoreaProducts.init({get:()=>state,save:saveState,money:formatMoney,escape:escapeHtml,toast,id:makeId});
   bindBookCosts();
   bindEvents();
   renderAll();

@@ -1734,3 +1734,63 @@ html,body,#app{
 .paid-ai-panel{padding:13px;border:1px solid var(--line);border-radius:14px;background:var(--surface);margin:12px 0}.paid-ai-panel summary{cursor:pointer;color:var(--green);font-weight:700;font-size:.85rem}.paid-ai-panel p{font-size:.76rem;line-height:1.6;color:var(--muted)}.paid-ai-panel label{display:block;margin:12px 0;font-size:.8rem}.paid-ai-panel .cost-cloud-auto{display:flex}.paid-ai-panel input:not([type=checkbox]){width:100%;min-height:44px}.paid-ai-panel .cost-actions input{flex:1;min-width:0}
 
 .reading-timer-banner{display:flex;align-items:center;gap:12px;margin:10px 20px;padding:12px 14px;border-radius:16px;background:var(--mint);color:var(--green);border:1px solid var(--line)}.reading-timer-banner[hidden]{display:none}.reading-timer-banner button{background:none;border:0;color:inherit;cursor:pointer;padding:6px;text-align:left}.reading-timer-banner button:first-child{flex:1;min-width:0}.reading-timer-banner span{display:block;font-size:.72rem}.reading-timer-banner strong{display:block;font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.reading-timer-banner b{font-variant-numeric:tabular-nums;font-size:1rem}.reading-timer-banner button:last-child{font-size:.78rem;white-space:nowrap}@media(max-width:400px){.reading-timer-banner{margin:8px 12px;gap:6px;padding:10px}.reading-timer-banner b{font-size:.85rem}}
+
+
+/* Koreya mahsulotlari, shared KRW→UZS conversion */
+.bottom-nav{grid-template-columns:repeat(7,minmax(0,1fr))}
+.bottom-nav button small{overflow:hidden;text-overflow:clip;max-width:100%;white-space:nowrap;font-size:.57rem}
+@media(max-width:430px){.bottom-nav{grid-template-columns:repeat(7,minmax(0,1fr));padding-inline:3px}.bottom-nav button{padding-inline:0}.bottom-nav button small{font-size:.49rem;letter-spacing:-.025em}.bottom-nav .nav-add{width:48px;height:48px}}
+@media(min-width:768px){.bottom-nav{grid-template-columns:repeat(7,minmax(0,1fr))}}
+.exchange-editor{display:grid;gap:10px;margin:14px 0 20px;padding:17px;border-radius:20px}
+.exchange-editor label{display:grid;gap:4px;font-size:.88rem}
+.exchange-editor label small,.exchange-editor>.krw-uzs-hint{font-size:.73rem;color:var(--muted)}
+.exchange-controls{display:flex;gap:8px;align-items:stretch}
+.exchange-controls input{flex:1;min-width:0;max-width:100%;min-height:45px;padding:11px 13px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font-size:1rem}
+.exchange-controls button{white-space:nowrap;padding-inline:12px;font-size:.78rem}
+.book-som-result{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:5px;border-top:1px solid var(--line);padding-top:12px;font-size:.75rem}
+.book-som-result strong{font-size:.9rem;color:var(--green)}
+.converted-cost{border-top:1px solid var(--line);padding-top:10px;margin:12px 0 0;font-size:.83rem;font-weight:850;color:var(--green);overflow-wrap:anywhere}
+.cost-result .converted-cost{width:100%;flex-basis:100%;border-top:1px dashed var(--line)}
+.korea-intro{margin:8px 0 20px;color:var(--muted);font-size:.85rem;line-height:1.6}
+.korea-shipping-note{padding-top:12px;margin:4px 0 0;border-top:1px solid var(--line);font-size:.74rem;color:var(--muted);line-height:1.6}
+.korea-shipping-note b{color:var(--green)}
+.korea-dashboard{margin-bottom:17px}
+.korea-dashboard article{padding:20px;border-radius:21px;background:var(--green);color:white;display:grid;gap:6px}
+.korea-dashboard small{opacity:.76;font-size:.75rem}
+.korea-dashboard b{font-size:1.45rem}
+.korea-dashboard strong{font-size:1.1rem;color:#ddf8e7}
+.korea-dashboard span{font-size:.72rem;opacity:.76}
+.korea-form{margin-bottom:22px;padding:19px;border-radius:20px}
+.korea-form h2{font-size:1.03rem;margin:0 0 17px}
+.korea-input-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.korea-input-grid label{font-size:.73rem;font-weight:800;display:grid;gap:7px;color:var(--muted)}
+.korea-input-grid label:first-child{grid-column:1/-1}
+.korea-input-grid input,.korea-input-grid select{width:100%;min-height:46px;padding:11px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font-size:.88rem}
+.korea-preview{margin:19px 0 13px;display:grid;gap:9px}
+.korea-preview>div{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:7px;padding:10px 0;border-bottom:1px solid var(--line);font-size:.83rem}
+.korea-preview>div span{color:var(--muted);flex:1}
+.korea-preview b{font-size:.94rem;color:var(--ink)}
+.korea-preview small{width:100%;text-align:right;font-size:.76rem;color:var(--green)}
+.korea-preview .korea-preview-total{padding:15px 13px;border:1px solid var(--line);border-radius:14px;background:var(--mint)}
+.korea-preview-total strong{font-size:1.07rem;color:var(--green);width:100%;text-align:right}
+.korea-form-actions{display:flex;gap:9px;flex-wrap:wrap}
+.korea-form-actions button:first-child{flex:1}
+.korea-products-list{display:grid;gap:14px;margin:17px 0}
+.korea-card{border:1px solid var(--line);border-radius:20px;background:var(--surface);padding:18px}
+.korea-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.korea-card-head small{font-size:.66rem;color:var(--green)}
+.korea-card-head h3{font-size:1rem;margin:5px 0 8px;line-height:1.4;overflow-wrap:anywhere}
+.korea-card-head span{font-size:.77rem;color:var(--muted)}
+.korea-card-actions{display:flex;align-items:center;gap:3px}
+.korea-card-actions button{min-height:32px;font-size:.68rem;padding:5px}
+.korea-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:17px 0}
+.korea-grid>div{display:grid;gap:5px}
+.korea-grid small{font-size:.7rem;color:var(--muted)}
+.korea-grid b{font-size:.93rem}
+.korea-grid em{font-style:normal;font-size:.75rem;color:var(--green);overflow-wrap:anywhere}
+.korea-total-line{background:var(--mint);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;justify-content:space-between;align-items:center;gap:7px;flex-wrap:wrap}
+.korea-total-line span{font-size:.8rem;color:var(--green)}
+.korea-total-line b{font-size:1rem}
+.korea-total-line strong{width:100%;text-align:right;font-size:1.03rem;color:var(--green)}
+.korea-storage-note{font-size:.73rem;color:var(--muted);line-height:1.6;margin:16px 0}
+@media(max-width:350px){.exchange-controls{flex-direction:column}.korea-card{padding:13px}.korea-input-grid{grid-template-columns:1fr}.korea-input-grid label:first-child{grid-column:auto}}

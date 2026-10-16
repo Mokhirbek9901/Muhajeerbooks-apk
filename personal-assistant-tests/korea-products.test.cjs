@@ -11,7 +11,7 @@ test('manual 1000 KRW to UZS conversion uses the entered rate',()=>{
   assert.equal(costs.fx(-500),null);
 });
 
-test('shipping is proportional to product grams and shares the book per-kg rate',()=>{
+test('product shipping is proportional to grams and uses its own independent kg tariff',()=>{
   assert.deepEqual(costs.calculate({price:13000,grams:290},7000,8500),{
     price:13000,shipping:2030,total:15030,
     priceSom:110500,shippingSom:17255,totalSom:127755
@@ -81,4 +81,37 @@ test('missing rate does not fake UZS summary while KRW costs are correct',()=>{
   const summary=costs.summarize([{price:13000,grams:290}],10000,null);
   assert.equal(summary.total,15900);
   assert.equal(summary.totalSom,null);
+});
+
+test('product kg rate is separate from book kg rate and preserves old records',()=>{
+  const item={id:'g1',name:'Jenshen',price:13000,grams:290};
+  const bookRate=10000;
+  const koreaRate=7000;
+  const oldState={bookCostRate:bookRate,koreaProducts:[item]};
+  const newState={...oldState,koreaShippingRate:koreaRate};
+  assert.equal(costs.shippingRate(newState.koreaShippingRate,newState.bookCostRate),7000);
+  assert.equal(costs.shippingRate(null,oldState.bookCostRate),10000);
+  assert.equal(costs.shippingRate(0,oldState.bookCostRate),0);
+  assert.equal(costs.shippingRate('not a number',10000),10000);
+  const product=costs.calculate(item,newState.koreaShippingRate,8000);
+  assert.equal(product.shipping,2030);
+  assert.equal(product.total,15030);
+  assert.equal(product.totalSom,120240);
+  // Changing the book tariff must not alter any Korean-product calculation.
+  const bookAfterChange=15000;
+  assert.equal(costs.calculate(item,newState.koreaShippingRate,8000).shipping,2030);
+  assert.equal(bookAfterChange,15000);
+  assert.deepEqual(newState.koreaProducts,[item]);
+});
+test('independent products tariff affects only product summary and category costs',()=>{
+  const products=[{name:'Vitamin',price:9000,grams:100},{name:'Kosmetika',price:8000,grams:300}];
+  const low=costs.summarize(products,7000,8000),high=costs.summarize(products,10000,8000);
+  assert.equal(low.total,19800);
+  assert.equal(high.total,21000);
+  assert.equal(low.totalSom,158400);
+  assert.equal(high.totalSom,168000);
+  assert.equal(low.purchase,17000);
+  assert.equal(high.purchase,17000);
+  assert.equal(low.ready,2);
+  assert.deepEqual(products,[{name:'Vitamin',price:9000,grams:100},{name:'Kosmetika',price:8000,grams:300}]);
 });

@@ -52,7 +52,8 @@ void main() {
     await tester.tap(find.byTooltip('Kitobni ulashish'));
     await tester.pumpAndSettle();
     expect(find.text('Havolani nusxalash'), findsOneWidget);
-    expect(find.text('Instagram story tayyorlash'), findsOneWidget);
+    // Public readers can share book links, but cannot export owner-only Stories.
+    expect(find.text('Instagram story tayyorlash'), findsNothing);
     expect(find.text('Telegram orqali yuborish'), findsOneWidget);
     final navigator = tester.state<NavigatorState>(find.byType(Navigator));
     navigator.pop();

@@ -3405,6 +3405,7 @@
     const editing=costView==='entry' && Boolean(costEditingId || costEditingAll || costEditingIds.size);
     $('screen-book-costs').classList[editing?'add':'remove']('cost-editing');
     $('costListPanel').hidden=costView!=='list';
+    $('costHomeBooksPanel').hidden=costView!=='main';
     $('costListActions').hidden=costView!=='list';
     $('costEntryPanel').hidden=costView!=='entry';
     $('costReportPanel').hidden=costView!=='report';

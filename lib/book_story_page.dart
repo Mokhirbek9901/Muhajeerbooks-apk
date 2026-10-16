@@ -4,7 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:cross_file/cross_file.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import 'admin_session.dart';
+import 'owner_story_access.dart';
 import 'app_state.dart';
 import 'book_links.dart';
 import 'book_story_image.dart';
@@ -187,7 +189,11 @@ class _BookStoryPageState extends State<BookStoryPage> {
     }
   }
 
+  bool get _mayCreateStory =>
+      OwnerStoryAccess.instance.allowedFor(context.read<AppState>());
+
   Future<void> _copyLink() async {
+    if (!_mayCreateStory) return;
     final link = bookShareLink(widget.book.id).toString();
     try {
       await Clipboard.setData(ClipboardData(text: link));
@@ -202,7 +208,7 @@ class _BookStoryPageState extends State<BookStoryPage> {
 
   Future<void> _share(Uint8List bytes, BuildContext buttonContext,
       {bool allPages = false}) async {
-    if (_sharing) return;
+    if (_sharing || !_mayCreateStory) return;
     final box = buttonContext.findRenderObject() as RenderBox?;
     setState(() => _sharing = true);
     try {
@@ -276,7 +282,17 @@ class _BookStoryPageState extends State<BookStoryPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    if (!OwnerStoryAccess.instance.allowedFor(state)) {
+      return const Scaffold(
+        body: Center(child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text('Instagram story dizaynlari faqat do‘kon egasi uchun. Profil ma’lumotlarini tekshirib, admin sifatida kiring.'),
+        )),
+      );
+    }
+    return Scaffold(
     appBar: AppBar(title: const Text('Instagram story')),
     body: SafeArea(child: FutureBuilder<Uint8List>(
       future: _image,
@@ -480,4 +496,5 @@ class _BookStoryPageState extends State<BookStoryPage> {
       },
     )),
   );
+  }
 }

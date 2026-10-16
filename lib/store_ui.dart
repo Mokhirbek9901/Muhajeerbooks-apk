@@ -39,6 +39,26 @@ bool get _webOrPlayCustomer =>
     (defaultTargetPlatform == TargetPlatform.iOS &&
         _appStoreCustomerBuild);
 
+
+bool _remoteFlag(
+  BuildContext context,
+  String key, {
+  bool fallback = true,
+  bool listen = false,
+}) {
+  try {
+    return Provider.of<RemoteConfigStore>(
+      context,
+      listen: listen,
+    ).boolValue(key, fallback: fallback);
+  } catch (_) {
+    // Some isolated widget tests and fallback shells intentionally mount
+    // storefront widgets without the app-level provider. Built-in defaults
+    // must keep those surfaces usable.
+    return fallback;
+  }
+}
+
 const _navy = UzbekCustomerColors.navy;
 const _orange = UzbekCustomerColors.goldDeep;
 const _gold = UzbekCustomerColors.gold;
@@ -540,10 +560,10 @@ class CategoriesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final remoteConfig = context.watch<RemoteConfigStore>();
-    final preorderFeatureEnabled = remoteConfig.boolValue(
+    final preorderFeatureEnabled = _remoteFlag(
+      context,
       'features.preorder_enabled',
-      fallback: true,
+      listen: true,
     );
     final categories =
         state.books
@@ -3810,9 +3830,10 @@ class BookCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final favorite = context.select<AppState, bool>((s) => s.isFavorite(book));
-    final restockFeatureEnabled = context.watch<RemoteConfigStore>().boolValue(
+    final restockFeatureEnabled = _remoteFlag(
+      context,
       'features.restock_enabled',
-      fallback: true,
+      listen: true,
     );
     final restockSubscribed = context.select<AppState, bool>(
       (s) => s.isRestockSubscribed(book),
@@ -4159,9 +4180,9 @@ Future<void> _shareBook(BuildContext context, Book book) async {
               ),
               const SizedBox(height: 8),
               const Text('Havolani ochgan odam aynan shu kitobni ko‘radi.'),
-              if (context.read<RemoteConfigStore>().boolValue(
+              if (_remoteFlag(
+                    context,
                     'features.story_share_enabled',
-                    fallback: true,
                   ) &&
                   OwnerStoryAccess.instance.allowedFor(context.read<AppState>()))
               ListTile(
@@ -7774,11 +7795,11 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
               subtitle: 'Buyurtma berganingizdan keyin uning holati va tarixi shu yerda ko‘rinadi.',
             );
           }
-          final reviewsFeatureEnabled =
-              context.watch<RemoteConfigStore>().boolValue(
-                'features.reviews_enabled',
-                fallback: true,
-              );
+          final reviewsFeatureEnabled = _remoteFlag(
+            context,
+            'features.reviews_enabled',
+            listen: true,
+          );
           final reviewReminders = context.watch<AppState>().customerNotices
               .where((n) => n['kind'] == 'review_reminder').toList();
           return ListView.separated(

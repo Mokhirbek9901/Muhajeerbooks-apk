@@ -17,6 +17,7 @@ import 'cart_stock_alert.dart';
 import 'design_system.dart';
 import 'fast_store_shell.dart';
 import 'navigation_sync.dart';
+import 'remote_config.dart';
 import 'legal_pages.dart';
 import 'shared_book_entry.dart';
 import 'store_ui.dart';
@@ -73,9 +74,18 @@ class MuhajeerBooksApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<AppState>(
-      create: (_) =>
-          AppStateFixed(backendConfigured: backendConfigured)..initialize(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AppState>(
+          create: (_) =>
+              AppStateFixed(backendConfigured: backendConfigured)..initialize(),
+        ),
+        ChangeNotifierProvider<RemoteConfigStore>(
+          create: (_) => RemoteConfigStore(
+            backendConfigured: backendConfigured,
+          )..initialize(),
+        ),
+      ],
       child: MaterialApp(
         initialRoute: '/',
         navigatorKey: _navigatorKey,
@@ -218,19 +228,39 @@ class _NotificationPermissionGateState
     final status = await Permission.notification.status;
     if (!mounted || status.isGranted) return;
 
+    final remoteConfig = context.read<RemoteConfigStore>();
+    await remoteConfig.refresh();
+    if (!mounted) return;
+
+    final title = remoteConfig.stringValue(
+      'ui.notification_permission_title',
+      fallback: 'Bildirishnomalarga ruxsat berasizmi?',
+    );
+    final body = remoteConfig.stringValue(
+      'ui.notification_permission_body',
+      fallback:
+          'Muhajeer Books yangi xabarlar va muhim yangilanishlarni '
+          'sizga bildirishnoma orqali yuborishi uchun ruxsat bering.',
+    );
+    final allowLabel = remoteConfig.stringValue(
+      'ui.notification_permission_allow',
+      fallback: 'Ruxsat berish',
+    );
+    final laterLabel = remoteConfig.stringValue(
+      'ui.notification_permission_later',
+      fallback: 'Hozir emas',
+    );
+
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Bildirishnomalarga ruxsat berasizmi?'),
-        content: const Text(
-          'Muhajeer Books yangi xabarlar va muhim yangilanishlarni '
-          'sizga bildirishnoma orqali yuborishi uchun ruxsat bering.',
-        ),
+        title: Text(title),
+        content: Text(body),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Hozir emas'),
+            child: Text(laterLabel),
           ),
           FilledButton(
             onPressed: () async {
@@ -245,7 +275,7 @@ class _NotificationPermissionGateState
                 await openAppSettings();
               }
             },
-            child: const Text('Ruxsat berish'),
+            child: Text(allowLabel),
           ),
         ],
       ),

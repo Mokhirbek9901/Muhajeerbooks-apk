@@ -108,6 +108,8 @@
     books: [],
     transactions: [],
     bookCostRate: costs.DEFAULT_WON_PER_KG,
+    // Separate products tariff. Old backups migrate their former shared tariff once.
+    koreaShippingRate: costs.DEFAULT_WON_PER_KG,
     bookCostComparisons: [],
     bookCostAutoSync:true,
     bookCosts: [],
@@ -297,6 +299,7 @@
       })).filter(b => b.title),
       bookCostAutoSync: input?.bookCostAutoSync!==false,
       bookCostRate: costs.rate(input?.bookCostRate),
+      koreaShippingRate: window.KoreaProducts.shippingRate(input?.koreaShippingRate,costs.rate(input?.bookCostRate)),
       bookCostComparisons: costs.normalizeRates(input?.bookCostComparisons,makeId),
       bookCostMetadata: input?.bookCostMetadata && typeof input.bookCostMetadata==='object' && !Array.isArray(input.bookCostMetadata)?input.bookCostMetadata:{},
       bookCosts: costs.normalize(input?.bookCosts,makeId),
@@ -2924,6 +2927,16 @@
     const rows=filterTransactions(state.transactions,financePeriod).filter(t=>t.currency===financeCurrency)
       .sort((a,b)=>b.date.localeCompare(a.date)||String(b.updatedAt).localeCompare(String(a.updatedAt)));
     const income=sumTx(rows,'income'), expense=sumTx(rows,'expense');
+    const incomeRows=rows.filter(t=>t.type==='income'),expenseRows=rows.filter(t=>t.type==='expense');
+    $('financeRecordCount').textContent=rows.length+' ta yozuv';
+    $('financeIncomeCount').textContent=incomeRows.length+' ta kirim';
+    $('financeExpenseCount').textContent=expenseRows.length+' ta chiqim';
+    $('financeAvgExpense').textContent=expenseRows.length?formatMoney(expense/expenseRows.length,financeCurrency):'—';
+    $('financeAvgIncome').textContent=incomeRows.length?formatMoney(income/incomeRows.length,financeCurrency):'—';
+    $('financeSavingsRate').textContent=income?Math.round((income-expense)/income*100)+'%':'—';
+    $('financeRecentList').innerHTML=rows.length?rows.slice(0,3).map(t=>
+      '<div class="finance-recent-row"><div><span class="finance-recent-type '+t.type+'">'+(t.type==='income'?'↓':'↑')+'</span><div><b>'+escapeHtml(t.category)+'</b><small>'+formatDate(t.date)+'</small></div></div><strong>'+ (t.type==='income'?'+':'−')+formatMoney(t.amount,t.currency)+'</strong></div>'
+    ).join(''):'<div class="empty-state">Bu davrda hali kirim yoki chiqim kiritilmagan.</div>';
     $('finIncome').textContent=formatMoney(income,financeCurrency);
     $('finExpense').textContent=formatMoney(expense,financeCurrency);
     $('finNet').textContent=formatMoney(income-expense,financeCurrency,true);
@@ -3150,6 +3163,12 @@
     $('costSummaryNote').textContent=totals.ready+' ta to‘liq kitob bo‘yicha';
     $('costSummaryReady').textContent=totals.ready+' ta';
     $('costSummaryPending').textContent=totals.pending+' ta';
+    const complete=ready.filter(row=>costs.calculate(row,state.bookCostRate).total!==null);
+    const shipTotal=complete.reduce((sum,row)=>sum+costs.calculate(row,state.bookCostRate).shipping,0);
+    $('costShippingTotal').textContent=complete.length?formatMoney(shipTotal,'KRW'):'—';
+    $('costProfitTotal').textContent=totals.profitCount?formatMoney(totals.profitTotal,'KRW'):'—';
+    $('costProfitNote').textContent=totals.profitCount+' ta sotuv narxi bor kitob';
+    $('costShippingNote').textContent=complete.length+' ta vazni va narxi kiritilgan kitob';
     $('costChipAll').textContent=ready.length;
     $('costChipPrice').textContent=ready.filter(r=>r.price===null).length;
     $('costChipWeight').textContent=ready.filter(r=>r.grams===null).length;

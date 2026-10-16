@@ -4,9 +4,11 @@ import 'package:cross_file/cross_file.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'app_state.dart';
+import 'owner_story_access.dart';
 import 'book_links.dart';
 import 'bundle_story_image.dart';
 
@@ -40,12 +42,13 @@ class _BundleStoryPageState extends State<BundleStoryPage> {
 
   Future<void> _copyLink() async {
     final link = bundleShareLink(_id).toString();
+    if (!OwnerStoryAccess.instance.allowedFor(context.read<AppState>())) return;
     await Clipboard.setData(ClipboardData(text: link));
     if (mounted) setState(() => _copied = true);
   }
 
   Future<void> _share(Uint8List bytes, BuildContext buttonContext) async {
-    if (_sharing) return;
+    if (_sharing || !OwnerStoryAccess.instance.allowedFor(context.read<AppState>())) return;
     final box = buttonContext.findRenderObject() as RenderBox?;
     setState(() => _sharing = true);
     try {
@@ -63,7 +66,14 @@ class _BundleStoryPageState extends State<BundleStoryPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    if (!OwnerStoryAccess.instance.allowedFor(state)) {
+      return const Scaffold(body: Center(
+        child: Text('Set storysini tayyorlash faqat do‘kon egasi uchun.'),
+      ));
+    }
+    return Scaffold(
         appBar: AppBar(title: const Text('Set uchun Instagram story')),
         body: SafeArea(
           child: FutureBuilder<Uint8List>(
@@ -154,4 +164,5 @@ class _BundleStoryPageState extends State<BundleStoryPage> {
           ),
         ),
       );
+  }
 }

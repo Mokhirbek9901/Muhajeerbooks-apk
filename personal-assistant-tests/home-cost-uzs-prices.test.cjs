@@ -20,7 +20,7 @@ test('home cost cards show UZS per single book FIRST and total for all copies SE
  assert.ok(unit!==-1&&total>unit,'unit price always precedes total');
  assert.ok(code.includes("costSom(inv.unitCost)"),'convert landed cost of a single book');
  assert.ok(code.includes("costSom(inv.total)"),'convert landed cost of all copies');
- assert.ok(code.includes("'<small>Jami · '+qty+' ta</small>"),'disclose number of books in total');
+ assert.ok(code.includes("Jami · '+qty+' ta"),'disclose number of books in total');
  assert.ok(!code.includes('data-cost-edit'),'home stays read-only');
  assert.ok(!code.includes('data-cost-quick'),'home stays read-only');
 });

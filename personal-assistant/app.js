@@ -3277,20 +3277,20 @@
   function costSimpleValues(){
     const original=state.bookCosts.find(row=>row.id===costEditingId);
     const fields={title:$('costSimpleTitle').value.trim(),
-      quantity:costs.quantity($('costSimpleQuantity').value),
+      quantity:$('costSimpleQuantity').value.trim()?costs.quantity($('costSimpleQuantity').value):null,
       price:costs.amount($('costSimplePrice').value),
       grams:costs.amount($('costSimpleGrams').value),
       salePrice:original?.muhajeerId?original.salePrice:costs.amount($('costSimpleSale').value)};
     return {original,fields};
   }
   function refreshSimpleCostPreview(){
-    const {fields}=costSimpleValues(),inventory=costs.inventory(fields,state.bookCostRate);
+    const {fields}=costSimpleValues(),inventory=fields.quantity===null?null:costs.inventory(fields,state.bookCostRate);
     const show=n=>n===null?'—':formatMoney(n,'KRW');
-    $('costSimpleUnit').textContent=show(inventory.unitCost);
-    $('costSimpleTotal').textContent=show(inventory.total);
-    $('costSimpleTotalSom').textContent=inventory.total===null?'—':costSom(inventory.total);
-    $('costSimpleProfit').textContent=show(inventory.profit);
-    $('costSimpleProfitSom').textContent=inventory.profit===null?'—':costSom(inventory.profit);
+    $('costSimpleUnit').textContent=show(inventory?.unitCost??null);
+    $('costSimpleTotal').textContent=show(inventory?.total??null);
+    $('costSimpleTotalSom').textContent=inventory?.total===undefined||inventory?.total===null?'—':costSom(inventory.total);
+    $('costSimpleProfit').textContent=show(inventory?.profit??null);
+    $('costSimpleProfitSom').textContent=inventory?.profit===undefined||inventory?.profit===null?'—':costSom(inventory.profit);
   }
   function fillSimpleCostForm(){
     const row=state.bookCosts.find(item=>item.id===costEditingId);

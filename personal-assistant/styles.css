@@ -1946,3 +1946,9 @@ body[data-workspace="costs"] #screen-book-costs .cost-page-head{margin:8px 0 19p
   .bottom-nav .workspace-nav-group button small{font-size:.49rem}
   .workspace-menu{left:8px;width:calc(100vw - 16px)}
 }
+
+/* Keep the centre + button icon-only, including VoiceOver's accessible label. */
+.bottom-nav .workspace-nav-group .nav-add small{display:none!important}
+body[data-workspace="costs"] .workspace-nav-group[data-workspace-nav="costs"] button[data-mode-tab="main"].active,
+body[data-workspace="finance"] .workspace-nav-group[data-workspace-nav="finance"] button[data-mode-tab="overview"].active,
+body[data-workspace="products"] .workspace-nav-group[data-workspace-nav="products"] button[data-mode-tab="overview"].active{font-weight:900}

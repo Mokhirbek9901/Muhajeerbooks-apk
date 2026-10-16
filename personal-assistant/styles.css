@@ -1794,3 +1794,16 @@ html,body,#app{
 .korea-total-line strong{width:100%;text-align:right;font-size:1.03rem;color:var(--green)}
 .korea-storage-note{font-size:.73rem;color:var(--muted);line-height:1.6;margin:16px 0}
 @media(max-width:350px){.exchange-controls{flex-direction:column}.korea-card{padding:13px}.korea-input-grid{grid-template-columns:1fr}.korea-input-grid label:first-child{grid-column:auto}}
+
+
+/* KRW / UZS / USD exchange calculator in book and Korea-product sections */
+.exchange-editor>.usd-krw-hint{font-size:.73rem;color:var(--muted)}
+.currency-converter{margin-top:9px;padding:14px;border-radius:16px;background:var(--surface2);border:1px solid var(--line);display:grid;gap:11px}
+.currency-converter h3{font-size:.91rem;margin:0;font-weight:850}
+.currency-pair{display:grid;grid-template-columns:minmax(0,1fr) 44px minmax(0,1fr);gap:7px;align-items:end}
+.currency-pair label,.currency-amount-label{display:grid;gap:6px;font-size:.7rem;color:var(--muted);font-weight:800;min-width:0}
+.currency-pair select,.currency-amount-label input{width:100%;min-width:0;min-height:45px;padding:9px 7px;border:1px solid var(--line);border-radius:11px;background:var(--surface);color:var(--ink);font-size:.81rem}
+.currency-pair .currency-swap{border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--green);font-size:1.65rem;font-weight:800;min-height:45px;cursor:pointer}
+.currency-converter .currency-result{display:block;padding:13px 14px;border-radius:13px;background:var(--mint);color:var(--green);font-size:1.15rem;font-weight:900;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;min-height:48px}
+.currency-converter .currency-note{font-size:.7rem;line-height:1.5;color:var(--muted)}
+@media(max-width:365px){.currency-pair{grid-template-columns:minmax(0,1fr) 36px minmax(0,1fr);gap:4px}.currency-pair select{padding:7px 2px;font-size:.7rem}.currency-pair .currency-swap{min-height:41px;font-size:1.4rem}.currency-converter{padding:10px}}

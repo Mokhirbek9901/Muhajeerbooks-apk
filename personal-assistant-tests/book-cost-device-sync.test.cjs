@@ -20,3 +20,22 @@ test('linked sale prices and credentials never enter device snapshots',()=>{
  const value=sync.snapshot({bookCosts:[{...row('a'),muhajeerId:'linked',salePrice:9999}],bookCostRate:7000,bookCostComparisons:[],admin_code:'secret'});
  assert.equal(value.books[0].salePrice,null);assert.doesNotMatch(JSON.stringify(value),/secret|admin_code/);
 });
+
+test('ten received copies survive the cloud snapshot and a remote reload',()=>{
+ const state={bookCosts:[{...row('multi',15000),grams:200,quantity:10,salePrice:24000}],bookCostRate:10000,bookCostComparisons:[]};
+ const initial=sync.snapshot(state);
+ assert.equal(initial.books[0].quantity,10);
+ assert.equal(initial.books[0].price,15000);
+ const restored=sync.merge(null,snap([]),initial).value;
+ assert.equal(restored.books[0].quantity,10);
+ assert.equal(restored.books[0].price,15000);
+});
+test('legacy device payload with no quantity can still merge with modern records',()=>{
+ const base=snap([row('legacy')]);
+ const local=snap([{...row('legacy'),quantity:1}]);
+ const remote=snap([{...row('legacy'),price:200}]);
+ const result=sync.merge(base,local,remote);
+ assert.deepEqual(result.conflicts,[]);
+ assert.equal(result.value.books[0].quantity,1);
+ assert.equal(result.value.books[0].price,200);
+});

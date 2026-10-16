@@ -1,5 +1,5 @@
-const CACHE='bek-yordamchi-v58';
-const ASSETS=['./reading-timer.js?v=58','./reading-device-sync.js?v=58','./','./index.html','./styles.css?v=58','./app.js?v=58','./book-costs.js?v=58','./book-cost-device-sync.js?v=58','./book-cost-export.js?v=58','./book-cost-sync.js?v=58','./book-cost-sync-config.js?v=58','./backup-migration.js?v=58','./currency-converter.js?v=58','./currency-rate-editor.js?v=58','./workspaces.js?v=58','./korea-products.js?v=58','./manifest.webmanifest','./icon.svg'];
+const CACHE='bek-yordamchi-v59';
+const ASSETS=['./reading-timer.js?v=59','./reading-device-sync.js?v=59','./','./index.html','./styles.css?v=59','./app.js?v=59','./book-costs.js?v=59','./book-cost-device-sync.js?v=59','./book-cost-export.js?v=59','./book-cost-sync.js?v=59','./book-cost-sync-config.js?v=59','./backup-migration.js?v=59','./currency-converter.js?v=59','./currency-rate-editor.js?v=59','./workspaces.js?v=59','./korea-products.js?v=59','./manifest.webmanifest','./icon.svg'];
 
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)));

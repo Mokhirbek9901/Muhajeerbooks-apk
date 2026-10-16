@@ -1,7 +1,7 @@
 (function(root,factory){const api=factory();if(typeof module==='object' && module.exports)module.exports=api;else root.BookCostDeviceSync=api;})(typeof window==='object'?window:this,function(){
   const stable=value=>JSON.stringify(value,function(key,value){return value && typeof value==='object' && !Array.isArray(value)?Object.keys(value).sort().reduce((o,k)=>(o[k]=value[k],o),{}):value;});
   const equal=(a,b)=>stable(a)===stable(b);
-  function snapshot(state){return {books:state.bookCosts.map(r=>({id:r.id,title:r.title,price:r.price,grams:r.grams,saved:r.saved,salePrice:r.muhajeerId?null:(r.salePrice??null),muhajeerId:r.muhajeerId||null})),rate:state.bookCostRate,tariffs:state.bookCostComparisons.map(t=>({...t}))};}
+  function snapshot(state){return {books:state.bookCosts.map(r=>({id:r.id,title:r.title,price:r.price,grams:r.grams,quantity:r.quantity??1,saved:r.saved,salePrice:r.muhajeerId?null:(r.salePrice??null),muhajeerId:r.muhajeerId||null})),rate:state.bookCostRate,tariffs:state.bookCostComparisons.map(t=>({...t}))};}
   function merge(base,local,remote){
     if(!remote)return {value:local,conflicts:[]};
     if(!base && !local.books.length && !local.tariffs.length)return {value:remote,conflicts:[]};

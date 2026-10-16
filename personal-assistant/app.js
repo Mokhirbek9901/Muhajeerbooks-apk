@@ -3149,10 +3149,17 @@
     const tariffs=costs.tariffs(state.bookCostRate,state.bookCostComparisons);
     if(tariffs.length<2)return '';
     const money=value=>value===null?'—':formatMoney(value,'KRW');
-    return '<div class="cost-tariff-table-wrap"><table class="cost-tariff-table"><caption>Kg narxlari bo‘yicha solishtirish</caption><thead><tr><th>1 kg tarifi</th><th>Yetkazish</th><th>Tan narxi</th><th>Foyda</th></tr></thead><tbody>'+tariffs.map(tariff=>{const result=costs.calculate(row,tariff.rate);return '<tr class="'+(tariff.id==='primary'?'cost-tariff-main':'')+'"><th>'+escapeHtml(tariff.label)+'<small>'+formatMoney(tariff.rate,'KRW')+' / kg</small></th><td>'+money(result.shipping)+'</td><td><b>'+money(result.total)+'</b></td><td>'+money(costs.profit(row,tariff.rate))+'</td></tr>';}).join('')+'</tbody></table></div>';
+    return '<div class="cost-tariff-table-wrap"><table class="cost-tariff-table"><caption>Kg tariflari · '+costs.quantity(row.quantity)+' dona bo‘yicha jami hisob</caption><thead><tr><th>1 kg tarifi</th><th>Jami yetkazish</th><th>Jami tan narxi</th><th>Jami foyda</th></tr></thead><tbody>'+tariffs.map(tariff=>{const inv=costs.inventory(row,tariff.rate);return '<tr class="'+(tariff.id==='primary'?'cost-tariff-main':'')+'"><th>'+escapeHtml(tariff.label)+'<small>'+formatMoney(tariff.rate,'KRW')+' / kg</small></th><td>'+money(inv.shipping)+'</td><td><b>'+money(inv.total)+'</b></td><td>'+money(inv.profit)+'</td></tr>';}).join('')+'</tbody></table></div>';
   }
   function costTariffReport(rows){
     return '<div class="cost-tariff-table-wrap"><table class="cost-tariff-table"><caption>Har bir kg tarifi bo‘yicha umumiy hisob</caption><thead><tr><th>Tarif</th><th>To‘liq kitoblar</th><th>Jami yetkazish</th><th>Jami tan narxi</th><th>Kutiladigan foyda</th></tr></thead><tbody>'+costs.compare(rows,state.bookCostRate,state.bookCostComparisons).map(tariff=>'<tr class="'+(tariff.id==='primary'?'cost-tariff-main':'')+'"><th>'+escapeHtml(tariff.label)+'<small>'+formatMoney(tariff.rate,'KRW')+' / kg</small></th><td>'+tariff.ready+' ta</td><td>'+(tariff.ready?formatMoney(tariff.shipping,'KRW'):'—')+'</td><td><b>'+(tariff.ready?formatMoney(tariff.total,'KRW'):'—')+'</b></td><td>'+(tariff.profitCount?formatMoney(tariff.profitTotal,'KRW'):'—')+'<small>'+tariff.profitCount+' ta sotuv narxi bor kitob</small></td></tr>').join('')+'</tbody></table></div><p class="cost-entry-note">Har bir tarif bo‘yicha alohida hisob. Jami yetkazish va tan narxi narx-vazni to‘liq kitoblar uchun hisoblanadi.</p>';
+  }
+  function costSom(won){
+    if(won===null||!Number.isFinite(won))return '—';
+    const rate=window.KoreaProducts?.fx?.(state.krwToUzsPer1000)??null;
+    if(rate===null)return 'Kurs kiritilmagan';
+    const amount=Math.round(Math.abs(won)*rate/1000);
+    return (won<0?'−':'')+amount.toLocaleString('en-US')+' so‘m';
   }
   function costHasData(row){return Boolean(row.title.trim()) || row.price!==null || row.grams!==null || costs.amount(row.salePrice)!==null;}
   function costIsReady(row){return row.saved && costHasData(row);}
@@ -3162,19 +3169,33 @@
     const ready=state.bookCosts.filter(costIsReady);
     const totals=costs.summary(ready,state.bookCostRate);
     $('costSummaryTotal').textContent=totals.ready?formatMoney(totals.total,'KRW'):'—';
-    $('costSummaryNote').textContent=totals.ready+' ta to‘liq kitob bo‘yicha';
-    $('costSummaryReady').textContent=totals.ready+' ta';
+    $('costSummaryTotalSom').textContent=totals.ready?costSom(totals.total):'—';
+    $('costSummaryNote').textContent=totals.ready+' xil kitob · '+totals.quantityReady+' nusxa bo‘yicha';
+    $('costSummaryReady').textContent=totals.ready+' ta turdagi kitob hisoblandi';
+    $('costSummaryQuantity').textContent=totals.quantityTotal+' ta';
     $('costSummaryPending').textContent=totals.pending+' ta';
-    const complete=ready.filter(row=>costs.calculate(row,state.bookCostRate).total!==null);
-    const shipTotal=complete.reduce((sum,row)=>sum+costs.calculate(row,state.bookCostRate).shipping,0);
-    $('costShippingTotal').textContent=complete.length?formatMoney(shipTotal,'KRW'):'—';
+    $('costPurchaseTotal').textContent=totals.ready?formatMoney(totals.purchaseTotal,'KRW'):'—';
+    $('costShippingTotal').textContent=totals.ready?formatMoney(totals.shippingTotal,'KRW'):'—';
     $('costProfitTotal').textContent=totals.profitCount?formatMoney(totals.profitTotal,'KRW'):'—';
-    $('costProfitNote').textContent=totals.profitCount+' ta sotuv narxi bor kitob';
-    $('costShippingNote').textContent=complete.length+' ta vazni va narxi kiritilgan kitob';
+    $('costProfitTotalSom').textContent=totals.profitCount?costSom(totals.profitTotal):'—';
+    $('costProfitNote').textContent=totals.profitCount+' xil kitob · '+totals.profitUnits+' dona sotilsa';
+    $('costShippingNote').textContent=totals.quantityReady+' ta nusxa yetkazishi';
+    if(document.activeElement!==$('costKgRateQuick'))$('costKgRateQuick').value=state.bookCostRate;
+    $('costKgQuickInfo').textContent='1 kg = '+formatMoney(state.bookCostRate,'KRW')+
+      ' · 100 g = '+formatMoney(state.bookCostRate/10,'KRW')+' · Faqat kitoblar uchun';
     $('costChipAll').textContent=ready.length;
     $('costChipPrice').textContent=ready.filter(r=>r.price===null).length;
     $('costChipWeight').textContent=ready.filter(r=>r.grams===null).length;
-    $('costReportValues').innerHTML='<dl><div><dt>Saqlangan kitoblar</dt><dd>'+ready.length+' ta</dd></div><div><dt>Jami tan narxi ('+totals.ready+' ta to‘liq kitob)</dt><dd>'+(totals.ready?formatMoney(totals.total,'KRW'):'—')+'</dd></div><div><dt>Kutiladigan foyda ('+totals.profitCount+' ta kitob)</dt><dd>'+(totals.profitCount?formatMoney(totals.profitTotal,'KRW'):'—')+'</dd></div><div><dt>Narx yoki vazn yetishmaydi</dt><dd>'+totals.pending+' ta</dd></div></dl>';
+    $('costReportValues').innerHTML='<dl><div><dt>Saqlangan kitob turlari</dt><dd>'+ready.length+' ta</dd></div>'+
+      '<div><dt>Kelgan nusxalar soni</dt><dd>'+totals.quantityTotal+' ta</dd></div>'+
+      '<div><dt>Jami xarid (₩)</dt><dd>'+(totals.ready?formatMoney(totals.purchaseTotal,'KRW'):'—')+'</dd></div>'+
+      '<div><dt>Jami yetkazish (₩)</dt><dd>'+(totals.ready?formatMoney(totals.shippingTotal,'KRW'):'—')+'</dd></div>'+
+      '<div><dt>Jami tan narxi (₩)</dt><dd>'+(totals.ready?formatMoney(totals.total,'KRW'):'—')+'</dd></div>'+
+      '<div><dt>Jami tan narxi (so‘m)</dt><dd>'+(totals.ready?costSom(totals.total):'—')+'</dd></div>'+
+      '<div><dt>Kutiladigan jami tushum</dt><dd>'+(totals.profitCount?formatMoney(totals.revenueTotal,'KRW'):'—')+'</dd></div>'+
+      '<div><dt>Kutiladigan foyda (₩)</dt><dd>'+(totals.profitCount?formatMoney(totals.profitTotal,'KRW'):'—')+'</dd></div>'+
+      '<div><dt>Kutiladigan foyda (so‘m)</dt><dd>'+(totals.profitCount?costSom(totals.profitTotal):'—')+'</dd></div>'+
+      '<div><dt>Narx yoki vazn yetishmaydi</dt><dd>'+totals.pending+' ta</dd></div></dl>';
     $('costReportComparisons').innerHTML=costTariffReport(ready);
     const drafts=state.bookCosts.length-ready.length;
     $('costReadyCount').textContent=ready.length;
@@ -3213,12 +3234,39 @@
       const book=state.books.find(b=>costs.key(b.title)===costs.key(row.title));
       const aiMetadata=state.bookCostMetadata?.[costs.key(row.title)];
       const cover=book?coverHtml(book,'cost-cover'):aiMetadata?.cover?coverHtml(aiMetadata,'cost-cover'):'<div class="cost-cover cost-cover-placeholder" aria-hidden="true"><svg class="ui-icon" aria-hidden="true"><use href="#ico-book"></use></svg></div>';
-      if(costView==='main')return '<article class="cost-main-row"><div class="cost-main-heading">'+cover+'<div class="cost-main-copy"><h3>'+escapeHtml(row.title||'Nomsiz kitob')+'</h3><small class="cost-main-weight">Vazni: <b>'+(row.grams===null?'Kiritilmagan':row.grams+' g')+'</b></small></div></div><div class="cost-main-prices"><span><small>Xarid narxi</small><b>'+(row.price===null?'—':formatMoney(row.price,'KRW'))+'</b></span><span><small>Tan narxi</small><b>'+(result.total===null?'—':formatMoney(result.total,'KRW'))+'</b></span><span><small>Sotuv narxi</small><b>'+(costs.amount(row.salePrice)===null?'—':formatMoney(row.salePrice,'KRW'))+'</b></span></div><details class="cost-main-profit '+(profit!==null && profit<0?'cost-loss':'')+'"><summary><span>Kutilayotgan sof foyda</span><strong>'+(profit===null?'—':formatMoney(profit,'KRW'))+'</strong></summary><p>Sotuv narxi − jami tan narxi (xarid + yetkazish). '+(profit===null?'Hisoblash uchun narx, vazn va sotuv narxi kerak.':formatMoney(row.salePrice,'KRW')+' − '+formatMoney(result.total,'KRW')+' = '+formatMoney(profit,'KRW'))+'</p></details>'+costTariffTable(row)+(costs.tariffs(state.bookCostRate,state.bookCostComparisons).length===1?'<p class="cost-main-shipping">Yetkazish ('+formatMoney(state.bookCostRate,'KRW')+' / kg): <b>'+(result.shipping===null?'—':formatMoney(result.shipping,'KRW'))+'</b></p>':'')+'</article>';
+      if(costView==='main'){
+        const v=costs.inventory(row,state.bookCostRate),num=v.quantity??1;
+        const sale=v.unitSale===null?'—':formatMoney(v.unitSale,'KRW');
+        const perProfit=costs.profit(row,state.bookCostRate);
+        return '<article class="cost-main-row"><div class="cost-main-heading">'+cover+
+          '<div class="cost-main-copy"><h3>'+escapeHtml(row.title||'Nomsiz kitob')+'</h3>'+
+          '<small class="cost-main-weight">1 dona: '+(row.grams===null?'vazn kiritilmagan':row.grams+' g')+
+          ' · <b class="cost-copy-pill">'+num+' ta kelgan</b></small></div>'+
+          '<button type="button" class="soft-button cost-main-edit" data-cost-edit="'+escapeHtml(row.id)+'">Tahrirlash</button></div>'+
+          '<div class="cost-main-prices"><span><small>1 dona xarid</small><b>'+(v.unitPurchase===null?'—':formatMoney(v.unitPurchase,'KRW'))+'</b></span>'+
+          '<span><small>1 dona tan narxi</small><b>'+(v.unitCost===null?'—':formatMoney(v.unitCost,'KRW'))+'</b></span>'+
+          '<span><small>1 dona sotuv</small><b>'+sale+'</b></span></div>'+
+          '<div class="cost-stock-breakdown"><div><small>Jami xarid · '+num+' dona</small><b>'+(v.purchase===null?'—':formatMoney(v.purchase,'KRW'))+'</b></div>'+
+          '<div><small>Jami yetkazish</small><b>'+(v.shipping===null?'—':formatMoney(v.shipping,'KRW'))+'</b></div>'+
+          '<div class="cost-stock-grand"><small>Jami sarf</small><strong>'+(v.total===null?'—':formatMoney(v.total,'KRW'))+'</strong>'+
+          '<em>'+(v.total===null?'—':costSom(v.total))+'</em></div></div>'+
+          '<details class="cost-main-profit '+(v.profit!==null&&v.profit<0?'cost-loss':'')+'"><summary><span>Kutilayotgan jami foyda · '+num+' dona</span>'+
+          '<strong>'+(v.profit===null?'—':formatMoney(v.profit,'KRW'))+'</strong></summary>'+
+          '<p>Bir donadan: '+(perProfit===null?'—':formatMoney(perProfit,'KRW'))+
+          ' · Jami foyda: '+(v.profit===null?'—':costSom(v.profit))+
+          '. '+(v.profit===null?'Foyda uchun xarid, vazn va sotuv narxi kerak.':'Barcha nusxalar shu narxda sotilsa kutiladigan foyda.')+'</p></details>'+
+          costTariffTable(row)+
+          (costs.tariffs(state.bookCostRate,state.bookCostComparisons).length===1?
+            '<p class="cost-main-shipping">1 kg yetkazish: <b>'+formatMoney(state.bookCostRate,'KRW')+'</b> · '+num+' nusxa uchun</p>':'')+
+          '</article>';
+      }
       const field=(key,label,value,placeholder)=>'<label>'+label+'<input '+(key==='salePrice' && row.muhajeerId?'readonly aria-readonly="true" ':'')+' data-cost-quick="'+key+'" inputmode="decimal" value="'+(value??'')+'" placeholder="'+placeholder+'"></label>';
       return '<article class="cost-ready-row" data-cost-quick-id="'+escapeHtml(row.id)+'"><div class="cost-ready-heading">'+(costSelecting?'<input type="checkbox" data-cost-select="'+escapeHtml(row.id)+'" aria-label="'+escapeHtml(row.title||'Nomsiz kitob')+'ni tanlash" '+(costSelectedIds.has(row.id)?'checked':'')+'>':'')+cover+'<div class="cost-heading-copy"><h3>'+escapeHtml(row.title||'Nomsiz kitob')+'</h3>'+(pending?'<small class="cost-pending-badge">'+pending+'</small>':'')+'</div><button type="button" class="soft-button" data-cost-edit="'+escapeHtml(row.id)+'">Tahrirlash</button></div>'+
-        '<div class="cost-ready-values"><span><small>Xarid narxi</small><b>'+(row.price===null?'—':formatMoney(row.price,'KRW'))+'</b></span><span><small>Vazni</small><b>'+(row.grams===null?'—':row.grams+' g')+'</b></span><span><small>Yetkazish</small><b>'+(result.shipping===null?'—':formatMoney(result.shipping,'KRW'))+'</b></span><span class="cost-ready-total"><small>Tan narxi</small><strong>'+(result.total===null?'—':formatMoney(result.total,'KRW'))+'</strong></span></div>'+
+        '<div class="cost-row-quantity"><b>'+costs.quantity(row.quantity)+' ta kelgan</b><span>1 dona narxi × soni</span></div><div class="cost-ready-values"><span><small>Xarid narxi</small><b>'+(row.price===null?'—':formatMoney(row.price,'KRW'))+'</b></span><span><small>Vazni</small><b>'+(row.grams===null?'—':row.grams+' g')+'</b></span><span><small>Yetkazish</small><b>'+(result.shipping===null?'—':formatMoney(result.shipping,'KRW'))+'</b></span><span class="cost-ready-total"><small>Tan narxi</small><strong>'+(result.total===null?'—':formatMoney(result.total,'KRW'))+'</strong></span></div>'+
         '<details class="cost-row-details"><summary>Hisob tafsilotlari</summary><div class="cost-profit-row"><span>'+ (row.muhajeerId?'Muhajeer sotuv narxi':'Sotuv narxi')+' <b>'+(costs.amount(row.salePrice)===null?'—':formatMoney(row.salePrice,'KRW'))+'</b></span><span class="'+(profit!==null && profit<0?'cost-loss':'cost-profit')+'">Kutiladigan foyda <strong>'+(profit===null?'—':formatMoney(profit,'KRW'))+'</strong></span></div>'+
-        costTariffTable(row)+costCloudRow(row)+'</details><details class="cost-quick-editor"><summary>Tez tahrirlash</summary><div class="cost-quick-fields">'+field('price','Xarid (₩)',row.price,'Narx kiriting')+field('grams','Vazn (g)',row.grams,'Vazn kiriting')+field('salePrice','Sotuv (₩)',row.salePrice,'Sotuv narxi')+'</div><small data-cost-quick-error role="alert"></small><button type="button" class="primary-button" data-cost-quick-save>Saqlash</button></details></article>';
+        '<div class="cost-row-stock-total"><small>Jami sarf: '+(costs.inventory(row,state.bookCostRate).total===null?'—':formatMoney(costs.inventory(row,state.bookCostRate).total,'KRW'))+
+          ' · '+(costs.inventory(row,state.bookCostRate).total===null?'—':costSom(costs.inventory(row,state.bookCostRate).total))+
+          '</small><strong>Kutiladigan jami foyda: '+(costs.inventory(row,state.bookCostRate).profit===null?'—':formatMoney(costs.inventory(row,state.bookCostRate).profit,'KRW'))+'</strong></div>'+costTariffTable(row)+costCloudRow(row)+'</details><details class="cost-quick-editor"><summary>Tez tahrirlash</summary><div class="cost-quick-fields">'+field('price','Xarid (₩)',row.price,'Narx kiriting')+field('grams','Vazn (g)',row.grams,'Vazn kiriting')+field('quantity','Kelgan nusxa',costs.quantity(row.quantity),'Masalan: 10')+field('salePrice','Sotuv (₩)',row.salePrice,'Sotuv narxi')+'</div><small data-cost-quick-error role="alert"></small><button type="button" class="primary-button" data-cost-quick-save>Saqlash</button></details></article>';
     }).join(''):'<div class="empty-state"><strong>'+(query || filter!=='all'?'Mos kitob topilmadi':'Saqlangan kitoblar hali yo‘q')+'</strong>'+(query || filter!=='all'?'Filtr yoki qidiruvni o‘zgartiring.':'Nomlarini yoki narxlarini kiritib saqlang. Vaznini keyin qo‘shishingiz mumkin.')+'</div>';
     window.KoreaProducts.renderBookList(rows);
   }
@@ -3269,11 +3317,16 @@
       return '<article class="cost-book" data-cost-id="'+escapeHtml(row.id)+'"><details class="cost-editor-card" name="cost-editor-book" '+(costEditingId || index===0 && !editing?'open':'')+'><summary><span><b data-cost-editor-title>'+escapeHtml(row.title||'Yangi kitob')+'</b><small data-cost-editor-meta>'+ (row.price===null?'Narx yo‘q':formatMoney(row.price,'KRW'))+' · '+(row.grams===null?'Vazn yo‘q':row.grams+' g')+'</small></span><span class="cost-edit-badge">Tahrirlash</span></summary><div class="cost-editor-body">'+
         '<div class="cost-book-heading"><label>Kitob nomi<input data-cost-field="title" maxlength="300" value="'+escapeHtml(row.title)+'" placeholder="Kitob nomini yozing"></label>'+
         '<button type="button" class="cost-delete" data-cost-delete aria-label="Kitobni ro‘yxatdan o‘chirish">×</button></div>'+
-        '<div class="cost-fields"><label>Xarid narxi (₩)<input data-cost-field="price" inputmode="decimal" value="'+(row.price??'')+'" placeholder="Masalan: 8000"></label>'+
-        '<label>Kitob vazni (gramm)<input data-cost-field="grams" inputmode="decimal" value="'+(row.grams??'')+'" placeholder="Masalan: 300"></label><label>Sotuv narxi (₩)<input data-cost-field="salePrice" inputmode="decimal" value="'+(row.salePrice??'')+'" placeholder="Masalan: 15000" '+(row.muhajeerId?'readonly aria-readonly="true"':'')+'></label></div>'+
+        '<div class="cost-fields"><label>Xarid narxi (₩) / dona<input data-cost-field="price" inputmode="decimal" value="'+(row.price??'')+'" placeholder="Masalan: 8000"></label>'+
+        '<label>Kitob vazni (gramm / dona)<input data-cost-field="grams" inputmode="decimal" value="'+(row.grams??'')+'" placeholder="Masalan: 300"></label>'+
+        '<label>Nechta kitob keldi?<input data-cost-field="quantity" inputmode="numeric" value="'+costs.quantity(row.quantity)+'" placeholder="Masalan: 10"></label>'+
+        '<label>Sotuv narxi (₩)<input data-cost-field="salePrice" inputmode="decimal" value="'+(row.salePrice??'')+'" placeholder="Masalan: 15000" '+(row.muhajeerId?'readonly aria-readonly="true"':'')+'></label></div>'+
         '<div class="cost-result"><span>Yetkazish <b data-cost-shipping>'+ (result.shipping===null?'—':formatMoney(result.shipping,'KRW'))+'</b></span>'+
         '<span>Jami tan narxi <strong data-cost-total>'+ (result.total===null?'—':formatMoney(result.total,'KRW'))+'</strong></span></div>'+
-        '<p class="cost-editor-profit">Kutiladigan foyda: <strong data-cost-profit>'+(costs.profit(row,state.bookCostRate)===null?'—':formatMoney(costs.profit(row,state.bookCostRate),'KRW'))+'</strong></p>'+
+        '<div class="cost-editor-stock"><span>Jami xarid (hamma nusxalar): <b data-cost-batch-purchase>'+(costs.inventory(row,state.bookCostRate).purchase===null?'—':formatMoney(costs.inventory(row,state.bookCostRate).purchase,'KRW'))+'</b></span>'+
+        '<span>Jami tan narxi: <b data-cost-batch-total>'+(costs.inventory(row,state.bookCostRate).total===null?'—':formatMoney(costs.inventory(row,state.bookCostRate).total,'KRW'))+'</b></span>'+
+        '<span>So‘mda jami: <b data-cost-batch-som>'+(costs.inventory(row,state.bookCostRate).total===null?'—':costSom(costs.inventory(row,state.bookCostRate).total))+'</b></span></div>'+
+        '<p class="cost-editor-profit">Kutiladigan jami foyda: <strong data-cost-profit>'+(costs.inventory(row,state.bookCostRate).profit===null?'—':formatMoney(costs.inventory(row,state.bookCostRate).profit,'KRW'))+'</strong></p>'+
         '<details class="cost-editor-comparison"><summary>Tariflar bo‘yicha solishtirish</summary><div data-cost-tariff-results>'+costTariffTable(row)+'</div></details>'+
         '<small data-cost-hint>'+(result.total===null?'Hozir saqlashingiz mumkin. Jami narx va vazn kiritilganda hisoblanadi.':'Xarid narxi + '+row.grams+' g ÷ 1000 × '+formatMoney(state.bookCostRate,'KRW'))+'</small>'+
         '<button type="button" class="primary-button cost-save-button" data-cost-save>✓ Saqlash va ro‘yxatga qaytish</button></div></details></article>';
@@ -3300,6 +3353,12 @@
 
   function bindBookCosts(){
     bindPaidAi();
+    $('costKgQuickSave').addEventListener('click',()=>{
+      const field=$('costKgRateQuick'),value=costs.amount(field.value);
+      if(value===null){field.setAttribute('aria-invalid','true');toast('1 kg kitob yetkazish narxini vonda kiriting.');return;}
+      field.setAttribute('aria-invalid','false');$('costKgRate').value=value;
+      $('costRateSaveBtn').click();
+    });
     $('costRateAddBtn').addEventListener('click',()=>{state.bookCostComparisons.push({id:makeId(),label:'Variant '+(state.bookCostComparisons.length+2),rate:null});persistBookCosts('Yangi kg tarifini kiriting.',false);renderCostRates();});
     $('costRatesList').addEventListener('input',event=>{
       const field=event.target.dataset.costTariffField;if(!field)return;
@@ -3373,7 +3432,7 @@
         const card=quick.closest('[data-cost-quick-id]'),row=state.bookCosts.find(r=>r.id===card.dataset.costQuickId);
         if(!row)return;
         const updates={};let invalid=false;
-        qsa('[data-cost-quick]',card).forEach(input=>{if(input.dataset.costQuick==='salePrice' && row.muhajeerId)return;const value=costs.amount(input.value);const bad=input.value.trim()!=='' && value===null;input.setAttribute('aria-invalid',String(bad));invalid=invalid||bad;updates[input.dataset.costQuick]=value;});
+        qsa('[data-cost-quick]',card).forEach(input=>{if(input.dataset.costQuick==='salePrice' && row.muhajeerId)return;const value=input.dataset.costQuick==='quantity'?costs.quantity(input.value):costs.amount(input.value);const bad=input.dataset.costQuick==='quantity'?(!input.value.trim()||value===null):(input.value.trim()!==''&&value===null);input.setAttribute('aria-invalid',String(bad));invalid=invalid||bad;updates[input.dataset.costQuick]=value;});
         if(invalid){card.querySelector('[data-cost-quick-error]').textContent='Raqamlarni tuzating yoki maydonni bo‘sh qoldiring.';return;}
         const previous={...row};Object.assign(row,updates);
         if(!costHasData(row)){Object.assign(row,previous);card.querySelector('[data-cost-quick-error]').textContent='Kamida nomi yoki narxi bo‘lsin.';return;}
@@ -3440,14 +3499,18 @@
       const row=state.bookCosts.find(item=>item.id===card.dataset.costId);
       if(!row)return;
       if(field==='salePrice' && row.muhajeerId)return;
-      row[field]=field==='title'?event.target.value:costs.amount(event.target.value);
-      const invalid=field!=='title' && event.target.value.trim()!=='' && row[field]===null;
+      row[field]=field==='title'?event.target.value:field==='quantity'?costs.quantity(event.target.value):costs.amount(event.target.value);
+      const invalid=field==='quantity'?(!event.target.value.trim()||row[field]===null):(field!=='title' && event.target.value.trim()!=='' && row[field]===null);
       event.target.setAttribute('aria-invalid',String(invalid));
       const result=costs.calculate(row,state.bookCostRate);
       card.querySelector('[data-cost-shipping]').textContent=result.shipping===null?'—':formatMoney(result.shipping,'KRW');
       card.querySelector('[data-cost-total]').textContent=result.total===null?'—':formatMoney(result.total,'KRW');
       const tariffNode=card.querySelector('[data-cost-tariff-results]');if(tariffNode)tariffNode.innerHTML=costTariffTable(row);
-      const profitNode=card.querySelector('[data-cost-profit]');if(profitNode)profitNode.textContent=costs.profit(row,state.bookCostRate)===null?'—':formatMoney(costs.profit(row,state.bookCostRate),'KRW');
+      const batch=costs.inventory(row,state.bookCostRate);
+      const profitNode=card.querySelector('[data-cost-profit]');if(profitNode)profitNode.textContent=batch.profit===null?'—':formatMoney(batch.profit,'KRW');
+      const purchaseNode=card.querySelector('[data-cost-batch-purchase]');if(purchaseNode)purchaseNode.textContent=batch.purchase===null?'—':formatMoney(batch.purchase,'KRW');
+      const batchNode=card.querySelector('[data-cost-batch-total]');if(batchNode)batchNode.textContent=batch.total===null?'—':formatMoney(batch.total,'KRW');
+      const somNode=card.querySelector('[data-cost-batch-som]');if(somNode)somNode.textContent=batch.total===null?'—':costSom(batch.total);
       card.querySelector('[data-cost-hint]').textContent=invalid?'Musbat raqam kiriting (masalan: 300 yoki 300.5).':result.total===null?'Hozir saqlashingiz mumkin. Jami narx va vazn kiritilganda hisoblanadi.':'Xarid narxi + '+row.grams+' g ÷ 1000 × '+formatMoney(state.bookCostRate,'KRW');
       const editorTitle=card.querySelector('[data-cost-editor-title]');if(editorTitle)editorTitle.textContent=row.title||'Yangi kitob';
       const editorMeta=card.querySelector('[data-cost-editor-meta]');if(editorMeta)editorMeta.textContent=(row.price===null?'Narx yo‘q':formatMoney(row.price,'KRW'))+' · '+(row.grams===null?'Vazn yo‘q':row.grams+' g');

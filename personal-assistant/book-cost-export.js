@@ -21,9 +21,9 @@
   function columnName(index){let name='';for(let n=index+1;n>0;n=Math.floor((n-1)/26))name=String.fromCharCode(65+(n-1)%26)+name;return name;}
   function tableData(rows,wonPerKg,extra=[]){
     const rate=costs.rate(wonPerKg),tariffs=costs.tariffs(rate,extra).slice(1);
-    const header=['Kitob nomi','Xarid narxi (₩)','Vazni (g)','Yetkazish (₩)','Tan narxi (₩)','Sotuv narxi (₩)','Kutiladigan foyda (₩)','1 kg narxi (₩)'];
+    const header=['Kitob nomi','Xarid narxi / dona (₩)','Vazni / dona (g)','Yetkazish / dona (₩)','Tan narxi / dona (₩)','Sotuv / dona (₩)','Foyda / dona (₩)','1 kg narxi (₩)','Kelgan soni','Jami xarid (₩)','Jami yetkazish (₩)','Jami tan narxi (₩)','Kutiladigan jami foyda (₩)'];
     for(const t of tariffs){const prefix=String(t.label||'Tarif')+' · '+t.rate+' ₩/kg';header.push(prefix+' — Yetkazish (₩)',prefix+' — Tan narxi (₩)',prefix+' — Foyda (₩)');}
-    return [header,...rows.map(row=>{const c=costs.calculate(row,rate);const values=[row.title||'Nomsiz kitob',costs.amount(row.price),costs.amount(row.grams),c.shipping,c.total,costs.amount(row.salePrice),costs.profit(row,rate),rate];for(const t of tariffs){const result=costs.calculate(row,t.rate);values.push(result.shipping,result.total,costs.profit(row,t.rate));}return values;})];
+    return [header,...rows.map(row=>{const c=costs.calculate(row,rate);const inv=costs.inventory(row,rate);const values=[row.title||'Nomsiz kitob',costs.amount(row.price),costs.amount(row.grams),c.shipping,c.total,costs.amount(row.salePrice),costs.profit(row,rate),rate,inv.quantity,inv.purchase,inv.shipping,inv.total,inv.profit];for(const t of tariffs){const result=costs.calculate(row,t.rate);values.push(result.shipping,result.total,costs.profit(row,t.rate));}return values;})];
   }
   function build(rows,wonPerKg,extra=[]){
     const table=tableData(rows,wonPerKg,extra),lastColumn=columnName(table[0].length-1);

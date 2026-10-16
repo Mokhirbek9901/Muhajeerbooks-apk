@@ -2070,3 +2070,50 @@ body[data-workspace="finance"][data-finance-view="history"] #financeRecentPanel{
  .exchange-pair-amount .exchange-rate-base{font-size:.84rem}
  .exchange-pair-amount .exchange-rate-unit{font-size:.73rem}
 }
+
+/* Yordamchi v59 — book shipment tariff and arrival-count profitability workspace */
+.cost-shipping-quick{display:grid;gap:13px;padding:18px;border:1px solid var(--line);border-radius:19px;background:var(--surface);margin:6px 0 18px;box-shadow:var(--shadow)}
+.cost-shipping-quick-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.cost-shipping-quick-head>div{min-width:0}
+.cost-shipping-quick-head small{display:block;letter-spacing:.07em;color:var(--green);font-size:.67rem;font-weight:900}
+.cost-shipping-quick-head h2{margin:7px 0 5px;font-size:1.1rem;line-height:1.3;color:var(--ink)}
+.cost-shipping-quick-head p{color:var(--muted);font-size:.76rem;line-height:1.55;margin:0}
+.cost-shipping-quick-head>span{display:grid;place-items:center;background:var(--mint);border-radius:14px;font-size:1.5rem;flex:0 0 50px;height:50px}
+.cost-shipping-quick>label{font-size:.75rem;font-weight:900;color:var(--ink)}
+.cost-shipping-quick-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:stretch;gap:10px}
+.cost-shipping-quick-input{display:flex;align-items:center;gap:7px;padding:0 11px;border:1px solid var(--line);background:var(--surface2);border-radius:12px;min-width:0}
+.cost-shipping-quick-input:focus-within{border-color:var(--green)}
+.cost-shipping-quick-input span{font-size:1.08rem;color:var(--green);font-weight:900}
+.cost-shipping-quick-input input{border:0!important;outline:0!important;min-width:0;width:100%;min-height:49px;padding:9px 0!important;background:none!important;font-size:1.13rem;font-weight:900;box-shadow:none!important;color:var(--ink);font-variant-numeric:tabular-nums}
+.cost-shipping-quick-actions button{border-radius:12px;white-space:nowrap;min-height:49px;font-size:.77rem;padding:10px 14px}
+.cost-shipping-quick-note{padding:11px 12px;border-radius:11px;background:var(--mint);color:var(--green);font-size:.73rem;line-height:1.5;margin:0}
+.cost-copy-pill{display:inline-flex!important;align-items:center;padding:4px 9px;color:var(--green);border-radius:7px;background:var(--mint);font-size:.75rem}
+.cost-main-edit{margin-left:auto;align-self:start;flex-shrink:0;padding:6px 10px!important;min-height:35px;font-size:.71rem}
+.cost-main-row .cost-main-heading{align-items:flex-start}
+.cost-main-row .cost-main-copy{min-width:0}
+.cost-stock-breakdown{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:10px 0;margin-top:5px}
+.cost-stock-breakdown>div{display:grid;gap:4px;border:1px solid var(--line);border-radius:12px;background:var(--surface2);padding:12px;min-width:0}
+.cost-stock-breakdown small,.cost-stock-breakdown>div>small{font-size:.7rem;font-weight:700;color:var(--muted)}
+.cost-stock-breakdown b{color:var(--ink);font-size:1rem;overflow-wrap:anywhere}
+.cost-stock-breakdown .cost-stock-grand{grid-column:1/-1;background:var(--mint);border-color:color-mix(in srgb,var(--green) 22%,var(--line));display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:7px}
+.cost-stock-breakdown .cost-stock-grand strong{font-size:1.22rem;color:var(--green);font-weight:900}
+.cost-stock-breakdown .cost-stock-grand em{display:block;width:100%;font-size:.83rem;color:var(--green);font-weight:800;font-style:normal}
+.cost-ready-row .cost-row-quantity{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:7px;margin:8px 0;padding:9px 10px;border-radius:10px;background:var(--mint)}
+.cost-row-quantity b{font-size:.75rem;color:var(--green)}
+.cost-row-quantity span{font-size:.69rem;color:var(--muted)}
+.cost-row-stock-total{display:grid;gap:7px;padding:12px;background:var(--surface2);border-radius:12px;margin:10px 0}
+.cost-row-stock-total small{font-size:.76rem;line-height:1.45;color:var(--muted)}
+.cost-row-stock-total strong{font-size:.86rem;color:var(--green)}
+.cost-editor-stock{display:grid;grid-template-columns:1fr;gap:8px;margin:10px 0;padding:13px;border:1px solid var(--line);background:var(--surface2);border-radius:14px}
+.cost-editor-stock span{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;line-height:1.4;font-size:.77rem;color:var(--muted)}
+.cost-editor-stock b{font-weight:900;color:var(--green);overflow-wrap:anywhere}
+.cost-profit-main{background:var(--mint)!important}
+.cost-profit-main strong{color:var(--green)!important;font-weight:900}
+@media(max-width:390px){
+ .cost-shipping-quick{padding:14px}
+ .cost-shipping-quick-actions{grid-template-columns:1fr}
+ .cost-shipping-quick-actions button{width:100%}
+ .cost-main-edit{font-size:.65rem;padding:5px 7px!important}
+ .cost-stock-breakdown{gap:6px}
+ .cost-stock-breakdown>div{padding:10px}
+}

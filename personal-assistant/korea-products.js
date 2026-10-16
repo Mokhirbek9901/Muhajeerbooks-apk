@@ -176,7 +176,7 @@
     syncRateInputs();
     const saved=state.bookCosts.filter(row=>row.saved&&String(row.title||'').trim());
     let total=0,count=0;
-    for(const row of saved){const n=root.BookCosts.calculate(row,state.bookCostRate).total;if(n!==null){total+=n;count++;}}
+    for(const row of saved){const n=root.BookCosts.inventory(row,state.bookCostRate).total;if(n!==null){total+=n;count++;}}
     $('bookSomTotal').textContent=count?chosenText(total):'—';
     document.querySelectorAll('#costReadyList .cost-main-row,#costReadyList .cost-ready-row').forEach((card,index)=>{
       card.querySelector('.converted-cost')?.remove();

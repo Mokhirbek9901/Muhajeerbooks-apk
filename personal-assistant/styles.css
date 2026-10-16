@@ -2251,3 +2251,75 @@ body[data-workspace="products"][data-product-view="entry"] .workspace-fx-details
  .workspace-shortcuts-grid b{font-size:.68rem}
  .workspace-shortcuts-grid small{font-size:.58rem}
 }
+
+/* Yordamchi v61 — independent book and Korean-product workspaces */
+body[data-workspace="costs"][data-cost-view="main"] #costListPanel{display:none!important}
+body[data-workspace="costs"][data-cost-view="main"] .cost-dashboard article{display:none!important}
+body[data-workspace="costs"][data-cost-view="main"] .cost-dashboard .cost-total-primary,
+body[data-workspace="costs"][data-cost-view="main"] .cost-dashboard article:has(#costSummaryQuantity),
+body[data-workspace="costs"][data-cost-view="main"] .cost-dashboard .cost-summary-pending{display:grid!important}
+body[data-workspace="costs"][data-cost-view="main"] .cost-dashboard .cost-summary-pending{grid-column:1/-1}
+body[data-workspace="costs"][data-cost-view="report"] #screen-book-costs .cost-dashboard{
+  display:grid!important;margin:10px 0 20px!important
+}
+body[data-workspace="costs"][data-cost-view="report"] #screen-book-costs .cost-dashboard article{display:grid!important}
+body[data-workspace="costs"] .book-simple-fx{display:none!important}
+body[data-workspace="costs"][data-cost-view="settings"] .book-simple-fx{display:block!important;margin:14px 0 20px}
+body[data-workspace="costs"][data-cost-view="settings"] #screen-book-costs>.cost-overview{display:none!important}
+body[data-workspace="costs"][data-cost-view="main"] #screen-book-costs>.cost-overview{margin-top:6px}
+body[data-workspace="costs"][data-cost-view="main"] .cost-main-actions{margin-top:10px}
+body[data-workspace="costs"][data-cost-view="report"] #costReportPanel{border-radius:19px;box-shadow:var(--shadow)}
+.book-simple-fx{padding:17px;border-radius:19px;border:1px solid var(--line);background:var(--surface)}
+.book-simple-fx-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
+.book-simple-fx-head>span{display:grid;place-items:center;width:42px;height:42px;flex-shrink:0;border-radius:13px;background:var(--mint);font-size:1.5rem;color:var(--green)}
+.book-simple-fx-head h2{margin:0 0 5px;font-size:1.05rem;color:var(--ink)}
+.book-simple-fx-head p{margin:0;color:var(--muted);font-size:.74rem;line-height:1.5}
+.book-rate-editor{display:grid;grid-template-columns:minmax(0,1fr) 42px minmax(0,1fr);align-items:end;gap:9px;margin:14px 0}
+.book-rate-editor label{display:grid;gap:6px;min-width:0;color:var(--ink);font-size:.71rem;font-weight:800}
+.book-rate-editor select,.book-rate-editor input{width:100%;min-width:0;min-height:46px;box-sizing:border-box;border:1px solid var(--line);border-radius:11px;background:var(--surface2);padding:8px;color:var(--ink);font-size:.84rem;font-weight:800}
+.book-rate-editor input{font-size:1rem;text-align:center}
+.book-rate-editor .book-rate-swap{min-height:46px;border:1px solid var(--line);border-radius:11px;color:var(--green);background:var(--mint);font-size:1.25rem}
+.book-rate-editor>.primary-button{grid-column:1/-1;min-height:48px;border-radius:12px}
+.book-rate-hint{font-size:.75rem;line-height:1.5;color:var(--green);font-weight:650}
+.book-only-converter{margin-top:15px;padding:14px;border-top:1px solid var(--line);background:var(--surface2);border-radius:13px}
+.book-only-converter .currency-pair{gap:7px}
+.book-only-converter .currency-pair select{font-size:.84rem}
+.book-simple-fx .book-som-result{margin:12px 0 0;font-size:.77rem;color:var(--ink)}
+.korea-shipping-head h2{font-size:1.06rem}
+.korea-shipping-input select{min-width:58px;width:65px;border:0;border-right:1px solid var(--line);background:transparent;font-size:.76rem;color:var(--green);font-weight:900;outline:0;padding-right:4px}
+.korea-bulk-panel{border-top:1px solid var(--line);padding-top:9px}
+.korea-bulk-panel>summary{display:grid;gap:4px;cursor:pointer;padding:10px 0;list-style:none}
+.korea-bulk-panel>summary::-webkit-details-marker{display:none}
+.korea-bulk-panel>summary b{color:var(--ink);font-size:.83rem}
+.korea-bulk-panel>summary small{color:var(--muted);font-size:.71rem;line-height:1.35}
+.korea-bulk-all{display:flex;align-items:center;gap:10px;color:var(--ink);font-size:.76rem;font-weight:850;padding:9px 0}
+.korea-bulk-all input,.korea-bulk-option input{accent-color:var(--green);width:19px;height:19px;flex-shrink:0}
+.korea-bulk-targets{display:grid;gap:6px;max-height:230px;overflow:auto;margin-bottom:10px}
+.korea-bulk-option{display:flex;align-items:center;gap:11px;padding:11px;border:1px solid var(--line);background:var(--surface2);border-radius:11px}
+.korea-bulk-option>span{display:grid;gap:4px;min-width:0}
+.korea-bulk-option b{font-size:.78rem;color:var(--ink)}
+.korea-bulk-option small{font-size:.67rem;color:var(--muted)}
+.korea-bulk-actions{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.korea-bulk-actions>span{color:var(--green);font-size:.76rem;font-weight:850}
+.korea-bulk-actions>button{font-size:.74rem;border-radius:12px;min-height:42px}
+.korea-bulk-actions button:disabled{opacity:.5}
+.korea-item-rate-editor{display:grid;gap:9px;margin:13px 0;padding:17px;border-radius:15px;background:var(--mint);border:1px solid color-mix(in srgb,var(--green) 28%,var(--line))}
+.korea-item-rate-editor h3{color:var(--green);font-size:1rem;font-weight:900;margin:0}
+.korea-item-rate-editor p{font-size:.72rem;color:var(--muted);line-height:1.4;margin:0}
+.korea-item-rate-row{display:grid;grid-template-columns:110px minmax(0,1fr);gap:8px}
+.korea-item-rate-row select,.korea-item-rate-row input{width:100%;box-sizing:border-box;min-width:0;min-height:53px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px;color:var(--ink);font-size:.95rem;font-weight:850}
+.korea-item-rate-row select{font-size:.79rem}
+#koreaItemRateHint{font-size:.72rem;line-height:1.4;color:var(--green);font-weight:800}
+.korea-item-rate{display:grid;grid-template-columns:1fr auto;gap:4px 10px;background:var(--mint);border-radius:11px;padding:11px;margin:11px 0}
+.korea-item-rate small{grid-column:1/-1;font-size:.71rem;color:var(--muted);font-weight:750}
+.korea-item-rate b{font-size:.95rem;color:var(--green)}
+.korea-item-rate span{font-size:.74rem;color:var(--green);font-weight:750;text-align:right;align-self:center}
+@media(max-width:390px){
+ .book-rate-editor{grid-template-columns:minmax(0,1fr) 34px minmax(0,1fr);gap:5px}
+ .book-rate-editor select{font-size:.69rem;padding:6px 4px}
+ .book-rate-editor .book-rate-swap{font-size:1.05rem}
+ .korea-item-rate-row{grid-template-columns:97px minmax(0,1fr)}
+ .korea-item-rate-editor{padding:13px}
+ .korea-bulk-actions{flex-wrap:wrap}
+ .korea-bulk-actions>button{width:100%}
+}

@@ -79,6 +79,13 @@
   function appendAmount(container,text){
     const el=document.createElement('p');el.className='converted-cost';el.textContent=text;container.appendChild(el);
   }
+  function bookSomDescription(row,state){
+    const value=root.BookCosts.calculate(row,state.bookCostRate);
+    const price=row.price===null?'—':sumText(row.price);
+    const shipping=value.shipping===null?'—':sumText(value.shipping);
+    const total=value.total===null?'—':sumText(value.total);
+    return 'Xarid: '+price+' · Yetkazish: '+shipping+' · Jami: '+total;
+  }
   function renderBookList(rows){
     if(!api||!$('costReadyList'))return;
     const state=api.get();
@@ -92,7 +99,7 @@
       const item=rows[index];
       if(!item)return;
       const n=root.BookCosts.calculate(item,state.bookCostRate).total;
-      appendAmount(card,'Jami so‘mda: '+(n===null?'—':sumText(n)));
+      appendAmount(card,bookSomDescription(item,state));
     });
   }
   function renderBookEntry(){
@@ -104,7 +111,7 @@
       if(!row)return;
       const n=root.BookCosts.calculate(row,state.bookCostRate).total;
       const result=card.querySelector('.cost-result');
-      if(result)appendAmount(result,'Jami so‘mda: '+(n===null?'—':sumText(n)));
+      if(result)appendAmount(result,bookSomDescription(row,state));
     });
   }
   function resetEditor(){
@@ -160,5 +167,7 @@
     });
     $('costBooksList').addEventListener('input',()=>queueMicrotask(renderBookEntry));
   }
-  root.KoreaProducts={amount,fx,som,calculate,normalize,init,render,renderBookList,renderBookEntry};
+  const exported={amount,fx,som,calculate,normalize,init,render,renderBookList,renderBookEntry};
+  if(typeof module==='object' && module.exports)module.exports=exported;
+  else root.KoreaProducts=exported;
 })(typeof window==='object'?window:globalThis);

@@ -3415,7 +3415,8 @@
     $('bookRateValue').value=document.activeElement===$('bookRateValue')?$('bookRateValue').value:
       formatBookRate(state.krwToUzsPer1000,$('bookRateDirection').value);
     $('bookRateHint').textContent=state.krwToUzsPer1000?
-      'Amaldagi kurs: 10 000 ₩ = '+Number(state.krwToUzsPer1000*10).toLocaleString('en-US')+' so‘m.':
+      'Amaldagi kurs: 10 000 ₩ = '+Number((state.krwToUzsPer1000*10).toPrecision(10)).toLocaleString('en-US')+
+      ' so‘m · 1 so‘m = '+Number((1000/state.krwToUzsPer1000).toPrecision(10))+' ₩.':
       'Von–so‘m kursini kiriting. Kitoblar narxi va foydasi shu kurs bilan hisoblanadi.';
     qsa('[data-cost-view]').forEach(button=>button.classList.toggle('active',button.dataset.costView===costView));
     renderCostReadyList();
@@ -3470,28 +3471,30 @@
   function formatBookRate(uzsPer1000Won,direction){
     const rate=window.KoreaProducts.fx(uzsPer1000Won);
     if(rate===null)return '';
-    if(direction==='UZS_KRW')return String(Number((1000000/rate).toPrecision(11)));
+    if(direction==='UZS_KRW')return String(Number((1000/rate).toPrecision(11)));
     return String(Number(Number(rate*10).toPrecision(11)));
   }
   function flipBookRate(){
     const select=$('bookRateDirection'),input=$('bookRateValue');
     const current=select.value,rate=window.KoreaProducts.fx(input.value);
     select.value=current==='KRW_UZS'?'UZS_KRW':'KRW_UZS';
-    // 10,000 KRW ↔ 1,000 UZS: the reciprocal product is 10,000,000.
-    if(rate!==null)input.value=String(Number((10000000/rate).toPrecision(11)));
+    input.placeholder=select.value==='UZS_KRW'?'Masalan: 0.11':'Masalan: 80000';
+    // 10,000 KRW ↔ 1 UZS: reciprocals multiply to 10,000.
+    if(rate!==null)input.value=String(Number((10000/rate).toPrecision(11)));
     else input.value=formatBookRate(state.krwToUzsPer1000,select.value);
   }
   function bindBookCosts(){
     bindPaidAi();
     $('bookRateSwap').addEventListener('click',flipBookRate);
     $('bookRateDirection').addEventListener('change',()=>{
+      $('bookRateValue').placeholder=$('bookRateDirection').value==='UZS_KRW'?'Masalan: 0.11':'Masalan: 80000';
       $('bookRateValue').value=formatBookRate(state.krwToUzsPer1000,$('bookRateDirection').value);
     });
     $('bookRateSave').addEventListener('click',()=>{
       const input=window.KoreaProducts.fx($('bookRateValue').value);
       if(input===null){toast('Von–so‘m kursini to‘g‘ri kiriting.');return;}
       // Store the original legacy 1,000-KRW base internally to preserve all previous data.
-      const next=$('bookRateDirection').value==='UZS_KRW'?1000000/input:input/10;
+      const next=$('bookRateDirection').value==='UZS_KRW'?1000/input:input/10;
       if(window.KoreaProducts.fx(next)===null){toast('Kurs juda katta yoki kichik.');return;}
       const before=state.krwToUzsPer1000;
       state.krwToUzsPer1000=next;

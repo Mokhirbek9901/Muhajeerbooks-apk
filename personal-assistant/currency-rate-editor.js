@@ -2,7 +2,7 @@
 const C=['KRW','UZS','USD'];
 const DEFAULT_PAIRS=[{from:'KRW',to:'UZS'},{from:'USD',to:'KRW'}];
 function num(x){if(x===null||x===undefined||String(x).trim()==='')return null;const n=Number(String(x).replace(/[\s,₩$,]/g,''));return Number.isFinite(n)&&n>0&&n<=1e15?n:null;}
-function base(from){return from==='USD'?1:from==='KRW'?10000:1000;}
+function base(from){return from==='USD'?1:from==='KRW'?10000:1;}
 function unit(v){return v==='KRW'?'₩':v==='USD'?'$':'so‘m';}
 function normalized(raw){return DEFAULT_PAIRS.map((defaultPair,i)=>{const v=Array.isArray(raw)?raw[i]:null;const from=C.includes(v?.from)?v.from:defaultPair.from;const to=C.includes(v?.to)&&v.to!==from?v.to:(defaultPair.to!==from?defaultPair.to:C.find(x=>x!==from));return {from,to};});}
 function rawValue(from,to,state){

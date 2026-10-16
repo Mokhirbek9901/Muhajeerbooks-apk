@@ -103,12 +103,12 @@
   const rateEditor=(typeof module==='object'&&module.exports)?require('./currency-rate-editor.js'):root.YordamchiRateEditor;
   function paintRateRow(row,state,keepDraft=false){
     const from=row.querySelector('.exchange-rate-from').value,to=row.querySelector('.exchange-rate-to').value;
-    row.querySelector('.exchange-rate-base').textContent=(from==='USD'?'1':from==='KRW'?'10 000':'1 000')+' '+rateEditor.unit(from);
+    row.querySelector('.exchange-rate-base').textContent=(from==='KRW'?'10 000':'1')+' '+rateEditor.unit(from);
     row.querySelector('.exchange-rate-unit').textContent=rateEditor.unit(to);
     const rate=rateEditor.rawValue(from,to,state),input=row.querySelector('.exchange-rate-value');
     if(!keepDraft)input.value=rateEditor.showNumber(rate);
     row.querySelector('.exchange-rate-hint').textContent=rate===null?'Bu juftlikning kursi hali kiritilmagan.':
-      'Saqlangan: '+(from==='USD'?'1':from==='KRW'?'10 000':'1 000')+' '+rateEditor.unit(from)+' = '+rateEditor.showNumber(rate)+' '+rateEditor.unit(to);
+      'Saqlangan: '+(from==='KRW'?'10 000':'1')+' '+rateEditor.unit(from)+' = '+rateEditor.showNumber(rate)+' '+rateEditor.unit(to);
   }
   function syncRateInputs(force=false){
     if(!api)return;

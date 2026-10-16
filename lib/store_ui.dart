@@ -25,6 +25,7 @@ import 'storefront_navigation.dart';
 import 'book_image_viewer.dart';
 import 'design_system.dart';
 import 'professional_access.dart';
+import 'remote_config.dart';
 import 'uzbek_customer_style.dart';
 
 const bool _playStoreCustomerBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
@@ -37,6 +38,26 @@ bool get _webOrPlayCustomer =>
         _playStoreCustomerBuild) ||
     (defaultTargetPlatform == TargetPlatform.iOS &&
         _appStoreCustomerBuild);
+
+
+bool _remoteFlag(
+  BuildContext context,
+  String key, {
+  bool fallback = true,
+  bool listen = false,
+}) {
+  try {
+    return Provider.of<RemoteConfigStore>(
+      context,
+      listen: listen,
+    ).boolValue(key, fallback: fallback);
+  } catch (_) {
+    // Some isolated widget tests and fallback shells intentionally mount
+    // storefront widgets without the app-level provider. Built-in defaults
+    // must keep those surfaces usable.
+    return fallback;
+  }
+}
 
 const _navy = UzbekCustomerColors.navy;
 const _orange = UzbekCustomerColors.goldDeep;
@@ -539,6 +560,11 @@ class CategoriesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
+    final preorderFeatureEnabled = _remoteFlag(
+      context,
+      'features.preorder_enabled',
+      listen: true,
+    );
     final categories =
         state.books
             .where((b) => b.isActive)
@@ -603,7 +629,7 @@ class CategoriesPage extends StatelessWidget {
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: categories.length + 3,
+            itemCount: categories.length + (preorderFeatureEnabled ? 3 : 2),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
               mainAxisSpacing: 12,
@@ -611,14 +637,17 @@ class CategoriesPage extends StatelessWidget {
               childAspectRatio: 1.55,
             ),
             itemBuilder: (context, i) {
-              final isPreorder = i == 0;
-              final isPublishers = i == 1;
-              final isBundles = i == 2;
+              final specialCount = preorderFeatureEnabled ? 3 : 2;
+              final isPreorder = preorderFeatureEnabled && i == 0;
+              final isPublishers = i == (preorderFeatureEnabled ? 1 : 0);
+              final isBundles = i == (preorderFeatureEnabled ? 2 : 1);
               final c = isPreorder
                   ? 'Oldindan sotuvda'
                   : (isPublishers
                       ? 'Nashriyotlar'
-                      : (isBundles ? 'Setlar' : categories[i - 3]));
+                      : (isBundles
+                          ? 'Setlar'
+                          : categories[i - specialCount]));
               final count = isPreorder
                   ? state.books.where((b) => b.isActive && b.preorderEnabled).length
                   : (isBundles
@@ -3801,6 +3830,11 @@ class BookCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final favorite = context.select<AppState, bool>((s) => s.isFavorite(book));
+    final restockFeatureEnabled = _remoteFlag(
+      context,
+      'features.restock_enabled',
+      listen: true,
+    );
     final restockSubscribed = context.select<AppState, bool>(
       (s) => s.isRestockSubscribed(book),
     );
@@ -3994,7 +4028,8 @@ class BookCard extends StatelessWidget {
                                       ),
                                     );
                                 }
-                              : () async {
+                              : restockFeatureEnabled
+                              ? () async {
                                   final message = await _toggleRestockWithWebContact(context, book);
                                   if (!context.mounted) return;
                                   ScaffoldMessenger.of(context)
@@ -4002,7 +4037,8 @@ class BookCard extends StatelessWidget {
                                     ..showSnackBar(
                                       SnackBar(content: Text(message)),
                                     );
-                                },
+                                }
+                              : null,
                           style: FilledButton.styleFrom(
                             padding: EdgeInsets.zero,
                             minimumSize: const Size(38, 38),
@@ -4012,6 +4048,8 @@ class BookCard extends StatelessWidget {
                                 ? Icons.event_available_rounded
                                 : book.inStock
                                 ? Icons.add_shopping_cart_rounded
+                                : !restockFeatureEnabled
+                                ? Icons.remove_shopping_cart_outlined
                                 : restockSubscribed
                                 ? Icons.notifications_active_rounded
                                 : Icons.notifications_none_rounded,
@@ -4142,7 +4180,11 @@ Future<void> _shareBook(BuildContext context, Book book) async {
               ),
               const SizedBox(height: 8),
               const Text('Havolani ochgan odam aynan shu kitobni ko‘radi.'),
-              if (OwnerStoryAccess.instance.allowedFor(context.read<AppState>()))
+              if (_remoteFlag(
+                    context,
+                    'features.story_share_enabled',
+                  ) &&
+                  OwnerStoryAccess.instance.allowedFor(context.read<AppState>()))
               ListTile(
                 leading: const Icon(Icons.add_photo_alternate_outlined),
                 title: const Text('Instagram story tayyorlash'),
@@ -7753,6 +7795,11 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
               subtitle: 'Buyurtma berganingizdan keyin uning holati va tarixi shu yerda ko‘rinadi.',
             );
           }
+          final reviewsFeatureEnabled = _remoteFlag(
+            context,
+            'features.reviews_enabled',
+            listen: true,
+          );
           final reviewReminders = context.watch<AppState>().customerNotices
               .where((n) => n['kind'] == 'review_reminder').toList();
           return ListView.separated(
@@ -7761,7 +7808,8 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (_, i) {
               final order = orders[i];
-              final requestReview = order.isApp &&
+              final requestReview = reviewsFeatureEnabled &&
+                order.isApp &&
                 (order.status == 'shipping' || order.status == 'done') &&
                 reviewReminders.any((n) =>
                   n['order_id']?.toString() == order.id ||

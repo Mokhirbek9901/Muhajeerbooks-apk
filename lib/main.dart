@@ -33,7 +33,10 @@ Future<void> main() async {
   const liveSupabasePublishableKey =
       'sb_publishable_5lDr_sw4bu8g3x8LCVzp4g_sHSTMBiO';
 
-  final supabaseUrl = kIsWeb
+  // Static hosting sinovida to'g'ridan-to'g'ri Supabase ulanadi.
+  // Odatiy release buildlarda Railway same-origin proxy saqlanadi.
+  const directSupabaseWeb = bool.fromEnvironment('WEB_DIRECT_SUPABASE');
+  final supabaseUrl = kIsWeb && !directSupabaseWeb
       ? '${Uri.base.origin}/supabase'
       : liveSupabaseUrl;
   final supabaseAnonKey = kIsWeb && definedSupabaseAnonKey.trim().isNotEmpty

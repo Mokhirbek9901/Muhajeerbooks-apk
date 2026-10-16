@@ -3166,9 +3166,36 @@
   function costHasData(row){return Boolean(row.title.trim()) || row.price!==null || row.grams!==null || costs.amount(row.salePrice)!==null;}
   function costIsReady(row){return row.saved && costHasData(row);}
 
+
+  function renderCostHomeBooks(){
+    const holder=$('costHomeBooksList');
+    if(!holder)return;
+    const all=state.bookCosts.filter(row=>String(row.title||'').trim()).slice().reverse();
+    const search=costs.key($('costHomeSearch').value.trim());
+    const rows=search?all.filter(row=>costs.key(row.title).includes(search)):all;
+    $('costHomeBooksCount').textContent=search?rows.length+' / '+all.length+' ta':all.length+' ta';
+    const display=n=>n===null?'—':formatMoney(n,'KRW');
+    holder.innerHTML=rows.length?rows.map(row=>{
+      const qty=costs.quantity(row.quantity)??1,inv=costs.inventory(row,state.bookCostRate);
+      const weight=row.grams===null?'Vazn kiritilmagan':row.grams+' g / dona';
+      const stateText=row.saved?'':' · Hali saqlanmagan';
+      const profitClass=inv.profit!==null&&inv.profit<0?' cost-home-book-negative':'';
+      return '<article class="cost-home-book">'+
+        '<div class="cost-home-book-header"><span class="cost-home-book-icon" aria-hidden="true"><svg class="ui-icon"><use href="#ico-book"></use></svg></span>'+
+        '<div class="cost-home-book-heading"><h3>'+escapeHtml(row.title)+'</h3><small>'+escapeHtml(weight+stateText)+'</small></div>'+
+        '<span class="cost-home-book-qty">'+qty+' ta</span></div>'+
+        '<div class="cost-home-book-metrics"><div><small>1 dona tan narxi</small><b>'+display(inv.unitCost)+'</b></div>'+
+        '<div><small>Jami xarajat</small><b>'+display(inv.total)+'</b></div>'+
+        '<div class="cost-home-book-profit'+profitClass+'"><small>Kutiladigan foyda</small><b>'+display(inv.profit)+'</b></div></div>'+
+        (inv.total===null?'':('<p class="cost-home-book-som">Jami xarajat so‘mda: <strong>'+costSom(inv.total)+'</strong></p>'))+
+        '</article>';
+    }).join(''):'<div class="empty-state"><strong>'+(search?'Mos kitob topilmadi':'Hali kitob yo‘q')+
+      '</strong>'+(search?'Boshqa nom bilan qidiring.':'Kitob qo‘shing — uning soni, xarajati va foydasi shu yerda ko‘rinadi.')+'</div>';
+  }
   function renderCostReadyList(){
     $('costRateSummary').textContent='1 kg = '+formatMoney(state.bookCostRate,'KRW')+' · 100 g = '+formatMoney(Math.round(state.bookCostRate/10),'KRW');
     const ready=state.bookCosts.filter(costIsReady);
+    renderCostHomeBooks();
     const totals=costs.summary(ready,state.bookCostRate);
     $('costSummaryTotal').textContent=totals.ready?formatMoney(totals.total,'KRW'):'—';
     $('costSummaryTotalSom').textContent=totals.ready?costSom(totals.total):'—';
@@ -3549,6 +3576,7 @@
     window.addEventListener('touchcancel',()=>{costSwipe=null;},{passive:true});
     $('costEditorSearch').addEventListener('input',filterCostEditor);
     $('costEditorFilter').addEventListener('change',filterCostEditor);
+    $('costHomeSearch').addEventListener('input',renderCostHomeBooks);
     $('costSearch').addEventListener('input',renderCostReadyList);
     $('costSort').addEventListener('change',renderCostReadyList);
     $('costFilter').addEventListener('change',renderCostReadyList);

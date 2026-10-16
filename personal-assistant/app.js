@@ -307,7 +307,8 @@
       krwToUzsPer1000: window.KoreaProducts.fx(input?.krwToUzsPer1000),
       krwPerUsd: window.YordamchiCurrency.rate(input?.krwPerUsd),
       exchangeRatePairs: window.YordamchiRateEditor.normalized(input?.exchangeRatePairs),
-      koreaProducts: window.KoreaProducts.normalize(input?.koreaProducts,makeId),
+      koreaProducts: window.KoreaProducts.normalize(input?.koreaProducts,makeId,
+        window.KoreaProducts.shippingRate(input?.koreaShippingRate,costs.rate(input?.bookCostRate))),
       transactions: transactions.map(t => ({
         id: String(t.id || makeId()),
         type: t.type === 'income' ? 'income' : 'expense',
@@ -3376,10 +3377,15 @@
     $('costSettingsPanel').hidden=costView!=='settings';
     const editing=costView==='entry' && Boolean(costEditingId || costEditingAll || costEditingIds.size);
     $('screen-book-costs').classList[editing?'add':'remove']('cost-editing');
-    $('costListPanel').hidden=!['main','list'].includes(costView);
+    $('costListPanel').hidden=costView!=='list';
     $('costListActions').hidden=costView!=='list';
     $('costEntryPanel').hidden=costView!=='entry';
     $('costReportPanel').hidden=costView!=='report';
+    $('bookRateValue').value=document.activeElement===$('bookRateValue')?$('bookRateValue').value:
+      formatBookRate(state.krwToUzsPer1000,$('bookRateDirection').value);
+    $('bookRateHint').textContent=state.krwToUzsPer1000?
+      'Amaldagi kurs: 1 000 ₩ = '+Number(state.krwToUzsPer1000).toLocaleString('en-US')+' so‘m.':
+      'Von–so‘m kursini kiriting. Kitoblar narxi va foydasi shu kurs bilan hisoblanadi.';
     qsa('[data-cost-view]').forEach(button=>button.classList.toggle('active',button.dataset.costView===costView));
     renderCostReadyList();
     const rows=costEditingId?state.bookCosts.filter(row=>row.id===costEditingId):costEditingIds.size?state.bookCosts.filter(row=>costEditingIds.has(row.id)):costEditingAll?state.bookCosts:state.bookCosts.filter(row=>!costIsReady(row));
@@ -3430,8 +3436,40 @@
     if(persistBookCosts(message))toast(message);
   }
 
+  function formatBookRate(uzsPer1000Won,direction){
+    const rate=window.KoreaProducts.fx(uzsPer1000Won);
+    if(rate===null)return '';
+    if(direction==='UZS_KRW')return String(Number((1000000/rate).toPrecision(11)));
+    return String(Number(Number(rate).toPrecision(11)));
+  }
+  function flipBookRate(){
+    const select=$('bookRateDirection'),input=$('bookRateValue');
+    const current=select.value,rate=window.KoreaProducts.fx(input.value);
+    select.value=current==='KRW_UZS'?'UZS_KRW':'KRW_UZS';
+    if(rate!==null)input.value=String(Number((1000000/rate).toPrecision(11)));
+    else input.value=formatBookRate(state.krwToUzsPer1000,select.value);
+  }
   function bindBookCosts(){
     bindPaidAi();
+    $('bookRateSwap').addEventListener('click',flipBookRate);
+    $('bookRateDirection').addEventListener('change',()=>{
+      $('bookRateValue').value=formatBookRate(state.krwToUzsPer1000,$('bookRateDirection').value);
+    });
+    $('bookRateSave').addEventListener('click',()=>{
+      const input=window.KoreaProducts.fx($('bookRateValue').value);
+      if(input===null){toast('Von–so‘m kursini to‘g‘ri kiriting.');return;}
+      const next=$('bookRateDirection').value==='UZS_KRW'?1000000/input:input;
+      if(window.KoreaProducts.fx(next)===null){toast('Kurs juda katta yoki kichik.');return;}
+      const before=state.krwToUzsPer1000;
+      state.krwToUzsPer1000=next;
+      try{
+        saveState('Von–so‘m kursi saqlandi. Kitob va mahsulot hisobi yangilandi.');
+        window.KoreaProducts.refreshRates();
+        renderBookCosts();
+      }catch(_){
+        state.krwToUzsPer1000=before;toast('Kurs saqlanmadi.');
+      }
+    });
     $('costSimpleForm').addEventListener('submit',saveSimpleCostForm);
     ['costSimpleTitle','costSimpleQuantity','costSimplePrice','costSimpleGrams','costSimpleSale'].forEach(id=>{
       $(id).addEventListener('input',()=>{

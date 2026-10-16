@@ -117,6 +117,10 @@
   });
 
   let state = loadState();
+  const workspaceKit=window.YordamchiWorkspaces;
+  const WORKSPACE_KEY='bek_yordamchi_active_workspace_v1';
+  let currentWorkspace=workspaceKit.safeMode(localStorage.getItem(WORKSPACE_KEY));
+  let productView='overview',financeView='overview';
   let currentView = 'home';
   let costView='main';
   let costEditingId='';
@@ -644,27 +648,92 @@
     clearTimeout(toast.timer); toast.timer=setTimeout(()=>el.classList.remove('show'),2200);
   }
 
-  function navigate(view, push=true){
-    if(view===currentView) return;
-    if(push && currentView) viewStack.push(currentView);
-    currentView=view;
-    qsa('.screen').forEach(el=>el.classList.toggle('active',el.id==='screen-'+view));
-    qsa('.bottom-nav button[data-nav]').forEach(btn=>btn.classList.toggle('active',btn.dataset.nav===view));
-    const mainViews=['home','library','stats','book-costs','korea-products','profile'];
-    if(!mainViews.includes(view)) qsa('.bottom-nav button[data-nav]').forEach(btn=>btn.classList.remove('active'));
-    window.scrollTo({top:0,behavior:'smooth'});
-    if(view==='library') setTimeout(()=>$('bookSearch')?.blur(),0);
-    if(view==='detail') renderBookDetail();
-    if(view==='calendar') renderCalendar();
-    if(view==='categories') renderCategories();
-    if(view==='stats') renderStats();
-    if(view==='finance') renderFinance();
-    if(view==='book-costs') renderBookCosts();
-    if(view==='korea-products') window.KoreaProducts.render();
+  function closeWorkspaceMenu(){
+    const menu=$('workspaceMenu'),trigger=$('workspaceTrigger');
+    menu.hidden=true;trigger.setAttribute('aria-expanded','false');
   }
-
+  function toggleWorkspaceMenu(){
+    const menu=$('workspaceMenu'),trigger=$('workspaceTrigger');
+    menu.hidden=!menu.hidden;trigger.setAttribute('aria-expanded',String(!menu.hidden));
+  }
+  function syncWorkspaceUI(){
+    const mode=workspaceKit.MODES[currentWorkspace],body=document.body;
+    body.dataset.workspace=currentWorkspace;
+    body.dataset.productView=productView;
+    body.dataset.financeView=financeView;
+    $('workspaceBrandSubtitle').textContent=mode.title+' · bo‘limni almashtirish';
+    $('workspaceBrandIcon').setAttribute('href','#ico-'+mode.icon);
+    qsa('[data-workspace-select]').forEach(btn=>{
+      const active=btn.dataset.workspaceSelect===currentWorkspace;
+      btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));
+    });
+    qsa('[data-workspace-nav]').forEach(group=>{group.hidden=group.dataset.workspaceNav!==currentWorkspace;});
+    const selected=workspaceKit.navTab(currentWorkspace,currentView,{costView,productView,financeView});
+    qsa('.bottom-nav button').forEach(btn=>{
+      const key=btn.dataset.modeTab||btn.dataset.nav;
+      const active=btn.closest('[data-workspace-nav]')?.dataset.workspaceNav===currentWorkspace &&
+        (key===selected && btn.dataset.modeAction!=='add-finance');
+      btn.classList.toggle('active',Boolean(active));
+      if(btn.hasAttribute('data-mode-tab'))btn.setAttribute('aria-current',active?'page':'false');
+    });
+  }
+  function navigate(view,push=true){
+    const dest=workspaceKit.modeOfView(view);
+    if(dest&&dest!==currentWorkspace){
+      currentWorkspace=dest;
+      localStorage.setItem(WORKSPACE_KEY,dest);
+      viewStack.length=0;
+      closeWorkspaceMenu();
+    }
+    if(view!==currentView){
+      if(push&&currentView)viewStack.push(currentView);
+      currentView=view;
+      qsa('.screen').forEach(el=>el.classList.toggle('active',el.id==='screen-'+view));
+      window.scrollTo({top:0,behavior:'instant'});
+    }
+    if(view==='library')setTimeout(()=>$('bookSearch')?.blur(),0);
+    if(view==='detail')renderBookDetail();
+    if(view==='calendar')renderCalendar();
+    if(view==='categories')renderCategories();
+    if(view==='stats')renderStats();
+    if(view==='finance')renderFinance();
+    if(view==='book-costs')renderBookCosts();
+    if(view==='korea-products')window.KoreaProducts.render();
+    syncWorkspaceUI();
+  }
+  function selectWorkspace(mode){
+    const next=workspaceKit.safeMode(mode);
+    closeWorkspaceMenu();
+    currentWorkspace=next;
+    localStorage.setItem(WORKSPACE_KEY,currentWorkspace);
+    viewStack.length=0;
+    if(next==='costs')setCostView('main');
+    if(next==='products')productView='overview';
+    if(next==='finance')financeView='overview';
+    navigate(workspaceKit.rootView(next),false);
+    syncWorkspaceUI();
+    window.scrollTo({top:0,behavior:'instant'});
+  }
+  function setWorkspaceTab(tab){
+    if(currentWorkspace==='costs'){
+      if(!['main','list','entry','report','settings'].includes(tab))return;
+      setCostView(tab);
+      navigate('book-costs',false);
+    }else if(currentWorkspace==='products'){
+      if(!['overview','list','entry','stats'].includes(tab))return;
+      productView=tab;
+      navigate('korea-products',false);
+      if(tab==='entry')setTimeout(()=>$('koreaName')?.focus({preventScroll:true}),100);
+    }else if(currentWorkspace==='finance'){
+      if(!['overview','stats','history'].includes(tab))return;
+      financeView=tab;
+      navigate('finance',false);
+    }
+    syncWorkspaceUI();
+    window.scrollTo({top:0,behavior:'instant'});
+  }
   function goBack(){
-    const back=viewStack.pop() || 'home';
+    const back=viewStack.pop()||workspaceKit.rootView(currentWorkspace);
     navigate(back,false);
   }
 
@@ -3134,7 +3203,7 @@
   }
 
   function setCostView(view){
-    costView=view;if(view!=='list'){costSelecting=false;costSelectedIds.clear();}costEditingId='';costEditingAll=false;costEditingIds.clear();renderBookCosts();
+    costView=view;if(view!=='list'){costSelecting=false;costSelectedIds.clear();}costEditingId='';costEditingAll=false;costEditingIds.clear();renderBookCosts();syncWorkspaceUI();
   }
 
   function filterCostEditor(){
@@ -3573,6 +3642,9 @@
 
   function bindEvents(){
     document.addEventListener('click',e=>{
+      const modePick=e.target.closest('[data-workspace-select]');if(modePick){selectWorkspace(modePick.dataset.workspaceSelect);return;}
+      if(e.target.closest('[data-mode-action="add-finance"]')){openTxDialog();return;}
+      const modeTab=e.target.closest('[data-mode-tab]');if(modeTab){setWorkspaceTab(modeTab.dataset.modeTab);return;}
       const nav=e.target.closest('[data-nav]'); if(nav){if(nav.dataset.nav==='book-costs')setCostView('main');navigate(nav.dataset.nav);return;}
       const back=e.target.closest('[data-back]'); if(back){if(currentView==='book-costs' && costView==='entry' && (costEditingId || costEditingAll || costEditingIds.size))returnCostList();else goBack();return;}
       const add=e.target.closest('[data-add-book]'); if(add){openBookDialog();return;}
@@ -3814,7 +3886,20 @@
     $('simpleDialogBody').addEventListener('input',event=>{
       if(event.target.id==='dailyPlanBookSearch')openDailyBookPicker(event.target.value);
     });
-    $('globalSearchBtn').addEventListener('click',()=>{navigate('library');setTimeout(()=>$('bookSearch').focus(),100);});
+    $('workspaceTrigger').addEventListener('click',toggleWorkspaceMenu);
+    document.addEventListener('click',event=>{
+      if(!$('workspaceMenu').hidden&&!event.target.closest('#workspaceMenu, #workspaceTrigger'))closeWorkspaceMenu();
+    });
+    document.addEventListener('keydown',event=>{
+      if(event.key==='Escape'&&!$('workspaceMenu').hidden){closeWorkspaceMenu();$('workspaceTrigger').focus();}
+    });
+    $('globalSearchBtn').addEventListener('click',()=>{
+      if(currentWorkspace==='costs'){
+        setWorkspaceTab('list');setTimeout(()=>$('costSearch').focus(),100);
+      }else{
+        navigate('library');setTimeout(()=>$('bookSearch').focus(),100);
+      }
+    });
     $('bellBtn').addEventListener('click',openReminderDialog);
     $('detailMore').addEventListener('click',()=>selectedBookId&&openBookMenu(selectedBookId));
     document.addEventListener('visibilitychange',()=>{
@@ -3830,11 +3915,13 @@
     window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
   }
 
+  window.YordamchiWorkspace={openProductsEntry:()=>setWorkspaceTab('entry'),selectWorkspace};
   window.KoreaProducts.init({get:()=>state,save:saveState,money:formatMoney,escape:escapeHtml,toast,id:makeId});
   bindBookCosts();
   bindEvents();
   renderAll();
   navigate('home',false);
+  selectWorkspace(currentWorkspace);
   maybeDailyReminder();
   scheduleMissingMetadataAuto();
 })();

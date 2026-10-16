@@ -3478,6 +3478,7 @@
     const select=$('bookRateDirection'),input=$('bookRateValue');
     const current=select.value,rate=window.KoreaProducts.fx(input.value);
     select.value=current==='KRW_UZS'?'UZS_KRW':'KRW_UZS';
+    input.placeholder=select.value==='UZS_KRW'?'Masalan: 0.11':'Masalan: 80000';
     // 10,000 KRW ↔ 1 UZS: reciprocals multiply to 10,000.
     if(rate!==null)input.value=String(Number((10000/rate).toPrecision(11)));
     else input.value=formatBookRate(state.krwToUzsPer1000,select.value);
@@ -3486,6 +3487,7 @@
     bindPaidAi();
     $('bookRateSwap').addEventListener('click',flipBookRate);
     $('bookRateDirection').addEventListener('change',()=>{
+      $('bookRateValue').placeholder=$('bookRateDirection').value==='UZS_KRW'?'Masalan: 0.11':'Masalan: 80000';
       $('bookRateValue').value=formatBookRate(state.krwToUzsPer1000,$('bookRateDirection').value);
     });
     $('bookRateSave').addEventListener('click',()=>{

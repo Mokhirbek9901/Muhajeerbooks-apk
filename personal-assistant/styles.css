@@ -2323,3 +2323,43 @@ body[data-workspace="costs"][data-cost-view="report"] #costReportPanel{border-ra
  .korea-bulk-actions{flex-wrap:wrap}
  .korea-bulk-actions>button{width:100%}
 }
+
+/* Yordamchi v62 — overview shows every book in short, read-only cards */
+.cost-home-books{margin:18px 0 24px}
+.cost-home-books[hidden]{display:none!important}
+.cost-home-books-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 2px 13px}
+.cost-home-books-head>div{min-width:0;flex:1}
+.cost-home-books-head h2{margin:3px 0 5px;color:var(--ink);font-weight:900;letter-spacing:-.025em;font-size:1.24rem}
+.cost-home-books-head p{margin:0;color:var(--muted);font-size:.74rem;line-height:1.45}
+.cost-home-books-count{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;padding:9px 11px;border-radius:13px;background:var(--mint);color:var(--green);font-size:.78rem;font-weight:900;white-space:nowrap}
+.cost-home-search{display:flex;align-items:center;gap:10px;min-height:46px;box-sizing:border-box;padding:10px 13px;border:1px solid var(--line);border-radius:14px;background:var(--surface);margin:0 0 12px}
+.cost-home-search:focus-within{border-color:var(--green)}
+.cost-home-search .ui-icon{flex-shrink:0;width:19px;height:19px;color:var(--green)}
+.cost-home-search input{width:100%;min-width:0;border:none;outline:none;background:none;color:var(--ink);font-size:.87rem;min-height:25px}
+.cost-home-books-list{display:grid;gap:10px}
+.cost-home-book{padding:14px 15px;border:1px solid var(--line);border-radius:17px;background:var(--surface);box-shadow:0 2px 8px rgba(0,0,0,.025)}
+.cost-home-book-header{display:flex;align-items:center;gap:10px;min-width:0}
+.cost-home-book-icon{display:grid;place-items:center;flex:0 0 39px;height:39px;border-radius:12px;color:var(--green);background:var(--mint)}
+.cost-home-book-icon .ui-icon{width:23px;height:23px}
+.cost-home-book-heading{min-width:0;flex:1}
+.cost-home-book-heading h3{margin:0;color:var(--ink);font-weight:900;font-size:.91rem;line-height:1.32;overflow-wrap:anywhere}
+.cost-home-book-heading small{display:block;margin-top:4px;color:var(--muted);font-size:.69rem;line-height:1.4}
+.cost-home-book-qty{flex-shrink:0;white-space:nowrap;padding:7px 10px;border-radius:10px;background:var(--mint);color:var(--green);font-size:.78rem;font-weight:900;font-variant-numeric:tabular-nums}
+.cost-home-book-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:13px;padding-top:12px;border-top:1px solid var(--line)}
+.cost-home-book-metrics>div{display:grid;gap:5px;min-width:0}
+.cost-home-book-metrics small{font-size:.65rem;line-height:1.36;color:var(--muted);font-weight:700}
+.cost-home-book-metrics b{font-size:.78rem;line-height:1.35;color:var(--ink);overflow-wrap:anywhere;font-weight:900;font-variant-numeric:tabular-nums}
+.cost-home-book-metrics .cost-home-book-profit b{color:var(--green)}
+.cost-home-book-metrics .cost-home-book-negative b{color:var(--red)}
+.cost-home-book-som{margin:9px 0 0;font-size:.72rem;line-height:1.4;color:var(--muted)}
+.cost-home-book-som strong{font-weight:850;color:var(--green)}
+.cost-home-books-hint{margin:11px 3px 0;color:var(--muted);font-size:.73rem;line-height:1.5}
+.cost-home-books-hint b{color:var(--green)}
+@media(max-width:400px){
+  .cost-home-book{padding:12px 11px}
+  .cost-home-book-metrics{gap:5px}
+  .cost-home-book-metrics small{font-size:.61rem}
+  .cost-home-book-metrics b{font-size:.73rem}
+  .cost-home-book-heading h3{font-size:.86rem}
+  .cost-home-book-qty{padding:6px 8px;font-size:.72rem}
+}

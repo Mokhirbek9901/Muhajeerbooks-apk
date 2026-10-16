@@ -3187,7 +3187,10 @@
         '<div class="cost-home-book-metrics"><div><small>1 dona tan narxi</small><b>'+display(inv.unitCost)+'</b></div>'+
         '<div><small>Jami xarajat</small><b>'+display(inv.total)+'</b></div>'+
         '<div class="cost-home-book-profit'+profitClass+'"><small>Kutiladigan foyda</small><b>'+display(inv.profit)+'</b></div></div>'+
-        (inv.total===null?'':('<p class="cost-home-book-som">Jami xarajat so‘mda: <strong>'+costSom(inv.total)+'</strong></p>'))+
+        '<div class="cost-home-book-som" aria-label="Kitobning tan narxi so‘mda">'+
+        '<div class="cost-home-book-som-unit"><small>1 dona · so‘m</small><strong>'+(inv.unitCost===null?'—':costSom(inv.unitCost))+'</strong></div>'+
+        '<div class="cost-home-book-som-total"><small>Jami · '+qty+' ta</small><strong>'+(inv.total===null?'—':costSom(inv.total))+'</strong></div>'+
+        '</div>'+
         '</article>';
     }).join(''):'<div class="empty-state"><strong>'+(search?'Mos kitob topilmadi':'Hali kitob yo‘q')+
       '</strong>'+(search?'Boshqa nom bilan qidiring.':'Kitob qo‘shing — uning soni, xarajati va foydasi shu yerda ko‘rinadi.')+'</div>';

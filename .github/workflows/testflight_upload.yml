@@ -64,7 +64,7 @@ jobs:
           path = directory/f'AuthKey_{key_id}.p8'
           path.write_text(key)
           path.chmod(0o600)
-          version = re.search(r'^version:\s*([^+\s]+)', Path('pubspec.yaml').read_text(), re.M).group(1)
+          version = Path('.github/ios-marketing-version').read_text().strip() if Path('.github/ios-marketing-version').exists() else re.search(r'^version:\\s*([^+\\s]+)', Path('pubspec.yaml').read_text(), re.M).group(1)
           with open(os.environ['GITHUB_ENV'], 'a') as env:
               env.write(f'ASC_PRIVATE_KEY_PATH={path}\n')
               env.write(f'IOS_BUILD_NUMBER={1000 + int(os.environ["GITHUB_RUN_NUMBER"])}\n')
@@ -98,6 +98,7 @@ jobs:
         run: |
           set -euo pipefail
           flutter build ipa --release \
+            --build-name="$IOS_MARKETING_VERSION" \
             --build-number="$IOS_BUILD_NUMBER" \
             --dart-define=APP_BUILD_NUMBER="$IOS_BUILD_NUMBER" \
             --dart-define=APP_STORE_BUILD=true \

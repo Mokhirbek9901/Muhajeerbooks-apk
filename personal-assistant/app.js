@@ -3481,7 +3481,7 @@
     openSimple('Ilova sozlamalari','<div class="setting-form"><label>Profil nomi<input id="profileNameInput" value="'+escapeHtml(state.profile.name)+'"></label><div class="setting-actions"><button class="primary-button" data-save-profile>Saqlash</button></div></div>');
   }
   function openBackupDialog(){
-    openSimple('Backup / Sinxronlash','<div class="setting-form"><button type="button" class="primary-button" data-reading-open>Kitoblarni qurilmalar orasida sinxronlash</button><p style="font-size:.75rem;color:var(--muted);line-height:1.5">Kitoblar, mutolaa progressi, statistika qaydlari, moliya va tan narxlari bitta faylda saqlanadi.</p><p style="font-size:.75rem;line-height:1.5"><b>Eski ilovadan Render’ga o‘tish:</b> avval barcha ma’lumotlari turgan eski ilovada «Backup olish»ni bosing. Keyin Render’dagi Yordamchida «Backup tiklash» orqali aynan shu faylni tanlang. Tiklashdan oldin sonlar tekshiriladi va mavjud nusxa saqlanadi.</p><button class="primary-button" data-export>Backup olish</button><button class="secondary-button" data-import>Backup faylidan xavfsiz tiklash</button></div>');
+    openSimple('Backup / Sinxronlash','<div class="setting-form"><button type="button" class="primary-button" data-reading-open>Kitoblarni qurilmalar orasida sinxronlash</button><p style="font-size:.75rem;color:var(--muted);line-height:1.5">Kitoblar, mutolaa progressi, statistika qaydlari, moliya va tan narxlari bitta faylda saqlanadi.</p><p style="font-size:.75rem;line-height:1.5"><b>Eski ilovadan Render’ga o‘tish:</b> avval barcha ma’lumotlari turgan eski ilovada «Backup olish»ni bosing. Keyin Render’dagi Yordamchida «Backup tiklash» orqali aynan shu faylni tanlang. Tiklashdan oldin sonlar tekshiriladi va mavjud nusxa saqlanadi.</p><button class="primary-button" data-export>Backup olish</button><button class="secondary-button" data-import>Backup faylidan xavfsiz tiklash</button>'+(localStorage.getItem('bek_yordamchi_before_import_v1')?'<button type="button" class="soft-button" data-restore-before-import>Oldingi Render nusxasini qaytarish</button>':'')+'</div>');
   }
 
   function exportBackup(){
@@ -3532,6 +3532,32 @@
       }
     };
     reader.readAsText(file);
+  }
+  function restorePreImport(){
+    const safetyKey='bek_yordamchi_before_import_v1',redoKey='bek_yordamchi_before_restore_v1';
+    let previous,old;
+    try{
+      old=localStorage.getItem(safetyKey);
+      if(!old){toast('Qaytarish uchun avvalgi nusxa topilmadi.');return;}
+      previous=normalizeState(JSON.parse(old));
+      window.YordamchiBackupMigration.inspect(previous);
+    }catch(_){toast('Qaytarish nusxasini o‘qib bo‘lmadi.');return;}
+    const note='AVVALGI RENDER NUSXASI:\n'+window.YordamchiBackupMigration.describe(window.YordamchiBackupMigration.summary(previous))+
+      '\n\nHozirgi ma’lumotlar ham alohida zaxiralanadi. Oldingi nusxaga qaytamizmi?';
+    if(!confirm(note))return;
+    const current=JSON.stringify(state);
+    try{
+      localStorage.setItem(redoKey,current);
+      if(localStorage.getItem(redoKey)!==current)throw new Error('Hozirgi nusxa zaxiralanmadi.');
+      localStorage.setItem(STORAGE_KEY,old);
+      if(localStorage.getItem(STORAGE_KEY)!==old)throw new Error('Avvalgi nusxa to‘liq yozilmadi.');
+      disconnectCostCloud('Avvalgi nusxa qaytarildi. Bulutga ulanishni qayta tekshiring.');
+      state=previous;renderAll();$('simpleDialog').close();
+      toast('Avvalgi Render nusxasi qaytarildi.');
+    }catch(error){
+      try{localStorage.setItem(STORAGE_KEY,current);}catch(_){}
+      toast('Qaytarish to‘xtatildi: '+(error.message||'saqlash xatosi'));
+    }
   }
 
   function maybeDailyReminder(){
@@ -3616,6 +3642,7 @@
       }
       if(e.target.closest('[data-export]')){exportBackup();return;}
       if(e.target.closest('[data-import]')){$('importInput').click();return;}
+      if(e.target.closest('[data-restore-before-import]')){restorePreImport();return;}
     });
 
     qsa('[data-close]').forEach(btn=>btn.addEventListener('click',()=>$(btn.dataset.close).close()));

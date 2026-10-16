@@ -88,7 +88,7 @@ class RemoteConfigStore extends ChangeNotifier with WidgetsBindingObserver {
 
     final now = DateTime.now();
     final refreshMinutes =
-        intValue('config.refresh_minutes', fallback: 15).clamp(1, 1440);
+        intValue('config.refresh_minutes', fallback: 15).clamp(1, 1440).toInt();
     final freshEnough = _lastRefresh != null &&
         now.difference(_lastRefresh!) < Duration(minutes: refreshMinutes);
     if (!force && freshEnough) return;
@@ -143,7 +143,7 @@ class RemoteConfigStore extends ChangeNotifier with WidgetsBindingObserver {
   void _scheduleRefresh() {
     _timer?.cancel();
     final minutes =
-        intValue('config.refresh_minutes', fallback: 15).clamp(1, 1440);
+        intValue('config.refresh_minutes', fallback: 15).clamp(1, 1440).toInt();
     _timer = Timer.periodic(Duration(minutes: minutes), (_) {
       unawaited(refresh(force: true));
     });

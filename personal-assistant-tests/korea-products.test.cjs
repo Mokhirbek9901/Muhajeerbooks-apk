@@ -115,3 +115,49 @@ test('independent products tariff affects only product summary and category cost
   assert.equal(low.ready,2);
   assert.deepEqual(products,[{name:'Vitamin',price:9000,grams:100},{name:'Kosmetika',price:8000,grams:300}]);
 });
+
+test('jenshen and cosmetics preserve separate 1 kg rates and their totals sum correctly',()=>{
+  const products=[
+    {id:'j',name:'Jenshen',price:13000,grams:290,kgRate:10000},
+    {id:'c',name:'Kosmetika',price:8000,grams:290,kgRate:20000}
+  ];
+  const j=costs.calculate(products[0],5000,8000);
+  const c=costs.calculate(products[1],5000,8000);
+  assert.equal(j.shipping,2900);assert.equal(j.total,15900);
+  assert.equal(c.shipping,5800);assert.equal(c.total,13800);
+  const total=costs.summarize(products,5000,8000);
+  assert.equal(total.purchase,21000);
+  assert.equal(total.shipping,8700);
+  assert.equal(total.total,29700);
+  assert.equal(total.totalSom,237600);
+});
+test('legacy product rates are migrated from the previous standard once, and thereafter remain independent',()=>{
+  const imported=costs.normalize([{id:'old',name:'Jenshen',price:13000,grams:290}],()=> 'x',9000);
+  assert.equal(imported[0].kgRate,9000);
+  const later=costs.normalize(imported,()=> 'y',15000);
+  assert.equal(later[0].kgRate,9000);
+  assert.equal(costs.calculate(later[0],15000,8000).shipping,2610);
+  assert.deepEqual(later,imported);
+});
+test('rate entry accepts UZS or KRW and needs a saved FX rate for UZS',()=>{
+  assert.equal(costs.rateInWon('80000','UZS',8000),10000);
+  assert.equal(costs.rateInWon('15000','KRW',null),15000);
+  assert.equal(costs.wonAsRate(10000,'UZS',8000),80000);
+  assert.equal(costs.rateInWon('80000','UZS',null),null);
+  assert.equal(costs.rateInWon('bad','KRW',8000),null);
+});
+test('bulk standard rate updates ONLY selected products and never mutates existing objects',()=>{
+  const old=[
+    {id:'j',name:'Jenshen',kgRate:10000,price:13000,grams:290},
+    {id:'c',name:'Kosmetika',kgRate:20000,price:8000,grams:290},
+    {id:'v',name:'Vitamin',kgRate:7000,price:4000,grams:100}
+  ];
+  const result=costs.applyRateToSelected(old,new Set(['j','v']),12000);
+  assert.equal(result[0].kgRate,12000);
+  assert.equal(result[1].kgRate,20000);
+  assert.equal(result[2].kgRate,12000);
+  assert.equal(old[0].kgRate,10000);
+  assert.equal(old[2].kgRate,7000);
+  assert.equal(result[1],old[1],'nonselected object identity remains unchanged');
+  assert.throws(()=>costs.applyRateToSelected(old,new Set(['j']),-5),/noto‘g‘ri/);
+});

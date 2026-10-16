@@ -45,6 +45,11 @@
     const total=price===null||shipping===null?null:Math.round(price)+shipping;
     return {price,shipping,total,priceSom:som(price,exchange),shippingSom:som(shipping,exchange),totalSom:som(total,exchange)};
   }
+  function applyRateToSelected(rows,selectedIds,rate){
+    const chosen=new Set(selectedIds),kg=amount(rate);
+    if(kg===null||kg>10000000)throw new Error('Kg tarifi noto‘g‘ri.');
+    return rows.map(item=>chosen.has(item.id)?{...item,kgRate:kg}:item);
+  }
   function normalize(rows,id,defaultKgRate=10000){
     return (Array.isArray(rows)?rows:[]).filter(x=>x&&typeof x==='object').map(row=>({
       id:String(row.id||id()),name:String(row.name||'').trim().slice(0,160),
@@ -360,7 +365,7 @@
       const preview=targets.slice(0,4).map(item=>item.name).join(', ')+(targets.length>4?' …':'');
       if(!confirm(targets.length+' ta mahsulotning 1 kg tarifi '+fmt(rate,'KRW')+' ga o‘zgartirilsinmi?\n'+preview+'\n\nBu faqat tanlanganlarga ta’sir qiladi. Davom etasizmi?'))return;
       const old=state.koreaProducts;
-      state.koreaProducts=old.map(item=>selectedProductIds.has(item.id)?{...item,kgRate:rate}:item);
+      state.koreaProducts=applyRateToSelected(old,selectedProductIds,rate);
       try{
         api.save(targets.length+' ta tanlangan mahsulotning kg tarifi yangilandi.');
         selectedProductIds.clear();render();
@@ -410,7 +415,7 @@
     resetEditor();
   }
   const exported={amount,fx,shippingRate,som,calculate,summarize,normalize,init,render,renderBookList,renderBookEntry,
-    itemKgRate,rateInWon,wonAsRate,refreshRates:()=>{syncRateInputs(true);refreshConvertedViews();}};
+    itemKgRate,rateInWon,wonAsRate,applyRateToSelected,refreshRates:()=>{syncRateInputs(true);refreshConvertedViews();}};
   if(typeof module==='object' && module.exports)module.exports=exported;
   else root.KoreaProducts=exported;
 })(typeof window==='object'?window:globalThis);

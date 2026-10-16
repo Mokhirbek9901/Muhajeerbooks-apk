@@ -1807,3 +1807,52 @@ html,body,#app{
 .currency-converter .currency-result{display:block;padding:13px 14px;border-radius:13px;background:var(--mint);color:var(--green);font-size:1.15rem;font-weight:900;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;min-height:48px}
 .currency-converter .currency-note{font-size:.7rem;line-height:1.5;color:var(--muted)}
 @media(max-width:365px){.currency-pair{grid-template-columns:minmax(0,1fr) 36px minmax(0,1fr);gap:4px}.currency-pair select{padding:7px 2px;font-size:.7rem}.currency-pair .currency-swap{min-height:41px;font-size:1.4rem}.currency-converter{padding:10px}}
+
+/* Yordamchi v54: one global rate, automatic item totals, simple mobile currency workflow */
+.exchange-editor{gap:15px;margin-top:16px;padding:18px;border:1px solid var(--line);box-shadow:var(--shadow);background:var(--surface)}
+.exchange-heading{display:flex;align-items:flex-start;gap:11px;min-width:0}
+.exchange-heading h2,.exchange-heading h3{margin:1px 0 5px;font-size:1.02rem;line-height:1.25;color:var(--ink)}
+.exchange-heading p{margin:0;font-size:.75rem;line-height:1.55;color:var(--muted)}
+.exchange-heading p b{color:var(--green)}
+.exchange-step{display:grid;place-items:center;flex:0 0 29px;height:29px;border-radius:10px;background:var(--mint);color:var(--green);font-weight:900;font-size:.85rem}
+.exchange-rate-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.exchange-rate-grid>label{display:grid;align-content:start;gap:7px;font-size:.75rem;font-weight:650;min-width:0}
+.exchange-rate-grid label>span{color:var(--muted);line-height:1.4}
+.exchange-rate-grid label b{color:var(--ink)}
+.exchange-rate-grid label small{font-size:.67rem;line-height:1.4;min-height:1.35em;color:var(--green)}
+.rate-entry{display:flex;align-items:center;min-width:0;border:1px solid var(--line);border-radius:13px;background:var(--surface2);overflow:hidden;transition:border-color .16s ease}
+.rate-entry:focus-within{border-color:var(--green);outline:2px solid color-mix(in srgb,var(--green) 16%,transparent)}
+.rate-entry input{width:100%;min-width:0;min-height:49px;padding:11px 8px 11px 12px;border:0;outline:0;background:transparent;color:var(--ink);font-size:1.02rem;font-weight:800;font-variant-numeric:tabular-nums}
+.rate-entry>span{padding:0 10px 0 4px;color:var(--muted);font-size:.76rem;font-weight:750;white-space:nowrap}
+.exchange-save-all{min-height:47px;width:100%;border-radius:12px;font-weight:800}
+.exchange-shared-status{margin:-5px 0 0;font-size:.73rem;line-height:1.5;color:var(--green)}
+.exchange-editor .currency-converter{margin:5px 0 0;background:var(--surface2);border:1px solid var(--line);padding:16px;border-radius:17px;gap:13px}
+.exchange-editor .currency-pair{align-items:end}
+.exchange-editor .currency-pair select{font-size:.9rem;font-weight:700;background:var(--surface);padding:9px 6px}
+.exchange-editor .currency-amount-label input{background:var(--surface);font-size:1.02rem;font-weight:750;padding-left:13px}
+.exchange-editor .currency-result{background:var(--mint);color:var(--green);padding:15px;font-size:1.32rem;line-height:1.3}
+.exchange-editor .currency-note{line-height:1.55}
+.korea-summary-main{margin-bottom:10px}
+.korea-summary-breakdown{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.korea-summary-breakdown>div{display:grid;gap:5px;padding:14px;border:1px solid var(--line);background:var(--surface);border-radius:17px}
+.korea-summary-breakdown small{font-size:.7rem;color:var(--muted)}
+.korea-summary-breakdown b{font-size:1.05rem;color:var(--ink);overflow-wrap:anywhere}
+.korea-summary-breakdown strong{font-size:.86rem;color:var(--green);overflow-wrap:anywhere}
+.korea-unfinished{margin:8px 0 0;padding:10px 12px;border-radius:12px;background:var(--goldsoft);color:var(--ink);font-size:.74rem;line-height:1.5}
+.korea-form-note{font-size:.78rem;line-height:1.55;color:var(--muted);margin:-5px 0 17px}
+.korea-input-grid label>small{color:var(--green);font-size:.67rem;font-weight:600;line-height:1.35}
+.korea-preview{background:var(--surface2);border-radius:15px;padding:8px 12px;margin-top:17px}
+.korea-preview>div{align-items:center;gap:4px}
+.korea-preview small{color:var(--green);font-size:.82rem;font-weight:750}
+.korea-preview-total strong{font-size:1.18rem}
+.korea-dashboard article{box-shadow:var(--shadow)}
+@media(max-width:400px){
+  .exchange-editor{padding:13px;gap:12px}
+  .exchange-rate-grid{grid-template-columns:1fr;gap:13px}
+  .rate-entry input{font-size:1rem}
+  .exchange-editor .currency-converter{padding:12px}
+  .exchange-editor .currency-pair{grid-template-columns:minmax(0,1fr) 40px minmax(0,1fr);gap:5px}
+  .exchange-editor .currency-pair select{font-size:.8rem}
+  .korea-summary-breakdown{gap:8px}
+  .korea-summary-breakdown>div{padding:11px}
+}

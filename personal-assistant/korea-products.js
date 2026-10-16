@@ -77,20 +77,28 @@
   function refreshConvertedViews(){
     renderConverters();renderBookList(lastBookRows);renderBookEntry();render();
   }
-  function syncRateInputs(){
-    const state=api.get();
-    document.querySelectorAll('.krw-uzs-input').forEach(input=>{
-      if(document.activeElement!==input)input.value=state.krwToUzsPer1000??'';
-    });
-    document.querySelectorAll('.krw-uzs-hint').forEach(el=>{
-      el.textContent=fx(state.krwToUzsPer1000)===null?'So‘m kursi kiritilmagan':('Amaldagi: 1 000 ₩ = '+fmt(state.krwToUzsPer1000,'UZS'));
-    });
-    document.querySelectorAll('.usd-krw-input').forEach(input=>{
-      if(document.activeElement!==input)input.value=state.krwPerUsd??'';
-    });
-    document.querySelectorAll('.usd-krw-hint').forEach(el=>{
-      el.textContent=currency.rate(state.krwPerUsd)===null?'Dollar kursi kiritilmagan':
-        ('Amaldagi: 1 $ = '+currency.display(state.krwPerUsd,'KRW'));
+
+  const rateEditor=(typeof module==='object'&&module.exports)?require('./currency-rate-editor.js'):root.YordamchiRateEditor;
+  function paintRateRow(row,state,keepDraft=false){
+    const from=row.querySelector('.exchange-rate-from').value,to=row.querySelector('.exchange-rate-to').value;
+    row.querySelector('.exchange-rate-base').textContent=(from==='USD'?'1':'1 000')+' '+rateEditor.unit(from);
+    row.querySelector('.exchange-rate-unit').textContent=rateEditor.unit(to);
+    const rate=rateEditor.rawValue(from,to,state),input=row.querySelector('.exchange-rate-value');
+    if(!keepDraft)input.value=rateEditor.showNumber(rate);
+    row.querySelector('.exchange-rate-hint').textContent=rate===null?'Bu juftlikning kursi hali kiritilmagan.':
+      'Saqlangan: '+(from==='USD'?'1':'1 000')+' '+rateEditor.unit(from)+' = '+rateEditor.showNumber(rate)+' '+rateEditor.unit(to);
+  }
+  function syncRateInputs(force=false){
+    if(!api)return;
+    const state=api.get(),pairs=rateEditor.normalized(state.exchangeRatePairs);
+    document.querySelectorAll('.exchange-editor').forEach(panel=>{
+      if(!force&&panel.dataset.rateInitialized==='yes')return;
+      panel.querySelectorAll('.exchange-pair-editor').forEach((row,i)=>{
+        row.querySelector('.exchange-rate-from').value=pairs[i].from;
+        row.querySelector('.exchange-rate-to').value=pairs[i].to;
+        paintRateRow(row,state);
+      });
+      panel.dataset.rateInitialized='yes';
     });
     renderConverters();
   }
@@ -209,20 +217,58 @@
         refreshConvertedViews();
       });
     });
+
+    document.querySelectorAll('.exchange-pair-editor').forEach(row=>{
+      const from=row.querySelector('.exchange-rate-from'),to=row.querySelector('.exchange-rate-to'),
+        input=row.querySelector('.exchange-rate-value'),swap=row.querySelector('.exchange-rate-swap');
+      const selected=event=>{
+        if(from.value===to.value){
+          if(event.target===from)to.value=currency.CURRENCIES.find(code=>code!==from.value);
+          else from.value=currency.CURRENCIES.find(code=>code!==to.value);
+        }
+        paintRateRow(row,api.get());
+      };
+      from.addEventListener('change',selected);
+      to.addEventListener('change',selected);
+      input.addEventListener('input',()=>{
+        row.querySelector('.exchange-rate-hint').textContent='Yangi kurs — saqlash tugmasini bosing.';
+      });
+      swap.addEventListener('click',()=>{
+        const oldFrom=from.value,oldTo=to.value,oldRate=currency.amount(input.value);
+        const previousBase=rateEditor.base(oldFrom);
+        from.value=oldTo;to.value=oldFrom;
+        if(oldRate!==null&&oldRate>0){
+          const reverse=rateEditor.base(oldTo)*previousBase/oldRate;
+          input.value=rateEditor.showNumber(reverse);
+          paintRateRow(row,api.get(),true);
+          row.querySelector('.exchange-rate-hint').textContent='Kurs yo‘nalishi almashtirildi. Saqlashni unutmang.';
+        }else paintRateRow(row,api.get());
+      });
+    });
     document.querySelectorAll('.exchange-save-all').forEach(btn=>btn.addEventListener('click',()=>{
-      const panel=btn.closest('.exchange-editor'),somInput=panel.querySelector('.krw-uzs-input'),usdInput=panel.querySelector('.usd-krw-input');
-      const uzs=fx(somInput.value),usd=usdInput.value.trim()?currency.rate(usdInput.value):null;
-      if(uzs===null){api.toast('Avval 1 000 ₩ necha so‘m ekanini kiriting.');somInput.focus();return;}
-      if(usdInput.value.trim()&&usd===null){api.toast('Dollar kursini to‘g‘ri kiriting yoki bo‘sh qoldiring.');usdInput.focus();return;}
-      const state=api.get(),previousSom=state.krwToUzsPer1000,previousUsd=state.krwPerUsd;
-      state.krwToUzsPer1000=uzs;
-      state.krwPerUsd=usd;
+      const panel=btn.closest('.exchange-editor');
+      const rows=[...panel.querySelectorAll('.exchange-pair-editor')].map(row=>({
+        from:row.querySelector('.exchange-rate-from').value,
+        to:row.querySelector('.exchange-rate-to').value,
+        value:row.querySelector('.exchange-rate-value').value.trim()
+      }));
+      const state=api.get();
+      let next;
+      try{next=rateEditor.solve(rows,state);}
+      catch(err){api.toast(err.message||'Valyuta kurslarini tekshiring.');return;}
+      const original={krwToUzsPer1000:state.krwToUzsPer1000,
+        krwPerUsd:state.krwPerUsd,exchangeRatePairs:state.exchangeRatePairs};
+      state.krwToUzsPer1000=next.krwToUzsPer1000;
+      state.krwPerUsd=next.krwPerUsd;
+      state.exchangeRatePairs=rateEditor.normalized(rows);
       try{
-        api.save('✓ Umumiy kurs saqlandi. Mahsulot va kitoblar avtomatik qayta hisoblandi.');
-        document.querySelectorAll('.exchange-shared-status').forEach(el=>el.textContent='✓ Kurs saqlandi. Barcha mahsulotlar va kitoblarga bir xil qo‘llanmoqda.');
+        api.save('✓ Kurslar saqlandi. Barcha kitob va mahsulotlar qayta hisoblandi.');
+        syncRateInputs(true);
+        document.querySelectorAll('.exchange-shared-status').forEach(el=>
+          el.textContent='✓ Kurs saqlandi. Tanlangan juftliklar ikkala bo‘limda ham bir xil ishlaydi.');
         refreshConvertedViews();
       }catch(_){
-        state.krwToUzsPer1000=previousSom;state.krwPerUsd=previousUsd;
+        Object.assign(state,original);
         api.toast('Kurs saqlanmadi. Eski kurs o‘zgarmadi.');
       }
     }));

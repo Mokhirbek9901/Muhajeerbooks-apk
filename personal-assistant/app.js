@@ -3149,15 +3149,17 @@
     const tariffs=costs.tariffs(state.bookCostRate,state.bookCostComparisons);
     if(tariffs.length<2)return '';
     const money=value=>value===null?'—':formatMoney(value,'KRW');
-    return '<div class="cost-tariff-table-wrap"><table class="cost-tariff-table"><caption>Kg narxlari bo‘yicha solishtirish</caption><thead><tr><th>1 kg tarifi</th><th>Yetkazish</th><th>Tan narxi</th><th>Foyda</th></tr></thead><tbody>'+tariffs.map(tariff=>{const result=costs.calculate(row,tariff.rate);return '<tr class="'+(tariff.id==='primary'?'cost-tariff-main':'')+'"><th>'+escapeHtml(tariff.label)+'<small>'+formatMoney(tariff.rate,'KRW')+' / kg</small></th><td>'+money(result.shipping)+'</td><td><b>'+money(result.total)+'</b></td><td>'+money(costs.profit(row,tariff.rate))+'</td></tr>';}).join('')+'</tbody></table></div>';
+    return '<div class="cost-tariff-table-wrap"><table class="cost-tariff-table"><caption>Kg tariflari · '+costs.quantity(row.quantity)+' dona bo‘yicha jami hisob</caption><thead><tr><th>1 kg tarifi</th><th>Jami yetkazish</th><th>Jami tan narxi</th><th>Jami foyda</th></tr></thead><tbody>'+tariffs.map(tariff=>{const inv=costs.inventory(row,tariff.rate);return '<tr class="'+(tariff.id==='primary'?'cost-tariff-main':'')+'"><th>'+escapeHtml(tariff.label)+'<small>'+formatMoney(tariff.rate,'KRW')+' / kg</small></th><td>'+money(inv.shipping)+'</td><td><b>'+money(inv.total)+'</b></td><td>'+money(inv.profit)+'</td></tr>';}).join('')+'</tbody></table></div>';
   }
   function costTariffReport(rows){
     return '<div class="cost-tariff-table-wrap"><table class="cost-tariff-table"><caption>Har bir kg tarifi bo‘yicha umumiy hisob</caption><thead><tr><th>Tarif</th><th>To‘liq kitoblar</th><th>Jami yetkazish</th><th>Jami tan narxi</th><th>Kutiladigan foyda</th></tr></thead><tbody>'+costs.compare(rows,state.bookCostRate,state.bookCostComparisons).map(tariff=>'<tr class="'+(tariff.id==='primary'?'cost-tariff-main':'')+'"><th>'+escapeHtml(tariff.label)+'<small>'+formatMoney(tariff.rate,'KRW')+' / kg</small></th><td>'+tariff.ready+' ta</td><td>'+(tariff.ready?formatMoney(tariff.shipping,'KRW'):'—')+'</td><td><b>'+(tariff.ready?formatMoney(tariff.total,'KRW'):'—')+'</b></td><td>'+(tariff.profitCount?formatMoney(tariff.profitTotal,'KRW'):'—')+'<small>'+tariff.profitCount+' ta sotuv narxi bor kitob</small></td></tr>').join('')+'</tbody></table></div><p class="cost-entry-note">Har bir tarif bo‘yicha alohida hisob. Jami yetkazish va tan narxi narx-vazni to‘liq kitoblar uchun hisoblanadi.</p>';
   }
   function costSom(won){
     if(won===null||!Number.isFinite(won))return '—';
-    const som=window.YordamchiCurrency.convert(won,'KRW','UZS',state.krwToUzsPer1000,state.krwPerUsd);
-    return som===null?'Kurs kiritilmagan':window.YordamchiCurrency.display(som,'UZS');
+    const rate=window.KoreaProducts?.fx?.(state.krwToUzsPer1000)??null;
+    if(rate===null)return 'Kurs kiritilmagan';
+    const amount=Math.round(Math.abs(won)*rate/1000);
+    return (won<0?'−':'')+amount.toLocaleString('en-US')+' so‘m';
   }
   function costHasData(row){return Boolean(row.title.trim()) || row.price!==null || row.grams!==null || costs.amount(row.salePrice)!==null;}
   function costIsReady(row){return row.saved && costHasData(row);}

@@ -664,6 +664,7 @@
   function syncWorkspaceUI(){
     const mode=workspaceKit.MODES[currentWorkspace],body=document.body;
     body.dataset.workspace=currentWorkspace;
+    body.dataset.costView=costView;
     body.dataset.productView=productView;
     body.dataset.financeView=financeView;
     $('workspaceBrandSubtitle').textContent=mode.title+' · bo‘limni almashtirish';
@@ -3228,7 +3229,7 @@
     $('costSelectBtn').textContent=costSelecting?'Tanlashni tugatish':'Tanlash';
     $('costSelectedCount').textContent=costSelectedIds.size+' ta tanlandi';
     $('costEditSelectedBtn').disabled=costSelectedIds.size===0;
-    const displayRows=costView==='main'?rows.slice(0,4):rows;
+    const displayRows=costView==='main'?rows.slice(0,3):rows;
     $('costReadyList').innerHTML=displayRows.length?displayRows.map(row=>{
       const result=costs.calculate(row,state.bookCostRate),profit=costs.profit(row,state.bookCostRate);
       const pending=row.price===null && row.grams===null?'Narx va vazn kutilmoqda':row.grams===null?'Vazn kutilmoqda':row.price===null?'Narx kutilmoqda':'';
@@ -3312,7 +3313,7 @@
   function openSimpleCostEditor(id=''){
     costEditingIds.clear();costEditingAll=false;costEditingId=id;
     costView='entry';
-    renderBookCosts();
+    renderBookCosts();syncWorkspaceUI();
     if(!$('costAdvancedEditor').open){
       $('costSimpleForm').scrollIntoView({block:'start',behavior:'smooth'});
     }
@@ -3367,6 +3368,7 @@
     $('costEntryPanel').scrollIntoView({block:'start',behavior:'smooth'});
   }
   function renderBookCosts(){
+    document.body.dataset.costView=costView;
     renderCostCloud();renderCostRates();
     $('costKgRate').value=state.bookCostRate;
     $('costKgRate').setAttribute('aria-invalid','false');
@@ -3381,7 +3383,7 @@
     qsa('[data-cost-view]').forEach(button=>button.classList.toggle('active',button.dataset.costView===costView));
     renderCostReadyList();
     const rows=costEditingId?state.bookCosts.filter(row=>row.id===costEditingId):costEditingIds.size?state.bookCosts.filter(row=>costEditingIds.has(row.id)):costEditingAll?state.bookCosts:state.bookCosts.filter(row=>!costIsReady(row));
-    $('costEditorTitle').textContent=costEditingId?'Kitobni tahrirlash':costEditingIds.size?'Tanlangan kitoblarni tahrirlash':costEditingAll?'Hamma kitoblarni tahrirlash':'Kiritilayotgan kitoblar';
+    $('costEditorTitle').textContent=costEditingId?'Kitobni kengaytirilgan tahrirlash':costEditingIds.size?'Tanlangan kitoblarni tahrirlash':costEditingAll?'Hamma kitoblarni tahrirlash':'Ko‘p kitob kiritish';
     $('costSaveAllBtn').hidden=Boolean(costEditingId) || rows.length===0;
     $('costBulkPanel').hidden=editing;
     $('costEditorSearchBox').hidden=Boolean(costEditingId) || rows.length<2;

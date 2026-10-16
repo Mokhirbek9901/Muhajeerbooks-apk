@@ -3481,7 +3481,7 @@
     openSimple('Ilova sozlamalari','<div class="setting-form"><label>Profil nomi<input id="profileNameInput" value="'+escapeHtml(state.profile.name)+'"></label><div class="setting-actions"><button class="primary-button" data-save-profile>Saqlash</button></div></div>');
   }
   function openBackupDialog(){
-    openSimple('Backup / Sinxronlash','<div class="setting-form"><button type="button" class="primary-button" data-reading-open>Kitoblarni qurilmalar orasida sinxronlash</button><p style="font-size:.75rem;color:var(--muted);line-height:1.5">Kitoblar, mutolaa progressi, moliya va kitob tan narxlarini bitta faylga saqlang.</p><button class="primary-button" data-export>Backup olish</button><button class="secondary-button" data-import>Backup tiklash</button></div>');
+    openSimple('Backup / Sinxronlash','<div class="setting-form"><button type="button" class="primary-button" data-reading-open>Kitoblarni qurilmalar orasida sinxronlash</button><p style="font-size:.75rem;color:var(--muted);line-height:1.5">Kitoblar, mutolaa progressi, statistika qaydlari, moliya va tan narxlari bitta faylda saqlanadi.</p><p style="font-size:.75rem;line-height:1.5"><b>Eski ilovadan Render’ga o‘tish:</b> avval barcha ma’lumotlari turgan eski ilovada «Backup olish»ni bosing. Keyin Render’dagi Yordamchida «Backup tiklash» orqali aynan shu faylni tanlang. Tiklashdan oldin sonlar tekshiriladi va mavjud nusxa saqlanadi.</p><button class="primary-button" data-export>Backup olish</button><button class="secondary-button" data-import>Backup faylidan xavfsiz tiklash</button>'+(localStorage.getItem('bek_yordamchi_before_import_v1')?'<button type="button" class="soft-button" data-restore-before-import>Oldingi Render nusxasini qaytarish</button>':'')+'</div>');
   }
 
   function exportBackup(){
@@ -3491,10 +3491,73 @@
     setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   }
   function importBackup(file){
-    if(!file) return;
+    if(!file)return;
+    if(file.size>40*1024*1024){toast('Backup hajmi juda katta. Xavfsiz tekshirish uchun faylni alohida yuboring.');return;}
     const reader=new FileReader();
-    reader.onload=()=>{try{const parsed=JSON.parse(reader.result);state=normalizeState(parsed.data||parsed);saveState('Backup tiklandi.');}catch(_){toast('Backup fayli yaroqsiz.');}};
+    reader.onerror=()=>toast('Backup fayli o‘qilmadi. Eski ilovadagi asl faylni qayta tanlang.');
+    reader.onload=()=>{
+      let incoming,next,before,after;
+      try{
+        incoming=window.YordamchiBackupMigration.inspect(JSON.parse(reader.result));
+        next=normalizeState(incoming.data);
+        after=window.YordamchiBackupMigration.assertNotLost(incoming.counts,next);
+        before=JSON.stringify(state);
+      }catch(error){toast(error.message||'Backup fayli to‘liq emas yoki yaroqsiz.');return;}
+      const current=window.YordamchiBackupMigration.summary(state);
+      const message='ESKI ILOVADAN KELGAN FAYL:\n'+window.YordamchiBackupMigration.describe(after)+
+        '\n\nHOZIRGI RENDER NUSXASI:\n'+window.YordamchiBackupMigration.describe(current)+
+        '\n\nFayl tiklanganda Render’dagi mahalliy ma’lumotlar ALMASHTIRILADI. Avvalgi nusxa ushbu brauzerda qayta tiklash uchun saqlanadi. Eski ilova va bulutdagi ma’lumotlar o‘zgarmaydi.\n\nDavom etilsinmi?';
+      if(!confirm(message))return;
+      const safetyKey='bek_yordamchi_before_import_v1';
+      try{
+        localStorage.setItem(safetyKey,before);
+        if(localStorage.getItem(safetyKey)!==before)throw new Error('Avvalgi nusxani saqlash tekshiruvi bajarilmadi.');
+      }catch(_){toast('Render’dagi avvalgi ma’lumotlardan xavfsiz nusxa saqlanmadi. Tiklash to‘xtatildi. Avval qo‘lda Backup oling.');return;}
+      const prior=state;
+      try{
+        const target=JSON.stringify(next);
+        localStorage.setItem(STORAGE_KEY,target);
+        const written=localStorage.getItem(STORAGE_KEY);
+        if(written!==target)throw new Error('Saqlangan fayl tekshiruvi muvaffaqiyatsiz.');
+        // Any connected cloud session must not overwrite the imported local copy.
+        disconnectReadingSync();
+        disconnectCostCloud('Backup tiklandi. Bulutga qayta ulanishdan avval ma’lumotlarni tekshiring.');
+        state=next;renderAll();
+        $('simpleDialog').close();
+        toast('✓ Tiklandi: '+window.YordamchiBackupMigration.describe(after)+'. Avvalgi Render nusxasi ham saqlangan.');
+      }catch(error){
+        state=prior;
+        try{localStorage.setItem(STORAGE_KEY,before);renderAll();}catch(_){}
+        toast('Tiklash xavfsizlik sababli to‘xtatildi: '+(error.message||'xatolik')+'.');
+      }
+    };
     reader.readAsText(file);
+  }
+  function restorePreImport(){
+    const safetyKey='bek_yordamchi_before_import_v1',redoKey='bek_yordamchi_before_restore_v1';
+    let previous,old;
+    try{
+      old=localStorage.getItem(safetyKey);
+      if(!old){toast('Qaytarish uchun avvalgi nusxa topilmadi.');return;}
+      previous=normalizeState(JSON.parse(old));
+      window.YordamchiBackupMigration.inspect(previous);
+    }catch(_){toast('Qaytarish nusxasini o‘qib bo‘lmadi.');return;}
+    const note='AVVALGI RENDER NUSXASI:\n'+window.YordamchiBackupMigration.describe(window.YordamchiBackupMigration.summary(previous))+
+      '\n\nHozirgi ma’lumotlar ham alohida zaxiralanadi. Oldingi nusxaga qaytamizmi?';
+    if(!confirm(note))return;
+    const current=JSON.stringify(state);
+    try{
+      localStorage.setItem(redoKey,current);
+      if(localStorage.getItem(redoKey)!==current)throw new Error('Hozirgi nusxa zaxiralanmadi.');
+      localStorage.setItem(STORAGE_KEY,old);
+      if(localStorage.getItem(STORAGE_KEY)!==old)throw new Error('Avvalgi nusxa to‘liq yozilmadi.');
+      disconnectCostCloud('Avvalgi nusxa qaytarildi. Bulutga ulanishni qayta tekshiring.');
+      state=previous;renderAll();$('simpleDialog').close();
+      toast('Avvalgi Render nusxasi qaytarildi.');
+    }catch(error){
+      try{localStorage.setItem(STORAGE_KEY,current);}catch(_){}
+      toast('Qaytarish to‘xtatildi: '+(error.message||'saqlash xatosi'));
+    }
   }
 
   function maybeDailyReminder(){
@@ -3579,6 +3642,7 @@
       }
       if(e.target.closest('[data-export]')){exportBackup();return;}
       if(e.target.closest('[data-import]')){$('importInput').click();return;}
+      if(e.target.closest('[data-restore-before-import]')){restorePreImport();return;}
     });
 
     qsa('[data-close]').forEach(btn=>btn.addEventListener('click',()=>$(btn.dataset.close).close()));

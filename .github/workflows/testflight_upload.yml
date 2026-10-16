@@ -137,6 +137,15 @@ jobs:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         run: ruby .github/scripts/ios/app_store_status.rb wait
 
+      - name: Submit validated iOS update to App Store Review
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          ruby -c .github/release_tools/submit_app_store_update.rb
+          ruby .github/release_tools/submit_app_store_update.rb
+
       - name: Save release diagnostics
         if: always()
         uses: actions/upload-artifact@v4

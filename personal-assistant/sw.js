@@ -1,5 +1,5 @@
-const CACHE='bek-yordamchi-v54';
-const ASSETS=['./reading-timer.js?v=54','./reading-device-sync.js?v=54','./','./index.html','./styles.css?v=54','./app.js?v=54','./book-costs.js?v=54','./book-cost-device-sync.js?v=54','./book-cost-export.js?v=54','./book-cost-sync.js?v=54','./book-cost-sync-config.js?v=54','./backup-migration.js?v=54','./currency-converter.js?v=54','./korea-products.js?v=54','./manifest.webmanifest','./icon.svg'];
+const CACHE='bek-yordamchi-v55';
+const ASSETS=['./reading-timer.js?v=55','./reading-device-sync.js?v=55','./','./index.html','./styles.css?v=55','./app.js?v=55','./book-costs.js?v=55','./book-cost-device-sync.js?v=55','./book-cost-export.js?v=55','./book-cost-sync.js?v=55','./book-cost-sync-config.js?v=55','./backup-migration.js?v=55','./currency-converter.js?v=55','./workspaces.js?v=55','./korea-products.js?v=55','./manifest.webmanifest','./icon.svg'];
 
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)));

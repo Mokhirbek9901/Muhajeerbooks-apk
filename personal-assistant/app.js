@@ -112,6 +112,7 @@
     bookCostAutoSync:true,
     bookCosts: [],
     krwToUzsPer1000: null,
+    krwPerUsd: null,
     koreaProducts: []
   });
 
@@ -296,6 +297,7 @@
       bookCostMetadata: input?.bookCostMetadata && typeof input.bookCostMetadata==='object' && !Array.isArray(input.bookCostMetadata)?input.bookCostMetadata:{},
       bookCosts: costs.normalize(input?.bookCosts,makeId),
       krwToUzsPer1000: window.KoreaProducts.fx(input?.krwToUzsPer1000),
+      krwPerUsd: window.YordamchiCurrency.rate(input?.krwPerUsd),
       koreaProducts: window.KoreaProducts.normalize(input?.koreaProducts,makeId),
       transactions: transactions.map(t => ({
         id: String(t.id || makeId()),

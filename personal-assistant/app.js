@@ -3154,6 +3154,11 @@
   function costTariffReport(rows){
     return '<div class="cost-tariff-table-wrap"><table class="cost-tariff-table"><caption>Har bir kg tarifi bo‘yicha umumiy hisob</caption><thead><tr><th>Tarif</th><th>To‘liq kitoblar</th><th>Jami yetkazish</th><th>Jami tan narxi</th><th>Kutiladigan foyda</th></tr></thead><tbody>'+costs.compare(rows,state.bookCostRate,state.bookCostComparisons).map(tariff=>'<tr class="'+(tariff.id==='primary'?'cost-tariff-main':'')+'"><th>'+escapeHtml(tariff.label)+'<small>'+formatMoney(tariff.rate,'KRW')+' / kg</small></th><td>'+tariff.ready+' ta</td><td>'+(tariff.ready?formatMoney(tariff.shipping,'KRW'):'—')+'</td><td><b>'+(tariff.ready?formatMoney(tariff.total,'KRW'):'—')+'</b></td><td>'+(tariff.profitCount?formatMoney(tariff.profitTotal,'KRW'):'—')+'<small>'+tariff.profitCount+' ta sotuv narxi bor kitob</small></td></tr>').join('')+'</tbody></table></div><p class="cost-entry-note">Har bir tarif bo‘yicha alohida hisob. Jami yetkazish va tan narxi narx-vazni to‘liq kitoblar uchun hisoblanadi.</p>';
   }
+  function costSom(won){
+    if(won===null||!Number.isFinite(won))return '—';
+    const som=window.YordamchiCurrency.convert(won,'KRW','UZS',state.krwToUzsPer1000,state.krwPerUsd);
+    return som===null?'Kurs kiritilmagan':window.YordamchiCurrency.display(som,'UZS');
+  }
   function costHasData(row){return Boolean(row.title.trim()) || row.price!==null || row.grams!==null || costs.amount(row.salePrice)!==null;}
   function costIsReady(row){return row.saved && costHasData(row);}
 
@@ -3162,19 +3167,33 @@
     const ready=state.bookCosts.filter(costIsReady);
     const totals=costs.summary(ready,state.bookCostRate);
     $('costSummaryTotal').textContent=totals.ready?formatMoney(totals.total,'KRW'):'—';
-    $('costSummaryNote').textContent=totals.ready+' ta to‘liq kitob bo‘yicha';
-    $('costSummaryReady').textContent=totals.ready+' ta';
+    $('costSummaryTotalSom').textContent=totals.ready?costSom(totals.total):'—';
+    $('costSummaryNote').textContent=totals.ready+' xil kitob · '+totals.quantityReady+' nusxa bo‘yicha';
+    $('costSummaryReady').textContent=totals.ready+' ta turdagi kitob hisoblandi';
+    $('costSummaryQuantity').textContent=totals.quantityTotal+' ta';
     $('costSummaryPending').textContent=totals.pending+' ta';
-    const complete=ready.filter(row=>costs.calculate(row,state.bookCostRate).total!==null);
-    const shipTotal=complete.reduce((sum,row)=>sum+costs.calculate(row,state.bookCostRate).shipping,0);
-    $('costShippingTotal').textContent=complete.length?formatMoney(shipTotal,'KRW'):'—';
+    $('costPurchaseTotal').textContent=totals.ready?formatMoney(totals.purchaseTotal,'KRW'):'—';
+    $('costShippingTotal').textContent=totals.ready?formatMoney(totals.shippingTotal,'KRW'):'—';
     $('costProfitTotal').textContent=totals.profitCount?formatMoney(totals.profitTotal,'KRW'):'—';
-    $('costProfitNote').textContent=totals.profitCount+' ta sotuv narxi bor kitob';
-    $('costShippingNote').textContent=complete.length+' ta vazni va narxi kiritilgan kitob';
+    $('costProfitTotalSom').textContent=totals.profitCount?costSom(totals.profitTotal):'—';
+    $('costProfitNote').textContent=totals.profitCount+' xil kitob · '+totals.profitUnits+' dona sotilsa';
+    $('costShippingNote').textContent=totals.quantityReady+' ta nusxa yetkazishi';
+    if(document.activeElement!==$('costKgRateQuick'))$('costKgRateQuick').value=state.bookCostRate;
+    $('costKgQuickInfo').textContent='1 kg = '+formatMoney(state.bookCostRate,'KRW')+
+      ' · 100 g = '+formatMoney(state.bookCostRate/10,'KRW')+' · Faqat kitoblar uchun';
     $('costChipAll').textContent=ready.length;
     $('costChipPrice').textContent=ready.filter(r=>r.price===null).length;
     $('costChipWeight').textContent=ready.filter(r=>r.grams===null).length;
-    $('costReportValues').innerHTML='<dl><div><dt>Saqlangan kitoblar</dt><dd>'+ready.length+' ta</dd></div><div><dt>Jami tan narxi ('+totals.ready+' ta to‘liq kitob)</dt><dd>'+(totals.ready?formatMoney(totals.total,'KRW'):'—')+'</dd></div><div><dt>Kutiladigan foyda ('+totals.profitCount+' ta kitob)</dt><dd>'+(totals.profitCount?formatMoney(totals.profitTotal,'KRW'):'—')+'</dd></div><div><dt>Narx yoki vazn yetishmaydi</dt><dd>'+totals.pending+' ta</dd></div></dl>';
+    $('costReportValues').innerHTML='<dl><div><dt>Saqlangan kitob turlari</dt><dd>'+ready.length+' ta</dd></div>'+
+      '<div><dt>Kelgan nusxalar soni</dt><dd>'+totals.quantityTotal+' ta</dd></div>'+
+      '<div><dt>Jami xarid (₩)</dt><dd>'+(totals.ready?formatMoney(totals.purchaseTotal,'KRW'):'—')+'</dd></div>'+
+      '<div><dt>Jami yetkazish (₩)</dt><dd>'+(totals.ready?formatMoney(totals.shippingTotal,'KRW'):'—')+'</dd></div>'+
+      '<div><dt>Jami tan narxi (₩)</dt><dd>'+(totals.ready?formatMoney(totals.total,'KRW'):'—')+'</dd></div>'+
+      '<div><dt>Jami tan narxi (so‘m)</dt><dd>'+(totals.ready?costSom(totals.total):'—')+'</dd></div>'+
+      '<div><dt>Kutiladigan jami tushum</dt><dd>'+(totals.profitCount?formatMoney(totals.revenueTotal,'KRW'):'—')+'</dd></div>'+
+      '<div><dt>Kutiladigan foyda (₩)</dt><dd>'+(totals.profitCount?formatMoney(totals.profitTotal,'KRW'):'—')+'</dd></div>'+
+      '<div><dt>Kutiladigan foyda (so‘m)</dt><dd>'+(totals.profitCount?costSom(totals.profitTotal):'—')+'</dd></div>'+
+      '<div><dt>Narx yoki vazn yetishmaydi</dt><dd>'+totals.pending+' ta</dd></div></dl>';
     $('costReportComparisons').innerHTML=costTariffReport(ready);
     const drafts=state.bookCosts.length-ready.length;
     $('costReadyCount').textContent=ready.length;

@@ -7,9 +7,9 @@ const costs=require('../personal-assistant/book-costs.js');
 test('Sheets clipboard table separates columns, recalculates rate and leaves unknown values empty',()=>{
   const exporter=require('../personal-assistant/book-cost-export.js');
   const table=exporter.textTable([{title:'Arosat',price:8000,grams:300,salePrice:15000},{title:'=SUM(1,2)\nKitob',price:0,grams:null}],12000).split('\n').map(row=>row.split('\t'));
-  assert.equal(table[0].length,8);
-  assert.deepEqual(table[1],['Arosat','8000','300','3600','11600','15000','3400','12000']);
-  assert.deepEqual(table[2],["'=SUM(1,2) Kitob",'0','','','','','','12000']);
+  assert.equal(table[0].length,13);
+  assert.deepEqual(table[1],['Arosat','8000','300','3600','11600','15000','3400','12000','1','8000','3600','11600','3400']);
+  assert.deepEqual(table[2],["'=SUM(1,2) Kitob",'0','','','','','','12000','1','0','','','']);
 });
 
 test('10,000 won per kilogram, including decimal weights and missing fields',()=>{
@@ -29,7 +29,7 @@ test('bulk pasted names preserve punctuation, strip list prefixes, skip repeats'
 test('saved cost records survive JSON reload and old backups default to empty',()=>{
   assert.deepEqual(costs.normalize(undefined,()=> 'new'),[]);
   const rows=[{id:'a',title:'Arosat',price:8000,grams:300,saved:true},{id:'b',title:'',price:null,grams:null,saved:false}];
-  assert.deepEqual(costs.normalize(JSON.parse(JSON.stringify(rows)),()=> 'new'),rows.map(row=>({...row,salePrice:null})));
+  assert.deepEqual(costs.normalize(JSON.parse(JSON.stringify(rows)),()=> 'new'),rows.map(row=>({...row,salePrice:null,quantity:1})));
 });
 
 function appHarness(extra={}){
@@ -208,7 +208,7 @@ test('custom kg rate recalculates existing and draft books, persists and restore
 test('profit and summary exclude incomplete rows and preserve losses and zero sale prices',()=>{
   const rows=[{title:'A',price:8000,grams:300,salePrice:15000},{title:'B',price:8000,grams:null,salePrice:16000},{title:'C',price:8000,grams:100,salePrice:0}];
   assert.equal(costs.profit(rows[0]),4000);assert.equal(costs.profit(rows[1]),null);assert.equal(costs.profit(rows[2]),-9000);
-  assert.deepEqual(costs.summary(rows),{total:20000,ready:2,pending:1,profitTotal:-5000,profitCount:2});
+  assert.deepEqual(costs.summary(rows),{total:20000,ready:2,pending:1,profitTotal:-5000,profitCount:2,quantityTotal:3,quantityReady:2,profitUnits:2,purchaseTotal:16000,shippingTotal:4000,revenueTotal:15000});
   assert.equal(costs.profit(rows[0],12000),3400);
   assert.equal(costs.normalize(rows,()=> 'id')[0].salePrice,15000);
 });
@@ -334,9 +334,9 @@ test('Sheets and Excel include every populated tariff, including columns beyond 
  const extras=Array.from({length:12},(_,i)=>({id:String(i),label:'Tarif '+i,rate:7000+i*1000}));
  const row={title:'A',price:3000,grams:200,salePrice:6000};
  const table=exporter.textTable([row],10000,[...extras,{id:'blank',rate:null}]).split('\n').map(r=>r.split('\t'));
- assert.equal(table[0].length,44);assert.equal(table[1].length,44);assert.deepEqual(table[1].slice(8,11),['1400','4400','1600']);
+ assert.equal(table[0].length,49);assert.equal(table[1].length,49);assert.deepEqual(table[1].slice(13,16),['1400','4400','1600']);
  const xml=new TextDecoder().decode(exporter.build([row],10000,extras));
- assert.match(xml,/ref="A1:AR2"/);assert.match(xml,/r="AA2"/);assert.match(xml,/max="44"/);
+ assert.match(xml,/ref="A1:AW2"/);assert.match(xml,/r="AA2"/);assert.match(xml,/max="49"/);
 });
 
 test('bulk editor search and missing-field filters preserve and save hidden books',()=>{
@@ -429,4 +429,36 @@ test('paid reading lookup fills book metadata, preserves manual fields and can a
  const {api,node,data}=appHarness({fetch});api.bindBookCosts();node('bookAiCode').value='test-code';await api.enablePaidAi('book');node('bookDialog').open=true;node('bookTitle').value='Unique AI Book';node('bookAuthor').value='My entered author';node('bookAiAutoAdd').checked=false;
  await api.runBookTitleLookup('Unique AI Book',0);assert.equal(node('bookAuthor').value,'My entered author');assert.equal(node('bookPublisher').value,'Verified Publisher');assert.equal(node('bookPages').value,'244');assert.equal(node('bookDescription').value,'Verified description');assert.equal(api.getState().books.some(b=>b.title==='Unique AI Book'),false);
  node('bookAiAutoAdd').checked=true;await api.runBookTitleLookup('Unique AI Book',0);assert.equal(api.getState().books.filter(b=>b.title==='Unique AI Book').length,1);assert.equal(node('bookDialog').open,false);assert.equal(JSON.parse(data.get('bek_personal_assistant_v4')).books[0].pages,244);
+});
+
+test('quantity multiplies batch expense and future profit, without changing Muhajeer-linked unit price',()=>{
+ const row={id:'q',title:'Arosat',price:15000,grams:200,salePrice:24000,quantity:10,saved:true,
+   muhajeerId:'00000000-0000-4000-8000-000000000001'};
+ const unit=costs.calculate(row,10000),v=costs.inventory(row,10000),summary=costs.summary([row],10000);
+ assert.deepEqual(unit,{shipping:2000,total:17000});
+ assert.equal(costs.profit(row,10000),7000);
+ assert.deepEqual(v,{quantity:10,unitPurchase:15000,unitShipping:2000,unitCost:17000,unitSale:24000,
+   purchase:150000,shipping:20000,total:170000,revenue:240000,profit:70000});
+ assert.equal(summary.quantityTotal,10);assert.equal(summary.quantityReady,10);
+ assert.equal(summary.total,170000);assert.equal(summary.purchaseTotal,150000);
+ assert.equal(summary.shippingTotal,20000);assert.equal(summary.profitTotal,70000);
+ assert.equal(costs.normalize([row],()=> 'new')[0].quantity,10);
+ assert.equal(row.salePrice,24000);assert.equal(row.quantity,10);
+ const plan=require('../personal-assistant/book-cost-sync.js').plan([row],[{id:row.muhajeerId,title:'Arosat',cost_price:0}],10000);
+ assert.equal(plan.changes[0].cost_price,17000,'Muhajeer receives single-book landed cost, not batch total');
+});
+test('default and invalid quantities are safe',()=>{
+ assert.equal(costs.quantity(undefined),1);assert.equal(costs.quantity(null),1);
+ assert.equal(costs.quantity(''),1);assert.equal(costs.quantity('10'),10);
+ for(const value of [0,'0','1.5','-1','x',100001])assert.equal(costs.quantity(value),null);
+ const row=costs.normalize([{title:'old book',price:9000,grams:100}],()=> 'old')[0];
+ assert.equal(row.quantity,1);
+ assert.equal(costs.inventory(row,10000).total,10000);
+});
+test('saved ten-copy book exports batch totals alongside single-copy prices',()=>{
+ const exporter=require('../personal-assistant/book-cost-export.js');
+ const columns=exporter.textTable([{title:'Ten copies',price:15000,grams:200,salePrice:24000,quantity:10}],10000)
+  .split('\n')[1].split('\t');
+ assert.deepEqual(columns.slice(0,8),['Ten copies','15000','200','2000','17000','24000','7000','10000']);
+ assert.deepEqual(columns.slice(8,13),['10','150000','20000','170000','70000']);
 });

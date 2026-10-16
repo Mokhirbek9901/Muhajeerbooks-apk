@@ -17,6 +17,9 @@ on:
     branches: [main]
     paths:
       - '.github/play-release-trigger'
+      - 'lib/**'
+      - 'assets/**'
+      - 'pubspec.yaml'
 
 permissions:
   contents: write

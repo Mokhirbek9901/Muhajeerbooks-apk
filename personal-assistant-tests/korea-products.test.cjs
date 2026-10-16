@@ -38,3 +38,47 @@ test('product normalization preserves records without altering books',()=>{
   assert.equal(normalized[1].kind,'Boshqa');
   assert.equal(normalized[1].price,null);
 });
+
+test('a single global rate instantly converts every product including the purchase, shipping and grand totals',()=>{
+  const products=[
+    {name:'Jenshen',price:13000,grams:290},
+    {name:'Vitamin',price:9000,grams:200}
+  ];
+  const result=costs.summarize(products,10000,8000);
+  assert.equal(result.count,2);
+  assert.equal(result.ready,2);
+  assert.equal(result.purchase,22000);
+  assert.equal(result.shipping,4900);
+  assert.equal(result.total,26900);
+  assert.equal(result.purchaseSom,176000);
+  assert.equal(result.shippingSom,39200);
+  assert.equal(result.totalSom,215200);
+  assert.equal(costs.calculate(products[0],10000,8000).priceSom,104000);
+  assert.equal(costs.calculate(products[0],10000,8000).totalSom,127200);
+});
+test('incomplete products remain visible but never inflate grand totals',()=>{
+  const result=costs.summarize([
+    {price:13000,grams:290},
+    {price:14000,grams:null},
+    {price:null,grams:100}
+  ],10000,8000);
+  assert.equal(result.count,3);
+  assert.equal(result.ready,1);
+  assert.equal(result.incomplete,2);
+  assert.equal(result.total,15900);
+  assert.equal(result.totalSom,127200);
+});
+test('a new global rate recalculates displayed UZS without changing stored won values',()=>{
+  const item={price:13000,grams:290};
+  const a=costs.summarize([item],10000,8000),b=costs.summarize([item],10000,8500);
+  assert.equal(a.total,b.total);
+  assert.equal(a.total,15900);
+  assert.equal(a.totalSom,127200);
+  assert.equal(b.totalSom,135150);
+  assert.deepEqual(item,{price:13000,grams:290});
+});
+test('missing rate does not fake UZS summary while KRW costs are correct',()=>{
+  const summary=costs.summarize([{price:13000,grams:290}],10000,null);
+  assert.equal(summary.total,15900);
+  assert.equal(summary.totalSom,null);
+});

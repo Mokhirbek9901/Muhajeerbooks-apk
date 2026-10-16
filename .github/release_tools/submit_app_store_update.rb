@@ -68,11 +68,6 @@ state = version.dig('attributes', 'appStoreState') ||
         version.dig('attributes', 'appVersionState')
 abort "Version #{TARGET_VERSION} is not editable (#{state})" unless
   %w[PREPARE_FOR_SUBMISSION DEVELOPER_REJECTED REJECTED READY_FOR_REVIEW WAITING_FOR_REVIEW IN_REVIEW].include?(state)
-if %w[WAITING_FOR_REVIEW IN_REVIEW].include?(state)
-  puts "Version #{TARGET_VERSION} already submitted for Apple review (#{state})."
-  exit 0
-end
-
 builds = asc(:get, '/v1/builds', query: {
   'filter[app]' => APP_ID, 'filter[version]' => TARGET_BUILD,
   'include' => 'preReleaseVersion', 'limit' => 30
@@ -86,6 +81,45 @@ end
 abort "Build #{TARGET_VERSION} (#{TARGET_BUILD}) not found." unless build
 abort "Build #{TARGET_BUILD} not VALID." unless build.dig('attributes', 'processingState') == 'VALID'
 build_id = build.fetch('id')
+
+# An App Store review version is immutable while in the review queue.
+# Once the NEW build is validated, withdraw just this version's previous
+# submission, reattach the fixed build and submit it afresh.
+if %w[WAITING_FOR_REVIEW IN_REVIEW].include?(state)
+  existing_build_id = version.dig('relationships', 'build', 'data', 'id')
+  if existing_build_id == build_id
+    puts "Latest build #{TARGET_BUILD} is already in App Review (#{state})."
+    exit 0
+  end
+  submissions = asc(:get, "/v1/apps/#{APP_ID}/reviewSubmissions",
+                    query: { 'limit' => 100 }).fetch('data')
+  active = submissions.select do |submission|
+    %w[WAITING_FOR_REVIEW IN_REVIEW].include?(submission.dig('attributes', 'state'))
+  end
+  found = active.find do |submission|
+    items = asc(:get, "/v1/reviewSubmissions/#{submission.fetch('id')}/items",
+                query: { 'limit' => 50 }).fetch('data')
+    items.any? { |item| item.dig('relationships', 'appStoreVersion', 'data', 'id') == version_id }
+  end
+  abort "Could not locate active App Review submission for #{TARGET_VERSION}" unless found
+  puts "Removing outdated iOS build from review so build #{TARGET_BUILD} can replace it."
+  asc(:patch, "/v1/reviewSubmissions/#{found.fetch('id')}",
+      body: { data: { type: 'reviewSubmissions', id: found.fetch('id'),
+                      attributes: { canceled: true } } })
+  deadline = Time.now + 240
+  loop do
+    current = asc(:get, "/v1/appStoreVersions/#{version_id}",
+                  query: { 'fields[appStoreVersions]' =>
+                    'platform,versionString,appStoreState,appVersionState,build' })
+    state = current.dig('data', 'attributes', 'appStoreState') ||
+            current.dig('data', 'attributes', 'appVersionState')
+    break if %w[DEVELOPER_REJECTED PREPARE_FOR_SUBMISSION READY_FOR_REVIEW REJECTED].include?(state)
+    abort "Cannot replace in-review version; current state #{state}" if Time.now >= deadline
+    sleep 12
+  end
+  puts "Previous review submission canceled; version is now #{state}."
+end
+
 asc(:patch, "/v1/appStoreVersions/#{version_id}/relationships/build",
     body: { data: { type: 'builds', id: build_id } })
 puts "Attached validated iOS build #{TARGET_BUILD} to version #{TARGET_VERSION}."

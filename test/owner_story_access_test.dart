@@ -3,6 +3,7 @@ import 'package:muhajeerbooks/app_state.dart';
 import 'package:muhajeerbooks/owner_story_access.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   test('phone numbers normalize across domestic and country-code forms', () {
     expect(OwnerStoryAccess.normalizePhone('010-1111-2222'), '01011112222');
     expect(OwnerStoryAccess.normalizePhone('+82 10 1111 2222'), '01011112222');

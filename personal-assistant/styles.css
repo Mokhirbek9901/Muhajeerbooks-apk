@@ -2117,3 +2117,105 @@ body[data-workspace="finance"][data-finance-view="history"] #financeRecentPanel{
  .cost-stock-breakdown{gap:6px}
  .cost-stock-breakdown>div{padding:10px}
 }
+
+/* Yordamchi v60 — a calm, distinct homepage and a 5-field book input flow */
+body[data-workspace="costs"] #screen-book-costs{padding-bottom:35px}
+body[data-workspace="costs"] #screen-book-costs .cost-page-head{margin-bottom:12px}
+body[data-workspace="costs"] #screen-book-costs .cost-page-head h1{font-size:1.2rem;letter-spacing:-.035em}
+.cost-main-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:12px 0 20px}
+.cost-main-actions button{min-width:0;min-height:46px;border-radius:13px;font-size:.77rem;font-weight:850}
+.cost-main-actions .cost-primary-action{grid-column:1/-1;min-height:54px;display:flex;align-items:center;justify-content:center;gap:9px;font-size:.94rem;box-shadow:0 6px 16px rgba(0,75,70,.14)}
+.cost-main-actions .cost-primary-action .ui-icon{width:21px;height:21px;stroke-width:2.4}
+body[data-workspace="costs"] .cost-dashboard article{background:var(--surface);border-radius:16px}
+body[data-workspace="costs"] .cost-dashboard article strong{font-variant-numeric:tabular-nums}
+body[data-workspace="costs"] .cost-dashboard .cost-total-primary{background:var(--green)}
+body[data-workspace="costs"] .cost-dashboard .cost-profit-main{background:var(--mint);border-color:color-mix(in srgb,var(--green) 22%,var(--line))}
+body[data-workspace="costs"] .cost-dashboard .cost-profit-main strong{color:var(--green)}
+body[data-workspace="costs"] .cost-dashboard .cost-summary-pending{background:var(--goldsoft)}
+.cost-list-intro,.cost-recent-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0 17px}
+.cost-list-intro h2,.cost-recent-heading h2{margin:0 0 5px;font-size:1.14rem;color:var(--ink);line-height:1.2;letter-spacing:-.025em}
+.cost-list-intro p{font-size:.76rem;color:var(--muted);line-height:1.5;margin:0}
+.cost-list-intro>div{min-width:0;flex:1}
+.cost-list-intro button{flex-shrink:0;font-size:.73rem;min-height:42px;padding:9px 12px;border-radius:11px}
+.cost-recent-heading h2{margin:0}
+.cost-recent-heading button{font-size:.71rem;flex-shrink:0}
+.cost-entry-welcome{padding:2px 1px 10px;margin:8px 0 3px}
+.cost-entry-welcome h2{font-size:1.35rem;letter-spacing:-.035em;color:var(--ink);margin:0 0 6px}
+.cost-entry-welcome p{font-size:.79rem;line-height:1.55;color:var(--muted);margin:0}
+.cost-simple-form{display:grid;gap:17px;padding:19px;background:var(--surface);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);margin:0 0 20px;scroll-margin-top:102px}
+.cost-simple-label{display:grid;min-width:0;gap:8px;font-size:.83rem;color:var(--ink);font-weight:850}
+.cost-simple-label>small{font-size:.69rem;line-height:1.45;color:var(--muted);font-weight:500}
+.cost-simple-label input{display:block;width:100%;min-width:0;min-height:55px;box-sizing:border-box;padding:11px 13px;border:1px solid var(--line);background:var(--surface2);border-radius:13px;color:var(--ink);font-size:1rem;font-weight:800;font-variant-numeric:tabular-nums}
+.cost-simple-label input::placeholder{font-size:.83rem;color:var(--muted);font-weight:400}
+.cost-simple-label input:focus-visible{outline:2px solid var(--green);border-color:var(--green);outline-offset:1px}
+.cost-simple-label input[readonly]{opacity:.75;background:var(--mint)}
+.cost-simple-name input{font-size:1.08rem}
+.cost-simple-highlight{display:grid;gap:9px;background:var(--mint);padding:18px;border:2px solid color-mix(in srgb,var(--green) 36%,var(--line));border-radius:16px}
+.cost-simple-highlight label{font-size:.98rem;color:var(--green);font-weight:900;letter-spacing:-.015em}
+.cost-simple-highlight input{font-size:1.62rem!important;font-weight:950!important;min-height:61px;background:var(--surface)!important;border-color:color-mix(in srgb,var(--green) 24%,var(--line))!important;text-align:center}
+.cost-simple-highlight>span{font-size:.74rem;color:var(--green);line-height:1.4}
+.cost-simple-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.cost-simple-live{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:0}
+.cost-simple-live>div{display:grid;gap:7px;min-width:0;padding:15px 13px;border:1px solid var(--line);border-radius:14px;background:var(--surface2)}
+.cost-simple-live>div:first-child{grid-column:1/-1}
+.cost-simple-live small{font-size:.75rem;color:var(--muted);line-height:1.3}
+.cost-simple-live b{font-size:1.18rem;color:var(--ink);font-weight:900;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.cost-simple-live span{color:var(--green);font-size:.83rem;font-weight:850;overflow-wrap:anywhere}
+.cost-simple-live .cost-simple-profit{background:var(--mint)}
+.cost-simple-live .cost-simple-profit b{color:var(--green)}
+.cost-simple-error{margin:-5px 0 0;font-size:.78rem;background:var(--redsoft);color:var(--red);padding:10px 12px;border-radius:10px}
+.cost-simple-submit{display:block;width:100%;min-height:56px;border-radius:13px;font-size:.96rem;font-weight:900}
+.cost-simple-back{min-height:45px;border-radius:12px;font-size:.78rem}
+.cost-advanced-editor{border:1px solid var(--line);border-radius:16px;background:var(--surface);overflow:hidden;margin:0 0 20px}
+.cost-advanced-editor>summary{display:flex;flex-direction:column;gap:5px;padding:16px;cursor:pointer;list-style:none;min-height:56px;color:var(--ink)}
+.cost-advanced-editor>summary::-webkit-details-marker{display:none}
+.cost-advanced-editor>summary b{font-size:.88rem}
+.cost-advanced-editor>summary small{font-size:.71rem;color:var(--muted);line-height:1.4}
+.cost-advanced-editor[open]{padding-bottom:15px}
+.cost-advanced-editor[open]>.cost-import,.cost-advanced-editor[open]>.cost-editor-toolbar,.cost-advanced-editor[open]>.cost-entry-note,.cost-advanced-editor[open]>.cost-books-list{margin-inline:12px}
+.cost-advanced-editor .cost-editor-toolbar{position:static!important;box-shadow:none!important;background:transparent!important}
+.cost-advanced-editor #costBulkPanel{margin:0 12px 16px}
+body[data-workspace="costs"][data-cost-view="main"] #screen-book-costs .exchange-editor,
+body[data-workspace="costs"][data-cost-view="main"] #costListIntro,
+body[data-workspace="costs"][data-cost-view="main"] #screen-book-costs .cost-list-tools,
+body[data-workspace="costs"][data-cost-view="main"] #screen-book-costs .cost-quick-filters,
+body[data-workspace="costs"][data-cost-view="main"] #screen-book-costs .cost-filter-tools,
+body[data-workspace="costs"][data-cost-view="main"] #costListActions,
+body[data-workspace="costs"][data-cost-view="main"] #costSelectionBar,
+body[data-workspace="costs"][data-cost-view="main"] #costListPanel>.cost-new-button{display:none!important}
+body[data-workspace="costs"][data-cost-view="list"] #screen-book-costs .workspace-overview-head,
+body[data-workspace="costs"][data-cost-view="list"] #screen-book-costs .cost-shipping-quick,
+body[data-workspace="costs"][data-cost-view="list"] #costMainActions,
+body[data-workspace="costs"][data-cost-view="list"] #screen-book-costs .cost-dashboard,
+body[data-workspace="costs"][data-cost-view="list"] #costOverviewNote,
+body[data-workspace="costs"][data-cost-view="list"] #costRecentHeading,
+body[data-workspace="costs"][data-cost-view="list"] #screen-book-costs .exchange-editor,
+body[data-workspace="costs"][data-cost-view="list"] #screen-book-costs .book-som-result{display:none!important}
+body[data-workspace="costs"][data-cost-view="entry"] #screen-book-costs>.workspace-overview-head,
+body[data-workspace="costs"][data-cost-view="entry"] #screen-book-costs>.cost-shipping-quick,
+body[data-workspace="costs"][data-cost-view="entry"] #costMainActions,
+body[data-workspace="costs"][data-cost-view="entry"] #screen-book-costs>.cost-dashboard,
+body[data-workspace="costs"][data-cost-view="entry"] #costOverviewNote,
+body[data-workspace="costs"][data-cost-view="entry"] #screen-book-costs>.exchange-editor,
+body[data-workspace="costs"][data-cost-view="entry"] #screen-book-costs>.book-som-result{display:none!important}
+body[data-workspace="costs"][data-cost-view="report"] #screen-book-costs>.workspace-overview-head,
+body[data-workspace="costs"][data-cost-view="report"] #screen-book-costs>.cost-shipping-quick,
+body[data-workspace="costs"][data-cost-view="report"] #costMainActions,
+body[data-workspace="costs"][data-cost-view="report"] #screen-book-costs>.cost-dashboard,
+body[data-workspace="costs"][data-cost-view="report"] #costOverviewNote,
+body[data-workspace="costs"][data-cost-view="report"] #screen-book-costs>.exchange-editor{display:none!important}
+body[data-workspace="costs"][data-cost-view="settings"] #screen-book-costs>.workspace-overview-head,
+body[data-workspace="costs"][data-cost-view="settings"] #screen-book-costs>.cost-shipping-quick,
+body[data-workspace="costs"][data-cost-view="settings"] #costMainActions,
+body[data-workspace="costs"][data-cost-view="settings"] #screen-book-costs>.cost-dashboard,
+body[data-workspace="costs"][data-cost-view="settings"] #costOverviewNote{display:none!important}
+body[data-workspace="costs"] #costEntryPanel .cost-import{margin-top:0}
+@media(max-width:440px){
+ .cost-main-actions button{padding:10px 8px;font-size:.72rem}
+ .cost-simple-form{padding:14px;gap:14px}
+ .cost-simple-grid{grid-template-columns:1fr}
+ .cost-simple-live{grid-template-columns:1fr}
+ .cost-simple-live>div:first-child{grid-column:auto}
+ .cost-list-intro{align-items:stretch;flex-direction:column}
+ .cost-list-intro button{align-self:flex-start}
+}

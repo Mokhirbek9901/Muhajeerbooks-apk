@@ -2363,3 +2363,29 @@ body[data-workspace="costs"][data-cost-view="report"] #costReportPanel{border-ra
   .cost-home-book-heading h3{font-size:.86rem}
   .cost-home-book-qty{padding:6px 8px;font-size:.72rem}
 }
+
+/* v63: 1 book cost in UZS comes first, then total received-copy cost */
+.cost-home-book .cost-home-book-som{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;
+  padding:11px 0 0;margin:12px 0 0;border-top:1px solid var(--line);
+}
+.cost-home-book .cost-home-book-som>div{
+  min-width:0;display:flex;flex-direction:column;gap:5px;
+  padding:11px 10px;border-radius:12px;background:var(--surface2);
+}
+.cost-home-book .cost-home-book-som small{
+  display:block;color:var(--muted);font-size:.71rem;font-weight:750;
+  line-height:1.35;
+}
+.cost-home-book .cost-home-book-som strong{
+  display:block;color:var(--ink);font-size:.96rem;font-weight:900;
+  font-variant-numeric:tabular-nums;line-height:1.35;overflow-wrap:anywhere;
+}
+.cost-home-book .cost-home-book-som .cost-home-book-som-total{background:var(--mint)}
+.cost-home-book .cost-home-book-som .cost-home-book-som-total strong{color:var(--green)}
+@media(max-width:390px){
+  .cost-home-book .cost-home-book-som{gap:6px}
+  .cost-home-book .cost-home-book-som>div{padding:9px 7px}
+  .cost-home-book .cost-home-book-som small{font-size:.66rem}
+  .cost-home-book .cost-home-book-som strong{font-size:.86rem}
+}

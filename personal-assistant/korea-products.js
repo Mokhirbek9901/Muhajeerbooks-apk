@@ -118,12 +118,27 @@
     $('koreaShippingSom').textContent=sums.ready?chosenText(sums.shipping):'—';
     $('koreaComplete').textContent=sums.ready+' ta to‘liq hisoblangan mahsulot';
     $('koreaUnfinished').hidden=!sums.incomplete;
-    $('koreaUnfinished').textContent=sums.incomplete?('Yana '+sums.incomplete+' ta mahsulotda xarid narxi yoki vazn yetishmaydi. Ular umumiy tan narxiga kiritilmadi.'):'';
+    $('koreaUnfinished').textContent=sums.incomplete?('Yana '+sums.incomplete+' ta mahsulotda xarid narxi yoki vazn yetishmaydi. Ular umumiy tan narxiga kiritilmadi.'):''; 
+    renderCategoryStats(products,state);
     $('koreaProductsList').innerHTML=products.length?products.map(item=>{
       const r=calculate(item,state.bookCostRate,state.krwToUzsPer1000);
       return '<article class="korea-card"><div class="korea-card-head"><div><small>'+api.escape(item.kind)+'</small><h3>'+api.escape(item.name)+'</h3><span>'+(item.grams===null?'Vazn kiritilmagan':item.grams+' g')+'</span></div><div class="korea-card-actions"><button class="soft-button" data-korea-edit="'+api.escape(item.id)+'">Tahrir</button><button class="soft-button" data-korea-delete="'+api.escape(item.id)+'" aria-label="O‘chirish">×</button></div></div><div class="korea-grid"><div><small>Xarid</small><b>'+fmt(r.price,'KRW')+'</b><em>'+chosenText(r.price)+'</em></div><div><small>Yetkazish</small><b>'+fmt(r.shipping,'KRW')+'</b><em>'+chosenText(r.shipping)+'</em></div></div><div class="korea-total-line"><span>Jami tan narxi</span><b>'+fmt(r.total,'KRW')+'</b><strong>'+chosenText(r.total)+'</strong></div></article>';
     }).join(''):'<div class="empty-state"><strong>Mahsulot hali qo‘shilmadi</strong>Jenshen yoki kosmetikani kiritishdan boshlang.</div>';
     renderPreview();
+  }
+  function renderCategoryStats(products,state){
+    const holder=$('koreaCategoryStats');
+    if(!holder)return;
+    const groups=new Map();
+    for(const item of products){
+      const kind=KINDS.includes(item.kind)?item.kind:'Boshqa';
+      if(!groups.has(kind))groups.set(kind,[]);
+      groups.get(kind).push(item);
+    }
+    holder.innerHTML=groups.size?[...groups.entries()].map(([kind,items])=>{
+      const result=summarize(items,state.bookCostRate,state.krwToUzsPer1000);
+      return '<article class="korea-category-row"><div><b>'+api.escape(kind)+'</b><small>'+items.length+' ta mahsulot · '+result.ready+' ta to‘liq hisoblangan'+(result.incomplete?' · '+result.incomplete+' ta chala':'')+'</small></div><div><b>'+(result.ready?fmt(result.total,'KRW'):'—')+'</b><strong>'+(result.ready?chosenText(result.total):'—')+'</strong></div></article>';
+    }).join(''):'<p class="empty-state">Hozircha mahsulot yo‘q. Mahsulot qo‘shilganda bu yerda turiga qarab jami xarid va yetkazish xarajatlari ko‘rinadi.</p>';
   }
   function appendAmount(container,text){
     const el=document.createElement('p');el.className='converted-cost';el.textContent=text;container.appendChild(el);
@@ -210,6 +225,7 @@
         $('koreaId').value=item.id;$('koreaName').value=item.name;$('koreaKind').value=item.kind;
         $('koreaPrice').value=item.price??'';$('koreaGrams').value=item.grams??'';
         $('koreaSave').textContent='O‘zgarishlarni saqlash';$('koreaCancel').hidden=false;renderPreview();
+        root.YordamchiWorkspace?.openProductsEntry?.();
         $('koreaForm').scrollIntoView({behavior:'smooth',block:'start'});return;
       }
       if(remove){

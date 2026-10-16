@@ -124,7 +124,7 @@
     const state=api.get();
     const raw=$('koreaItemKgRate').value.trim(),unit=$('koreaItemRateCurrency').value;
     const itemRate=rateInWon(raw,unit,state.krwToUzsPer1000);
-    const result=calculate({price:$('koreaPrice').value,grams:$('koreaGrams').value,kgRate:raw===''?null:itemRate},raw===''?null:state.koreaShippingRate,state.krwToUzsPer1000);
+    const result=calculate({price:$('koreaPrice').value,grams:$('koreaGrams').value,kgRate:itemRate},null,state.krwToUzsPer1000);
     $('koreaItemRateHint').textContent=raw===''?'Har mahsulot uchun alohida kg tarifini kiriting.':
       itemRate===null?'So‘m tarifini hisoblash uchun umumiy von–so‘m kursini kiriting.':
       '1 kg = '+fmt(itemRate,'KRW')+' = '+chosenText(itemRate);
@@ -142,7 +142,10 @@
     const rate=shippingRate(state.koreaShippingRate);
     $('koreaKgRate').textContent=fmt(rate,'KRW')+' / kg';
     $('koreaRate100g').textContent=fmt(rate/10,'KRW')+' / 100 g';
-    if(document.activeElement!==$('koreaKgRateInput'))$('koreaKgRateInput').value=rate;
+    if(document.activeElement!==$('koreaKgRateInput')){
+      const unit=$('koreaBulkRateCurrency').value;
+      $('koreaKgRateInput').value=wonAsRate(rate,unit,state.krwToUzsPer1000)??'';
+    }
     $('koreaRateHelp').textContent='Standart: '+fmt(rate,'KRW')+'/kg. Saqlangan mahsulotlar o‘zgarmaydi; faqat tanlab tasdiqlasangiz tarif yangilanadi.';
     const products=state.koreaProducts||[];
     const sums=summarize(products,rate,state.krwToUzsPer1000);
@@ -312,15 +315,57 @@
       }
     }));
     $('koreaKgRateSave').addEventListener('click',()=>{
-      const input=$('koreaKgRateInput'),value=amount(input.value);
-      if(value===null||value>10000000){api.toast('Mahsulotlar uchun 1 kg narxini to‘g‘ri kiriting.');input.focus();return;}
-      const state=api.get(),previous=state.koreaShippingRate;
+      const input=$('koreaKgRateInput'),state=api.get(),
+        value=rateInWon(input.value,$('koreaBulkRateCurrency').value,state.krwToUzsPer1000);
+      if(value===null||value>10000000){
+        api.toast('Standart 1 kg narxini to‘g‘ri kiriting. So‘m uchun valyuta kursi kerak.');input.focus();return;
+      }
+      const previous=state.koreaShippingRate;
       state.koreaShippingRate=value;
-      try{api.save('Mahsulot yetkazish tarifi saqlandi. Kitoblar tarifi o‘zgarmadi.');}
-      catch(_){state.koreaShippingRate=previous;api.toast('Mahsulot tarifi saqlanmadi.');return;}
+      try{api.save('Standart tarif saqlandi. Eski mahsulotlarning alohida tariflariga tegilmadi.');}
+      catch(_){state.koreaShippingRate=previous;api.toast('Tarif saqlanmadi.');return;}
       render();
     });
-    ['koreaPrice','koreaGrams'].forEach(id=>$(id).addEventListener('input',renderPreview));
+    function bindRateUnit(selectId,inputId){
+      const picker=$(selectId),input=$(inputId);
+      picker.dataset.oldUnit=picker.value;
+      picker.addEventListener('change',()=>{
+        const state=api.get(),previous=picker.dataset.oldUnit||'KRW';
+        const won=rateInWon(input.value,previous,state.krwToUzsPer1000);
+        if(won!==null){
+          const next=wonAsRate(won,picker.value,state.krwToUzsPer1000);
+          input.value=next===null?'':String(next);
+        }else if(input.value.trim())api.toast('So‘mga aylantirish uchun umumiy valyuta kursi kerak.');
+        picker.dataset.oldUnit=picker.value;
+        renderPreview();
+      });
+    }
+    bindRateUnit('koreaItemRateCurrency','koreaItemKgRate');
+    bindRateUnit('koreaBulkRateCurrency','koreaKgRateInput');
+    ['koreaPrice','koreaGrams','koreaItemKgRate'].forEach(id=>$(id).addEventListener('input',renderPreview));
+    $('koreaBulkTargets').addEventListener('change',event=>{
+      const id=event.target.dataset.koreaBulkId;if(!id)return;
+      if(event.target.checked)selectedProductIds.add(id);else selectedProductIds.delete(id);
+      renderBulkTargets(api.get().koreaProducts);
+    });
+    $('koreaBulkSelectAll').addEventListener('change',event=>{
+      selectedProductIds.clear();
+      if(event.target.checked)api.get().koreaProducts.forEach(item=>selectedProductIds.add(item.id));
+      renderBulkTargets(api.get().koreaProducts);
+    });
+    $('koreaBulkApply').addEventListener('click',()=>{
+      const state=api.get(),targets=state.koreaProducts.filter(item=>selectedProductIds.has(item.id));
+      if(!targets.length){api.toast('Tarif qo‘llanadigan mahsulotlarni tanlang.');return;}
+      const rate=shippingRate(state.koreaShippingRate);
+      const preview=targets.slice(0,4).map(item=>item.name).join(', ')+(targets.length>4?' …':'');
+      if(!confirm(targets.length+' ta mahsulotning 1 kg tarifi '+fmt(rate,'KRW')+' ga o‘zgartirilsinmi?\n'+preview+'\n\nBu faqat tanlanganlarga ta’sir qiladi. Davom etasizmi?'))return;
+      const old=state.koreaProducts;
+      state.koreaProducts=old.map(item=>selectedProductIds.has(item.id)?{...item,kgRate:rate}:item);
+      try{
+        api.save(targets.length+' ta tanlangan mahsulotning kg tarifi yangilandi.');
+        selectedProductIds.clear();render();
+      }catch(_){state.koreaProducts=old;api.toast('Ommaviy tarifni saqlab bo‘lmadi.');}
+    });
     $('koreaCancel').addEventListener('click',resetEditor);
     $('koreaProductsList').addEventListener('click',event=>{
       const edit=event.target.closest('[data-korea-edit]'),remove=event.target.closest('[data-korea-delete]');
@@ -329,6 +374,9 @@
         if(!item)return;
         $('koreaId').value=item.id;$('koreaName').value=item.name;$('koreaKind').value=item.kind;
         $('koreaPrice').value=item.price??'';$('koreaGrams').value=item.grams??'';
+        $('koreaItemRateCurrency').value='KRW';
+        $('koreaItemRateCurrency').dataset.oldUnit='KRW';
+        $('koreaItemKgRate').value=itemKgRate(item,api.get().koreaShippingRate)??'';
         $('koreaSave').textContent='O‘zgarishlarni saqlash';$('koreaCancel').hidden=false;renderPreview();
         root.YordamchiWorkspace?.openProductsEntry?.();
         $('koreaForm').scrollIntoView({behavior:'smooth',block:'start'});return;
@@ -344,21 +392,25 @@
     });
     $('koreaForm').addEventListener('submit',event=>{
       event.preventDefault();
-      const name=$('koreaName').value.trim().slice(0,160),price=amount($('koreaPrice').value),grams=amount($('koreaGrams').value);
+      const name=$('koreaName').value.trim().slice(0,160),price=amount($('koreaPrice').value),grams=amount($('koreaGrams').value),
+        kgRate=rateInWon($('koreaItemKgRate').value,$('koreaItemRateCurrency').value,api.get().krwToUzsPer1000);
       if(!name){api.toast('Mahsulot nomini kiriting.');return;}
       if(($('koreaPrice').value.trim()&&price===null)||($('koreaGrams').value.trim()&&grams===null)){
         api.toast('Narx va vaznni musbat raqamlarda kiriting.');return;
       }
+      if(kgRate===null||kgRate>10000000){api.toast('Har mahsulot uchun 1 kg tarifini kiriting (so‘m uchun kursni ham kiriting).');$('koreaItemKgRate').focus();return;}
       const state=api.get(),id=$('koreaId').value;
-      const item={id:id||api.id(),name,kind:$('koreaKind').value,price,grams};
+      const item={id:id||api.id(),name,kind:$('koreaKind').value,price,grams,kgRate};
       const old=state.koreaProducts.slice(),index=state.koreaProducts.findIndex(x=>x.id===id);
       if(index>=0)state.koreaProducts[index]=item;else state.koreaProducts.unshift(item);
       try{api.save('Mahsulot saqlandi.');resetEditor();}
       catch(_){state.koreaProducts=old;api.toast('Mahsulot saqlanmadi.');}
     });
     $('costBooksList').addEventListener('input',()=>queueMicrotask(renderBookEntry));
+    resetEditor();
   }
-  const exported={amount,fx,shippingRate,som,calculate,summarize,normalize,init,render,renderBookList,renderBookEntry};
+  const exported={amount,fx,shippingRate,som,calculate,summarize,normalize,init,render,renderBookList,renderBookEntry,
+    itemKgRate,rateInWon,wonAsRate,refreshRates:()=>{syncRateInputs(true);refreshConvertedViews();}};
   if(typeof module==='object' && module.exports)module.exports=exported;
   else root.KoreaProducts=exported;
 })(typeof window==='object'?window:globalThis);

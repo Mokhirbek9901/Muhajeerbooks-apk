@@ -1,0 +1,48 @@
+name: Repair Muhajeer App Store Review
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/repair_app_review.yml'
+      - '.github/release_tools/inspect_app_review.rb'
+      - '.github/release_tools/repair_app_review.rb'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  repair-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure App Store Connect credentials
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          key = os.environ['APP_STORE_CONNECT_PRIVATE_KEY'].strip().replace('\\n','\n') + '\n'
+          assert key.startswith('-----BEGIN PRIVATE KEY-----')
+          path=Path('/tmp/muhajeer-review-key.p8')
+          path.write_text(key)
+          path.chmod(0o600)
+          with open(os.environ['GITHUB_ENV'],'a') as f:
+              f.write('ASC_PRIVATE_KEY_PATH='+str(path)+'\n')
+          PY
+      - name: Find Muhajeer App Store Connect application
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: ruby .github/scripts/ios/app_store_status.rb preflight
+      - name: Inspect current review submission without changing it
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: ruby .github/release_tools/inspect_app_review.rb
+      - name: Cleanup API credentials
+        if: always()
+        run: rm -f /tmp/muhajeer-review-key.p8

@@ -105,6 +105,14 @@
         </button>
       </div>
 
+      <section class="workspace-shortcuts" aria-label="Boshqa Yordamchi bo‘limlariga o‘tish">
+        <div class="workspace-shortcuts-head"><strong>Boshqa bo‘limlar</strong><small>Har biri mustaqil hisob-kitob va statistikaga ega</small></div>
+        <div class="workspace-shortcuts-grid">
+          <button type="button" data-workspace-select="costs"><svg class="ui-icon" aria-hidden="true"><use href="#ico-wallet"></use></svg><span><b>Kitob tan narxi</b><small>Xarid va foyda</small></span></button>
+          <button type="button" data-workspace-select="products"><svg class="ui-icon" aria-hidden="true"><use href="#ico-bag"></use></svg><span><b>Mahsulotlar</b><small>Kg va xarajat</small></span></button>
+          <button type="button" data-workspace-select="finance"><svg class="ui-icon" aria-hidden="true"><use href="#ico-chart"></use></svg><span><b>Kirim-chiqim</b><small>Shaxsiy moliya</small></span></button>
+        </div>
+      </section>
       <section class="content-card new-home-activity">
         <div class="section-title-row"><div><small>BUGUNGI FAOLIYAT</small><h2>Mutolaa natijam</h2></div>
           <button class="text-action" data-nav="stats">Batafsil ↗</button></div>
@@ -577,6 +585,8 @@
         <div class="korea-shipping-current"><span>1 kg <b id="koreaKgRate">—</b></span><span id="koreaRate100g">— / 100 g</span></div>
         <p class="korea-rate-help" id="koreaRateHelp">Kitob yetkazish tarifidan alohida saqlanadi.</p>
       </section>
+      <details class="workspace-fx-details" id="productsFxDetails">
+        <summary><span>⇄</span><div><b>Valyuta kurslari va kalkulyator</b><small>Von, so‘m va dollar. Faqat kursni o‘zgartirganda oching.</small></div><em>⌄</em></summary>
       <section class="content-card exchange-editor" aria-label="Umumiy valyuta kursi">
         <div class="exchange-heading"><span class="exchange-step">1</span><div><h2>Umumiy valyuta kursi</h2><p><b>Kurs juftligini o‘zingiz tanlang.</b> Von, so‘m va dollarni ikki yo‘nalishda belgilash mumkin.</p></div></div>
         <div class="exchange-rate-grid">
@@ -618,6 +628,7 @@
         </details>
 
       </section>
+      </details>
       <div class="korea-dashboard">
         <article class="korea-summary-main">
           <small>Mahsulotlarning umumiy tan narxi (xarid + yetkazish)</small>

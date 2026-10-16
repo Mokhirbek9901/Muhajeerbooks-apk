@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'push_notifications.dart';
+import 'owner_story_access.dart';
 
 String normalizePublisher(String value) {
   final cleaned=value.trim().replaceAll(RegExp(r'\s+'), ' ');
@@ -1465,6 +1466,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     _sanitizeCart();
+    // Restore owner Story access immediately from the saved profile.
+    unawaited(OwnerStoryAccess.instance.refreshFor(this));
     notifyListeners();
 
     if (_backend == null) {
@@ -1537,6 +1540,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     );
     customerVerified = verified;
     await _local.saveCustomerVerified(verified);
+    unawaited(OwnerStoryAccess.instance.refreshFor(this));
     if (_backend != null) unawaited(_registerInstallation());
     notifyListeners();
   }
@@ -1546,6 +1550,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     // tozalaymiz, shuning uchun tugma internet sust bo‘lsa ham ishlaydi.
     savedCustomer = const {'name': '', 'phone': '', 'address': ''};
     customerVerified = false;
+    OwnerStoryAccess.instance.lock();
     await _local.clearCustomer();
     notifyListeners();
 
@@ -1822,6 +1827,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       digits,
       savedCustomer['address'] ?? '',
     );
+    unawaited(OwnerStoryAccess.instance.refreshFor(this));
     notifyListeners();
   }
 
@@ -2356,6 +2362,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         'address': address.trim(),
       };
       unawaited(syncPushIdentity(phone.trim()));
+      unawaited(OwnerStoryAccess.instance.refreshFor(this));
     }
 
     var paymentProofPath = '';
@@ -2628,6 +2635,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         savedCustomer['address'] ?? '',
       ),
     ]);
+    unawaited(OwnerStoryAccess.instance.refreshFor(this));
     notifyListeners();
     return restored.length;
   }

@@ -2023,3 +2023,19 @@ body[data-workspace="finance"][data-finance-view="history"] #financeRecentPanel{
   .finance-insights article{padding:12px}
   .finance-insights article b{font-size:1.05rem}
 }
+
+/* Yordamchi v57: optional currency calculator lives inside a compact, accessible disclosure */
+.currency-fold{display:block;margin-top:9px;border:1px solid var(--line);background:var(--surface2);border-radius:16px;overflow:hidden}
+.currency-fold summary{display:flex;align-items:center;gap:11px;min-height:62px;padding:12px 14px;cursor:pointer;list-style:none;color:var(--ink);-webkit-tap-highlight-color:transparent}
+.currency-fold summary::-webkit-details-marker{display:none}
+.currency-fold summary::marker{content:''}
+.currency-fold summary:focus-visible{outline:2px solid var(--green);outline-offset:-3px;border-radius:15px}
+.currency-fold-symbol{display:grid;place-items:center;flex:0 0 37px;height:37px;border-radius:12px;color:var(--green);background:var(--mint);font-size:1.35rem;font-weight:700}
+.currency-fold-text{min-width:0;flex:1}
+.currency-fold-text strong{display:block;font-size:.9rem;line-height:1.35;font-weight:900}
+.currency-fold-text small{display:block;margin-top:3px;font-size:.71rem;line-height:1.4;color:var(--muted)}
+.currency-fold-arrow{font-size:1.3rem;line-height:1;color:var(--green);transition:transform .17s ease}
+.currency-fold[open] .currency-fold-arrow{transform:rotate(180deg)}
+.exchange-editor .currency-fold .currency-converter{margin:0!important;border:0!important;border-top:1px solid var(--line)!important;background:var(--surface2)!important;border-radius:0 0 16px 16px!important}
+.currency-fold .exchange-calculator-intro p{margin:0 0 3px;color:var(--muted);font-size:.77rem;line-height:1.5}
+@media(max-width:400px){.currency-fold summary{padding:10px;gap:9px}.currency-fold-text strong{font-size:.85rem}.currency-fold-text small{font-size:.67rem}}

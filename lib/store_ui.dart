@@ -17,6 +17,7 @@ import 'app_state.dart';
 import 'brand.dart';
 import 'book_links.dart';
 import 'book_story_page.dart';
+import 'owner_story_access.dart';
 import 'bundle_story_page.dart';
 import 'book_share_platform.dart';
 import 'catalog_resume.dart';
@@ -1083,6 +1084,7 @@ class _BookBundlesPageState extends State<BookBundlesPage> {
                                 ),
                               ),
                             ),
+                            if (OwnerStoryAccess.instance.allowedFor(state))
                             IconButton(
                               tooltip: 'Setni ulashish',
                               onPressed: () => Navigator.push(
@@ -1368,6 +1370,7 @@ class _BookBundleDetailPageState extends State<BookBundleDetailPage> {
       appBar: AppBar(
         title: const Text('Kitob seti'),
         actions: [
+          if (OwnerStoryAccess.instance.allowedFor(state))
           IconButton(
             tooltip: 'Setni ulashish',
             onPressed: () => Navigator.push(
@@ -4139,6 +4142,7 @@ Future<void> _shareBook(BuildContext context, Book book) async {
               ),
               const SizedBox(height: 8),
               const Text('Havolani ochgan odam aynan shu kitobni ko‘radi.'),
+              if (OwnerStoryAccess.instance.allowedFor(context.read<AppState>()))
               ListTile(
                 leading: const Icon(Icons.add_photo_alternate_outlined),
                 title: const Text('Instagram story tayyorlash'),

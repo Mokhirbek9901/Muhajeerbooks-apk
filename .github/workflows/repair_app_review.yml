@@ -43,6 +43,16 @@ jobs:
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         run: ruby .github/release_tools/inspect_app_review.rb
+      - name: Withdraw outdated submission and submit VALID 1041 build
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          IOS_MARKETING_VERSION: '2.5.18'
+          IOS_BUILD_NUMBER: '1041'
+        run: |
+          set -euo pipefail
+          ruby -c .github/release_tools/repair_app_review.rb
+          ruby .github/release_tools/repair_app_review.rb
       - name: Cleanup API credentials
         if: always()
         run: rm -f /tmp/muhajeer-review-key.p8

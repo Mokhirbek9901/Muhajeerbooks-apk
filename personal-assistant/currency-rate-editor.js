@@ -14,7 +14,7 @@ function rawValue(from,to,state){
  const result=to==='KRW'?won:to==='UZS'?won*uzs/1000:won/usd;
  return Number.isFinite(result)&&result>0&&result<=1e15?result:null;
 }
-function showNumber(value){return value===null?'':String(Number(Number(value).toPrecision(11)));}
+function showNumber(value){return value===null||!Number.isFinite(Number(value))?'':String(Number(Number(value).toPrecision(15)));}
 function convertRule(from,to,value){
  if(!C.includes(from)||!C.includes(to)||from===to)throw new Error('Ikki xil valyutani tanlang.');
  const n=num(value);if(n===null)throw new Error('Kurs summasini to‘g‘ri kiriting.');

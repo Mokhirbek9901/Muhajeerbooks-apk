@@ -48,10 +48,30 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
   }
 
   void _reload() {
-    overview = Supabase.instance.client.rpc('admin_web_batch_overview',
-      params: {'p_secret': widget.secret}).then((raw) {
-        return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
-      });
+    overview = Future.wait<dynamic>([
+      Supabase.instance.client.rpc('admin_web_batch_overview',
+        params: {'p_secret': widget.secret}),
+      Supabase.instance.client.rpc('admin_web_transport_overview',
+        params: {'p_secret': widget.secret}),
+    ]).then((data) {
+      final main = data[0] is Map
+        ? Map<String,dynamic>.from(data[0] as Map) : <String,dynamic>{};
+      final transport = data[1] is Map
+        ? Map<String,dynamic>.from(data[1] as Map) : <String,dynamic>{};
+      return {...main,
+        'transport_records': transport['transports'] ?? [],
+        'batch_groups': transport['groups'] ?? [],
+      };
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant WebProfessionalBatches oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.registered != widget.registered ||
+        oldWidget.secret != widget.secret) {
+      _reload();
+    }
   }
 
   void _refresh() {
@@ -127,12 +147,107 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
     ]),
   );
 
-  Widget _purchaseTile(Map<String, dynamic> item, int index) {
+  Future<void> _unlinkTransport(Map<String,dynamic> expense) async {
+    final name = (expense['note'] ?? 'Transport').toString();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Transportni partiyadan ajratish'),
+        content: Text('$name xarajati partiyadan ajratiladi. '
+          'Moliyadagi asl xarajat o‘chirilmaydi.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog,false),
+            child: const Text('Bekor qilish')),
+          FilledButton(onPressed: () => Navigator.pop(dialog,true),
+            child: const Text('Ajratish')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await Supabase.instance.client.rpc('admin_web_transport_unlink',
+        params: {
+          'p_secret': widget.secret,
+          'p_expense_id': expense['id'],
+        });
+      if (!mounted) return;
+      _refresh();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Transport bog‘lanishi olib tashlandi')));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ajratib bo‘lmadi: $error')));
+    }
+  }
+
+  Widget _transportLine(Map<String,dynamic> expense) {
+    final amount = _batchNum(expense['amount']);
+    final linked = expense['batch_name'] != null;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 7),
+      child: ListTile(
+        leading: const Icon(Icons.local_shipping_outlined,
+          color: UzbekCustomerColors.teal),
+        title: Text(
+          '${_batchMoney(amount)} • ${expense['note'] ?? 'Transport'}',
+          style: const TextStyle(fontWeight: FontWeight.w800)),
+        subtitle: Text(
+          '${_batchDate(expense['expense_date'])} • '
+          '${linked ? 'Partiya: ${expense['batch_name']}' : 'Hali biriktirilmagan'}',
+          maxLines: 2),
+        trailing: linked
+          ? IconButton(tooltip: 'Partiyadan ajratish',
+              icon: const Icon(Icons.link_off_rounded),
+              onPressed: () => _unlinkTransport(expense))
+          : const Icon(Icons.add_link_rounded, color: Colors.grey),
+      ),
+    );
+  }
+
+  Widget _groupTile(Map<String,dynamic> item,
+      List<Map<String,dynamic>> transports) {
+    final id = item['id'].toString();
+    final linked = transports.where((t) =>
+      t['batch_group_id']?.toString() == id).toList();
+    final transport = linked.fold<int>(0,
+      (s,t) => s + _batchNum(t['amount']));
+    final books = _batchNum(item['book_value']);
+    return Card(margin: const EdgeInsets.only(bottom: 9),
+      child: ExpansionTile(
+        leading: const Icon(Icons.inventory_2_outlined,
+          color: UzbekCustomerColors.teal),
+        title: Text((item['title'] ?? 'Yangi partiya').toString(),
+          style: const TextStyle(fontWeight: FontWeight.w900)),
+        subtitle: Text('${_batchDate(item['batch_date'])} • '
+          '${item['book_lines'] ?? 0} nomdagi kitob'),
+        trailing: Text(_batchMoney(books + transport),
+          style: const TextStyle(fontWeight: FontWeight.w900)),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+        children: [
+          _detail('Kiritilgan kitoblar tannarxi',_batchMoney(books)),
+          _detail('Transport xarajatlari',_batchMoney(transport)),
+          _detail('Kitob + transport (hisoblangan)',_batchMoney(books + transport)),
+          const SizedBox(height: 6),
+          for(final expense in linked) _transportLine(expense),
+          const Text('Kitob tannarxi partiyaga kiritilgan qiymatlar '
+            'asosida hisoblangan. Transport moliyada allaqachon mavjud, '
+            'bu hisob xarajatni takror yozmaydi.',
+            style: TextStyle(fontSize: 12,
+              color: UzbekCustomerColors.textMuted)),
+        ],
+      ));
+  }
+
+  Widget _purchaseTile(Map<String, dynamic> item, int index,
+      List<Map<String,dynamic>> transports) {
     final title = (item['title'] ?? 'Kitob xaridi').toString();
     final verified = item['item_breakdown_verified'] == true;
     final isOpeningStock = item['source'] == 'opening_stock_baseline';
     final posted = item['posted_date']?.toString();
     final bought = item['purchase_date']?.toString();
+    final linked = transports.where((t) =>
+      t['batch_import_id']?.toString() == item['id'].toString()).toList();
+    final shipping = linked.fold<int>(0,(s,t) => s + _batchNum(t['amount']));
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: ExpansionTile(
@@ -164,6 +279,10 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
             : 'Moliya → Yangi partiya kitoblar'),
           _detail('Kitoblar tarkibi',
             verified ? 'Tasdiqlangan' : 'Kitobma-kitob tasdiqlanmagan'),
+          _detail('Bog‘langan transport',_batchMoney(shipping)),
+          _detail('Xarid + transport',_batchMoney(
+            _batchNum(item['total_krw']) + shipping)),
+          for (final expense in linked) _transportLine(expense),
           const SizedBox(height: 8),
           const Align(alignment: Alignment.centerLeft,
             child: Text(
@@ -271,6 +390,14 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
       final data = snapshot.data!;
       final purchases = _items(data['purchases']);
       final inventory = _items(data['inventory']);
+      final transports = _items(data['transport_records']);
+      final groups = _items(data['batch_groups']);
+      final connectedTotal = transports.where((x) =>
+        x['batch_name'] != null).fold<int>(
+          0, (sum,item) => sum + _batchNum(item['amount']));
+      final unlinkedTotal = transports.where((x) =>
+        x['batch_name'] == null).fold<int>(
+          0, (sum,item) => sum + _batchNum(item['amount']));
       final realPurchases = purchases.where((item) =>
         item['source'] != 'opening_stock_baseline').toList();
       final openingEntries = purchases.where((item) =>
@@ -330,6 +457,10 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
               '${inventory.length} nom / $stockQty dona',
               Icons.inventory_2_outlined,
               footnote: 'Tannarxi: ${_batchMoney(stockValue)}'),
+            _metric('Partiyaga biriktirilgan transport',
+              _batchMoney(connectedTotal), Icons.local_shipping_outlined),
+            _metric('Biriktirilmagan transport',
+              _batchMoney(unlinkedTotal), Icons.link_off_rounded),
           ]),
           const SizedBox(height: 14),
           Container(
@@ -368,6 +499,10 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
               ChoiceChip(label: const Text('Kitobma-kitob partiyalar'),
                 selected: mode == 'registered',
                 onSelected: (_) => _setMode('registered')),
+              const SizedBox(width: 8),
+              ChoiceChip(label: Text('Transport (${transports.length})'),
+                selected: mode == 'transport',
+                onSelected: (_) => _setMode('transport')),
             ]),
           ),
           const SizedBox(height: 14),
@@ -399,7 +534,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
               const Padding(padding: EdgeInsets.all(24),
                 child: Text('Mos xarid yozuvi yo‘q')),
             for (var i=0;i<shownPurchases.length;i++)
-              _purchaseTile(shownPurchases[i],i),
+              _purchaseTile(shownPurchases[i],i,transports),
           ],
           if (mode == 'inventory') ...[
             if (shownInventory.isEmpty)
@@ -407,7 +542,29 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
                 child: Text('Mos kitob yo‘q')),
             for (final item in shownInventory) _inventoryTile(item),
           ],
+          if (mode == 'transport') ...[
+            const Text('Transport xarajatlari', style: TextStyle(
+              fontSize: 19, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 6),
+            const Text('Transport xarajatlari moliyadan olinadi. '
+              'Partiyaga biriktirilganlarini bu yerdan ajratish va '
+              'boshqa partiyaga qayta belgilash mumkin. '
+              'Asl xarajatlar o‘zgarmaydi.',
+              style: TextStyle(fontSize: 12,
+                color: UzbekCustomerColors.textMuted)),
+            const SizedBox(height: 12),
+            for (final expense in transports) _transportLine(expense),
+            const SizedBox(height: 12),
+            FilledButton.icon(onPressed: widget.onAdd,
+              icon: const Icon(Icons.add_link_outlined),
+              label: const Text('Transportni partiyaga bog‘lash')),
+          ],
           if (mode == 'registered') ...[
+            const Text('Yangi partiyalar',
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+            const SizedBox(height: 8),
+            for (final group in groups) _groupTile(group,transports),
+            const SizedBox(height: 12),
             const Text('Kitobma-kitob aniq kirim',
               style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
             const SizedBox(height: 6),

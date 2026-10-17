@@ -1312,6 +1312,53 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
     });
   }
 
+  Future<void> _showAdminPushInfo() async {
+    final ios = NativeAdminPush.supported;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.notifications_active_outlined, color: AppColors.navy),
+          SizedBox(width: 10),
+          Expanded(child: Text('Admin buyurtma bildirishnomalari')),
+        ]),
+        content: Column(mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Admin paroli bilan tasdiqlangan qurilmangizga quyidagi xabarlar kelishi mumkin:'),
+          const SizedBox(height: 12),
+          const Text('🛒 Yangi buyurtma tushganda'),
+          const SizedBox(height: 6),
+          const Text('📚 Buyurtmadagi kitoblar va dona soni'),
+          const SizedBox(height: 6),
+          const Text('💳 Buyurtmaning umumiy summasi'),
+          const SizedBox(height: 12),
+          Text(_adminPushConfigured
+            ? '✅ Ushbu qurilmada admin bildirishnomalari faol.'
+            : ios
+              ? 'iPhone uchun tizim ruxsati va serverda Apple APNs kaliti kerak. Bu sozlanmaguncha push kelmaydi.'
+              : 'Brauzer ruxsatini berib, ushbu qurilmani admin uchun faollashtiring.',
+            style: const TextStyle(fontSize: 12.5)),
+          const SizedBox(height: 8),
+          const Text('Faqat admin sifatida tekshirilgan qurilmalar xabar oladi.',
+            style: TextStyle(fontSize: 12, color: AppColors.muted)),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog, false),
+            child: const Text('Yopish')),
+          FilledButton(
+            onPressed: _adminPushBusy
+                ? null : () => Navigator.pop(dialog, true),
+            child: Text(_adminPushConfigured
+              ? 'Qayta tekshirish' : 'Bildirishnomalarni yoqish'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true && mounted) {
+      await _setupAdminPush(requestPermission: true);
+    }
+  }
+
   Future<void> _setupAdminPush({required bool requestPermission}) async {
     if ((!kIsWeb && !NativeAdminPush.supported) || !mounted || _adminPushBusy) return;
     setState(() => _adminPushBusy = true);
@@ -1583,7 +1630,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
                       ? 'Admin buyurtma xabarlari yoqilgan'
                       : 'Admin buyurtma xabarlarini yoqish',
                   onPressed: _adminPushBusy ? null :
-                    () => unawaited(_setupAdminPush(requestPermission: true)),
+                    () => unawaited(_showAdminPushInfo()),
                   icon: Icon(
                     _adminPushConfigured
                         ? Icons.notifications_active_rounded

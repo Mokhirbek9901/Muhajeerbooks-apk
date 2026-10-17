@@ -27,6 +27,7 @@ import 'design_system.dart';
 import 'professional_access.dart';
 import 'remote_config.dart';
 import 'uzbek_customer_style.dart';
+import 'web_customer_upgrades.dart';
 
 const bool _playStoreCustomerBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
 const bool _appStoreCustomerBuild = bool.fromEnvironment('APP_STORE_BUILD');
@@ -1917,7 +1918,74 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       query = '';
       category = 'Barchasi';
+      if (kIsWeb) {
+        publisher = 'Barchasi';
+        maxPrice = 100000;
+        sort = 'new';
+      }
     });
+  }
+
+  Future<void> _showWebFilters(
+    List<String> categories,
+    List<String> publishers,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      constraints: const BoxConstraints(maxWidth: 480),
+      backgroundColor: UzbekCustomerColors.background,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, changeSheet) {
+          void change(VoidCallback f) {
+            setState(f);
+            changeSheet(() {});
+          }
+          return SafeArea(
+            child: SizedBox(
+              height: MediaQuery.sizeOf(sheetContext).height * .75,
+              child: Column(children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
+                  child: Text('Kitoblarni filtrlash',
+                    style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+                ),
+                Expanded(child: _WebDesktopCatalogFilters(
+                  categories: categories.where((e) =>
+                    e != 'Nashriyotlar' && e != 'Setlar' &&
+                    e != 'Oldindan sotuvda').toList(),
+                  publishers: publishers,
+                  category: category,
+                  publisher: publisher,
+                  maxPrice: maxPrice,
+                  sort: sort,
+                  onCategory: (v) => change(() => category = v),
+                  onPublisher: (v) => change(() => publisher = v),
+                  onMaxPrice: (v) => change(() => maxPrice = v),
+                  onSort: (v) => change(() => sort = v),
+                  onReset: () => change(() {
+                    category = 'Barchasi';
+                    publisher = 'Barchasi';
+                    maxPrice = 100000;
+                    sort = 'new';
+                    query = '';
+                    _searchController.clear();
+                  }),
+                )),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 6, 18, 16),
+                  child: SizedBox(width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(sheetContext),
+                      child: const Text('Kitoblarni ko‘rish'))),
+                ),
+              ]),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -2133,7 +2201,21 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    PopupMenuButton<String>(
+                    if (kIsWeb) InkWell(
+                      onTap: () => _showWebFilters(categories, publishers),
+                      borderRadius: BorderRadius.circular(18),
+                      child: Container(
+                        width: 56, height: 56,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [UzbekCustomerColors.navy, UzbekCustomerColors.tealDark]),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: UzbekCustomerColors.gold)),
+                        child: const Icon(Icons.tune_rounded,
+                          color: UzbekCustomerColors.goldSoft),
+                      ),
+                    ),
+                    if (!kIsWeb) PopupMenuButton<String>(
                       tooltip: 'Saralash',
                       onSelected: (value) {
                         if (value == 'sets') {
@@ -2213,6 +2295,22 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
+            if (kIsWeb &&
+                (query.trim().isNotEmpty ||
+                  category != 'Barchasi' ||
+                  publisher != 'Barchasi' ||
+                  maxPrice < 100000 || sort != 'new'))
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
+                sliver: SliverToBoxAdapter(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: OutlinedButton.icon(
+                      onPressed: _showAllBooks,
+                      icon: const Icon(Icons.apps_rounded, size: 18),
+                      label: const Text('Barcha kitoblarni ko‘rish'))),
+                ),
+              ),
             if (_webOrPlayCustomer &&
                 query.trim().length >= 2 &&
                 webSuggestions.isNotEmpty)
@@ -2323,6 +2421,19 @@ class _HomePageState extends State<HomePage> {
                       ],
                     ),
                   ),
+                ),
+              ),
+            if (kIsWeb && query.trim().isEmpty &&
+                category == 'Barchasi' && publisher == 'Barchasi' &&
+                personalized.where((b) => b.isActive && b.inStock).isNotEmpty)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                sliver: SliverToBoxAdapter(
+                  child: _FeaturedBooksStrip(
+                    books: personalized.where((b) => b.isActive && b.inStock)
+                      .take(8).toList(),
+                    title: 'Sizga yoqishi mumkin',
+                    subtitle: 'Qiziqishlaringizga mos kitoblar'),
                 ),
               ),
             const SliverToBoxAdapter(child: SizedBox(height: 2)),
@@ -3699,16 +3810,22 @@ class _QuickCategoryStrip extends StatelessWidget {
 }
 
 class _FeaturedBooksStrip extends StatelessWidget {
-  const _FeaturedBooksStrip({required this.books});
+  const _FeaturedBooksStrip({
+    required this.books,
+    this.title = 'Tavsiya etamiz',
+    this.subtitle = 'Muhajeer Books tanlovi',
+  });
   final List<Book> books;
+  final String title;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const UzbekSectionTitle(
-        title: 'Tavsiya etamiz',
-        subtitle: 'Muhajeer Books tanlovi',
+      UzbekSectionTitle(
+        title: title,
+        subtitle: subtitle,
         icon: Icons.auto_awesome_rounded,
       ),
       const SizedBox(height: 10),
@@ -6390,6 +6507,25 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                 ? 'To‘liq manzilni kiriting'
                                 : null),
                     ),
+                    if (kIsWeb && !professionalMode) ...[
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            final picked = await Navigator.push<String>(
+                              context,
+                              MaterialPageRoute<String>(builder: (_) =>
+                                WebAddressBookPage(phone: phone.text, pick: true)));
+                            if (picked != null && mounted) {
+                              setState(() => address.text = picked);
+                            }
+                          },
+                          icon: const Icon(Icons.bookmark_border_rounded),
+                          label: const Text('Saqlangan manzillar'),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -6786,6 +6922,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
             ? int.tryParse(manualPrice.text.trim())
             : null,
       );
+      if (!mounted) return;
+      if (kIsWeb && !professionalMode && address.text.trim().length >= 8) {
+        final known = await WebSavedAddresses.load(phone.text);
+        if (!known.any((a) => a['address'] == address.text.trim())) {
+          await WebSavedAddresses.save(phone.text, [
+            ...known, {'label': 'Oxirgi buyurtma', 'address': address.text.trim()},
+          ]);
+        }
+      }
       if (!mounted) return;
       await showDialog<void>(
         context: context,
@@ -7314,24 +7459,11 @@ class _WebMyProfilePage extends StatelessWidget {
   }
 
   Future<void> _showAddress(BuildContext context) async {
-    final address = context.read<AppState>().savedCustomer['address'] ?? '';
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Manzillarim'),
-        content: Text(
-          address.trim().isEmpty
-              ? 'Saqlangan manzil yo‘q. Keyingi buyurtmada manzil kiritsangiz, shu yerda ko‘rinadi.'
-              : address,
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Tushunarli'),
-          ),
-        ],
-      ),
-    );
+    final state = context.read<AppState>();
+    await Navigator.push(context, MaterialPageRoute<void>(
+      builder: (_) => WebAddressBookPage(
+        phone: state.savedCustomer['phone'] ?? ''),
+    ));
   }
 
   Future<void> _showAbout(BuildContext context) async {
@@ -7468,11 +7600,8 @@ class _WebMyProfilePage extends StatelessWidget {
                     _WebProfileMenuTile(
                       icon: Icons.settings_outlined,
                       title: 'Sozlamalar',
-                      onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Web sozlamalari shu profil orqali boshqariladi.'),
-                        ),
-                      ),
+                      onTap: () => Navigator.push(context, MaterialPageRoute<void>(
+                        builder: (_) => const WebCustomerSettingsPage())),
                     ),
                   ],
                 ),

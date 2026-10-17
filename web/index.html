@@ -184,6 +184,11 @@
         return response.ok && result?.ok === true;
       }
 
+      window.muhajeerPushPermissionStatus = () => {
+        if (!window.muhajeerPushSupported()) return 'unsupported';
+        return Notification.permission || 'default';
+      };
+
       window.muhajeerPushSupported = () =>
         location.protocol === 'https:' &&
         'serviceWorker' in navigator &&
@@ -207,7 +212,7 @@
               applicationServerKey: base64UrlToUint8Array(vapidPublicKey)
             });
           }
-          return await syncSubscription(subscription, phone);
+          return await syncSubscription(subscription, phone || savedCustomerPhone());
         } catch (error) {
           console.warn('Muhajeer push setup failed', error);
           return false;

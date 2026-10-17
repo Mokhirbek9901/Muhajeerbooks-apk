@@ -6,6 +6,7 @@
 })(typeof globalThis==='object'?globalThis:this,function(){
   'use strict';
   const CURRENCIES=['KRW','UZS','USD'];
+  const precise=typeof module==='object'&&module.exports?require('./decimal-fx.js'):globalThis.YordamchiDecimalFX;
   function amount(value){
     if(value===null||value===undefined||String(value).trim()==='')return null;
     if(typeof value==='number')return Number.isFinite(value)&&value>=0&&value<=1e15?value:null;
@@ -75,5 +76,5 @@
     const str=Number(value).toLocaleString('en-US',{minimumFractionDigits:digits,maximumFractionDigits:digits});
     return currency==='KRW'?'₩'+str:currency==='USD'?'$'+str:str+' so‘m';
   }
-  return {CURRENCIES,amount,rate,ratio,add,convert,convertExact,display,displayExact};
+  return {CURRENCIES,amount,rate,ratio,add,convert,convertExact,display,displayExact,precise};
 });

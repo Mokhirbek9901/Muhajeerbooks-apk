@@ -69,3 +69,57 @@ test('conversion swaps retain fractional economic value through repeated swaps',
  assert.equal(fx.add(0.1,0.2),0.3);
  assert.equal(fx.ratio([8.841492544,1000]),8841.492544);
 });
+
+const exact=fx.precise;
+test('finite FX quotes preserve nine, twenty, one hundred and five hundred decimal places',()=>{
+ for(const digits of [9,20,100,500]){
+  const quote='8.'+'1234567890'.repeat(Math.ceil(digits/10)).slice(0,digits-1)+'7';
+  const saved=editor.bookRateExact('KRW_UZS','1',quote);
+  const state=JSON.parse(JSON.stringify({preciseExchangeRates:{krwToUzsPer1000:saved}}));
+  assert.equal(exact.text(exact.convert(1,'KRW','UZS',state)),quote);
+  assert.equal(exact.display(exact.convert(1,'KRW','UZS',state),'UZS'),quote+' so‘m');
+  assert.equal(exact.text(editor.quoteExact('KRW','UZS',state,1)),quote);
+ }
+});
+test('long reciprocal quotes survive save/reload, both editors and exact currency swaps',()=>{
+ const quote='0.113100421912345678901234567890123456789';
+ const rate=editor.bookRateExact('UZS_KRW','1',quote);
+ const state=JSON.parse(JSON.stringify({preciseExchangeRates:{krwToUzsPer1000:rate}}));
+ assert.equal(exact.text(exact.convert('1','UZS','KRW',state)),quote);
+ let value=exact.read('1'),from='UZS',to='KRW';
+ for(let i=0;i<100;i++){value=exact.convert(value,from,to,state);[from,to]=[to,from];}
+ assert.equal(exact.text(value),'1');
+ const solved=editor.solveExact([{from:'UZS',to:'KRW',sourceAmount:'1',value:quote}],{});
+ assert.deepEqual(solved.preciseExchangeRates.krwToUzsPer1000,rate);
+ assert.equal(exact.text(editor.quoteExact('UZS','KRW',solved,1)),quote);
+});
+test('arbitrary source and target fractions never round through Number',()=>{
+ const source='100000.12345678901234567890123456789';
+ const target='884149.25441234567890123456789';
+ const state=editor.solveExact([{from:'KRW',to:'UZS',sourceAmount:source,value:target}],{});
+ assert.equal(exact.text(exact.convert(source,'KRW','UZS',state)),target);
+ const swapped=editor.solveExact([{from:'UZS',to:'KRW',sourceAmount:target,value:source}],{});
+ assert.deepEqual(swapped.preciseExchangeRates,state.preciseExchangeRates);
+});
+test('recurring on-screen decimals retain the exact fraction when left unedited',()=>{
+ const el={value:'',dataset:{}};
+ exact.fill(el,exact.divide(1,3));
+ assert.equal(el.value,'0.'+'3'.repeat(40));
+ assert.equal(exact.text(exact.multiply(exact.input(el),3)),'1');
+ el.value='0.333333333';
+ assert.equal(exact.text(exact.multiply(exact.input(el),3)),'0.999999999');
+});
+test('old numeric rates remain available and malformed exact metadata never drops legacy values',()=>{
+ assert.equal(exact.text(exact.convert(1,'KRW','UZS',{krwToUzsPer1000:8841.492544})),'8.841492544');
+ assert.equal(exact.text(exact.rates({krwToUzsPer1000:8000,preciseExchangeRates:{krwToUzsPer1000:{n:'oops',d:'0'}}}).krwToUzsPer1000),'8000');
+ assert.equal(exact.valid({n:'1',d:'0'}),null);
+ assert.equal(exact.read('8.1234567890123456789').n,'81234567890123456789');
+});
+test('the ninth decimal digit is kept even when it is a trailing zero',()=>{
+ const quote='8.123456780',input={value:'',dataset:{}};
+ exact.fill(input,exact.read(quote),quote);
+ assert.equal(input.value,quote);
+ assert.deepEqual(editor.normalizeBookInput({direction:'KRW_UZS',sourceText:'1',targetText:quote}),{direction:'KRW_UZS',sourceText:'1',targetText:quote});
+ const pair=editor.normalized([{from:'KRW',to:'UZS',sourceAmount:'1',value:quote}])[0];
+ assert.equal(pair.quoteText,quote);
+});

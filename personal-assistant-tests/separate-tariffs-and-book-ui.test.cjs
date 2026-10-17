@@ -17,7 +17,7 @@ test('book rates only expose KRW and UZS, with a two-direction entry and convert
   assert.ok(!book.includes('value="USD"'),'no dollar option visible in book cost screen');
   assert.ok(book.includes('id="bookSomTotal"'),'prior converted-cost output retained');
   assert.ok(app.includes("function formatBookRate("));
-  assert.ok(app.includes('state.krwToUzsPer1000=next'));
+  assert.ok(app.includes('state.preciseExchangeRates='));
 });
 test('book main, list and report contents are isolated without removing cost statistics',()=>{
   assert.ok(app.includes("$('costListPanel').hidden=costView!=='list'"));

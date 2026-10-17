@@ -2,6 +2,7 @@
   'use strict';
   const KINDS=['Jenshen','Kosmetika','Vitamin','Boshqa'];
   const currency=(typeof module==='object'&&module.exports)?require('./currency-converter.js'):root.YordamchiCurrency;
+  const exact=currency.precise;
   let lastBookRows=[];
   const selectedProductIds=new Set();
   const $=id=>document.getElementById(id);
@@ -64,8 +65,8 @@
   function chosenText(won){
     if(won===null)return '—';
     const state=api.get();
-    const value=currency.convertExact(won,'KRW','UZS',state.krwToUzsPer1000,state.krwPerUsd);
-    return value===null?'Kursni kiriting':currency.displayExact(value,'UZS');
+    const value=exact.convert(won,'KRW','UZS',state);
+    return value===null?'Kursni kiriting':exact.display(value,'UZS');
   }
   function summarize(rows,perKg,exchange){
     const items=Array.isArray(rows)?rows:[],result={count:items.length,ready:0,incomplete:0,purchase:0,shipping:0,total:0,purchaseSom:null,shippingSom:null,totalSom:null};
@@ -90,10 +91,10 @@
         destination=widget.querySelector('.currency-to').value,
         input=widget.querySelector('.currency-amount'),
         result=widget.querySelector('.currency-result');
-      const converted=currency.convertExact(input.value,source,destination,state.krwToUzsPer1000,state.krwPerUsd);
-      result.textContent=currency.amount(input.value)===null?'Hisoblash uchun summa kiriting.':
+      const converted=exact.convert(exact.input(input),source,destination,state);
+      result.textContent=exact.input(input)===null?'Hisoblash uchun summa kiriting.':
         converted===null?'Bu juftlik uchun valyuta kurslarini kiriting.':
-        currency.displayExact(converted,destination);
+        exact.display(converted,destination);
     });
   }
   function refreshConvertedViews(){
@@ -101,13 +102,13 @@
   }
 
   const rateEditor=(typeof module==='object'&&module.exports)?require('./currency-rate-editor.js'):root.YordamchiRateEditor;
-  function paintRateRow(row,state,keepDraft=false){
+  function paintRateRow(row,state,keepDraft=false,literal=null){
     const from=row.querySelector('.exchange-rate-from').value,to=row.querySelector('.exchange-rate-to').value;
     const source=row.querySelector('.exchange-rate-source');
     row.querySelector('.exchange-rate-base').textContent=rateEditor.unit(from);
     row.querySelector('.exchange-rate-unit').textContent=rateEditor.unit(to);
-    const rate=rateEditor.rawValue(from,to,state,source.value),input=row.querySelector('.exchange-rate-value');
-    if(!keepDraft)input.value=rateEditor.showNumber(rate);
+    const rate=rateEditor.quoteExact(from,to,state,exact.input(source)),input=row.querySelector('.exchange-rate-value');
+    if(!keepDraft)exact.fill(input,rate,literal);
     row.querySelector('.exchange-rate-hint').textContent=rate===null?'Bu juftlikning kursi hali kiritilmagan.':
       'Saqlangan: '+source.value+' '+rateEditor.unit(from)+' = '+rateEditor.showNumber(rate)+' '+rateEditor.unit(to)+' · Kasrli kurs to‘liq hisoblanadi';
   }
@@ -119,8 +120,8 @@
       panel.querySelectorAll('.exchange-pair-editor').forEach((row,i)=>{
         row.querySelector('.exchange-rate-from').value=pairs[i].from;
         row.querySelector('.exchange-rate-to').value=pairs[i].to;
-        row.querySelector('.exchange-rate-source').value=pairs[i].sourceAmount??rateEditor.base(pairs[i].from);
-        paintRateRow(row,state);
+        exact.fill(row.querySelector('.exchange-rate-source'),pairs[i].sourceExact??pairs[i].sourceAmount??rateEditor.base(pairs[i].from));
+        paintRateRow(row,state,false,pairs[i].quoteText??null);
       });
       panel.dataset.rateInitialized='yes';
     });
@@ -259,10 +260,10 @@
       to.addEventListener('change',refreshConvertedViews);
       input.addEventListener('input',renderConverters);
       swap.addEventListener('click',()=>{
-        const state=api.get(),value=currency.convertExact(input.value,from.value,to.value,state.krwToUzsPer1000,state.krwPerUsd);
+        const state=api.get(),value=exact.convert(exact.input(input),from.value,to.value,state);
         const oldFrom=from.value;from.value=to.value;to.value=oldFrom;
         // Swap directions and keep the same economic value in the input.
-        if(value!==null)input.value=String(value);
+        if(value!==null)exact.fill(input,value);
         refreshConvertedViews();
       });
     });
@@ -275,7 +276,7 @@
           if(event.target===from)to.value=currency.CURRENCIES.find(code=>code!==from.value);
           else from.value=currency.CURRENCIES.find(code=>code!==to.value);
         }
-        row.querySelector('.exchange-rate-source').value=rateEditor.base(from.value);
+        exact.fill(row.querySelector('.exchange-rate-source'),rateEditor.base(from.value));
         paintRateRow(row,api.get());
       };
       from.addEventListener('change',selected);
@@ -286,9 +287,9 @@
       });
       swap.addEventListener('click',()=>{
         const source=row.querySelector('.exchange-rate-source');
-        const oldFrom=from.value,oldSource=source.value;
+        const oldFrom=from.value,oldSource=exact.input(source),oldTarget=exact.input(input);
         from.value=to.value;to.value=oldFrom;
-        source.value=input.value;input.value=oldSource;
+        exact.fill(source,oldTarget);exact.fill(input,oldSource);
         paintRateRow(row,api.get(),true);
         row.querySelector('.exchange-rate-hint').textContent='Kurs yo‘nalishi almashtirildi. Saqlashni unutmang.';
       });
@@ -299,14 +300,17 @@
         from:row.querySelector('.exchange-rate-from').value,
         to:row.querySelector('.exchange-rate-to').value,
         value:row.querySelector('.exchange-rate-value').value.trim(),
-        sourceAmount:row.querySelector('.exchange-rate-source').value.trim()
+        sourceAmount:row.querySelector('.exchange-rate-source').value.trim(),
+        sourceExact:exact.input(row.querySelector('.exchange-rate-source')),
+        quoteExact:exact.input(row.querySelector('.exchange-rate-value'))
       }));
       const state=api.get();
       let next;
-      try{next=rateEditor.solve(rows,state);}
+      try{next=rateEditor.solveExact(rows,state);}
       catch(err){api.toast(err.message||'Valyuta kurslarini tekshiring.');return;}
-      const original={krwToUzsPer1000:state.krwToUzsPer1000,
+      const original={preciseExchangeRates:state.preciseExchangeRates,krwToUzsPer1000:state.krwToUzsPer1000,
         krwPerUsd:state.krwPerUsd,exchangeRatePairs:state.exchangeRatePairs};
+      state.preciseExchangeRates=next.preciseExchangeRates;
       state.krwToUzsPer1000=next.krwToUzsPer1000;
       state.krwPerUsd=next.krwPerUsd;
       state.exchangeRatePairs=rateEditor.normalized(rows);

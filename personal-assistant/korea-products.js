@@ -30,7 +30,7 @@
     if(n===null)return null;
     if(unit==='UZS'){
       const r=fx(exchange);
-      return r===null?null:n*1000/r;
+      return r===null?null:Number((n*1000/r).toPrecision(15));
     }
     return n;
   }
@@ -38,7 +38,7 @@
     if(value===null)return null;
     if(unit==='UZS'){
       const r=fx(exchange);
-      return r===null?null:value*r/1000;
+      return r===null?null:Number((value*r/1000).toPrecision(15));
     }
     return value;
   }

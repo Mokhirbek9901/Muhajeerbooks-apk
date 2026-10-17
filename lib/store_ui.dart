@@ -5761,6 +5761,65 @@ class _WebCartPage extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 16),
+                      // Web-only preview: do not change the pending iOS/Android builds.
+                      if (kIsWeb) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 11,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF3F8F5),
+                            border: Border.all(color: const Color(0xFFD0E3D9)),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 24,
+                                height: 24,
+                                alignment: Alignment.center,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFE0F0E8),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.info_outline_rounded,
+                                  color: UzbekCustomerColors.teal,
+                                  size: 16,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Narxlar haqida',
+                                      style: TextStyle(
+                                        color: UzbekCustomerColors.navy,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    SizedBox(height: 3),
+                                    Text(
+                                      'Kitoblar O‘zbekistondan keltiriladi. Valyuta kursi o‘zgarishi ularning narxiga ta’sir qilishi mumkin.',
+                                      style: TextStyle(
+                                        color: UzbekCustomerColors.navy,
+                                        fontSize: 12,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       FilledButton.icon(
                         onPressed: () => Navigator.push(
                           context,

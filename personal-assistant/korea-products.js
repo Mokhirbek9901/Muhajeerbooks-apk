@@ -90,10 +90,10 @@
         destination=widget.querySelector('.currency-to').value,
         input=widget.querySelector('.currency-amount'),
         result=widget.querySelector('.currency-result');
-      const converted=currency.convert(input.value,source,destination,state.krwToUzsPer1000,state.krwPerUsd);
+      const converted=currency.convertExact(input.value,source,destination,state.krwToUzsPer1000,state.krwPerUsd);
       result.textContent=currency.amount(input.value)===null?'Hisoblash uchun summa kiriting.':
         converted===null?'Bu juftlik uchun valyuta kurslarini kiriting.':
-        currency.display(converted,destination);
+        currency.displayExact(converted,destination);
     });
   }
   function refreshConvertedViews(){

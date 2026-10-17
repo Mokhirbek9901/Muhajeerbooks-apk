@@ -2200,6 +2200,21 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                     ),
+                    if (kIsWeb &&
+                        (query.trim().isNotEmpty ||
+                          category != 'Barchasi' ||
+                          publisher != 'Barchasi' ||
+                          maxPrice < 100000 || sort != 'new')) ...[
+                      const SizedBox(width: 4),
+                      Tooltip(
+                        message: 'Barcha kitoblarni ko‘rish',
+                        child: TextButton(
+                          onPressed: _showAllBooks,
+                          child: Text(MediaQuery.sizeOf(context).width >= 650
+                            ? 'Barcha kitoblarni ko‘rish' : 'Barchasi'),
+                        ),
+                      ),
+                    ],
                     const SizedBox(width: 8),
                     if (kIsWeb) InkWell(
                       onTap: () => _showWebFilters(categories, publishers),
@@ -2295,22 +2310,6 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
-            if (kIsWeb &&
-                (query.trim().isNotEmpty ||
-                  category != 'Barchasi' ||
-                  publisher != 'Barchasi' ||
-                  maxPrice < 100000 || sort != 'new'))
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
-                sliver: SliverToBoxAdapter(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: OutlinedButton.icon(
-                      onPressed: _showAllBooks,
-                      icon: const Icon(Icons.apps_rounded, size: 18),
-                      label: const Text('Barcha kitoblarni ko‘rish'))),
-                ),
-              ),
             if (_webOrPlayCustomer &&
                 query.trim().length >= 2 &&
                 webSuggestions.isNotEmpty)

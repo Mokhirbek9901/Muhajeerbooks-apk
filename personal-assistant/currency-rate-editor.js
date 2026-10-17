@@ -50,5 +50,20 @@ function solve(rows,previous){
  if(b!==null&&(!Number.isFinite(b)||b<=0||b>1e7))throw new Error('Dollar kursi juda katta yoki noto‘g‘ri.');
  return {krwToUzsPer1000:a===null?null:a*1000,krwPerUsd:b};
 }
-return {DEFAULT_PAIRS,base,unit,normalized,rawValue,showNumber,solve};
+function bookRateFromAmounts(direction,sourceAmount,quoteAmount){
+  if(direction!=='KRW_UZS'&&direction!=='UZS_KRW')throw new Error('Kurs yo‘nalishini tanlang.');
+  const from=num(sourceAmount),to=num(quoteAmount);
+  if(from===null||to===null)throw new Error('Har ikkala valyuta summasini musbat son bilan kiriting.');
+  const value=direction==='KRW_UZS'?(1000*to/from):(1000*from/to);
+  if(!Number.isFinite(value)||value<=0||value>1e7)throw new Error('Valyuta kursi noto‘g‘ri yoki ruxsat etilgan oraliqdan tashqarida.');
+  return value;
+}
+function bookRateQuote(direction,sourceAmount,savedUzsPer1000Won){
+  if(direction!=='KRW_UZS'&&direction!=='UZS_KRW')return null;
+  const from=num(sourceAmount),saved=num(savedUzsPer1000Won);
+  if(from===null||saved===null)return null;
+  const value=direction==='KRW_UZS'?(from*saved/1000):(from*1000/saved);
+  return Number.isFinite(value)&&value>0&&value<=1e15?value:null;
+}
+return {DEFAULT_PAIRS,base,unit,normalized,rawValue,showNumber,solve,bookRateFromAmounts,bookRateQuote};
 });

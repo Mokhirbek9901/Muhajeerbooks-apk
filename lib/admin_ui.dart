@@ -26,6 +26,8 @@ import 'catalog_resume.dart';
 import 'admin_resume_session.dart';
 import 'push_notifications.dart';
 import 'native_admin_push.dart';
+import 'uzbek_customer_style.dart';
+import 'web_admin_upgrades.dart';
 
 const _navy = Color(0xFF10213D);
 const _orange = Color(0xFFFF8A00);
@@ -2081,6 +2083,27 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(18),
           children: [
+            if (kIsWeb) ...[
+              WebTodayWork(
+                books: books,
+                orders: orders,
+                openTab: (value) => widget.onOpenTab?.call(value),
+              ),
+              const SizedBox(height: 10),
+              Card(child: ListTile(
+                leading: const Icon(Icons.calculate_outlined,
+                  color: UzbekCustomerColors.teal),
+                title: const Text('Biznes asboblari',
+                  style: TextStyle(fontWeight: FontWeight.w900)),
+                subtitle: const Text(
+                  'Narx • partiyalar • o‘zgarishlar • server xarajatlari'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => Navigator.push(context, MaterialPageRoute<void>(
+                  builder: (_) => WebAdminToolsPage(
+                    secret: widget.api.secret, books: books))),
+              )),
+              const SizedBox(height: 12),
+            ],
             if (_enhancedAdminUi) ...[
               _WebAdminDashboardHeader(
                 todayRevenue: todayRevenue,
@@ -6452,6 +6475,23 @@ class _ProfessionalOrderCard extends StatelessWidget {
                   ],
                 ),
               ),
+            if (kIsWeb && order.preparedAt == null &&
+                (order.status == 'accepted' || order.status == 'paid')) ...[
+              SizedBox(width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => Navigator.push(context, MaterialPageRoute<void>(
+                    builder: (_) => WebPackingPage(
+                      order: order,
+                      secret: api.secret,
+                      onPrepared: () => onStatus('prepared'),
+                    ),
+                  )),
+                  icon: const Icon(Icons.fact_check_outlined),
+                  label: const Text('Qadoqlash tekshiruvi'),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
             _OrderActions(order: order, onStatus: onStatus),
           ],
         ],
@@ -6487,6 +6527,11 @@ class _OrderActions extends StatelessWidget {
           : Icons.local_shipping_rounded;
     }
 
+    if (kIsWeb && primaryStatus == 'prepared') {
+      primaryStatus = null;
+      primaryLabel = null;
+      primaryIcon = null;
+    }
     return Row(
       children: [
         if (primaryStatus != null)

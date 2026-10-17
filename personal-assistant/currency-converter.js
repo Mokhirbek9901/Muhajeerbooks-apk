@@ -41,7 +41,7 @@
   // The converter may show decimals; financial/inventory totals stay whole won/som.
   function displayExact(value,currency){
     if(value===null||!Number.isFinite(value)||!CURRENCIES.includes(currency))return '—';
-    const formatted=Number(value).toLocaleString('en-US',{maximumFractionDigits:12});
+    const formatted=Number(Number(value).toPrecision(15)).toLocaleString('en-US',{maximumFractionDigits:12});
     return currency==='KRW'?'₩'+formatted:currency==='USD'?'$'+formatted:formatted+' so‘m';
   }
   function display(value,currency){

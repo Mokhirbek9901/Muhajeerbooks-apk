@@ -231,8 +231,7 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                   icon: const Icon(Icons.restore_outlined)),
               ]),
               Align(alignment: Alignment.centerRight,
-                child: Text('Partiya qiymati: ${_money(
-                  chosen.qty * (chosen.unitCost < 0 ? 0 : chosen.unitCost))}',
+                child: Text('Partiya qiymati: ${_money(chosen.qty * (chosen.unitCost < 0 ? 0 : chosen.unitCost))}',
                 style: const TextStyle(
                   fontWeight: FontWeight.w800, fontSize: 12))),
             ]),
@@ -358,7 +357,7 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                 const SizedBox(height: 8),
                 for (final book in visible) _bookCard(book),
               ]),
-          ))),
+          )))),
           SafeArea(top: false, child: Container(
             decoration: const BoxDecoration(
               color: Colors.white,
@@ -387,7 +386,7 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                 ),
               ]),
             ))),
-          )),
+          ),
         ]);
       },
     ),

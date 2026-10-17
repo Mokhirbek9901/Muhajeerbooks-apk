@@ -416,10 +416,10 @@ class _WebServerBudgetPanelState extends State<_WebServerBudgetPanel> {
   Widget build(BuildContext context) {
     if (loading) return const Center(child: CircularProgressIndicator());
     final labels = [
-      'Supabase oylik budjet ($)',
-      'Railway oylik budjet ($)',
-      'Supabase haqiqiy hisobdan kiritilgan summa ($)',
-      'Railway haqiqiy hisobdan kiritilgan summa ($)',
+      'Supabase oylik budjet (USD)',
+      'Railway oylik budjet (USD)',
+      'Supabase haqiqiy hisobdan kiritilgan summa (USD)',
+      'Railway haqiqiy hisobdan kiritilgan summa (USD)',
     ];
     final supBudget = double.tryParse(fields[0].text) ?? 0;
     final railBudget = double.tryParse(fields[1].text) ?? 0;

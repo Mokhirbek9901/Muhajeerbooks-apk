@@ -114,3 +114,20 @@ test('invalid and empty source or target amounts never overwrite previous rate',
  assert.equal(edit.bookRateQuote('KRW_UZS',0,8000),null);
  assert.equal(edit.bookRateQuote('KRW_UZS',5000,null),null);
 });
+
+test('long decimal 8.841492544 UZS per 1 KRW survives storage and reverse rate display',()=>{
+  const rate=edit.bookRateFromAmounts('KRW_UZS','1','8.841492544');
+  near(rate,8841.492544);
+  assert.equal(edit.showNumber(edit.bookRateQuote('KRW_UZS',1,rate)),'8.841492544');
+  assert.equal(edit.showNumber(edit.rawValue('KRW','UZS',{krwToUzsPer1000:rate})),'88414.92544');
+  assert.equal(conversion.convert(1000,'KRW','UZS',rate,null),8841);
+  assert.equal(conversion.convert(13000,'KRW','UZS',rate,null),114939);
+  assert.equal(conversion.convert(100000,'KRW','UZS',rate,null),884149);
+  near(edit.rawValue('UZS','KRW',{krwToUzsPer1000:rate}),1/8.841492544);
+});
+test('precise rate presentation retains more than eleven significant digits',()=>{
+  assert.equal(edit.showNumber(8.84149254412345),'8.84149254412345');
+  assert.equal(edit.showNumber(0.113103143123456),'0.113103143123456');
+  const precise=edit.bookRateFromAmounts('UZS_KRW',1,'0.113103143123456');
+  near(edit.bookRateQuote('UZS_KRW',1,precise),0.113103143123456);
+});

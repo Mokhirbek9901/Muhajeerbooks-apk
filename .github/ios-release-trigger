@@ -21,3 +21,5 @@ testflight-only-instagram-feed-4x5-post-save-2026-10-15; iOS-only button for eve
 
 testflight-only-edge-to-edge-4x5-book-post-2026-10-15; render cover + price + postage + compact description, no standalone metadata, preserve existing App Store review submission
 owner-story-autoload-name-phone-only-2026-10-16; latest iOS TestFlight build from Flutter CI-tested commit, no manual admin login
+
+ios-app-store-release-2026-10-17-low-egress-book-covers-two-image-customer-gallery; main commit 0d4745a6a88711cb1956acdcee8cede0ea9ef85a; submit validated signed build to App Review.

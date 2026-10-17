@@ -130,6 +130,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
   Widget _purchaseTile(Map<String, dynamic> item, int index) {
     final title = (item['title'] ?? 'Kitob xaridi').toString();
     final verified = item['item_breakdown_verified'] == true;
+    final isOpeningStock = item['source'] == 'opening_stock_baseline';
     final posted = item['posted_date']?.toString();
     final bought = item['purchase_date']?.toString();
     return Card(
@@ -142,7 +143,9 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
         title: Text(title, style: const TextStyle(
           fontSize: 14, fontWeight: FontWeight.w900)),
         subtitle: Padding(padding: const EdgeInsets.only(top: 4),
-          child: Text('Xarid: ${_batchDate(bought)} • Moliya qaydi',
+          child: Text(isOpeningStock
+            ? 'Boshlang‘ich qoldiq • Moliya qaydi'
+            : 'Xarid: ${_batchDate(bought)} • Moliya qaydi',
           style: const TextStyle(fontSize: 12))),
         trailing: Text(_batchMoney(_batchNum(item['total_krw'])),
           style: const TextStyle(fontSize: 14,
@@ -150,18 +153,21 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         children: [
           const Divider(),
-          _detail('Umumiy xarid xarajati',
+          _detail(isOpeningStock ? 'Boshlang‘ich qoldiq qiymati'
+              : 'Umumiy xarid summasi',
             _batchMoney(_batchNum(item['total_krw']))),
           _detail('Xarid sanasi', _batchDate(bought)),
           if (posted != bought)
             _detail('Moliyaga kiritilgan sana', _batchDate(posted)),
-          _detail('Manba', 'Moliya → Yangi partiya kitoblar'),
+          _detail('Manba', isOpeningStock
+            ? 'Moliya → Avvaldan qolgan kitoblar'
+            : 'Moliya → Yangi partiya kitoblar'),
           _detail('Kitoblar tarkibi',
             verified ? 'Tasdiqlangan' : 'Kitobma-kitob tasdiqlanmagan'),
           const SizedBox(height: 8),
           const Align(alignment: Alignment.centerLeft,
             child: Text(
-              'Bu summa moliyada avval hisoblangan. Bu yerda faqat xaridlar tarixi ko‘rsatiladi; takror xarajat yoki ombor kirimi yaratilmaydi.',
+              'Bu summa moliyada avval hisoblangan. Bu yerda faqat qaydlar tarixi ko‘rsatiladi; takror xarajat yoki ombor kirimi yaratilmaydi.',
               style: TextStyle(fontSize: 12,
                 color: UzbekCustomerColors.textMuted, height: 1.35))),
         ],
@@ -258,7 +264,13 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
       final data = snapshot.data!;
       final purchases = _items(data['purchases']);
       final inventory = _items(data['inventory']);
-      final purchaseSum = purchases.fold<int>(
+      final realPurchases = purchases.where((item) =>
+        item['source'] != 'opening_stock_baseline').toList();
+      final openingEntries = purchases.where((item) =>
+        item['source'] == 'opening_stock_baseline').toList();
+      final purchaseSum = realPurchases.fold<int>(
+        0, (sum, item) => sum + _batchNum(item['total_krw']));
+      final openingValue = openingEntries.fold<int>(
         0, (sum, item) => sum + _batchNum(item['total_krw']));
       final stockQty = inventory.fold<int>(
         0, (sum, item) => sum + _batchNum(item['stock']));
@@ -293,15 +305,17 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
           ]),
           const SizedBox(height: 14),
           Wrap(spacing: 8, runSpacing: 8, children: [
-            _metric('Moliya orqali aniqlangan xaridlar',
-              '${purchases.length} ta', Icons.receipt_long_outlined),
-            _metric('Xarid xarajatlari jami',
+            _metric('Moliya xarid yozuvlari',
+              '${realPurchases.length} ta', Icons.receipt_long_outlined),
+            _metric('Yangi xaridlar summasi',
               _batchMoney(purchaseSum), Icons.account_balance_wallet_outlined),
-            _metric('Joriy ombordagi kitoblar',
-              '$stockQty dona', Icons.inventory_2_outlined,
-              footnote: '${inventory.length} nom'),
-            _metric('Joriy ombor tannarxi',
-              _batchMoney(stockValue), Icons.bar_chart_rounded),
+            _metric('Boshlang‘ich qoldiq qaydi',
+              _batchMoney(openingValue), Icons.bookmark_border_rounded,
+              footnote: 'Yangi partiya xaridiga qo‘shilmaydi'),
+            _metric('Hozirgi ombor',
+              '${inventory.length} nom / $stockQty dona',
+              Icons.inventory_2_outlined,
+              footnote: 'Tannarxi: ${_batchMoney(stockValue)}'),
           ]),
           const SizedBox(height: 14),
           Container(
@@ -329,7 +343,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(children: [
-              ChoiceChip(label: Text('Xaridlar (${purchases.length})'),
+              ChoiceChip(label: Text('Moliya qaydlari (${purchases.length})'),
                 selected: mode == 'purchases',
                 onSelected: (_) => _setMode('purchases')),
               const SizedBox(width: 8),
@@ -349,7 +363,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
                 onChanged: (value) => setState(() => query = value),
                 decoration: InputDecoration(
                   hintText: mode == 'purchases'
-                    ? 'Partiya nomini qidiring...'
+                    ? 'Xarid yoki qoldiq qaydini qidiring...'
                     : 'Kitob nomini qidiring...',
                   prefixIcon: const Icon(Icons.search_rounded),
                   border: const OutlineInputBorder()),

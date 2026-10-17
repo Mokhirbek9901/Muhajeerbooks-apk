@@ -1,0 +1,394 @@
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'uzbek_customer_style.dart';
+
+class _SelectedBatchBook {
+  _SelectedBatchBook(Map<String,dynamic> raw)
+    : id = raw['id'].toString(),
+      title = (raw['title'] ?? 'Kitob').toString(),
+      catalogCost = (raw['cost_price'] as num?)?.toInt() ?? 0,
+      quantity = TextEditingController(text: '1'),
+      cost = TextEditingController(
+        text: ((raw['cost_price'] as num?)?.toInt() ?? 0).toString());
+  final String id;
+  final String title;
+  final int catalogCost;
+  final TextEditingController quantity;
+  final TextEditingController cost;
+  bool changedCost = false;
+  void dispose() { quantity.dispose(); cost.dispose(); }
+  int get qty => int.tryParse(quantity.text) ?? 0;
+  int get unitCost => int.tryParse(cost.text) ?? -1;
+}
+
+class WebBatchMultiAddPage extends StatefulWidget {
+  const WebBatchMultiAddPage({super.key, required this.secret});
+  final String secret;
+  @override
+  State<WebBatchMultiAddPage> createState() => _WebBatchMultiAddPageState();
+}
+
+class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
+  late final Future<Map<String,dynamic>> _data;
+  final _title = TextEditingController();
+  final _note = TextEditingController();
+  final _search = TextEditingController();
+  final Map<String,_SelectedBatchBook> _selected = {};
+  DateTime _date = DateTime.now();
+  String _mode = 'new';
+  String? _existing;
+  bool _syncStock = false;
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _data = Supabase.instance.client.rpc('admin_web_batch_picker_data',
+      params: {'p_secret': widget.secret})
+      .then((value) => value is Map
+        ? Map<String,dynamic>.from(value)
+        : <String,dynamic>{});
+  }
+
+  @override
+  void dispose() {
+    for (final item in _selected.values) { item.dispose(); }
+    _title.dispose(); _note.dispose(); _search.dispose();
+    super.dispose();
+  }
+
+  List<Map<String,dynamic>> _list(dynamic raw) => raw is List
+    ? raw.whereType<Map>().map((e) => Map<String,dynamic>.from(e)).toList()
+    : [];
+
+  String _money(num v) => '₩${NumberFormat('#,###').format(v.round())}';
+
+  void _pick(Map<String,dynamic> book, bool select) {
+    final id = book['id'].toString();
+    setState(() {
+      if (select) {
+        _selected.putIfAbsent(id, () => _SelectedBatchBook(book));
+      } else {
+        _selected.remove(id)?.dispose();
+      }
+    });
+  }
+
+  Future<void> _pickDate() async {
+    final selected = await showDatePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(DateTime.now().year + 1),
+      initialDate: _date);
+    if (selected != null && mounted) setState(() => _date = selected);
+  }
+
+  Future<void> _save() async {
+    if (_submitting) return;
+    if (_selected.isEmpty) {
+      _message('Kamida bitta kitobni belgilang.');
+      return;
+    }
+    if (_mode == 'new' && _title.text.trim().isEmpty) {
+      _message('Yangi partiyaga nom yozing.');
+      return;
+    }
+    if (_mode == 'old' && _existing == null) {
+      _message('Eski partiyani tanlang.');
+      return;
+    }
+    final list = <Map<String,dynamic>>[];
+    for (final row in _selected.values) {
+      if (row.qty < 1 || row.qty > 10000 || row.unitCost < 0 ||
+          row.unitCost > 100000000) {
+        _message('${row.title}: dona soni yoki tannarx noto‘g‘ri.');
+        return;
+      }
+      list.add({
+        'book_id': row.id,
+        'quantity': row.qty,
+        if (row.changedCost) 'unit_cost': row.unitCost,
+        'edited_cost': row.changedCost,
+      });
+    }
+    final nBooks = list.length;
+    final nQty = _selected.values.fold<int>(0, (s, x) => s + x.qty);
+    final isOld = _mode == 'old';
+    final text = isOld
+      ? 'Eski partiyaga $nBooks nomdagi, jami $nQty dona kitob qayd etiladi. '
+        'Bu tarixiy ma’lumot; ombor va moliyaga qayta qo‘shilmaydi. '
+        'Avtomatik narxlar joriy katalog tannarxidir, tarixiy tannarx '
+        'ekanligini tekshirish kerak.'
+      : 'Yangi partiyaga $nBooks nomdagi, jami $nQty dona kitob qo‘shiladi. '
+        '${_syncStock ? 'OMBOR QOLDIG‘I HAM ORTADI VA JORIY TANNARX YANGILANADI.' : 'Ombor va moliyaga ta’sir qilmaydi.'} '
+        'Moliya xarajati avtomatik yaratilmaydi.';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Partiyani tasdiqlash'),
+        content: Text(text),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false),
+            child: const Text('Orqaga')),
+          FilledButton(onPressed: () => Navigator.pop(c, true),
+            child: const Text('Tasdiqlash')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _submitting = true);
+    try {
+      final pieces = (_existing ?? '').split(':');
+      final oldType = pieces.firstOrNull == 'import'
+        ? 'old_import' : 'old_group';
+      await Supabase.instance.client.rpc('admin_web_bulk_batch_save',
+        params: {
+          'p_secret': widget.secret,
+          'p_data': {
+            'mode': isOld ? oldType : 'new',
+            if (!isOld) 'title': _title.text.trim(),
+            if (!isOld) 'date': DateFormat('yyyy-MM-dd').format(_date),
+            if (!isOld) 'note': _note.text.trim(),
+            if (isOld) 'existing_id': pieces.skip(1).join(':'),
+            'apply_to_inventory': !isOld && _syncStock,
+            'items': list,
+          },
+        });
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (error) {
+      _message('Saqlashda xato: $error');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  void _message(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg)));
+  }
+
+  Widget _sectionTitle(String s) => Padding(
+    padding: const EdgeInsets.fromLTRB(0, 12, 0, 8),
+    child: Text(s, style: const TextStyle(
+      fontSize: 16, fontWeight: FontWeight.w900,
+      color: UzbekCustomerColors.navy)));
+
+  Widget _bookCard(Map<String,dynamic> raw) {
+    final id = raw['id'].toString();
+    final chosen = _selected[id];
+    final selected = chosen != null;
+    final currentCost = (raw['cost_price'] as num?)?.toInt() ?? 0;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 7),
+      child: Column(children: [
+        CheckboxListTile(
+          controlAffinity: ListTileControlAffinity.leading,
+          value: selected,
+          onChanged: _submitting ? null : (v) => _pick(raw, v ?? false),
+          title: Text((raw['title'] ?? 'Kitob').toString(),
+            maxLines: 2, overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w800)),
+          subtitle: Text('Bazadagi tannarx: ${_money(currentCost)}'
+            ' • Qoldiq: ${raw['stock'] ?? 0} dona',
+            style: const TextStyle(fontSize: 11.5)),
+        ),
+        if (chosen != null)
+          Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+            child: Column(children: [
+              Row(children: [
+                Expanded(child: TextField(
+                  controller: chosen.quantity,
+                  enabled: !_submitting,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onChanged: (_) => setState(() {}),
+                  decoration: const InputDecoration(
+                    labelText: 'Kelgan dona', isDense: true,
+                    border: OutlineInputBorder()),
+                )),
+                const SizedBox(width: 10),
+                Expanded(child: TextField(
+                  controller: chosen.cost,
+                  enabled: !_submitting,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onChanged: (_) => setState(() => chosen.changedCost = true),
+                  decoration: const InputDecoration(
+                    labelText: 'Bir dona tannarx ₩',
+                    isDense: true, border: OutlineInputBorder()),
+                )),
+                IconButton(
+                  tooltip: 'Bazadagi tannarxni qaytarish',
+                  onPressed: _submitting ? null : () {
+                    chosen.cost.text = chosen.catalogCost.toString();
+                    setState(() => chosen.changedCost = false);
+                  },
+                  icon: const Icon(Icons.restore_outlined)),
+              ]),
+              Align(alignment: Alignment.centerRight,
+                child: Text('Partiya qiymati: ${_money(
+                  chosen.qty * (chosen.unitCost < 0 ? 0 : chosen.unitCost))}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800, fontSize: 12))),
+            ]),
+          ),
+      ]),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: UzbekCustomerColors.background,
+    appBar: AppBar(
+      title: const Text('Partiyaga kitob qo‘shish'),
+      backgroundColor: UzbekCustomerColors.background),
+    body: FutureBuilder<Map<String,dynamic>>(
+      future: _data,
+      builder: (ctx, snap) {
+        if (snap.hasError) return Center(child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Text('Katalogni yuklab bo‘lmadi: ${snap.error}')));
+        if (!snap.hasData) return const Center(
+          child: CircularProgressIndicator());
+        final data = snap.data!;
+        final books = _list(data['books']);
+        final imported = _list(data['historical']);
+        final groups = _list(data['groups']);
+        final listOfExisting = <DropdownMenuItem<String>>[
+          for (final row in imported) DropdownMenuItem(
+            value: 'import:${row['id']}',
+            child: Text(
+              '${row['purchase_date']} • ${row['title']}',
+              overflow: TextOverflow.ellipsis)),
+          for (final row in groups) DropdownMenuItem(
+            value: 'group:${row['id']}',
+            child: Text(
+              '${row['batch_date']} • ${row['title']}',
+              overflow: TextOverflow.ellipsis)),
+        ];
+        final search = _search.text.trim().toLowerCase();
+        final visible = books.where((b) =>
+          (b['title'] ?? '').toString().toLowerCase().contains(search)).toList();
+        final sum = _selected.values.fold<int>(0,(s,e) =>
+          s + e.qty * (e.unitCost < 0 ? 0 : e.unitCost));
+        return Column(children: [
+          Expanded(child: Center(child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+              children: [
+                _sectionTitle('1. Partiya turi'),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'new', label: Text('Yangi partiya'),
+                      icon: Icon(Icons.add_box_outlined)),
+                    ButtonSegment(value: 'old', label: Text('Eski partiya'),
+                      icon: Icon(Icons.history_rounded)),
+                  ],
+                  selected: {_mode}, onSelectionChanged: _submitting
+                    ? null : (x) => setState(() {
+                      _mode = x.first;
+                      _syncStock = false;
+                    })),
+                const SizedBox(height: 12),
+                if (_mode == 'new') ...[
+                  TextField(controller: _title, enabled: !_submitting,
+                    decoration: const InputDecoration(
+                      labelText: 'Partiya nomi',
+                      hintText: 'Masalan: 2026 oktabr — Toshkent',
+                      border: OutlineInputBorder())),
+                  const SizedBox(height: 9),
+                  OutlinedButton.icon(
+                    onPressed: _submitting ? null : _pickDate,
+                    icon: const Icon(Icons.calendar_today_outlined),
+                    label: Text('Kelgan sana: ${DateFormat('dd.MM.yyyy').format(_date)}')),
+                  const SizedBox(height: 9),
+                  TextField(controller: _note, enabled: !_submitting,
+                    decoration: const InputDecoration(labelText: 'Izoh (ixtiyoriy)',
+                      border: OutlineInputBorder())),
+                  const SizedBox(height: 8),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    value: _syncStock,
+                    onChanged: _submitting ? null : (v) => setState(() => _syncStock=v),
+                    title: const Text('Omborga ham qo‘shish'),
+                    subtitle: const Text(
+                      'O‘chiq holatda faqat partiya tarixi yoziladi. '
+                      'Yoqilganda yangi dona soni omborga qo‘shilib, '
+                      'joriy tannarx yangilanadi.'),
+                  ),
+                ] else ...[
+                  if (listOfExisting.isEmpty)
+                    const Text('Avvalgi partiyalar topilmadi.')
+                  else DropdownButtonFormField<String>(
+                    value: _existing,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Eski partiyani tanlang',
+                      border: OutlineInputBorder()),
+                    items: listOfExisting,
+                    onChanged: _submitting ? null : (v) => setState(() => _existing=v)),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Eski partiyaga kitoblar faqat tarixiy qayd sifatida bog‘lanadi. '
+                    'Ombor ko‘paymaydi va moliyaga qayta xarajat yozilmaydi. '
+                    'Bazada chiqqan tannarx joriy tannarxdir, '
+                    'eski partiyada farq qilgan bo‘lsa tuzating.',
+                    style: TextStyle(fontSize: 12,
+                      color: UzbekCustomerColors.textMuted)),
+                ],
+                _sectionTitle('2. Katalogdan kitoblarni belgilang'),
+                TextField(
+                  controller: _search,
+                  onChanged: (_) => setState(() {}),
+                  decoration: const InputDecoration(
+                    hintText: 'Kitob nomini qidiring...',
+                    prefixIcon: Icon(Icons.search_rounded),
+                    border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 7),
+                Text('${_selected.length} ta kitob belgilandi • '
+                  '${visible.length} ta katalog natijasi',
+                  style: const TextStyle(fontWeight: FontWeight.w700,
+                    color: UzbekCustomerColors.textMuted, fontSize: 12)),
+                const SizedBox(height: 8),
+                for (final book in visible) _bookCard(book),
+              ]),
+          ))),
+          SafeArea(top: false, child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(top: BorderSide(color: Color(0xFFE4E9E5)))),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Center(child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: Row(children: [
+                Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min, children: [
+                    Text('${_selected.length} nomdagi kitob',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800, fontSize: 12)),
+                    Text(_money(sum), style: const TextStyle(
+                      fontWeight: FontWeight.w900, fontSize: 17,
+                      color: UzbekCustomerColors.navy)),
+                  ],
+                )),
+                FilledButton.icon(
+                  onPressed: _submitting ? null : _save,
+                  icon: _submitting ? const SizedBox(width: 16,height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.save_outlined),
+                  label: const Text('Partiyani saqlash'),
+                ),
+              ]),
+            ))),
+          )),
+        ]);
+      },
+    ),
+  );

@@ -267,6 +267,7 @@ class _WebBatchesPanelState extends State<_WebBatchesPanel> {
     final cost = TextEditingController();
     final price = TextEditingController();
     final note = TextEditingController();
+    var syncStock = false;
     final yes = await showDialog<bool>(context: context,
       builder: (ctx) => StatefulBuilder(builder: (ctx, update) => AlertDialog(
         title: const Text('Yangi partiyani ro‘yxatga olish'),
@@ -286,6 +287,14 @@ class _WebBatchesPanelState extends State<_WebBatchesPanel> {
               decoration: const InputDecoration(labelText: 'Rejadagi sotuv narxi (₩)')),
             TextField(controller: note, decoration: const InputDecoration(
               labelText: 'Izoh / yetib kelgan sana')),
+            const SizedBox(height: 10),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Omborga qo‘shish'),
+              subtitle: const Text('Yangi dona sonini qo‘shadi va joriy tannarxni almashtiradi. Oldingi sotuvlar o‘zgarmaydi.'),
+              value: syncStock,
+              onChanged: (value) => update(() => syncStock = value),
+            ),
           ]),
         )),
         actions: [
@@ -297,12 +306,16 @@ class _WebBatchesPanelState extends State<_WebBatchesPanel> {
       )));
     if (yes == true && mounted) {
       try {
-        await WebAdminApi(widget.secret).call('batch_add', {
-          'book_id': bookId,
-          'quantity': int.tryParse(qty.text) ?? 0,
-          'unit_cost': int.tryParse(cost.text) ?? -1,
-          'suggested_price': int.tryParse(price.text) ?? 0,
-          'note': note.text.trim(),
+        await Supabase.instance.client.rpc('admin_web_receive_batch', params: {
+          'p_secret': widget.secret,
+          'p_data': {
+            'book_id': bookId,
+            'quantity': int.tryParse(qty.text) ?? 0,
+            'unit_cost': int.tryParse(cost.text) ?? -1,
+            'suggested_price': int.tryParse(price.text) ?? 0,
+            'note': note.text.trim(),
+            'apply_to_inventory': syncStock,
+          },
         });
         if (mounted) setState(_refresh);
       } catch (e) {
@@ -318,7 +331,7 @@ class _WebBatchesPanelState extends State<_WebBatchesPanel> {
       const Text('Partiyalar tarixi', style: TextStyle(
         fontSize: 20, fontWeight: FontWeight.w900)),
       const SizedBox(height: 6),
-      const Text('Bu partiya reestri alohida yuritiladi. Oldingi sotilgan kitoblar tannarxini o‘zgartirmaydi; ombor qoldig‘ini esa Ombor bo‘limida yangilang.',
+      const Text('Yangi partiyalar alohida saqlanadi. Istasangiz saqlashda omborga ham qo‘shiladi. Oldingi sotuvlarning qayd etilgan tannarxi o‘zgarmaydi.',
         style: TextStyle(fontSize: 12)),
       const SizedBox(height: 12),
       FilledButton.icon(onPressed: _add, icon: const Icon(Icons.add),

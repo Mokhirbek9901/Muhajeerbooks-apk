@@ -230,13 +230,20 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
       child: ExpansionTile(
         title: Text((item['title'] ?? 'Kitob').toString(),
           style: const TextStyle(fontWeight: FontWeight.w800)),
-        subtitle: Text('${_batchDate(item['purchased_at'])} • $qty dona'),
+        subtitle: Text(
+          '${(item['batch_name'] ?? 'Alohida partiya')} • '
+          '${_batchDate(item['purchased_at'])} • $qty dona',
+          maxLines: 2, overflow: TextOverflow.ellipsis),
         trailing: Text(_batchMoney(qty * cost),
           style: const TextStyle(fontWeight: FontWeight.w900)),
         childrenPadding: const EdgeInsets.fromLTRB(16, 2, 16, 14),
         children: [
+          _detail('Partiya', (item['batch_name'] ?? 'Alohida partiya').toString()),
           _detail('Dona soni', '$qty'),
           _detail('Bir dona tannarx', _batchMoney(cost)),
+          _detail('Tannarx manbasi', item['cost_origin'] == 'catalog_prefill'
+            ? 'Katalogdagi joriy tannarxdan olingan'
+            : 'Qo‘lda kiritilgan tannarx'),
           _detail('Jami', _batchMoney(qty * cost)),
           _detail('Rejalangan sotuv narxi',
             _batchMoney(_batchNum(item['suggested_price']))),
@@ -303,6 +310,13 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
             IconButton(onPressed: _refresh,
               tooltip: 'Yangilash', icon: const Icon(Icons.refresh_rounded)),
           ]),
+          const SizedBox(height: 10),
+          Align(alignment: Alignment.centerLeft,
+            child: FilledButton.icon(
+              onPressed: widget.onAdd,
+              icon: const Icon(Icons.add_circle_outline),
+              label: const Text('Partiyaga kitoblar qo‘shish')),
+          ),
           const SizedBox(height: 14),
           Wrap(spacing: 8, runSpacing: 8, children: [
             _metric('Moliya xarid yozuvlari',

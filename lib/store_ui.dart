@@ -4076,13 +4076,13 @@ class _BookCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Use the optimized full cover everywhere in the customer catalog.
-    // Existing thumbnails are only ~360px and look soft on high-DPI phones.
-    // The grid is lazy, and cacheWidth limits decode memory so scrolling stays
-    // responsive instead of decoding full-resolution images in RAM.
+    // Prefer the already-uploaded lightweight thumbnail in the catalog.
+    // It is 480px wide, avoids transferring the larger full image for each tile,
+    // and retains the original cover as a fallback if the thumbnail fails.
+    // Book details and the zoomable viewer still use full-resolution images.
     final originalUrl = book.imageUrl.trim();
     final previewUrl = book.previewImageUrl;
-    final displayUrl = originalUrl.isNotEmpty ? originalUrl : previewUrl;
+    final displayUrl = previewUrl.isNotEmpty ? previewUrl : originalUrl;
     if (displayUrl.isEmpty) return _placeholder();
 
     return Image.network(
@@ -4095,9 +4095,9 @@ class _BookCover extends StatelessWidget {
         return _placeholder();
       },
       errorBuilder: (_, __, ___) {
-        if (previewUrl.isNotEmpty && previewUrl != displayUrl) {
+        if (originalUrl.isNotEmpty && originalUrl != displayUrl) {
           return Image.network(
-            previewUrl,
+            originalUrl,
             fit: BoxFit.cover,
             filterQuality: FilterQuality.high,
             gaplessPlayback: true,
@@ -4851,7 +4851,9 @@ class _BookGalleryState extends State<_BookGallery> {
 
   @override
   Widget build(BuildContext context) {
-    final images = widget.book.galleryImages;
+    // Show up to two photos to shoppers without removing stored gallery
+    // images or changing what the admin can edit and restore.
+    final images = widget.book.galleryImages.take(2).toList();
     final width = widget.desktop ? 300.0 : 235.0;
     final coverHeight = widget.desktop ? 420.0 : 330.0;
     if (images.isEmpty) {

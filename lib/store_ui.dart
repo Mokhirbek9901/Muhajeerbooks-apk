@@ -1920,103 +1920,6 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  // Web-only tablet filter controls: keep the catalogue full-width until
-  // the customer explicitly opens the filter sheet.
-  Future<void> _showWebCatalogFilters(
-    BuildContext context,
-    List<String> categories,
-    List<String> publishers,
-  ) async {
-    final regularCategories = categories
-        .where((value) =>
-            value != 'Oldindan sotuvda' &&
-            value != 'Nashriyotlar' &&
-            value != 'Setlar')
-        .toList();
-
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: UzbekCustomerColors.background,
-      constraints: const BoxConstraints(maxWidth: 480),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (sheetContext, setSheetState) {
-          void apply(VoidCallback change) {
-            if (!mounted) return;
-            setState(change);
-            setSheetState(() {});
-          }
-
-          return SafeArea(
-            child: SizedBox(
-              height: MediaQuery.sizeOf(sheetContext).height * 0.78,
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 12, 10, 0),
-                    child: Row(
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            'Kitoblarni filtrlash',
-                            style: TextStyle(
-                              fontSize: 19,
-                              fontWeight: FontWeight.w900,
-                              color: UzbekCustomerColors.navy,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: 'Yopish',
-                          onPressed: () => Navigator.pop(sheetContext),
-                          icon: const Icon(Icons.close_rounded),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: _WebDesktopCatalogFilters(
-                      categories: regularCategories,
-                      publishers: publishers,
-                      category: category,
-                      publisher: publisher,
-                      maxPrice: maxPrice,
-                      sort: sort,
-                      onCategory: (value) => apply(() => category = value),
-                      onPublisher: (value) => apply(() => publisher = value),
-                      onMaxPrice: (value) => apply(() => maxPrice = value),
-                      onSort: (value) => apply(() => sort = value),
-                      onReset: () => apply(() {
-                        category = 'Barchasi';
-                        publisher = 'Barchasi';
-                        maxPrice = 100000;
-                        sort = 'new';
-                      }),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 6, 18, 14),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: () => Navigator.pop(sheetContext),
-                        icon: const Icon(Icons.check_rounded),
-                        label: const Text('Kitoblarni ko‘rish'),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
   @override
   void dispose() {
     CatalogResume.instance.removeListener(_resetCatalogToNewest);
@@ -2310,26 +2213,6 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
-            // In tablet-sized web layouts, keep the book grid full-width.
-            // All desktop filters remain available in a compact bottom sheet.
-            if (kIsWeb && MediaQuery.sizeOf(context).width < 1600)
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                sliver: SliverToBoxAdapter(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: OutlinedButton.icon(
-                      onPressed: () => _showWebCatalogFilters(
-                        context,
-                        categories,
-                        publishers,
-                      ),
-                      icon: const Icon(Icons.filter_alt_outlined, size: 19),
-                      label: const Text('Filtrlar'),
-                    ),
-                  ),
-                ),
-              ),
             if (_webOrPlayCustomer &&
                 query.trim().length >= 2 &&
                 webSuggestions.isNotEmpty)

@@ -30,6 +30,8 @@ concurrency:
 
 jobs:
   build:
+    # A [web-only] main commit must never create/publish native releases.
+    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[web-only]') }}
     runs-on: ubuntu-latest
     env:
       ENC_KEYSTORE: .github/signing/upload-keystore.jks.enc

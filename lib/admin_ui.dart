@@ -4029,12 +4029,19 @@ class _BooksAdminState extends State<_BooksAdmin> {
     'low_stock',
     'invalid_image',
     'missing_author',
+    'gallery_over_2',
+    'gallery_over_1',
   };
 
   String _titleKey(String value) =>
       value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
 
   bool _missingImage(Book book) => book.galleryImages.isEmpty;
+
+  // The actual distinct gallery shown in book editing, including the cover.
+  // Keep the filters web-only; nothing is removed from Supabase automatically.
+  bool _galleryOverTwo(Book book) => book.galleryImages.length >= 3;
+  bool _galleryOverOne(Book book) => book.galleryImages.length >= 2;
 
   bool _missingPageCount(Book book) => book.pageCount <= 0;
 
@@ -4098,6 +4105,7 @@ class _BooksAdminState extends State<_BooksAdmin> {
       book.costPrice <= 0 ||
       _invalidImage(book) ||
       _missingAuthor(book) ||
+      (kIsWeb && _galleryOverTwo(book)) ||
       _outOfStock(book) ||
       _lowStock(book) ||
       _belowCost(book) ||
@@ -4143,6 +4151,10 @@ class _BooksAdminState extends State<_BooksAdmin> {
         return _invalidImage(book);
       case 'missing_author':
         return _missingAuthor(book);
+      case 'gallery_over_2':
+        return kIsWeb && _galleryOverTwo(book);
+      case 'gallery_over_1':
+        return kIsWeb && _galleryOverOne(book);
       default:
         return true;
     }
@@ -4166,6 +4178,10 @@ class _BooksAdminState extends State<_BooksAdmin> {
         return 'Rasmi bor, lekin xato';
       case 'missing_author':
         return 'Muallifi kiritilmagan';
+      case 'gallery_over_2':
+        return '2 tadan ortiq rasmli (3+)';
+      case 'gallery_over_1':
+        return '1 tadan ortiq rasmli (2+)';
       default:
         return 'Muammoli';
     }
@@ -4189,6 +4205,10 @@ class _BooksAdminState extends State<_BooksAdmin> {
         return all.where(_invalidImage).length;
       case 'missing_author':
         return all.where(_missingAuthor).length;
+      case 'gallery_over_2':
+        return all.where(_galleryOverTwo).length;
+      case 'gallery_over_1':
+        return all.where(_galleryOverOne).length;
       default:
         return 0;
     }
@@ -4369,6 +4389,18 @@ class _BooksAdminState extends State<_BooksAdmin> {
         label: 'Muallifi kiritilmagan',
         icon: Icons.person_off_outlined,
       ),
+      if (kIsWeb) ...[
+        (
+          key: 'gallery_over_2',
+          label: '2 tadan ortiq rasmli kitoblar (3+)',
+          icon: Icons.collections_rounded,
+        ),
+        (
+          key: 'gallery_over_1',
+          label: '1 tadan ortiq rasmli kitoblar (2+)',
+          icon: Icons.filter_2_rounded,
+        ),
+      ],
     ];
 
     final selected = await showModalBottomSheet<String>(
@@ -4670,13 +4702,18 @@ class _BooksAdminState extends State<_BooksAdmin> {
                         subtitle: Text(
                           [
                             '${b.author} • ${b.stock} dona • ${_won(b.currentPrice)}${b.planned ? ' • Rejada' : (b.isActive ? '' : ' • Yashirilgan')}',
+                            if (kIsWeb && (filter == 'gallery_over_2' || filter == 'gallery_over_1'))
+                              'Jami ${b.galleryImages.length} ta rasm — tahrirlash uchun bosing',
                             if (showCostLine)
                               b.costPrice <= 0
                                   ? 'Tannarx kiritilmagan'
                                   : 'Tannarx ${_won(b.costPrice)} • Foyda ${_won(profit)}',
                           ].join('\n'),
                         ),
-                        isThreeLine: showCostLine,
+                        isThreeLine: showCostLine || (kIsWeb && (filter == 'gallery_over_2' || filter == 'gallery_over_1')),
+                        onTap: kIsWeb && (filter == 'gallery_over_2' || filter == 'gallery_over_1')
+                            ? () => openForm(b)
+                            : null,
                         trailing: PopupMenuButton<String>(
                           onSelected: (v) =>
                               v == 'edit' ? openForm(b) : remove(b),

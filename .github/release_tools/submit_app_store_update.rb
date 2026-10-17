@@ -135,7 +135,7 @@ puts "Attached validated iOS build #{TARGET_BUILD} to version #{TARGET_VERSION}.
 # An update needs release notes for the existing locales.
 locales = asc(:get, "/v1/appStoreVersions/#{version_id}/appStoreVersionLocalizations",
               query: { 'limit' => 50 }).fetch('data')
-release_notes = "Book browsing now uses lightweight cached cover images and a smaller customer gallery to reduce data usage. The app also checks the official App Store for newer versions and asks customers to update before continuing when an update is available."
+release_notes = "Improved notification settings explain updates about new and restocked books, order confirmations, shipping, and review reminders. Admin tools now better handle new orders, multi-book purchase batches, transport costs, and financial history. Improved privacy-policy contact options, catalog performance, and stability."
 locales.each do |loc|
   asc(:patch, "/v1/appStoreVersionLocalizations/#{loc.fetch('id')}",
       body: { data: { type: 'appStoreVersionLocalizations', id: loc.fetch('id'),

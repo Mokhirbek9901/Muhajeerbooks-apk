@@ -27,3 +27,4 @@ ios-app-store-release-2026-10-17-low-egress-book-covers-two-image-customer-galle
 app-store-release-2026-10-17-low-egress-plus-mandatory-store-update; includes cached thumbnails, two-image customer gallery, iOS App Store mandatory update prompt, Android official-store update gate.
 
 app-store-release-2026-10-17-v2.5.19-low-egress-mandatory-update; 2.5.18 train is closed/approved, so ship combined changes as 2.5.19.
+2026-10-18 official-release: publish latest complete customer-settings/admin-push/privacy/partiya and order improvements; replace pending App Store 2.5.19 build after Apple processing.

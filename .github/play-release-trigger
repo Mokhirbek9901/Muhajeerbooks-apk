@@ -3,3 +3,4 @@ Source commit includes finance quick periods and year/month filter.
 analytics-testlab-guard-2026-10-05
 production-web-parity-2026-10-07
 production-home-return-preserves-scroll-second-home-tap-scrolls-top 2026-10-13
+2026-10-18 official-production-release: rebuild signed AAB from current main for customer settings, admin notifications and all catalog/partiya changes.

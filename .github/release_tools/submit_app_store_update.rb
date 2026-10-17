@@ -92,16 +92,24 @@ if %w[WAITING_FOR_REVIEW IN_REVIEW].include?(state)
     exit 0
   end
   submissions = asc(:get, "/v1/apps/#{APP_ID}/reviewSubmissions",
-                    query: { 'limit' => 100 }).fetch('data')
+                    query: { 'limit' => 100, 'include' => 'appStoreVersionForReview' }).fetch('data')
   active = submissions.select do |submission|
-    %w[WAITING_FOR_REVIEW IN_REVIEW].include?(submission.dig('attributes', 'state'))
+    %w[WAITING_FOR_REVIEW IN_REVIEW].include?(submission.dig('attributes', 'state')) &&
+      (submission.dig('attributes', 'platform').nil? ||
+       submission.dig('attributes', 'platform') == 'IOS')
   end
   found = active.find do |submission|
+    submission.dig('relationships', 'appStoreVersionForReview', 'data', 'id') == version_id
+  end
+  found ||= active.find do |submission|
     items = asc(:get, "/v1/reviewSubmissions/#{submission.fetch('id')}/items",
                 query: { 'limit' => 50 }).fetch('data')
     items.any? { |item| item.dig('relationships', 'appStoreVersion', 'data', 'id') == version_id }
   end
-  abort "Could not locate active App Review submission for #{TARGET_VERSION}" unless found
+  unless found
+    puts "Active review submissions: #{active.map { |item| [item.fetch('id'), item.dig('relationships','appStoreVersionForReview','data','id')] }.inspect}"
+    abort "Could not locate active App Review submission for #{TARGET_VERSION}"
+  end
   puts "Removing outdated iOS build from review so build #{TARGET_BUILD} can replace it."
   asc(:patch, "/v1/reviewSubmissions/#{found.fetch('id')}",
       body: { data: { type: 'reviewSubmissions', id: found.fetch('id'),
@@ -127,7 +135,7 @@ puts "Attached validated iOS build #{TARGET_BUILD} to version #{TARGET_VERSION}.
 # An update needs release notes for the existing locales.
 locales = asc(:get, "/v1/appStoreVersions/#{version_id}/appStoreVersionLocalizations",
               query: { 'limit' => 50 }).fetch('data')
-release_notes = "Muhajeer Books now offers improved book browsing and Instagram-ready images for the verified store owner. Customers can continue shopping and sharing book links."
+release_notes = "Book browsing now uses lightweight cached cover images and a smaller customer gallery to reduce data usage. The app also checks the official App Store for newer versions and asks customers to update before continuing when an update is available."
 locales.each do |loc|
   asc(:patch, "/v1/appStoreVersionLocalizations/#{loc.fetch('id')}",
       body: { data: { type: 'appStoreVersionLocalizations', id: loc.fetch('id'),

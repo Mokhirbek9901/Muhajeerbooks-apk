@@ -2423,19 +2423,6 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
-            if (kIsWeb && query.trim().isEmpty &&
-                category == 'Barchasi' && publisher == 'Barchasi' &&
-                personalized.where((b) => b.isActive && b.inStock).isNotEmpty)
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-                sliver: SliverToBoxAdapter(
-                  child: _FeaturedBooksStrip(
-                    books: personalized.where((b) => b.isActive && b.inStock)
-                      .take(8).toList(),
-                    title: 'Sizga yoqishi mumkin',
-                    subtitle: 'Qiziqishlaringizga mos kitoblar'),
-                ),
-              ),
             const SliverToBoxAdapter(child: SizedBox(height: 2)),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),

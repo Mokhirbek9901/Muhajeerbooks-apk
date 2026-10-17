@@ -143,15 +143,24 @@ class _AdminResumeBootstrapState extends State<_AdminResumeBootstrap> {
   @override
   void initState() {
     super.initState();
-    unawaited(_restoreAdminIfNeeded());
+    // Admin notification links restore the Orders tab themselves; avoid
+    // opening a duplicate dashboard through the ordinary resume bootstrap.
+    if (!(kIsWeb && Uri.base.queryParameters['open'] == 'admin_orders')) {
+      unawaited(_restoreAdminIfNeeded());
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => _openPushLink());
   }
 
   void _openPushLink() {
     if (_pushLinkOpened || !mounted || !kIsWeb) return;
     final open = Uri.base.queryParameters['open'];
-    if (open != 'notifications' && open != 'orders') return;
+    if (open != 'notifications' && open != 'orders' &&
+        open != 'admin_orders') return;
     _pushLinkOpened = true;
+    if (open == 'admin_orders') {
+      unawaited(_openAdminOrdersFromPush());
+      return;
+    }
     if (open == 'orders') {
       final number = int.tryParse(Uri.base.queryParameters['order_number'] ?? '');
       Navigator.of(context).push(MaterialPageRoute<void>(
@@ -166,6 +175,17 @@ class _AdminResumeBootstrapState extends State<_AdminResumeBootstrap> {
     Navigator.of(context).push(MaterialPageRoute<void>(
       settings: const RouteSettings(name: 'mb:notifications'),
       builder: (_) => const CustomerNotificationsPage(),
+    ));
+  }
+
+  Future<void> _openAdminOrdersFromPush() async {
+    final snapshot = await AdminResumeSession.restore();
+    if (!mounted) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'mb:admin-push-orders'),
+      builder: (_) => snapshot == null
+          ? const AdminGatePage()
+          : AdminDashboardPage(secret: snapshot.secret, initialTab: 3),
     ));
   }
 

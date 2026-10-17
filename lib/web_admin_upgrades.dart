@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'app_state.dart';
+import 'web_batch_history_pro.dart';
 import 'uzbek_customer_style.dart';
 
 String webWon(num value) => '₩${NumberFormat('#,###').format(value.round())}';
@@ -326,32 +327,13 @@ class _WebBatchesPanelState extends State<_WebBatchesPanel> {
     qty.dispose(); cost.dispose(); price.dispose(); note.dispose();
   }
   @override
-  Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(18), children: [
-      const Text('Partiyalar tarixi', style: TextStyle(
-        fontSize: 20, fontWeight: FontWeight.w900)),
-      const SizedBox(height: 6),
-      const Text('Yangi partiyalar alohida saqlanadi. Istasangiz saqlashda omborga ham qo‘shiladi. Oldingi sotuvlarning qayd etilgan tannarxi o‘zgarmaydi.',
-        style: TextStyle(fontSize: 12)),
-      const SizedBox(height: 12),
-      FilledButton.icon(onPressed: _add, icon: const Icon(Icons.add),
-        label: const Text('Partiya qo‘shish')),
-      const SizedBox(height: 10),
-      FutureBuilder<List<dynamic>>(future: rows, builder: (context, snap) {
-        if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-        if (snap.hasError) return Text('Xatolik: ${snap.error}');
-        if (snap.data!.isEmpty) return const Text('Partiya kiritilmagan.');
-        return Column(children: [
-          for (final raw in snap.data!.whereType<Map>())
-            Card(child: ListTile(
-              title: Text((raw['title'] ?? 'Kitob').toString()),
-              subtitle: Text('${raw['purchased_at']} • ${raw['quantity']} dona • ${raw['note'] ?? ''}'),
-              trailing: Text(webWon((raw['unit_cost'] as num?) ?? 0),
-                style: const TextStyle(fontWeight: FontWeight.w900)),
-            )),
-        ]);
-      }),
-    ]);
+  Widget build(BuildContext context) => WebProfessionalBatches(
+    secret: widget.secret,
+    books: widget.books,
+    registered: rows,
+    onAdd: _add,
+    onReloadRegistered: () => setState(_refresh),
+  );
 }
 
 class _WebHistoryPanel extends StatelessWidget {

@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'app_state.dart';
 import 'web_batch_history_pro.dart';
+import 'web_batch_add_picker.dart';
 import 'uzbek_customer_style.dart';
 
 String webWon(num value) => '₩${NumberFormat('#,###').format(value.round())}';
@@ -259,72 +260,25 @@ class _WebBatchesPanel extends StatefulWidget {
 class _WebBatchesPanelState extends State<_WebBatchesPanel> {
   late Future<List<dynamic>> rows;
   @override void initState() { super.initState(); _refresh(); }
-  void _refresh() { rows = WebAdminApi(widget.secret).call('batches_list')
-    .then((x) => x is List ? x : <dynamic>[]); }
+  void _refresh() { rows = Supabase.instance.client.rpc(
+      'admin_web_batch_line_list',
+      params: {'p_secret': widget.secret},
+    ).then((x) => x is List ? x : <dynamic>[]); }
   Future<void> _add() async {
-    if (widget.books.isEmpty) return;
-    var bookId = widget.books.first.id;
-    final qty = TextEditingController(text: '1');
-    final cost = TextEditingController();
-    final price = TextEditingController();
-    final note = TextEditingController();
-    var syncStock = false;
-    final yes = await showDialog<bool>(context: context,
-      builder: (ctx) => StatefulBuilder(builder: (ctx, update) => AlertDialog(
-        title: const Text('Yangi partiyani ro‘yxatga olish'),
-        content: SizedBox(width: 450, child: SingleChildScrollView(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            DropdownButtonFormField<String>(
-              value: bookId, isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Kitob'),
-              items: widget.books.map((b) => DropdownMenuItem(
-                value: b.id, child: Text(b.title, overflow: TextOverflow.ellipsis))).toList(),
-              onChanged: (v) { if (v != null) update(() => bookId = v); }),
-            TextField(controller: qty, keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Partiyadagi dona')),
-            TextField(controller: cost, keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Har birining tannarxi (₩)')),
-            TextField(controller: price, keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Rejadagi sotuv narxi (₩)')),
-            TextField(controller: note, decoration: const InputDecoration(
-              labelText: 'Izoh / yetib kelgan sana')),
-            const SizedBox(height: 10),
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Omborga qo‘shish'),
-              subtitle: const Text('Yangi dona sonini qo‘shadi va joriy tannarxni almashtiradi. Oldingi sotuvlar o‘zgarmaydi.'),
-              value: syncStock,
-              onChanged: (value) => update(() => syncStock = value),
-            ),
-          ]),
-        )),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Bekor')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Saqlash')),
-        ],
-      )));
-    if (yes == true && mounted) {
-      try {
-        await Supabase.instance.client.rpc('admin_web_receive_batch', params: {
-          'p_secret': widget.secret,
-          'p_data': {
-            'book_id': bookId,
-            'quantity': int.tryParse(qty.text) ?? 0,
-            'unit_cost': int.tryParse(cost.text) ?? -1,
-            'suggested_price': int.tryParse(price.text) ?? 0,
-            'note': note.text.trim(),
-            'apply_to_inventory': syncStock,
-          },
-        });
-        if (mounted) setState(_refresh);
-      } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Partiya saqlanmadi: $e')));
-      }
+    final saved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute<bool>(
+        builder: (_) => WebBatchMultiAddPage(secret: widget.secret),
+      ),
+    );
+    if (saved == true && mounted) {
+      setState(_refresh);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Partiyadagi kitoblar saqlandi ✅'),
+        ),
+      );
     }
-    qty.dispose(); cost.dispose(); price.dispose(); note.dispose();
   }
   @override
   Widget build(BuildContext context) => WebProfessionalBatches(

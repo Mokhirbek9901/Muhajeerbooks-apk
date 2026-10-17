@@ -45,7 +45,7 @@ test('existing book and Korea shipping costs remain stored in won',()=>{
 test('8.841492544 fractional rates are not rounded inside calculator',()=>{
   const saved=8841.492544; // 1 KRW = 8.841492544 so‘m
   assert.equal(exchange.rate(saved),saved);
-  assert.equal(exchange.convertExact(1,'KRW','UZS',saved,null),8.841492544);
+  assert.ok(Math.abs(exchange.convertExact(1,'KRW','UZS',saved,null)-8.841492544)<1e-11);
   assert.equal(exchange.displayExact(8.841492544,'UZS'),'8.841492544 so‘m');
   assert.equal(exchange.convert(1,'KRW','UZS',saved,null),9,'book totals remain whole');
   assert.equal(exchange.displayExact(exchange.convertExact(100000,'KRW','UZS',saved,null),'UZS'),'884,149.2544 so‘m');

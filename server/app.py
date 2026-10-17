@@ -512,33 +512,25 @@ def order_push_event():
         return jsonify(error="Invalid event"),400
     if event != "admin_new_order" and len(phone)<8:
         return jsonify(error="Invalid event"),400
-    if event == "admin_new_order":
-        phone=os.getenv("ADMIN_PUSH_PHONE","").strip()
-        if len(phone)<8:
-            return jsonify(error="Admin push target unavailable"),503
 
-    subscriptions=_admin_rpc_call("event_push_subscriptions",{
-      "p_event_secret":supplied,
-      "p_phone":phone,
-    })
-    if subscriptions is None:
-        return jsonify(error="Subscriptions unavailable"),502
-    if not isinstance(subscriptions,list):
-        subscriptions=[]
     if event == "admin_new_order":
-        # Only admin-secret-verified browser endpoints may receive order data.
-        # Merge legacy phone-matched endpoints with verified admin devices.
-        verified=_admin_rpc_call("event_admin_order_push_subscriptions",{
+        # Private order details MUST go only to devices enrolled with a
+        # verified admin secret, never to a customer matching an admin phone.
+        subscriptions=_admin_rpc_call("event_admin_order_push_subscriptions",{
             "p_event_secret":supplied,
         })
-        if isinstance(verified,list):
-            recipients={str(row.get("endpoint","")):row
-                        for row in subscriptions if isinstance(row,dict)}
-            for row in verified:
-                if isinstance(row,dict) and row.get("endpoint"):
-                    recipients[str(row["endpoint"])]=row
-            subscriptions=list(recipients.values())
-        print(f"Admin new order WebPush recipients: {len(subscriptions)}",flush=True)
+        if subscriptions is None:
+            return jsonify(error="Verified admin subscriptions unavailable"),502
+        print(f"Verified admin WebPush recipients: {len(subscriptions) if isinstance(subscriptions,list) else 0}",flush=True)
+    else:
+        subscriptions=_admin_rpc_call("event_push_subscriptions",{
+            "p_event_secret":supplied,
+            "p_phone":phone,
+        })
+        if subscriptions is None:
+            return jsonify(error="Subscriptions unavailable"),502
+    if not isinstance(subscriptions,list):
+        subscriptions=[]
 
     private_key=os.getenv("VAPID_PRIVATE_KEY","").strip()
     if not private_key:
@@ -620,7 +612,7 @@ def order_push_event():
     # Transactional xabarni in-app Bildirishnomalar tarixiga ham yozamiz.
     # Web Push yo'qolsa ham mijoz ilovaga kirganda chek/status xabarini ko'radi.
     for note in notifications:
-      if event in ("shipping", "review_reminder"):
+      if event in ("shipping", "review_reminder", "admin_new_order"):
         # Durable in-app message is already recorded by the order/cron
         # transaction, avoiding a duplicate notification row.
         continue
@@ -651,8 +643,8 @@ def order_push_event():
       payload=json.dumps({
         "title":note["title"],
         "body":note["body"],
-        "url":order_target if exact_order_link else "/?open=notifications",
-        "open_inbox":not exact_order_link,
+        "url":"/?open=admin_orders" if event=="admin_new_order" else (order_target if exact_order_link else "/?open=notifications"),
+        "open_inbox":event!="admin_new_order" and not exact_order_link,
         "tag":note["tag"],
         "icon":"/icons/Icon-192.png",
         "badge":"/icons/Icon-192.png",

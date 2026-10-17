@@ -87,3 +87,30 @@ test('more precise 1 som quote survives saving and loading',()=>{
   near(edit.rawValue('UZS','KRW',saved),0.123456789);
   assert.equal(edit.base('UZS'),1);
 });
+
+test('any handwritten won amount produces the same rate as 10,000 won when proportionate',()=>{
+ const expected=8800;
+ near(edit.bookRateFromAmounts('KRW_UZS','5 000','44 000'),expected);
+ near(edit.bookRateFromAmounts('KRW_UZS',10000,88000),expected);
+ near(edit.bookRateFromAmounts('KRW_UZS',13000,114400),expected);
+ near(edit.bookRateFromAmounts('KRW_UZS',2500,22000),expected);
+ near(edit.bookRateQuote('KRW_UZS',5000,expected),44000);
+ near(edit.bookRateQuote('KRW_UZS',13000,expected),114400);
+ near(edit.bookRateQuote('UZS_KRW',44000,expected),5000);
+});
+test('reverse freely-entered som/von amounts and decimal quote are consistent',()=>{
+ near(edit.bookRateFromAmounts('UZS_KRW',44000,5000),8800);
+ near(edit.bookRateFromAmounts('UZS_KRW',1,0.11),1000/0.11);
+ near(edit.bookRateQuote('UZS_KRW',1,1000/0.11),0.11);
+ near(edit.bookRateFromAmounts('KRW_UZS',8000,64000),8000);
+ near(edit.bookRateQuote('KRW_UZS',1000,8000),8000);
+});
+test('invalid and empty source or target amounts never overwrite previous rate',()=>{
+ for(const data of [
+ ['KRW_UZS','',88000],['KRW_UZS',0,88000],
+ ['UZS_KRW',1,''],['UZS_KRW',10000,0],
+ ['KRW_UZS',-5000,44000],['UNKNOWN',10000,88000]
+ ]) assert.throws(()=>edit.bookRateFromAmounts(...data));
+ assert.equal(edit.bookRateQuote('KRW_UZS',0,8000),null);
+ assert.equal(edit.bookRateQuote('KRW_UZS',5000,null),null);
+});

@@ -2389,3 +2389,28 @@ body[data-workspace="costs"][data-cost-view="report"] #costReportPanel{border-ra
   .cost-home-book .cost-home-book-som small{font-size:.66rem}
   .cost-home-book .cost-home-book-som strong{font-size:.86rem}
 }
+
+/* Yordamchi v66 — both amounts in book exchange rate are freely editable */
+.book-rate-editor .book-rate-source-field,
+.book-rate-editor .book-rate-target-field{display:grid;gap:6px;min-width:0}
+.book-rate-editor .book-rate-source-field label,
+.book-rate-editor .book-rate-target-field label{font-size:.73rem;line-height:1.3;font-weight:850;color:var(--ink)}
+.book-rate-editor .book-rate-source-field select,
+.book-rate-editor .book-rate-source-field input,
+.book-rate-editor .book-rate-target-field input{width:100%;min-width:0;box-sizing:border-box;border:1px solid var(--line);background:var(--surface2);border-radius:11px;padding:9px;font-size:.92rem;color:var(--ink);font-weight:850;font-variant-numeric:tabular-nums}
+.book-rate-editor .book-rate-source-field select{min-height:43px;font-size:.76rem;text-align:left}
+.book-rate-editor .book-rate-source-field input,
+.book-rate-editor .book-rate-target-field input{min-height:52px;font-size:1.14rem;text-align:center}
+.book-rate-editor .book-rate-source-field input:focus,
+.book-rate-editor .book-rate-target-field input:focus{border-color:var(--green);outline:2px solid var(--green);outline-offset:1px}
+.book-rate-editor .book-rate-target-field{align-self:end}
+.book-rate-editor .book-rate-target-field small{display:block;font-size:.67rem;color:var(--muted);line-height:1.4;font-weight:600;min-height:30px}
+.book-rate-editor .book-rate-swap{align-self:end;margin-bottom:39px}
+.book-rate-editor .book-rate-source-field{align-self:end}
+@media(max-width:390px){
+ .book-rate-editor .book-rate-source-field select{font-size:.7rem;padding:6px 4px}
+ .book-rate-editor .book-rate-source-field input,
+ .book-rate-editor .book-rate-target-field input{font-size:1rem;padding:7px}
+ .book-rate-editor .book-rate-swap{margin-bottom:37px}
+ .book-rate-editor .book-rate-target-field small{font-size:.62rem}
+}

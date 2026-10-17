@@ -161,3 +161,15 @@ test('bulk standard rate updates ONLY selected products and never mutates existi
   assert.equal(result[1],old[1],'nonselected object identity remains unchanged');
   assert.throws(()=>costs.applyRateToSelected(old,new Set(['j']),-5),/noto‘g‘ri/);
 });
+
+test('long fractional exchange rate is used without rounding before product conversion',()=>{
+  const exactRate=8841.492544; // 1 KRW = 8.841492544 UZS
+  assert.equal(costs.fx(exactRate),exactRate);
+  assert.equal(costs.som(100000,exactRate),884149);
+  assert.equal(costs.som(13000,exactRate),114939);
+  assert.ok(Math.abs(costs.rateInWon('8.841492544','UZS',exactRate)-1)<1e-12);
+  assert.equal(costs.wonAsRate(1,'UZS',exactRate),8.841492544);
+  assert.equal(costs.rateInWon('10000.987654','KRW',exactRate),10000.987654);
+  const rows=[{id:'g',name:'Jenshen',price:13000,grams:500,kgRate:10000.123456}];
+  assert.equal(costs.calculate(rows[0],9999,exactRate).totalSom,Math.round(costs.calculate(rows[0],9999,exactRate).total*8.841492544));
+});

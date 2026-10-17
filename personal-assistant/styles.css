@@ -2414,3 +2414,14 @@ body[data-workspace="costs"][data-cost-view="report"] #costReportPanel{border-ra
  .book-rate-editor .book-rate-swap{margin-bottom:37px}
  .book-rate-editor .book-rate-target-field small{font-size:.62rem}
 }
+
+/* Decimal quotes stay readable on narrow iPhones, without focus zoom. */
+.exchange-editor .exchange-pair-amount{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px}
+.exchange-pair-amount .exchange-equals{grid-column:1/-1;text-align:center}
+.exchange-editor .exchange-pair-amount input{box-sizing:border-box;font-size:16px;text-align:left}
+@media(max-width:600px){
+ .book-rate-editor{grid-template-columns:minmax(0,1fr);gap:10px}
+ .book-rate-editor input,.book-rate-editor select,.currency-converter input,.currency-converter select,.korea-item-rate-row input,.korea-item-rate-row select,.korea-shipping-input input{font-size:16px}
+ .book-rate-editor .book-rate-swap{width:46px;justify-self:center;margin-bottom:0}
+ .book-rate-hint,.exchange-rate-hint,.currency-result,.korea-summary-grid b,.korea-item-rate span{overflow-wrap:anywhere}
+}

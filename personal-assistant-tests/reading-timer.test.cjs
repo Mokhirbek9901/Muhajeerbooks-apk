@@ -14,8 +14,10 @@ function app(data=new Map(),time={now:new Date(2026,9,11,17,0).getTime()}){
  class DateMock extends Date{constructor(...args){super(...(args.length?args:[time.now]));}static now(){return time.now;}}
  const doc={hidden:false,getElementById:node,querySelectorAll:()=>[],addEventListener:(n,f)=>events.set(n,f)};
  const ctx={window:{BookCosts:require('../personal-assistant/book-costs.js'),ReadingTimer:timer,addEventListener:(n,f)=>events.set(n,f)},document:doc,localStorage:{getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v),removeItem:k=>data.delete(k)},navigator:{},crypto:require('node:crypto').webcrypto,Date:DateMock,setTimeout:()=>0,clearTimeout(){},setInterval:f=>{intervals.set(++intervalId,f);return intervalId;},clearInterval:id=>intervals.delete(id),console};
- let source=fs.readFileSync('personal-assistant/app.js','utf8').replace("  bindBookCosts();\n  bindEvents();\n  renderAll();\n  navigate('home',false);\n  maybeDailyReminder();\n  scheduleMissingMetadataAuto();",'window.test={toggleReadingTimer,stopReadingTimer,restoreReadingTimer,runReadingTimerDisplay,getState:()=>state,getTimer:()=>readingTimer};');
- source=source.replaceAll('renderAll();','window.rendered=true;').replaceAll('renderBookDetail();','window.detailRendered=true;');vm.runInNewContext(source,ctx);
+ Object.assign(ctx.window,{YordamchiCurrency:require('../personal-assistant/currency-converter.js'),YordamchiRateEditor:require('../personal-assistant/currency-rate-editor.js'),YordamchiWorkspaces:require('../personal-assistant/workspaces.js'),KoreaProducts:{...require('../personal-assistant/korea-products.js'),renderBookEntry(){},renderBookList(){},render(){},refreshRates(){}}});
+ let source=fs.readFileSync('personal-assistant/app.js','utf8').replace("  bindBookCosts();\n  bindEvents();\n  renderAll();\n  navigate('home',false);\n  selectWorkspace(currentWorkspace);\n  maybeDailyReminder();\n  scheduleMissingMetadataAuto();",'window.test={toggleReadingTimer,stopReadingTimer,restoreReadingTimer,runReadingTimerDisplay,getState:()=>state,getTimer:()=>readingTimer};');
+ source=source.replaceAll('renderAll();','window.rendered=true;').replaceAll('renderBookDetail();','window.detailRendered=true;');source=source.replace(/^  window\.KoreaProducts\.init\(.*$/m,'');
+ vm.runInNewContext(source,ctx);
  return {api:ctx.window.test,data,time,node,doc,events,intervals,ctx};
 }
 test('lock, pagehide, process restart and reload preserve elapsed time; stop saves once',()=>{

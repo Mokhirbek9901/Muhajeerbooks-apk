@@ -37,7 +37,7 @@ test('both sums are independent of profit and change with received quantity',()=
  assert.equal(convertedTotal,convertedUnit*4);
 });
 test('iPhone layout reserves two compact price tiles with visible labels',()=>{
- assert.ok(css.includes('.cost-home-book .cost-home-book-som-total strong'));
+ assert.ok(css.includes('.cost-home-book .cost-home-book-som .cost-home-book-som-total strong'));
  assert.ok(css.includes('grid-template-columns:repeat(2,minmax(0,1fr))'));
  assert.ok(css.includes('.cost-home-book .cost-home-book-som-unit')||css.includes('.cost-home-book .cost-home-book-som>div'));
 });

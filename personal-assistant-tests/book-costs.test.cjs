@@ -35,17 +35,19 @@ test('saved cost records survive JSON reload and old backups default to empty',(
 function appHarness(extra={}){
   const nodes=new Map();
   const node=id=>{
-    if(!nodes.has(id))nodes.set(id,{value:'',textContent:'',innerHTML:'',listeners:{},replaceChildren(){this.innerHTML='';},close(){this.open=false;},setAttribute(){},addEventListener(t,fn){this.listeners[t]=fn;},querySelectorAll:()=>[],scrollIntoView(){},classList:{add(){},remove(){}}});
+    if(!nodes.has(id))nodes.set(id,{_value:'',get value(){return this._value;},set value(v){this._value=String(v??'');},textContent:'',innerHTML:'',dataset:{},listeners:{},replaceChildren(){this.innerHTML='';},close(){this.open=false;},setAttribute(){},addEventListener(t,fn){this.listeners[t]=fn;},querySelectorAll:()=>[],scrollIntoView(){},classList:{add(){},remove(){},toggle(){}}});
     return nodes.get(id);
   };
   const data=new Map();
   const documentEvents=new Map(),windowEvents=new Map();
-  const document={visibilityState:'visible',getElementById:node,addEventListener:(name,fn)=>documentEvents.set(name,fn),querySelectorAll:()=>[]};
+  const document={body:{dataset:{}},visibilityState:'visible',getElementById:node,addEventListener:(name,fn)=>documentEvents.set(name,fn),querySelectorAll:()=>[]};
   const localStorage={getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v)};
   const ctx={window:{BookCosts:costs,BookCostSync:require('../personal-assistant/book-cost-sync.js'),BookCostSyncConfig:{url:'https://test',key:'public-test'},addEventListener:(name,fn)=>windowEvents.set(name,fn)},document,localStorage,crypto:require('node:crypto').webcrypto,navigator:{},console,AbortController,setTimeout:()=>0,clearTimeout(){},confirm:()=>true,...extra};
-  const source=fs.readFileSync(require.resolve('../personal-assistant/app.js'),'utf8').replace('  bindBookCosts();\n  bindEvents();\n  renderAll();\n  navigate(\'home\',false);\n  maybeDailyReminder();\n  scheduleMissingMetadataAuto();',`window.testing={runBookTitleLookup,enablePaidAi,runPaidCostLookup,paidBookCandidate,applyPaidCostCandidate,pushCostCloud,setCostView,setCurrentView:value=>currentView=value,syncCostDevice,normalizeState,addCostTitles,bindBookCosts,renderBookCosts,costIsReady,renderCostReadyList,refreshCostCloud,getState:()=>state};`);
+ Object.assign(ctx.window,{YordamchiCurrency:require('../personal-assistant/currency-converter.js'),YordamchiRateEditor:require('../personal-assistant/currency-rate-editor.js'),YordamchiWorkspaces:require('../personal-assistant/workspaces.js'),KoreaProducts:{...require('../personal-assistant/korea-products.js'),renderBookEntry(){},renderBookList(){},render(){},refreshRates(){}}});
+  let source=fs.readFileSync(require.resolve('../personal-assistant/app.js'),'utf8').replace('  bindBookCosts();\n  bindEvents();\n  renderAll();\n  navigate(\'home\',false);\n  selectWorkspace(currentWorkspace);\n  maybeDailyReminder();\n  scheduleMissingMetadataAuto();',`window.testing={runBookTitleLookup,enablePaidAi,runPaidCostLookup,paidBookCandidate,applyPaidCostCandidate,pushCostCloud,setCostView,setCurrentView:value=>currentView=value,syncCostDevice,normalizeState,addCostTitles,bindBookCosts,renderBookCosts,costIsReady,renderCostReadyList,refreshCostCloud,getState:()=>state};`);
   if(extra.deviceSync)ctx.window.BookCostDeviceSync=require('../personal-assistant/book-cost-device-sync.js');
-  vm.runInNewContext(source.replace("let costView='main';","let costView='list';"),ctx);
+  source=source.replace(/^  window\.KoreaProducts\.init\(.*$/m,'');
+ vm.runInNewContext(source.replace("let costView='main';","let costView='list';"),ctx);
   return {api:ctx.window.testing,node,data,document,documentEvents,windowEvents};
 }
 
@@ -180,7 +182,7 @@ test('missing price, missing weight and both filters combine with search, sortin
 
 test('custom kg rate recalculates existing and draft books, persists and restores with backups',()=>{
   assert.deepEqual(costs.calculate({price:8000,grams:300},12000),{shipping:3600,total:11600});
-  assert.deepEqual(costs.calculate({price:null,grams:300.5},15000),{shipping:4508,total:null});
+  assert.deepEqual(costs.calculate({price:null,grams:300.5},15000),{shipping:4507.5,total:null});
   assert.deepEqual(costs.calculate({price:8000,grams:null},12000),{shipping:null,total:null});
   assert.deepEqual(costs.calculate({price:8000,grams:300},0),{shipping:0,total:8000});
   const {api,node,data}=appHarness();api.bindBookCosts();
@@ -381,15 +383,15 @@ test('editor back button and left-edge swipe preserve edits; vertical gestures s
 });
 test('main tab is read-only and edit tab retains full editing controls',()=>{
  const {api,node}=appHarness();api.bindBookCosts();api.getState().bookCosts.push({id:'a',title:'Arosat',price:8000,grams:300,salePrice:15000,saved:true});
- api.setCostView('main');assert.equal(node('costListPanel').hidden,false);assert.equal(node('costListActions').hidden,true);
- assert.match(node('costReadyList').innerHTML,/Arosat|₩11,000/);assert.doesNotMatch(node('costReadyList').innerHTML,/data-cost-edit|data-cost-quick|Tahrirlash|<input|<button/);
+ api.setCostView('main');assert.equal(node('costListPanel').hidden,true);assert.equal(node('costHomeBooksPanel').hidden,false);assert.equal(node('costListActions').hidden,true);
+ assert.match(node('costReadyList').innerHTML,/Arosat|₩11,000/);assert.doesNotMatch(node('costHomeBooksList').innerHTML,/data-cost-edit|data-cost-quick|Tahrirlash|<input|<button/);
  api.setCostView('list');assert.equal(node('costListActions').hidden,false);assert.match(node('costReadyList').innerHTML,/data-cost-edit|Tez tahrirlash/);
 });
-test('read-only main list shows weight and every populated tariff calculation',()=>{
+test('saved list shows weight and every populated tariff calculation',()=>{
  const {api,node}=appHarness();api.bindBookCosts();api.getState().bookCosts.push({id:'a',title:'Arosat',price:3000,grams:200,salePrice:9000,saved:true});
  api.getState().bookCostComparisons.push({id:'t',label:'7 ming',rate:7000},{id:'empty',label:'Bo‘sh',rate:null});
  api.setCostView('main');const html=node('costReadyList').innerHTML;
- assert.match(html,/200 g/);assert.match(html,/₩5,000/);assert.match(html,/₩4,400/);assert.match(html,/7 ming/);assert.doesNotMatch(html,/Bo‘sh|data-cost-edit|data-cost-quick|<input|<button/);
+ assert.match(html,/200 g/);assert.match(html,/₩5,000/);assert.match(html,/₩4,400/);assert.match(html,/7 ming/);assert.doesNotMatch(html,/Bo‘sh|data-cost-quick|<input/);
 });
 
 test('connect restores cloud books, resolves verified spelling and author variants, and sends only landed cost',async()=>{
@@ -407,7 +409,7 @@ test('connect restores cloud books, resolves verified spelling and author varian
 });
 test('main profit panel preserves missing values, losses and existing tariff details',()=>{
  const {api,node}=appHarness();api.bindBookCosts();api.getState().bookCosts.push({id:'a',title:'A',price:8000,grams:300,salePrice:9000,saved:true},{id:'b',title:'B',price:8000,grams:null,salePrice:15000,saved:true});
- api.setCostView('main');const html=node('costReadyList').innerHTML;assert.match(html,/Kutilayotgan sof foyda/);assert.match(html,/cost-main-profit cost-loss/);assert.match(html,/−?₩-?2,000|−₩2,000|-₩2,000/);assert.match(html,/Hisoblash uchun narx, vazn va sotuv narxi kerak/);assert.match(html,/Yetkazish/);
+ api.setCostView('main');const html=node('costReadyList').innerHTML;assert.match(html,/Kutilayotgan jami foyda/);assert.match(html,/cost-main-profit cost-loss/);assert.match(html,/−?₩-?2,000|−₩2,000|-₩2,000/);assert.match(html,/Foyda uchun xarid, vazn va sotuv narxi kerak/);assert.match(html,/yetkazish/i);
 });
 
 test('paid AI name lookup adds a saved cost book once, leaves costs empty and caches the same research',async()=>{

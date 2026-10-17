@@ -1,13 +1,11 @@
 (function(root){
   'use strict';
+  const currency=typeof module==='object'&&module.exports?require('./currency-converter.js'):root.YordamchiCurrency;
   const DEFAULT_WON_PER_KG=10000;
   const WON_PER_GRAM=DEFAULT_WON_PER_KG/1000;
   function amount(value){
-    if(value===null || value===undefined || String(value).trim()==='')return null;
-    const text=String(value).trim().replace(/[\s₩]/g,'').replace(/,/g,'');
-    if(!/^\d+(?:\.\d+)?$/.test(text))return null;
-    const number=Number(text);
-    return Number.isFinite(number) && number>=0 && number<=1e9 ? number : null;
+    const number=currency.amount(value);
+    return number!==null&&number<=1e9?number:null;
   }
   function quantity(value){
     // Existing Yordamchi records did not track quantity: one book is their safe default.
@@ -20,17 +18,17 @@
   function rate(value){return amount(value)??DEFAULT_WON_PER_KG;}
   function calculate(row,wonPerKg=DEFAULT_WON_PER_KG){
     const price=amount(row.price),grams=amount(row.grams);
-    const shipping=grams===null?null:Math.round(grams*rate(wonPerKg)/1000);
-    return {shipping,total:price===null || shipping===null?null:Math.round(price)+shipping};
+    const shipping=grams===null?null:currency.ratio([grams,rate(wonPerKg)],[1000]);
+    return {shipping,total:price===null || shipping===null?null:currency.add(price,shipping)};
   }
   function profit(row,wonPerKg=DEFAULT_WON_PER_KG){
     const sale=amount(row.salePrice),total=calculate(row,wonPerKg).total;
-    return sale===null || total===null?null:Math.round(sale)-total;
+    return sale===null || total===null?null:currency.add(sale,-total);
   }
   function inventory(row,wonPerKg=DEFAULT_WON_PER_KG){
     const qty=quantity(row.quantity),unit=calculate(row,wonPerKg);
     const buy=amount(row.price),sale=amount(row.salePrice);
-    const multiply=value=>value===null||qty===null?null:Math.round(value*qty);
+    const multiply=value=>value===null||qty===null?null:currency.ratio([value,qty]);
     return {
       quantity:qty,unitPurchase:buy,unitShipping:unit.shipping,unitCost:unit.total,unitSale:sale,
       purchase:multiply(buy),shipping:multiply(unit.shipping),total:multiply(unit.total),
@@ -45,12 +43,12 @@
       if(v.quantity===null){result.pending++;continue;}
       result.quantityTotal+=v.quantity;
       if(v.total!==null){
-        result.total+=v.total;result.ready++;result.quantityReady+=v.quantity;
-        result.purchaseTotal+=v.purchase;result.shippingTotal+=v.shipping;
+        result.total=currency.add(result.total,v.total);result.ready++;result.quantityReady+=v.quantity;
+        result.purchaseTotal=currency.add(result.purchaseTotal,v.purchase);result.shippingTotal=currency.add(result.shippingTotal,v.shipping);
       }else result.pending++;
       if(v.profit!==null){
-        result.profitTotal+=v.profit;result.profitCount++;result.profitUnits+=v.quantity;
-        result.revenueTotal+=v.revenue;
+        result.profitTotal=currency.add(result.profitTotal,v.profit);result.profitCount++;result.profitUnits+=v.quantity;
+        result.revenueTotal=currency.add(result.revenueTotal,v.revenue);
       }
     }
     return result;
@@ -64,7 +62,7 @@
   function compare(rows,main,extra=[]){
     return tariffs(main,extra).map(tariff=>{
       const complete=rows.filter(row=>calculate(row,tariff.rate).total!==null);
-      return {...tariff,...summary(rows,tariff.rate),shipping:complete.reduce((sum,row)=>sum+inventory(row,tariff.rate).shipping,0)};
+      return {...tariff,...summary(rows,tariff.rate),shipping:complete.reduce((sum,row)=>currency.add(sum,inventory(row,tariff.rate).shipping),0)};
     });
   }
   function key(title){return String(title).normalize('NFKC').toLowerCase().replace(/[‘’ʻʼ`]/g,"'").replace(/\s+/g,' ').trim();}

@@ -2927,7 +2927,7 @@
   }
   function sumTx(rows,type){return rows.filter(t=>t.type===type).reduce((s,t)=>s+(Number(t.amount)||0),0);}
   function formatMoney(amount,currency,signed=false){
-    const value=Math.round(Number(amount)||0), abs=Math.abs(value).toLocaleString('en-US');
+    const value=Number(amount)||0, abs=Math.abs(value).toLocaleString('en-US',{maximumSignificantDigits:17});
     const sign=signed?(value>0?'+':value<0?'−':''):(value<0?'−':'');
     return currency==='UZS'?sign+abs+' so‘m':sign+'₩'+abs;
   }
@@ -3165,8 +3165,8 @@
     if(won===null||!Number.isFinite(won))return '—';
     const rate=window.KoreaProducts?.fx?.(state.krwToUzsPer1000)??null;
     if(rate===null)return 'Kurs kiritilmagan';
-    const amount=Math.round(Math.abs(won)*rate/1000);
-    return (won<0?'−':'')+amount.toLocaleString('en-US')+' so‘m';
+    const amount=window.YordamchiCurrency.convertExact(Math.abs(won),'KRW','UZS',rate,null);
+    return (won<0?'−':'')+window.YordamchiCurrency.displayExact(amount,'UZS');
   }
   function costHasData(row){return Boolean(row.title.trim()) || row.price!==null || row.grams!==null || costs.amount(row.salePrice)!==null;}
   function costIsReady(row){return row.saved && costHasData(row);}
@@ -3201,7 +3201,7 @@
       '</strong>'+(search?'Boshqa nom bilan qidiring.':'Kitob qo‘shing — uning soni, xarajati va foydasi shu yerda ko‘rinadi.')+'</div>';
   }
   function renderCostReadyList(){
-    $('costRateSummary').textContent='1 kg = '+formatMoney(state.bookCostRate,'KRW')+' · 100 g = '+formatMoney(Math.round(state.bookCostRate/10),'KRW');
+    $('costRateSummary').textContent='1 kg = '+formatMoney(state.bookCostRate,'KRW')+' · 100 g = '+formatMoney(window.YordamchiCurrency.ratio([state.bookCostRate],[10]),'KRW');
     const ready=state.bookCosts.filter(costIsReady);
     renderCostHomeBooks();
     const totals=costs.summary(ready,state.bookCostRate);
@@ -3421,9 +3421,9 @@
     $('bookRateValue').value=document.activeElement===$('bookRateValue')?$('bookRateValue').value:
       formatBookRate(state.krwToUzsPer1000,$('bookRateDirection').value,$('bookRateBase').value);
     $('bookRateHint').textContent=state.krwToUzsPer1000?
-      'Amaldagi aniq kurs: 1 ₩ = '+window.YordamchiRateEditor.showNumber(state.krwToUzsPer1000/1000)+
-      ' so‘m · 10 000 ₩ = '+window.YordamchiRateEditor.showNumber(state.krwToUzsPer1000*10)+
-      ' so‘m · 1 so‘m = '+window.YordamchiRateEditor.showNumber(1000/state.krwToUzsPer1000)+
+      'Amaldagi aniq kurs: 1 ₩ = '+formatBookRate(state.krwToUzsPer1000,'KRW_UZS',1)+
+      ' so‘m · 10 000 ₩ = '+formatBookRate(state.krwToUzsPer1000,'KRW_UZS',10000)+
+      ' so‘m · 1 so‘m = '+formatBookRate(state.krwToUzsPer1000,'UZS_KRW',1)+
       ' ₩. Kasrli kurs hisoblashda yaxlitlanmaydi.':
       'Von–so‘m kursini kiriting. Masalan: 1 ₩ = 8.841492544 so‘m. Kurs to‘liq aniqlikda saqlanadi.';
     qsa('[data-cost-view]').forEach(button=>button.classList.toggle('active',button.dataset.costView===costView));
@@ -3525,7 +3525,7 @@
       const before={krwToUzsPer1000:state.krwToUzsPer1000,bookRateBase:state.bookRateBase,
         bookRateDirection:state.bookRateDirection};
       state.krwToUzsPer1000=next;
-      state.bookRateBase=Number($('bookRateBase').value.trim());
+      state.bookRateBase=window.YordamchiCurrency.amount($('bookRateBase').value);
       state.bookRateDirection=$('bookRateDirection').value;
       try{
         saveState('Von–so‘m kursi saqlandi. Kitob va mahsulot hisobi yangilandi.');
@@ -4193,7 +4193,7 @@
   }
 
   window.YordamchiWorkspace={openProductsEntry:()=>setWorkspaceTab('entry'),selectWorkspace};
-  window.KoreaProducts.init({get:()=>state,save:saveState,money:formatMoney,escape:escapeHtml,toast,id:makeId});
+  window.KoreaProducts.init({get:()=>state,save:saveState,money:(value,unit)=>window.YordamchiCurrency.displayExact(value,unit),escape:escapeHtml,toast,id:makeId});
   bindBookCosts();
   bindEvents();
   renderAll();

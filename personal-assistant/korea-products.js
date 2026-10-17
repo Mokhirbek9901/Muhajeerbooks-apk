@@ -7,11 +7,8 @@
   const $=id=>document.getElementById(id);
   let api=null;
   function amount(value){
-    if(value===null || value===undefined || String(value).trim()==='')return null;
-    const text=String(value).trim().replace(/[\s,₩]/g,'');
-    if(!/^\d+(?:\.\d+)?$/.test(text))return null;
-    const n=Number(text);
-    return Number.isFinite(n)&&n>=0&&n<=1e9?n:null;
+    const n=currency.amount(value);
+    return n!==null&&n<=1e9?n:null;
   }
   function fx(value){
     const n=amount(value);
@@ -22,7 +19,7 @@
   }
   function som(won,rate){
     const n=amount(won),r=fx(rate);
-    return n===null||r===null?null:Math.round(n*r/1000);
+    return n===null||r===null?null:currency.ratio([n,r],[1000]);
   }
   function itemKgRate(item,perKg){return amount(item?.kgRate)??amount(perKg);}
   function rateInWon(value,unit,exchange){
@@ -30,7 +27,7 @@
     if(n===null)return null;
     if(unit==='UZS'){
       const r=fx(exchange);
-      return r===null?null:Number((n*1000/r).toPrecision(15));
+      return r===null?null:currency.ratio([n,1000],[r]);
     }
     return n;
   }
@@ -38,14 +35,14 @@
     if(value===null)return null;
     if(unit==='UZS'){
       const r=fx(exchange);
-      return r===null?null:Number((value*r/1000).toPrecision(15));
+      return r===null?null:currency.ratio([value,r],[1000]);
     }
     return value;
   }
   function calculate(item,perKg,exchange){
     const price=amount(item.price),weight=amount(item.grams),kg=itemKgRate(item,perKg);
-    const shipping=weight===null||kg===null?null:Math.round(weight*kg/1000);
-    const total=price===null||shipping===null?null:Math.round(price)+shipping;
+    const shipping=weight===null||kg===null?null:currency.ratio([weight,kg],[1000]);
+    const total=price===null||shipping===null?null:currency.add(price,shipping);
     return {price,shipping,total,priceSom:som(price,exchange),shippingSom:som(shipping,exchange),totalSom:som(total,exchange)};
   }
   function applyRateToSelected(rows,selectedIds,rate){
@@ -67,8 +64,8 @@
   function chosenText(won){
     if(won===null)return '—';
     const state=api.get();
-    const value=currency.convert(won,'KRW','UZS',state.krwToUzsPer1000,state.krwPerUsd);
-    return value===null?'Kursni kiriting':currency.display(value,'UZS');
+    const value=currency.convertExact(won,'KRW','UZS',state.krwToUzsPer1000,state.krwPerUsd);
+    return value===null?'Kursni kiriting':currency.displayExact(value,'UZS');
   }
   function summarize(rows,perKg,exchange){
     const items=Array.isArray(rows)?rows:[],result={count:items.length,ready:0,incomplete:0,purchase:0,shipping:0,total:0,purchaseSom:null,shippingSom:null,totalSom:null};
@@ -76,7 +73,7 @@
       const entry=calculate(item,perKg,exchange);
       if(entry.total===null){result.incomplete++;continue;}
       result.ready++;
-      result.purchase+=entry.price;result.shipping+=entry.shipping;result.total+=entry.total;
+      result.purchase=currency.add(result.purchase,entry.price);result.shipping=currency.add(result.shipping,entry.shipping);result.total=currency.add(result.total,entry.total);
     }
     if(result.ready&&fx(exchange)!==null){
       result.purchaseSom=som(result.purchase,exchange);
@@ -106,12 +103,13 @@
   const rateEditor=(typeof module==='object'&&module.exports)?require('./currency-rate-editor.js'):root.YordamchiRateEditor;
   function paintRateRow(row,state,keepDraft=false){
     const from=row.querySelector('.exchange-rate-from').value,to=row.querySelector('.exchange-rate-to').value;
-    row.querySelector('.exchange-rate-base').textContent=(from==='KRW'?'10 000':'1')+' '+rateEditor.unit(from);
+    const source=row.querySelector('.exchange-rate-source');
+    row.querySelector('.exchange-rate-base').textContent=rateEditor.unit(from);
     row.querySelector('.exchange-rate-unit').textContent=rateEditor.unit(to);
-    const rate=rateEditor.rawValue(from,to,state),input=row.querySelector('.exchange-rate-value');
+    const rate=rateEditor.rawValue(from,to,state,source.value),input=row.querySelector('.exchange-rate-value');
     if(!keepDraft)input.value=rateEditor.showNumber(rate);
     row.querySelector('.exchange-rate-hint').textContent=rate===null?'Bu juftlikning kursi hali kiritilmagan.':
-      'Saqlangan: '+(from==='KRW'?'10 000':'1')+' '+rateEditor.unit(from)+' = '+rateEditor.showNumber(rate)+' '+rateEditor.unit(to)+' · Kasrli kurs to‘liq hisoblanadi';
+      'Saqlangan: '+source.value+' '+rateEditor.unit(from)+' = '+rateEditor.showNumber(rate)+' '+rateEditor.unit(to)+' · Kasrli kurs to‘liq hisoblanadi';
   }
   function syncRateInputs(force=false){
     if(!api)return;
@@ -121,6 +119,7 @@
       panel.querySelectorAll('.exchange-pair-editor').forEach((row,i)=>{
         row.querySelector('.exchange-rate-from').value=pairs[i].from;
         row.querySelector('.exchange-rate-to').value=pairs[i].to;
+        row.querySelector('.exchange-rate-source').value=pairs[i].sourceAmount??rateEditor.base(pairs[i].from);
         paintRateRow(row,state);
       });
       panel.dataset.rateInitialized='yes';
@@ -223,7 +222,7 @@
     syncRateInputs();
     const saved=state.bookCosts.filter(row=>row.saved&&String(row.title||'').trim());
     let total=0,count=0;
-    for(const row of saved){const n=root.BookCosts.inventory(row,state.bookCostRate).total;if(n!==null){total+=n;count++;}}
+    for(const row of saved){const n=root.BookCosts.inventory(row,state.bookCostRate).total;if(n!==null){total=currency.add(total,n);count++;}}
     $('bookSomTotal').textContent=count?chosenText(total):'—';
     document.querySelectorAll('#costReadyList .cost-main-row,#costReadyList .cost-ready-row').forEach((card,index)=>{
       card.querySelector('.converted-cost')?.remove();
@@ -260,7 +259,7 @@
       to.addEventListener('change',refreshConvertedViews);
       input.addEventListener('input',renderConverters);
       swap.addEventListener('click',()=>{
-        const state=api.get(),value=currency.convert(input.value,from.value,to.value,state.krwToUzsPer1000,state.krwPerUsd);
+        const state=api.get(),value=currency.convertExact(input.value,from.value,to.value,state.krwToUzsPer1000,state.krwPerUsd);
         const oldFrom=from.value;from.value=to.value;to.value=oldFrom;
         // Swap directions and keep the same economic value in the input.
         if(value!==null)input.value=String(value);
@@ -276,23 +275,22 @@
           if(event.target===from)to.value=currency.CURRENCIES.find(code=>code!==from.value);
           else from.value=currency.CURRENCIES.find(code=>code!==to.value);
         }
+        row.querySelector('.exchange-rate-source').value=rateEditor.base(from.value);
         paintRateRow(row,api.get());
       };
       from.addEventListener('change',selected);
       to.addEventListener('change',selected);
+      row.querySelector('.exchange-rate-source').addEventListener('input',()=>{paintRateRow(row,api.get());});
       input.addEventListener('input',()=>{
         row.querySelector('.exchange-rate-hint').textContent='Yangi kurs — saqlash tugmasini bosing.';
       });
       swap.addEventListener('click',()=>{
-        const oldFrom=from.value,oldTo=to.value,oldRate=currency.amount(input.value);
-        const previousBase=rateEditor.base(oldFrom);
-        from.value=oldTo;to.value=oldFrom;
-        if(oldRate!==null&&oldRate>0){
-          const reverse=rateEditor.base(oldTo)*previousBase/oldRate;
-          input.value=rateEditor.showNumber(reverse);
-          paintRateRow(row,api.get(),true);
-          row.querySelector('.exchange-rate-hint').textContent='Kurs yo‘nalishi almashtirildi. Saqlashni unutmang.';
-        }else paintRateRow(row,api.get());
+        const source=row.querySelector('.exchange-rate-source');
+        const oldFrom=from.value,oldSource=source.value;
+        from.value=to.value;to.value=oldFrom;
+        source.value=input.value;input.value=oldSource;
+        paintRateRow(row,api.get(),true);
+        row.querySelector('.exchange-rate-hint').textContent='Kurs yo‘nalishi almashtirildi. Saqlashni unutmang.';
       });
     });
     document.querySelectorAll('.exchange-save-all').forEach(btn=>btn.addEventListener('click',()=>{
@@ -300,7 +298,8 @@
       const rows=[...panel.querySelectorAll('.exchange-pair-editor')].map(row=>({
         from:row.querySelector('.exchange-rate-from').value,
         to:row.querySelector('.exchange-rate-to').value,
-        value:row.querySelector('.exchange-rate-value').value.trim()
+        value:row.querySelector('.exchange-rate-value').value.trim(),
+        sourceAmount:row.querySelector('.exchange-rate-source').value.trim()
       }));
       const state=api.get();
       let next;

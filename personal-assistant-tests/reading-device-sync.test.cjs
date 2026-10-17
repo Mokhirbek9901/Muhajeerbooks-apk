@@ -24,9 +24,11 @@ function app(fetch){
  const data=new Map(),nodes=new Map();const node=id=>{if(!nodes.has(id))nodes.set(id,{value:'',textContent:'',disabled:false});return nodes.get(id);};
  const document={hidden:false,visibilityState:'visible',getElementById:node,addEventListener(){},querySelectorAll:()=>[]};
  const ctx={window:{BookCosts:require('../personal-assistant/book-costs.js'),ReadingDeviceSync:sync,BookCostSyncConfig:{url:'https://test',key:'public'},addEventListener(){}},document,localStorage:{getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v)},navigator:{},crypto:require('node:crypto').webcrypto,AbortController,setTimeout:()=>0,clearTimeout(){},fetch,console};
+ Object.assign(ctx.window,{YordamchiCurrency:require('../personal-assistant/currency-converter.js'),YordamchiRateEditor:require('../personal-assistant/currency-rate-editor.js'),YordamchiWorkspaces:require('../personal-assistant/workspaces.js'),KoreaProducts:{...require('../personal-assistant/korea-products.js'),renderBookEntry(){},renderBookList(){},render(){},refreshRates(){}}});
  let source=fs.readFileSync('personal-assistant/app.js','utf8');
- source=source.replace("  bindBookCosts();\n  bindEvents();\n  renderAll();\n  navigate('home',false);\n  maybeDailyReminder();\n  scheduleMissingMetadataAuto();",'window.test={syncReadingLibrary,disconnectReadingSync,disconnectCostCloud,saveState,getState:()=>state};');
+ source=source.replace("  bindBookCosts();\n  bindEvents();\n  renderAll();\n  navigate('home',false);\n  selectWorkspace(currentWorkspace);\n  maybeDailyReminder();\n  scheduleMissingMetadataAuto();",'window.test={syncReadingLibrary,disconnectReadingSync,disconnectCostCloud,saveState,getState:()=>state};');
  source=source.replaceAll('    renderAll();','    window.rendered=true;').replaceAll('      renderAll();','      window.rendered=true;');
+ source=source.replace(/^  window\.KoreaProducts\.init\(.*$/m,'');
  vm.runInNewContext(source,ctx);return {api:ctx.window.test,data,node,document};
 }
 test('two real app instances transfer full library and later progress while keeping finance and cost state separate',async()=>{

@@ -1344,7 +1344,23 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       .take(12)
       .toList();
   List<Book> get personalizedBooks {
-    final signals = <Book>[...recentlyViewedBooks, ..._books.where((b) => _favorites.contains(b.id))];
+    // Web personalization uses only this customer's restored local orders,
+    // not other customers' purchase history. Native builds stay unchanged.
+    final purchased = <String>{};
+    if (kIsWeb) {
+      for (final order in _localOrders) {
+        if (order.status == 'cancelled') continue;
+        for (final item in order.items) {
+          final id = (item['book_id'] ?? '').toString();
+          if (id.isNotEmpty) purchased.add(id);
+        }
+      }
+    }
+    final signals = <Book>[
+      ...recentlyViewedBooks,
+      ..._books.where((b) => _favorites.contains(b.id)),
+      if (kIsWeb) ..._books.where((b) => purchased.contains(b.id)),
+    ];
     final scores = <String, int>{};
     for (final b in signals) {
       if (b.category.trim().isNotEmpty) scores[b.category] = (scores[b.category] ?? 0) + 3;

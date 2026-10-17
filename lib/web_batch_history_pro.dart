@@ -238,16 +238,60 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
       ));
   }
 
+  // UI grouping only: original finance records are never rewritten or added.
+  List<Map<String,dynamic>> _combinedPurchases(
+      List<Map<String,dynamic>> purchases) {
+    final result = <Map<String,dynamic>>[];
+    final seen = <String>{};
+    for (final row in purchases) {
+      final groupId = (row['finance_group_id'] ?? '').toString();
+      if (groupId.isEmpty) {
+        result.add(row);
+        continue;
+      }
+      if (!seen.add(groupId)) continue;
+      final members = purchases.where(
+        (p) => (p['finance_group_id'] ?? '').toString() == groupId,
+      ).toList();
+      final amount = members.fold<int>(0, (sum, m) =>
+        sum + _batchNum(m['total_krw']));
+      result.add({
+        'id': 'finance_group:$groupId',
+        'title': row['finance_group_title'] ?? 'Birlashgan partiya',
+        'purchase_date': row['finance_group_date'] ?? row['purchase_date'],
+        'posted_date': row['posted_date'],
+        'total_krw': amount,
+        'source': 'finance_group',
+        'members': members,
+        'finance_group_id': groupId,
+      });
+    }
+    result.sort((a,b) {
+      final n = (b['purchase_date'] ?? '').toString().compareTo(
+        (a['purchase_date'] ?? '').toString());
+      return n != 0 ? n : (b['id'] ?? '').toString()
+        .compareTo((a['id'] ?? '').toString());
+    });
+    return result;
+  }
+
   Widget _purchaseTile(Map<String, dynamic> item, int index,
       List<Map<String,dynamic>> transports) {
     final title = (item['title'] ?? 'Kitob xaridi').toString();
+    final members = _items(item['members']);
+    final grouped = members.isNotEmpty;
+    final memberIds = grouped
+      ? members.map((m) => m['id'].toString()).toSet()
+      : <String>{item['id'].toString()};
+    final bookCost = _batchNum(item['total_krw']);
     final verified = item['item_breakdown_verified'] == true;
     final isOpeningStock = item['source'] == 'opening_stock_baseline';
     final posted = item['posted_date']?.toString();
     final bought = item['purchase_date']?.toString();
     final linked = transports.where((t) =>
-      t['batch_import_id']?.toString() == item['id'].toString()).toList();
+      memberIds.contains(t['batch_import_id']?.toString())).toList();
     final shipping = linked.fold<int>(0,(s,t) => s + _batchNum(t['amount']));
+    final grandTotal = bookCost + shipping;
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: ExpansionTile(
@@ -260,29 +304,56 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
         subtitle: Padding(padding: const EdgeInsets.only(top: 4),
           child: Text(isOpeningStock
             ? 'Boshlang‘ich qoldiq • Moliya qaydi'
-            : 'Xarid: ${_batchDate(bought)} • Moliya qaydi',
+            : grouped
+              ? '${members.length} ta xarid birlashtirilgan • '
+                '${_batchDate(bought)}'
+              : 'Xarid: ${_batchDate(bought)} • Moliya qaydi',
           style: const TextStyle(fontSize: 12))),
-        trailing: Text(_batchMoney(_batchNum(item['total_krw'])),
+        trailing: Text(_batchMoney(grandTotal),
           style: const TextStyle(fontSize: 14,
             fontWeight: FontWeight.w900, color: UzbekCustomerColors.navy)),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         children: [
           const Divider(),
           _detail(isOpeningStock ? 'Boshlang‘ich qoldiq qiymati'
-              : 'Umumiy xarid summasi',
-            _batchMoney(_batchNum(item['total_krw']))),
-          _detail('Xarid sanasi', _batchDate(bought)),
-          if (posted != bought)
+              : 'Kitoblar uchun xarajat', _batchMoney(bookCost)),
+          _detail('Transport xarajati', _batchMoney(shipping)),
+          const Divider(height: 16),
+          _detail('JAMI — kitoblar + transport', _batchMoney(grandTotal)),
+          _detail('Partiya sanasi', _batchDate(bought)),
+          if (!grouped && posted != bought)
             _detail('Moliyaga kiritilgan sana', _batchDate(posted)),
           _detail('Manba', isOpeningStock
             ? 'Moliya → Avvaldan qolgan kitoblar'
-            : 'Moliya → Yangi partiya kitoblar'),
-          _detail('Kitoblar tarkibi',
-            verified ? 'Tasdiqlangan' : 'Kitobma-kitob tasdiqlanmagan'),
-          _detail('Bog‘langan transport',_batchMoney(shipping)),
-          _detail('Xarid + transport',_batchMoney(
-            _batchNum(item['total_krw']) + shipping)),
-          for (final expense in linked) _transportLine(expense),
+            : grouped ? '${members.length} ta moliya xaridi birlashtirilgan'
+            : 'Moliya → Kitob xaridi'),
+          if (grouped) ...[
+            const SizedBox(height: 12),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Partiya ichidagi kitob xaridlari',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+            ),
+            const SizedBox(height: 6),
+            for (final member in members)
+              _detail(
+                '${_batchDate(member['purchase_date'])} · '
+                '${member['title'] ?? 'Kitob xaridi'}',
+                _batchMoney(_batchNum(member['total_krw'])),
+              ),
+          ] else
+            _detail('Kitoblar tarkibi',
+              verified ? 'Tasdiqlangan' : 'Kitobma-kitob tasdiqlanmagan'),
+          if (linked.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Transport tafsilotlari',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+            ),
+            const SizedBox(height: 8),
+            for (final expense in linked) _transportLine(expense),
+          ],
           const SizedBox(height: 8),
           const Align(alignment: Alignment.centerLeft,
             child: Text(
@@ -388,7 +459,8 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
       if (!snapshot.hasData) return const Center(
         child: CircularProgressIndicator());
       final data = snapshot.data!;
-      final purchases = _items(data['purchases']);
+      final originalPurchases = _items(data['purchases']);
+      final purchases = _combinedPurchases(originalPurchases);
       final inventory = _items(data['inventory']);
       final transports = _items(data['transport_records']);
       final groups = _items(data['batch_groups']);
@@ -446,8 +518,11 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
           ),
           const SizedBox(height: 14),
           Wrap(spacing: 8, runSpacing: 8, children: [
-            _metric('Moliya xarid yozuvlari',
-              '${realPurchases.length} ta', Icons.receipt_long_outlined),
+            _metric('Moliya xaridlari',
+              '${realPurchases.length} ta partiya',
+              Icons.receipt_long_outlined,
+              footnote: '${originalPurchases.where((p) =>
+                p['source'] == 'finance_record').length} ta asl xarid qaydi'),
             _metric('Yangi xaridlar summasi',
               _batchMoney(purchaseSum), Icons.account_balance_wallet_outlined),
             _metric('Boshlang‘ich qoldiq qaydi',
@@ -488,7 +563,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(children: [
-              ChoiceChip(label: Text('Moliya qaydlari (${purchases.length})'),
+              ChoiceChip(label: Text('Partiyalar (${purchases.length})'),
                 selected: mode == 'purchases',
                 onSelected: (_) => _setMode('purchases')),
               const SizedBox(width: 8),

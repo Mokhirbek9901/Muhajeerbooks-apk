@@ -30,13 +30,16 @@
     if(n===null)return null;
     if(unit==='UZS'){
       const r=fx(exchange);
-      return r===null?null:Math.round(n*1000/r);
+      return r===null?null:n*1000/r;
     }
     return n;
   }
   function wonAsRate(value,unit,exchange){
     if(value===null)return null;
-    if(unit==='UZS')return som(value,exchange);
+    if(unit==='UZS'){
+      const r=fx(exchange);
+      return r===null?null:value*r/1000;
+    }
     return value;
   }
   function calculate(item,perKg,exchange){
@@ -108,7 +111,7 @@
     const rate=rateEditor.rawValue(from,to,state),input=row.querySelector('.exchange-rate-value');
     if(!keepDraft)input.value=rateEditor.showNumber(rate);
     row.querySelector('.exchange-rate-hint').textContent=rate===null?'Bu juftlikning kursi hali kiritilmagan.':
-      'Saqlangan: '+(from==='KRW'?'10 000':'1')+' '+rateEditor.unit(from)+' = '+rateEditor.showNumber(rate)+' '+rateEditor.unit(to);
+      'Saqlangan: '+(from==='KRW'?'10 000':'1')+' '+rateEditor.unit(from)+' = '+rateEditor.showNumber(rate)+' '+rateEditor.unit(to)+' · Kasrli kurs to‘liq hisoblanadi';
   }
   function syncRateInputs(force=false){
     if(!api)return;

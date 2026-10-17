@@ -357,7 +357,7 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                 const SizedBox(height: 8),
                 for (final book in visible) _bookCard(book),
               ]),
-          )))),
+          ))),
           SafeArea(top: false, child: Container(
             decoration: const BoxDecoration(
               color: Colors.white,

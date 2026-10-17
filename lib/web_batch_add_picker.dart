@@ -37,6 +37,7 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
   final _note = TextEditingController();
   final _search = TextEditingController();
   final Map<String,_SelectedBatchBook> _selected = {};
+  final Set<String> _selectedTransportIds = <String>{};
   DateTime _date = DateTime.now();
   String _mode = 'new';
   String? _existing;
@@ -88,8 +89,12 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
 
   Future<void> _save() async {
     if (_submitting) return;
-    if (_selected.isEmpty) {
-      _message('Kamida bitta kitobni belgilang.');
+    if (_selected.isEmpty && _selectedTransportIds.isEmpty) {
+      _message('Kamida bitta kitob yoki transport xarajatini belgilang.');
+      return;
+    }
+    if (_mode == 'new' && _selected.isEmpty) {
+      _message('Yangi partiyaga kamida bitta kitob belgilang.');
       return;
     }
     if (_mode == 'new' && _title.text.trim().isEmpty) {
@@ -117,12 +122,22 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
     final nBooks = list.length;
     final nQty = _selected.values.fold<int>(0, (s, x) => s + x.qty);
     final isOld = _mode == 'old';
+    final data = await _data;
+    final transportRows = _list(data['transports']);
+    final transportSum = transportRows
+        .where((t) => _selectedTransportIds.contains(t['id'].toString()))
+        .fold<int>(0, (sum, t) => sum + ((t['amount'] as num?)?.toInt() ?? 0));
+    final transportNote = '${_selectedTransportIds.length} ta transport: '
+        '${_money(transportSum)}. Bu xarajatlar moliyada avval hisoblangan, '
+        'ikkinchi marta xarajat yozilmaydi.';
     final text = isOld
       ? 'Eski partiyaga $nBooks nomdagi, jami $nQty dona kitob qayd etiladi. '
+        '$transportNote '
         'Bu tarixiy ma’lumot; ombor va moliyaga qayta qo‘shilmaydi. '
         'Avtomatik narxlar joriy katalog tannarxidir, tarixiy tannarx '
         'ekanligini tekshirish kerak.'
       : 'Yangi partiyaga $nBooks nomdagi, jami $nQty dona kitob qo‘shiladi. '
+        '$transportNote '
         '${_syncStock ? 'OMBOR QOLDIG‘I HAM ORTADI VA JORIY TANNARX YANGILANADI.' : 'Ombor va moliyaga ta’sir qilmaydi.'} '
         'Moliya xarajati avtomatik yaratilmaydi.';
     final confirmed = await showDialog<bool>(
@@ -154,6 +169,7 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
             if (!isOld) 'note': _note.text.trim(),
             if (isOld) 'existing_id': pieces.skip(1).join(':'),
             'apply_to_inventory': !isOld && _syncStock,
+            'transport_ids': _selectedTransportIds.toList(),
             'items': list,
           },
         });
@@ -258,6 +274,10 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
         final books = _list(data['books']);
         final imported = _list(data['historical']);
         final groups = _list(data['groups']);
+        final transports = _list(data['transports']);
+        final transportTotal = transports
+          .where((t) => _selectedTransportIds.contains(t['id'].toString()))
+          .fold<int>(0, (sum, t) => sum + ((t['amount'] as num?)?.toInt() ?? 0));
         final listOfExisting = <DropdownMenuItem<String>>[
           for (final row in imported) DropdownMenuItem(
             value: 'import:${row['id']}',
@@ -340,7 +360,72 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                     style: TextStyle(fontSize: 12,
                       color: UzbekCustomerColors.textMuted)),
                 ],
-                _sectionTitle('2. Katalogdan kitoblarni belgilang'),
+                _sectionTitle('2. Transport xarajatlarini tanlang'),
+                const Text(
+                  'Moliya bo‘limida saqlangan transport xarajatlari. '
+                  'Tegishli xarajatlarni belgilang: boshqa partiyaga '
+                  'biriktirilgan transport qayta tanlanmaydi.',
+                  style: TextStyle(fontSize: 12,
+                    color: UzbekCustomerColors.textMuted, height: 1.35),
+                ),
+                const SizedBox(height: 8),
+                if (transports.isEmpty)
+                  const Card(child: Padding(
+                    padding: EdgeInsets.all(15),
+                    child: Text('Moliyada transport xarajatlari topilmadi.')))
+                else
+                  for (final transport in transports)
+                    Builder(builder: (ctx) {
+                      final expenseId = (transport['id'] ?? '').toString();
+                      final alreadyLinked = transport['linked_to'] != null;
+                      final transportAmount =
+                        (transport['amount'] as num?)?.toInt() ?? 0;
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: CheckboxListTile(
+                          value: _selectedTransportIds.contains(expenseId),
+                          onChanged: _submitting || alreadyLinked ? null
+                            : (value) => setState(() {
+                              if (value ?? false) {
+                                _selectedTransportIds.add(expenseId);
+                              } else {
+                                _selectedTransportIds.remove(expenseId);
+                              }
+                            }),
+                          controlAffinity: ListTileControlAffinity.leading,
+                          title: Text(
+                            '${_money(transportAmount)} • '
+                            '${(transport['note'] ?? 'Transport').toString()}',
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          subtitle: Text(
+                            '${transport['expense_date'] ?? ''} • '
+                            '${alreadyLinked
+                                ? 'Biriktirilgan: ${transport['linked_to']}'
+                                : 'Partiyaga biriktirilmagan'}',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      );
+                    }),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Text(
+                      'Tanlangan transport: ${_money(transportTotal)}',
+                      style: const TextStyle(fontWeight: FontWeight.w900,
+                        color: UzbekCustomerColors.navy),
+                    ),
+                  ),
+                ),
+                _sectionTitle('3. Katalogdan kitoblarni belgilang'),
+                const Text(
+                  'Eski partiyaga faqat transport bog‘lash uchun '
+                  'kitob tanlash shart emas.',
+                  style: TextStyle(fontSize: 12,
+                    color: UzbekCustomerColors.textMuted),
+                ),
                 TextField(
                   controller: _search,
                   onChanged: (_) => setState(() {}),
@@ -372,9 +457,14 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                     Text('${_selected.length} nomdagi kitob',
                       style: const TextStyle(
                         fontWeight: FontWeight.w800, fontSize: 12)),
-                    Text(_money(sum), style: const TextStyle(
-                      fontWeight: FontWeight.w900, fontSize: 17,
-                      color: UzbekCustomerColors.navy)),
+                    Text('Kitoblar ${_money(sum)} + '
+                        'transport ${_money(transportTotal)}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 11.5)),
+                    Text('Jami ${_money(sum + transportTotal)}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900, fontSize: 17,
+                        color: UzbekCustomerColors.navy)),
                   ],
                 )),
                 FilledButton.icon(

@@ -9,6 +9,9 @@ external JSPromise<JSBoolean> _enablePush();
 @JS('muhajeerExistingPushEndpoint')
 external JSPromise<JSString> _existingPushEndpoint();
 
+@JS('muhajeerPushPermissionStatus')
+external JSString _permissionStatus();
+
 @JS('muhajeerSyncPushPhone')
 external JSPromise<JSBoolean> _syncPushPhone(JSString phone);
 
@@ -42,4 +45,8 @@ Future<String> existingWebPushEndpoint() async {
   } catch (_) {
     return '';
   }
+}
+
+String pushNotificationPermissionStatusSync() {
+  try { return _permissionStatus().toDart; } catch (_) { return 'unsupported'; }
 }

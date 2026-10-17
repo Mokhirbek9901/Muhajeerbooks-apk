@@ -25,3 +25,5 @@ owner-story-autoload-name-phone-only-2026-10-16; latest iOS TestFlight build fro
 ios-app-store-release-2026-10-17-low-egress-book-covers-two-image-customer-gallery; main commit 0d4745a6a88711cb1956acdcee8cede0ea9ef85a; submit validated signed build to App Review.
 
 app-store-release-2026-10-17-low-egress-plus-mandatory-store-update; includes cached thumbnails, two-image customer gallery, iOS App Store mandatory update prompt, Android official-store update gate.
+
+app-store-release-2026-10-17-v2.5.19-low-egress-mandatory-update; 2.5.18 train is closed/approved, so ship combined changes as 2.5.19.

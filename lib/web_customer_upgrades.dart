@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -136,44 +137,162 @@ class WebCustomerSettingsPage extends StatefulWidget {
   State<WebCustomerSettingsPage> createState() => _WebCustomerSettingsPageState();
 }
 class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
+  String _status = 'checking';
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkStatus();
+  }
+
+  Future<void> _checkStatus() async {
+    if (!kIsWeb || !pushNotificationsSupported) {
+      if (mounted) setState(() => _status = 'unsupported');
+      return;
+    }
+    final permission = pushNotificationPermissionStatusSync();
+    final endpoint = permission == 'granted'
+        ? await existingWebPushEndpoint() : '';
+    if (!mounted) return;
+    setState(() {
+      _status = endpoint.isNotEmpty ? 'enabled'
+          : permission == 'denied' ? 'blocked' : 'off';
+    });
+  }
+
   Future<void> _clearSearches() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('muhajeer_web_recent_searches_v1');
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Qidiruv tarixi tozalandi ✅')));
   }
+
   Future<void> _push() async {
-    final ok = await enablePushNotifications();
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok
-        ? 'Bildirishnomalar yoqildi ✅'
-        : 'Ruxsat berilmadi. Brauzer sozlamalarini tekshiring.')));
+    if (_busy || !kIsWeb || !pushNotificationsSupported) return;
+    setState(() => _busy = true);
+    try {
+      final ok = await enablePushNotifications();
+      await _checkStatus();
+      if (!mounted) return;
+      final success = ok && _status == 'enabled';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(success
+          ? 'Bildirishnomalar muvaffaqiyatli yoqildi ✅'
+          : _status == 'blocked'
+            ? 'Ruxsat bloklangan. Telefon yoki brauzer sozlamalaridan bildirishnomani yoqing.'
+            : 'Push yoqilmadi. Brauzer ruxsatlarini tekshiring.'),
+      ));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: UzbekCustomerColors.background,
-    appBar: AppBar(title: const Text('Sozlamalar'),
-      backgroundColor: UzbekCustomerColors.background),
-    body: Center(child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 650),
-      child: ListView(padding: const EdgeInsets.all(18), children: [
-        Card(child: Column(children: [
-          ListTile(leading: const Icon(Icons.notifications_outlined),
-            title: const Text('Bildirishnomalar'),
-            subtitle: const Text('Brauzerdan ruxsat so‘rash'),
-            onTap: _push),
-          const Divider(height: 1),
-          ListTile(leading: const Icon(Icons.history_rounded),
-            title: const Text('Qidiruv tarixini tozalash'),
-            onTap: _clearSearches),
-          const Divider(height: 1),
-          ListTile(leading: const Icon(Icons.privacy_tip_outlined),
-            title: const Text('Maxfiylik siyosati'),
-            onTap: () => launchUrl(Uri.parse(
-              'https://muhajeer-books-live-production.up.railway.app/privacy.html'),
-              mode: LaunchMode.externalApplication)),
-        ])),
-      ]),
-    )),
+
+  Widget _info(IconData icon, String title, String description) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Icon(icon, size: 23, color: UzbekCustomerColors.teal),
+      const SizedBox(width: 12),
+      Expanded(child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(
+            fontSize: 14, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 3),
+          Text(description, style: const TextStyle(fontSize: 12,
+            height: 1.5, color: UzbekCustomerColors.textMuted)),
+        ],
+      )),
+    ]),
   );
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = _status == 'enabled';
+    final available = kIsWeb && pushNotificationsSupported;
+    final statusLabel = _status == 'checking' ? 'Holat tekshirilmoqda…'
+      : enabled ? 'Bildirishnomalar faol'
+      : _status == 'blocked' ? 'Bildirishnoma ruxsati bloklangan'
+      : available ? 'Hozircha yoqilmagan'
+      : 'Ushbu versiyada push mavjud emas';
+    return Scaffold(
+      backgroundColor: UzbekCustomerColors.background,
+      appBar: AppBar(title: const Text('Sozlamalar'),
+        backgroundColor: UzbekCustomerColors.background),
+      body: Center(child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 650),
+        child: ListView(padding: const EdgeInsets.all(18), children: [
+          Card(child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(children: [
+                  Icon(Icons.notifications_active_outlined,
+                    color: UzbekCustomerColors.teal, size: 28),
+                  SizedBox(width: 12),
+                  Expanded(child: Text('Bildirishnomalar',
+                    style: TextStyle(fontSize: 19,
+                      fontWeight: FontWeight.w900))),
+                ]),
+                const SizedBox(height: 10),
+                const Text('Muhajeer Books yangiliklari va buyurtmalaringiz haqidagi muhim xabarlarni o‘z vaqtida oling.',
+                  style: TextStyle(fontSize: 13, height: 1.5)),
+                const SizedBox(height: 12),
+                _info(Icons.menu_book_outlined, 'Yangi va qayta kelgan kitoblar',
+                  'Yangi kitoblar qo‘shilganda yoki siz kutgan kitob omborga qaytganda.'),
+                _info(Icons.receipt_long_outlined, 'Buyurtma xabarlari',
+                  'Buyurtmangiz yuborilganda va qabul qilinganda.'),
+                _info(Icons.local_shipping_outlined, 'Jo‘natish va yetkazish',
+                  'Kitob pochtaga topshirilganda; kuzatuv ma’lumotlari buyurtmalaringizda ko‘rsatiladi.'),
+                _info(Icons.rate_review_outlined, 'Kitob haqida fikr',
+                  'Xarid qilgan kitoblaringizni baholash va sharh qoldirish eslatmalari.'),
+                const Divider(height: 28),
+                Row(children: [
+                  Icon(enabled ? Icons.check_circle_rounded :
+                    _status == 'blocked' ? Icons.warning_amber_rounded :
+                      Icons.notifications_none_outlined,
+                    color: enabled ? UzbekCustomerColors.teal :
+                      UzbekCustomerColors.textMuted, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(statusLabel,
+                    style: const TextStyle(fontWeight: FontWeight.w800))),
+                ]),
+                const SizedBox(height: 12),
+                if (available) SizedBox(width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _busy || enabled || _status == 'checking'
+                      ? null : _push,
+                    icon: Icon(enabled ? Icons.check_circle_outline :
+                        Icons.notifications_active_outlined),
+                    label: Text(_busy ? 'Yoqilmoqda…'
+                      : enabled ? 'Bildirishnomalar yoqilgan'
+                      : 'Bildirishnomalarni yoqish'),
+                  )),
+                if (_status == 'blocked')
+                  const Text('Ruxsat avval rad etilgan. Brauzer yoki telefon sozlamalarida bildirishnomaga ruxsat bering.',
+                    style: TextStyle(fontSize: 12,
+                      color: UzbekCustomerColors.textMuted)),
+                if (!available)
+                  const Text('Ilova ichidagi xabarlarni ko‘rishingiz mumkin. Bu versiyada telefon ekraniga push yuborish yoqilmagan; mos veb-brauzerda pushdan foydalanish mumkin.',
+                    style: TextStyle(fontSize: 12, height: 1.5,
+                      color: UzbekCustomerColors.textMuted)),
+              ],
+            ),
+          )),
+          const SizedBox(height: 12),
+          Card(child: Column(children: [
+            ListTile(leading: const Icon(Icons.history_rounded),
+              title: const Text('Qidiruv tarixini tozalash'),
+              onTap: _clearSearches),
+            const Divider(height: 1),
+            ListTile(leading: const Icon(Icons.privacy_tip_outlined),
+              title: const Text('Maxfiylik siyosati'),
+              onTap: () => launchUrl(Uri.parse(
+                'https://muhajeer-books-live-production.up.railway.app/privacy.html'),
+                mode: LaunchMode.externalApplication)),
+          ])),
+        ]),
+      )),
+    );
+  }
 }

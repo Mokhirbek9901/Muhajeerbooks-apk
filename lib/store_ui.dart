@@ -6350,7 +6350,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
       maxHeight: 2400,
     );
     if (file == null || !mounted) return;
-    setState(() => paymentProof = file);
+    setState(() {
+      paymentProof = file;
+      if (kIsWeb) paymentDone = true;
+    });
   }
 
   @override
@@ -6669,7 +6672,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SwitchListTile.adaptive(
+                      if (kIsWeb && !paymentDone) ...[
+                        const Text('To‘lov qilgan bo‘lsangiz, chekni tanlang.',
+                          style: TextStyle(fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 9),
+                        SizedBox(width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: _pickPaymentProof,
+                            icon: const Icon(Icons.receipt_long_rounded),
+                            label: const Text('To‘lov chekini yuklash'),
+                          ),
+                        ),
+                      ],
+                      if (!kIsWeb) SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
                         value: paymentDone,
                         onChanged: (v) => setState(() {

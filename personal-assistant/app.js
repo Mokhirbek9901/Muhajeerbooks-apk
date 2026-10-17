@@ -3421,9 +3421,11 @@
     $('bookRateValue').value=document.activeElement===$('bookRateValue')?$('bookRateValue').value:
       formatBookRate(state.krwToUzsPer1000,$('bookRateDirection').value,$('bookRateBase').value);
     $('bookRateHint').textContent=state.krwToUzsPer1000?
-      'Amaldagi kurs: 10 000 ₩ = '+Number((state.krwToUzsPer1000*10).toPrecision(10)).toLocaleString('en-US')+
-      ' so‘m · 1 so‘m = '+Number((1000/state.krwToUzsPer1000).toPrecision(10))+' ₩.':
-      'Von–so‘m kursini kiriting. Kitoblar narxi va foydasi shu kurs bilan hisoblanadi.';
+      'Amaldagi aniq kurs: 1 ₩ = '+window.YordamchiRateEditor.showNumber(state.krwToUzsPer1000/1000)+
+      ' so‘m · 10 000 ₩ = '+window.YordamchiRateEditor.showNumber(state.krwToUzsPer1000*10)+
+      ' so‘m · 1 so‘m = '+window.YordamchiRateEditor.showNumber(1000/state.krwToUzsPer1000)+
+      ' ₩. Kasrli kurs hisoblashda yaxlitlanmaydi.':
+      'Von–so‘m kursini kiriting. Masalan: 1 ₩ = 8.841492544 so‘m. Kurs to‘liq aniqlikda saqlanadi.';
     qsa('[data-cost-view]').forEach(button=>button.classList.toggle('active',button.dataset.costView===costView));
     renderCostReadyList();
     const rows=costEditingId?state.bookCosts.filter(row=>row.id===costEditingId):costEditingIds.size?state.bookCosts.filter(row=>costEditingIds.has(row.id)):costEditingAll?state.bookCosts:state.bookCosts.filter(row=>!costIsReady(row));

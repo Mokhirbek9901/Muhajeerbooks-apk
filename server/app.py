@@ -426,12 +426,16 @@ def send_push_notification():
       "p_success":success,
       "p_failure":failure,
     })
+    ios_devices=_admin_rpc_call("admin_customer_apns_devices",{"p_secret":supplied})
+    apns=_send_customer_apns(
+        ios_devices if isinstance(ios_devices,list) else [],
+        [{"title":title,"body":message}],"broadcast")
     native_devices=_admin_rpc_call("admin_native_fcm_devices",{"p_secret":supplied})
     fcm=_send_native_fcm(
         native_devices if isinstance(native_devices,list) else [],
         [{"title":title,"body":message}],"broadcast")
     return jsonify(ok=True,id=str(message_id),total=len(subscriptions),
-                   success=success,failure=failure,fcm=fcm)
+                   success=success,failure=failure,fcm=fcm,apns=apns)
 
 
 def _send_native_fcm(tokens, notes, kind, order_id=""):
@@ -554,6 +558,57 @@ def _send_admin_apns_order_event(event_secret, notification, body):
     except Exception as exc:
         print(f"Admin APNs setup error: {type(exc).__name__}",flush=True)
         return {"configured":True,"devices":len(tokens),"sent":0,"failed":len(tokens)}
+
+
+def _send_customer_apns(tokens, notes, kind, order_id=""):
+    """Send messages only to opted-in native iPhone customer tokens.
+
+    Because customer records are associated with a locally provided phone,
+    transactional push bodies are deliberately generic, without order details.
+    """
+    key_id=os.getenv("APPLE_APNS_KEY_ID","").strip()
+    team_id=os.getenv("APPLE_APNS_TEAM_ID","").strip()
+    private_key=os.getenv("APPLE_APNS_PRIVATE_KEY","").strip().replace("\\n","\n")
+    if not (key_id and team_id and private_key):
+        return {"configured":False,"devices":0,"sent":0,"failed":0}
+    unique=[]
+    seen=set()
+    for item in tokens:
+        token=str(item.get("token","")).strip().lower() if isinstance(item,dict) else ""
+        if len(token)==64 and all(ch in "0123456789abcdef" for ch in token) and token not in seen:
+            seen.add(token);unique.append(token)
+    if not unique or not notes:
+        return {"configured":True,"devices":0,"sent":0,"failed":0}
+    try:
+        import jwt,httpx
+        bearer=jwt.encode({"iss":team_id,"iat":int(time.time())},
+          private_key,algorithm="ES256",headers={"kid":key_id})
+        headers={"authorization":f"bearer {bearer}",
+          "apns-topic":"com.muhajeerbooks.app",
+          "apns-push-type":"alert","apns-priority":"10"}
+        sent=failed=0
+        with httpx.Client(http2=True,timeout=10.0) as client:
+            for token in unique:
+                for note in notes[:3]:
+                    body=("Muhajeer Books ilovasidagi Mening buyurtmalarim bo‘limini tekshiring."
+                        if kind not in ("broadcast",) else str(note.get("body",""))[:500])
+                    payload={"aps":{"alert":{"title":str(note.get("title","Muhajeer Books"))[:100],
+                      "body":body},"sound":"default"},
+                      "kind":kind[:40],"order_id":order_id[:64]}
+                    try:
+                        response=client.post(f"https://api.push.apple.com/3/device/{token}",
+                             json=payload,headers=headers)
+                        if response.status_code==200: sent+=1
+                        else:
+                            failed+=1
+                            print("Customer APNs status=",response.status_code,flush=True)
+                    except Exception as error:
+                        failed+=1
+                        print("Customer APNs delivery error=",type(error).__name__,flush=True)
+        return {"configured":True,"devices":len(unique),"sent":sent,"failed":failed}
+    except Exception as error:
+        print("Customer APNs setup error=",type(error).__name__,flush=True)
+        return {"configured":False,"devices":len(unique),"sent":0,"failed":len(unique)}
 
 
 @app.post("/api/push/fcm-status")
@@ -711,6 +766,11 @@ def order_push_event():
     fcm_result = _send_native_fcm(
         fcm_devices if isinstance(fcm_devices,list) else [],
         notifications,event,str(body.get("order_id") or ""))
+    ios_customers=_admin_rpc_call("event_customer_apns_for_phone",{
+        "p_event_secret":supplied,"p_phone":phone}) if event!="admin_new_order" else []
+    customer_apns=_send_customer_apns(
+        ios_customers if isinstance(ios_customers,list) else [],
+        notifications,event,str(body.get("order_id") or ""))
     native_result = _send_admin_apns_order_event(supplied,notifications[0],body) if event=="admin_new_order" else None
 
     import json
@@ -752,7 +812,7 @@ def order_push_event():
         except Exception as exc:
           print(f"Order WebPush failed error={type(exc).__name__}",flush=True)
           failure+=1
-    return jsonify(ok=True,subscriptions=len(subscriptions),sent=success,failed=failure,apns=native_result,fcm=fcm_result)
+    return jsonify(ok=True,subscriptions=len(subscriptions),sent=success,failed=failure,apns=native_result,customer_apns=customer_apns,fcm=fcm_result)
 
 
 def _verify_admin_code(code):

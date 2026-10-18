@@ -27,6 +27,14 @@ import 'store_ui.dart';
 // saqlanadi, live baza esa AppState ichida fon rejimida yangilanadi.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Render a visible frame *before* any platform plugin/bootstrap awaits.
+  // Without it an Android initialization error can leave a blank splash.
+  if (!kIsWeb) runApp(const _NativeBootstrapScreen());
+  await _launchApplication();
+}
+
+Future<void> _launchApplication() async {
+  try {
   final catalogResumeInit = CatalogResume.instance.initialize();
 
   const definedSupabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
@@ -45,10 +53,15 @@ Future<void> main() async {
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
 
   if (backendConfigured) {
-    await Future.wait([
+    final startupTasks = Future.wait([
       catalogResumeInit,
       Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey),
     ]);
+    if (kIsWeb) {
+      await startupTasks;
+    } else {
+      await startupTasks.timeout(const Duration(seconds: 25));
+    }
 
     // Eski admin/auth sessiyasi storefrontni bloklamasin, lekin tarmoqdagi
     // signOut javobini kutib app startini sekinlashtirmaymiz.
@@ -58,10 +71,80 @@ Future<void> main() async {
       );
     }
   } else {
-    await catalogResumeInit;
+    if (kIsWeb) {
+      await catalogResumeInit;
+    } else {
+      await catalogResumeInit.timeout(const Duration(seconds: 25));
+    }
   }
 
   runApp(MuhajeerBooksApp(backendConfigured: backendConfigured));
+  } catch (error, stack) {
+    debugPrint('Muhajeer Books Android bootstrap failed: $error');
+    debugPrintStack(stackTrace: stack);
+    if (kIsWeb) rethrow;
+    runApp(_NativeBootstrapScreen(
+      failed: true,
+      errorCode: error.runtimeType.toString(),
+    ));
+  }
+}
+
+/// Keeps the application from showing an indefinite white splash when
+/// SharedPreferences / Supabase platform initialization cannot complete.
+class _NativeBootstrapScreen extends StatelessWidget {
+  const _NativeBootstrapScreen({this.failed = false, this.errorCode = ''});
+  final bool failed;
+  final String errorCode;
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: Scaffold(
+      backgroundColor: const Color(0xFFF7F3EA),
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 26),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.menu_book_rounded,
+                    size: 56, color: Color(0xFF0D6E68)),
+                const SizedBox(height: 18),
+                const Text('Muhajeer Books',
+                  style: TextStyle(fontSize: 23,
+                    fontWeight: FontWeight.w800, color: Color(0xFF173F4A))),
+                const SizedBox(height: 20),
+                if (!failed)
+                  const CircularProgressIndicator()
+                else ...[
+                  const Text('Ilovani ishga tushirib bo‘lmadi.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                  const SizedBox(height: 8),
+                  const Text('Qayta urining. Muammo davom etsa, ushbu oynaning rasmini administratorga yuboring.',
+                    textAlign: TextAlign.center),
+                  const SizedBox(height: 8),
+                  Text('Kod: $errorCode',
+                    style: const TextStyle(fontSize: 11, color: Colors.black54)),
+                  const SizedBox(height: 18),
+                  FilledButton.icon(
+                    onPressed: () {
+                      runApp(const _NativeBootstrapScreen());
+                      unawaited(_launchApplication());
+                    },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Qayta urinish'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class MuhajeerBooksApp extends StatelessWidget {

@@ -105,7 +105,7 @@ jobs:
           if 'io.flutter.embedding.android.EnableImpeller' not in m:
               m = m.replace(
                   '</application>',
-                  '    <meta-data android:name="io.flutter.embedding.android.EnableImpeller" android:value="false" />\\n</application>',
+                  '    <meta-data android:name="io.flutter.embedding.android.EnableImpeller" android:value="false" />\n</application>',
                   1,
               )
           manifest.write_text(m, encoding='utf-8')

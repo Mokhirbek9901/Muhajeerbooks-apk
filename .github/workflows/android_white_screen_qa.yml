@@ -50,6 +50,8 @@ jobs:
           assert 'EnableImpeller' in m
           assert 'com.muhajeerbooks.app' in s
           PY
+      - name: Fix Pigeon SharedPreferences release compatibility
+        run: python3 tools/prepare_android_release_compat.py
       - name: Build Play equivalent Android release APK for QA only
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -82,7 +84,10 @@ jobs:
             adb shell dumpsys activity activities > android9-activities.txt
             adb shell pidof com.muhajeerbooks.app | tee android9-pid.txt
             grep -E 'mResumedActivity:.*com.muhajeerbooks.app' android9-activities.txt
-            if grep -E "FATAL EXCEPTION|Process: com.muhajeerbooks.app|SIGSEGV|flutter: Muhajeer Books Android bootstrap failed" android9-startup.log; then exit 1; fi
+            if grep -E "FATAL EXCEPTION|Process: com.muhajeerbooks.app|SIGSEGV|Muhajeer Books Android bootstrap failed|SharedPreferencesApiRegistrar|NoSuchMethodError|Unhandled Exception|PlatformException" android9-startup.log; then
+              echo 'ERROR: App crashed or failed to initialize on Android 9'
+              exit 1
+            fi
             test -s android9-startup.png
       - name: Upload test APK and startup evidence (NOT a Play release)
         if: always()

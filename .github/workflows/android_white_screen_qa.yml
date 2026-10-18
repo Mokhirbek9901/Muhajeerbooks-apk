@@ -73,11 +73,15 @@ jobs:
           script: |
             adb install -r build/app/outputs/flutter-apk/app-release.apk
             adb logcat -c
-            adb shell am start -n com.muhajeerbooks.app/.MainActivity
-            sleep 18
-            adb shell dumpsys activity activities | grep -E "mResumedActivity|topResumedActivity|com.muhajeerbooks.app" | head -12 || true
+            # Resolve the actual LAUNCHER activity from the APK's manifest.
+            # It may not be com.muhajeerbooks.app.MainActivity.
+            adb shell monkey -p com.muhajeerbooks.app -c android.intent.category.LAUNCHER 1 | tee android9-launch.txt
+            sleep 20
             adb exec-out screencap -p > android9-startup.png
             adb logcat -d -v brief > android9-startup.log
+            adb shell dumpsys activity activities > android9-activities.txt
+            adb shell pidof com.muhajeerbooks.app | tee android9-pid.txt
+            grep -E 'mResumedActivity:.*com.muhajeerbooks.app' android9-activities.txt
             if grep -E "FATAL EXCEPTION|Process: com.muhajeerbooks.app|SIGSEGV|flutter: Muhajeer Books Android bootstrap failed" android9-startup.log; then exit 1; fi
             test -s android9-startup.png
       - name: Upload test APK and startup evidence (NOT a Play release)
@@ -89,5 +93,8 @@ jobs:
             build/app/outputs/flutter-apk/app-release.apk
             android9-startup.png
             android9-startup.log
+            android9-activities.txt
+            android9-pid.txt
+            android9-launch.txt
           if-no-files-found: warn
           retention-days: 7

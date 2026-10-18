@@ -149,6 +149,14 @@ jobs:
                       1,
                   )
           m = re.sub(r'android:label="[^"]*"', 'android:label="Muhajeer Books"', m, count=1)
+          # Compatibility fallback for devices whose GPU drivers can show
+          # an all-white Flutter surface with Android Impeller enabled.
+          if 'io.flutter.embedding.android.EnableImpeller' not in m:
+              m = m.replace(
+                  '</application>',
+                  '    <meta-data android:name="io.flutter.embedding.android.EnableImpeller" android:value="false" />\\n</application>',
+                  1,
+              )
           manifest.write_text(m, encoding='utf-8')
           PY
 

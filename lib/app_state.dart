@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'push_notifications.dart';
+import 'native_customer_push.dart';
 import 'owner_story_access.dart';
 
 String normalizePublisher(String value) {
@@ -703,6 +704,21 @@ class BackendService {
   }
 
   Future<void> signOut() => client.auth.signOut();
+
+  Future<void> registerNativeApnsDevice({
+    required String token,required String phone,required String installId,
+  }) async {
+    final ok=await _customerRpc('customer_register_native_apns',{
+      'p_token':token,'p_phone':phone,'p_install_id':installId,
+    });
+    if(ok!=true) throw StateError('iOS bildirishnoma qurilmasi saqlanmadi');
+  }
+
+  Future<void> unregisterNativeApnsDevice(String installId) async {
+    await _customerRpc('customer_unregister_native_apns',{
+      'p_install_id':installId,
+    });
+  }
 
   Future<void> unregisterNativeFcmDevice(String installId) async {
     await _customerRpc('customer_unregister_native_fcm', {
@@ -1406,8 +1422,13 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     }
     if (_backend == null) throw StateError('Serverga ulanish mavjud emas');
     final installId = await _local.installId();
-    await _backend!.registerNativeFcmDevice(
-      token: token, phone: phone, installId: installId);
+    if (NativeCustomerPush.isIos) {
+      await _backend!.registerNativeApnsDevice(
+        token:token,phone:phone,installId:installId);
+    } else {
+      await _backend!.registerNativeFcmDevice(
+        token:token,phone:phone,installId:installId);
+    }
   }
 
 
@@ -1596,8 +1617,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     // Deregister notifications for the previous customer before deleting
     // their local profile. Order messages must not follow a signed-out phone.
     if (_backend != null) {
-      unawaited(_local.installId().then((id) =>
-        _backend!.unregisterNativeFcmDevice(id)).catchError((_) {}));
+      unawaited(_local.installId().then((id) => Future.wait([
+        _backend!.unregisterNativeFcmDevice(id),
+        _backend!.unregisterNativeApnsDevice(id),
+      ])).catchError((_) {}));
     }
     // Profil lokal qurilmada saqlanadi. Uni tarmoq javobini kutmasdan darhol
     // tozalaymiz, shuning uchun tugma internet sust bo‘lsa ham ishlaydi.

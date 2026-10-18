@@ -155,10 +155,17 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
         if (mounted) setState(() => _status = 'unsupported');
         return;
       }
+      final ready = await NativeCustomerPush.providerReady();
+      if (!mounted) return;
+      if (!ready) {
+        setState(() => _status = 'pending');
+        return;
+      }
       final token = await NativeCustomerPush.existingToken();
       if (!mounted) return;
       if (token.isEmpty) {
-        setState(() => _status = 'off');
+        final allowed = await NativeCustomerPush.permissionGranted();
+        if (mounted) setState(() => _status = allowed ? 'off' : 'off');
         return;
       }
       try {
@@ -196,6 +203,9 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
     try {
       bool ok = false;
       if (!kIsWeb) {
+        if (!await NativeCustomerPush.providerReady()) {
+          throw StateError('Push serveri hali tayyor emas, keyinroq urinib ko‘ring');
+        }
         final token = await NativeCustomerPush.requestToken();
         final state = context.read<AppState>();
         await state.registerNativeCustomerPush(token);
@@ -248,7 +258,8 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
   Widget build(BuildContext context) {
     final enabled = _status == 'enabled';
     final available = kIsWeb ? pushNotificationsSupported : NativeCustomerPush.supported;
-    final statusLabel = _status == 'checking' ? 'Holat tekshirilmoqda…'
+    final statusLabel = _status == 'checking' ? 'Holat tekshirilmoqda…' 
+      : _status == 'pending' ? 'Push serveri sozlanmoqda'
       : enabled ? 'Bildirishnomalar faol'
       : _status == 'blocked' ? 'Bildirishnoma ruxsati bloklangan'
       : available ? 'Hozircha yoqilmagan'
@@ -298,7 +309,7 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
                 const SizedBox(height: 12),
                 if (available) SizedBox(width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: _busy || enabled || _status == 'checking'
+                    onPressed: _busy || enabled || _status == 'checking' || _status == 'pending'
                       ? null : _push,
                     icon: Icon(enabled ? Icons.check_circle_outline :
                         Icons.notifications_active_outlined),
@@ -306,6 +317,10 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
                       : enabled ? 'Bildirishnomalar yoqilgan'
                       : 'Bildirishnomalarni yoqish'),
                   )),
+                if (_status == 'pending')
+                  const Text('Telefon push xizmatining server ulanishi hali tayyor emas. Ulangandan keyin bu tugma faol bo‘ladi. Hozircha ilova ichidagi bildirishnomalar mavjud.',
+                    style: TextStyle(fontSize: 12, height: 1.5,
+                      color: UzbekCustomerColors.textMuted)),
                 if (_status == 'blocked')
                   const Text('Ruxsat avval rad etilgan. Brauzer yoki telefon sozlamalarida bildirishnomaga ruxsat bering.',
                     style: TextStyle(fontSize: 12,

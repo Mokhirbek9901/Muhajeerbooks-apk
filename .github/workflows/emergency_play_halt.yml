@@ -1,0 +1,96 @@
+name: EMERGENCY halt broken Google Play 1185 rollout
+
+on:
+  push:
+    branches: [hotfix/android-white-screen-startup-20261018]
+    paths:
+      - '.github/workflows/emergency_play_halt.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: muhajeer-emergency-play-halt
+  cancel-in-progress: false
+
+jobs:
+  halt-broken-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+    steps:
+      - name: Install Google Play API client dependencies
+        run: python3 -m pip install -q google-auth requests
+
+      - name: Halt only the broken version 1185 and verify fallback
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          from google.oauth2 import service_account
+          from google.auth.transport.requests import AuthorizedSession
+
+          package = 'com.muhajeerbooks.app'
+          broken_version_code = '1185'
+          raw = os.environ.get('PLAY_SERVICE_ACCOUNT_JSON','').strip()
+          if not raw:
+              sys.exit('ERROR: PLAY_SERVICE_ACCOUNT_JSON not configured.')
+          creds = service_account.Credentials.from_service_account_info(
+              json.loads(raw),
+              scopes=['https://www.googleapis.com/auth/androidpublisher']
+          )
+          api = AuthorizedSession(creds)
+          root = f'https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{package}'
+          
+          def request(method, url, **kwargs):
+              response = api.request(method, url, timeout=30, **kwargs)
+              if not response.ok:
+                  print(f'Google Play API: {method} {response.status_code}: {response.text[:1200]}')
+                  response.raise_for_status()
+              return response.json() if response.content else {}
+
+          edit = request('POST', f'{root}/edits', json={})['id']
+          track_url = f'{root}/edits/{edit}/tracks/production'
+          current = request('GET', track_url)
+          releases = current.get('releases', [])
+          summary = [{
+              'versionCodes': r.get('versionCodes',[]),
+              'status': r.get('status'),
+              'name': r.get('name')
+          } for r in releases]
+          print('Production track before halt:',json.dumps(summary))
+
+          affected = [r for r in releases if broken_version_code in
+                      [str(v) for v in r.get('versionCodes',[])]]
+          if len(affected) != 1:
+              sys.exit('NO CHANGE: Exact broken version 1185 not found uniquely; stop and inspect Play Console.')
+          release = affected[0]
+          if release.get('status') == 'halted':
+              print('ALREADY HALTED: version 1185 is not being served.')
+              sys.exit(0)
+          if release.get('status') not in ('completed','inProgress'):
+              sys.exit('NO CHANGE: 1185 is not a live release; check Production in Play Console.')
+          # Google only allows a completed rollout halt when an earlier fully
+          # released fallback exists; its server enforces that requirement.
+          changed = [dict(r) for r in releases]
+          for item in changed:
+              if broken_version_code in [str(v) for v in item.get('versionCodes',[])]:
+                  item['status'] = 'halted'
+                  item.pop('userFraction', None) if release.get('status') == 'completed' else None
+          updated = request('PUT',track_url,json={'track':'production','releases':changed})
+          target = [r for r in updated.get('releases',[]) if broken_version_code
+                    in [str(v) for v in r.get('versionCodes',[])]]
+          if len(target) != 1 or target[0].get('status') != 'halted':
+              sys.exit('NOT COMMITTED: API did not show 1185 halted after update.')
+          commit = request('POST',f'{root}/edits/{edit}:commit',json={})
+          print('Google Play halt edit committed:',commit.get('id','ok'))
+          verify_edit = request('POST',f'{root}/edits',json={})['id']
+          verified = request('GET',f'{root}/edits/{verify_edit}/tracks/production')
+          print('Production track after halt:',json.dumps([{
+              'versionCodes':r.get('versionCodes',[]),'status':r.get('status')
+          } for r in verified.get('releases',[])]))
+          if not any(broken_version_code in [str(v) for v in r.get('versionCodes',[])]
+                     and r.get('status') == 'halted' for r in verified.get('releases',[])):
+              sys.exit('WARNING: Release halt was committed, but verification did not confirm halted status.')
+          print('SUCCESS: broken Google Play version 1185 halted. Previous completed release serves eligible users.')
+          PY

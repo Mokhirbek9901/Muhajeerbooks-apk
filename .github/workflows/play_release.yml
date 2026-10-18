@@ -149,8 +149,19 @@ jobs:
                       1,
                   )
           m = re.sub(r'android:label="[^"]*"', 'android:label="Muhajeer Books"', m, count=1)
+          # Compatibility fallback for devices whose GPU drivers can show
+          # an all-white Flutter surface with Android Impeller enabled.
+          if 'io.flutter.embedding.android.EnableImpeller' not in m:
+              m = m.replace(
+                  '</application>',
+                  '    <meta-data android:name="io.flutter.embedding.android.EnableImpeller" android:value="false" />\n</application>',
+                  1,
+              )
           manifest.write_text(m, encoding='utf-8')
           PY
+
+      - name: Fix Pigeon SharedPreferences release compatibility
+        run: python3 tools/prepare_android_release_compat.py
 
       - name: Ignore Firebase Test Lab in device analytics
         run: python3 tools/prepare_android_testlab_analytics.py
@@ -167,11 +178,29 @@ jobs:
             convert assets/images/muhajeer_logo.jpg -resize "${size}x${size}^" -gravity center -extent "${size}x${size}" "$dir/ic_launcher.png"
           done
 
+      - name: Require Firebase configuration for native Android push
+        env:
+          FCM_ANDROID_API_KEY: ${{ secrets.FCM_ANDROID_API_KEY }}
+          FCM_ANDROID_APP_ID: ${{ secrets.FCM_ANDROID_APP_ID }}
+          FCM_SENDER_ID: ${{ secrets.FCM_SENDER_ID }}
+          FCM_PROJECT_ID: ${{ secrets.FCM_PROJECT_ID }}
+        run: |
+          for field in FCM_ANDROID_API_KEY FCM_ANDROID_APP_ID FCM_SENDER_ID FCM_PROJECT_ID; do
+            if [ -z "${!field}" ]; then
+              echo "::error::Native push configuration missing: $field. Refusing Play publication."
+              exit 1
+            fi
+          done
+
       - name: Build signed App Bundle
         run: |
           BUILD_NUMBER=$((1000 + GITHUB_RUN_NUMBER))
           flutter build appbundle --release \
             --build-number="$BUILD_NUMBER" \
+            --dart-define=FCM_ANDROID_API_KEY="${{ secrets.FCM_ANDROID_API_KEY }}" \
+            --dart-define=FCM_ANDROID_APP_ID="${{ secrets.FCM_ANDROID_APP_ID }}" \
+            --dart-define=FCM_SENDER_ID="${{ secrets.FCM_SENDER_ID }}" \
+            --dart-define=FCM_PROJECT_ID="${{ secrets.FCM_PROJECT_ID }}" \
             --dart-define=PLAY_STORE_BUILD=true \
             --dart-define=PLAY_STORE_URL="https://play.google.com/store/apps/details?id=com.muhajeerbooks.app" \
             --dart-define=APP_BUILD_NUMBER="$BUILD_NUMBER" \

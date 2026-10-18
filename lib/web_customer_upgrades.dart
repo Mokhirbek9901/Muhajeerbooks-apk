@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'uzbek_customer_style.dart';
 import 'push_notifications.dart';
+import 'app_state.dart';
+import 'native_customer_push.dart';
 
 // Address data remains on the customer's browser: the current phone-only
 // profile is not verified strongly enough to expose cloud address records.
@@ -137,6 +140,7 @@ class WebCustomerSettingsPage extends StatefulWidget {
   State<WebCustomerSettingsPage> createState() => _WebCustomerSettingsPageState();
 }
 class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
+  static const _nativeOptInKey = 'muhajeer_native_customer_push_optin_v1';
   String _status = 'checking';
   bool _busy = false;
 
@@ -147,7 +151,38 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
   }
 
   Future<void> _checkStatus() async {
-    if (!kIsWeb || !pushNotificationsSupported) {
+    if (!kIsWeb) {
+      if (!NativeCustomerPush.supported) {
+        if (mounted) setState(() => _status = 'unsupported');
+        return;
+      }
+      final ready = await NativeCustomerPush.providerReady();
+      if (!mounted) return;
+      if (!ready) {
+        setState(() => _status = 'pending');
+        return;
+      }
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_nativeOptInKey) != true) {
+        if (mounted) setState(() => _status = 'off');
+        return;
+      }
+      final token = await NativeCustomerPush.existingToken();
+      if (!mounted) return;
+      if (token.isEmpty) {
+        final allowed = await NativeCustomerPush.permissionGranted();
+        if (mounted) setState(() => _status = allowed ? 'off' : 'off');
+        return;
+      }
+      try {
+        await context.read<AppState>().registerNativeCustomerPush(token);
+        if (mounted) setState(() => _status = 'enabled');
+      } catch (_) {
+        if (mounted) setState(() => _status = 'off');
+      }
+      return;
+    }
+    if (!pushNotificationsSupported) {
       if (mounted) setState(() => _status = 'unsupported');
       return;
     }
@@ -169,10 +204,24 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
   }
 
   Future<void> _push() async {
-    if (_busy || !kIsWeb || !pushNotificationsSupported) return;
+    if (_busy || !(kIsWeb ? pushNotificationsSupported : NativeCustomerPush.supported)) return;
     setState(() => _busy = true);
     try {
-      final ok = await enablePushNotifications();
+      bool ok = false;
+      if (!kIsWeb) {
+        if (!await NativeCustomerPush.providerReady()) {
+          throw StateError('Push serveri hali tayyor emas, keyinroq urinib ko‘ring');
+        }
+        final token = await NativeCustomerPush.requestToken();
+        final state = context.read<AppState>();
+        await state.registerNativeCustomerPush(token);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(_nativeOptInKey, true);
+        NativeCustomerPush.listenForTokenRefresh(state.registerNativeCustomerPush);
+        ok = true;
+      } else {
+        ok = await enablePushNotifications();
+      }
       await _checkStatus();
       if (!mounted) return;
       final success = ok && _status == 'enabled';
@@ -183,6 +232,32 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
             ? 'Ruxsat bloklangan. Telefon yoki brauzer sozlamalaridan bildirishnomani yoqing.'
             : 'Push yoqilmadi. Brauzer ruxsatlarini tekshiring.'),
       ));
+    } catch (error) {
+      if (mounted) {
+        setState(() => _status = 'off');
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Bildirishnomalar yoqilmadi: ${error.toString().replaceFirst('Bad state: ', '')}'),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _disableNativePush() async {
+    if (kIsWeb || _busy) return;
+    setState(() => _busy = true);
+    try {
+      await context.read<AppState>().unregisterNativeCustomerPush();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_nativeOptInKey, false);
+      if (!mounted) return;
+      setState(() => _status = 'off');
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Telefon bildirishnomalari o‘chirildi.')));
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('O‘chirish serverga yetmadi. Internetni tekshiring yoki telefon sozlamasidan bildirishnomalarni bloklang.')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -209,8 +284,9 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
   @override
   Widget build(BuildContext context) {
     final enabled = _status == 'enabled';
-    final available = kIsWeb && pushNotificationsSupported;
-    final statusLabel = _status == 'checking' ? 'Holat tekshirilmoqda…'
+    final available = kIsWeb ? pushNotificationsSupported : NativeCustomerPush.supported;
+    final statusLabel = _status == 'checking' ? 'Holat tekshirilmoqda…' 
+      : _status == 'pending' ? 'Push serveri sozlanmoqda'
       : enabled ? 'Bildirishnomalar faol'
       : _status == 'blocked' ? 'Bildirishnoma ruxsati bloklangan'
       : available ? 'Hozircha yoqilmagan'
@@ -260,20 +336,25 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
                 const SizedBox(height: 12),
                 if (available) SizedBox(width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: _busy || enabled || _status == 'checking'
-                      ? null : _push,
+                    onPressed: _busy || _status == 'checking' || _status == 'pending'
+                      ? null : enabled && !kIsWeb ? _disableNativePush : enabled ? null : _push,
                     icon: Icon(enabled ? Icons.check_circle_outline :
                         Icons.notifications_active_outlined),
-                    label: Text(_busy ? 'Yoqilmoqda…'
+                    label: Text(_busy ? 'Saqlanmoqda…'
+                      : enabled && !kIsWeb ? 'Bildirishnomalarni o‘chirish'
                       : enabled ? 'Bildirishnomalar yoqilgan'
                       : 'Bildirishnomalarni yoqish'),
                   )),
+                if (_status == 'pending')
+                  const Text('Telefon push xizmatining server ulanishi hali tayyor emas. Ulangandan keyin bu tugma faol bo‘ladi. Hozircha ilova ichidagi bildirishnomalar mavjud.',
+                    style: TextStyle(fontSize: 12, height: 1.5,
+                      color: UzbekCustomerColors.textMuted)),
                 if (_status == 'blocked')
                   const Text('Ruxsat avval rad etilgan. Brauzer yoki telefon sozlamalarida bildirishnomaga ruxsat bering.',
                     style: TextStyle(fontSize: 12,
                       color: UzbekCustomerColors.textMuted)),
                 if (!available)
-                  const Text('Ilova ichidagi xabarlarni ko‘rishingiz mumkin. Bu versiyada telefon ekraniga push yuborish yoqilmagan; mos veb-brauzerda pushdan foydalanish mumkin.',
+                  const Text('Telefon push sozlamalari hali server bilan bog‘lanmagan. Firebase ulanganidan so‘ng bildirishnomalar tugmasi ishlaydi. Hozircha ilova ichidagi xabarlar ko‘rinadi.',
                     style: TextStyle(fontSize: 12, height: 1.5,
                       color: UzbekCustomerColors.textMuted)),
               ],

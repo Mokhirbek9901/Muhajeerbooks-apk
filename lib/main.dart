@@ -20,6 +20,7 @@ import 'navigation_sync.dart';
 import 'remote_config.dart';
 import 'legal_pages.dart';
 import 'shared_book_entry.dart';
+import 'native_customer_push.dart';
 import 'store_ui.dart';
 
 // Live Railway web va APK aynan shu bir xil storefront kodidan build qilinadi.
@@ -27,6 +28,14 @@ import 'store_ui.dart';
 // saqlanadi, live baza esa AppState ichida fon rejimida yangilanadi.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Render a visible frame *before* any platform plugin/bootstrap awaits.
+  // Without it an Android initialization error can leave a blank splash.
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) runApp(const _NativeBootstrapScreen());
+  await _launchApplication();
+}
+
+Future<void> _launchApplication() async {
+  try {
   final catalogResumeInit = CatalogResume.instance.initialize();
 
   const definedSupabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
@@ -45,10 +54,15 @@ Future<void> main() async {
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
 
   if (backendConfigured) {
-    await Future.wait([
+    final startupTasks = Future.wait([
       catalogResumeInit,
       Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey),
     ]);
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      await startupTasks;
+    } else {
+      await startupTasks.timeout(const Duration(seconds: 25));
+    }
 
     // Eski admin/auth sessiyasi storefrontni bloklamasin, lekin tarmoqdagi
     // signOut javobini kutib app startini sekinlashtirmaymiz.
@@ -58,10 +72,80 @@ Future<void> main() async {
       );
     }
   } else {
-    await catalogResumeInit;
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      await catalogResumeInit;
+    } else {
+      await catalogResumeInit.timeout(const Duration(seconds: 25));
+    }
   }
 
   runApp(MuhajeerBooksApp(backendConfigured: backendConfigured));
+  } catch (error, stack) {
+    debugPrint('Muhajeer Books Android bootstrap failed: $error');
+    debugPrintStack(stackTrace: stack);
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) rethrow;
+    runApp(_NativeBootstrapScreen(
+      failed: true,
+      errorCode: error.runtimeType.toString(),
+    ));
+  }
+}
+
+/// Keeps the application from showing an indefinite white splash when
+/// SharedPreferences / Supabase platform initialization cannot complete.
+class _NativeBootstrapScreen extends StatelessWidget {
+  const _NativeBootstrapScreen({this.failed = false, this.errorCode = ''});
+  final bool failed;
+  final String errorCode;
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: Scaffold(
+      backgroundColor: const Color(0xFFF7F3EA),
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 26),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.menu_book_rounded,
+                    size: 56, color: Color(0xFF0D6E68)),
+                const SizedBox(height: 18),
+                const Text('Muhajeer Books',
+                  style: TextStyle(fontSize: 23,
+                    fontWeight: FontWeight.w800, color: Color(0xFF173F4A))),
+                const SizedBox(height: 20),
+                if (!failed)
+                  const CircularProgressIndicator()
+                else ...[
+                  const Text('Ilovani ishga tushirib bo‘lmadi.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                  const SizedBox(height: 8),
+                  const Text('Qayta urining. Muammo davom etsa, ushbu oynaning rasmini administratorga yuboring.',
+                    textAlign: TextAlign.center),
+                  const SizedBox(height: 8),
+                  Text('Kod: $errorCode',
+                    style: const TextStyle(fontSize: 11, color: Colors.black54)),
+                  const SizedBox(height: 18),
+                  FilledButton.icon(
+                    onPressed: () {
+                      runApp(const _NativeBootstrapScreen());
+                      unawaited(_launchApplication());
+                    },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Qayta urinish'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class MuhajeerBooksApp extends StatelessWidget {
@@ -69,11 +153,29 @@ class MuhajeerBooksApp extends StatelessWidget {
 
   final bool backendConfigured;
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  final GlobalKey<ScaffoldMessengerState> _messengerKey = GlobalKey<ScaffoldMessengerState>();
+
   final MuhajeerNavigatorObserver _navigatorObserver =
       MuhajeerNavigatorObserver();
 
   @override
   Widget build(BuildContext context) {
+    if (NativeCustomerPush.supported) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(NativeCustomerPush.listenForeground((message) {
+          final notification = message.notification;
+          if (notification == null) return;
+          final text = [
+            notification.title ?? 'Muhajeer Books',
+            notification.body ?? '',
+          ].where((s) => s.isNotEmpty).join(' — ');
+          _messengerKey.currentState?.showSnackBar(
+            SnackBar(content: Text(text), duration: const Duration(seconds: 5)));
+        }).catchError((Object error) {
+          debugPrint('FCM foreground setup failed: ${error.runtimeType}');
+        }));
+      });
+    }
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<AppState>(
@@ -87,6 +189,7 @@ class MuhajeerBooksApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
+        scaffoldMessengerKey: _messengerKey,
         initialRoute: '/',
         navigatorKey: _navigatorKey,
         navigatorObservers: [_navigatorObserver],

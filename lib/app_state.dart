@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'push_notifications.dart';
+import 'native_customer_push.dart';
 import 'owner_story_access.dart';
 
 String normalizePublisher(String value) {
@@ -704,6 +705,40 @@ class BackendService {
 
   Future<void> signOut() => client.auth.signOut();
 
+  Future<void> registerNativeApnsDevice({
+    required String token,required String phone,required String installId,
+  }) async {
+    final ok=await _customerRpc('customer_register_native_apns',{
+      'p_token':token,'p_phone':phone,'p_install_id':installId,
+    });
+    if(ok!=true) throw StateError('iOS bildirishnoma qurilmasi saqlanmadi');
+  }
+
+  Future<void> unregisterNativeApnsDevice(String installId) async {
+    await _customerRpc('customer_unregister_native_apns',{
+      'p_install_id':installId,
+    });
+  }
+
+  Future<void> unregisterNativeFcmDevice(String installId) async {
+    await _customerRpc('customer_unregister_native_fcm', {
+      'p_install_id': installId,
+    });
+  }
+
+  Future<void> registerNativeFcmDevice({
+    required String token,
+    required String phone,
+    required String installId,
+  }) async {
+    final ok = await _customerRpc('customer_register_native_fcm', {
+      'p_token': token,
+      'p_phone': phone,
+      'p_install_id': installId,
+    });
+    if (ok != true) throw StateError('Push qurilma serverga bog‘lanmadi');
+  }
+
   Future<void> registerInstallation(String installId, String platform, {String phone = ''}) async {
     await _customerRpc(
       'register_app_install_v2',
@@ -1380,6 +1415,33 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       _restockSubscriptions.contains(book.id);
   BackendService? get backend => _backend;
   bool get isOnlineBackend => _backend != null;
+  Future<void> unregisterNativeCustomerPush() async {
+    if (_backend == null) throw StateError('Serverga ulanish mavjud emas');
+    final installId = await _local.installId();
+    if (NativeCustomerPush.isIos) {
+      await _backend!.unregisterNativeApnsDevice(installId);
+    } else {
+      await _backend!.unregisterNativeFcmDevice(installId);
+    }
+  }
+
+  Future<void> registerNativeCustomerPush(String token) async {
+    final phone = (savedCustomer['phone'] ?? '').trim();
+    if (!customerVerified || phone.replaceAll(RegExp(r'\D'), '').length < 8) {
+      throw StateError('Avval profil telefon raqamini tasdiqlang');
+    }
+    if (_backend == null) throw StateError('Serverga ulanish mavjud emas');
+    final installId = await _local.installId();
+    if (NativeCustomerPush.isIos) {
+      await _backend!.registerNativeApnsDevice(
+        token:token,phone:phone,installId:installId);
+    } else {
+      await _backend!.registerNativeFcmDevice(
+        token:token,phone:phone,installId:installId);
+    }
+  }
+
+
   String get dataModeLabel =>
       isOnlineBackend ? 'Onlayn baza' : 'Qurilmada saqlanadi';
 
@@ -1562,6 +1624,14 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> signOutCustomer() async {
+    // Deregister notifications for the previous customer before deleting
+    // their local profile. Order messages must not follow a signed-out phone.
+    if (_backend != null) {
+      unawaited(_local.installId().then((id) => Future.wait([
+        _backend!.unregisterNativeFcmDevice(id),
+        _backend!.unregisterNativeApnsDevice(id),
+      ])).catchError((_) {}));
+    }
     // Profil lokal qurilmada saqlanadi. Uni tarmoq javobini kutmasdan darhol
     // tozalaymiz, shuning uchun tugma internet sust bo‘lsa ham ishlaydi.
     savedCustomer = const {'name': '', 'phone': '', 'address': ''};

@@ -1,0 +1,41 @@
+name: Read App Store review status (no submission)
+on:
+  push:
+    branches: [feature/android-fcm-push-20261018]
+    paths: ['.github/workflows/check_apple_review_status.yml']
+permissions:
+  contents: read
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read-only App Store Connect API status
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          pip -q install PyJWT cryptography requests
+          python - <<'PY'
+          import os,time,jwt,requests
+          kid=os.environ['ASC_KEY_ID'];issuer=os.environ['ASC_ISSUER_ID']
+          private=os.environ['ASC_PRIVATE_KEY'].replace('\\n','\n')
+          auth=jwt.encode({'iss':issuer,'iat':int(time.time()),'exp':int(time.time())+900,'aud':'appstoreconnect-v1'},private,algorithm='ES256',headers={'kid':kid,'typ':'JWT'})
+          h={'Authorization':'Bearer '+auth}
+          u='https://api.appstoreconnect.apple.com/v1'
+          def get(path,params):
+              r=requests.get(u+path,headers=h,params=params,timeout=25)
+              if not r.ok: print('ASC query status',r.status_code,r.text[:350]);r.raise_for_status()
+              return r.json()
+          apps=get('/apps',{'filter[bundleId]':'com.muhajeerbooks.app','limit':2}).get('data',[])
+          if not apps: raise SystemExit('Muhajeer Books app not found')
+          app_id=apps[0]['id']
+          versions=get(f'/apps/{app_id}/appStoreVersions',{'limit':30,'include':'build'})
+          builds={b['id']:b['attributes'] for b in versions.get('included',[]) if b.get('type')=='builds'}
+          for v in versions.get('data',[]):
+              a=v.get('attributes',{})
+              rel=v.get('relationships',{}).get('build',{}).get('data')
+              b=builds.get(rel.get('id'),{}) if isinstance(rel,dict) else {}
+              print('Version:',a.get('versionString'),'State:',a.get('appStoreState'),'Platform:',a.get('platform'),'Build:',b.get('version'),'Build Processing:',b.get('processingState'))
+          PY

@@ -26,6 +26,7 @@ import 'catalog_resume.dart';
 import 'admin_resume_session.dart';
 import 'push_notifications.dart';
 import 'native_admin_push.dart';
+import 'native_customer_push.dart';
 import 'uzbek_customer_style.dart';
 import 'web_admin_upgrades.dart';
 
@@ -163,6 +164,24 @@ class _AdminApi {
       'p_secret': secret,
       'p_token': token,
     });
+  }
+
+  Future<void> registerAdminNativeFcmDevice(String token) async {
+    await _rpc('admin_register_native_fcm', params: {
+      'p_secret': secret,
+      'p_token': token,
+    });
+  }
+
+  Future<bool> isFcmProviderConfigured() async {
+    final response = await http.post(
+      _serverUri('/api/push/fcm-status'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'admin_code': secret}),
+    ).timeout(const Duration(seconds: 15));
+    if (response.statusCode != 200) return false;
+    final data = jsonDecode(response.body);
+    return data is Map && data['configured'] == true;
   }
 
   Future<bool> isApnsProviderConfigured() async {
@@ -1299,7 +1318,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
     _loadedTabs.add(tab);
     api = _AdminApi(widget.secret);
     WidgetsBinding.instance.addObserver(this);
-    if (kIsWeb || NativeAdminPush.supported) {
+    if (kIsWeb || NativeAdminPush.supported || NativeCustomerPush.supported) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_setupAdminPush(requestPermission: false));
       });
@@ -1314,6 +1333,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
 
   Future<void> _showAdminPushInfo() async {
     final ios = NativeAdminPush.supported;
+    final android = NativeCustomerPush.supported;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (dialog) => AlertDialog(
@@ -1336,7 +1356,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
             ? '✅ Ushbu qurilmada admin bildirishnomalari faol.'
             : ios
               ? 'iPhone uchun tizim ruxsati va serverda Apple APNs kaliti kerak. Bu sozlanmaguncha push kelmaydi.'
-              : 'Brauzer ruxsatini berib, ushbu qurilmani admin uchun faollashtiring.',
+              : android
+                ? 'Android uchun telefon ruxsati va Firebase FCM server kaliti kerak.'
+                : 'Brauzer ruxsatini berib, ushbu qurilmani admin uchun faollashtiring.',
             style: const TextStyle(fontSize: 12.5)),
           const SizedBox(height: 8),
           const Text('Faqat admin sifatida tekshirilgan qurilmalar xabar oladi.',
@@ -1360,7 +1382,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
   }
 
   Future<void> _setupAdminPush({required bool requestPermission}) async {
-    if ((!kIsWeb && !NativeAdminPush.supported) || !mounted || _adminPushBusy) return;
+    if ((!kIsWeb && !NativeAdminPush.supported && !NativeCustomerPush.supported) || !mounted || _adminPushBusy) return;
     setState(() => _adminPushBusy = true);
     try {
       if (NativeAdminPush.supported) {
@@ -1385,6 +1407,29 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
             content: Text('✅ iPhone yangi buyurtma xabarlari uchun ro‘yxatga olindi.'),
           ));
         }
+        return;
+      }
+      if (NativeCustomerPush.supported) {
+        final token = requestPermission
+            ? await NativeCustomerPush.requestToken()
+            : await NativeCustomerPush.existingToken();
+        if (token.isEmpty) {
+          if (requestPermission) throw StateError('Android bildirishnoma ruxsati berilmagan');
+          return;
+        }
+        // Admin-only order push requires the verified admin secret.
+        await api.registerAdminNativeFcmDevice(token);
+        final configured = await api.isFcmProviderConfigured();
+        if (!mounted) return;
+        setState(() => _adminPushConfigured = configured);
+        if (requestPermission) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(configured
+              ? '✅ Android yangi buyurtma xabarlari faollashtirildi.'
+              : 'Firebase xabar yuborish kaliti serverda hali sozlanmagan.'),
+          ));
+        }
+        NativeCustomerPush.listenForTokenRefresh(api.registerAdminNativeFcmDevice);
         return;
       }
       if (requestPermission) {

@@ -9010,7 +9010,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                   Column(children:[Text('$web',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Web brauzer')]),
                 ],
               ))),
-              const Padding(padding:EdgeInsets.all(20),child:Text('Jami qurilma Web brauzerlarni o‘z ichiga olmaydi. Play Market Android jami ichida, App Store esa iOS/iPadOS ichida ko‘rsatiladi.',textAlign:TextAlign.center,style:TextStyle(color:AppColors.muted)))
+              const Padding(padding:EdgeInsets.all(20),child:Text('Bu ko‘rsatkichlar install IDlar, do‘kon yuklab olishlari emas.',textAlign:TextAlign.center,style:TextStyle(color:AppColors.muted)))
             ]);
           }))));}
 
@@ -9062,6 +9062,42 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                   final ios = d['ios'] ?? 0;
                   final playMarket = d['play_market'] ?? d['play_store'] ?? 0;
                   final web = d['web_unknown'] ?? 0;
+                  if (kIsWeb && d['platforms'] is Map) {
+                    final sources = Map<String, dynamic>.from(d['platforms'] as Map);
+                    int linked(String key) {
+                      final entry = sources[key];
+                      return entry is Map
+                          ? (entry['linked_unique_phones'] as num?)?.toInt() ?? 0
+                          : 0;
+                    }
+                    return Column(children: [
+                      const Align(alignment: Alignment.centerLeft,
+                        child: Padding(padding: EdgeInsets.only(bottom: 8),
+                          child: Text('Raqamga bog‘langan noyob mijozlar — bitta raqam bir marta',
+                            style: TextStyle(fontSize: 12, color: AppColors.muted,
+                              fontWeight: FontWeight.w700)))),
+                      Row(children: [
+                        metric('Android APK • raqamli', linked('android_apk'),
+                          Icons.android_rounded, onTap: showDevices),
+                        const SizedBox(width: 10),
+                        metric('iOS / TestFlight • raqamli', linked('app_store_or_testflight'),
+                          Icons.phone_iphone_rounded, onTap: showDevices),
+                      ]),
+                      const SizedBox(height: 10),
+                      Row(children: [
+                        metric('Play / beta • raqamli', linked('play_market_or_test'),
+                          Icons.shop_rounded, onTap: showDevices),
+                        const SizedBox(width: 10),
+                        metric('Web • raqamli', linked('web'),
+                          Icons.language_rounded, onTap: showDevices),
+                      ]),
+                      const Padding(padding: EdgeInsets.only(top: 8),
+                        child: Text('Raqamsiz o‘rnatishlar alohida saqlanadi. '
+                          'Bu raqamlar do‘kon yuklab olishlari emas. '
+                          'Batafsil uchun kartani bosing.',
+                          style: TextStyle(color: AppColors.muted, fontSize: 11))),
+                    ]);
+                  }
                   return Column(
                     children: [
                       Row(
@@ -9118,7 +9154,8 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  metric('Ilova qurilmalari', stats['total_installs'] ?? 0, Icons.phone_iphone_rounded, onTap: showDevices),
+                  metric(kIsWeb ? 'Install IDlari (yuklash emas)' : 'Ilova qurilmalari',
+                     stats['total_installs'] ?? 0, Icons.phone_iphone_rounded, onTap: showDevices),
                   const SizedBox(width: 10),
                   metric('Jami kirishlar', stats['total_logins'] ?? 0, Icons.login_rounded),
                 ],
@@ -9188,7 +9225,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                       selected: sourceFilter == 'ios',
                       onSelected: (_) => setState(() => sourceFilter = 'ios'),
                     ),
-                    ChoiceChip(
+                    if (!kIsWeb) ChoiceChip(
                       avatar: const Icon(Icons.shop_rounded, size: 18),
                       label: Text('Play Market ($playCustomers)'),
                       selected: sourceFilter == 'play',

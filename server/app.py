@@ -556,6 +556,16 @@ def _send_admin_apns_order_event(event_secret, notification, body):
         return {"configured":True,"devices":len(tokens),"sent":0,"failed":len(tokens)}
 
 
+@app.post("/api/push/fcm-status")
+def native_fcm_status():
+    body=request.get_json(silent=True) or {}
+    if not _verify_admin_code(str(body.get("admin_code","")).strip()):
+        return jsonify(error="Unauthorized"),401
+    configured=all(os.getenv(name,"").strip() for name in
+                   ("FCM_PROJECT_ID","FCM_SERVICE_ACCOUNT_JSON"))
+    return jsonify(ok=True,configured=bool(configured))
+
+
 @app.post("/api/push/apns-status")
 def admin_apns_status():
     body=request.get_json(silent=True) or {}

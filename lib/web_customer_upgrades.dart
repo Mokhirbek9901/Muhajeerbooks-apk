@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'uzbek_customer_style.dart';
 import 'push_notifications.dart';
+import 'app_state.dart';
+import 'native_customer_push.dart';
 
 // Address data remains on the customer's browser: the current phone-only
 // profile is not verified strongly enough to expose cloud address records.
@@ -147,7 +150,26 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
   }
 
   Future<void> _checkStatus() async {
-    if (!kIsWeb || !pushNotificationsSupported) {
+    if (!kIsWeb) {
+      if (!NativeCustomerPush.supported) {
+        if (mounted) setState(() => _status = 'unsupported');
+        return;
+      }
+      final token = await NativeCustomerPush.existingToken();
+      if (!mounted) return;
+      if (token.isEmpty) {
+        setState(() => _status = 'off');
+        return;
+      }
+      try {
+        await context.read<AppState>().registerNativeCustomerPush(token);
+        if (mounted) setState(() => _status = 'enabled');
+      } catch (_) {
+        if (mounted) setState(() => _status = 'off');
+      }
+      return;
+    }
+    if (!pushNotificationsSupported) {
       if (mounted) setState(() => _status = 'unsupported');
       return;
     }
@@ -169,10 +191,19 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
   }
 
   Future<void> _push() async {
-    if (_busy || !kIsWeb || !pushNotificationsSupported) return;
+    if (_busy || !(kIsWeb ? pushNotificationsSupported : NativeCustomerPush.supported)) return;
     setState(() => _busy = true);
     try {
-      final ok = await enablePushNotifications();
+      bool ok = false;
+      if (!kIsWeb) {
+        final token = await NativeCustomerPush.requestToken();
+        final state = context.read<AppState>();
+        await state.registerNativeCustomerPush(token);
+        NativeCustomerPush.listenForTokenRefresh(state.registerNativeCustomerPush);
+        ok = true;
+      } else {
+        ok = await enablePushNotifications();
+      }
       await _checkStatus();
       if (!mounted) return;
       final success = ok && _status == 'enabled';
@@ -183,6 +214,13 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
             ? 'Ruxsat bloklangan. Telefon yoki brauzer sozlamalaridan bildirishnomani yoqing.'
             : 'Push yoqilmadi. Brauzer ruxsatlarini tekshiring.'),
       ));
+    } catch (error) {
+      if (mounted) {
+        setState(() => _status = 'off');
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Bildirishnomalar yoqilmadi: ${error.toString().replaceFirst('Bad state: ', '')}'),
+        ));
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -209,7 +247,7 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
   @override
   Widget build(BuildContext context) {
     final enabled = _status == 'enabled';
-    final available = kIsWeb && pushNotificationsSupported;
+    final available = kIsWeb ? pushNotificationsSupported : NativeCustomerPush.supported;
     final statusLabel = _status == 'checking' ? 'Holat tekshirilmoqda…'
       : enabled ? 'Bildirishnomalar faol'
       : _status == 'blocked' ? 'Bildirishnoma ruxsati bloklangan'
@@ -273,7 +311,7 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
                     style: TextStyle(fontSize: 12,
                       color: UzbekCustomerColors.textMuted)),
                 if (!available)
-                  const Text('Ilova ichidagi xabarlarni ko‘rishingiz mumkin. Bu versiyada telefon ekraniga push yuborish yoqilmagan; mos veb-brauzerda pushdan foydalanish mumkin.',
+                  const Text('Telefon push sozlamalari hali server bilan bog‘lanmagan. Firebase ulanganidan so‘ng bildirishnomalar tugmasi ishlaydi. Hozircha ilova ichidagi xabarlar ko‘rinadi.',
                     style: TextStyle(fontSize: 12, height: 1.5,
                       color: UzbekCustomerColors.textMuted)),
               ],

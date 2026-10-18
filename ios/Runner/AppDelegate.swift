@@ -22,19 +22,39 @@ import UserNotifications
       binaryMessenger: engineBridge.applicationRegistrar.messenger()
     )
     channel.setMethodCallHandler { [weak self] call, result in
-      guard call.method == "getToken" else {
+      switch call.method {
+      case "getToken":
+        self?.registerAdminDevice(result)
+      case "getExistingToken":
+        UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+          DispatchQueue.main.async {
+            let allowed = settings.authorizationStatus == .authorized ||
+              settings.authorizationStatus == .provisional
+            result(allowed ? (self?.apnsToken ?? "") : "")
+          }
+        }
+      case "getPermissionStatus":
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+          DispatchQueue.main.async {
+            switch settings.authorizationStatus {
+            case .authorized, .provisional:
+              result("authorized")
+            case .denied:
+              result("denied")
+            default:
+              result("default")
+            }
+          }
+        }
+      default:
         result(FlutterMethodNotImplemented)
-        return
       }
-      self?.registerAdminDevice(result)
     }
   }
 
   private func registerAdminDevice(_ result: @escaping FlutterResult) {
-    if let token = apnsToken {
-      result(token)
-      return
-    }
+    // Always re-check OS permission; a user may revoke notifications
+    // after the app cached its APNs token.
     guard pendingTokenReply == nil else {
       result(FlutterError(code: "busy", message: "APNs registration already in progress", details: nil))
       return

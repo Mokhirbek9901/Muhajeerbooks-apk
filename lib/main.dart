@@ -29,7 +29,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Render a visible frame *before* any platform plugin/bootstrap awaits.
   // Without it an Android initialization error can leave a blank splash.
-  if (!kIsWeb) runApp(const _NativeBootstrapScreen());
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) runApp(const _NativeBootstrapScreen());
   await _launchApplication();
 }
 
@@ -57,7 +57,7 @@ Future<void> _launchApplication() async {
       catalogResumeInit,
       Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey),
     ]);
-    if (kIsWeb) {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
       await startupTasks;
     } else {
       await startupTasks.timeout(const Duration(seconds: 25));
@@ -71,7 +71,7 @@ Future<void> _launchApplication() async {
       );
     }
   } else {
-    if (kIsWeb) {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
       await catalogResumeInit;
     } else {
       await catalogResumeInit.timeout(const Duration(seconds: 25));
@@ -82,7 +82,7 @@ Future<void> _launchApplication() async {
   } catch (error, stack) {
     debugPrint('Muhajeer Books Android bootstrap failed: $error');
     debugPrintStack(stackTrace: stack);
-    if (kIsWeb) rethrow;
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) rethrow;
     runApp(_NativeBootstrapScreen(
       failed: true,
       errorCode: error.runtimeType.toString(),

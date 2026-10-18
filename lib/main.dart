@@ -20,6 +20,7 @@ import 'navigation_sync.dart';
 import 'remote_config.dart';
 import 'legal_pages.dart';
 import 'shared_book_entry.dart';
+import 'native_customer_push.dart';
 import 'store_ui.dart';
 
 // Live Railway web va APK aynan shu bir xil storefront kodidan build qilinadi.
@@ -152,11 +153,29 @@ class MuhajeerBooksApp extends StatelessWidget {
 
   final bool backendConfigured;
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  final GlobalKey<ScaffoldMessengerState> _messengerKey = GlobalKey<ScaffoldMessengerState>();
+
   final MuhajeerNavigatorObserver _navigatorObserver =
       MuhajeerNavigatorObserver();
 
   @override
   Widget build(BuildContext context) {
+    if (NativeCustomerPush.supported) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(NativeCustomerPush.listenForeground((message) {
+          final notification = message.notification;
+          if (notification == null) return;
+          final text = [
+            notification.title ?? 'Muhajeer Books',
+            notification.body ?? '',
+          ].where((s) => s.isNotEmpty).join(' — ');
+          _messengerKey.currentState?.showSnackBar(
+            SnackBar(content: Text(text), duration: const Duration(seconds: 5)));
+        }).catchError((Object error) {
+          debugPrint('FCM foreground setup failed: ${error.runtimeType}');
+        }));
+      });
+    }
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<AppState>(
@@ -170,6 +189,7 @@ class MuhajeerBooksApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
+        scaffoldMessengerKey: _messengerKey,
         initialRoute: '/',
         navigatorKey: _navigatorKey,
         navigatorObservers: [_navigatorObserver],

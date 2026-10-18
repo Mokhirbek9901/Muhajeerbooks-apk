@@ -1415,6 +1415,16 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       _restockSubscriptions.contains(book.id);
   BackendService? get backend => _backend;
   bool get isOnlineBackend => _backend != null;
+  Future<void> unregisterNativeCustomerPush() async {
+    if (_backend == null) throw StateError('Serverga ulanish mavjud emas');
+    final installId = await _local.installId();
+    if (NativeCustomerPush.isIos) {
+      await _backend!.unregisterNativeApnsDevice(installId);
+    } else {
+      await _backend!.unregisterNativeFcmDevice(installId);
+    }
+  }
+
   Future<void> registerNativeCustomerPush(String token) async {
     final phone = (savedCustomer['phone'] ?? '').trim();
     if (!customerVerified || phone.replaceAll(RegExp(r'\\D'), '').length < 8) {

@@ -1,0 +1,59 @@
+name: Submit existing iOS 2.5.20 build 1301 to App Store Review
+on:
+  push:
+    branches: [feature/android-fcm-push-20261018]
+    paths:
+      - '.github/workflows/ios_submit_existing_push_build.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+      ASC_APP_ID: '6817641775'
+      IOS_MARKETING_VERSION: '2.5.20'
+      IOS_BUILD_NUMBER: '1301'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify prior signed build has been processed by Apple
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import os,requests
+          url='https://api.github.com/repos/Mokhirbek9901/Muhajeerbooks-apk/actions/runs/39136500624'
+          r=requests.get(url,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN']},timeout=25)
+          r.raise_for_status()
+          x=r.json()
+          assert x['head_sha']=='98513e9f43037cafedd071abd0004b0297d89ea1'
+          # Upload and processing were successful before review-script failure.
+          assert x['status']=='completed'
+          print('Verified: signed 2.5.20 build uploaded; release action will validate it with Apple before attaching.')
+          PY
+      - name: Prepare App Store Connect private key (temporary)
+        run: |
+          python3 - <<'PY'
+          import os,pathlib,tempfile
+          contents=os.environ['APP_STORE_CONNECT_PRIVATE_KEY'].strip().replace('\\n','\n')+'\n'
+          if not contents.startswith('-----BEGIN PRIVATE KEY-----'):
+              raise SystemExit('Invalid App Store Connect signing key')
+          filename=pathlib.Path(os.environ['RUNNER_TEMP'])/'asc-key.p8'
+          filename.write_text(contents)
+          filename.chmod(0o600)
+          with open(os.environ['GITHUB_ENV'],'a') as f:
+              f.write('ASC_PRIVATE_KEY_PATH='+str(filename)+'\n')
+          PY
+      - name: Replace previous review with MANUAL-RELEASE iOS 2.5.20 (1301)
+        run: |
+          set -euo pipefail
+          ruby -c .github/release_tools/submit_ios_push_appstore_review.rb
+          ruby .github/release_tools/submit_ios_push_appstore_review.rb
+      - name: Clean up temporary signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/asc-key.p8"

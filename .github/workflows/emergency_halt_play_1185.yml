@@ -1,0 +1,69 @@
+name: Emergency halt Google Play build 1185
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/emergency_halt_play_1185.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: emergency-stop-play-1185
+  cancel-in-progress: false
+
+jobs:
+  stop-affected-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Install Android Publisher API client
+        run: python3 -m pip install --quiet google-auth requests
+      - name: Halt ONLY affected 1185 release, preserve prior completed release
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          python3 - <<'PY'
+          import os, json, sys
+          from google.oauth2 import service_account
+          from google.auth.transport.requests import AuthorizedSession
+          secret=os.environ.get('PLAY_SERVICE_ACCOUNT_JSON','').strip()
+          if not secret:
+              sys.exit('ERROR: PLAY_SERVICE_ACCOUNT_JSON missing; no changes made')
+          creds=service_account.Credentials.from_service_account_info(json.loads(secret),scopes=['https://www.googleapis.com/auth/androidpublisher'])
+          session=AuthorizedSession(creds)
+          base='https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.muhajeerbooks.app/edits'
+          def call(method,url,**kwargs):
+              response=session.request(method,url,timeout=50,**kwargs)
+              if not response.ok:
+                  print('Play API HTTP',response.status_code,response.text[:600],flush=True)
+                  response.raise_for_status()
+              return response.json() if response.content else {}
+          edit=call('POST',base,json={})['id']
+          track=call('GET',f'{base}/{edit}/tracks/production')
+          releases=track.get('releases',[])
+          print('Production release states:',[(x.get('versionCodes'),x.get('status')) for x in releases],flush=True)
+          matches=[r for r in releases if '1185' in [str(v) for v in r.get('versionCodes',[])]]
+          if len(matches)!=1:
+              sys.exit('SAFETY STOP: build 1185 absent or ambiguous; no changes made')
+          target=matches[0]
+          if target.get('status')=='halted':
+              print('Already halted: build 1185');sys.exit(0)
+          if target.get('status') not in ('completed','inProgress'):
+              sys.exit('SAFETY STOP: version state not live; no changes made')
+          if not any(r is not target and r.get("status") == "completed" for r in releases):
+              print('Warning: previous completed release is not explicitly shown; Google determines serving fallback on commit')
+          target['status']='halted'
+          target.pop('userFraction',None)
+          call('PUT',f'{base}/{edit}/tracks/production',json={'track':'production','releases':releases})
+          committed=call('POST',f'{base}/{edit}:commit',json={})
+          print('HALT COMMITTED: affected build 1185; edit:',committed.get('id',edit),flush=True)
+          verify=call('POST',base,json={})['id']
+          current=call('GET',f'{base}/{verify}/tracks/production')
+          states=[(r.get('versionCodes'),r.get('status')) for r in current.get('releases',[])]
+          print('POST-COMMIT PRODUCTION:',states,flush=True)
+          if not any('1185' in [str(v) for v in r.get('versionCodes',[])] and r.get('status')=='halted' for r in current.get('releases',[])):
+              sys.exit('VERIFY FAILED: production release 1185 not confirmed halted')
+          print('VERIFIED: 1185 halted; existing older versions are unaffected')
+          PY

@@ -36,6 +36,21 @@ begin
 end;
 $fn$;
 
+create or replace function public.customer_unregister_native_fcm(
+  p_install_id text
+) returns boolean
+language plpgsql security definer set search_path = ''
+as $fn$
+begin
+  if length(coalesce(p_install_id,'')) < 12 or length(p_install_id) > 120 then
+    raise exception 'Invalid installation ID';
+  end if;
+  update private.native_fcm_devices set opted_in=false, phone_digits='',last_seen_at=now()
+   where install_id=trim(p_install_id);
+  return true;
+end;
+$fn$;
+
 create or replace function public.admin_register_native_fcm(
   p_secret text, p_token text
 ) returns boolean
@@ -99,11 +114,13 @@ end;
 $fn$;
 
 revoke all on function public.customer_register_native_fcm(text,text,text) from public,anon,authenticated;
+revoke all on function public.customer_unregister_native_fcm(text) from public,anon,authenticated;
 revoke all on function public.admin_register_native_fcm(text,text) from public,anon,authenticated;
 revoke all on function public.event_native_fcm_for_phone(text,text) from public,anon,authenticated;
 revoke all on function public.event_admin_native_fcm(text) from public,anon,authenticated;
 revoke all on function public.admin_native_fcm_devices(text) from public,anon,authenticated;
 grant execute on function public.customer_register_native_fcm(text,text,text) to service_role;
+grant execute on function public.customer_unregister_native_fcm(text) to service_role;
 grant execute on function public.admin_register_native_fcm(text,text) to service_role;
 grant execute on function public.event_native_fcm_for_phone(text,text) to service_role;
 grant execute on function public.event_admin_native_fcm(text) to service_role;

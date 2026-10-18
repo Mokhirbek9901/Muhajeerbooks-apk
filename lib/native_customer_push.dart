@@ -2,8 +2,9 @@ import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
-/// Android-only native Firebase Cloud Messaging transport.
+/// Android Firebase FCM + iOS native APNs customer notification transport.
 ///
 /// These four Firebase Android app identifiers are public identifiers, but
 /// they MUST come from the Firebase project registered for package
@@ -15,10 +16,13 @@ class NativeCustomerPush {
   static const _senderId = String.fromEnvironment('FCM_SENDER_ID');
   static const _projectId = String.fromEnvironment('FCM_PROJECT_ID');
 
-  static bool get supported => !kIsWeb &&
-      defaultTargetPlatform == TargetPlatform.android &&
-      _apiKey.isNotEmpty && _appId.isNotEmpty &&
-      _senderId.isNotEmpty && _projectId.isNotEmpty;
+  static const MethodChannel _apns = MethodChannel('muhajeerbooks/admin_apns');
+
+  static bool get isIos => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+  static bool get isAndroid => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  static bool get supported => isIos ||
+      (isAndroid && _apiKey.isNotEmpty && _appId.isNotEmpty &&
+      _senderId.isNotEmpty && _projectId.isNotEmpty);
 
   static Future<void>? _startup;
   static StreamSubscription<String>? _refreshSubscription;
@@ -45,6 +49,11 @@ class NativeCustomerPush {
 
   static Future<bool> permissionGranted() async {
     if (!supported) return false;
+    if (isIos) {
+      try {
+        return await _apns.invokeMethod<String>('getPermissionStatus') == 'authorized';
+      } catch (_) { return false; }
+    }
     try {
       await _initialize();
       final settings = await FirebaseMessaging.instance.getNotificationSettings();
@@ -59,6 +68,13 @@ class NativeCustomerPush {
   /// Only call on explicit user action. Never show an OS permission prompt
   /// merely because a customer opens the app.
   static Future<String> requestToken() async {
+    if (isIos) {
+      final token = await _apns.invokeMethod<String>('getToken');
+      if (token == null || token.isEmpty) {
+        throw StateError('iPhone APNs tokenini olib bo‘lmadi');
+      }
+      return token;
+    }
     await _initialize();
     final settings = await FirebaseMessaging.instance.requestPermission(
       alert: true, badge: true, sound: true, provisional: false);
@@ -75,6 +91,10 @@ class NativeCustomerPush {
 
   static Future<String> existingToken() async {
     if (!await permissionGranted()) return '';
+    if (isIos) {
+      try { return await _apns.invokeMethod<String>('getExistingToken') ?? ''; }
+      catch (_) { return ''; }
+    }
     try {
       return await FirebaseMessaging.instance.getToken() ?? '';
     } catch (_) {
@@ -86,7 +106,7 @@ class NativeCustomerPush {
   /// notification payloads when the app is backgrounded or closed.
   static Future<void> listenForeground(
       void Function(RemoteMessage) onMessage) async {
-    if (!supported) return;
+    if (!isAndroid || !supported) return;
     _onForeground = onMessage;
     await _initialize();
     _foregroundSubscription ??= FirebaseMessaging.onMessage.listen(
@@ -95,7 +115,7 @@ class NativeCustomerPush {
   }
 
   static void listenForTokenRefresh(Future<void> Function(String) register) {
-    if (!supported) return;
+    if (!isAndroid || !supported) return;
     _refreshSubscription?.cancel();
     _refreshSubscription = FirebaseMessaging.instance.onTokenRefresh.listen(
       (token) => unawaited(register(token).catchError((Object error) {

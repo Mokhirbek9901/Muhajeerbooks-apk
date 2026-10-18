@@ -426,7 +426,76 @@ def send_push_notification():
       "p_success":success,
       "p_failure":failure,
     })
-    return jsonify(ok=True,id=str(message_id),total=len(subscriptions),success=success,failure=failure)
+    native_devices=_admin_rpc_call("admin_native_fcm_devices",{"p_secret":supplied})
+    fcm=_send_native_fcm(
+        native_devices if isinstance(native_devices,list) else [],
+        [{"title":title,"body":message}],"broadcast")
+    return jsonify(ok=True,id=str(message_id),total=len(subscriptions),
+                   success=success,failure=failure,fcm=fcm)
+
+
+def _send_native_fcm(tokens, notes, kind, order_id=""):
+    """Send opt-in Android notifications with FCM HTTP v1.
+
+    Never log bearer tokens or device registration tokens. Missing Firebase
+    credentials means disabled, not successful delivery. Works independently
+    of Apple APNs and browser WebPush.
+    """
+    raw=os.getenv("FCM_SERVICE_ACCOUNT_JSON","").strip()
+    project=os.getenv("FCM_PROJECT_ID","").strip()
+    if not (raw and project):
+        return {"configured":False,"devices":0,"sent":0,"failed":0}
+    valid=[]
+    seen=set()
+    for candidate in tokens:
+        token=str(candidate.get("token","")).strip() if isinstance(candidate,dict) else ""
+        if 40<=len(token)<=4096 and token not in seen:
+            seen.add(token)
+            valid.append(token)
+    if not valid or not notes:
+        return {"configured":True,"devices":0,"sent":0,"failed":0}
+    try:
+        import json
+        from google.oauth2 import service_account
+        from google.auth.transport.requests import Request as GoogleAuthRequest
+        creds=service_account.Credentials.from_service_account_info(
+            json.loads(raw),scopes=["https://www.googleapis.com/auth/firebase.messaging"])
+        creds.refresh(GoogleAuthRequest())
+        url=f"https://fcm.googleapis.com/v1/projects/{project}/messages:send"
+        headers={"Authorization":f"Bearer {creds.token}",
+                 "Content-Type":"application/json"}
+        sent=failed=0
+        for token in valid:
+            for note in notes[:3]:
+                # Generic text only for customer order events: a subscriber's
+                # phone was supplied by the customer and may not be SMS-verified.
+                customer=kind!="admin_new_order" and kind!="broadcast"
+                body_text=(
+                    "Muhajeer Books ilovasidagi Mening buyurtmalarim bo‘limini tekshiring."
+                    if customer else str(note.get("body",""))[:400]
+                )
+                payload={"message":{
+                    "token":token,
+                    "notification":{"title":str(note.get("title","Muhajeer Books"))[:100],
+                                    "body":body_text},
+                    "data":{"kind":kind[:40],"order_id":order_id[:64]},
+                    "android":{"priority":"high",
+                               "notification":{"channel_id":"muhajeer_orders"}}
+                }}
+                try:
+                    response=requests.post(url,headers=headers,json=payload,timeout=12)
+                    if response.ok:
+                        sent+=1
+                    else:
+                        failed+=1
+                        print("Android FCM delivery status=",response.status_code,flush=True)
+                except Exception as error:
+                    failed+=1
+                    print("Android FCM send exception=",type(error).__name__,flush=True)
+        return {"configured":True,"devices":len(valid),"sent":sent,"failed":failed}
+    except Exception as error:
+        print("Android FCM setup failed:",type(error).__name__,flush=True)
+        return {"configured":False,"devices":len(valid),"sent":0,"failed":len(valid)}
 
 
 def _send_admin_apns_order_event(event_secret, notification, body):
@@ -625,7 +694,14 @@ def order_push_event():
         "p_order_number":order_no if order_no>0 else None,
       })
 
-    # Admin APNs is independent of Web Push (browser subscription).
+    # Native Android FCM and native iOS APNs operate independently of WebPush.
+    fcm_rpc = "event_admin_native_fcm" if event == "admin_new_order" else "event_native_fcm_for_phone"
+    fcm_params = {"p_event_secret":supplied}
+    if event != "admin_new_order": fcm_params["p_phone"] = phone
+    fcm_devices = _admin_rpc_call(fcm_rpc,fcm_params)
+    fcm_result = _send_native_fcm(
+        fcm_devices if isinstance(fcm_devices,list) else [],
+        notifications,event,str(body.get("order_id") or ""))
     native_result = _send_admin_apns_order_event(supplied,notifications[0],body) if event=="admin_new_order" else None
 
     import json
@@ -667,7 +743,7 @@ def order_push_event():
         except Exception as exc:
           print(f"Order WebPush failed error={type(exc).__name__}",flush=True)
           failure+=1
-    return jsonify(ok=True,subscriptions=len(subscriptions),sent=success,failed=failure,apns=native_result)
+    return jsonify(ok=True,subscriptions=len(subscriptions),sent=success,failed=failure,apns=native_result,fcm=fcm_result)
 
 
 def _verify_admin_code(code):

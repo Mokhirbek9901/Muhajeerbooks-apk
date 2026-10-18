@@ -611,6 +611,17 @@ def _send_customer_apns(tokens, notes, kind, order_id=""):
         return {"configured":False,"devices":len(unique),"sent":0,"failed":len(unique)}
 
 
+@app.get("/api/push/native-status")
+def native_push_provider_status():
+    """Expose readiness only, never reveal credentials or device details."""
+    return jsonify(
+        android=bool(os.getenv("FCM_SERVICE_ACCOUNT_JSON","").strip()
+                     and os.getenv("FCM_PROJECT_ID","").strip()),
+        ios=all(os.getenv(k,"").strip() for k in (
+                     "APPLE_APNS_KEY_ID","APPLE_APNS_TEAM_ID","APPLE_APNS_PRIVATE_KEY")),
+    )
+
+
 @app.post("/api/push/fcm-status")
 def native_fcm_status():
     body=request.get_json(silent=True) or {}

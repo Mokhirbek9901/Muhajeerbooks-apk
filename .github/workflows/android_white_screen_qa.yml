@@ -7,6 +7,7 @@ on:
       - 'lib/**'
       - '.github/workflows/android_white_screen_qa.yml'
       - '.github/workflows/play_release.yml'
+      - 'tools/prepare_android_release_compat.py'
   workflow_dispatch:
 
 permissions:

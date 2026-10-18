@@ -704,6 +704,12 @@ class BackendService {
 
   Future<void> signOut() => client.auth.signOut();
 
+  Future<void> unregisterNativeFcmDevice(String installId) async {
+    await _customerRpc('customer_unregister_native_fcm', {
+      'p_install_id': installId,
+    });
+  }
+
   Future<void> registerNativeFcmDevice({
     required String token,
     required String phone,
@@ -1587,6 +1593,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> signOutCustomer() async {
+    // Deregister notifications for the previous customer before deleting
+    // their local profile. Order messages must not follow a signed-out phone.
+    if (_backend != null) {
+      unawaited(_local.installId().then((id) =>
+        _backend!.unregisterNativeFcmDevice(id)).catchError((_) {}));
+    }
     // Profil lokal qurilmada saqlanadi. Uni tarmoq javobini kutmasdan darhol
     // tozalaymiz, shuning uchun tugma internet sust bo‘lsa ham ishlaydi.
     savedCustomer = const {'name': '', 'phone': '', 'address': ''};

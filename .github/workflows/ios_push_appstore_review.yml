@@ -1,0 +1,172 @@
+name: iOS 2.5.20 App Store Review (manual release)
+
+on:
+  push:
+    branches: [feature/android-fcm-push-20261018]
+    paths:
+      - '.github/workflows/ios_push_appstore_review.yml'
+
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: muhajeer-ios-push-appstore-review
+  cancel-in-progress: true
+
+jobs:
+  testflight:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate and install Apple Distribution signing
+        env:
+          CSR_PRIVATE_KEY_PASSWORD: ${{ secrets.CSR_PRIVATE_KEY_PASSWORD }}
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/ios/install_signing.sh
+
+      - name: Preserve the verified encrypted CSR 4 key
+        uses: actions/upload-artifact@v4
+        with:
+          name: muhajeer-csr4-encrypted-key
+          path: ${{ runner.temp }}/signing/MuhajeerBooks-signing-key.zip
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Prepare App Store Connect authentication
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, re
+          from pathlib import Path
+          for name in ('APP_STORE_CONNECT_KEY_ID', 'APP_STORE_CONNECT_ISSUER_ID', 'APP_STORE_CONNECT_PRIVATE_KEY'):
+              if not os.environ.get(name, '').strip():
+                  raise SystemExit(f'Missing secret: {name}')
+          key_id = os.environ['APP_STORE_CONNECT_KEY_ID'].strip()
+          if not re.fullmatch(r'[A-Za-z0-9]+', key_id):
+              raise SystemExit('Invalid App Store Connect key ID format.')
+          key = os.environ['APP_STORE_CONNECT_PRIVATE_KEY'].strip().replace('\\n', '\n') + '\n'
+          if not key.startswith('-----BEGIN PRIVATE KEY-----'):
+              raise SystemExit('APP_STORE_CONNECT_PRIVATE_KEY must contain the original .p8 PEM contents.')
+          directory = Path.home()/'.appstoreconnect/private_keys'
+          directory.mkdir(parents=True, exist_ok=True)
+          path = directory/f'AuthKey_{key_id}.p8'
+          path.write_text(key)
+          path.chmod(0o600)
+          version = '2.5.20'
+          with open(os.environ['GITHUB_ENV'], 'a') as env:
+              env.write(f'ASC_PRIVATE_KEY_PATH={path}\n')
+              env.write(f'IOS_BUILD_NUMBER={1300 + int(os.environ["GITHUB_RUN_NUMBER"])}\n')
+              env.write(f'IOS_MARKETING_VERSION={version}\n')
+          PY
+
+      - name: Verify API access and App Store Connect app record
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: ruby .github/scripts/ios/app_store_status.rb preflight
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: true
+
+      - name: Install dependencies and configure manual signing
+        run: |
+          set -euo pipefail
+          flutter pub get
+          ruby .github/scripts/ios/configure_signing.rb
+          cd ios
+          pod install
+
+      - name: Require all current Flutter tests before signed upload
+        run: |
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: Build signed iPhone and iPad IPA
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          flutter build ipa --release \
+            --build-name="$IOS_MARKETING_VERSION" \
+            --build-number="$IOS_BUILD_NUMBER" \
+            --dart-define=APP_BUILD_NUMBER="$IOS_BUILD_NUMBER" \
+            --dart-define=APP_STORE_BUILD=true \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
+            --export-options-plist="$RUNNER_TEMP/signing/ExportOptions.plist" \
+            2>&1 | tee "$RUNNER_TEMP/ios-build.log"
+
+      - name: Verify exported IPA signature and device support
+        run: python3 .github/scripts/ios/verify_ipa.py
+
+      - name: Upload signed IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: muhajeer-books-ios-signed-ipa
+          path: build/ios/ipa/*.ipa
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload to App Store Connect / TestFlight
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          IPA=$(find build/ios/ipa -name '*.ipa' -print -quit)
+          test -n "$IPA"
+          xcrun altool --upload-app --type ios --file "$IPA" \
+            --apiKey "$APP_STORE_CONNECT_KEY_ID" \
+            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID" \
+            2>&1 | tee "$RUNNER_TEMP/testflight-upload.log"
+
+      - name: Verify uploaded build in TestFlight
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: ruby .github/scripts/ios/app_store_status.rb wait
+
+      - name: Submit iOS 2.5.20 for App Store Review with MANUAL release
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          ruby -c .github/release_tools/submit_ios_push_appstore_review.rb
+          ruby .github/release_tools/submit_ios_push_appstore_review.rb
+
+      - name: Save release diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-release-diagnostics
+          path: |
+            ${{ runner.temp }}/ios-build.log
+            ${{ runner.temp }}/testflight-upload.log
+            ${{ runner.temp }}/testflight-result.json
+            ${{ runner.temp }}/ipa-verification.json
+            ${{ runner.temp }}/signing/metadata.json
+          retention-days: 14
+
+      - name: Remove temporary signing credentials
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/app-signing.keychain-db" 2>/dev/null || true
+          rm -rf "$RUNNER_TEMP/signing" "$RUNNER_TEMP/ipa-verification"
+          if [ -n "${ASC_PRIVATE_KEY_PATH:-}" ]; then rm -f "$ASC_PRIVATE_KEY_PATH"; fi
+          if [ -n "${PROFILE_UUID:-}" ]; then
+            rm -f "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+            rm -f "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+          fi

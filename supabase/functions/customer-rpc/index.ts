@@ -24,6 +24,8 @@ const allowed = new Set([
   "customer_bundle_list",
   "customer_push_subscribe",
   "customer_register_native_fcm",
+  "customer_register_native_apns",
+  "customer_unregister_native_apns",
   "customer_unregister_native_fcm",
   "customer_push_open",
   "customer_push_history",
@@ -116,6 +118,16 @@ function validate(name: string, p: Record<string, unknown>): string | null {
   } else if (name === "customer_unregister_native_fcm") {
     if (!textParam(p.p_install_id, 120) || String(p.p_install_id).length < 12) {
       return "Invalid installation ID";
+    }
+  } else if (name === "customer_register_native_apns") {
+    if (!textParam(p.p_token,200) || String(p.p_token).length < 64 ||
+        !textParam(p.p_phone,40) ||
+        !textParam(p.p_install_id,120) || String(p.p_install_id).length < 12) {
+      return "Invalid APNs registration";
+    }
+  } else if (name === "customer_unregister_native_apns") {
+    if (!textParam(p.p_install_id,120) || String(p.p_install_id).length < 12) {
+      return "Invalid install ID";
     }
   } else if (name === "customer_register_native_fcm") {
     if (!textParam(p.p_token, 4096) || String(p.p_token).length < 40 ||

@@ -8847,7 +8847,11 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
           );
         }
         final stats = snapshot.data?.$1 ?? <String, dynamic>{};
-        final all = snapshot.data?.$2 ?? <Map<String, dynamic>>[];
+        final rawCustomers = snapshot.data?.$2 ?? <Map<String, dynamic>>[];
+        // The admin account is not a customer. Keep native views untouched.
+        final all = kIsWeb
+            ? rawCustomers.where((item) => item['is_admin'] != true).toList()
+            : rawCustomers;
         final q = query.trim().toLowerCase();
         final customers = all.where((c) {
           final platform = (c['platform'] ?? 'web').toString().toLowerCase();
@@ -9154,8 +9158,9 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  metric(kIsWeb ? 'Install IDlari (yuklash emas)' : 'Ilova qurilmalari',
-                     stats['total_installs'] ?? 0, Icons.phone_iphone_rounded, onTap: showDevices),
+                  metric(kIsWeb ? 'Qurilmalar: to‘liq aniqlanmagan' : 'Ilova qurilmalari',
+                     kIsWeb ? '—' : (stats['total_installs'] ?? 0),
+                     Icons.phone_iphone_rounded, onTap: showDevices),
                   const SizedBox(width: 10),
                   metric('Jami kirishlar', stats['total_logins'] ?? 0, Icons.login_rounded),
                 ],

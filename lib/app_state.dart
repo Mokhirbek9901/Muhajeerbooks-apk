@@ -704,6 +704,19 @@ class BackendService {
 
   Future<void> signOut() => client.auth.signOut();
 
+  Future<void> registerNativeFcmDevice({
+    required String token,
+    required String phone,
+    required String installId,
+  }) async {
+    final ok = await _customerRpc('customer_register_native_fcm', {
+      'p_token': token,
+      'p_phone': phone,
+      'p_install_id': installId,
+    });
+    if (ok != true) throw StateError('Push qurilma serverga bog‘lanmadi');
+  }
+
   Future<void> registerInstallation(String installId, String platform, {String phone = ''}) async {
     await _customerRpc(
       'register_app_install_v2',
@@ -1380,6 +1393,18 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       _restockSubscriptions.contains(book.id);
   BackendService? get backend => _backend;
   bool get isOnlineBackend => _backend != null;
+  Future<void> registerNativeCustomerPush(String token) async {
+    final phone = (savedCustomer['phone'] ?? '').trim();
+    if (!customerVerified || phone.replaceAll(RegExp(r'\\D'), '').length < 8) {
+      throw StateError('Avval profil telefon raqamini tasdiqlang');
+    }
+    if (_backend == null) throw StateError('Serverga ulanish mavjud emas');
+    final installId = await _local.installId();
+    await _backend!.registerNativeFcmDevice(
+      token: token, phone: phone, installId: installId);
+  }
+
+
   String get dataModeLabel =>
       isOnlineBackend ? 'Onlayn baza' : 'Qurilmada saqlanadi';
 

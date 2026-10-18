@@ -23,8 +23,7 @@ source = path.read_text(encoding="utf-8")
 # In the generated Flutter Kotlin Gradle file, only release has a signing
 # config reference. The Play build changes its name to "upload".
 pattern = re.compile(
-    r'(?m)^(?P<indent>[ \t]*)'
-    r'(?P<sign>signingConfig[ \t]*=[ \t]*signingConfigs\.getByName\("(?:debug|upload)"\))[ \t]*
+    r'(?m)^(?P<indent>[ \t]*)(?P<sign>signingConfig[ \t]*=[ \t]*signingConfigs\.getByName\("(?:debug|upload)"\))[ \t]*$'
 )
 match = pattern.search(source)
 if match is None:

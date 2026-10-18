@@ -479,8 +479,7 @@ def _send_native_fcm(tokens, notes, kind, order_id=""):
                     "notification":{"title":str(note.get("title","Muhajeer Books"))[:100],
                                     "body":body_text},
                     "data":{"kind":kind[:40],"order_id":order_id[:64]},
-                    "android":{"priority":"high",
-                               "notification":{"channel_id":"muhajeer_orders"}}
+                    "android":{"priority":"high"}
                 }}
                 try:
                     response=requests.post(url,headers=headers,json=payload,timeout=12)

@@ -666,7 +666,12 @@ class _AdminApi {
   }
 
   Future<Map<String, dynamic>> deviceAnalytics() async {
-    final raw = await _rpc('admin_device_analytics', params: {'p_secret': secret});
+    // A new read-only aggregate powers web admin only; mobile app builds use
+    // their existing endpoint, with no mobile publication from this change.
+    final raw = await _rpc(
+      kIsWeb ? 'admin_web_unique_device_summary' : 'admin_device_analytics',
+      params: {'p_secret': secret},
+    );
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
 
@@ -8842,7 +8847,11 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
           );
         }
         final stats = snapshot.data?.$1 ?? <String, dynamic>{};
-        final all = snapshot.data?.$2 ?? <Map<String, dynamic>>[];
+        final rawCustomers = snapshot.data?.$2 ?? <Map<String, dynamic>>[];
+        // The admin account is not a customer. Keep native views untouched.
+        final all = kIsWeb
+            ? rawCustomers.where((item) => item['is_admin'] != true).toList()
+            : rawCustomers;
         final q = query.trim().toLowerCase();
         final customers = all.where((c) {
           final platform = (c['platform'] ?? 'web').toString().toLowerCase();
@@ -8918,6 +8927,72 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
             if(snap.connectionState==ConnectionState.waiting)return const Center(child:CircularProgressIndicator());
             if(snap.hasError)return Center(child:Padding(padding:const EdgeInsets.all(24),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.error_outline_rounded,size:38),const SizedBox(height:10),const Text('Qurilmalar ma’lumotini yuklab bo‘lmadi.',textAlign:TextAlign.center),const SizedBox(height:12),FilledButton(onPressed:()=>Navigator.pop(sheetContext),child:const Text('Yopish'))])));
             final d=snap.data??const <String,dynamic>{};
+            if (kIsWeb && d['platforms'] is Map) {
+              final bySource = Map<String, dynamic>.from(d['platforms'] as Map);
+              Map<String, dynamic> source(String key) {
+                final raw = bySource[key];
+                return raw is Map ? Map<String, dynamic>.from(raw) : {};
+              }
+              int n(String key, String field) =>
+                (source(key)[field] as num?)?.toInt() ?? 0;
+              Widget sourceTile(String title, String key) => ListTile(
+                title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: Text(
+                  'Raqamga bog‘langan: ${n(key, 'linked_unique_phones')} ta'
+                  '\nRaqamsiz install ID: ${n(key, 'unlinked_installation_ids')} ta'
+                  ' • Jami ID: ${n(key, 'installation_ids')} ta',
+                ),
+                isThreeLine: true,
+              );
+              return Column(children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 10, 10),
+                  child: Row(children: [
+                    const Expanded(child: Text('Manbalar va takrorlanish',
+                      style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900))),
+                    IconButton(onPressed: () => Navigator.pop(sheetContext),
+                      icon: const Icon(Icons.close_rounded)),
+                  ]),
+                ),
+                Expanded(child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  children: [
+                    AppSurface(padding: const EdgeInsets.all(16),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('${d['linked_unique_phones'] ?? 0}',
+                            style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900)),
+                          const Text('Bir raqam — bir marta'),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Telefon raqamiga bog‘langan yozuvlar takrorlanmaydi. '
+                            'Raqamsiz ${d['unlinked_installation_ids'] ?? 0} ta '
+                            'ID alohida ko‘rsatiladi — bularni noyob telefon '
+                            'deb tasdiqlab bo‘lmaydi.',
+                            style: const TextStyle(color: AppColors.muted, height: 1.4),
+                          ),
+                        ])),
+                    const SizedBox(height: 12),
+                    sourceTile('Play Market / beta', 'play_market_or_test'),
+                    sourceTile('App Store / TestFlight', 'app_store_or_testflight'),
+                    sourceTile('Web brauzer', 'web'),
+                    sourceTile('Android APK', 'android_apk'),
+                    if (n('ios_other', 'installation_ids') > 0)
+                      sourceTile('Boshqa iOS build', 'ios_other'),
+                    const Divider(),
+                    const Text(
+                      'Bu dastur ichidagi ro‘yxatga olish qaydlari. '
+                      'Ular do‘konning haqiqiy yuklab olish soni emas. '
+                      'App Store va TestFlight, Play Market va beta '
+                      'versiyalarini ushbu bazadan aniq ajratib bo‘lmaydi. '
+                      'Rasmiy raqamlarni Play Console va App Store Connect '
+                      'orqali tekshiring.',
+                      style: TextStyle(color: AppColors.muted, height: 1.4),
+                    ),
+                  ],
+                )),
+              ]);
+            }
             final total=d['total']??0;
             final android=d['android_total']??d['android']??0;
             final androidApk=d['android_apk']??d['android']??0;
@@ -8939,7 +9014,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                   Column(children:[Text('$web',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Web brauzer')]),
                 ],
               ))),
-              const Padding(padding:EdgeInsets.all(20),child:Text('Jami qurilma Web brauzerlarni o‘z ichiga olmaydi. Play Market Android jami ichida, App Store esa iOS/iPadOS ichida ko‘rsatiladi.',textAlign:TextAlign.center,style:TextStyle(color:AppColors.muted)))
+              const Padding(padding:EdgeInsets.all(20),child:Text('Bu ko‘rsatkichlar install IDlar, do‘kon yuklab olishlari emas.',textAlign:TextAlign.center,style:TextStyle(color:AppColors.muted)))
             ]);
           }))));}
 
@@ -8991,6 +9066,42 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                   final ios = d['ios'] ?? 0;
                   final playMarket = d['play_market'] ?? d['play_store'] ?? 0;
                   final web = d['web_unknown'] ?? 0;
+                  if (kIsWeb && d['platforms'] is Map) {
+                    final sources = Map<String, dynamic>.from(d['platforms'] as Map);
+                    int linked(String key) {
+                      final entry = sources[key];
+                      return entry is Map
+                          ? (entry['linked_unique_phones'] as num?)?.toInt() ?? 0
+                          : 0;
+                    }
+                    return Column(children: [
+                      const Align(alignment: Alignment.centerLeft,
+                        child: Padding(padding: EdgeInsets.only(bottom: 8),
+                          child: Text('Raqamga bog‘langan noyob mijozlar — bitta raqam bir marta',
+                            style: TextStyle(fontSize: 12, color: AppColors.muted,
+                              fontWeight: FontWeight.w700)))),
+                      Row(children: [
+                        metric('Android APK • raqamli', linked('android_apk'),
+                          Icons.android_rounded, onTap: showDevices),
+                        const SizedBox(width: 10),
+                        metric('iOS / TestFlight • raqamli', linked('app_store_or_testflight'),
+                          Icons.phone_iphone_rounded, onTap: showDevices),
+                      ]),
+                      const SizedBox(height: 10),
+                      Row(children: [
+                        metric('Play / beta • raqamli', linked('play_market_or_test'),
+                          Icons.shop_rounded, onTap: showDevices),
+                        const SizedBox(width: 10),
+                        metric('Web • raqamli', linked('web'),
+                          Icons.language_rounded, onTap: showDevices),
+                      ]),
+                      const Padding(padding: EdgeInsets.only(top: 8),
+                        child: Text('Raqamsiz o‘rnatishlar alohida saqlanadi. '
+                          'Bu raqamlar do‘kon yuklab olishlari emas. '
+                          'Batafsil uchun kartani bosing.',
+                          style: TextStyle(color: AppColors.muted, fontSize: 11))),
+                    ]);
+                  }
                   return Column(
                     children: [
                       Row(
@@ -9047,7 +9158,9 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  metric('Ilova qurilmalari', stats['total_installs'] ?? 0, Icons.phone_iphone_rounded, onTap: showDevices),
+                  metric(kIsWeb ? 'Qurilmalar: to‘liq aniqlanmagan' : 'Ilova qurilmalari',
+                     kIsWeb ? '—' : (stats['total_installs'] ?? 0),
+                     Icons.phone_iphone_rounded, onTap: showDevices),
                   const SizedBox(width: 10),
                   metric('Jami kirishlar', stats['total_logins'] ?? 0, Icons.login_rounded),
                 ],
@@ -9117,7 +9230,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                       selected: sourceFilter == 'ios',
                       onSelected: (_) => setState(() => sourceFilter = 'ios'),
                     ),
-                    ChoiceChip(
+                    if (!kIsWeb) ChoiceChip(
                       avatar: const Icon(Icons.shop_rounded, size: 18),
                       label: Text('Play Market ($playCustomers)'),
                       selected: sourceFilter == 'play',

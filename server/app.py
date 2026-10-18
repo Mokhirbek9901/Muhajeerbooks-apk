@@ -482,7 +482,8 @@ def _send_native_fcm(tokens, notes, kind, order_id=""):
                     "token":token,
                     "notification":{"title":str(note.get("title","Muhajeer Books"))[:100],
                                     "body":body_text},
-                    "data":{"kind":kind[:40],"order_id":order_id[:64]},
+                    "data":{"kind":kind[:40],
+                            "order_id":order_id[:64] if kind=="admin_new_order" else ""},
                     "android":{"priority":"high"}
                 }}
                 try:
@@ -594,7 +595,7 @@ def _send_customer_apns(tokens, notes, kind, order_id=""):
                         if kind not in ("broadcast",) else str(note.get("body",""))[:500])
                     payload={"aps":{"alert":{"title":str(note.get("title","Muhajeer Books"))[:100],
                       "body":body},"sound":"default"},
-                      "kind":kind[:40],"order_id":order_id[:64]}
+                      "kind":kind[:40]}
                     try:
                         response=client.post(f"https://api.push.apple.com/3/device/{token}",
                              json=payload,headers=headers)

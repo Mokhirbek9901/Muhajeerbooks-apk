@@ -4,7 +4,7 @@ create table if not exists private.native_fcm_devices (
   token text primary key,
   phone_digits text not null default '',
   install_id text not null default '',
-  opted_in boolean not null default true,
+  customer_opted_in boolean not null default false,
   admin_verified_at timestamptz,
   last_seen_at timestamptz not null default now()
 );
@@ -25,12 +25,12 @@ begin
      length(digits) < 8 or length(digits) > 30 then
     raise exception 'Invalid mobile push registration';
   end if;
-  insert into private.native_fcm_devices(token,phone_digits,install_id,opted_in,last_seen_at)
+  insert into private.native_fcm_devices(token,phone_digits,install_id,customer_opted_in,last_seen_at)
   values (trim(p_token),digits,trim(p_install_id),true,now())
   on conflict(token) do update
     set phone_digits=excluded.phone_digits,
         install_id=excluded.install_id,
-        opted_in=true,
+        customer_opted_in=true,
         last_seen_at=now();
   return true;
 end;
@@ -45,7 +45,7 @@ begin
   if length(coalesce(p_install_id,'')) < 12 or length(p_install_id) > 120 then
     raise exception 'Invalid installation ID';
   end if;
-  update private.native_fcm_devices set opted_in=false, phone_digits='',last_seen_at=now()
+  update private.native_fcm_devices set customer_opted_in=false, phone_digits='',last_seen_at=now()
    where install_id=trim(p_install_id);
   return true;
 end;

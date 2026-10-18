@@ -30,7 +30,8 @@ import UserNotifications
           DispatchQueue.main.async {
             let allowed = settings.authorizationStatus == .authorized ||
               settings.authorizationStatus == .provisional
-            result(allowed ? (self?.apnsToken ?? "") : "")
+            if allowed { self?.registerAuthorizedDevice(result) }
+            else { result("") }
           }
         }
       case "getPermissionStatus":
@@ -52,6 +53,19 @@ import UserNotifications
     }
   }
 
+  private func registerAuthorizedDevice(_ result: @escaping FlutterResult) {
+    if let token = apnsToken {
+      result(token)
+      return
+    }
+    guard pendingTokenReply == nil else {
+      result(FlutterError(code: "busy", message: "APNs registration in progress", details: nil))
+      return
+    }
+    pendingTokenReply = result
+    UIApplication.shared.registerForRemoteNotifications()
+  }
+
   private func registerAdminDevice(_ result: @escaping FlutterResult) {
     // Always re-check OS permission; a user may revoke notifications
     // after the app cached its APNs token.
@@ -68,8 +82,7 @@ import UserNotifications
         } else if !granted {
           result(FlutterError(code: "denied", message: "Bildirishnoma ruxsati berilmagan", details: nil))
         } else {
-          self.pendingTokenReply = result
-          UIApplication.shared.registerForRemoteNotifications()
+          self.registerAuthorizedDevice(result)
         }
       }
     }

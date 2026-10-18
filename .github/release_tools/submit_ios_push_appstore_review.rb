@@ -31,7 +31,7 @@ def asc(method, path, query: nil, body: nil)
   uri = URI("https://api.appstoreconnect.apple.com#{path}")
   uri.query = URI.encode_www_form(query) if query
   request_class = { get: Net::HTTP::Get, post: Net::HTTP::Post,
-                    patch: Net::HTTP::Patch }.fetch(method)
+                    patch: Net::HTTP::Patch, delete: Net::HTTP::Delete }.fetch(method)
   req = request_class.new(uri)
   req['Authorization'] = "Bearer #{jwt_token}"
   req['Content-Type'] = 'application/json'
@@ -89,6 +89,29 @@ older.each do |old_version|
     break unless %w[WAITING_FOR_REVIEW IN_REVIEW].include?(state)
     abort "Old review did not leave queue: #{state}" if Time.now >= limit
     sleep 12
+  end
+end
+
+# Apple allows only one unfinished iOS App Store version at a time.
+# Deleting ONLY the retired, never-published version entry is necessary
+# before creating 2.5.20; the live 2.5.18 version is never modified.
+obsolete = versions.find do |v|
+  v.dig('attributes', 'versionString') == '2.5.19'
+end
+if obsolete
+  obsolete_id = obsolete.fetch('id')
+  current = asc(:get, "/v1/appStoreVersions/#{obsolete_id}",
+                query: { 'fields[appStoreVersions]' =>
+                  'platform,versionString,appStoreState,appVersionState' })
+  current_state = current.dig('data','attributes','appStoreState')
+  if %w[DEVELOPER_REJECTED PREPARE_FOR_SUBMISSION REJECTED].include?(current_state)
+    puts "Deleting only unreleased 2.5.19 App Store version (#{current_state}) to enable new 2.5.20."
+    asc(:delete, "/v1/appStoreVersions/#{obsolete_id}")
+    puts 'Retired pending 2.5.19 version record deleted; live versions remain unchanged.'
+  elsif %w[WAITING_FOR_REVIEW IN_REVIEW].include?(current_state)
+    abort 'The old 2.5.19 review is still active; not safe to create a new version yet'
+  else
+    puts "Older version 2.5.19 is #{current_state}; leaving it untouched."
   end
 end
 

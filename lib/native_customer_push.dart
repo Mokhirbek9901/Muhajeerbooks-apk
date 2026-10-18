@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 
 /// Android Firebase FCM + iOS native APNs customer notification transport.
 ///
@@ -45,6 +47,19 @@ class NativeCustomerPush {
       messagingSenderId: _senderId,
       projectId: _projectId,
     ));
+  }
+
+  static Future<bool> providerReady() async {
+    if (!supported) return false;
+    try {
+      final response = await http.get(Uri.parse(
+        'https://muhajeer-books-live-production.up.railway.app/api/push/native-status',
+      )).timeout(const Duration(seconds: 8));
+      if (response.statusCode != 200) return false;
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map) return false;
+      return decoded[isIos ? 'ios' : 'android'] == true;
+    } catch (_) { return false; }
   }
 
   static Future<bool> permissionGranted() async {

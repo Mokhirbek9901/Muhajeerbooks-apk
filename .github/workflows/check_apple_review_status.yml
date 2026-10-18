@@ -31,7 +31,7 @@ jobs:
           apps=get('/apps',{'filter[bundleId]':'com.muhajeerbooks.app','limit':2}).get('data',[])
           if not apps: raise SystemExit('Muhajeer Books app not found')
           app_id=apps[0]['id']
-          versions=get('/appStoreVersions',{'filter[app]':app_id,'limit':30,'include':'build'})
+          versions=get(f'/apps/{app_id}/appStoreVersions',{'limit':30,'include':'build'})
           builds={b['id']:b['attributes'] for b in versions.get('included',[]) if b.get('type')=='builds'}
           for v in versions.get('data',[]):
               a=v.get('attributes',{})

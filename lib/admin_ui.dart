@@ -666,7 +666,12 @@ class _AdminApi {
   }
 
   Future<Map<String, dynamic>> deviceAnalytics() async {
-    final raw = await _rpc('admin_device_analytics', params: {'p_secret': secret});
+    // A new read-only aggregate powers web admin only; mobile app builds use
+    // their existing endpoint, with no mobile publication from this change.
+    final raw = await _rpc(
+      kIsWeb ? 'admin_web_unique_device_summary' : 'admin_device_analytics',
+      params: {'p_secret': secret},
+    );
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
 
@@ -8918,6 +8923,72 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
             if(snap.connectionState==ConnectionState.waiting)return const Center(child:CircularProgressIndicator());
             if(snap.hasError)return Center(child:Padding(padding:const EdgeInsets.all(24),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.error_outline_rounded,size:38),const SizedBox(height:10),const Text('Qurilmalar ma’lumotini yuklab bo‘lmadi.',textAlign:TextAlign.center),const SizedBox(height:12),FilledButton(onPressed:()=>Navigator.pop(sheetContext),child:const Text('Yopish'))])));
             final d=snap.data??const <String,dynamic>{};
+            if (kIsWeb && d['platforms'] is Map) {
+              final bySource = Map<String, dynamic>.from(d['platforms'] as Map);
+              Map<String, dynamic> source(String key) {
+                final raw = bySource[key];
+                return raw is Map ? Map<String, dynamic>.from(raw) : {};
+              }
+              int n(String key, String field) =>
+                (source(key)[field] as num?)?.toInt() ?? 0;
+              Widget sourceTile(String title, String key) => ListTile(
+                title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: Text(
+                  'Raqamga bog‘langan: ${n(key, 'linked_unique_phones')} ta'
+                  '\nRaqamsiz install ID: ${n(key, 'unlinked_installation_ids')} ta'
+                  ' • Jami ID: ${n(key, 'installation_ids')} ta',
+                ),
+                isThreeLine: true,
+              );
+              return Column(children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 10, 10),
+                  child: Row(children: [
+                    const Expanded(child: Text('Manbalar va takrorlanish',
+                      style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900))),
+                    IconButton(onPressed: () => Navigator.pop(sheetContext),
+                      icon: const Icon(Icons.close_rounded)),
+                  ]),
+                ),
+                Expanded(child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  children: [
+                    AppSurface(padding: const EdgeInsets.all(16),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('${d['linked_unique_phones'] ?? 0}',
+                            style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900)),
+                          const Text('Bir raqam — bir marta'),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Telefon raqamiga bog‘langan yozuvlar takrorlanmaydi. '
+                            'Raqamsiz ${d['unlinked_installation_ids'] ?? 0} ta '
+                            'ID alohida ko‘rsatiladi — bularni noyob telefon '
+                            'deb tasdiqlab bo‘lmaydi.',
+                            style: const TextStyle(color: AppColors.muted, height: 1.4),
+                          ),
+                        ])),
+                    const SizedBox(height: 12),
+                    sourceTile('Play Market / beta', 'play_market_or_test'),
+                    sourceTile('App Store / TestFlight', 'app_store_or_testflight'),
+                    sourceTile('Web brauzer', 'web'),
+                    sourceTile('Android APK', 'android_apk'),
+                    if (n('ios_other', 'installation_ids') > 0)
+                      sourceTile('Boshqa iOS build', 'ios_other'),
+                    const Divider(),
+                    const Text(
+                      'Bu dastur ichidagi ro‘yxatga olish qaydlari. '
+                      'Ular do‘konning haqiqiy yuklab olish soni emas. '
+                      'App Store va TestFlight, Play Market va beta '
+                      'versiyalarini ushbu bazadan aniq ajratib bo‘lmaydi. '
+                      'Rasmiy raqamlarni Play Console va App Store Connect '
+                      'orqali tekshiring.',
+                      style: TextStyle(color: AppColors.muted, height: 1.4),
+                    ),
+                  ],
+                )),
+              ]);
+            }
             final total=d['total']??0;
             final android=d['android_total']??d['android']??0;
             final androidApk=d['android_apk']??d['android']??0;

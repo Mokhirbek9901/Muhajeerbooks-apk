@@ -22,6 +22,8 @@ class NativeCustomerPush {
 
   static Future<void>? _startup;
   static StreamSubscription<String>? _refreshSubscription;
+  static StreamSubscription<RemoteMessage>? _foregroundSubscription;
+  static void Function(RemoteMessage)? _onForeground;
 
   static Future<void> _initialize() {
     if (!supported) return Future.error(
@@ -78,6 +80,18 @@ class NativeCustomerPush {
     } catch (_) {
       return '';
     }
+  }
+
+  /// Show an in-app alert while the app is open. Android OS displays
+  /// notification payloads when the app is backgrounded or closed.
+  static Future<void> listenForeground(
+      void Function(RemoteMessage) onMessage) async {
+    if (!supported) return;
+    _onForeground = onMessage;
+    await _initialize();
+    _foregroundSubscription ??= FirebaseMessaging.onMessage.listen(
+      (message) => _onForeground?.call(message),
+    );
   }
 
   static void listenForTokenRefresh(Future<void> Function(String) register) {

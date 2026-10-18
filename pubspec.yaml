@@ -23,6 +23,8 @@ dependencies:
   cross_file: ^0.3.4+2
   local_auth: ^2.3.0
   permission_handler: ^12.0.1
+  firebase_core: ^4.15.0
+  firebase_messaging: ^16.7.0
   flutter_secure_storage: ^9.2.4
   image: ^4.3.0
 

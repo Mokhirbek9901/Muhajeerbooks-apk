@@ -1427,7 +1427,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> registerNativeCustomerPush(String token) async {
     final phone = (savedCustomer['phone'] ?? '').trim();
-    if (!customerVerified || phone.replaceAll(RegExp(r'\\D'), '').length < 8) {
+    if (!customerVerified || phone.replaceAll(RegExp(r'\D'), '').length < 8) {
       throw StateError('Avval profil telefon raqamini tasdiqlang');
     }
     if (_backend == null) throw StateError('Serverga ulanish mavjud emas');

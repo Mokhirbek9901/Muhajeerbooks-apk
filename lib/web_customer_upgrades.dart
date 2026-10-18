@@ -140,6 +140,7 @@ class WebCustomerSettingsPage extends StatefulWidget {
   State<WebCustomerSettingsPage> createState() => _WebCustomerSettingsPageState();
 }
 class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
+  static const _nativeOptInKey = 'muhajeer_native_customer_push_optin_v1';
   String _status = 'checking';
   bool _busy = false;
 
@@ -159,6 +160,11 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
       if (!mounted) return;
       if (!ready) {
         setState(() => _status = 'pending');
+        return;
+      }
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_nativeOptInKey) != true) {
+        if (mounted) setState(() => _status = 'off');
         return;
       }
       final token = await NativeCustomerPush.existingToken();
@@ -209,6 +215,8 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
         final token = await NativeCustomerPush.requestToken();
         final state = context.read<AppState>();
         await state.registerNativeCustomerPush(token);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(_nativeOptInKey, true);
         NativeCustomerPush.listenForTokenRefresh(state.registerNativeCustomerPush);
         ok = true;
       } else {
@@ -231,6 +239,25 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
           content: Text('Bildirishnomalar yoqilmadi: ${error.toString().replaceFirst('Bad state: ', '')}'),
         ));
       }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _disableNativePush() async {
+    if (kIsWeb || _busy) return;
+    setState(() => _busy = true);
+    try {
+      await context.read<AppState>().unregisterNativeCustomerPush();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_nativeOptInKey, false);
+      if (!mounted) return;
+      setState(() => _status = 'off');
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Telefon bildirishnomalari o‘chirildi.')));
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('O‘chirish serverga yetmadi. Internetni tekshiring yoki telefon sozlamasidan bildirishnomalarni bloklang.')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -309,11 +336,12 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
                 const SizedBox(height: 12),
                 if (available) SizedBox(width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: _busy || enabled || _status == 'checking' || _status == 'pending'
-                      ? null : _push,
+                    onPressed: _busy || _status == 'checking' || _status == 'pending'
+                      ? null : enabled && !kIsWeb ? _disableNativePush : enabled ? null : _push,
                     icon: Icon(enabled ? Icons.check_circle_outline :
                         Icons.notifications_active_outlined),
-                    label: Text(_busy ? 'Yoqilmoqda…'
+                    label: Text(_busy ? 'Saqlanmoqda…'
+                      : enabled && !kIsWeb ? 'Bildirishnomalarni o‘chirish'
                       : enabled ? 'Bildirishnomalar yoqilgan'
                       : 'Bildirishnomalarni yoqish'),
                   )),

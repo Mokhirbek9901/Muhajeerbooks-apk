@@ -1,0 +1,50 @@
+name: Native push server and SQL validation
+on:
+  push:
+    branches: [feature/android-fcm-push-20261018]
+    paths:
+      - 'server/**'
+      - 'supabase/migrations/2026101814*.sql'
+      - 'supabase/migrations/2026101815*.sql'
+      - '.github/workflows/push_server_qa.yml'
+  pull_request:
+    paths:
+      - 'server/**'
+      - 'supabase/migrations/2026101814*.sql'
+      - 'supabase/migrations/2026101815*.sql'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python compile check
+        run: python3 -m py_compile server/app.py
+      - name: Parse new Postgres migrations without applying to live database
+        run: |
+          python3 -m pip install --quiet pglast
+          python3 - <<'PY'
+          from pathlib import Path
+          from pglast import parse_sql
+          for suffix in ("20261018140000_android_fcm_devices.sql","20261018150000_ios_customer_apns.sql"):
+              path=Path('supabase/migrations')/suffix
+              nodes=parse_sql(path.read_text())
+              assert len(nodes)>8, path
+              print(path, "parsed:",len(nodes),"statements")
+          PY
+      - name: Validate push RPC whitelist
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          c=Path("supabase/functions/customer-rpc/index.ts").read_text()
+          a=Path("supabase/functions/admin-rpc/index.ts").read_text()
+          for name in ("customer_register_native_fcm","customer_unregister_native_fcm",
+                       "customer_register_native_apns","customer_unregister_native_apns"):
+              assert f'"{name}"' in c,name
+          for name in ("admin_register_native_fcm","event_native_fcm_for_phone",
+                       "event_admin_native_fcm","admin_native_fcm_devices",
+                       "event_customer_apns_for_phone","admin_customer_apns_devices"):
+              assert f'"{name}"' in a,name
+          print("Native push RPCs are allowlisted")
+          PY

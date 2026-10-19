@@ -144,8 +144,13 @@ jobs:
                       1,
                   )
           m = re.sub(r'android:label="[^"]*"', 'android:label="Muhajeer Books"', m, count=1)
+          if 'io.flutter.embedding.android.EnableImpeller' not in m:
+              m = m.replace('</application>', '    <meta-data android:name="io.flutter.embedding.android.EnableImpeller" android:value="false" />\n</application>', 1)
           manifest.write_text(m, encoding='utf-8')
           PY
+
+      - name: Protect Android release plugin registrars
+        run: python3 tools/prepare_android_release_compat.py
 
       - name: Ignore Firebase Test Lab in device analytics
         run: python3 tools/prepare_android_testlab_analytics.py

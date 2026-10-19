@@ -8938,9 +8938,9 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
               Widget sourceTile(String title, String key) => ListTile(
                 title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
                 subtitle: Text(
-                  'Raqamga bog‘langan: ${n(key, 'linked_unique_phones')} ta'
-                  '\nRaqamsiz install ID: ${n(key, 'unlinked_installation_ids')} ta'
-                  ' • Jami ID: ${n(key, 'installation_ids')} ta',
+                  'Hisoblangan: ${n(key, 'linked_unique_phones') + n(key, 'unlinked_installation_ids')} ta'
+                  '\nTelefon bilan tasdiqlangan: ${n(key, 'linked_unique_phones')} ta'
+                  ' • Raqamsiz ID: ${n(key, 'unlinked_installation_ids')} ta',
                 ),
                 isThreeLine: true,
               );
@@ -8960,15 +8960,15 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                     AppSurface(padding: const EdgeInsets.all(16),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('${d['linked_unique_phones'] ?? 0}',
+                          Text('${((d['linked_unique_phones'] as num?)?.toInt() ?? 0) + ((d['unlinked_installation_ids'] as num?)?.toInt() ?? 0)}',
                             style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900)),
-                          const Text('Bir raqam — bir marta'),
+                          const Text('Baholangan noyob kirishlar (telefon + noma’lum ID)'),
                           const SizedBox(height: 8),
                           Text(
-                            'Telefon raqamiga bog‘langan yozuvlar takrorlanmaydi. '
-                            'Raqamsiz ${d['unlinked_installation_ids'] ?? 0} ta '
-                            'ID alohida ko‘rsatiladi — bularni noyob telefon '
-                            'deb tasdiqlab bo‘lmaydi.',
+                            'Raqamga bog‘langan ${d['linked_unique_phones'] ?? 0} ta kishi '
+                            'takrorlanmaydi. Raqamsiz ${d['unlinked_installation_ids'] ?? 0} ta '
+                            'identifikator bor. Ular alohida kirish sifatida sanaladi, '
+                            'ammo noyob jismoniy telefon ekanini tasdiqlab bo‘lmaydi.',
                             style: const TextStyle(color: AppColors.muted, height: 1.4),
                           ),
                         ])),
@@ -9066,40 +9066,77 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                   final ios = d['ios'] ?? 0;
                   final playMarket = d['play_market'] ?? d['play_store'] ?? 0;
                   final web = d['web_unknown'] ?? 0;
+
                   if (kIsWeb && d['platforms'] is Map) {
                     final sources = Map<String, dynamic>.from(d['platforms'] as Map);
-                    int linked(String key) {
+                    int observed(String key) {
                       final entry = sources[key];
-                      return entry is Map
-                          ? (entry['linked_unique_phones'] as num?)?.toInt() ?? 0
-                          : 0;
+                      if (entry is! Map) return 0;
+                      // A known phone is counted only once within this source.
+                      // Anonymous visits have only a persistent installation/browser ID.
+                      final known = (entry['linked_unique_phones'] as num?)?.toInt() ?? 0;
+                      final anonymous = (entry['unlinked_installation_ids'] as num?)?.toInt() ?? 0;
+                      return known + anonymous;
                     }
+                    final uniqueKnown = (d['linked_unique_phones'] as num?)?.toInt() ?? 0;
+                    final anonymousIds = (d['unlinked_installation_ids'] as num?)?.toInt() ?? 0;
+                    final allObserved = uniqueKnown + anonymousIds;
                     return Column(children: [
-                      const Align(alignment: Alignment.centerLeft,
-                        child: Padding(padding: EdgeInsets.only(bottom: 8),
-                          child: Text('Raqamga bog‘langan noyob mijozlar — bitta raqam bir marta',
-                            style: TextStyle(fontSize: 12, color: AppColors.muted,
-                              fontWeight: FontWeight.w700)))),
                       Row(children: [
-                        metric('Android APK • raqamli', linked('android_apk'),
-                          Icons.android_rounded, onTap: showDevices),
+                        metric('Kuzatilgan foydalanuvchilar (taxminiy)',
+                          allObserved, Icons.devices_rounded, onTap: showDevices),
                         const SizedBox(width: 10),
-                        metric('iOS / TestFlight • raqamli', linked('app_store_or_testflight'),
+                        metric('Ism va raqam kiritganlar',
+                          all.length, Icons.verified_user_outlined,
+                          onTap: () => showPeople('Ism va raqam kiritganlar', (_) => true)),
+                      ]),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Bir telefon raqami bir marta sanaladi. Raqam kiritmaganlar '
+                        'brauzer yoki ilovaning saqlangan identifikatori bo‘yicha hisoblanadi. '
+                        'Identifikator qayta yaratilsa, bir odam qayta sanalishi mumkin.',
+                        style: TextStyle(color: AppColors.muted, fontSize: 11.5, height: 1.4),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(children: [
+                        metric('App Store / TestFlight • kirganlar',
+                          observed('app_store_or_testflight'),
                           Icons.phone_iphone_rounded, onTap: showDevices),
+                        const SizedBox(width: 10),
+                        metric('Play Market / beta • kirganlar',
+                          observed('play_market_or_test'),
+                          Icons.shop_rounded, onTap: showDevices),
                       ]),
                       const SizedBox(height: 10),
                       Row(children: [
-                        metric('Play / beta • raqamli', linked('play_market_or_test'),
-                          Icons.shop_rounded, onTap: showDevices),
-                        const SizedBox(width: 10),
-                        metric('Web • raqamli', linked('web'),
+                        metric('Web • brauzerlar',
+                          observed('web'),
                           Icons.language_rounded, onTap: showDevices),
+                        const SizedBox(width: 10),
+                        metric('Android APK • kirganlar',
+                          observed('android_apk'),
+                          Icons.android_rounded, onTap: showDevices),
                       ]),
-                      const Padding(padding: EdgeInsets.only(top: 8),
-                        child: Text('Raqamsiz o‘rnatishlar alohida saqlanadi. '
-                          'Bu raqamlar do‘kon yuklab olishlari emas. '
-                          'Batafsil uchun kartani bosing.',
-                          style: TextStyle(color: AppColors.muted, fontSize: 11))),
+                      if (observed('ios_other') > 0) ...[
+                        const SizedBox(height: 10),
+                        Row(children: [
+                          metric('Boshqa iOS versiyasi',
+                            observed('ios_other'),
+                            Icons.phone_iphone_rounded, onTap: showDevices),
+                          const SizedBox(width: 10),
+                          const Expanded(child: SizedBox.shrink()),
+                        ]),
+                      ],
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Text(
+                          'Bu sonlar ilovaga kirish yozuvlaridan hisoblanadi, '
+                          'rasmiy yuklab olishlar emas. Play Market/beta hamda '
+                          'App Store/TestFlight mavjud ma’lumotlarda birga hisoblangan. '
+                          'Do‘kon yuklamalari uchun Play Console yoki App Store Connect kerak.',
+                          style: TextStyle(color: AppColors.muted, fontSize: 11, height: 1.35),
+                        ),
+                      ),
                     ]);
                   }
                   return Column(
@@ -9126,7 +9163,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  metric('Jami mijozlar', stats['total_users'] ?? 0, Icons.groups_rounded, onTap: () => showPeople('Jami mijozlar', (_) => true)),
+                  metric(kIsWeb ? 'Ro‘yxatdan o‘tganlar' : 'Jami mijozlar', stats['total_users'] ?? 0, Icons.groups_rounded, onTap: () => showPeople('Ro‘yxatdan o‘tganlar', (_) => true)),
                   const SizedBox(width: 10),
                   metric('Bugun qo‘shildi', stats['new_today'] ?? 0, Icons.person_add_alt_1_rounded, onTap: () => showPeople('Bugun qo‘shilganlar', (p) => sameDay(localDate(p['created_at']), now))),
                 ],
@@ -9207,6 +9244,14 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                 ),
               ),
               const SizedBox(height: 16),
+              if (kIsWeb) ...[
+                AppSectionHeader(
+                  title: 'Ism va telefon kiritganlar — ${all.length} ta',
+                  subtitle: 'Bitta telefon raqami ro‘yxatda faqat bir marta. Quyida mijozlarning ismi va telefon raqami ko‘rsatiladi.',
+                  icon: Icons.perm_contact_calendar_outlined,
+                ),
+                const SizedBox(height: 12),
+              ],
               AppSurface(
                 padding: const EdgeInsets.all(10),
                 child: Wrap(

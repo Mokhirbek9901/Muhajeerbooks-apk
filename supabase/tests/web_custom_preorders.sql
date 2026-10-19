@@ -20,7 +20,7 @@ begin
       perform public.web_preorder_submit(payload);
       raise exception 'TEST FAILED: closed reception accepted';
     exception when others then
-      if sqlerrm not like 'Oldindan buyurtma qabuli yopiq.%' then raise; end if;
+      if sqlerrm not like 'Bu kitob uchun oldindan buyurtma qabuli hozircha yopiq.%' then raise; end if;
     end;
     update public.web_preorder_settings set enabled=true,deposit_amount=5000;
     begin
@@ -33,7 +33,7 @@ begin
       perform public.web_preorder_submit(payload||'{"deposit_amount":1}');
       raise exception 'TEST FAILED: tampered deposit accepted';
     exception when others then
-      if sqlerrm not like 'Sana yoki avans o‘zgargan.%' then raise; end if;
+      if sqlerrm <> 'Avans summasini tekshiring.' then raise; end if;
     end;
     begin
       perform public.web_preorder_submit(payload||'{"payment_proof_path":"invalid"}');

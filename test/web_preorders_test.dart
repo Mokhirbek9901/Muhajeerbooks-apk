@@ -157,6 +157,8 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: WebPreorderAdminPage(secret: 'test', api: api)));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('Qabul qilish'), 300, scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(find.text('Qabul qilish'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Qabul qilish'));
     await tester.pumpAndSettle();
     expect(api.statusCalls, 0);
@@ -175,6 +177,8 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: WebPreorderAdminPage(secret: 'test', api: api)));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('Bekor qilish'), 300, scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(find.text('Bekor qilish'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Bekor qilish'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Tasdiqlash'));

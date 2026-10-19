@@ -842,12 +842,12 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
       if (result is! Map || result['status'] != status) throw StateError('Holat tasdiqlanmadi. Yangilab tekshiring.');
       final updated = await api.admin(widget.secret, 'list');
       if (!mounted) return;
-      setState(() => requests = Future.value(updated));
+      setState(() { requests = Future.value(updated); });
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
         result['inbox_created'] == true ? 'Holat saqlandi. Mijozning bildirishnomalariga xabar yozildi.' : 'Holat saqlandi.')));
     } catch (e) {
       if (mounted) {
-        setState(() => requests = api.admin(widget.secret, 'list'));
+        setState(() { requests = api.admin(widget.secret, 'list'); });
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
       }
     } finally {

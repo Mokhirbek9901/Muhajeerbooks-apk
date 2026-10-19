@@ -8944,7 +8944,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                   subtitle: Text(
                     isPlay
                         ? '11-oktabrdan yangi ID: $newIds ta'
-                          '\nOldingi beta/sinov davridagi ID: ${totalIds - newIds} ta'
+                          '\n11-oktabrdan oldingi ID: ${totalIds - newIds} ta'
                           '\nBarcha tarixiy IDlar: $totalIds ta'
                         : 'Telefon raqamiga bog‘langan: ${n(key, 'linked_unique_phones')} ta'
                           '\nRaqamsiz ID: ${n(key, 'unlinked_installation_ids')} ta'
@@ -8971,7 +8971,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                         children: [
                           Text('${((d['linked_unique_phones'] as num?)?.toInt() ?? 0) + ((d['unlinked_installation_ids'] as num?)?.toInt() ?? 0)}',
                             style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900)),
-                          const Text('Bazada saqlangan IDlar (telefon + raqamsiz ID)'),
+                          const Text('Hisoblar va anonim IDlar (qurilmalar soni emas)'),
                           const SizedBox(height: 8),
                           Text(
                             'Raqamga bog‘langan ${d['linked_unique_phones'] ?? 0} ta kishi '
@@ -8991,7 +8991,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                     const Divider(),
                     const Text(
                       'Ilovaga kirishlar identifikatorlar orqali qayd etiladi. '
-                      'Play kartasi 11-oktabrdan yaratilgan yangi IDlarni ajratadi. '
+                      'Sana bo‘yicha ajratish test yoki haqiqiy mijozni tasdiqlamaydi. '
                       'Bu Google Play haqiqiy yuklab olish soni emas. '
                       'App Store va TestFlight, Play Market va beta '
                       'versiyalarini ushbu bazadan aniq ajratib bo‘lmaydi. '
@@ -9071,6 +9071,15 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
               FutureBuilder<Map<String, dynamic>>(
                 future: _deviceFuture ??= widget.api.deviceAnalytics().timeout(const Duration(seconds: 8)),
                 builder: (context, deviceSnap) {
+                  if (kIsWeb && (deviceSnap.hasError ||
+                      deviceSnap.data?['platforms'] is! Map)) {
+                    return AppSurface(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(deviceSnap.hasError
+                          ? 'Statistikani yuklab bo‘lmadi. Sahifani yangilang.'
+                          : 'Statistika yuklanmoqda…'),
+                    );
+                  }
                   final d = deviceSnap.data ?? const <String, dynamic>{};
                   final androidApk = d['android_apk'] ?? 0;
                   final ios = d['ios'] ?? 0;
@@ -9082,23 +9091,17 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                     int observed(String key) {
                       final entry = sources[key];
                       if (entry is! Map) return 0;
-                      // A known phone is counted only once within this source.
-                      // Anonymous visits have only a persistent installation/browser ID.
+                      // Only linked accounts can be deduplicated reliably.
+                      // Anonymous IDs remain in the detail sheet, never in customer totals.
                       final known = (entry['linked_unique_phones'] as num?)?.toInt() ?? 0;
-                      final anonymous = (entry['unlinked_installation_ids'] as num?)?.toInt() ?? 0;
-                      return known + anonymous;
+                      return known;
                     }
                     final uniqueKnown = (d['linked_unique_phones'] as num?)?.toInt() ?? 0;
                     final anonymousIds = (d['unlinked_installation_ids'] as num?)?.toInt() ?? 0;
-                    final allObserved = uniqueKnown + anonymousIds;
-                    final playEntry = sources['play_market_or_test'];
-                    final playAfterLaunch = playEntry is Map
-                        ? (playEntry['new_ids_since_play_launch'] as num?)?.toInt() ?? 0
-                        : 0;
                     return Column(children: [
                       Row(children: [
-                        metric('Kuzatilgan IDlar (taxminiy)',
-                          allObserved, Icons.devices_rounded, onTap: showDevices),
+                        metric('Ilovaga kirganlar • unikal raqam',
+                          uniqueKnown, Icons.people_outline_rounded, onTap: showDevices),
                         const SizedBox(width: 10),
                         metric('Ism va raqam kiritganlar',
                           all.length, Icons.verified_user_outlined,
@@ -9106,29 +9109,28 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                       ]),
                       const SizedBox(height: 8),
                       const Text(
-                        'Bir telefon raqami bir marta sanaladi. Raqam kiritmaganlar '
-                        'brauzer yoki ilovaning saqlangan identifikatori bo‘yicha hisoblanadi. '
-                        'Identifikator qayta yaratilsa, bir odam qayta sanalishi mumkin. '
-                        'Play sonlari rasmiy do‘kon o‘rnatishlari emas.',
+                        'Bir telefon raqami bir marta sanaladi. '
+                        'Raqamsiz $anonymousIds ta tarixiy ID mijozlar soniga qo‘shilmaydi. '
+                        'Qurilmalar va rasmiy yuklab olishlar soni mavjud ma’lumotdan aniqlanmaydi.',
                         style: TextStyle(color: AppColors.muted, fontSize: 11.5, height: 1.4),
                       ),
                       const SizedBox(height: 12),
                       Row(children: [
-                        metric('App Store / TestFlight • IDlar',
+                        metric('App Store / TestFlight • unikal raqam',
                           observed('app_store_or_testflight'),
                           Icons.phone_iphone_rounded, onTap: showDevices),
                         const SizedBox(width: 10),
-                        metric('Play / beta • 11-oktabrdan yangi ID',
-                          playAfterLaunch,
+                        metric('Play / beta • unikal raqam',
+                          observed('play_market_or_test'),
                           Icons.shop_rounded, onTap: showDevices),
                       ]),
                       const SizedBox(height: 10),
                       Row(children: [
-                        metric('Web • brauzer IDlari',
+                        metric('Web • unikal raqam',
                           observed('web'),
                           Icons.language_rounded, onTap: showDevices),
                         const SizedBox(width: 10),
-                        metric('Android APK • IDlar',
+                        metric('Android APK • unikal raqam',
                           observed('android_apk'),
                           Icons.android_rounded, onTap: showDevices),
                       ]),
@@ -9145,11 +9147,11 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                       const Padding(
                         padding: EdgeInsets.only(top: 8),
                         child: Text(
-                          'Play kartasida 11-oktabrdan keyin yangi paydo bo‘lgan '
-                          'IDlar ko‘rsatiladi. Avvalgi beta/test IDlari asosiy '
-                          'ko‘rsatkichga qo‘shilmaydi. Bir ID bir marta sanaladi, '
-                          'ammo ID qayta yaratilsa bitta odam qayta sanalishi mumkin. '
-                          'Bu rasmiy yuklab olish emas; aniq son Play Console’da.',
+                          'Har bir manbada telefon raqami takrorlanmaydi. Bir kishi '
+                          'bir nechta manbadan foydalansa, tegishli kartalarda ko‘rinadi; '
+                          'umumiy hisobda bir marta sanaladi. Anonim IDlar tafsilotda alohida. '
+                          'Play/beta va App Store/TestFlight eski yozuvlarda birga saqlangan. '
+                          'Rasmiy yuklab olishlar: Play Console va App Store Connect.',
                           style: TextStyle(color: AppColors.muted, fontSize: 11, height: 1.35),
                         ),
                       ),

@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
       const ext = jpeg ? "jpg" : png ? "png" : "webp", contentType = jpeg ? "image/jpeg" : png ? "image/png" : "image/webp";
       const path = `${p.id}/${p.kind}-${hash}.${ext}`;
       const uploaded = await db.storage.from(bucket).upload(path, bytes, { contentType, upsert: false });
-      if (uploaded.error && !["409", "Duplicate"].includes(String(uploaded.error.statusCode)) && !uploaded.error.message.toLowerCase().includes("already exists")) throw new Error("Rasm yuklanmadi. Qayta urining.");
+      if (uploaded.error && !uploaded.error.message.toLowerCase().includes("already exists")) throw new Error("Rasm yuklanmadi. Qayta urining.");
       return reply(200, { ok: true, data: { path } });
     }
     if (body.action === "submit") {

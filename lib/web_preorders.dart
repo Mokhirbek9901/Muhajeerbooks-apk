@@ -148,36 +148,42 @@ class _WebPreorderCatalogCardState extends State<WebPreorderCatalogCard> {
                   border: Border.all(color: const Color(0xFFD5B66A), width: 2),
                 ),
                 padding: const EdgeInsets.all(12),
-                child: const Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.auto_stories_rounded,
-                      color: Color(0xFFF0D78B),
-                      size: 38,
+                child: const FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: SizedBox(
+                    width: 150,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.auto_stories_rounded,
+                          color: Color(0xFFF0D78B),
+                          size: 38,
+                        ),
+                        SizedBox(height: 14),
+                        Text(
+                          'Oldindan\nbuyurtma',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 21,
+                            fontWeight: FontWeight.w900,
+                            height: 1.15,
+                          ),
+                        ),
+                        SizedBox(height: 12),
+                        Text(
+                          'MUHAJEER BOOKS',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Color(0xFFF0D78B),
+                            fontSize: 10,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ],
                     ),
-                    SizedBox(height: 14),
-                    Text(
-                      'Oldindan\nbuyurtma',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 21,
-                        fontWeight: FontWeight.w900,
-                        height: 1.15,
-                      ),
-                    ),
-                    SizedBox(height: 12),
-                    Text(
-                      'MUHAJEER BOOKS',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Color(0xFFF0D78B),
-                        fontSize: 10,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -187,8 +193,8 @@ class _WebPreorderCatalogCardState extends State<WebPreorderCatalogCard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Kitob nomi va rasmini yuboring',
-                    maxLines: 2,
+                    'Kitob so‘rovi',
+                    maxLines: 1,
                     style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
                   ),
                   const SizedBox(height: 5),
@@ -207,6 +213,8 @@ class _WebPreorderCatalogCardState extends State<WebPreorderCatalogCard> {
                     const SizedBox(height: 4),
                     Text(
                       'Avans: ${webPreorderMoney(config!.deposit)} / dona',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: AppColors.success,
                         fontWeight: FontWeight.w800,

@@ -28,6 +28,7 @@ import 'push_notifications.dart';
 import 'native_admin_push.dart';
 import 'uzbek_customer_style.dart';
 import 'web_admin_upgrades.dart';
+import 'web_preorders.dart';
 
 const _navy = Color(0xFF10213D);
 const _orange = Color(0xFFFF8A00);
@@ -2141,6 +2142,16 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                 orders: orders,
                 openTab: (value) => widget.onOpenTab?.call(value),
               ),
+              const SizedBox(height: 10),
+              Card(child: ListTile(
+                leading: const Icon(Icons.event_available_outlined, color: AppColors.success),
+                title: const Text('Oldindan buyurtma • Sozlamalar',
+                  style: TextStyle(fontWeight: FontWeight.w900)),
+                subtitle: const Text('Qabulni yoqish/o‘chirish • kelish sanasi • avans • mijoz so‘rovlari'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => WebPreorderAdminPage(secret: widget.api.secret))),
+              )),
               const SizedBox(height: 10),
               Card(child: ListTile(
                 leading: const Icon(Icons.calculate_outlined,

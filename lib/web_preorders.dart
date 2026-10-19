@@ -1,0 +1,1032 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image/image.dart' as img;
+import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'app_state.dart';
+import 'design_system.dart';
+
+String webPreorderMoney(int amount) =>
+    '₩${NumberFormat('#,###').format(amount)}';
+
+class WebPreorderConfig {
+  const WebPreorderConfig({
+    this.enabled = false,
+    this.arrival = '',
+    this.deposit = 5000,
+    this.batchQuantity = 0,
+    this.revision = 1,
+  });
+  factory WebPreorderConfig.fromMap(Map<String, dynamic> data) =>
+      WebPreorderConfig(
+        enabled: data['enabled'] == true,
+        arrival: (data['arrival_note'] ?? '').toString(),
+        deposit: (data['deposit_amount'] as num?)?.toInt() ?? 5000,
+        batchQuantity: (data['batch_quantity'] as num?)?.toInt() ?? 0,
+        revision: (data['revision'] as num?)?.toInt() ?? 1,
+      );
+  final bool enabled;
+  final String arrival;
+  final int deposit, batchQuantity, revision;
+  bool get accepting => enabled && arrival.trim().isNotEmpty && deposit >= 5000;
+  int total(int quantity) => deposit * quantity;
+}
+
+class WebPreorderApi {
+  Future<dynamic> call(
+    String action, [
+    Map<String, dynamic> params = const {},
+  ]) async {
+    final response = await Supabase.instance.client.functions
+        .invoke('web-preorders', body: {'action': action, 'params': params})
+        .timeout(const Duration(seconds: 40));
+    final raw = response.data is String
+        ? jsonDecode(response.data as String)
+        : response.data;
+    if (raw is! Map || raw['ok'] != true) {
+      throw StateError(
+        raw is Map
+            ? '${raw['error'] ?? 'So‘rov bajarilmadi.'}'
+            : 'Server javobi olinmadi.',
+      );
+    }
+    return raw['data'];
+  }
+
+  Future<WebPreorderConfig> config() async => WebPreorderConfig.fromMap(
+    Map<String, dynamic>.from(await call('config') as Map),
+  );
+  Future<dynamic> admin(
+    String secret,
+    String action, [
+    Map<String, dynamic> data = const {},
+  ]) => call('admin', {
+    'p_secret': secret,
+    'p_action': action,
+    'p_payload': data,
+  });
+  Future<String> upload(
+    String id,
+    String kind,
+    Uint8List bytes,
+    int revision,
+  ) async {
+    final data = await call('upload', {
+      'id': id,
+      'kind': kind,
+      'data_base64': base64Encode(bytes),
+      'revision': revision,
+    });
+    return (data as Map)['path'].toString();
+  }
+}
+
+class WebPreorderCatalogCard extends StatefulWidget {
+  const WebPreorderCatalogCard({super.key, this.api});
+  final WebPreorderApi? api;
+  @override
+  State<WebPreorderCatalogCard> createState() => _WebPreorderCatalogCardState();
+}
+
+class _WebPreorderCatalogCardState extends State<WebPreorderCatalogCard> {
+  late final api = widget.api ?? WebPreorderApi();
+  WebPreorderConfig? config;
+  Timer? timer;
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    timer = Timer.periodic(const Duration(seconds: 60), (_) => _load());
+  }
+
+  Future<void> _load() async {
+    try {
+      final c = await api.config();
+      if (mounted) setState(() => config = c);
+    } catch (_) {
+      if (mounted) setState(() => config = null);
+    }
+  }
+
+  @override
+  void dispose() {
+    timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: 'Oldindan buyurtma',
+    child: Card(
+      clipBehavior: Clip.antiAlias,
+      margin: EdgeInsets.zero,
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            settings: const RouteSettings(name: 'mb:web-preorder'),
+            builder: (_) => WebPreorderPage(api: api),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF075E54),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFD5B66A), width: 2),
+                ),
+                padding: const EdgeInsets.all(12),
+                child: const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.auto_stories_rounded,
+                      color: Color(0xFFF0D78B),
+                      size: 38,
+                    ),
+                    SizedBox(height: 14),
+                    Text(
+                      'Oldindan\nbuyurtma',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 21,
+                        fontWeight: FontWeight.w900,
+                        height: 1.15,
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    Text(
+                      'MUHAJEER BOOKS',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Color(0xFFF0D78B),
+                        fontSize: 10,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 2, 10, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Kitob nomi va rasmini yuboring',
+                    maxLines: 2,
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    config?.accepting == true
+                        ? 'Kelishi: ${config!.arrival}'
+                        : 'Qabul hozircha yopiq',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 12,
+                    ),
+                  ),
+                  if (config?.accepting == true) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Avans: ${webPreorderMoney(config!.deposit)} / dona',
+                      style: const TextStyle(
+                        color: AppColors.success,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class WebPreorderPage extends StatefulWidget {
+  const WebPreorderPage({super.key, this.api});
+  final WebPreorderApi? api;
+  @override
+  State<WebPreorderPage> createState() => _WebPreorderPageState();
+}
+
+class _WebPreorderPageState extends State<WebPreorderPage> {
+  late final api = widget.api ?? WebPreorderApi();
+  final form = GlobalKey<FormState>();
+  final title = TextEditingController(),
+      name = TextEditingController(),
+      phone = TextEditingController();
+  late final String id;
+  WebPreorderConfig? config;
+  Uint8List? bookImage, proofImage;
+  String? bookPath, proofPath, error;
+  int quantity = 1;
+  bool loading = true, payment = false, saving = false;
+  @override
+  void initState() {
+    super.initState();
+    final bytes = List.generate(16, (_) => Random.secure().nextInt(256));
+    bytes[6] = (bytes[6] & 15) | 64;
+    bytes[8] = (bytes[8] & 63) | 128;
+    final hex = bytes.map((v) => v.toRadixString(16).padLeft(2, '0')).join();
+    id =
+        '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
+    final saved = context.read<AppState>().savedCustomer;
+    name.text = saved['name'] ?? '';
+    phone.text = saved['phone'] ?? '';
+    _reload();
+  }
+
+  @override
+  void dispose() {
+    title.dispose();
+    name.dispose();
+    phone.dispose();
+    super.dispose();
+  }
+
+  Future<void> _reload() async {
+    try {
+      final next = await api.config();
+      if (mounted)
+        setState(() {
+          if (config?.revision != next.revision) payment = false;
+          config = next;
+          error = null;
+          loading = false;
+        });
+    } catch (_) {
+      if (mounted)
+        setState(() {
+          error = 'Shartlarni yuklab bo‘lmadi. Qayta urining.';
+          config = null;
+          loading = false;
+          payment = false;
+        });
+    }
+  }
+
+  void _message(String text) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  Future<void> _pick(bool receipt) async {
+    try {
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        maxHeight: 2000,
+        imageQuality: 85,
+      );
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      if (bytes.length > 8 * 1024 * 1024) {
+        if (mounted) _message('8 MB dan kichikroq rasm tanlang.');
+        return;
+      }
+      final decoded = img.decodeImage(bytes);
+      if (decoded == null) {
+        if (mounted) _message('JPG, PNG yoki WebP rasm tanlang.');
+        return;
+      }
+      final encoded = Uint8List.fromList(
+        img.encodeJpg(img.bakeOrientation(decoded), quality: 85),
+      );
+      if (encoded.length > 2097152) {
+        if (mounted) _message('Rasmni kichraytirib, qayta tanlang (2 MB).');
+        return;
+      }
+      if (mounted)
+        setState(() {
+          if (receipt) {
+            proofImage = encoded;
+            proofPath = null;
+          } else {
+            bookImage = encoded;
+            bookPath = null;
+          }
+        });
+    } catch (_) {
+      if (mounted) _message('Rasmni tanlab bo‘lmadi. Qayta urining.');
+    }
+  }
+
+  Future<bool> _checkCurrent() async {
+    final old = config;
+    await _reload();
+    if (!mounted || config?.accepting != true) return false;
+    if (old?.revision != config!.revision) {
+      _message(
+        'Kelish sanasi yoki avans yangilandi. Shartlarni qayta ko‘rib chiqing.',
+      );
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _continue() async {
+    if (!form.currentState!.validate()) return;
+    if (bookImage == null) {
+      _message('Kitob rasmini tanlang.');
+      return;
+    }
+    setState(() => saving = true);
+    try {
+      if (await _checkCurrent() && mounted) setState(() => payment = true);
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  Future<void> _submit() async {
+    if (saving || !form.currentState!.validate()) return;
+    if (proofImage == null) {
+      _message('Avans to‘lovi chekini yuklang.');
+      return;
+    }
+    setState(() => saving = true);
+    try {
+      if (!await _checkCurrent()) return;
+      final c = config!;
+      bookPath ??= await api.upload(id, 'book', bookImage!, c.revision);
+      proofPath ??= await api.upload(id, 'proof', proofImage!, c.revision);
+      await api.call('submit', {
+        'p_request': {
+          'id': id,
+          'customer_name': name.text.trim(),
+          'phone': phone.text.trim(),
+          'book_title': title.text.trim(),
+          'quantity': quantity,
+          'book_image_path': bookPath,
+          'payment_proof_path': proofPath,
+          'deposit_amount': c.total(quantity),
+          'revision': c.revision,
+        },
+      });
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Oldindan buyurtma qabul qilindi'),
+          content: Text(
+            'Buyurtma: ${id.substring(0, 8)}\nAvans cheki administrator tomonidan tekshiriladi.\nTaxminiy kelishi: ${c.arrival}',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Tushunarli'),
+            ),
+          ],
+        ),
+      );
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) _message(e.toString().replaceFirst('Bad state: ', ''));
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = config;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Oldindan buyurtma')),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 640),
+          child: loading
+              ? const Center(child: CircularProgressIndicator())
+              : Form(
+                  key: form,
+                  child: ListView(
+                    padding: const EdgeInsets.all(18),
+                    children: [
+                      AppSurface(
+                        backgroundColor: const Color(0xFFE5F3ED),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Taxminiy kelish sanasi',
+                              style: TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              c?.arrival.isNotEmpty == true
+                                  ? c!.arrival
+                                  : 'Hali belgilanmagan',
+                              style: const TextStyle(
+                                fontSize: 23,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            if (c != null && c.batchQuantity > 0)
+                              Text('Partiyada keladi: ${c.batchQuantity} ta'),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Kitobni shu muddatga qarab buyurtma qiling. Kelish sanasi taxminiy.',
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      if (error != null || c?.accepting != true) ...[
+                        Text(
+                          error ?? 'Oldindan buyurtma qabuli hozircha yopiq. Avans yubormang.',
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: _reload,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Yangilash'),
+                        ),
+                      ] else ...[
+                        Text(
+                          'Avans: ${webPreorderMoney(c!.deposit)} / dona',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const Text(
+                          'Yakuniy narx kitob kelganda aniqlanadi. Avans yakuniy to‘lovdan ayriladi.',
+                        ),
+                        const SizedBox(height: 18),
+                        TextFormField(
+                          controller: title,
+                          readOnly: payment || saving,
+                          decoration: const InputDecoration(
+                            labelText: 'Kitob nomi',
+                          ),
+                          maxLength: 160,
+                          validator: (v) => (v ?? '').trim().length < 2
+                              ? 'Kitob nomini kiriting'
+                              : null,
+                        ),
+                        if (bookImage != null)
+                          SizedBox(
+                            height: 160,
+                            child: Image.memory(
+                              bookImage!,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        if (!payment)
+                          OutlinedButton.icon(
+                            onPressed: saving ? null : () => _pick(false),
+                            icon: const Icon(
+                              Icons.add_photo_alternate_outlined,
+                            ),
+                            label: Text(
+                              bookImage == null
+                                  ? 'Kitob rasmini yuklash'
+                                  : 'Rasmni almashtirish',
+                            ),
+                          ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: name,
+                          readOnly: payment || saving,
+                          maxLength: 80,
+                          decoration: const InputDecoration(
+                            labelText: 'Ismingiz',
+                          ),
+                          validator: (v) => (v ?? '').trim().length < 2
+                              ? 'Ismingizni kiriting'
+                              : null,
+                        ),
+                        TextFormField(
+                          controller: phone,
+                          readOnly: payment || saving,
+                          keyboardType: TextInputType.phone,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(11),
+                          ],
+                          decoration: const InputDecoration(
+                            labelText: 'Telefon raqam',
+                            hintText: '01012345678',
+                          ),
+                          validator: (v) =>
+                              RegExp(r'^010\d{8}$').hasMatch(v ?? '')
+                              ? null
+                              : '010 bilan boshlanuvchi 11 ta raqam kiriting',
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            const Expanded(child: Text('Miqdor')),
+                            IconButton(
+                              onPressed: quantity <= 1 || payment || saving
+                                  ? null
+                                  : () => setState(() => quantity--),
+                              icon: const Icon(Icons.remove_circle_outline),
+                            ),
+                            Text(
+                              '$quantity',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 20,
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: quantity >= 20 || payment || saving
+                                  ? null
+                                  : () => setState(() => quantity++),
+                              icon: const Icon(Icons.add_circle_outline),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          'Jami avans: ${webPreorderMoney(c.total(quantity))}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 22,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        if (!payment)
+                          FilledButton(
+                            onPressed: saving ? null : _continue,
+                            child: Text(
+                              saving
+                                  ? 'Tekshirilmoqda…'
+                                  : 'Shartlarni ko‘rdim — to‘lovga o‘tish',
+                            ),
+                          )
+                        else ...[
+                          AppSurface(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Bank o‘tkazmasi',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                                const Text(
+                                  '${AppState.bankName}\n${AppState.bankOwner}',
+                                ),
+                                Row(
+                                  children: [
+                                    const Expanded(
+                                      child: SelectableText(
+                                        AppState.bankAccount,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Hisob raqamini nusxalash',
+                                      icon: const Icon(Icons.copy),
+                                      onPressed: () async {
+                                        await Clipboard.setData(
+                                          const ClipboardData(
+                                            text: AppState.bankAccount,
+                                          ),
+                                        );
+                                        if (mounted)
+                                          _message('Hisob raqami nusxalandi');
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                Text(
+                                  'O‘tkaziladigan summa: ${webPreorderMoney(c.total(quantity))}',
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          if (proofImage != null)
+                            SizedBox(
+                              height: 150,
+                              child: Image.memory(
+                                proofImage!,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                          OutlinedButton.icon(
+                            onPressed: saving ? null : () => _pick(true),
+                            icon: const Icon(Icons.receipt_long_outlined),
+                            label: Text(
+                              proofImage == null
+                                  ? 'Avans chekini yuklash'
+                                  : 'Chekni almashtirish',
+                            ),
+                          ),
+                          FilledButton(
+                            onPressed: saving ? null : _submit,
+                            child: Text(
+                              saving
+                                  ? 'Yuborilmoqda…'
+                                  : 'Avans yubordim — buyurtma berish',
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: saving
+                                ? null
+                                : () => setState(() => payment = false),
+                            child: const Text('Ma’lumotlarni tahrirlash'),
+                          ),
+                        ],
+                      ],
+                    ],
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+class WebPreorderAdminPage extends StatefulWidget {
+  const WebPreorderAdminPage({super.key, required this.secret, this.api});
+  final String secret;
+  final WebPreorderApi? api;
+  @override
+  State<WebPreorderAdminPage> createState() => _WebPreorderAdminPageState();
+}
+
+class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
+  late final api = widget.api ?? WebPreorderApi();
+  final form = GlobalKey<FormState>();
+  final arrival = TextEditingController(),
+      deposit = TextEditingController(),
+      batch = TextEditingController();
+  WebPreorderConfig? config;
+  Future<dynamic>? requests;
+  String? error;
+  bool enabled = false, saving = false;
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    arrival.dispose();
+    deposit.dispose();
+    batch.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final raw = await api.admin(widget.secret, 'settings');
+      final c = WebPreorderConfig.fromMap(
+        Map<String, dynamic>.from(raw as Map),
+      );
+      if (!mounted) return;
+      setState(() {
+        config = c;
+        enabled = c.enabled;
+        arrival.text = c.arrival;
+        deposit.text = '${c.deposit}';
+        batch.text = '${c.batchQuantity}';
+        error = null;
+        requests = api.admin(widget.secret, 'list');
+      });
+    } catch (e) {
+      if (mounted) setState(() => error = '$e');
+    }
+  }
+
+  Future<void> _save() async {
+    if (saving || !form.currentState!.validate()) return;
+    setState(() => saving = true);
+    try {
+      await api.admin(widget.secret, 'save', {
+        'enabled': enabled,
+        'arrival_note': arrival.text.trim(),
+        'deposit_amount': int.parse(deposit.text),
+        'batch_quantity': int.parse(batch.text),
+        'revision': config!.revision,
+      });
+      await _load();
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Oldindan buyurtma sozlamalari saqlandi.'),
+          ),
+        );
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  Future<void> _date() async {
+    final now = DateTime.now();
+    final value = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: DateTime(now.year + 3),
+    );
+    if (value != null) arrival.text = DateFormat('yyyy.MM.dd').format(value);
+  }
+
+  Future<void> _status(String id, String status) async {
+    try {
+      await api.admin(widget.secret, 'status', {'id': id, 'status': status});
+      if (mounted) setState(() => requests = api.admin(widget.secret, 'list'));
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  void _view(String url) {
+    if (url.isEmpty) return;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog(
+        child: SizedBox(
+          width: 700,
+          height: MediaQuery.sizeOf(ctx).height * .8,
+          child: Column(
+            children: [
+              Align(
+                alignment: Alignment.centerRight,
+                child: IconButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  icon: const Icon(Icons.close),
+                ),
+              ),
+              Expanded(
+                child: InteractiveViewer(
+                  child: Image.network(
+                    url,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Text(
+                      'Rasmni yangilash uchun ro‘yxatni qayta yuklang.',
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: const Text('Oldindan buyurtma • Sozlamalar'),
+      actions: [
+        IconButton(
+          onPressed: saving ? null : _load,
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
+    ),
+    body: Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 820),
+        child: config == null
+            ? Center(
+                child: error == null
+                    ? const CircularProgressIndicator()
+                    : Text(error!),
+              )
+            : Form(
+                key: form,
+                child: ListView(
+                  padding: const EdgeInsets.all(18),
+                  children: [
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Oldindan buyurtma qabul qilish'),
+                      subtitle: const Text(
+                        'O‘chirilsa yangi buyurtma va rasm yuklash serverda ham to‘xtaydi.',
+                      ),
+                      value: enabled,
+                      onChanged: saving
+                          ? null
+                          : (v) => setState(() => enabled = v),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: arrival,
+                      maxLength: 200,
+                      readOnly: saving,
+                      decoration: InputDecoration(
+                        labelText: 'Taxminiy kelish sanasi yoki muddati',
+                        hintText: 'Masalan: 5-noyabr yoki 10–14 kun',
+                        suffixIcon: IconButton(
+                          onPressed: saving ? null : _date,
+                          icon: const Icon(Icons.calendar_month_outlined),
+                        ),
+                        helperText: 'Mijoz bu ma’lumotni avans to‘lashdan oldin ko‘radi.',
+                      ),
+                      validator: (v) => enabled && (v ?? '').trim().isEmpty
+                          ? 'Qabulni ochishdan oldin sanani kiriting'
+                          : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: deposit,
+                      readOnly: saving,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: const InputDecoration(
+                        labelText: 'Bir kitob uchun avans (₩)',
+                        helperText:
+                            'Kamida ₩5 000; summani o‘zingiz belgilang.',
+                      ),
+                      validator: (v) {
+                        final n = int.tryParse(v ?? '') ?? 0;
+                        return n < 5000 || n > 10000000
+                            ? '₩5 000–₩10 000 000 oralig‘ida kiriting'
+                            : null;
+                      },
+                    ),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        for (final amount in [5000, 10000])
+                          ActionChip(
+                            label: Text(webPreorderMoney(amount)),
+                            onPressed: saving
+                                ? null
+                                : () => deposit.text = '$amount',
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: batch,
+                      readOnly: saving,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: const InputDecoration(
+                        labelText: 'Partiyada keladigan kitoblar soni',
+                        helperText: '0 bo‘lsa son mijozga ko‘rsatilmaydi.',
+                      ),
+                      validator: (v) {
+                        final n = int.tryParse(v ?? '') ?? -1;
+                        return n < 0 || n > 100000 ? 'Sonni tekshiring' : null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: saving ? null : _save,
+                      icon: const Icon(Icons.save_outlined),
+                      label: Text(
+                        saving ? 'Saqlanmoqda…' : 'Sozlamalarni saqlash',
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    const Text(
+                      'Oldindan buyurtmalar',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 22,
+                      ),
+                    ),
+                    const Text(
+                      'Oxirgi 200 ta so‘rov. Chekni tekshirgandan keyin tasdiqlang.',
+                    ),
+                    const SizedBox(height: 12),
+                    FutureBuilder<dynamic>(
+                      future: requests,
+                      builder: (ctx, snap) {
+                        if (snap.hasError)
+                          return const Text(
+                            'Buyurtmalar yuklanmadi. Yangilash tugmasini bosing.',
+                          );
+                        if (!snap.hasData)
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        final rows = (snap.data as List)
+                            .whereType<Map>()
+                            .toList();
+                        if (rows.isEmpty)
+                          return const AppSurface(
+                            child: Text('Hozircha oldindan buyurtma yo‘q.'),
+                          );
+                        const labels = {
+                          'waiting': 'Chek tekshirilmoqda',
+                          'accepted': 'Qabul qilindi',
+                          'arrived': 'Keldi',
+                          'cancelled': 'Bekor qilindi',
+                        };
+                        return Column(
+                          children: rows
+                              .map(
+                                (r) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 14),
+                                  child: AppSurface(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${r['book_title']} • ${r['quantity']} dona',
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                        ),
+                                        SelectableText(
+                                          '${r['customer_name']}\n${r['phone']}',
+                                        ),
+                                        Text(
+                                          'Avans: ${webPreorderMoney((r['deposit_amount'] as num).toInt())}',
+                                        ),
+                                        Text(
+                                          'Kelish muddati: ${r['arrival_note']}',
+                                        ),
+                                        Text(
+                                          'Holat: ${labels[r['status']] ?? r['status']}',
+                                        ),
+                                        Text(
+                                          'Buyurtma: ${r['id'].toString().substring(0, 8)}',
+                                        ),
+                                        Wrap(
+                                          spacing: 8,
+                                          children: [
+                                            OutlinedButton.icon(
+                                              onPressed: () => _view(
+                                                '${r['book_image_url'] ?? ''}',
+                                              ),
+                                              icon: const Icon(
+                                                Icons.menu_book_outlined,
+                                              ),
+                                              label: const Text('Kitob rasmi'),
+                                            ),
+                                            OutlinedButton.icon(
+                                              onPressed: () => _view(
+                                                '${r['payment_proof_url'] ?? ''}',
+                                              ),
+                                              icon: const Icon(
+                                                Icons.receipt_outlined,
+                                              ),
+                                              label: const Text('Avans cheki'),
+                                            ),
+                                            PopupMenuButton<String>(
+                                              onSelected: (v) =>
+                                                  _status('${r['id']}', v),
+                                              itemBuilder: (_) => labels.entries
+                                                  .map(
+                                                    (e) => PopupMenuItem(
+                                                      value: e.key,
+                                                      child: Text(e.value),
+                                                    ),
+                                                  )
+                                                  .toList(),
+                                              child: const Padding(
+                                                padding: EdgeInsets.all(12),
+                                                child: Text(
+                                                  'Holatni o‘zgartirish ▾',
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+      ),
+    ),
+  );
+}

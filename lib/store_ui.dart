@@ -28,6 +28,7 @@ import 'professional_access.dart';
 import 'remote_config.dart';
 import 'uzbek_customer_style.dart';
 import 'web_customer_upgrades.dart';
+import 'web_preorders.dart';
 
 const bool _playStoreCustomerBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
 const bool _appStoreCustomerBuild = bool.fromEnvironment('APP_STORE_BUILD');
@@ -2109,6 +2110,8 @@ class _HomePageState extends State<HomePage> {
     // Sets have their own "Setlar" page. Do not mix them into a sorted book
     // result, otherwise the visible order no longer matches the chosen filter.
     final catalogItems = <Object>[...books];
+    final showWebPreorderCard = kIsWeb && query.trim().isEmpty &&
+        category == 'Barchasi' && publisher == 'Barchasi';
 
     final catalogView = SafeArea(
       child: RefreshIndicator(
@@ -2460,7 +2463,7 @@ class _HomePageState extends State<HomePage> {
               const SliverFillRemaining(
                 child: Center(child: CircularProgressIndicator()),
               )
-            else if (catalogItems.isEmpty)
+            else if (catalogItems.isEmpty && !showWebPreorderCard)
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: Padding(
@@ -2497,7 +2500,10 @@ class _HomePageState extends State<HomePage> {
                     return SliverGrid(
                       delegate: SliverChildBuilderDelegate(
                         (context, i) {
-                          final item = catalogItems[i];
+                          if (showWebPreorderCard && i == 0) {
+                            return const WebPreorderCatalogCard(key: ValueKey('web-preorder-first-card'));
+                          }
+                          final item = catalogItems[i - (showWebPreorderCard ? 1 : 0)];
                           if (item is Book) {
                             return BookCard(
                               book: item,
@@ -2508,7 +2514,7 @@ class _HomePageState extends State<HomePage> {
                             bundle: Map<String, dynamic>.from(item as Map),
                           );
                         },
-                        childCount: catalogItems.length,
+                        childCount: catalogItems.length + (showWebPreorderCard ? 1 : 0),
                         addAutomaticKeepAlives: false,
                         addRepaintBoundaries: true,
                       ),

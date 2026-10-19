@@ -8935,15 +8935,24 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
               }
               int n(String key, String field) =>
                 (source(key)[field] as num?)?.toInt() ?? 0;
-              Widget sourceTile(String title, String key) => ListTile(
-                title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-                subtitle: Text(
-                  'Hisoblangan: ${n(key, 'linked_unique_phones') + n(key, 'unlinked_installation_ids')} ta'
-                  '\nTelefon bilan tasdiqlangan: ${n(key, 'linked_unique_phones')} ta'
-                  ' • Raqamsiz ID: ${n(key, 'unlinked_installation_ids')} ta',
-                ),
-                isThreeLine: true,
-              );
+              Widget sourceTile(String title, String key) {
+                final isPlay = key == 'play_market_or_test';
+                final totalIds = n(key, 'installation_ids');
+                final newIds = n(key, 'new_ids_since_play_launch');
+                return ListTile(
+                  title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+                  subtitle: Text(
+                    isPlay
+                        ? '11-oktabrdan yangi ID: $newIds ta'
+                          '\nOldingi beta/sinov davridagi ID: ${totalIds - newIds} ta'
+                          '\nBarcha tarixiy IDlar: $totalIds ta'
+                        : 'Telefon raqamiga bog‘langan: ${n(key, 'linked_unique_phones')} ta'
+                          '\nRaqamsiz ID: ${n(key, 'unlinked_installation_ids')} ta'
+                          ' • Jami ID: $totalIds ta',
+                  ),
+                  isThreeLine: true,
+                );
+              }
               return Column(children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 4, 10, 10),
@@ -8962,7 +8971,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                         children: [
                           Text('${((d['linked_unique_phones'] as num?)?.toInt() ?? 0) + ((d['unlinked_installation_ids'] as num?)?.toInt() ?? 0)}',
                             style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900)),
-                          const Text('Baholangan noyob kirishlar (telefon + noma’lum ID)'),
+                          const Text('Bazada saqlangan IDlar (telefon + raqamsiz ID)'),
                           const SizedBox(height: 8),
                           Text(
                             'Raqamga bog‘langan ${d['linked_unique_phones'] ?? 0} ta kishi '
@@ -8973,7 +8982,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                           ),
                         ])),
                     const SizedBox(height: 12),
-                    sourceTile('Play Market / beta', 'play_market_or_test'),
+                    sourceTile('Play / beta (tarixiy va yangi IDlar)', 'play_market_or_test'),
                     sourceTile('App Store / TestFlight', 'app_store_or_testflight'),
                     sourceTile('Web brauzer', 'web'),
                     sourceTile('Android APK', 'android_apk'),
@@ -8981,8 +8990,9 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                       sourceTile('Boshqa iOS build', 'ios_other'),
                     const Divider(),
                     const Text(
-                      'Bu dastur ichidagi ro‘yxatga olish qaydlari. '
-                      'Ular do‘konning haqiqiy yuklab olish soni emas. '
+                      'Ilovaga kirishlar identifikatorlar orqali qayd etiladi. '
+                      'Play kartasi 11-oktabrdan yaratilgan yangi IDlarni ajratadi. '
+                      'Bu Google Play haqiqiy yuklab olish soni emas. '
                       'App Store va TestFlight, Play Market va beta '
                       'versiyalarini ushbu bazadan aniq ajratib bo‘lmaydi. '
                       'Rasmiy raqamlarni Play Console va App Store Connect '
@@ -9081,9 +9091,13 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                     final uniqueKnown = (d['linked_unique_phones'] as num?)?.toInt() ?? 0;
                     final anonymousIds = (d['unlinked_installation_ids'] as num?)?.toInt() ?? 0;
                     final allObserved = uniqueKnown + anonymousIds;
+                    final playEntry = sources['play_market_or_test'];
+                    final playAfterLaunch = playEntry is Map
+                        ? (playEntry['new_ids_since_play_launch'] as num?)?.toInt() ?? 0
+                        : 0;
                     return Column(children: [
                       Row(children: [
-                        metric('Kuzatilgan foydalanuvchilar (taxminiy)',
+                        metric('Kuzatilgan IDlar (taxminiy)',
                           allObserved, Icons.devices_rounded, onTap: showDevices),
                         const SizedBox(width: 10),
                         metric('Ism va raqam kiritganlar',
@@ -9094,26 +9108,27 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                       const Text(
                         'Bir telefon raqami bir marta sanaladi. Raqam kiritmaganlar '
                         'brauzer yoki ilovaning saqlangan identifikatori bo‘yicha hisoblanadi. '
-                        'Identifikator qayta yaratilsa, bir odam qayta sanalishi mumkin.',
+                        'Identifikator qayta yaratilsa, bir odam qayta sanalishi mumkin. '
+                        'Play sonlari rasmiy do‘kon o‘rnatishlari emas.',
                         style: TextStyle(color: AppColors.muted, fontSize: 11.5, height: 1.4),
                       ),
                       const SizedBox(height: 12),
                       Row(children: [
-                        metric('App Store / TestFlight • kirganlar',
+                        metric('App Store / TestFlight • IDlar',
                           observed('app_store_or_testflight'),
                           Icons.phone_iphone_rounded, onTap: showDevices),
                         const SizedBox(width: 10),
-                        metric('Play Market / beta • kirganlar',
-                          observed('play_market_or_test'),
+                        metric('Play / beta • 11-oktabrdan yangi ID',
+                          playAfterLaunch,
                           Icons.shop_rounded, onTap: showDevices),
                       ]),
                       const SizedBox(height: 10),
                       Row(children: [
-                        metric('Web • brauzerlar',
+                        metric('Web • brauzer IDlari',
                           observed('web'),
                           Icons.language_rounded, onTap: showDevices),
                         const SizedBox(width: 10),
-                        metric('Android APK • kirganlar',
+                        metric('Android APK • IDlar',
                           observed('android_apk'),
                           Icons.android_rounded, onTap: showDevices),
                       ]),
@@ -9130,10 +9145,11 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                       const Padding(
                         padding: EdgeInsets.only(top: 8),
                         child: Text(
-                          'Bu sonlar ilovaga kirish yozuvlaridan hisoblanadi, '
-                          'rasmiy yuklab olishlar emas. Play Market/beta hamda '
-                          'App Store/TestFlight mavjud ma’lumotlarda birga hisoblangan. '
-                          'Do‘kon yuklamalari uchun Play Console yoki App Store Connect kerak.',
+                          'Play kartasida 11-oktabrdan keyin yangi paydo bo‘lgan '
+                          'IDlar ko‘rsatiladi. Avvalgi beta/test IDlari asosiy '
+                          'ko‘rsatkichga qo‘shilmaydi. Bir ID bir marta sanaladi, '
+                          'ammo ID qayta yaratilsa bitta odam qayta sanalishi mumkin. '
+                          'Bu rasmiy yuklab olish emas; aniq son Play Console’da.',
                           style: TextStyle(color: AppColors.muted, fontSize: 11, height: 1.35),
                         ),
                       ),

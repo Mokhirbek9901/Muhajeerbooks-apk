@@ -82,9 +82,28 @@ Savollar uchun: Instagram @muhajeerbooks
 - Play versiyasi `PLAY_STORE_BUILD=true` bilan yig'iladi: ilova ichidagi "GitHub'dan yangi APK yuklab oling" oynasi unda chiqmaydi (Google Play qoidalari tashqi manbadan yangilanishni taqiqlaydi). Yangilanishlar faqat Play orqali keladi.
 - GitHub'dagi APK o'rnatilgan telefonga Play versiyasini o'rnatish uchun avval eski ilovani o'chirish kerak (imzolari har xil).
 
-## Avtomatik yuklash (har bir yangilanishda)
+## 2026-10-19: Android nashriga vaqtinchalik cheklov
 
-`main` ga `lib/`, `assets/` yoki `pubspec.yaml` o'zgarishi tushganda **Google Play signed AAB** workflow'i o'zi ishga tushadi, AAB yig'adi va `PLAY_SERVICE_ACCOUNT_JSON` secret bo'lsa, uni to'g'ridan-to'g'ri **Muhajeer Books Closed Test 1** trekiga yuklaydi.
+Web o‘zgarishlari Android nashrini avtomatik ishga tushirmaydi.
+`play_release.yml` faqat qo‘lda ishga tushadi va faqat `internal` trekiga yuklaydi.
+`PLAY_TRACK=production` repository o‘zgaruvchisi bu cheklovni o‘zgartirmaydi.
+
+1187/1188 yig‘ishlari 1186 dagi Android startup tuzatishlari main branchga
+o‘tmasdan chiqarilgan. 2026-10-19 18:00 KST dagi halt tekshiruvi 1188 ni
+`halted`, 1186 ni `completed` holatda qayd etgan. 1187 o‘sha javobda yo‘q.
+Dalil: https://github.com/Mokhirbek9901/Muhajeerbooks-apk/actions/runs/39226770025
+
+Tuzatish `fix/android-startup-regression-20261019` branchida. Android 9 va
+Android 15 emulyatorlarida release APK tekshiriladi; QA artefaktlari do‘konga
+yuborilmaydi va analytics test IDlari yaratilmaydi. Ommaviy nashrdan oldin
+Samsung Galaxy Note 8 SM-N950N va yana bir haqiqiy Android qurilmada yangi
+o‘rnatish, avvalgi versiyadan yangilash, katalog, savat va buyurtma oqimi
+tekshirilishi kerak. Ushbu tasdiqsiz Production chiqarishni tiklamang.
+
+1188 ni allaqachon o‘rnatgan telefon Google Play orqali avtomatik 1186 ga
+qaytmaydi. Unga sinovdan o‘tgan, versionCode 1188 dan katta tuzatish kerak.
+
+## Internal test uchun xizmat hisobini sozlash
 
 Bir martalik sozlash:
 
@@ -95,4 +114,4 @@ Bir martalik sozlash:
 5. Play Console → **Пользователи и разрешения** → **Пригласить новых пользователей** → email: service account email'i (`github-play@...iam.gserviceaccount.com`) → **Разрешения для приложений**: Muhajeer Books → **Выпуск приложений в тестовые версии** (va kerak bo'lsa **рабочую версию**) → **Пригласить**.
 6. GitHub → Settings → Secrets and variables → Actions → **New repository secret** → Name: `PLAY_SERVICE_ACCOUNT_JSON`, Secret: JSON faylning butun matni.
 
-Production'ga o'tganda GitHub → Settings → Secrets and variables → Actions → **Variables** → `PLAY_TRACK` = `production`.
+Production uchun alohida, sinov dalillari tekshirilgan chiqarish jarayoni kerak.

@@ -13,6 +13,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_state.dart';
 import 'design_system.dart';
+import 'push_notifications.dart';
 
 String webPreorderMoney(int amount) =>
     '₩${NumberFormat('#,###').format(amount)}';
@@ -24,9 +25,17 @@ class WebPreorderConfig {
     this.deposit = 5000,
     this.batchQuantity = 0,
     this.revision = 1,
+    this.bookId = '', this.bookTitle = '', this.bookImageUrl = '', this.termsToken = '',
+    this.depositMax,
+
   });
   factory WebPreorderConfig.fromMap(Map<String, dynamic> data) =>
       WebPreorderConfig(
+        bookId: (data['book_id'] ?? '').toString(),
+        bookTitle: (data['book_title'] ?? '').toString(),
+        bookImageUrl: (data['book_image_url'] ?? '').toString(),
+        termsToken: (data['terms_token'] ?? '').toString(),
+        depositMax: (data['deposit_max'] as num?)?.toInt(),
         enabled: data['enabled'] == true,
         arrival: (data['arrival_note'] ?? '').toString(),
         deposit: (data['deposit_amount'] as num?)?.toInt() ?? 5000,
@@ -34,10 +43,12 @@ class WebPreorderConfig {
         revision: (data['revision'] as num?)?.toInt() ?? 1,
       );
   final bool enabled;
-  final String arrival;
+  final String arrival, bookId, bookTitle, bookImageUrl, termsToken;
+  final int? depositMax;
   final int deposit, batchQuantity, revision;
   bool get accepting => enabled && arrival.trim().isNotEmpty && deposit >= 5000;
-  int total(int quantity) => deposit * quantity;
+  int get maximumDeposit => depositMax ?? deposit;
+  int total(int quantity, [int? perBook]) => (perBook ?? deposit) * quantity;
 }
 
 class WebPreorderApi {
@@ -64,6 +75,9 @@ class WebPreorderApi {
   Future<WebPreorderConfig> config() async => WebPreorderConfig.fromMap(
     Map<String, dynamic>.from(await call('config') as Map),
   );
+  Future<WebPreorderConfig> bookConfig(String bookId) async => WebPreorderConfig.fromMap(
+    Map<String, dynamic>.from(await call('book_config', {'book_id': bookId}) as Map),
+  );
   Future<dynamic> admin(
     String secret,
     String action, [
@@ -77,13 +91,15 @@ class WebPreorderApi {
     String id,
     String kind,
     Uint8List bytes,
-    int revision,
+    int revision, {String? bookId, String? termsToken}
   ) async {
     final data = await call('upload', {
       'id': id,
       'kind': kind,
       'data_base64': base64Encode(bytes),
       'revision': revision,
+      if (bookId != null) 'book_id': bookId,
+      if (termsToken != null) 'terms_token': termsToken,
     });
     return (data as Map)['path'].toString();
   }
@@ -233,8 +249,9 @@ class _WebPreorderCatalogCardState extends State<WebPreorderCatalogCard> {
 }
 
 class WebPreorderPage extends StatefulWidget {
-  const WebPreorderPage({super.key, this.api});
+  const WebPreorderPage({super.key, this.api, this.book});
   final WebPreorderApi? api;
+  final Book? book;
   @override
   State<WebPreorderPage> createState() => _WebPreorderPageState();
 }
@@ -244,7 +261,8 @@ class _WebPreorderPageState extends State<WebPreorderPage> {
   final form = GlobalKey<FormState>();
   final title = TextEditingController(),
       name = TextEditingController(),
-      phone = TextEditingController();
+      phone = TextEditingController(),
+      advance = TextEditingController();
   late final String id;
   WebPreorderConfig? config;
   Uint8List? bookImage, proofImage;
@@ -261,6 +279,7 @@ class _WebPreorderPageState extends State<WebPreorderPage> {
     id =
         '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
     final saved = context.read<AppState>().savedCustomer;
+    title.text = widget.book?.title ?? '';
     name.text = saved['name'] ?? '';
     phone.text = saved['phone'] ?? '';
     _reload();
@@ -271,15 +290,20 @@ class _WebPreorderPageState extends State<WebPreorderPage> {
     title.dispose();
     name.dispose();
     phone.dispose();
+    advance.dispose();
     super.dispose();
   }
 
   Future<void> _reload() async {
     try {
-      final next = await api.config();
+      final next = widget.book == null ? await api.config() : await api.bookConfig(widget.book!.id);
       if (mounted)
         setState(() {
-          if (config?.revision != next.revision) payment = false;
+          if (config?.revision != next.revision || config?.termsToken != next.termsToken) {
+            payment = false;
+            advance.text = '${next.deposit}';
+          }
+          if (next.bookTitle.isNotEmpty) title.text = next.bookTitle;
           config = next;
           error = null;
           loading = false;
@@ -342,7 +366,7 @@ class _WebPreorderPageState extends State<WebPreorderPage> {
     final old = config;
     await _reload();
     if (!mounted || config?.accepting != true) return false;
-    if (old?.revision != config!.revision) {
+    if (old?.revision != config!.revision || old?.termsToken != config!.termsToken) {
       _message(
         'Kelish sanasi yoki avans yangilandi. Shartlarni qayta ko‘rib chiqing.',
       );
@@ -353,7 +377,7 @@ class _WebPreorderPageState extends State<WebPreorderPage> {
 
   Future<void> _continue() async {
     if (!form.currentState!.validate()) return;
-    if (bookImage == null) {
+    if (widget.book == null && bookImage == null) {
       _message('Kitob rasmini tanlang.');
       return;
     }
@@ -375,29 +399,39 @@ class _WebPreorderPageState extends State<WebPreorderPage> {
     try {
       if (!await _checkCurrent()) return;
       final c = config!;
-      bookPath ??= await api.upload(id, 'book', bookImage!, c.revision);
-      proofPath ??= await api.upload(id, 'proof', proofImage!, c.revision);
+      if (widget.book == null) bookPath ??= await api.upload(id, 'book', bookImage!, c.revision);
+      proofPath ??= await api.upload(id, 'proof', proofImage!, c.revision,
+        bookId: widget.book?.id, termsToken: widget.book == null ? null : c.termsToken);
       await api.call('submit', {
         'p_request': {
           'id': id,
+          if (widget.book != null) 'book_id': widget.book!.id,
+          'terms_token': c.termsToken,
           'customer_name': name.text.trim(),
           'phone': phone.text.trim(),
           'book_title': title.text.trim(),
           'quantity': quantity,
-          'book_image_path': bookPath,
+          'book_image_path': bookPath ?? '',
           'payment_proof_path': proofPath,
-          'deposit_amount': c.total(quantity),
+          'deposit_amount': c.total(quantity, int.tryParse(advance.text)),
           'revision': c.revision,
         },
       });
+      if (!mounted) return;
+      final state = context.read<AppState>();
+      final samePhone = state.savedCustomerPhone == phone.text.trim();
+      await state.setAuthenticatedCustomer(name.text.trim(), phone.text.trim(),
+        verified: samePhone && state.customerVerified);
+      unawaited(syncPushIdentity(phone.text.trim()));
+      unawaited(state.refreshCustomerPushMessages());
       if (!mounted) return;
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
-          title: const Text('Oldindan buyurtma qabul qilindi'),
+          title: const Text('Oldindan buyurtma yuborildi'),
           content: Text(
-            'Buyurtma: ${id.substring(0, 8)}\nAvans cheki administrator tomonidan tekshiriladi.\nTaxminiy kelishi: ${c.arrival}',
+            'Buyurtma: ${id.substring(0, 8)}\nAvans cheki administrator tomonidan tekshiriladi.\nTaxminiy kelishi: ${c.arrival}\nHolat o‘zgarganda “Bildirishnomalar” bo‘limiga xabar keladi.',
           ),
           actions: [
             FilledButton(
@@ -471,7 +505,7 @@ class _WebPreorderPageState extends State<WebPreorderPage> {
                         ),
                       ] else ...[
                         Text(
-                          'Avans: ${webPreorderMoney(c!.deposit)} / dona',
+                          c!.maximumDeposit == c.deposit ? 'Avans: ${webPreorderMoney(c.deposit)} / dona' : 'Avans: ${webPreorderMoney(c.deposit)} – ${webPreorderMoney(c.maximumDeposit)} / dona',
                           style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w900,
@@ -483,7 +517,7 @@ class _WebPreorderPageState extends State<WebPreorderPage> {
                         const SizedBox(height: 18),
                         TextFormField(
                           controller: title,
-                          readOnly: payment || saving,
+                          readOnly: widget.book != null || payment || saving,
                           decoration: const InputDecoration(
                             labelText: 'Kitob nomi',
                           ),
@@ -492,6 +526,9 @@ class _WebPreorderPageState extends State<WebPreorderPage> {
                               ? 'Kitob nomini kiriting'
                               : null,
                         ),
+                        if (widget.book != null && c.bookImageUrl.isNotEmpty)
+                          SizedBox(height: 160, child: Image.network(c.bookImageUrl, fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => const Icon(Icons.menu_book_outlined))),
                         if (bookImage != null)
                           SizedBox(
                             height: 160,
@@ -500,7 +537,7 @@ class _WebPreorderPageState extends State<WebPreorderPage> {
                               fit: BoxFit.contain,
                             ),
                           ),
-                        if (!payment)
+                        if (widget.book == null && !payment)
                           OutlinedButton.icon(
                             onPressed: saving ? null : () => _pick(false),
                             icon: const Icon(
@@ -542,6 +579,21 @@ class _WebPreorderPageState extends State<WebPreorderPage> {
                               : '010 bilan boshlanuvchi 11 ta raqam kiriting',
                         ),
                         const SizedBox(height: 12),
+                        if (c.maximumDeposit > c.deposit) ...[
+                          TextFormField(controller: advance, readOnly: payment || saving,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                            decoration: const InputDecoration(labelText: 'Bir kitob uchun avans (₩)'),
+                            onChanged: (_) => setState(() {}),
+                            validator: (v) {
+                              final n = int.tryParse(v ?? '') ?? 0;
+                              return n < c.deposit || n > c.maximumDeposit ? '${webPreorderMoney(c.deposit)}–${webPreorderMoney(c.maximumDeposit)} oralig‘ida kiriting' : null;
+                            }),
+                          Wrap(spacing: 8, children: [
+                            for (final value in {c.deposit, 5000, 10000, c.maximumDeposit}.where((v) => v >= c.deposit && v <= c.maximumDeposit))
+                              ActionChip(label: Text(webPreorderMoney(value)), onPressed: payment || saving ? null : () => setState(() => advance.text = '$value')),
+                          ]),
+                        ],
                         Row(
                           children: [
                             const Expanded(child: Text('Miqdor')),
@@ -567,7 +619,7 @@ class _WebPreorderPageState extends State<WebPreorderPage> {
                           ],
                         ),
                         Text(
-                          'Jami avans: ${webPreorderMoney(c.total(quantity))}',
+                          'Jami avans: ${webPreorderMoney(c.total(quantity, int.tryParse(advance.text)))}',
                           style: const TextStyle(
                             fontWeight: FontWeight.w900,
                             fontSize: 22,
@@ -687,6 +739,7 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
   Future<dynamic>? requests;
   String? error;
   bool enabled = false, saving = false;
+  final Set<String> statusSaving = {};
   @override
   void initState() {
     super.initState();
@@ -760,14 +813,47 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
     if (value != null) arrival.text = DateFormat('yyyy.MM.dd').format(value);
   }
 
-  Future<void> _status(String id, String status) async {
+  Future<void> _status(Map row, String status) async {
+    final id = '${row['id']}';
+    if (statusSaving.contains(id)) return;
+    final reason = TextEditingController();
+    final needsReason = status == 'cancelled' || status == 'waiting';
+    final key = GlobalKey<FormState>();
+    final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: Text(status == 'accepted' ? 'Avans chekini tasdiqlash' : status == 'arrived' ? 'Kitob keldimi?' : status == 'waiting' ? 'Qayta ko‘rib chiqish' : 'Buyurtmani bekor qilish'),
+      content: Form(key: key, child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text(status == 'accepted' ? 'Chek va bankdagi to‘lov mosligini tekshiring. Mijozga tasdiq xabari yuboriladi.' :
+          status == 'cancelled' ? 'Mijozga sabab yoziladi. Avans bu tugma orqali avtomatik qaytarilmaydi.' : 'Mijozning bildirishnomalariga yangi holat yoziladi.'),
+        const SizedBox(height: 12),
+        TextFormField(controller: reason, maxLength: 500, maxLines: 3,
+          decoration: InputDecoration(labelText: needsReason ? 'Sababi (majburiy)' : 'Mijozga izoh (ixtiyoriy)'),
+          validator: (v) => needsReason && (v ?? '').trim().length < 3 ? 'Sababini yozing' : null),
+      ])),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Yopish')),
+        FilledButton(onPressed: () { if (key.currentState!.validate()) Navigator.pop(ctx, true); }, child: const Text('Tasdiqlash'))],
+    ));
+    final note = reason.text.trim();
+    // The dialog animation may still own the field until the next frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) => reason.dispose());
+    if (confirmed != true || !mounted) return;
+    setState(() => statusSaving.add(id));
     try {
-      await api.admin(widget.secret, 'status', {'id': id, 'status': status});
-      if (mounted) setState(() => requests = api.admin(widget.secret, 'list'));
+      final result = await api.admin(widget.secret, 'status', {
+        'id': id, 'status': status, 'version': row['status_version'] ?? 1, 'note': note,
+      });
+      if (result is! Map || result['status'] != status) throw StateError('Holat tasdiqlanmadi. Yangilab tekshiring.');
+      final updated = await api.admin(widget.secret, 'list');
+      if (!mounted) return;
+      setState(() => requests = Future.value(updated));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
+        result['inbox_created'] == true ? 'Holat saqlandi. Mijozning bildirishnomalariga xabar yozildi.' : 'Holat saqlandi.')));
     } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
+      if (mounted) {
+        setState(() => requests = api.admin(widget.secret, 'list'));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    } finally {
+      if (mounted) setState(() => statusSaving.remove(id));
     }
   }
 
@@ -981,6 +1067,19 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
                                         Text(
                                           'Buyurtma: ${r['id'].toString().substring(0, 8)}',
                                         ),
+                                        if ((r['status_note'] ?? '').toString().isNotEmpty) Text('Izoh: ${r['status_note']}'),
+                                        Text(r['notification_state'] == null ? 'Holat yangilanganda mijozga xabar beriladi.' :
+                                          r['notification_state'] == 'sent' ? 'Mijoz xabari: ilovaga yozildi, web push yuborildi.' :
+                                          r['notification_state'] == 'failed' ? 'Mijoz xabari: ilovaga yozildi. Push yetkazilmadi.' :
+                                          r['notification_state'] == 'no_subscribers' ? 'Mijoz xabari: ilovaga yozildi. Push ruxsati yo‘q.' :
+                                          'Mijoz xabari: ilovaga yozildi, push navbatda.'),
+                                        if ((r['history'] as List?)?.isNotEmpty == true)
+                                          ExpansionTile(title: const Text('Holat tarixi'), children: [
+                                            for (final h in r['history'] as List)
+                                              ListTile(title: Text('${labels[h['status']] ?? h['status']}'),
+                                                subtitle: Text('${h['message']}\n${h['created_at']}')),
+                                          ]),
+
                                         Wrap(
                                           spacing: 8,
                                           children: [
@@ -1002,24 +1101,19 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
                                               ),
                                               label: const Text('Avans cheki'),
                                             ),
-                                            PopupMenuButton<String>(
-                                              onSelected: (v) =>
-                                                  _status('${r['id']}', v),
-                                              itemBuilder: (_) => labels.entries
-                                                  .map(
-                                                    (e) => PopupMenuItem(
-                                                      value: e.key,
-                                                      child: Text(e.value),
-                                                    ),
-                                                  )
-                                                  .toList(),
-                                              child: const Padding(
-                                                padding: EdgeInsets.all(12),
-                                                child: Text(
-                                                  'Holatni o‘zgartirish ▾',
-                                                ),
+                                            for (final action in <String>[
+                                              if (r['status'] == 'waiting') 'accepted',
+                                              if (r['status'] == 'accepted') 'arrived',
+                                              if (r['status'] != 'cancelled') 'cancelled',
+                                              if (r['status'] == 'cancelled') 'waiting',
+                                            ])
+                                              OutlinedButton(
+                                                onPressed: statusSaving.contains('${r['id']}') ? null : () => _status(r, action),
+                                                child: Text(action == 'accepted' ? 'Qabul qilish' : action == 'arrived' ? 'Kitob keldi' : action == 'waiting' ? 'Qayta ochish' : 'Bekor qilish'),
                                               ),
-                                            ),
+                                            if (statusSaving.contains('${r['id']}')) const Padding(
+                                              padding: EdgeInsets.all(10), child: Text('Saqlanmoqda…')),
+
                                           ],
                                         ),
                                       ],

@@ -35,17 +35,25 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json(), p = body?.params ?? {};
     if (body.action === "config") return reply(200, { ok: true, data: await rpc("web_preorder_config") });
+    if (body.action === "book_config") {
+      if (!uuid.test(p.book_id)) throw new Error("Kitob identifikatori noto‘g‘ri.");
+      return reply(200, { ok: true, data: await rpc("web_preorder_book_config", { p_book_id: p.book_id }) });
+    }
+    if (body.action === "delivery") {
+      // Internal worker authentication is checked in SQL before any event/recipient is returned.
+      return reply(200, { ok: true, data: await rpc("web_preorder_delivery", p) });
+    }
     if (body.action === "admin") {
       if (typeof p.p_secret !== "string" || p.p_secret.length < 1 || p.p_secret.length > 512 ||
           !["settings", "save", "list", "status"].includes(p.p_action)) return reply(403, { ok: false, error: "Ruxsat yo‘q" });
       const data = await rpc("admin_web_preorder_manage", p);
       if (p.p_action === "list" && Array.isArray(data)) {
-        const paths = data.flatMap(row => [row.book_image_path, row.payment_proof_path]);
+        const paths = data.flatMap(row => [row.book_image_path, row.payment_proof_path]).filter(Boolean);
         const signed = paths.length ? await db.storage.from(bucket).createSignedUrls(paths, 900) : null;
         const urls = new Map((signed?.data ?? []).map(row => [row.path, row.signedUrl]));
         for (const row of data) {
           for (const field of ["book_image_path", "payment_proof_path"]) {
-            row[field.replace("_path", "_url")] = urls.get(row[field]) ?? "";
+            row[field.replace("_path", "_url")] = urls.get(row[field]) ?? (field === "book_image_path" ? row.book_image_url ?? "" : "");
           }
         }
       }
@@ -54,9 +62,12 @@ Deno.serve(async (req) => {
     if (body.action === "upload") {
       if (!uuid.test(p.id) || !["book", "proof"].includes(p.kind) ||
           typeof p.data_base64 !== "string" || p.data_base64.length > 2800000) throw new Error("Rasm ma’lumotlari noto‘g‘ri.");
-      const config = await rpc("web_preorder_config");
-      if (!config.enabled || !config.arrival_note?.trim()) throw new Error("Oldindan buyurtma qabuli yopiq.");
-      if (Number(p.revision) !== Number(config.revision)) throw new Error("Sana yoki avans o‘zgargan. Shartlarni yangilang.");
+      if (p.book_id && !uuid.test(p.book_id)) throw new Error("Kitob identifikatori noto‘g‘ri.");
+      const config = p.book_id
+        ? await rpc("web_preorder_book_config", { p_book_id: p.book_id })
+        : await rpc("web_preorder_config");
+      if (!config?.enabled || !config.arrival_note?.trim()) throw new Error("Oldindan buyurtma qabuli yopiq.");
+      if (p.book_id ? p.terms_token !== config.terms_token : Number(p.revision) !== Number(config.revision)) throw new Error("Sana yoki avans o‘zgargan. Shartlarni yangilang.");
       const bytes = Uint8Array.from(atob(p.data_base64), c => c.charCodeAt(0));
       if (bytes.length < 12 || bytes.length > 2097152) throw new Error("Rasm hajmi 2 MB dan oshmasin.");
       const jpeg = bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;

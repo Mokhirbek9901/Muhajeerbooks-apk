@@ -4558,7 +4558,7 @@ class BookDetailPage extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 9),
-              if (b.preorderEnabled)
+              if (b.preorderEnabled && (!kIsWeb || b.inStock))
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
@@ -4567,14 +4567,14 @@ class BookDetailPage extends StatelessWidget {
                       context,
                       muhajeerPageRoute<void>(
                         settings: RouteSettings(name: 'mb:preorder:${b.id}'),
-                        builder: (_) => _PreorderCheckoutPage(book: b),
+                        builder: (_) => kIsWeb ? WebPreorderPage(book: b) : _PreorderCheckoutPage(book: b),
                       ),
                     ),
                     icon: const Icon(Icons.event_available_rounded),
                     label: const Text('Oldindan buyurtma qilish'),
                   ),
                 )
-              else if (b.inStock)
+              else if (b.inStock && !b.preorderEnabled)
                 SizedBox(
                   width: double.infinity,
                   child: Row(
@@ -4646,7 +4646,16 @@ class BookDetailPage extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (b.legacyId != null) ...[
+                    if (kIsWeb) ...[
+                      const SizedBox(width: 8),
+                      Expanded(child: OutlinedButton.icon(
+                        onPressed: () => Navigator.push<void>(context, muhajeerPageRoute<void>(
+                          settings: RouteSettings(name: 'mb:preorder:${b.id}'),
+                          builder: (_) => WebPreorderPage(book: b))),
+                        icon: const Icon(Icons.event_available_outlined),
+                        label: const Text('Oldindan zakaz qilish', maxLines: 2, textAlign: TextAlign.center),
+                      )),
+                    ] else if (b.legacyId != null) ...[
                       const SizedBox(width: 8),
                       Expanded(
                         child: OutlinedButton.icon(

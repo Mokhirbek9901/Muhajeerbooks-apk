@@ -10,7 +10,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pywebpush import webpush, WebPushException
 from flask import Flask, jsonify, request, Response
 
+from preorder_delivery import register_preorder_routes
+
 app = Flask(__name__)
+register_preorder_routes(app, webpush)
 _hits = defaultdict(deque)
 _cache = {}
 

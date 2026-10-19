@@ -5009,6 +5009,13 @@ class _PreorderAdminPageState extends State<_PreorderAdminPage> {
                   ),
                 )),
               const SizedBox(height: 20),
+              if (kIsWeb) ...[
+                FilledButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => WebPreorderAdminPage(secret: widget.api.secret))),
+                  icon: const Icon(Icons.fact_check_outlined),
+                  label: const Text('Web oldindan buyurtmalarni boshqarish')),
+                const SizedBox(height: 12),
+              ],
               AppSectionHeader(
                 title: 'Oldindan buyurtmalar',
                 subtitle: 'Mijoz yuborgan oldindan to‘lovlar',
@@ -5464,7 +5471,7 @@ class _BookFormState extends State<_BookForm> {
     final preorderMaxValue = int.tryParse(preorderMax.text.trim()) ?? 10000;
     if (p < 0 || s < 0 || d < 0 || d > 99 || c < 0 ||
         (widget.preorderMode && (preorderPriceMaxValue < p || preorderPriceMaxValue <= 0)) ||
-        (preorderEnabled && (preorderMinValue < 0 || preorderMaxValue < preorderMinValue))) {
+        (preorderEnabled && (preorderMinValue < 5000 || preorderMaxValue < preorderMinValue || preorderMaxValue > 10000000 || preorderArrival.text.trim().isEmpty))) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Narx, ombor yoki chegirma qiymatini tekshiring.'),
@@ -5828,14 +5835,15 @@ class _BookFormState extends State<_BookForm> {
                 style: TextStyle(fontSize: 12, color: AppColors.muted)),
             SwitchListTile(
               value: preorderEnabled,
-              onChanged: widget.preorderMode || planned ? null : (v) => setState(() => preorderEnabled = v),
+              onChanged: planned ? null : (v) => setState(() => preorderEnabled = v),
               title: const Text('Oldindan sotuv ochiq'),
               subtitle: const Text('Mijoz kitob kelishidan oldin band qilib, oldindan to‘lov yubora oladi.'),
               contentPadding: EdgeInsets.zero,
             ),
             if (preorderEnabled) ...[
               const SizedBox(height: 6),
-              field(preorderArrival, 'Taxminiy kelish muddati', required: true),
+              field(preorderArrival, 'Taxminiy kelish sanasi yoki muddati', required: true),
+              const Text('Mijoz bu sanani avans yuborishdan oldin ko‘radi.', style: TextStyle(fontSize: 12)),
               Row(
                 children: [
                   Expanded(child: field(preorderMin, 'Oldindan to‘lov min (₩)', number: true, required: true)),
@@ -5843,8 +5851,14 @@ class _BookFormState extends State<_BookForm> {
                   Expanded(child: field(preorderMax, 'Oldindan to‘lov max (₩)', number: true, required: true)),
                 ],
               ),
+              if (kIsWeb) Wrap(spacing: 8, children: [
+                for (final value in [5000, 10000])
+                  ActionChip(label: Text('Avans ${_won(value)}'), onPressed: () => setState(() {
+                    preorderMin.text = '$value'; preorderMax.text = '$value';
+                  })),
+              ]),
               const Text(
-                'Mijozga “oldindan to‘lov” deb ko‘rsatiladi. Tavsiya: ₩5,000–₩10,000.',
+                'Avans bir dona kitob uchun. Kamida ₩5,000. Bir xil min/max kiritsangiz summa qat’iy bo‘ladi.',
                 style: TextStyle(fontSize: 11.5, color: AppColors.muted),
               ),
             ],

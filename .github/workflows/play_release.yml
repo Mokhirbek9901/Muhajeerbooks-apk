@@ -1,4 +1,4 @@
-name: Google Play signed AAB
+name: Google Play internal test AAB (manual only)
 
 # Builds an App Bundle signed with the Play upload key.
 #
@@ -13,13 +13,6 @@ name: Google Play signed AAB
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - '.github/play-release-trigger'
-      - 'lib/**'
-      - 'assets/**'
-      - 'pubspec.yaml'
 
 permissions:
   contents: write
@@ -37,9 +30,10 @@ jobs:
       ENC_KEYSTORE: .github/signing/upload-keystore.jks.enc
       KEYSTORE_SECRET: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-      # Publish the current Android release to Production by default.
-      # PLAY_TRACK can still override this explicitly when a test release is needed.
-      PLAY_TRACK: ${{ vars.PLAY_TRACK || 'production' }}
+      # Production is intentionally unavailable until device validation is reviewed.
+      # Web commits cannot trigger this workflow; repository variables cannot
+      # silently redirect this build to Production.
+      PLAY_TRACK: internal
     steps:
       - uses: actions/checkout@v4
 
@@ -98,6 +92,7 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.47.7'
           channel: stable
           cache: true
 

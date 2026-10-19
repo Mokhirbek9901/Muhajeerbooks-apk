@@ -1,0 +1,77 @@
+name: Emergency stop broken Android versions 1188 and 1187
+on:
+  push:
+    branches: [emergency/halt-android-1188-20261019]
+    paths:
+      - '.github/workflows/emergency_stop_play_1188.yml'
+permissions:
+  contents: read
+concurrency:
+  group: emergency-stop-production-1188
+  cancel-in-progress: false
+jobs:
+  halt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Install Android Publisher authentication
+        run: pip install -q google-auth requests
+      - name: Inspect and stop newly broken production builds only
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          python - <<'PY'
+          import json,os,sys
+          from google.oauth2 import service_account
+          from google.auth.transport.requests import AuthorizedSession
+          secret=os.environ.get('PLAY_SERVICE_ACCOUNT_JSON','').strip()
+          if not secret: sys.exit('ERROR: service account secret missing, no changes made')
+          credential=service_account.Credentials.from_service_account_info(
+            json.loads(secret),scopes=['https://www.googleapis.com/auth/androidpublisher'])
+          client=AuthorizedSession(credential)
+          base='https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.muhajeerbooks.app/edits'
+          def api(method,url,**kwargs):
+            res=client.request(method,url,timeout=45,**kwargs)
+            if not res.ok:
+              print('Play API error',res.status_code,res.text[:950],flush=True)
+              res.raise_for_status()
+            return res.json() if res.content else {}
+          eid=api('POST',base,json={})['id']
+          track=api('GET',f'{base}/{eid}/tracks/production')
+          releases=track.get('releases',[])
+          def summary(items):
+            return [{'codes':r.get('versionCodes',[]),'status':r.get('status'),'name':r.get('name')} for r in items]
+          print('BEFORE',json.dumps(summary(releases)),flush=True)
+          # Never stop older 1186 or unrelated new production releases.
+          allowed={'1187','1188'}
+          seen={str(code) for r in releases for code in r.get('versionCodes',[])}
+          if '1188' not in seen:
+            sys.exit('SAFETY STOP: newest 1188 not present in production; no changes made')
+          for r in releases:
+            codes={str(v) for v in r.get('versionCodes',[])}
+            if codes & allowed and codes - allowed:
+              sys.exit('SAFETY STOP: mixed release includes unrelated codes; no changes made')
+            if codes & allowed and r.get('status') not in ('completed','inProgress','halted'):
+              sys.exit('SAFETY STOP: release status unexpected; no changes made')
+          changed=[]
+          for r in releases:
+            codes={str(v) for v in r.get('versionCodes',[])}
+            if codes & allowed and r.get('status') in ('completed','inProgress'):
+              r['status']='halted'
+              r.pop('userFraction',None)
+              changed.extend(sorted(codes & allowed))
+          if not changed:
+            print('Both affected releases already halted, no change necessary',flush=True)
+          else:
+            print('STOPPING',changed,flush=True)
+            api('PUT',f'{base}/{eid}/tracks/production',json={'track':'production','releases':releases})
+            commit=api('POST',f'{base}/{eid}:commit',json={})
+            print('GOOGLE PLAY STOP COMMITTED',commit.get('id',eid),flush=True)
+          fresh=api('POST',base,json={})['id']
+          latest=api('GET',f'{base}/{fresh}/tracks/production').get('releases',[])
+          print('AFTER',json.dumps(summary(latest)),flush=True)
+          if any(str(v) in allowed and r.get('status')!='halted'
+                for r in latest for v in r.get('versionCodes',[])):
+            sys.exit('VERIFICATION FAILED: affected production build remains active')
+          print('VERIFIED: newest affected production build(s) halted; old app and other platforms unchanged',flush=True)
+          PY

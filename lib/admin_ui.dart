@@ -9108,7 +9108,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                           onTap: () => showPeople('Ism va raqam kiritganlar', (_) => true)),
                       ]),
                       const SizedBox(height: 8),
-                      const Text(
+                      Text(
                         'Bir telefon raqami bir marta sanaladi. '
                         'Raqamsiz $anonymousIds ta tarixiy ID mijozlar soniga qo‘shilmaydi. '
                         'Qurilmalar va rasmiy yuklab olishlar soni mavjud ma’lumotdan aniqlanmaydi.',

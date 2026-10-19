@@ -816,7 +816,7 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
   Future<void> _status(Map row, String status) async {
     final id = '${row['id']}';
     if (statusSaving.contains(id)) return;
-    final reason = TextEditingController();
+    var reason = '';
     final needsReason = status == 'cancelled' || status == 'waiting';
     final key = GlobalKey<FormState>();
     final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
@@ -825,16 +825,14 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
         Text(status == 'accepted' ? 'Chek va bankdagi to‘lov mosligini tekshiring. Mijozga tasdiq xabari yuboriladi.' :
           status == 'cancelled' ? 'Mijozga sabab yoziladi. Avans bu tugma orqali avtomatik qaytarilmaydi.' : 'Mijozning bildirishnomalariga yangi holat yoziladi.'),
         const SizedBox(height: 12),
-        TextFormField(controller: reason, maxLength: 500, maxLines: 3,
+        TextFormField(onChanged: (v) => reason = v, maxLength: 500, maxLines: 3,
           decoration: InputDecoration(labelText: needsReason ? 'Sababi (majburiy)' : 'Mijozga izoh (ixtiyoriy)'),
           validator: (v) => needsReason && (v ?? '').trim().length < 3 ? 'Sababini yozing' : null),
       ])),
       actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Yopish')),
         FilledButton(onPressed: () { if (key.currentState!.validate()) Navigator.pop(ctx, true); }, child: const Text('Tasdiqlash'))],
     ));
-    final note = reason.text.trim();
-    // The dialog animation may still own the field until the next frame.
-    WidgetsBinding.instance.addPostFrameCallback((_) => reason.dispose());
+    final note = reason.trim();
     if (confirmed != true || !mounted) return;
     setState(() => statusSaving.add(id));
     try {

@@ -156,7 +156,7 @@ void main() {
     final api = FakePreorders(const WebPreorderConfig())..rows = [requestRow('waiting')];
     await tester.pumpWidget(MaterialApp(home: WebPreorderAdminPage(secret: 'test', api: api)));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('Qabul qilish'), 300);
+    await tester.scrollUntilVisible(find.text('Qabul qilish'), 300, scrollable: find.byType(Scrollable).first);
     await tester.tap(find.text('Qabul qilish'));
     await tester.pumpAndSettle();
     expect(api.statusCalls, 0);
@@ -174,7 +174,7 @@ void main() {
     final api = FakePreorders(const WebPreorderConfig())..rows = [requestRow('accepted')]..failStatus = true;
     await tester.pumpWidget(MaterialApp(home: WebPreorderAdminPage(secret: 'test', api: api)));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('Bekor qilish'), 300);
+    await tester.scrollUntilVisible(find.text('Bekor qilish'), 300, scrollable: find.byType(Scrollable).first);
     await tester.tap(find.text('Bekor qilish'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Tasdiqlash'));

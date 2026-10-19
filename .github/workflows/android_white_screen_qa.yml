@@ -1,13 +1,6 @@
 name: Android white screen emergency QA
 
 on:
-  push:
-    branches: [fix/android-startup-regression-20261019]
-    paths:
-      - 'lib/**'
-      - '.github/workflows/android_white_screen_qa.yml'
-      - '.github/workflows/play_release.yml'
-      - 'tools/prepare_android_release_compat.py'
   workflow_dispatch:
 
 permissions:
@@ -77,6 +70,8 @@ jobs:
             --dart-define=APP_BUILD_NUMBER=1189 \
             --dart-define=SUPABASE_URL="$SUPABASE_URL" \
             --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+      - name: Prepare screenshot validation
+        run: python3 -m pip install --quiet pillow
       - name: Smoke test Android 9 emulator startup and capture screenshot
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -101,6 +96,7 @@ jobs:
             grep -E 'mResumedActivity:.*com.muhajeerbooks.app' android9-activities.txt
             if grep -E "FATAL EXCEPTION|Process: com.muhajeerbooks.app|SIGSEGV|Muhajeer Books Android bootstrap failed|SharedPreferencesApiRegistrar|NoSuchMethodError|Unhandled Exception|PlatformException" android9-startup.log; then echo 'ERROR: App crashed or failed to initialize on Android 9'; exit 1; fi
             test -s android9-startup.png
+            python3 tools/assert_android_startup_frame.py android9-startup.png
       - name: Upload test APK and startup evidence (NOT a Play release)
         if: always()
         uses: actions/upload-artifact@v4

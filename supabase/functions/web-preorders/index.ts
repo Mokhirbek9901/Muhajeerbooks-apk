@@ -48,10 +48,17 @@ Deno.serve(async (req) => {
           !["settings", "save", "list", "status"].includes(p.p_action)) return reply(403, { ok: false, error: "Ruxsat yo‘q" });
       const data = await rpc("admin_web_preorder_manage", p);
       if (p.p_action === "list" && Array.isArray(data)) {
-        const paths = data.flatMap(row => [row.book_image_path, row.payment_proof_path]).filter(Boolean);
-        const signed = paths.length ? await db.storage.from(bucket).createSignedUrls(paths, 900) : null;
-        const urls = new Map((signed?.data ?? []).map(row => [row.path, row.signedUrl]));
+        const paths: string[] = [...new Set<string>(data.flatMap(row => [row.book_image_path, row.payment_proof_path,
+          ...(Array.isArray(row.request_items) ? row.request_items.map((item: any) => item.book_image_path) : [])]).filter(Boolean))];
+        const urls = new Map<string, string>();
+        for (let i = 0; i < paths.length; i += 100) {
+          const signed = await db.storage.from(bucket).createSignedUrls(paths.slice(i, i + 100), 900);
+          for (const row of signed.data ?? []) if (row.path && row.signedUrl) urls.set(row.path, row.signedUrl);
+        }
         for (const row of data) {
+          if (Array.isArray(row.request_items)) {
+            row.request_items = row.request_items.map((item: any) => ({...item, book_image_url: urls.get(item.book_image_path) ?? ""}));
+          }
           for (const field of ["book_image_path", "payment_proof_path"]) {
             row[field.replace("_path", "_url")] = urls.get(row[field]) ?? (field === "book_image_path" ? row.book_image_url ?? "" : "");
           }
@@ -80,6 +87,10 @@ Deno.serve(async (req) => {
       const uploaded = await db.storage.from(bucket).upload(path, bytes, { contentType, upsert: false });
       if (uploaded.error && !uploaded.error.message.toLowerCase().includes("already exists")) throw new Error("Rasm yuklanmadi. Qayta urining.");
       return reply(200, { ok: true, data: { path } });
+    }
+    if (body.action === "submit_multi") {
+      if (!p.p_request || !uuid.test(p.p_request.id)) throw new Error("Buyurtma identifikatori noto‘g‘ri.");
+      return reply(200, { ok: true, data: await rpc("web_preorder_submit_multi", p) });
     }
     if (body.action === "submit") {
       if (!p.p_request || !uuid.test(p.p_request.id)) throw new Error("Buyurtma identifikatori noto‘g‘ri.");

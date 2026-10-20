@@ -16,6 +16,8 @@ import 'app_state.dart';
 import 'design_system.dart';
 import 'push_notifications.dart';
 
+part 'web_preorder_multi.dart';
+
 // Enabled only for the explicitly requested iOS TestFlight preview.
 bool get webPreordersAvailable => kIsWeb ||
     (defaultTargetPlatform == TargetPlatform.iOS &&
@@ -259,15 +261,25 @@ class _WebPreorderCatalogCardState extends State<WebPreorderCatalogCard> {
   );
 }
 
-class WebPreorderPage extends StatefulWidget {
+class WebPreorderPage extends StatelessWidget {
   const WebPreorderPage({super.key, this.api, this.book});
   final WebPreorderApi? api;
   final Book? book;
   @override
-  State<WebPreorderPage> createState() => _WebPreorderPageState();
+  Widget build(BuildContext context) => kIsWeb && book == null
+      ? WebMultiPreorderPage(api: api)
+      : _WebSinglePreorderPage(api: api, book: book);
 }
 
-class _WebPreorderPageState extends State<WebPreorderPage> {
+class _WebSinglePreorderPage extends StatefulWidget {
+  const _WebSinglePreorderPage({this.api, this.book});
+  final WebPreorderApi? api;
+  final Book? book;
+  @override
+  State<_WebSinglePreorderPage> createState() => _WebPreorderPageState();
+}
+
+class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
   late final api = widget.api ?? WebPreorderApi();
   final form = GlobalKey<FormState>();
   final title = TextEditingController(),
@@ -684,7 +696,7 @@ class _WebPreorderPageState extends State<WebPreorderPage> {
                                   ],
                                 ),
                                 Text(
-                                  'O‘tkaziladigan summa: ${webPreorderMoney(c.total(quantity))}',
+                                  'O‘tkaziladigan summa: ${webPreorderMoney(c.total(quantity, int.tryParse(advance.text)))}',
                                 ),
                               ],
                             ),
@@ -751,6 +763,8 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
   String? error;
   bool enabled = false, saving = false;
   final Set<String> statusSaving = {};
+  String search = '', statusFilter = 'all';
+  bool loadingMore = false, hasMore = true;
   @override
   void initState() {
     super.initState();
@@ -828,11 +842,13 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
     final id = '${row['id']}';
     if (statusSaving.contains(id)) return;
     var reason = '';
+    final itemCount = (row['request_items'] as List?)?.length ?? 0;
     final needsReason = status == 'cancelled' || status == 'waiting';
     final key = GlobalKey<FormState>();
     final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
       title: Text(status == 'accepted' ? 'Avans chekini tasdiqlash' : status == 'arrived' ? 'Kitob keldimi?' : status == 'waiting' ? 'Qayta ko‘rib chiqish' : 'Buyurtmani bekor qilish'),
       content: Form(key: key, child: Column(mainAxisSize: MainAxisSize.min, children: [
+        if (itemCount > 1) Text('$itemCount turdagi kitobning barchasi uchun amal bajariladi.', style: const TextStyle(fontWeight: FontWeight.w800)),
         Text(status == 'accepted' ? 'Chek va bankdagi to‘lov mosligini tekshiring. Mijozga tasdiq xabari yuboriladi.' :
           status == 'cancelled' ? 'Mijozga sabab yoziladi. Avans bu tugma orqali avtomatik qaytarilmaydi.' : 'Mijozning bildirishnomalariga yangi holat yoziladi.'),
         const SizedBox(height: 12),
@@ -851,11 +867,23 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
         'id': id, 'status': status, 'version': row['status_version'] ?? 1, 'note': note,
       });
       if (result is! Map || result['status'] != status) throw StateError('Holat tasdiqlanmadi. Yangilab tekshiring.');
-      final updated = await api.admin(widget.secret, 'list');
+      var refreshFailed = false;
+      try {
+        final updated = await api.admin(widget.secret, 'list');
+        if (!mounted) return;
+        setState(() { requests = Future.value(updated); hasMore = (updated as List).length == 200; });
+      } catch (_) {
+        refreshFailed = true;
+        if (!mounted) return;
+        setState(() {
+          row['status'] = status; row['status_version'] = result['version'] ?? (row['status_version'] as int? ?? 1) + 1;
+          row['status_note'] = note; row['notification_state'] = 'pending';
+        });
+      }
       if (!mounted) return;
-      setState(() { requests = Future.value(updated); });
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
-        result['inbox_created'] == true ? 'Holat saqlandi. Mijozning bildirishnomalariga xabar yozildi.' : 'Holat saqlandi.')));
+        (result['inbox_created'] == true ? 'Holat saqlandi. Mijozning bildirishnomalariga xabar yozildi.' : 'Holat saqlandi.') +
+        (refreshFailed ? ' Ro‘yxatni qayta yuklang.' : ''))));
     } catch (e) {
       if (mounted) {
         setState(() { requests = api.admin(widget.secret, 'list'); });
@@ -864,6 +892,19 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
     } finally {
       if (mounted) setState(() => statusSaving.remove(id));
     }
+  }
+
+  Future<void> _more(List<Map> loaded) async {
+    if (loadingMore) return;
+    setState(() => loadingMore = true);
+    try {
+      final next = await api.admin(widget.secret, 'list', {'offset': loaded.length, 'limit': 200}) as List;
+      if (!mounted) return;
+      final merged = <String, Map>{for (final row in [...loaded, ...next.whereType<Map>()]) '${row['id']}': row};
+      setState(() { requests = Future.value(merged.values.toList()); hasMore = next.length == 200; });
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Keyingi so‘rovlar yuklanmadi. Qayta urining.')));
+    } finally { if (mounted) setState(() => loadingMore = false); }
   }
 
   void _view(String url) {
@@ -1017,27 +1058,37 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
                       ),
                     ),
                     const Text(
-                      'Oxirgi 200 ta so‘rov. Chekni tekshirgandan keyin tasdiqlang.',
+                      'Chekni bankdagi to‘lov bilan tekshiring. Bitta so‘rovdagi barcha kitoblar birgalikda boshqariladi.',
                     ),
+                    const SizedBox(height: 12),
+                    TextField(onChanged: (value) => setState(() => search = value.trim().toLowerCase()),
+                      decoration: const InputDecoration(labelText: 'Kitob, mijoz yoki telefon bo‘yicha qidirish', prefixIcon: Icon(Icons.search))),
+                    Wrap(spacing: 6, children: [
+                      for (final entry in const {'all': 'Barchasi', 'waiting': 'Tekshirish kerak', 'accepted': 'Qabul qilindi', 'arrived': 'Keldi', 'cancelled': 'Bekor qilindi'}.entries)
+                        ChoiceChip(label: Text(entry.value), selected: statusFilter == entry.key,
+                          onSelected: (_) => setState(() => statusFilter = entry.key)),
+                    ]),
                     const SizedBox(height: 12),
                     FutureBuilder<dynamic>(
                       future: requests,
                       builder: (ctx, snap) {
                         if (snap.hasError)
-                          return const Text(
-                            'Buyurtmalar yuklanmadi. Yangilash tugmasini bosing.',
-                          );
+                          return OutlinedButton.icon(
+                            onPressed: () => setState(() { requests = api.admin(widget.secret, 'list'); hasMore = true; }),
+                            icon: const Icon(Icons.refresh), label: const Text('Buyurtmalar yuklanmadi. Qayta yuklash'));
                         if (!snap.hasData)
                           return const Center(
                             child: CircularProgressIndicator(),
                           );
-                        final rows = (snap.data as List)
-                            .whereType<Map>()
-                            .toList();
+                        final loaded = (snap.data as List).whereType<Map>().toList();
+                        final rows = loaded.where((r) => (statusFilter == 'all' || r['status'] == statusFilter) &&
+                          (search.isEmpty || '${r['book_title']} ${r['request_items']} ${r['customer_name']} ${r['phone']}'.toLowerCase().contains(search))).toList();
                         if (rows.isEmpty)
-                          return const AppSurface(
-                            child: Text('Hozircha oldindan buyurtma yo‘q.'),
-                          );
+                          return Column(children: [
+                            const AppSurface(child: Text('Bu filtr bo‘yicha so‘rov topilmadi. Boshqa filtr yoki qidiruvni tanlang.')),
+                            if (hasMore && loaded.length >= 200) OutlinedButton(
+                              onPressed: loadingMore ? null : () => _more(loaded), child: const Text('Yana so‘rovlarni yuklash')),
+                          ]);
                         const labels = {
                           'waiting': 'Chek tekshirilmoqda',
                           'accepted': 'Qabul qilindi',
@@ -1061,9 +1112,18 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
                                             fontWeight: FontWeight.w900,
                                           ),
                                         ),
+                                        if ((r['request_items'] as List?)?.isNotEmpty == true)
+                                          for (final item in r['request_items'] as List)
+                                            ListTile(contentPadding: EdgeInsets.zero,
+                                              leading: SizedBox(width: 48, height: 64, child: Image.network('${item['book_image_url'] ?? ''}', fit: BoxFit.contain,
+                                                errorBuilder: (_, __, ___) => const Icon(Icons.menu_book_outlined))),
+                                              title: Text('${item['book_title']}'), subtitle: Text('${item['quantity']} dona'),
+                                              trailing: const Icon(Icons.zoom_in),
+                                              onTap: () => _view('${item['book_image_url'] ?? ''}')),
                                         SelectableText(
                                           '${r['customer_name']}\n${r['phone']}',
                                         ),
+                                        Text('Yuborilgan: ${webPreorderTime(r['created_at'])}'),
                                         Text(
                                           'Avans: ${webPreorderMoney((r['deposit_amount'] as num).toInt())}',
                                         ),
@@ -1118,7 +1178,7 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
                                             ])
                                               OutlinedButton(
                                                 onPressed: statusSaving.contains('${r['id']}') ? null : () => _status(r, action),
-                                                child: Text(action == 'accepted' ? 'Qabul qilish' : action == 'arrived' ? 'Kitob keldi' : action == 'waiting' ? 'Qayta ochish' : 'Bekor qilish'),
+                                                child: Text(action == 'accepted' ? 'Qabul qilish' : action == 'arrived' ? ((r['request_items'] as List?)?.length != null && (r['request_items'] as List).length > 1 ? 'Barcha kitoblar keldi' : 'Kitob keldi') : action == 'waiting' ? 'Qayta ochish' : 'Bekor qilish'),
                                               ),
                                             if (statusSaving.contains('${r['id']}')) const Padding(
                                               padding: EdgeInsets.all(10), child: Text('Saqlanmoqda…')),
@@ -1130,7 +1190,11 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
                                   ),
                                 ),
                               )
-                              .toList(),
+                              .toList()..addAll([
+                                if (hasMore && loaded.length >= 200) OutlinedButton.icon(
+                                  onPressed: loadingMore ? null : () => _more(loaded), icon: const Icon(Icons.expand_more),
+                                  label: Text(loadingMore ? 'Yuklanmoqda…' : 'Yana so‘rovlarni yuklash')),
+                              ]),
                         );
                       },
                     ),

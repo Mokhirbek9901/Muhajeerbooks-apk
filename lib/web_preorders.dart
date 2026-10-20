@@ -15,6 +15,11 @@ import 'app_state.dart';
 import 'design_system.dart';
 import 'push_notifications.dart';
 
+String webPreorderTime(dynamic value) {
+  final time = DateTime.tryParse((value ?? '').toString());
+  return time == null ? '—' : DateFormat('yyyy.MM.dd HH:mm').format(time.toLocal());
+}
+
 String webPreorderMoney(int amount) =>
     '₩${NumberFormat('#,###').format(amount)}';
 
@@ -1075,7 +1080,7 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
                                           ExpansionTile(title: const Text('Holat tarixi'), children: [
                                             for (final h in r['history'] as List)
                                               ListTile(title: Text('${labels[h['status']] ?? h['status']}'),
-                                                subtitle: Text('${h['message']}\n${h['created_at']}')),
+                                                subtitle: Text('${h['message']}\n${webPreorderTime(h['created_at'])}')),
                                           ]),
 
                                         Wrap(

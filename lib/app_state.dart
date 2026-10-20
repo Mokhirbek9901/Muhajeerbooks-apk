@@ -487,17 +487,17 @@ class ShopOrder {
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList(),
     createdAt:
-        DateTime.tryParse((map['created_at'] ?? '').toString()) ??
+        DateTime.tryParse((map['created_at'] ?? '').toString())?.toLocal() ??
         DateTime.now(),
     paymentProofPath: (map['payment_proof_path'] ?? '').toString(),
     paymentSubmittedAt: DateTime.tryParse(
       (map['payment_submitted_at'] ?? '').toString(),
-    ),
+    )?.toLocal(),
     stockReserved: map['stock_reserved'] as bool? ?? false,
     carrier: (map['carrier'] ?? '').toString(),
     trackingNumber: (map['tracking_number'] ?? '').toString(),
-    trackingUpdatedAt: DateTime.tryParse((map['tracking_updated_at'] ?? '').toString()),
-    preparedAt: DateTime.tryParse((map['prepared_at'] ?? '').toString()),
+    trackingUpdatedAt: DateTime.tryParse((map['tracking_updated_at'] ?? '').toString())?.toLocal(),
+    preparedAt: DateTime.tryParse((map['prepared_at'] ?? '').toString())?.toLocal(),
   );
 
   Map<String, dynamic> toMap() => {
@@ -513,14 +513,14 @@ class ShopOrder {
     'source': source,
     'display_order_number': displayOrderNumber,
     'items': items,
-    'created_at': createdAt.toIso8601String(),
+    'created_at': createdAt.toUtc().toIso8601String(),
     'payment_proof_path': paymentProofPath,
-    'payment_submitted_at': paymentSubmittedAt?.toIso8601String(),
+    'payment_submitted_at': paymentSubmittedAt?.toUtc().toIso8601String(),
     'stock_reserved': stockReserved,
     'carrier': carrier,
     'tracking_number': trackingNumber,
-    'tracking_updated_at': trackingUpdatedAt?.toIso8601String(),
-    'prepared_at': preparedAt?.toIso8601String(),
+    'tracking_updated_at': trackingUpdatedAt?.toUtc().toIso8601String(),
+    'prepared_at': preparedAt?.toUtc().toIso8601String(),
   };
 
   ShopOrder copyWith({

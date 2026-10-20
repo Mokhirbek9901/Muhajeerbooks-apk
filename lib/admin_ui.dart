@@ -2572,7 +2572,7 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                               ),
                             ),
                             subtitle: Text(
-                              DateFormat('MM.dd • HH:mm').format(o.createdAt),
+                              DateFormat('MM.dd • HH:mm').format(o.createdAt.toLocal()),
                               style: const TextStyle(fontSize: 11.5),
                             ),
                             trailing: Column(
@@ -6442,7 +6442,7 @@ class _ProfessionalOrderCard extends StatelessWidget {
                 ),
               ),
               Text(
-                DateFormat('yyyy.MM.dd HH:mm').format(order.createdAt),
+                DateFormat('yyyy.MM.dd HH:mm').format(order.createdAt.toLocal()),
                 style: const TextStyle(fontSize: 11, color: Colors.black45),
               ),
             ],

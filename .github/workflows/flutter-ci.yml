@@ -19,6 +19,10 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze --no-fatal-warnings --no-fatal-infos
       - run: flutter test
+      - name: Verify Korea order timestamps and day boundaries
+        env:
+          TZ: Asia/Seoul
+        run: flutter test test/order_time_test.dart --dart-define=REQUIRE_KOREA_TIME=true
       - name: Upload story previews and resolved dependencies
         uses: actions/upload-artifact@v4
         with:

@@ -8049,7 +8049,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                               const SizedBox(height: 3),
                               Text(
                                 DateFormat('yyyy.MM.dd • HH:mm')
-                                    .format(order.createdAt),
+                                    .format(order.createdAt.toLocal()),
                                 style: const TextStyle(
                                   fontSize: 11.5,
                                   color: AppColors.muted,
@@ -8370,7 +8370,7 @@ Future<void> _showMuhajeerReceipt(BuildContext context, ShopOrder order) async {
               const SizedBox(height: 18),
               const Divider(),
               _ReceiptRow(label: 'Buyurtma', value: '#${order.displayOrderNumber}'),
-              _ReceiptRow(label: 'Sana', value: DateFormat('dd.MM.yyyy  HH:mm').format(order.createdAt)),
+              _ReceiptRow(label: 'Sana', value: DateFormat('dd.MM.yyyy  HH:mm').format(order.createdAt.toLocal())),
               _ReceiptRow(label: 'Mijoz', value: order.customerName),
               const Divider(),
               ...order.items.map((item) {

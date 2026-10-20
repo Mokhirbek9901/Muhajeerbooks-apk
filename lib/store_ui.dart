@@ -4557,6 +4557,13 @@ class BookDetailPage extends StatelessWidget {
                   ),
                 ],
               ),
+              if (kIsWeb && (!b.inStock || b.preorderEnabled)) ...[
+                const SizedBox(height: 4),
+                const Text(
+                  '(Pochtaga +4 000 won qo‘shiladi)',
+                  style: TextStyle(fontSize: 11, color: AppColors.muted),
+                ),
+              ],
               const SizedBox(height: 9),
               if (b.preorderEnabled && (!webPreordersAvailable || b.inStock))
                 SizedBox(

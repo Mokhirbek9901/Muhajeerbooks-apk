@@ -2110,7 +2110,7 @@ class _HomePageState extends State<HomePage> {
     // Sets have their own "Setlar" page. Do not mix them into a sorted book
     // result, otherwise the visible order no longer matches the chosen filter.
     final catalogItems = <Object>[...books];
-    final showWebPreorderCard = kIsWeb && query.trim().isEmpty &&
+    final showWebPreorderCard = webPreordersAvailable && query.trim().isEmpty &&
         category == 'Barchasi' && publisher == 'Barchasi';
 
     final catalogView = SafeArea(
@@ -4558,7 +4558,7 @@ class BookDetailPage extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 9),
-              if (b.preorderEnabled && (!kIsWeb || b.inStock))
+              if (b.preorderEnabled && (!webPreordersAvailable || b.inStock))
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
@@ -4567,7 +4567,7 @@ class BookDetailPage extends StatelessWidget {
                       context,
                       muhajeerPageRoute<void>(
                         settings: RouteSettings(name: 'mb:preorder:${b.id}'),
-                        builder: (_) => kIsWeb ? WebPreorderPage(book: b) : _PreorderCheckoutPage(book: b),
+                        builder: (_) => webPreordersAvailable ? WebPreorderPage(book: b) : _PreorderCheckoutPage(book: b),
                       ),
                     ),
                     icon: const Icon(Icons.event_available_rounded),
@@ -4646,7 +4646,7 @@ class BookDetailPage extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (kIsWeb) ...[
+                    if (webPreordersAvailable) ...[
                       const SizedBox(width: 8),
                       Expanded(child: OutlinedButton.icon(
                         onPressed: () => Navigator.push<void>(context, muhajeerPageRoute<void>(

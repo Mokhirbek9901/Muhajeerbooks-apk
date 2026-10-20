@@ -2144,16 +2144,6 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
               ),
               const SizedBox(height: 10),
               Card(child: ListTile(
-                leading: const Icon(Icons.event_available_outlined, color: AppColors.success),
-                title: const Text('Oldindan buyurtma • Sozlamalar',
-                  style: TextStyle(fontWeight: FontWeight.w900)),
-                subtitle: const Text('Qabulni yoqish/o‘chirish • kelish sanasi • avans • mijoz so‘rovlari'),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                  builder: (_) => WebPreorderAdminPage(secret: widget.api.secret))),
-              )),
-              const SizedBox(height: 10),
-              Card(child: ListTile(
                 leading: const Icon(Icons.calculate_outlined,
                   color: UzbekCustomerColors.teal),
                 title: const Text('Biznes asboblari',
@@ -2166,6 +2156,18 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                     secret: widget.api.secret, books: books))),
               )),
               const SizedBox(height: 12),
+            ],
+            if (webPreordersAvailable) ...[
+              Card(child: ListTile(
+                leading: const Icon(Icons.event_available_outlined, color: AppColors.success),
+                title: const Text('Oldindan buyurtma • Sozlamalar',
+                  style: TextStyle(fontWeight: FontWeight.w900)),
+                subtitle: const Text('Qabulni yoqish/o‘chirish • kelish sanasi • avans • mijoz so‘rovlari'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => WebPreorderAdminPage(secret: widget.api.secret))),
+              )),
+              const SizedBox(height: 10),
             ],
             if (_enhancedAdminUi) ...[
               _WebAdminDashboardHeader(
@@ -5009,11 +5011,11 @@ class _PreorderAdminPageState extends State<_PreorderAdminPage> {
                   ),
                 )),
               const SizedBox(height: 20),
-              if (kIsWeb) ...[
+              if (webPreordersAvailable) ...[
                 FilledButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(
                   builder: (_) => WebPreorderAdminPage(secret: widget.api.secret))),
                   icon: const Icon(Icons.fact_check_outlined),
-                  label: const Text('Web oldindan buyurtmalarni boshqarish')),
+                  label: const Text('Oldindan buyurtmalarni boshqarish')),
                 const SizedBox(height: 12),
               ],
               AppSectionHeader(
@@ -5851,7 +5853,7 @@ class _BookFormState extends State<_BookForm> {
                   Expanded(child: field(preorderMax, 'Oldindan to‘lov max (₩)', number: true, required: true)),
                 ],
               ),
-              if (kIsWeb) Wrap(spacing: 8, children: [
+              if (webPreordersAvailable) Wrap(spacing: 8, children: [
                 for (final value in [5000, 10000])
                   ActionChip(label: Text('Avans ${_won(value)}'), onPressed: () => setState(() {
                     preorderMin.text = '$value'; preorderMax.text = '$value';

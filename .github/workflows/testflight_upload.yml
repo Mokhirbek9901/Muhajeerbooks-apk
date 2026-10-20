@@ -84,6 +84,14 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Validate current web features and TestFlight preview
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test --dart-define=TESTFLIGHT_PREVIEW=true
+          TZ=Asia/Seoul flutter test test/order_time_test.dart --dart-define=REQUIRE_KOREA_TIME=true
+
       - name: Install dependencies and configure manual signing
         run: |
           set -euo pipefail
@@ -103,6 +111,7 @@ jobs:
             --build-number="$IOS_BUILD_NUMBER" \
             --dart-define=APP_BUILD_NUMBER="$IOS_BUILD_NUMBER" \
             --dart-define=APP_STORE_BUILD=true \
+            --dart-define=TESTFLIGHT_PREVIEW=true \
             --dart-define=SUPABASE_URL="$SUPABASE_URL" \
             --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
             --export-options-plist="$RUNNER_TEMP/signing/ExportOptions.plist" \
@@ -137,15 +146,6 @@ jobs:
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         run: ruby .github/scripts/ios/app_store_status.rb wait
-
-      - name: Submit validated iOS update to App Store Review
-        env:
-          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-        run: |
-          set -euo pipefail
-          ruby -c .github/release_tools/submit_app_store_update.rb
-          ruby .github/release_tools/submit_app_store_update.rb
 
       - name: Save release diagnostics
         if: always()

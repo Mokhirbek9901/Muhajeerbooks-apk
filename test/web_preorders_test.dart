@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -49,6 +50,14 @@ Widget app(Widget child) => ChangeNotifierProvider(
 );
 
 void main() {
+  test('TestFlight preview is limited to iOS and never enables Android', () {
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    expect(webPreordersAvailable, kIsWeb);
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    expect(webPreordersAvailable,
+        kIsWeb || const bool.fromEnvironment('TESTFLIGHT_PREVIEW'));
+  });
   test(
     'missing arrival date fails closed and deposits multiply by quantity',
     () {

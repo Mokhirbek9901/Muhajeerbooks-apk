@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
@@ -14,6 +15,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app_state.dart';
 import 'design_system.dart';
 import 'push_notifications.dart';
+
+// Enabled only for the explicitly requested iOS TestFlight preview.
+bool get webPreordersAvailable => kIsWeb ||
+    (defaultTargetPlatform == TargetPlatform.iOS &&
+        const bool.fromEnvironment('TESTFLIGHT_PREVIEW'));
 
 String webPreorderTime(dynamic value) {
   final time = DateTime.tryParse((value ?? '').toString());

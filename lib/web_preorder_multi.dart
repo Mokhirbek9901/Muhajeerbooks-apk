@@ -26,6 +26,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
   Uint8List? proof;
   String? proofPath, error;
   bool loading = true, saving = false, payment = false, picking = false, completed = false;
+  bool allowPop = false, leaving = false;
   int get quantity => books.fold(0, (sum, b) => sum + b.quantity);
   int get total => (config?.deposit ?? 0) * quantity;
 
@@ -54,6 +55,79 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(value)));
   }
 
+  bool get editable => !saving && !picking && !payment && !completed;
+
+  void undoMessage(String value, VoidCallback restore) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(SnackBar(content: Text(value),
+      action: SnackBarAction(label: 'Qaytarish', onPressed: () {
+        if (mounted && !saving && !picking && !completed) restore();
+      })));
+  }
+
+  void cancelBook(_RequestedBook book, int index) {
+    if (!editable) return;
+    final title = book.title.text, image = book.image, path = book.path, count = book.quantity;
+    final replacement = books.length == 1 ? _RequestedBook() : null;
+    setState(() { books.remove(book); if (replacement != null) books.add(replacement); });
+    WidgetsBinding.instance.addPostFrameCallback((_) => book.title.dispose());
+    undoMessage('Kitob bekor qilindi.', () {
+      if (!editable) return;
+      final restored = _RequestedBook();
+      restored.title.text = title; restored.image = image; restored.path = path; restored.quantity = count;
+      setState(() {
+        if (replacement != null && books.contains(replacement) && replacement.title.text.isEmpty &&
+            replacement.image == null && replacement.quantity == 1) {
+          books.remove(replacement);
+          WidgetsBinding.instance.addPostFrameCallback((_) => replacement.title.dispose());
+        }
+        books.insert(index.clamp(0, books.length).toInt(), restored);
+      });
+    });
+  }
+
+  void cancelImage(_RequestedBook? book) {
+    if (saving || picking || completed) return;
+    final image = book == null ? proof : book.image;
+    final path = book == null ? proofPath : book.path;
+    setState(() {
+      if (book == null) { proof = null; proofPath = null; }
+      else { book.image = null; book.path = null; }
+    });
+    undoMessage(book == null ? 'Chek olib tashlandi.' : 'Rasm olib tashlandi.', () => setState(() {
+      if (book == null) { proof = image; proofPath = path; }
+      else if (books.contains(book)) { book.image = image; book.path = path; }
+    }));
+  }
+
+  Future<void> back() async {
+    if (saving || picking || completed || leaving) return;
+    if (payment) { setState(() => payment = false); return; }
+    await cancelRequest();
+  }
+
+  Future<void> cancelRequest() async {
+    if (saving || picking || completed || leaving) return;
+    leaving = true;
+    try {
+      final dirty = books.length > 1 || books.any((b) => b.title.text.isNotEmpty || b.image != null || b.quantity != 1) || proof != null;
+      if (dirty) {
+        final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+          title: const Text('Buyurtmadan chiqasizmi?'),
+          content: const Text('Yuborilmagan kitob ma’lumotlari saqlanmaydi. Avans o‘tkazgan bo‘lsangiz, so‘rovni yuboring yoki administrator bilan bog‘laning.'),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Davom etish')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Chiqish'))],
+        ));
+        if (confirmed != true || !mounted) return;
+      }
+      if (!mounted || !Navigator.of(context).canPop()) return;
+      ScaffoldMessenger.of(context).clearSnackBars();
+      setState(() => allowPop = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) Navigator.pop(context); });
+    } finally { leaving = false; }
+  }
+
   Future<void> _reload() async {
     try {
       final next = await api.config();
@@ -80,6 +154,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
 
   Future<void> pick([_RequestedBook? book]) async {
     if (picking || saving) return;
+    ScaffoldMessenger.of(context).clearSnackBars();
     setState(() => picking = true);
     try {
       Uint8List? bytes;
@@ -123,7 +198,10 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
     final missing = books.indexWhere((b) => b.image == null);
     if (missing >= 0) { message('${missing + 1}-kitob rasmini tanlang.'); return; }
     setState(() => saving = true);
-    try { if (await currentTerms() && mounted) setState(() => payment = true); }
+    try { if (await currentTerms() && mounted) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      setState(() => payment = true);
+    } }
     finally { if (mounted) setState(() => saving = false); }
   }
 
@@ -169,11 +247,9 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
     key: ObjectKey(book),
     child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Row(children: [Expanded(child: Text('${index + 1}-kitob', style: const TextStyle(fontWeight: FontWeight.w900))),
-        if (books.length > 1 && !payment) IconButton(tooltip: 'Kitobni olib tashlash',
-          onPressed: saving || picking ? null : () {
-            setState(() => books.remove(book));
-            WidgetsBinding.instance.addPostFrameCallback((_) => book.title.dispose());
-          }, icon: const Icon(Icons.delete_outline))]),
+        if (!payment) TextButton.icon(key: ObjectKey(book.title),
+          onPressed: editable ? () => cancelBook(book, index) : null,
+          icon: const Icon(Icons.close, size: 18), label: const Text('Bekor qilish'))]),
       TextFormField(controller: book.title, readOnly: payment || saving,
         maxLength: 160, decoration: InputDecoration(labelText: '${index + 1}-kitob nomi'),
         validator: (v) => (v ?? '').trim().length < 2 ? 'Kitob nomini kiriting' : null),
@@ -181,6 +257,8 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
       if (!payment) OutlinedButton.icon(onPressed: saving || picking ? null : () => pick(book),
         icon: const Icon(Icons.add_photo_alternate_outlined),
         label: Text(book.image == null ? 'Kitob rasmini yuklash' : 'Rasmni almashtirish')),
+      if (book.image != null && !payment) TextButton(onPressed: editable ? () => cancelImage(book) : null,
+        child: const Text('Rasmni bekor qilish')),
       Row(children: [const Expanded(child: Text('Dona')),
         IconButton(onPressed: payment || saving || book.quantity == 1 ? null : () => setState(() => book.quantity--), icon: const Icon(Icons.remove_circle_outline)),
         Text('${book.quantity}', style: const TextStyle(fontWeight: FontWeight.w900)),
@@ -190,8 +268,13 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
   );
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Oldindan buyurtma')),
+  Widget build(BuildContext context) => PopScope(
+    canPop: allowPop || completed,
+    onPopInvokedWithResult: (didPop, result) { if (!didPop) back(); },
+    child: Scaffold(
+    appBar: AppBar(title: const Text('Oldindan buyurtma'),
+      leading: IconButton(tooltip: 'Orqaga', icon: const Icon(Icons.arrow_back),
+        onPressed: saving || picking || completed ? null : back)),
     body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 680),
       child: loading ? const Center(child: CircularProgressIndicator()) : Form(key: form,
         child: ListView(padding: const EdgeInsets.all(18), children: [
@@ -236,14 +319,18 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
               if (proof != null) SizedBox(height: 150, child: Image.memory(proof!, fit: BoxFit.contain)),
               OutlinedButton.icon(onPressed: saving || picking ? null : () => pick(), icon: const Icon(Icons.receipt_long_outlined),
                 label: Text(proof == null ? 'Avans chekini yuklash' : 'Chekni almashtirish')),
+              if (proof != null) TextButton(onPressed: saving || picking || completed ? null : () => cancelImage(null),
+                child: const Text('Chekni bekor qilish')),
               FilledButton(onPressed: saving || picking || completed ? null : submit,
                 child: Text(saving ? 'Yuborilmoqda…' : 'Avans yubordim — buyurtma berish')),
-              TextButton(onPressed: saving ? null : () => setState(() => payment = false), child: const Text('Ma’lumotlarni tahrirlash')),
+              TextButton(onPressed: saving || completed ? null : () => setState(() => payment = false), child: const Text('Ma’lumotlarni tahrirlash')),
             ],
+            TextButton.icon(onPressed: saving || picking || completed ? null : cancelRequest,
+              icon: const Icon(Icons.close), label: const Text('Buyurtmani bekor qilish')),
             if (saving || picking) const Padding(padding: EdgeInsets.all(8), child: LinearProgressIndicator()),
           ],
         ]),
       ),
     )),
-  );
+  ));
 }

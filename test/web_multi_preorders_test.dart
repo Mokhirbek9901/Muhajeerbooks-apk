@@ -67,6 +67,57 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('cancel an added book and undo restores its title and correct total', (tester) async {
+    final api = MultiApi();
+    await mount(tester, api);
+    await tester.enterText(find.widgetWithText(TextFormField, '1-kitob nomi'), 'Birinchi kitob');
+    await reveal(tester, find.text('Yana kitob qo‘shish'));
+    await tester.tap(find.text('Yana kitob qo‘shish'));
+    await tester.pumpAndSettle();
+    await reveal(tester, find.widgetWithText(TextFormField, '2-kitob nomi'));
+    await tester.enterText(find.widgetWithText(TextFormField, '2-kitob nomi'), 'Ikkinchi kitob');
+    await tester.tap(find.text('Bekor qilish').last);
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextFormField, '2-kitob nomi'), findsNothing);
+    await reveal(tester, find.text('1 turdagi kitob • 1 dona'));
+    expect(find.text('Jami avans: ₩5,000'), findsOneWidget);
+    // Recreate the undo promptly so it is independent of reveal's scroll duration.
+    await tester.tap(find.text('Qaytarish'));
+    await tester.pumpAndSettle();
+    await reveal(tester, find.widgetWithText(TextFormField, '2-kitob nomi'));
+    expect((tester.widget<TextFormField>(find.widgetWithText(TextFormField, '2-kitob nomi')).controller!).text, 'Ikkinchi kitob');
+    await reveal(tester, find.text('2 turdagi kitob • 2 dona'));
+    expect(find.text('Jami avans: ₩10,000'), findsOneWidget);
+    expect(api.attempts, 0);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('cancel image can be undone and leaving can be declined without losing draft', (tester) async {
+    final api = MultiApi();
+    await mount(tester, api);
+    await tester.enterText(find.widgetWithText(TextFormField, '1-kitob nomi'), 'Saqlangan nom');
+    await reveal(tester, find.text('Kitob rasmini yuklash'));
+    await tester.tap(find.text('Kitob rasmini yuklash'));
+    await tester.pumpAndSettle();
+    await reveal(tester, find.text('Rasmni bekor qilish'));
+    await tester.tap(find.text('Rasmni bekor qilish'));
+    await tester.pumpAndSettle();
+    expect(find.text('Rasmni almashtirish'), findsNothing);
+    await tester.tap(find.text('Qaytarish'));
+    await tester.pumpAndSettle();
+    expect(find.text('Rasmni almashtirish'), findsOneWidget);
+    await reveal(tester, find.text('Buyurtmani bekor qilish'));
+    await tester.tap(find.text('Buyurtmani bekor qilish'));
+    await tester.pumpAndSettle();
+    expect(find.text('Buyurtmadan chiqasizmi?'), findsOneWidget);
+    await tester.tap(find.text('Davom etish'));
+    await tester.pumpAndSettle();
+    await reveal(tester, find.widgetWithText(TextFormField, '1-kitob nomi'));
+    expect(tester.widget<TextFormField>(find.widgetWithText(TextFormField, '1-kitob nomi')).controller!.text, 'Saqlangan nom');
+    expect(api.attempts, 0);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('an empty title scrolled out of view still blocks payment', (tester) async {
     final api = MultiApi();
     await mount(tester, api);
@@ -123,9 +174,22 @@ void main() {
     await tester.pumpAndSettle();
     await reveal(tester, find.text('O‘tkaziladigan summa: ₩10,000'));
     expect(find.text('O‘tkaziladigan summa: ₩10,000'), findsOneWidget);
+    await tester.tap(find.byTooltip('Orqaga'));
+    await tester.pumpAndSettle();
+    expect(find.text('Bank o‘tkazmasi'), findsNothing);
+    await reveal(tester, find.text('Shartlarni ko‘rdim — to‘lovga o‘tish'));
+    await tester.tap(find.text('Shartlarni ko‘rdim — to‘lovga o‘tish'));
+    await tester.pumpAndSettle();
     await reveal(tester, find.text('Avans chekini yuklash'));
     await tester.tap(find.text('Avans chekini yuklash'));
     await tester.pumpAndSettle();
+    await reveal(tester, find.text('Chekni bekor qilish'));
+    await tester.tap(find.text('Chekni bekor qilish'));
+    await tester.pumpAndSettle();
+    expect(find.text('Chekni almashtirish'), findsNothing);
+    await tester.tap(find.text('Qaytarish'));
+    await tester.pumpAndSettle();
+    expect(find.text('Chekni almashtirish'), findsOneWidget);
     await reveal(tester, find.text('Avans yubordim — buyurtma berish'));
     await tester.tap(find.text('Avans yubordim — buyurtma berish'));
     await tester.pumpAndSettle();

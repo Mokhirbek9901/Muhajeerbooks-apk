@@ -11,7 +11,7 @@ class FakePreorders extends WebPreorderApi {
   int saves = 0, statusCalls = 0;
   Map<String, dynamic>? lastStatus;
   List<Map<String, dynamic>> rows = [];
-  bool failStatus = false;
+  bool failStatus = false, failRefresh = false;
   @override
   Future<WebPreorderConfig> bookConfig(String bookId) async => value;
   @override
@@ -26,7 +26,10 @@ class FakePreorders extends WebPreorderApi {
       saves++;
       return {};
     }
-    if (action == 'list') return rows.map((r) => Map<String, dynamic>.from(r)).toList();
+    if (action == 'list') {
+      if (failRefresh && statusCalls > 0) throw StateError('Aloqa uzildi');
+      return rows.map((r) => Map<String, dynamic>.from(r)).toList();
+    }
     if (action == 'status') {
       statusCalls++;
       lastStatus = data;
@@ -221,6 +224,23 @@ void main() {
     expect(api.lastStatus!['status'], 'arrived');
     expect(find.text('Holat: Keldi'), findsOneWidget);
     expect(find.textContaining('Mijozning bildirishnomalariga xabar yozildi'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('successful status is preserved when the following list refresh fails', (tester) async {
+    final api = FakePreorders(const WebPreorderConfig())..rows = [requestRow('waiting')]..failRefresh = true;
+    await tester.pumpWidget(MaterialApp(home: WebPreorderAdminPage(secret: 'test', api: api)));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Qabul qilish'), 250, scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(find.text('Qabul qilish'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Qabul qilish'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tasdiqlash'));
+    await tester.pumpAndSettle();
+    expect(api.statusCalls, 1);
+    expect(find.text('Holat: Qabul qilindi'), findsOneWidget);
+    expect(find.textContaining('Ro‘yxatni qayta yuklang.'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 

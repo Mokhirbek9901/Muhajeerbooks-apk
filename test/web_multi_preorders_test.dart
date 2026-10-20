@@ -67,6 +67,23 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('an empty title scrolled out of view still blocks payment', (tester) async {
+    final api = MultiApi();
+    await mount(tester, api);
+    for (var i = 0; i < 5; i++) {
+      await reveal(tester, find.text('Yana kitob qo‘shish'));
+      await tester.tap(find.text('Yana kitob qo‘shish'));
+      await tester.pumpAndSettle();
+    }
+    await reveal(tester, find.text('Shartlarni ko‘rdim — to‘lovga o‘tish'));
+    await tester.tap(find.text('Shartlarni ko‘rdim — to‘lovga o‘tish'));
+    await tester.pumpAndSettle();
+    expect(find.text('1-kitob nomini kiriting.'), findsOneWidget);
+    expect(find.text('Bank o‘tkazmasi'), findsNothing);
+    expect(api.attempts, 0);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('all book images required before showing payment instructions', (tester) async {
     final api = MultiApi();
     await mount(tester, api);

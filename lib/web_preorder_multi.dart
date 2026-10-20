@@ -25,7 +25,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
   WebPreorderConfig? config;
   Uint8List? proof;
   String? proofPath, error;
-  bool loading = true, saving = false, payment = false, picking = false;
+  bool loading = true, saving = false, payment = false, picking = false, completed = false;
   int get quantity => books.fold(0, (sum, b) => sum + b.quantity);
   int get total => (config?.deposit ?? 0) * quantity;
 
@@ -108,8 +108,18 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
     finally { if (mounted) setState(() => picking = false); }
   }
 
+  bool validateDetails() {
+    // ListView disposes fields outside the viewport. Validate every controller,
+    // including names above the scroll position, before showing bank details.
+    final invalid = books.indexWhere((b) => b.title.text.trim().length < 2);
+    if (invalid >= 0) { message('${invalid + 1}-kitob nomini kiriting.'); return false; }
+    if (name.text.trim().length < 2) { message('Ismingizni kiriting.'); return false; }
+    if (!RegExp(r'^010\d{8}$').hasMatch(phone.text)) { message('Telefon raqamini tekshiring.'); return false; }
+    return form.currentState!.validate();
+  }
+
   Future<void> next() async {
-    if (saving || picking || !form.currentState!.validate()) return;
+    if (saving || picking || completed || !validateDetails()) return;
     final missing = books.indexWhere((b) => b.image == null);
     if (missing >= 0) { message('${missing + 1}-kitob rasmini tanlang.'); return; }
     setState(() => saving = true);
@@ -118,7 +128,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
   }
 
   Future<void> submit() async {
-    if (saving || picking || !form.currentState!.validate()) return;
+    if (saving || picking || completed || !validateDetails()) return;
     if (proof == null) { message('Jami avans uchun to‘lov chekini yuklang.'); return; }
     setState(() => saving = true);
     try {
@@ -134,6 +144,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
         'items': [for (final b in books) {'book_title': b.title.text.trim(), 'book_image_path': b.path, 'quantity': b.quantity}],
       }});
       if (!mounted) return;
+      setState(() { completed = true; saving = false; });
       // The server has committed the order; failure to refresh local identity
       // must never offer another payment or silently lose this success.
       final state = context.read<AppState>();
@@ -225,7 +236,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
               if (proof != null) SizedBox(height: 150, child: Image.memory(proof!, fit: BoxFit.contain)),
               OutlinedButton.icon(onPressed: saving || picking ? null : () => pick(), icon: const Icon(Icons.receipt_long_outlined),
                 label: Text(proof == null ? 'Avans chekini yuklash' : 'Chekni almashtirish')),
-              FilledButton(onPressed: saving || picking ? null : submit,
+              FilledButton(onPressed: saving || picking || completed ? null : submit,
                 child: Text(saving ? 'Yuborilmoqda…' : 'Avans yubordim — buyurtma berish')),
               TextButton(onPressed: saving ? null : () => setState(() => payment = false), child: const Text('Ma’lumotlarni tahrirlash')),
             ],

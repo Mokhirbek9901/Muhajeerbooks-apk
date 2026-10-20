@@ -802,7 +802,12 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
   }
 
   Future<void> _save() async {
-    if (saving || !form.currentState!.validate()) return;
+    if (saving) return;
+    if (enabled && arrival.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Qabulni ochishdan oldin sanani kiriting')));
+      return;
+    }
+    if (!form.currentState!.validate()) return;
     setState(() => saving = true);
     try {
       await api.admin(widget.secret, 'save', {
@@ -1119,12 +1124,12 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
                                               itemCount: (r['request_items'] as List).length,
                                               itemBuilder: (_, index) {
                                                 final item = (r['request_items'] as List)[index];
-                                                return ListTile(contentPadding: EdgeInsets.zero,
+                                                return Material(type: MaterialType.transparency, child: ListTile(contentPadding: EdgeInsets.zero,
                                                   leading: SizedBox(width: 48, height: 64, child: Image.network('${item['book_image_url'] ?? ''}', fit: BoxFit.contain,
                                                     errorBuilder: (_, __, ___) => const Icon(Icons.menu_book_outlined))),
                                                   title: Text('${item['book_title']}'), subtitle: Text('${item['quantity']} dona'),
                                                   trailing: const Icon(Icons.zoom_in),
-                                                  onTap: () => _view('${item['book_image_url'] ?? ''}'));
+                                                  onTap: () => _view('${item['book_image_url'] ?? ''}')));
                                               })),
                                         SelectableText(
                                           '${r['customer_name']}\n${r['phone']}',
@@ -1151,8 +1156,8 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
                                         if ((r['history'] as List?)?.isNotEmpty == true)
                                           ExpansionTile(title: const Text('Holat tarixi'), children: [
                                             for (final h in r['history'] as List)
-                                              ListTile(title: Text('${labels[h['status']] ?? h['status']}'),
-                                                subtitle: Text('${h['message']}\n${webPreorderTime(h['created_at'])}')),
+                                              Material(type: MaterialType.transparency, child: ListTile(title: Text('${labels[h['status']] ?? h['status']}'),
+                                                subtitle: Text('${h['message']}\n${webPreorderTime(h['created_at'])}'))),
                                           ]),
 
                                         Wrap(

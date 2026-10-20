@@ -794,6 +794,7 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
         batch.text = '${c.batchQuantity}';
         error = null;
         requests = api.admin(widget.secret, 'list');
+        hasMore = true;
       });
     } catch (e) {
       if (mounted) setState(() => error = '$e');
@@ -1097,7 +1098,7 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
                         };
                         return Column(
                           children: rows
-                              .map(
+                              .map<Widget>(
                                 (r) => Padding(
                                   padding: const EdgeInsets.only(bottom: 14),
                                   child: AppSurface(
@@ -1113,13 +1114,18 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
                                           ),
                                         ),
                                         if ((r['request_items'] as List?)?.isNotEmpty == true)
-                                          for (final item in r['request_items'] as List)
-                                            ListTile(contentPadding: EdgeInsets.zero,
-                                              leading: SizedBox(width: 48, height: 64, child: Image.network('${item['book_image_url'] ?? ''}', fit: BoxFit.contain,
-                                                errorBuilder: (_, __, ___) => const Icon(Icons.menu_book_outlined))),
-                                              title: Text('${item['book_title']}'), subtitle: Text('${item['quantity']} dona'),
-                                              trailing: const Icon(Icons.zoom_in),
-                                              onTap: () => _view('${item['book_image_url'] ?? ''}')),
+                                          SizedBox(height: ((r['request_items'] as List).length * 88.0).clamp(88.0, 352.0).toDouble(),
+                                            child: ListView.builder(primary: false,
+                                              itemCount: (r['request_items'] as List).length,
+                                              itemBuilder: (_, index) {
+                                                final item = (r['request_items'] as List)[index];
+                                                return ListTile(contentPadding: EdgeInsets.zero,
+                                                  leading: SizedBox(width: 48, height: 64, child: Image.network('${item['book_image_url'] ?? ''}', fit: BoxFit.contain,
+                                                    errorBuilder: (_, __, ___) => const Icon(Icons.menu_book_outlined))),
+                                                  title: Text('${item['book_title']}'), subtitle: Text('${item['quantity']} dona'),
+                                                  trailing: const Icon(Icons.zoom_in),
+                                                  onTap: () => _view('${item['book_image_url'] ?? ''}'));
+                                              })),
                                         SelectableText(
                                           '${r['customer_name']}\n${r['phone']}',
                                         ),

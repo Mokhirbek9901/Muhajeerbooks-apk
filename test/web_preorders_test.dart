@@ -202,4 +202,26 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('admin sees every requested title and confirms arrival for the whole request', (tester) async {
+    final row = requestRow('accepted')..['request_items'] = [
+      {'book_title': 'Birinchi kitob', 'quantity': 1},
+      {'book_title': 'Ikkinchi kitob', 'quantity': 2},
+    ];
+    final api = FakePreorders(const WebPreorderConfig())..rows = [row];
+    await tester.pumpWidget(MaterialApp(home: WebPreorderAdminPage(secret: 'test', api: api)));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Barcha kitoblar keldi'), 250, scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(find.text('Barcha kitoblar keldi'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Barcha kitoblar keldi'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 turdagi kitobning barchasi uchun amal bajariladi.'), findsOneWidget);
+    await tester.tap(find.text('Tasdiqlash'));
+    await tester.pumpAndSettle();
+    expect(api.lastStatus!['status'], 'arrived');
+    expect(find.text('Holat: Keldi'), findsOneWidget);
+    expect(find.textContaining('Mijozning bildirishnomalariga xabar yozildi'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
 }

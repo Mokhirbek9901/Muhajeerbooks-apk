@@ -92,10 +92,10 @@ begin
    batch_quantity=batch,revision=revision+1,updated_at=now() where id;
   return public.web_preorder_config();
  elsif p_action='list' then
-  return coalesce((select jsonb_agg(to_jsonb(x)) from (select r.*,
-    (select e.delivery_state from private.web_preorder_events e where e.preorder_id=r.id and e.audience='customer' order by version desc limit 1) as notification_state,
-    (select coalesce(jsonb_agg(jsonb_build_object('status',h.status,'created_at',h.created_at,'message',h.body) order by h.version desc),'[]') from private.web_preorder_events h where h.preorder_id=r.id and h.audience='customer') as history
-    from public.web_preorder_requests r order by r.created_at desc,r.id desc
+  return coalesce((select jsonb_agg(to_jsonb(x)) from (select req.*,
+    (select e.delivery_state from private.web_preorder_events e where e.preorder_id=req.id and e.audience='customer' order by version desc limit 1) as notification_state,
+    (select coalesce(jsonb_agg(jsonb_build_object('status',h.status,'created_at',h.created_at,'message',h.body) order by h.version desc),'[]') from private.web_preorder_events h where h.preorder_id=req.id and h.audience='customer') as history
+    from public.web_preorder_requests req order by req.created_at desc,req.id desc
       limit least(200,greatest(1,coalesce((p_payload->>'limit')::integer,200)))
       offset greatest(0,coalesce((p_payload->>'offset')::integer,0))) x),'[]');
  elsif p_action='status' then

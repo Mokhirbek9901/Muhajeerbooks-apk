@@ -76,12 +76,14 @@ void main() {
     await tester.pumpAndSettle();
     await reveal(tester, find.widgetWithText(TextFormField, '2-kitob nomi'));
     await tester.enterText(find.widgetWithText(TextFormField, '2-kitob nomi'), 'Ikkinchi kitob');
+    await tester.ensureVisible(find.text('Bekor qilish').last);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Bekor qilish').last);
     await tester.pumpAndSettle();
     expect(find.widgetWithText(TextFormField, '2-kitob nomi'), findsNothing);
-    await reveal(tester, find.text('1 turdagi kitob • 1 dona'));
+    await tester.ensureVisible(find.text('1 turdagi kitob • 1 dona'));
+    await tester.pumpAndSettle();
     expect(find.text('Jami avans: ₩5,000'), findsOneWidget);
-    // Recreate the undo promptly so it is independent of reveal's scroll duration.
     await tester.tap(find.text('Qaytarish'));
     await tester.pumpAndSettle();
     await reveal(tester, find.widgetWithText(TextFormField, '2-kitob nomi'));

@@ -29,6 +29,7 @@ import 'native_admin_push.dart';
 import 'uzbek_customer_style.dart';
 import 'web_admin_upgrades.dart';
 import 'web_preorders.dart';
+import 'preview_features.dart';
 
 const _navy = Color(0xFF10213D);
 const _orange = Color(0xFFFF8A00);
@@ -667,10 +668,10 @@ class _AdminApi {
   }
 
   Future<Map<String, dynamic>> deviceAnalytics() async {
-    // A new read-only aggregate powers web admin only; mobile app builds use
-    // their existing endpoint, with no mobile publication from this change.
+    // The iOS TestFlight preview uses the same corrected read-only aggregate
+    // as web. Normal native builds retain their existing endpoint.
     final raw = await _rpc(
-      kIsWeb ? 'admin_web_unique_device_summary' : 'admin_device_analytics',
+      webPreviewFeaturesAvailable ? 'admin_web_unique_device_summary' : 'admin_device_analytics',
       params: {'p_secret': secret},
     );
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
@@ -2136,7 +2137,7 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(18),
           children: [
-            if (kIsWeb) ...[
+            if (webPreviewFeaturesAvailable) ...[
               WebTodayWork(
                 books: books,
                 orders: orders,
@@ -4127,7 +4128,7 @@ class _BooksAdminState extends State<_BooksAdmin> {
   bool _missingImage(Book book) => book.galleryImages.isEmpty;
 
   // The actual distinct gallery shown in book editing, including the cover.
-  // Keep the filters web-only; nothing is removed from Supabase automatically.
+  // Web and TestFlight preview filters never remove Supabase data automatically.
   bool _galleryOverTwo(Book book) => book.galleryImages.length >= 3;
   bool _galleryOverOne(Book book) => book.galleryImages.length >= 2;
 
@@ -4193,7 +4194,7 @@ class _BooksAdminState extends State<_BooksAdmin> {
       book.costPrice <= 0 ||
       _invalidImage(book) ||
       _missingAuthor(book) ||
-      (kIsWeb && _galleryOverTwo(book)) ||
+      (webPreviewFeaturesAvailable && _galleryOverTwo(book)) ||
       _outOfStock(book) ||
       _lowStock(book) ||
       _belowCost(book) ||
@@ -4240,9 +4241,9 @@ class _BooksAdminState extends State<_BooksAdmin> {
       case 'missing_author':
         return _missingAuthor(book);
       case 'gallery_over_2':
-        return kIsWeb && _galleryOverTwo(book);
+        return webPreviewFeaturesAvailable && _galleryOverTwo(book);
       case 'gallery_over_1':
-        return kIsWeb && _galleryOverOne(book);
+        return webPreviewFeaturesAvailable && _galleryOverOne(book);
       default:
         return true;
     }
@@ -4477,7 +4478,7 @@ class _BooksAdminState extends State<_BooksAdmin> {
         label: 'Muallifi kiritilmagan',
         icon: Icons.person_off_outlined,
       ),
-      if (kIsWeb) ...[
+      if (webPreviewFeaturesAvailable) ...[
         (
           key: 'gallery_over_2',
           label: '2 tadan ortiq rasmli kitoblar (3+)',
@@ -4790,7 +4791,7 @@ class _BooksAdminState extends State<_BooksAdmin> {
                         subtitle: Text(
                           [
                             '${b.author} • ${b.stock} dona • ${_won(b.currentPrice)}${b.planned ? ' • Rejada' : (b.isActive ? '' : ' • Yashirilgan')}',
-                            if (kIsWeb && (filter == 'gallery_over_2' || filter == 'gallery_over_1'))
+                            if (webPreviewFeaturesAvailable && (filter == 'gallery_over_2' || filter == 'gallery_over_1'))
                               'Jami ${b.galleryImages.length} ta rasm — tahrirlash uchun bosing',
                             if (showCostLine)
                               b.costPrice <= 0
@@ -4798,8 +4799,8 @@ class _BooksAdminState extends State<_BooksAdmin> {
                                   : 'Tannarx ${_won(b.costPrice)} • Foyda ${_won(profit)}',
                           ].join('\n'),
                         ),
-                        isThreeLine: showCostLine || (kIsWeb && (filter == 'gallery_over_2' || filter == 'gallery_over_1')),
-                        onTap: kIsWeb && (filter == 'gallery_over_2' || filter == 'gallery_over_1')
+                        isThreeLine: showCostLine || (webPreviewFeaturesAvailable && (filter == 'gallery_over_2' || filter == 'gallery_over_1')),
+                        onTap: webPreviewFeaturesAvailable && (filter == 'gallery_over_2' || filter == 'gallery_over_1')
                             ? () => openForm(b)
                             : null,
                         trailing: PopupMenuButton<String>(
@@ -6554,7 +6555,7 @@ class _ProfessionalOrderCard extends StatelessWidget {
                   ],
                 ),
               ),
-            if (kIsWeb && order.preparedAt == null &&
+            if (webPreviewFeaturesAvailable && order.preparedAt == null &&
                 (order.status == 'accepted' || order.status == 'paid')) ...[
               SizedBox(width: double.infinity,
                 child: FilledButton.icon(
@@ -6606,7 +6607,7 @@ class _OrderActions extends StatelessWidget {
           : Icons.local_shipping_rounded;
     }
 
-    if (kIsWeb && primaryStatus == 'prepared') {
+    if (webPreviewFeaturesAvailable && primaryStatus == 'prepared') {
       primaryStatus = null;
       primaryLabel = null;
       primaryIcon = null;
@@ -8875,8 +8876,8 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
         }
         final stats = snapshot.data?.$1 ?? <String, dynamic>{};
         final rawCustomers = snapshot.data?.$2 ?? <Map<String, dynamic>>[];
-        // The admin account is not a customer. Keep native views untouched.
-        final all = kIsWeb
+        // Exclude the admin account from the web/TestFlight customer list.
+        final all = webPreviewFeaturesAvailable
             ? rawCustomers.where((item) => item['is_admin'] != true).toList()
             : rawCustomers;
         final q = query.trim().toLowerCase();
@@ -8954,7 +8955,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
             if(snap.connectionState==ConnectionState.waiting)return const Center(child:CircularProgressIndicator());
             if(snap.hasError)return Center(child:Padding(padding:const EdgeInsets.all(24),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.error_outline_rounded,size:38),const SizedBox(height:10),const Text('Qurilmalar ma’lumotini yuklab bo‘lmadi.',textAlign:TextAlign.center),const SizedBox(height:12),FilledButton(onPressed:()=>Navigator.pop(sheetContext),child:const Text('Yopish'))])));
             final d=snap.data??const <String,dynamic>{};
-            if (kIsWeb && d['platforms'] is Map) {
+            if (webPreviewFeaturesAvailable && d['platforms'] is Map) {
               final bySource = Map<String, dynamic>.from(d['platforms'] as Map);
               Map<String, dynamic> source(String key) {
                 final raw = bySource[key];
@@ -9098,7 +9099,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
               FutureBuilder<Map<String, dynamic>>(
                 future: _deviceFuture ??= widget.api.deviceAnalytics().timeout(const Duration(seconds: 8)),
                 builder: (context, deviceSnap) {
-                  if (kIsWeb && (deviceSnap.hasError ||
+                  if (webPreviewFeaturesAvailable && (deviceSnap.hasError ||
                       deviceSnap.data?['platforms'] is! Map)) {
                     return AppSurface(
                       padding: const EdgeInsets.all(16),
@@ -9113,7 +9114,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                   final playMarket = d['play_market'] ?? d['play_store'] ?? 0;
                   final web = d['web_unknown'] ?? 0;
 
-                  if (kIsWeb && d['platforms'] is Map) {
+                  if (webPreviewFeaturesAvailable && d['platforms'] is Map) {
                     final sources = Map<String, dynamic>.from(d['platforms'] as Map);
                     int observed(String key) {
                       final entry = sources[key];
@@ -9208,7 +9209,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  metric(kIsWeb ? 'Ro‘yxatdan o‘tganlar' : 'Jami mijozlar', stats['total_users'] ?? 0, Icons.groups_rounded, onTap: () => showPeople('Ro‘yxatdan o‘tganlar', (_) => true)),
+                  metric(webPreviewFeaturesAvailable ? 'Ro‘yxatdan o‘tganlar' : 'Jami mijozlar', stats['total_users'] ?? 0, Icons.groups_rounded, onTap: () => showPeople('Ro‘yxatdan o‘tganlar', (_) => true)),
                   const SizedBox(width: 10),
                   metric('Bugun qo‘shildi', stats['new_today'] ?? 0, Icons.person_add_alt_1_rounded, onTap: () => showPeople('Bugun qo‘shilganlar', (p) => sameDay(localDate(p['created_at']), now))),
                 ],
@@ -9240,8 +9241,8 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  metric(kIsWeb ? 'Qurilmalar: to‘liq aniqlanmagan' : 'Ilova qurilmalari',
-                     kIsWeb ? '—' : (stats['total_installs'] ?? 0),
+                  metric(webPreviewFeaturesAvailable ? 'Qurilmalar: to‘liq aniqlanmagan' : 'Ilova qurilmalari',
+                     webPreviewFeaturesAvailable ? '—' : (stats['total_installs'] ?? 0),
                      Icons.phone_iphone_rounded, onTap: showDevices),
                   const SizedBox(width: 10),
                   metric('Jami kirishlar', stats['total_logins'] ?? 0, Icons.login_rounded),
@@ -9289,7 +9290,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                 ),
               ),
               const SizedBox(height: 16),
-              if (kIsWeb) ...[
+              if (webPreviewFeaturesAvailable) ...[
                 AppSectionHeader(
                   title: 'Ism va telefon kiritganlar — ${all.length} ta',
                   subtitle: 'Bitta telefon raqami ro‘yxatda faqat bir marta. Quyida mijozlarning ismi va telefon raqami ko‘rsatiladi.',
@@ -9320,7 +9321,7 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                       selected: sourceFilter == 'ios',
                       onSelected: (_) => setState(() => sourceFilter = 'ios'),
                     ),
-                    if (!kIsWeb) ChoiceChip(
+                    if (!webPreviewFeaturesAvailable) ChoiceChip(
                       avatar: const Icon(Icons.shop_rounded, size: 18),
                       label: Text('Play Market ($playCustomers)'),
                       selected: sourceFilter == 'play',

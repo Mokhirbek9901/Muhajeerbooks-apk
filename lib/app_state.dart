@@ -13,6 +13,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'push_notifications.dart';
 import 'owner_story_access.dart';
+import 'preview_features.dart';
 
 String normalizePublisher(String value) {
   final cleaned=value.trim().replaceAll(RegExp(r'\s+'), ' ');
@@ -1344,10 +1345,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       .take(12)
       .toList();
   List<Book> get personalizedBooks {
-    // Web personalization uses only this customer's restored local orders,
-    // not other customers' purchase history. Native builds stay unchanged.
+    // Personalization uses only this customer's restored local orders.
     final purchased = <String>{};
-    if (kIsWeb) {
+    if (webPreviewFeaturesAvailable) {
       for (final order in _localOrders) {
         if (order.status == 'cancelled') continue;
         for (final item in order.items) {
@@ -1359,7 +1359,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     final signals = <Book>[
       ...recentlyViewedBooks,
       ..._books.where((b) => _favorites.contains(b.id)),
-      if (kIsWeb) ..._books.where((b) => purchased.contains(b.id)),
+      if (webPreviewFeaturesAvailable) ..._books.where((b) => purchased.contains(b.id)),
     ];
     final scores = <String, int>{};
     for (final b in signals) {

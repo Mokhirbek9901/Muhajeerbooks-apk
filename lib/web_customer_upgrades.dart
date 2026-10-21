@@ -6,7 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'uzbek_customer_style.dart';
 import 'push_notifications.dart';
 
-// Address data remains on the customer's browser: the current phone-only
+// Address data remains on the customer's device: the current phone-only
 // profile is not verified strongly enough to expose cloud address records.
 class WebSavedAddresses {
   static String key(String phone) =>
@@ -102,7 +102,7 @@ class _WebAddressBookPageState extends State<WebAddressBookPage> {
       constraints: const BoxConstraints(maxWidth: 650),
       child: loading ? const Center(child: CircularProgressIndicator()) :
       ListView(padding: const EdgeInsets.all(18), children: [
-        const Text('Saqlangan manzillar shu brauzerda saqlanadi.',
+        const Text('Saqlangan manzillar shu qurilmada saqlanadi.',
           style: TextStyle(fontSize: 12, color: UzbekCustomerColors.textMuted)),
         const SizedBox(height: 12),
         for (var i = 0; i < rows.length; i++)

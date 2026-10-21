@@ -19,6 +19,8 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze --no-fatal-warnings --no-fatal-infos
       - run: flutter test
+      - name: Verify iOS TestFlight full web preview
+        run: flutter test --dart-define=TESTFLIGHT_PREVIEW=true --dart-define=APP_STORE_BUILD=true
       - name: Verify Korea order timestamps and day boundaries
         env:
           TZ: Asia/Seoul

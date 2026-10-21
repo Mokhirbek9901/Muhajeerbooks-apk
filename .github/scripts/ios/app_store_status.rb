@@ -38,7 +38,28 @@ if ARGV.fetch(0) == 'preflight'
   apps = get('/v1/apps', { 'filter[bundleId]' => 'com.muhajeerbooks.app', 'limit' => 2 }).fetch('data')
   abort 'App Store Connect has no accessible app record for com.muhajeerbooks.app. Create/authorize that app record before uploading.' unless apps.length == 1
   app = apps.first
-  File.open(ENV.fetch('GITHUB_ENV'), 'a') { |f| f.puts("ASC_APP_ID=#{app.fetch('id')}") }
+  highest = 0
+  path = '/v1/builds'
+  query = { 'filter[app]' => app.fetch('id'), 'limit' => 200 }
+  loop do
+    page = get(path, query)
+    page.fetch('data').each do |item|
+      number = item.dig('attributes', 'version').to_s.split('.').first
+      highest = [highest, number.to_i].max if number&.match?(/\A\d+\z/)
+    end
+    next_url = page.dig('links', 'next')
+    break unless next_url
+    uri = URI(next_url)
+    abort 'Unexpected build pagination URL.' unless uri.host == 'api.appstoreconnect.apple.com' && uri.path == '/v1/builds'
+    path = uri.path
+    query = URI.decode_www_form(uri.query.to_s).to_h
+  end
+  selected = [ENV.fetch('IOS_BUILD_NUMBER').to_i, highest + 1].max
+  File.open(ENV.fetch('GITHUB_ENV'), 'a') do |f|
+    f.puts("ASC_APP_ID=#{app.fetch('id')}")
+    f.puts("IOS_BUILD_NUMBER=#{selected}")
+  end
+  puts "Build numbering verified: highest existing=#{highest}, selected=#{selected}."
   puts "App Store Connect API authenticated; app #{app.fetch('attributes').fetch('name')} (#{app.fetch('id')}) found."
 else
   deadline = Time.now + 1200
@@ -67,6 +88,12 @@ else
           group.dig('attributes', 'isInternalGroup') == true && group.dig('attributes', 'hasAccessToAllBuilds') == true
         end
         puts "TestFlight availability: internal=#{beta_attributes['internalBuildState']}, external=#{beta_attributes['externalBuildState']}, automatic_internal_groups=#{automatic_internal_groups}"
+        if automatic_internal_groups > 0 && beta_attributes['internalBuildState'] != 'IN_BETA_TESTING'
+          abort 'Apple processing is VALID, but internal testing did not become available within 20 minutes.' if Time.now >= deadline
+          puts 'Waiting for Apple to make this build available to the existing internal tester group.'
+          sleep 30
+          next
+        end
         result = { app_id: ENV.fetch('ASC_APP_ID'), build_id: build.fetch('id'),
                    version: ENV.fetch('IOS_MARKETING_VERSION'), build_number: attributes.fetch('version'),
                    processing_state: state, uploaded_date: attributes['uploadedDate'],

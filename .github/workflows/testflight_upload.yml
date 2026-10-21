@@ -68,7 +68,7 @@ jobs:
           version = Path('.github/ios-marketing-version').read_text().strip() if Path('.github/ios-marketing-version').exists() else re.search(r'^version:\\s*([^+\\s]+)', Path('pubspec.yaml').read_text(), re.M).group(1)
           with open(os.environ['GITHUB_ENV'], 'a') as env:
               env.write(f'ASC_PRIVATE_KEY_PATH={path}\n')
-              env.write(f'IOS_BUILD_NUMBER={1000 + int(os.environ["GITHUB_RUN_NUMBER"])}\n')
+              env.write(f'IOS_BUILD_NUMBER={2000 + int(os.environ["GITHUB_RUN_NUMBER"])}\n')
               env.write(f'IOS_MARKETING_VERSION={version}\n')
           PY
 

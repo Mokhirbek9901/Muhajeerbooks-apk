@@ -1,1 +1,1 @@
-2026-10-21 TestFlight only: retain all 1050 web parity features; show the web currency/price explanation in cart, checkout and both preorder flows; refresh live store notices at checkout; show the installed TestFlight build; verify Apple beta availability. No App Store Review or Google Play submission.
+2026-10-22 TestFlight only: rebuild all current web parity and price warnings with a build number greater than every uploaded build; verify existing internal testing is active. No public App Store Review or Google Play submission.

@@ -35,6 +35,11 @@ void main() {
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
+    final previousErrorHandler = FlutterError.onError;
+    FlutterError.onError = (details) {
+      debugPrint(details.toString());
+      previousErrorHandler?.call(details);
+    };
     try {
       SharedPreferences.setMockInitialValues({});
       await tester.pumpWidget(ChangeNotifierProvider<AppState>(
@@ -53,6 +58,7 @@ void main() {
       expect(tester.takeException(), isNull);
     } finally {
       await tester.pumpWidget(const SizedBox());
+      FlutterError.onError = previousErrorHandler;
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();
       debugDefaultTargetPlatformOverride = null;

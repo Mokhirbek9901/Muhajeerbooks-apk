@@ -1,1 +1,1 @@
-2026-10-22 TestFlight only: rebuild all current web parity and price warnings with a build number greater than every uploaded build; verify existing internal testing is active. No public App Store Review or Google Play submission.
+2026-10-22 TestFlight only: harden linked sold-out preorder validation, cancel/back/receipt undo, picker locking, committed-order success and duplicate retries. Keep all web parity. Never submit public App Store or Google Play.

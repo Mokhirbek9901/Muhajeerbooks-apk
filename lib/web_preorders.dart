@@ -522,7 +522,7 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
         },
       });
       if (!mounted) return;
-      setState(() => completed = true);
+      setState(() { completed = true; saving = false; });
       final state = context.read<AppState>();
       final samePhone = state.savedCustomerPhone == phone.text.trim();
       try {

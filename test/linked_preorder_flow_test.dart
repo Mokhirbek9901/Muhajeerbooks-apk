@@ -55,7 +55,7 @@ Future<void> reveal(WidgetTester tester, Finder target) async {
 }
 
 Future<void> mount(WidgetTester tester, LinkedApi api,
-    {AppState? state, Future<Uint8List?> Function()? pick}) async {
+    {AppState Function()? createState, Future<Uint8List?> Function()? pick}) async {
   SharedPreferences.setMockInitialValues({});
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
@@ -63,7 +63,7 @@ Future<void> mount(WidgetTester tester, LinkedApi api,
   addTearDown(tester.view.resetDevicePixelRatio);
   final image = Uint8List.fromList(img.encodeJpg(img.Image(width: 8, height: 8)));
   await tester.pumpWidget(ChangeNotifierProvider<AppState>(
-    create: (_) => state ?? AppState(backendConfigured: false),
+    create: (_) => createState?.call() ?? AppState(backendConfigured: false),
     child: MaterialApp(home: Builder(builder: (context) => Scaffold(
       body: FilledButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
         builder: (_) => WebPreorderPage(api: api,
@@ -184,7 +184,7 @@ void main() {
 
   testWidgets('successful server submission survives local profile failure and cannot be repeated', (tester) async {
     final api = LinkedApi();
-    await mount(tester, api, state: BrokenProfileStorage());
+    await mount(tester, api, createState: BrokenProfileStorage.new);
     await pay(tester);
     await reveal(tester, find.text(submitLabel));
     await tester.tap(find.text(submitLabel));
@@ -206,7 +206,7 @@ void main() {
 
   testWidgets('failed submission retries the same request and existing receipt without another upload', (tester) async {
     final api = LinkedApi()..fail = true;
-    await mount(tester, api, state: BrokenProfileStorage());
+    await mount(tester, api, createState: BrokenProfileStorage.new);
     await pay(tester);
     await reveal(tester, find.text(submitLabel));
     await tester.tap(find.text(submitLabel));
@@ -233,11 +233,11 @@ void main() {
     await reveal(tester, find.text('Avans chekini yuklash'));
     await tester.tap(find.text('Avans chekini yuklash'));
     await tester.pump();
-    expect(tester.widget<IconButton>(find.byTooltip('Orqaga')).onPressed, isNull);
+    expect(tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.arrow_back)).onPressed, isNull);
     expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, submitLabel)).onPressed, isNull);
     image.complete(null);
     await tester.pumpAndSettle();
-    expect(tester.widget<IconButton>(find.byTooltip('Orqaga')).onPressed, isNotNull);
+    expect(tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.arrow_back)).onPressed, isNotNull);
     expect(api.attempts, 0);
     await tester.pumpWidget(const SizedBox());
   });

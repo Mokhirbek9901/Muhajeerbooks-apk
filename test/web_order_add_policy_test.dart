@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:muhajeer_books/web_order_add_policy.dart';
+import 'package:muhajeerbooks/web_order_add_policy.dart';
 
 void main() {
   test('only new app orders are eligible', () {

@@ -40,7 +40,7 @@ String _won(int value) => '₩${_money.format(value)}';
 // build. Browser-specific passkeys and URL handling must remain web-only.
 const bool _iosTesterParity = bool.fromEnvironment('APP_STORE_BUILD');
 bool get _enhancedAdminUi =>
-    kIsWeb || (defaultTargetPlatform == TargetPlatform.iOS && _iosTesterParity);
+    webPreviewFeaturesAvailable || (defaultTargetPlatform == TargetPlatform.iOS && _iosTesterParity);
 const Set<String> _canonicalBookCategories = {
   'Badiiy adabiyot','Biznes va moliya','Bolalar adabiyoti','Diniy-ma’rifiy',
   'Islom tarixi','Jahon adabiyoti','Jamiyat va kommunikatsiya','O‘zbek adabiyoti',

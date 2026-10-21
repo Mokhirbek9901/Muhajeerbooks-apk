@@ -6,13 +6,14 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'design_system.dart';
+import 'preview_features.dart';
 
 // Keep financial totals, profit terminology, inventory selling value and
 // reporting filters identical on web and the new iOS TestFlight client.
 // The already-submitted App Store binary is not modified.
 const bool _iosTesterFinanceParity = bool.fromEnvironment('APP_STORE_BUILD');
 bool get _webFinanceUi =>
-    kIsWeb ||
+    webPreviewFeaturesAvailable ||
     (defaultTargetPlatform == TargetPlatform.iOS && _iosTesterFinanceParity);
 
 

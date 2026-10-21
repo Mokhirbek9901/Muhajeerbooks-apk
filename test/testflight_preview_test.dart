@@ -6,6 +6,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:muhajeerbooks/app_state.dart';
 import 'package:muhajeerbooks/preview_features.dart';
 import 'package:muhajeerbooks/web_preorders.dart';
+import 'package:muhajeerbooks/store_ui.dart';
+import 'package:muhajeerbooks/purchase_price_notice.dart';
+
+class PreviewCart extends AppState {
+  PreviewCart() : super(backendConfigured: false);
+  static const book = Book(id: 'preview', title: 'Sinov kitobi', author: 'Muallif',
+      category: 'Kitob', description: '', price: 21000, stock: 3,
+      discountPercent: 0, imageUrl: '', isActive: true);
+  @override
+  List<CartLine> get cartLines => const [CartLine(book: book, quantity: 1)];
+  @override
+  List<CartLine> get cartStandaloneLines => cartLines;
+}
 
 class PreviewPreorders extends WebPreorderApi {
   @override
@@ -16,6 +29,41 @@ class PreviewPreorders extends WebPreorderApi {
 
 void main() {
   tearDown(() => debugDefaultTargetPlatformOverride = null);
+
+  testWidgets('iOS preview retains the currency explanation from cart through checkout', (tester) async {
+    if (!const bool.fromEnvironment('TESTFLIGHT_PREVIEW')) return;
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    final previousErrorHandler = FlutterError.onError;
+    FlutterError.onError = (details) {
+      debugPrint(details.toString());
+      previousErrorHandler?.call(details);
+    };
+    try {
+      SharedPreferences.setMockInitialValues({});
+      await tester.pumpWidget(ChangeNotifierProvider<AppState>(
+        create: (_) => PreviewCart(),
+        child: const MaterialApp(home: CartPage()),
+      ));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byType(PurchasePriceNotice));
+      await tester.pumpAndSettle();
+      expect(find.text(purchasePriceExplanation), findsOneWidget);
+      await tester.ensureVisible(find.text('Buyurtmani rasmiylashtirish'));
+      await tester.tap(find.text('Buyurtmani rasmiylashtirish'));
+      await tester.pumpAndSettle();
+      expect(find.byType(CheckoutPage), findsOneWidget);
+      expect(find.text(purchasePriceExplanation), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      FlutterError.onError = previousErrorHandler;
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
 
   test('web preview is limited to explicit iOS TestFlight builds', () {
     for (final platform in TargetPlatform.values) {

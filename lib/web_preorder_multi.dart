@@ -288,6 +288,10 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
             Text(error ?? 'Oldindan buyurtma qabuli hozircha yopiq. Avans yubormang.'),
             OutlinedButton.icon(onPressed: _reload, icon: const Icon(Icons.refresh), label: const Text('Yangilash')),
           ] else ...[
+            if (iosTestFlightPreview) ...[
+              const PurchasePriceNotice(),
+              const SizedBox(height: 12),
+            ],
             Text('Avans: ${webPreorderMoney(config!.deposit)} / dona', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
             const Text('Har bir kitobning nomi va rasmini alohida kiriting. Yana kitob qo‘shishingiz mumkin. Avans yakuniy summadan ayriladi.'),
             const SizedBox(height: 12),

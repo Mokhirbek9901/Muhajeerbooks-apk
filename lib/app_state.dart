@@ -49,7 +49,7 @@ const bool _appStoreBuild = bool.fromEnvironment('APP_STORE_BUILD');
 // TestFlight uses the same customer RPCs, tracking and verified reviews
 // as the deployed web and Play clients.
 bool get _enhancedCustomerFeatures =>
-    kIsWeb ||
+    webPreviewFeaturesAvailable ||
     (defaultTargetPlatform == TargetPlatform.android && _playStoreBuild) ||
     (defaultTargetPlatform == TargetPlatform.iOS && _appStoreBuild);
 

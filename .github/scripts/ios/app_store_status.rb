@@ -45,7 +45,7 @@ else
   loop do
     builds = get('/v1/builds', { 'filter[app]' => ENV.fetch('ASC_APP_ID'),
                               'filter[version]' => ENV.fetch('IOS_BUILD_NUMBER'), 'limit' => 10,
-                              'include' => 'preReleaseVersion' })
+                              'include' => 'preReleaseVersion,buildBetaDetail' })
     build = builds.fetch('data').find do |item|
       release_id = item.dig('relationships', 'preReleaseVersion', 'data', 'id')
       release = builds.fetch('included', []).find { |r| r['id'] == release_id && r['type'] == 'preReleaseVersions' }
@@ -57,10 +57,23 @@ else
       state = attributes.fetch('processingState')
       puts "App Store Connect build #{attributes.fetch('version')} (#{build.fetch('id')}): #{state}"
       if state == 'VALID'
+        beta_id = build.dig('relationships', 'buildBetaDetail', 'data', 'id')
+        beta = builds.fetch('included', []).find { |item| item['type'] == 'buildBetaDetails' && item['id'] == beta_id }
+        beta_attributes = beta ? beta.fetch('attributes', {}) : {}
+        groups = get("/v1/apps/#{ENV.fetch('ASC_APP_ID')}/betaGroups", {
+          'fields[betaGroups]' => 'isInternalGroup,hasAccessToAllBuilds', 'limit' => 200
+        }).fetch('data')
+        automatic_internal_groups = groups.count do |group|
+          group.dig('attributes', 'isInternalGroup') == true && group.dig('attributes', 'hasAccessToAllBuilds') == true
+        end
+        puts "TestFlight availability: internal=#{beta_attributes['internalBuildState']}, external=#{beta_attributes['externalBuildState']}, automatic_internal_groups=#{automatic_internal_groups}"
         result = { app_id: ENV.fetch('ASC_APP_ID'), build_id: build.fetch('id'),
                    version: ENV.fetch('IOS_MARKETING_VERSION'), build_number: attributes.fetch('version'),
                    processing_state: state, uploaded_date: attributes['uploadedDate'],
-                   uses_non_exempt_encryption: attributes['usesNonExemptEncryption'] }
+                   uses_non_exempt_encryption: attributes['usesNonExemptEncryption'],
+                   internal_build_state: beta_attributes['internalBuildState'],
+                   external_build_state: beta_attributes['externalBuildState'],
+                   automatic_internal_groups: automatic_internal_groups }
         File.write("#{ENV.fetch('RUNNER_TEMP')}/testflight-result.json", JSON.pretty_generate(result) + "\n")
         File.open(ENV.fetch('GITHUB_STEP_SUMMARY'), 'a') do |f|
           f.puts("TestFlight upload accepted and Apple processing VALID: #{result[:version]} (#{result[:build_number]}), build #{result[:build_id]}.")

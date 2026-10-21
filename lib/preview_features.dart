@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 /// iOS TestFlight preview. This never enables Android or a normal store build.
 /// Keep browser APIs (URLs, web push, passkeys, downloads) on kIsWeb and use
 /// their existing native equivalents on iOS.
-bool get webPreviewFeaturesAvailable => kIsWeb ||
-    (defaultTargetPlatform == TargetPlatform.iOS &&
-        const bool.fromEnvironment('TESTFLIGHT_PREVIEW'));
+bool get iosTestFlightPreview => !kIsWeb &&
+    defaultTargetPlatform == TargetPlatform.iOS &&
+    const bool.fromEnvironment('TESTFLIGHT_PREVIEW');
+
+bool get webPreviewFeaturesAvailable => kIsWeb || iosTestFlightPreview;

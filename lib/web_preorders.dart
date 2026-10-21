@@ -15,6 +15,7 @@ import 'app_state.dart';
 import 'design_system.dart';
 import 'push_notifications.dart';
 import 'preview_features.dart';
+import 'purchase_price_notice.dart';
 
 part 'web_preorder_multi.dart';
 
@@ -525,6 +526,10 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
                           label: const Text('Yangilash'),
                         ),
                       ] else ...[
+                        if (iosTestFlightPreview) ...[
+                          const PurchasePriceNotice(),
+                          const SizedBox(height: 12),
+                        ],
                         Text(
                           c!.maximumDeposit == c.deposit ? 'Avans: ${webPreorderMoney(c.deposit)} / dona' : 'Avans: ${webPreorderMoney(c.deposit)} – ${webPreorderMoney(c.maximumDeposit)} / dona',
                           style: const TextStyle(

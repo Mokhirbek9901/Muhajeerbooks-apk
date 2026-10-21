@@ -31,13 +31,14 @@ import 'web_customer_upgrades.dart';
 import 'web_preorders.dart';
 import 'web_book_purchase_count.dart';
 import 'preview_features.dart';
+import 'purchase_price_notice.dart';
 
 const bool _playStoreCustomerBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
 const bool _appStoreCustomerBuild = bool.fromEnvironment('APP_STORE_BUILD');
 // Match web/Play customer features in new iOS TestFlight builds without
 // modifying the separately submitted, immutable App Store review binary.
 bool get _webOrPlayCustomer =>
-    kIsWeb ||
+    webPreviewFeaturesAvailable ||
     (defaultTargetPlatform == TargetPlatform.android &&
         _playStoreCustomerBuild) ||
     (defaultTargetPlatform == TargetPlatform.iOS &&
@@ -5898,61 +5899,7 @@ class _WebCartPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       if (webPreviewFeaturesAvailable) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 11,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF3F8F5),
-                            border: Border.all(color: const Color(0xFFD0E3D9)),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 24,
-                                height: 24,
-                                alignment: Alignment.center,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFFE0F0E8),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.info_outline_rounded,
-                                  color: UzbekCustomerColors.teal,
-                                  size: 16,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              const Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Narxlar haqida',
-                                      style: TextStyle(
-                                        color: UzbekCustomerColors.navy,
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                    SizedBox(height: 3),
-                                    Text(
-                                      'Kitoblar O‘zbekistondan keltiriladi. Valyuta kursi o‘zgarishi ularning narxiga ta’sir qilishi mumkin.',
-                                      style: TextStyle(
-                                        color: UzbekCustomerColors.navy,
-                                        fontSize: 12,
-                                        height: 1.35,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        const PurchasePriceNotice(),
                         const SizedBox(height: 12),
                       ],
                       FilledButton.icon(
@@ -6263,6 +6210,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   void initState() {
     super.initState();
     final saved = context.read<AppState>().savedCustomer;
+    if (iosTestFlightPreview) unawaited(context.read<AppState>().refreshStoreNotice());
     name = TextEditingController(text: saved['name'] ?? '');
     final savedPhone = (saved['phone'] ?? '').replaceAll(RegExp(r'\D'), '');
     phone = TextEditingController(
@@ -6456,6 +6404,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
             ],
             const SizedBox(height: 12),
             const _EmergencyNoticeBanner(compact: true),
+            if (iosTestFlightPreview && !professionalMode) ...[
+              const SizedBox(height: 12),
+              const PurchasePriceNotice(),
+            ],
             const SizedBox(height: 14),
             const _CheckoutStepHeader(number: '1', title: 'Qabul qiluvchi'),
             const SizedBox(height: 10),
@@ -7591,6 +7543,11 @@ class _WebMyProfilePage extends StatelessWidget {
                       icon: const Icon(Icons.edit_outlined, size: 18),
                       label: const Text('Profilni tahrirlash'),
                     ),
+                    if (iosTestFlightPreview) ...[
+                      const SizedBox(height: 10),
+                      const Text('TestFlight • build ${String.fromEnvironment('APP_BUILD_NUMBER', defaultValue: 'sinov')}',
+                        style: TextStyle(fontSize: 12, color: UzbekCustomerColors.textMuted)),
+                    ],
                   ],
                 ),
               ),

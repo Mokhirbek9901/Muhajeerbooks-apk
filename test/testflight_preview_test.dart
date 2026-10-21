@@ -28,6 +28,7 @@ void main() {
 
   testWidgets('iOS preview routes to the current multi-book form with remove and undo', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    try {
     SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(ChangeNotifierProvider(
       create: (_) => AppState(backendConfigured: false),
@@ -52,6 +53,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('2-kitob'), findsOneWidget);
     }
-    await tester.pumpWidget(const SizedBox());
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      // Widget binding checks this before package-level tearDown callbacks.
+      debugDefaultTargetPlatformOverride = null;
+    }
   });
 }

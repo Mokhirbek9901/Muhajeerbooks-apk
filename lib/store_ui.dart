@@ -29,6 +29,7 @@ import 'remote_config.dart';
 import 'uzbek_customer_style.dart';
 import 'web_customer_upgrades.dart';
 import 'web_preorders.dart';
+import 'web_book_purchase_count.dart';
 
 const bool _playStoreCustomerBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
 const bool _appStoreCustomerBuild = bool.fromEnvironment('APP_STORE_BUILD');
@@ -5159,6 +5160,10 @@ class _BookDetailInfo extends StatelessWidget {
           fontWeight: FontWeight.w600,
         ),
       ),
+      if (kIsWeb) ...[
+        const SizedBox(height: 12),
+        WebBookPurchaseCount(bookId: book.id),
+      ],
       const SizedBox(height: 16),
       Wrap(
         spacing: 8,

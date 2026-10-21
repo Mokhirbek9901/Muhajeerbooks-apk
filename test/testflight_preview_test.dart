@@ -37,7 +37,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     try {
       SharedPreferences.setMockInitialValues({});
-      await tester.pumpWidget(ChangeNotifierProvider(
+      await tester.pumpWidget(ChangeNotifierProvider<AppState>(
         create: (_) => PreviewCart(),
         child: const MaterialApp(home: CartPage()),
       ));

@@ -481,6 +481,7 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
 
   Future<void> _continue() async {
     if (busy || !_validateDetails()) return;
+    FocusScope.of(context).unfocus();
     if (widget.book == null && bookImage == null) {
       _message('Kitob rasmini tanlang.');
       return;
@@ -774,6 +775,7 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
                                     const Expanded(
                                       child: SelectableText(
                                         AppState.bankAccount,
+                                        maxLines: 1,
                                       ),
                                     ),
                                     IconButton(

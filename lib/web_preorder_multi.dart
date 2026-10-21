@@ -202,6 +202,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
 
   Future<void> next() async {
     if (saving || picking || completed || !validateDetails()) return;
+    FocusScope.of(context).unfocus();
     final missing = books.indexWhere((b) => b.image == null);
     if (missing >= 0) { message('${missing + 1}-kitob rasmini tanlang.'); return; }
     setState(() => saving = true);
@@ -321,7 +322,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
               AppSurface(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const Text('Bank o‘tkazmasi', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
                 const Text('${AppState.bankName}\n${AppState.bankOwner}'),
-                Row(children: [const Expanded(child: SelectableText(AppState.bankAccount)),
+                Row(children: [const Expanded(child: SelectableText(AppState.bankAccount, maxLines: 1)),
                   IconButton(tooltip: 'Hisob raqamini nusxalash', onPressed: () async {
                     await Clipboard.setData(const ClipboardData(text: AppState.bankAccount)); message('Hisob raqami nusxalandi');
                   }, icon: const Icon(Icons.copy))]),

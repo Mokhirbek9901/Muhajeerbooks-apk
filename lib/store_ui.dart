@@ -6996,7 +6996,10 @@ class _CheckoutStepHeader extends StatelessWidget {
         ),
       ),
       const SizedBox(width: 10),
-      Text(title, style: Theme.of(context).textTheme.titleLarge),
+      if (iosTestFlightPreview)
+        Expanded(child: Text(title, style: Theme.of(context).textTheme.titleLarge))
+      else
+        Text(title, style: Theme.of(context).textTheme.titleLarge),
     ],
   );
 }

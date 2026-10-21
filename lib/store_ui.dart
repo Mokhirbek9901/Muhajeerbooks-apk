@@ -5164,7 +5164,10 @@ class _BookDetailInfo extends StatelessWidget {
       ),
       if (webPreviewFeaturesAvailable) ...[
         const SizedBox(height: 12),
-        WebBookPurchaseCount(bookId: book.id),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: WebBookPurchaseCount(bookId: book.id),
+        ),
       ],
       const SizedBox(height: 16),
       Wrap(

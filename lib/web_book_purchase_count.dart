@@ -24,7 +24,7 @@ typedef BookPurchaseCountLoader = Future<BookPurchaseCount> Function(String);
 
 Future<BookPurchaseCount> loadBookPurchaseCount(String bookId) async {
   final data = await Supabase.instance.client.rpc(
-    'web_book_purchase_count',
+    'web_book_purchase_count_v2',
     params: {'p_book_id': bookId},
   ).timeout(const Duration(seconds: 15));
   return BookPurchaseCount.fromJson(data);
@@ -80,15 +80,18 @@ class _WebBookPurchaseCountState extends State<WebBookPurchaseCount> {
           backgroundColor: const Color(0xFFE8F4ED),
           disabledForegroundColor: AppColors.muted,
           side: const BorderSide(color: Color(0xFFB8DCD0)),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          minimumSize: const Size(0, 32),
+          tapTargetSize: MaterialTapTargetSize.padded,
+          visualDensity: VisualDensity.standard,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
-        icon: Icon(failed ? Icons.refresh_rounded : Icons.shopping_bag_outlined, size: 20),
+        icon: Icon(failed ? Icons.refresh_rounded : Icons.shopping_bag_outlined, size: 15),
         label: Text(
           !ready ? 'Xaridlar soni yuklanmoqda…' : failed
               ? 'Xaridlar sonini qayta yuklash'
-              : '$amount dona xarid qilingan',
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+              : '$amount marta xarid qilingan',
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
         ),
         onPressed: !ready ? null : failed
             ? () => setState(_load)
@@ -97,11 +100,11 @@ class _WebBookPurchaseCountState extends State<WebBookPurchaseCount> {
                 builder: (context) => AlertDialog(
                   title: const Text('Shu kungacha xarid qilingan'),
                   content: Text(
-                    '$amount dona\n\n'
-                    'Tasdiqlangan buyurtmalardagi sotilgan kitob nusxalari hisoblanadi. '
-                    'Bir buyurtmada 2 dona olingan bo‘lsa, 2 dona hisoblanadi. '
+                    '$amount marta\n\n'
+                    'Tasdiqlangan xaridlar va avvalgi sotuv tarixi hisoblanadi. '
+                    'Bir buyurtmada shu kitobdan bir nechta olingan bo‘lsa ham, bir marta hisoblanadi. '
                     'Bekor qilingan va tasdiqlanmagan buyurtmalar kiritilmaydi.'
-                    '${count!.historical > 0 ? '\n\nShundan ${count.historical} dona avvalgi sotuv tarixidan.' : ''}',
+                    '${count!.historical > 0 ? '\n\nShundan ${count.historical} marta avvalgi sotuv tarixidan.' : ''}',
                   ),
                   actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Yopish'))],
                 ),

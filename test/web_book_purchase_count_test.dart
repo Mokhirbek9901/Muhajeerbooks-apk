@@ -4,18 +4,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:muhajeerbooks/web_book_purchase_count.dart';
 
 void main() {
-  testWidgets('shows recorded plus historic copies and explains quantity', (tester) async {
+  testWidgets('shows purchase events plus history and explains multiple copies', (tester) async {
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: SizedBox(
       width: 290,
       child: WebBookPurchaseCount(bookId: 'a', loader: (_) async => const BookPurchaseCount(12, 5)),
     ))));
     await tester.pumpAndSettle();
-    expect(find.text('17 dona xarid qilingan'), findsOneWidget);
+    expect(find.text('17 marta xarid qilingan'), findsOneWidget);
     expect(tester.takeException(), isNull);
-    await tester.tap(find.text('17 dona xarid qilingan'));
+    final button = tester.widget<OutlinedButton>(find.byKey(const ValueKey('book-purchase-count')));
+    expect(button.style!.minimumSize!.resolve({}), const Size(0, 32));
+    expect(tester.widget<Text>(find.text('17 marta xarid qilingan')).style!.fontSize, 12);
+    await tester.tap(find.text('17 marta xarid qilingan'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('5 dona avvalgi sotuv tarixidan'), findsOneWidget);
-    expect(find.textContaining('2 dona hisoblanadi'), findsOneWidget);
+    expect(find.textContaining('5 marta avvalgi sotuv tarixidan'), findsOneWidget);
+    expect(find.textContaining('bir marta hisoblanadi'), findsOneWidget);
     await tester.tap(find.text('Yopish'));
     await tester.pumpAndSettle();
     expect(find.text('Shu kungacha xarid qilingan'), findsNothing);
@@ -30,10 +33,10 @@ void main() {
       },
     ))));
     await tester.pumpAndSettle();
-    expect(find.text('0 dona xarid qilingan'), findsNothing);
+    expect(find.text('0 marta xarid qilingan'), findsNothing);
     await tester.tap(find.text('Xaridlar sonini qayta yuklash'));
     await tester.pumpAndSettle();
-    expect(find.text('0 dona xarid qilingan'), findsOneWidget);
+    expect(find.text('0 marta xarid qilingan'), findsOneWidget);
     expect(calls, 2);
   });
 
@@ -46,8 +49,8 @@ void main() {
     await tester.pumpAndSettle();
     first.complete(const BookPurchaseCount(99, 0));
     await tester.pumpAndSettle();
-    expect(find.text('3 dona xarid qilingan'), findsOneWidget);
-    expect(find.text('99 dona xarid qilingan'), findsNothing);
+    expect(find.text('3 marta xarid qilingan'), findsOneWidget);
+    expect(find.text('99 marta xarid qilingan'), findsNothing);
   });
 
   test('missing or invalid responses never become a fabricated zero', () {

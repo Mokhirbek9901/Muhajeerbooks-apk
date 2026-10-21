@@ -1,1 +1,1 @@
-2026-10-22 TestFlight only: harden linked sold-out preorder validation, cancel/back/receipt undo, picker locking, committed-order success and duplicate retries. Keep all web parity. Never submit public App Store or Google Play.
+2026-10-22 TestFlight only: include current main web parity and web_book_purchase_count_v2 badge; keep preorder, receipt, catalog and current web fixes. Explicitly EXCLUDE unmerged PR #53 existing-order book additions. No App Store or Google Play submission.

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
@@ -94,8 +95,20 @@ Future<void> pay(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+void preorderTest(String label, Future<void> Function(WidgetTester) run) {
+  testWidgets(label, (tester) async {
+    final previous = debugDefaultTargetPlatformOverride;
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    try { await run(tester); }
+    finally {
+      await tester.pumpWidget(const SizedBox());
+      debugDefaultTargetPlatformOverride = previous;
+    }
+  });
+}
+
 void main() {
-  testWidgets('invalid offscreen customer or advance never opens bank instructions', (tester) async {
+  preorderTest('invalid offscreen customer or advance never opens bank instructions', (tester) async {
     final api = LinkedApi();
     await mount(tester, api);
     final phone = find.widgetWithText(TextFormField, 'Telefon raqam');
@@ -118,7 +131,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('closed or changed book terms are rechecked before any payment', (tester) async {
+  preorderTest('closed or changed book terms are rechecked before any payment', (tester) async {
     final api = LinkedApi();
     await mount(tester, api);
     await customer(tester);
@@ -138,7 +151,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('receipt removal, undo and Back preserve linked-book draft and chosen advance', (tester) async {
+  preorderTest('receipt removal, undo and Back preserve linked-book draft and chosen advance', (tester) async {
     final api = LinkedApi();
     await mount(tester, api);
     await customer(tester);
@@ -182,7 +195,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('successful server submission survives local profile failure and cannot be repeated', (tester) async {
+  preorderTest('successful server submission survives local profile failure and cannot be repeated', (tester) async {
     final api = LinkedApi();
     await mount(tester, api, createState: BrokenProfileStorage.new);
     await pay(tester);
@@ -204,7 +217,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('failed submission retries the same request and existing receipt without another upload', (tester) async {
+  preorderTest('failed submission retries the same request and existing receipt without another upload', (tester) async {
     final api = LinkedApi()..fail = true;
     await mount(tester, api, createState: BrokenProfileStorage.new);
     await pay(tester);
@@ -222,7 +235,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('picker blocks Back and duplicate submit until image choice completes', (tester) async {
+  preorderTest('picker blocks Back and duplicate submit until image choice completes', (tester) async {
     final api = LinkedApi();
     final image = Completer<Uint8List?>();
     await mount(tester, api, pick: () => image.future);

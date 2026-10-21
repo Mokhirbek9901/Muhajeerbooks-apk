@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
@@ -15,13 +14,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app_state.dart';
 import 'design_system.dart';
 import 'push_notifications.dart';
+import 'preview_features.dart';
 
 part 'web_preorder_multi.dart';
 
 // Enabled only for the explicitly requested iOS TestFlight preview.
-bool get webPreordersAvailable => kIsWeb ||
-    (defaultTargetPlatform == TargetPlatform.iOS &&
-        const bool.fromEnvironment('TESTFLIGHT_PREVIEW'));
+bool get webPreordersAvailable => webPreviewFeaturesAvailable;
 
 String webPreorderTime(dynamic value) {
   final time = DateTime.tryParse((value ?? '').toString());
@@ -266,7 +264,7 @@ class WebPreorderPage extends StatelessWidget {
   final WebPreorderApi? api;
   final Book? book;
   @override
-  Widget build(BuildContext context) => kIsWeb && book == null
+  Widget build(BuildContext context) => webPreordersAvailable && book == null
       ? WebMultiPreorderPage(api: api)
       : _WebSinglePreorderPage(api: api, book: book);
 }

@@ -30,6 +30,7 @@ import 'uzbek_customer_style.dart';
 import 'web_customer_upgrades.dart';
 import 'web_preorders.dart';
 import 'web_book_purchase_count.dart';
+import 'preview_features.dart';
 
 const bool _playStoreCustomerBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
 const bool _appStoreCustomerBuild = bool.fromEnvironment('APP_STORE_BUILD');
@@ -1920,7 +1921,7 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       query = '';
       category = 'Barchasi';
-      if (kIsWeb) {
+      if (webPreviewFeaturesAvailable) {
         publisher = 'Barchasi';
         maxPrice = 100000;
         sort = 'new';
@@ -2204,7 +2205,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                     ),
-                    if (kIsWeb &&
+                    if (webPreviewFeaturesAvailable &&
                         (query.trim().isNotEmpty ||
                           category != 'Barchasi' ||
                           publisher != 'Barchasi' ||
@@ -2220,7 +2221,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ],
                     const SizedBox(width: 8),
-                    if (kIsWeb) InkWell(
+                    if (webPreviewFeaturesAvailable) InkWell(
                       onTap: () => _showWebFilters(categories, publishers),
                       borderRadius: BorderRadius.circular(18),
                       child: Container(
@@ -2234,7 +2235,7 @@ class _HomePageState extends State<HomePage> {
                           color: UzbekCustomerColors.goldSoft),
                       ),
                     ),
-                    if (!kIsWeb) PopupMenuButton<String>(
+                    if (!webPreviewFeaturesAvailable) PopupMenuButton<String>(
                       tooltip: 'Saralash',
                       onSelected: (value) {
                         if (value == 'sets') {
@@ -4558,7 +4559,7 @@ class BookDetailPage extends StatelessWidget {
                   ),
                 ],
               ),
-              if (kIsWeb && (!b.inStock || b.preorderEnabled)) ...[
+              if (webPreviewFeaturesAvailable && (!b.inStock || b.preorderEnabled)) ...[
                 const SizedBox(height: 4),
                 const Text(
                   '(Pochtaga +4 000 won qo‘shiladi)',
@@ -5160,7 +5161,7 @@ class _BookDetailInfo extends StatelessWidget {
           fontWeight: FontWeight.w600,
         ),
       ),
-      if (kIsWeb) ...[
+      if (webPreviewFeaturesAvailable) ...[
         const SizedBox(height: 12),
         WebBookPurchaseCount(bookId: book.id),
       ],
@@ -5896,8 +5897,7 @@ class _WebCartPage extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      // Web-only preview: do not change the pending iOS/Android builds.
-                      if (kIsWeb) ...[
+                      if (webPreviewFeaturesAvailable) ...[
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
@@ -6379,7 +6379,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     if (file == null || !mounted) return;
     setState(() {
       paymentProof = file;
-      if (kIsWeb) paymentDone = true;
+      if (webPreviewFeaturesAvailable) paymentDone = true;
     });
   }
 
@@ -6523,7 +6523,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                 ? 'To‘liq manzilni kiriting'
                                 : null),
                     ),
-                    if (kIsWeb && !professionalMode) ...[
+                    if (webPreviewFeaturesAvailable && !professionalMode) ...[
                       const SizedBox(height: 8),
                       Align(
                         alignment: Alignment.centerRight,
@@ -6699,7 +6699,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (kIsWeb && !paymentDone) ...[
+                      if (webPreviewFeaturesAvailable && !paymentDone) ...[
                         const Text('To‘lov qilgan bo‘lsangiz, chekni tanlang.',
                           style: TextStyle(fontWeight: FontWeight.w800)),
                         const SizedBox(height: 9),
@@ -6711,7 +6711,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           ),
                         ),
                       ],
-                      if (!kIsWeb) SwitchListTile.adaptive(
+                      if (!webPreviewFeaturesAvailable) SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
                         value: paymentDone,
                         onChanged: (v) => setState(() {
@@ -6951,13 +6951,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
             : null,
       );
       if (!mounted) return;
-      if (kIsWeb && !professionalMode && address.text.trim().length >= 8) {
-        final known = await WebSavedAddresses.load(phone.text);
-        if (!known.any((a) => a['address'] == address.text.trim())) {
-          await WebSavedAddresses.save(phone.text, [
-            ...known, {'label': 'Oxirgi buyurtma', 'address': address.text.trim()},
-          ]);
-        }
+      if (webPreviewFeaturesAvailable && !professionalMode && address.text.trim().length >= 8) {
+        // The order has already succeeded. A local address-cache failure must
+        // not look like a failed checkout and invite a duplicate submission.
+        try {
+          final known = await WebSavedAddresses.load(phone.text);
+          if (!known.any((a) => a['address'] == address.text.trim())) {
+            await WebSavedAddresses.save(phone.text, [
+              ...known, {'label': 'Oxirgi buyurtma', 'address': address.text.trim()},
+            ]);
+          }
+        } catch (_) { /* Best-effort local convenience after successful order. */ }
       }
       if (!mounted) return;
       await showDialog<void>(

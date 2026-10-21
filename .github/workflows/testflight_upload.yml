@@ -89,7 +89,7 @@ jobs:
           set -euo pipefail
           flutter pub get
           flutter analyze --no-fatal-warnings --no-fatal-infos
-          flutter test --dart-define=TESTFLIGHT_PREVIEW=true
+          flutter test --dart-define=TESTFLIGHT_PREVIEW=true --dart-define=APP_STORE_BUILD=true
           TZ=Asia/Seoul flutter test test/order_time_test.dart --dart-define=REQUIRE_KOREA_TIME=true
 
       - name: Install dependencies and configure manual signing

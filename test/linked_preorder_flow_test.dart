@@ -150,6 +150,7 @@ void main() {
     await tester.tap(find.text(nextLabel));
     await tester.pumpAndSettle();
     expect(find.text('Bank o‘tkazmasi'), findsNothing);
+    await reveal(tester, find.text('10-noyabr'));
     expect(find.text('10-noyabr'), findsOneWidget);
     api.settings = const WebPreorderConfig();
     await reveal(tester, find.text(nextLabel));

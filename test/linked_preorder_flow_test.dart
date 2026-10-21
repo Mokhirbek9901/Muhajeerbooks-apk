@@ -85,12 +85,21 @@ Future<void> customer(WidgetTester tester) async {
   await tester.enterText(phone, '01000000000');
 }
 
-Future<void> pay(WidgetTester tester) async {
+Future<void> openPayment(WidgetTester tester) async {
   await customer(tester);
   await reveal(tester, find.text(nextLabel));
   await tester.tap(find.text(nextLabel));
   await tester.pumpAndSettle();
-  await reveal(tester, find.text('Avans chekini yuklash'));
+  try {
+    await reveal(tester, find.text('Avans chekini yuklash'));
+  } catch (_) {
+    debugPrint('LINKED_PAYMENT_STATE: ${tester.widgetList<Text>(find.byType(Text)).map((t) => t.data).toList()}');
+    rethrow;
+  }
+}
+
+Future<void> pay(WidgetTester tester) async {
+  await openPayment(tester);
   await tester.tap(find.text('Avans chekini yuklash'));
   await tester.pumpAndSettle();
 }
@@ -239,11 +248,7 @@ void main() {
     final api = LinkedApi();
     final image = Completer<Uint8List?>();
     await mount(tester, api, pick: () => image.future);
-    await customer(tester);
-    await reveal(tester, find.text(nextLabel));
-    await tester.tap(find.text(nextLabel));
-    await tester.pumpAndSettle();
-    await reveal(tester, find.text('Avans chekini yuklash'));
+    await openPayment(tester);
     await tester.tap(find.text('Avans chekini yuklash'));
     await tester.pump();
     expect(tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.arrow_back)).onPressed, isNull);

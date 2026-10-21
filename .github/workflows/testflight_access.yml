@@ -1,0 +1,47 @@
+name: Check TestFlight tester access
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/testflight-access-trigger'
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare App Store Connect authentication
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          for name in ('APP_STORE_CONNECT_KEY_ID','APP_STORE_CONNECT_ISSUER_ID','APP_STORE_CONNECT_PRIVATE_KEY'):
+              if not os.environ.get(name,'').strip():
+                  raise SystemExit(f'Missing secret: {name}')
+          key_id=os.environ['APP_STORE_CONNECT_KEY_ID'].strip()
+          key=os.environ['APP_STORE_CONNECT_PRIVATE_KEY'].strip().replace('\\n','\n')+'\n'
+          d=Path.home()/'.appstoreconnect/private_keys'
+          d.mkdir(parents=True,exist_ok=True)
+          p=d/f'AuthKey_{key_id}.p8'
+          p.write_text(key)
+          p.chmod(0o600)
+          with open(os.environ['GITHUB_ENV'],'a') as f:
+              f.write(f'ASC_PRIVATE_KEY_PATH={p}\n')
+          PY
+
+      - name: Inspect existing builds and tester access
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: ruby .github/release_tools/testflight_access.rb
+      - name: Remove temporary API key
+        if: always()
+        run: rm -f "$ASC_PRIVATE_KEY_PATH"

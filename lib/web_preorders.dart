@@ -261,19 +261,21 @@ class _WebPreorderCatalogCardState extends State<WebPreorderCatalogCard> {
 }
 
 class WebPreorderPage extends StatelessWidget {
-  const WebPreorderPage({super.key, this.api, this.book});
+  const WebPreorderPage({super.key, this.api, this.book, this.pickImage});
   final WebPreorderApi? api;
   final Book? book;
+  final Future<Uint8List?> Function()? pickImage;
   @override
   Widget build(BuildContext context) => webPreordersAvailable && book == null
-      ? WebMultiPreorderPage(api: api)
-      : _WebSinglePreorderPage(api: api, book: book);
+      ? WebMultiPreorderPage(api: api, pickImage: pickImage)
+      : _WebSinglePreorderPage(api: api, book: book, pickImage: pickImage);
 }
 
 class _WebSinglePreorderPage extends StatefulWidget {
-  const _WebSinglePreorderPage({this.api, this.book});
+  const _WebSinglePreorderPage({this.api, this.book, this.pickImage});
   final WebPreorderApi? api;
   final Book? book;
+  final Future<Uint8List?> Function()? pickImage;
   @override
   State<_WebSinglePreorderPage> createState() => _WebPreorderPageState();
 }
@@ -290,7 +292,10 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
   Uint8List? bookImage, proofImage;
   String? bookPath, proofPath, error;
   int quantity = 1;
-  bool loading = true, payment = false, saving = false;
+  bool loading = true, payment = false, saving = false, picking = false;
+  bool completed = false, allowPop = false, leaving = false;
+  bool get busy => saving || picking || completed;
+  late final String initialName, initialPhone;
   @override
   void initState() {
     super.initState();
@@ -304,6 +309,8 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
     title.text = widget.book?.title ?? '';
     name.text = saved['name'] ?? '';
     phone.text = saved['phone'] ?? '';
+    initialName = name.text;
+    initialPhone = phone.text;
     _reload();
   }
 
@@ -341,30 +348,87 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
     }
   }
 
-  void _message(String text) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-  Future<void> _pick(bool receipt) async {
+  void _message(String text) {
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  Future<void> _back() async {
+    if (busy || leaving) return;
+    if (payment) { setState(() => payment = false); return; }
+    await _cancelRequest();
+  }
+
+  Future<void> _cancelRequest() async {
+    if (busy || leaving) return;
+    leaving = true;
     try {
-      final file = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1600,
-        maxHeight: 2000,
-        imageQuality: 85,
-      );
-      if (file == null) return;
-      final bytes = await file.readAsBytes();
+      final dirty = payment || proofImage != null || bookImage != null || quantity != 1 ||
+          name.text != initialName || phone.text != initialPhone ||
+          (widget.book == null && title.text.isNotEmpty);
+      if (dirty) {
+        final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+          title: const Text('Buyurtmadan chiqasizmi?'),
+          content: const Text('Yuborilmagan ma’lumotlar saqlanmaydi. Avans o‘tkazgan bo‘lsangiz, so‘rovni yuboring yoki administrator bilan bog‘laning.'),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Davom etish')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Chiqish'))],
+        ));
+        if (confirmed != true || !mounted) return;
+      }
+      if (!mounted || !Navigator.of(context).canPop()) return;
+      ScaffoldMessenger.of(context).clearSnackBars();
+      setState(() => allowPop = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) Navigator.pop(context); });
+    } finally { leaving = false; }
+  }
+
+  void _removeImage(bool receipt) {
+    if (busy) return;
+    final image = receipt ? proofImage : bookImage;
+    final path = receipt ? proofPath : bookPath;
+    setState(() {
+      if (receipt) { proofImage = null; proofPath = null; }
+      else { bookImage = null; bookPath = null; }
+    });
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(SnackBar(content: Text(receipt ? 'Chek olib tashlandi.' : 'Rasm olib tashlandi.'),
+      action: SnackBarAction(label: 'Qaytarish', onPressed: () {
+        if (!mounted || busy) return;
+        setState(() {
+          if (receipt) { proofImage = image; proofPath = path; }
+          else { bookImage = image; bookPath = path; }
+        });
+      })));
+  }
+
+  Future<void> _pick(bool receipt) async {
+    if (busy) return;
+    ScaffoldMessenger.of(context).clearSnackBars();
+    setState(() => picking = true);
+    try {
+      Uint8List? bytes;
+      if (widget.pickImage != null) {
+        bytes = await widget.pickImage!();
+      } else {
+        final file = await ImagePicker().pickImage(source: ImageSource.gallery,
+          maxWidth: 1200, maxHeight: 1600, imageQuality: 80);
+        bytes = await file?.readAsBytes();
+      }
+      if (bytes == null || !mounted) return;
       if (bytes.length > 8 * 1024 * 1024) {
         if (mounted) _message('8 MB dan kichikroq rasm tanlang.');
         return;
       }
-      final decoded = img.decodeImage(bytes);
+      var decoded = img.decodeImage(bytes);
       if (decoded == null) {
         if (mounted) _message('JPG, PNG yoki WebP rasm tanlang.');
         return;
       }
-      final encoded = Uint8List.fromList(
-        img.encodeJpg(img.bakeOrientation(decoded), quality: 85),
-      );
+      decoded = img.bakeOrientation(decoded);
+      if (decoded.width > 1200 || decoded.height > 1600) {
+        decoded = img.copyResize(decoded, width: 1200, height: 1600, maintainAspect: true);
+      }
+      final encoded = Uint8List.fromList(img.encodeJpg(decoded, quality: 80));
       if (encoded.length > 2097152) {
         if (mounted) _message('Rasmni kichraytirib, qayta tanlang (2 MB).');
         return;
@@ -381,7 +445,25 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
         });
     } catch (_) {
       if (mounted) _message('Rasmni tanlab bo‘lmadi. Qayta urining.');
+    } finally { if (mounted) setState(() => picking = false); }
+  }
+
+  bool _validateDetails() {
+    // ListView may dispose offscreen FormFields; validate their controllers too.
+    if (title.text.trim().length < 2 || title.text.trim().length > 160) {
+      _message('Kitob nomini tekshiring.'); return false;
     }
+    if (name.text.trim().length < 2 || name.text.trim().length > 80) {
+      _message('Ismingizni kiriting.'); return false;
+    }
+    if (!RegExp(r'^010\d{8}$').hasMatch(phone.text.trim())) {
+      _message('Telefon raqamini tekshiring.'); return false;
+    }
+    final amount = int.tryParse(advance.text);
+    if (config == null || amount == null || amount < config!.deposit || amount > config!.maximumDeposit) {
+      _message('Avans summasini tekshiring.'); return false;
+    }
+    return form.currentState?.validate() ?? false;
   }
 
   Future<bool> _checkCurrent() async {
@@ -398,7 +480,8 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
   }
 
   Future<void> _continue() async {
-    if (!form.currentState!.validate()) return;
+    if (busy || !_validateDetails()) return;
+    FocusScope.of(context).unfocus();
     if (widget.book == null && bookImage == null) {
       _message('Kitob rasmini tanlang.');
       return;
@@ -412,7 +495,7 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
   }
 
   Future<void> _submit() async {
-    if (saving || !form.currentState!.validate()) return;
+    if (busy || !_validateDetails()) return;
     if (proofImage == null) {
       _message('Avans to‘lovi chekini yuklang.');
       return;
@@ -440,12 +523,15 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
         },
       });
       if (!mounted) return;
+      setState(() { completed = true; saving = false; });
       final state = context.read<AppState>();
       final samePhone = state.savedCustomerPhone == phone.text.trim();
-      await state.setAuthenticatedCustomer(name.text.trim(), phone.text.trim(),
-        verified: samePhone && state.customerVerified);
-      unawaited(syncPushIdentity(phone.text.trim()));
-      unawaited(state.refreshCustomerPushMessages());
+      try {
+        await state.setAuthenticatedCustomer(name.text.trim(), phone.text.trim(),
+          verified: samePhone && state.customerVerified);
+        unawaited(syncPushIdentity(phone.text.trim()));
+        unawaited(state.refreshCustomerPushMessages());
+      } catch (_) { /* The server already committed the request and inbox. */ }
       if (!mounted) return;
       await showDialog<void>(
         context: context,
@@ -474,8 +560,12 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
   @override
   Widget build(BuildContext context) {
     final c = config;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Oldindan buyurtma')),
+    return PopScope(
+      canPop: allowPop || completed,
+      onPopInvokedWithResult: (didPop, result) { if (!didPop) _back(); },
+      child: Scaffold(
+      appBar: AppBar(title: const Text('Oldindan buyurtma'),
+        leading: IconButton(tooltip: 'Orqaga', icon: const Icon(Icons.arrow_back), onPressed: busy ? null : _back)),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 640),
@@ -543,7 +633,7 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
                         const SizedBox(height: 18),
                         TextFormField(
                           controller: title,
-                          readOnly: widget.book != null || payment || saving,
+                          readOnly: widget.book != null || payment || busy,
                           decoration: const InputDecoration(
                             labelText: 'Kitob nomi',
                           ),
@@ -565,7 +655,7 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
                           ),
                         if (widget.book == null && !payment)
                           OutlinedButton.icon(
-                            onPressed: saving ? null : () => _pick(false),
+                            onPressed: busy ? null : () => _pick(false),
                             icon: const Icon(
                               Icons.add_photo_alternate_outlined,
                             ),
@@ -575,10 +665,12 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
                                   : 'Rasmni almashtirish',
                             ),
                           ),
+                        if (bookImage != null && !payment)
+                          TextButton(onPressed: busy ? null : () => _removeImage(false), child: const Text('Rasmni bekor qilish')),
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: name,
-                          readOnly: payment || saving,
+                          readOnly: payment || busy,
                           maxLength: 80,
                           decoration: const InputDecoration(
                             labelText: 'Ismingiz',
@@ -589,7 +681,7 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
                         ),
                         TextFormField(
                           controller: phone,
-                          readOnly: payment || saving,
+                          readOnly: payment || busy,
                           keyboardType: TextInputType.phone,
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
@@ -606,7 +698,7 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
                         ),
                         const SizedBox(height: 12),
                         if (c.maximumDeposit > c.deposit) ...[
-                          TextFormField(controller: advance, readOnly: payment || saving,
+                          TextFormField(controller: advance, readOnly: payment || busy,
                             keyboardType: TextInputType.number,
                             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                             decoration: const InputDecoration(labelText: 'Bir kitob uchun avans (₩)'),
@@ -617,14 +709,14 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
                             }),
                           Wrap(spacing: 8, children: [
                             for (final value in {c.deposit, 5000, 10000, c.maximumDeposit}.where((v) => v >= c.deposit && v <= c.maximumDeposit))
-                              ActionChip(label: Text(webPreorderMoney(value)), onPressed: payment || saving ? null : () => setState(() => advance.text = '$value')),
+                              ActionChip(label: Text(webPreorderMoney(value)), onPressed: payment || busy ? null : () => setState(() => advance.text = '$value')),
                           ]),
                         ],
                         Row(
                           children: [
                             const Expanded(child: Text('Miqdor')),
                             IconButton(
-                              onPressed: quantity <= 1 || payment || saving
+                              onPressed: quantity <= 1 || payment || busy
                                   ? null
                                   : () => setState(() => quantity--),
                               icon: const Icon(Icons.remove_circle_outline),
@@ -637,7 +729,7 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
                               ),
                             ),
                             IconButton(
-                              onPressed: quantity >= 20 || payment || saving
+                              onPressed: quantity >= 20 || payment || busy
                                   ? null
                                   : () => setState(() => quantity++),
                               icon: const Icon(Icons.add_circle_outline),
@@ -651,10 +743,12 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
                             fontSize: 22,
                           ),
                         ),
+                        const Text('Pochtaga +4 000 won qo‘shiladi. Hozir faqat avansni o‘tkazing.',
+                          style: TextStyle(fontSize: 12, color: AppColors.muted)),
                         const SizedBox(height: 16),
                         if (!payment)
                           FilledButton(
-                            onPressed: saving ? null : _continue,
+                            onPressed: busy ? null : _continue,
                             child: Text(
                               saving
                                   ? 'Tekshirilmoqda…'
@@ -681,6 +775,7 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
                                     const Expanded(
                                       child: SelectableText(
                                         AppState.bankAccount,
+                                        maxLines: 1,
                                       ),
                                     ),
                                     IconButton(
@@ -714,7 +809,7 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
                               ),
                             ),
                           OutlinedButton.icon(
-                            onPressed: saving ? null : () => _pick(true),
+                            onPressed: busy ? null : () => _pick(true),
                             icon: const Icon(Icons.receipt_long_outlined),
                             label: Text(
                               proofImage == null
@@ -722,8 +817,10 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
                                   : 'Chekni almashtirish',
                             ),
                           ),
+                          if (proofImage != null)
+                            TextButton(onPressed: busy ? null : () => _removeImage(true), child: const Text('Chekni bekor qilish')),
                           FilledButton(
-                            onPressed: saving ? null : _submit,
+                            onPressed: busy ? null : _submit,
                             child: Text(
                               saving
                                   ? 'Yuborilmoqda…'
@@ -731,19 +828,22 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
                             ),
                           ),
                           TextButton(
-                            onPressed: saving
+                            onPressed: busy
                                 ? null
                                 : () => setState(() => payment = false),
                             child: const Text('Ma’lumotlarni tahrirlash'),
                           ),
                         ],
+                        TextButton.icon(onPressed: busy ? null : _cancelRequest,
+                          icon: const Icon(Icons.close), label: const Text('Buyurtmani bekor qilish')),
+                        if (picking || saving) const LinearProgressIndicator(),
                       ],
                     ],
                   ),
                 ),
         ),
       ),
-    );
+    ));
   }
 }
 

@@ -27,6 +27,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
   String? proofPath, error;
   bool loading = true, saving = false, payment = false, picking = false, completed = false;
   bool allowPop = false, leaving = false;
+  late final String initialName, initialPhone;
   int get quantity => books.fold(0, (sum, b) => sum + b.quantity);
   int get total => (config?.deposit ?? 0) * quantity;
 
@@ -41,6 +42,8 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
     final saved = context.read<AppState>().savedCustomer;
     name.text = saved['name'] ?? '';
     phone.text = saved['phone'] ?? '';
+    initialName = name.text;
+    initialPhone = phone.text;
     _reload();
   }
 
@@ -111,7 +114,8 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
     if (saving || picking || completed || leaving) return;
     leaving = true;
     try {
-      final dirty = books.length > 1 || books.any((b) => b.title.text.isNotEmpty || b.image != null || b.quantity != 1) || proof != null;
+      final dirty = payment || books.length > 1 || books.any((b) => b.title.text.isNotEmpty || b.image != null || b.quantity != 1) ||
+          proof != null || name.text != initialName || phone.text != initialPhone;
       if (dirty) {
         final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
           title: const Text('Buyurtmadan chiqasizmi?'),
@@ -190,11 +194,15 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
     if (invalid >= 0) { message('${invalid + 1}-kitob nomini kiriting.'); return false; }
     if (name.text.trim().length < 2) { message('Ismingizni kiriting.'); return false; }
     if (!RegExp(r'^010\d{8}$').hasMatch(phone.text)) { message('Telefon raqamini tekshiring.'); return false; }
-    return form.currentState!.validate();
+    if (quantity > 100000 || total > 2147483647) {
+      message('So‘rov juda katta. Kitoblarni alohida so‘rovlarga ajrating.'); return false;
+    }
+    return form.currentState?.validate() ?? false;
   }
 
   Future<void> next() async {
     if (saving || picking || completed || !validateDetails()) return;
+    FocusScope.of(context).unfocus();
     final missing = books.indexWhere((b) => b.image == null);
     if (missing >= 0) { message('${missing + 1}-kitob rasmini tanlang.'); return; }
     setState(() => saving = true);
@@ -314,7 +322,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
               AppSurface(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const Text('Bank o‘tkazmasi', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
                 const Text('${AppState.bankName}\n${AppState.bankOwner}'),
-                Row(children: [const Expanded(child: SelectableText(AppState.bankAccount)),
+                Row(children: [const Expanded(child: SelectableText(AppState.bankAccount, maxLines: 1)),
                   IconButton(tooltip: 'Hisob raqamini nusxalash', onPressed: () async {
                     await Clipboard.setData(const ClipboardData(text: AppState.bankAccount)); message('Hisob raqami nusxalandi');
                   }, icon: const Icon(Icons.copy))]),
@@ -327,7 +335,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
                 child: const Text('Chekni bekor qilish')),
               FilledButton(onPressed: saving || picking || completed ? null : submit,
                 child: Text(saving ? 'Yuborilmoqda…' : 'Avans yubordim — buyurtma berish')),
-              TextButton(onPressed: saving || completed ? null : () => setState(() => payment = false), child: const Text('Ma’lumotlarni tahrirlash')),
+              TextButton(onPressed: saving || picking || completed ? null : () => setState(() => payment = false), child: const Text('Ma’lumotlarni tahrirlash')),
             ],
             TextButton.icon(onPressed: saving || picking || completed ? null : cancelRequest,
               icon: const Icon(Icons.close), label: const Text('Buyurtmani bekor qilish')),

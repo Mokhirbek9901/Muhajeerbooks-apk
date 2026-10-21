@@ -8075,6 +8075,17 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                           fontSize: 11.5,
                         ),
                       ),
+                    if (kIsWeb && order.isApp && order.status == 'accepted') ...[
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Buyurtmangiz qabul qilingan. Endi unga kitob qo‘shib bo‘lmaydi',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.muted,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                     if (order.hasPaymentProof) ...[
                       const SizedBox(height: 8),
                       const AppInfoPill(

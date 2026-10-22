@@ -326,7 +326,7 @@ class _AdminQualityHubState extends State<_AdminQualityHub> {
   void _openBookFilter(String filter) {
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => Scaffold(
-        appBar: const AppBar(title: Text('Kitoblar va ombor')),
+        appBar: AppBar(title: const Text('Kitoblar va ombor')),
         body: _BooksAdmin(api: widget.api, initialFilter: filter),
       ),
     )).then((_) {
@@ -337,7 +337,7 @@ class _AdminQualityHubState extends State<_AdminQualityHub> {
   void _openTracking() {
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => Scaffold(
-        appBar: const AppBar(title: Text('Tracking kiritilmagan')),
+        appBar: AppBar(title: const Text('Tracking kiritilmagan')),
         body: _OrdersAdmin(api: widget.api, initialFilter: 'tracking_missing'),
       ),
     )).then((_) {
@@ -596,8 +596,6 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
         Icons.local_shipping_outlined, (ctx) => _pushPage(ctx,
           Scaffold(appBar: AppBar(title: const Text('Pochta zakaslari')),
             body: _ShippingQueueAdmin(api: widget.api)))),
-      _AdminMenuAction('Ombor va qoldiqlar', 'Kirgan va sotilgan kitoblar qoldig‘i',
-        Icons.inventory_2_outlined, (ctx) => _goToTab(ctx, 2)),
       _AdminMenuAction('Tugagan kitoblar', 'Omborda 0 dona qolgan kitoblar',
         Icons.inventory_2_outlined, (ctx) => unawaited(_openSoldoutBooks(ctx))),
       _AdminMenuAction('Katalog tartibi', 'Mijozlar ko‘radigan kitoblarni tartiblash',

@@ -73,6 +73,12 @@ const _green = UzbekCustomerColors.success;
 final _money = NumberFormat('#,###', 'en_US');
 String won(int value) => '₩${_money.format(value)}';
 
+/// Sold-out titles have a last known selling price, not a guarantee.
+/// Explicit new-release preorders remain a separate flow.
+bool soldoutPreorderIsAvailable(Book book, bool globallyEnabled) =>
+    globallyEnabled && book.isActive && book.stock == 0 &&
+    book.price > 0 && !book.preorderEnabled;
+
 String preorderEstimatedPrice(Book book) {
   final min = book.currentPrice;
   final max = book.preorderPriceMax;
@@ -570,6 +576,9 @@ class CategoriesPage extends StatelessWidget {
       'features.preorder_enabled',
       listen: true,
     );
+    final soldoutEnabled = _remoteFlag(
+      context, 'features.soldout_preorders_enabled', fallback: false, listen: true,
+    );
     final categories =
         state.books
             .where((b) => b.isActive)
@@ -654,7 +663,8 @@ class CategoriesPage extends StatelessWidget {
                           ? 'Setlar'
                           : categories[i - specialCount]));
               final count = isPreorder
-                  ? state.books.where((b) => b.isActive && b.preorderEnabled).length
+                  ? state.books.where((b) => b.isActive &&
+                       (b.preorderEnabled || soldoutPreorderIsAvailable(b, soldoutEnabled))).length
                   : (isBundles
                       ? state.bundles.length
                       : state.books.where((b) => b.isActive && b.category == c).length);
@@ -745,7 +755,11 @@ class PreorderBooksPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final books = state.books.where((b) => b.isActive && b.preorderEnabled).toList();
+    final soldoutEnabled = _remoteFlag(
+      context, 'features.soldout_preorders_enabled', fallback: false, listen: true,
+    );
+    final books = state.books.where((b) => b.isActive &&
+        (b.preorderEnabled || soldoutPreorderIsAvailable(b, soldoutEnabled))).toList();
     return Scaffold(
       backgroundColor: UzbekCustomerColors.background,
       appBar: AppBar(
@@ -3955,6 +3969,8 @@ class BookCard extends StatelessWidget {
     final restockSubscribed = context.select<AppState, bool>(
       (s) => s.isRestockSubscribed(book),
     );
+    final soldoutPreorder = soldoutPreorderIsAvailable(book,
+      _remoteFlag(context, 'features.soldout_preorders_enabled', fallback: false, listen: true));
     final state = context.read<AppState>();
     return Container(
       decoration: BoxDecoration(
@@ -4001,7 +4017,12 @@ class BookCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (book.preorderEnabled)
+                  if (soldoutPreorder)
+                    const Positioned(
+                      top: 8, right: 8,
+                      child: _Badge(text: 'Oldindan zakaz', color: AppColors.orange),
+                    )
+                  else if (book.preorderEnabled)
                     const Positioned(
                       top: 8,
                       right: 8,
@@ -4071,24 +4092,26 @@ class BookCard extends StatelessWidget {
                   Row(
                     children: [
                       Icon(
-                        book.preorderEnabled
+                        (book.preorderEnabled || soldoutPreorder)
                             ? Icons.event_available_rounded
                             : (book.inStock ? Icons.check_circle_rounded : Icons.cancel_rounded),
                         size: 14,
-                        color: book.preorderEnabled
+                        color: (book.preorderEnabled || soldoutPreorder)
                             ? AppColors.orange
                             : (book.inStock ? AppColors.success : AppColors.danger),
                       ),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          book.preorderEnabled
+                          soldoutPreorder
+                              ? 'Tugagan • zakaz ochiq'
+                              : book.preorderEnabled
                               ? 'Oldindan sotuvda'
                               : (book.inStock ? '${book.stock} dona mavjud' : 'Hozircha mavjud emas'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: book.preorderEnabled
+                            color: (book.preorderEnabled || soldoutPreorder)
                                 ? AppColors.orange
                                 : (book.inStock ? AppColors.success : AppColors.danger),
                             fontSize: 10.5,
@@ -4099,7 +4122,7 @@ class BookCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  if (book.isDiscounted)
+                  if (book.isDiscounted && !soldoutPreorder)
                     Text(
                       won(book.price),
                       style: const TextStyle(
@@ -4108,6 +4131,9 @@ class BookCard extends StatelessWidget {
                         fontSize: 10.5,
                       ),
                     ),
+                  if (soldoutPreorder)
+                    const Text('Oldingi narxi', style: TextStyle(
+                      fontSize: 10.5, color: AppColors.muted, fontWeight: FontWeight.w700)),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
@@ -4127,7 +4153,7 @@ class BookCard extends StatelessWidget {
                         width: 38,
                         height: 38,
                         child: FilledButton(
-                          onPressed: book.preorderEnabled
+                          onPressed: (book.preorderEnabled || soldoutPreorder)
                               ? () => _openBookDetail(context, book)
                               : book.inStock
                               ? () {
@@ -4161,7 +4187,7 @@ class BookCard extends StatelessWidget {
                             minimumSize: const Size(38, 38),
                           ),
                           child: Icon(
-                            book.preorderEnabled
+                            (book.preorderEnabled || soldoutPreorder)
                                 ? Icons.event_available_rounded
                                 : book.inStock
                                 ? Icons.add_shopping_cart_rounded
@@ -4176,6 +4202,14 @@ class BookCard extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (soldoutPreorder) ...[
+                    const SizedBox(height: 4),
+                    const Text('택배: ₩4,000', style: TextStyle(
+                      color: AppColors.navy, fontWeight: FontWeight.w800, fontSize: 10.5)),
+                    const Text('Kurs sabab narx o‘zgarishi mumkin',
+                      maxLines: 2, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: AppColors.muted, fontSize: 10)),
+                  ],
                 ],
               ),
             ),

@@ -620,6 +620,33 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
                           const PurchasePriceNotice(),
                           const SizedBox(height: 12),
                         ],
+                        if (widget.book != null &&
+                            widget.book!.stock == 0 && !widget.book!.preorderEnabled) ...[
+                          AppSurface(
+                            backgroundColor: const Color(0xFFFFF7E8),
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              const Row(children: [
+                                Icon(Icons.inventory_2_outlined, color: AppColors.orange),
+                                SizedBox(width: 8),
+                                Expanded(child: Text('Hozir omborda tugagan',
+                                    style: TextStyle(fontWeight: FontWeight.w900))),
+                              ]),
+                              const SizedBox(height: 10),
+                              Text('Oldingi sotuv narxi: ${webPreorderMoney(widget.book!.currentPrice)}',
+                                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
+                              const SizedBox(height: 4),
+                              const Text('택배 (yetkazib berish): ₩4,000',
+                                  style: TextStyle(fontWeight: FontWeight.w800)),
+                              const SizedBox(height: 7),
+                              const Text(
+                                'Kurs o‘zgarishi sabab yakuniy narx oshishi yoki kamayishi mumkin. '
+                                'Kitob kelganda yangi narx tasdiqlanadi; avans yakuniy summadan ayriladi.',
+                                style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.muted),
+                              ),
+                            ]),
+                          ),
+                          const SizedBox(height: 14),
+                        ],
                         Text(
                           c!.maximumDeposit == c.deposit ? 'Avans: ${webPreorderMoney(c.deposit)} / dona' : 'Avans: ${webPreorderMoney(c.deposit)} – ${webPreorderMoney(c.maximumDeposit)} / dona',
                           style: const TextStyle(

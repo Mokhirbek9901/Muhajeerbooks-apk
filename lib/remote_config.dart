@@ -22,6 +22,8 @@ class RemoteConfigStore extends ChangeNotifier with WidgetsBindingObserver {
     'config.refresh_minutes': 15,
     'features.muhajeer_ai_enabled': true,
     'features.preorder_enabled': true,
+    // Safe default until the administrator explicitly opens sold-out preorders.
+    'features.soldout_preorders_enabled': false,
     'features.reviews_enabled': true,
     'features.restock_enabled': true,
     'features.story_share_enabled': true,

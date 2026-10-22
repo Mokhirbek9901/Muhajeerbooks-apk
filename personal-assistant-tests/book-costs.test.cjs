@@ -26,6 +26,32 @@ test('10,000 won per kilogram, including decimal weights and missing fields',()=
 test('bulk pasted names preserve punctuation, strip list prefixes, skip repeats',()=>{
   assert.deepEqual(costs.parseTitles('1. Arosat\r\n• Ko‘rlik\n\n2) Men (Bas qil, ey nafs!)\nKo\'rlik; Oq nilufarlar'),['Arosat','Ko‘rlik','Men (Bas qil, ey nafs!)','Oq nilufarlar']);
 });
+test('bulk title quantities are parsed without changing book names, and duplicate lines add within the same paste',()=>{
+  const parsed=costs.parseTitleEntries('1. Arosat 3 ta\n• Ko‘rlik - 2 dona\nOq nilufarlar\nArosat (2 ta)\n12 haftalik yil\n100$ bilan startap');
+  assert.deepEqual(parsed.invalid,[]);
+  assert.deepEqual(parsed.entries,[
+    {title:'Arosat',quantity:5},{title:'Ko‘rlik',quantity:2},
+    {title:'Oq nilufarlar',quantity:1},{title:'12 haftalik yil',quantity:1},
+    {title:'100$ bilan startap',quantity:1}
+  ]);
+  assert.deepEqual(costs.parseTitleEntries('Arosat 0 ta\nKo‘rlik 100001 ta').invalid,['Arosat 0 ta','Ko‘rlik 100001 ta']);
+  assert.equal(costs.parseTitleEntries('Arosat 99999 ta\nArosat 2 ta').invalid.length,1);
+});
+test('bulk import saves each book quantity for per-batch inventory calculations',()=>{
+  const {api,data}=appHarness();
+  api.addCostTitles('Arosat 3 ta\nKo‘rlik - 2 ta\nOq nilufarlar');
+  const rows=api.getState().bookCosts;
+  assert.deepEqual(rows.map(row=>({title:row.title,quantity:row.quantity})),[
+    {title:'Arosat',quantity:3},{title:'Ko‘rlik',quantity:2},{title:'Oq nilufarlar',quantity:1}
+  ]);
+  assert.equal(JSON.parse(data.get('bek_personal_assistant_v4')).bookCosts[0].quantity,3);
+  rows[0].price=8000;rows[0].grams=300;
+  assert.equal(costs.inventory(rows[0]).total,33000);
+  api.addCostTitles('Arosat 5 ta');
+  assert.equal(api.getState().bookCosts[0].quantity,3); // Existing entries are not silently overwritten.
+  assert.equal(api.getState().bookCosts.length,3);
+});
+
 test('saved cost records survive JSON reload and old backups default to empty',()=>{
   assert.deepEqual(costs.normalize(undefined,()=> 'new'),[]);
   const rows=[{id:'a',title:'Arosat',price:8000,grams:300,saved:true},{id:'b',title:'',price:null,grams:null,saved:false}];

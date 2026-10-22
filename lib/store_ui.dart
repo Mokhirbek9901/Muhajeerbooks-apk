@@ -4461,6 +4461,9 @@ class BookDetailPage extends StatelessWidget {
       );
     }
     final b = book;
+    final soldoutPreorder = soldoutPreorderIsAvailable(b, _remoteFlag(
+      context, 'features.soldout_preorders_enabled', fallback: false, listen: true));
+    final preorderActive = b.preorderEnabled || soldoutPreorder;
     return Scaffold(
       backgroundColor: UzbekCustomerColors.background,
       appBar: AppBar(
@@ -4489,7 +4492,7 @@ class BookDetailPage extends StatelessWidget {
         builder: (context, constraints) {
           final desktop = constraints.maxWidth >= 760;
           final cover = _BookGallery(book: b, desktop: desktop);
-          final info = _BookDetailInfo(book: b);
+          final info = _BookDetailInfo(book: b, soldoutPreorder: soldoutPreorder);
           return SingleChildScrollView(
             padding: EdgeInsets.fromLTRB(
               desktop ? 32 : 18,
@@ -4559,12 +4562,12 @@ class BookDetailPage extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Text(
-                    'Narxi',
+                  Text(
+                    soldoutPreorder ? 'Oldingi narxi' : 'Narxi',
                     style: TextStyle(fontSize: 12, color: AppColors.muted),
                   ),
                   const SizedBox(width: 10),
-                  if (b.isDiscounted) ...[
+                  if (b.isDiscounted && !soldoutPreorder) ...[
                     Text(
                       won(b.price),
                       maxLines: 1,
@@ -4594,7 +4597,13 @@ class BookDetailPage extends StatelessWidget {
                   ),
                 ],
               ),
-              if (webPreviewFeaturesAvailable && (!b.inStock || b.preorderEnabled)) ...[
+              if (soldoutPreorder) ...[
+                const SizedBox(height: 4),
+                const Text('택배 to‘lovi: ₩4,000', style: TextStyle(
+                  fontSize: 12, color: AppColors.navy, fontWeight: FontWeight.w800)),
+                const Text('Valyuta kursi sabab yakuniy narx o‘zgarishi mumkin.',
+                  style: TextStyle(fontSize: 11.5, color: AppColors.muted)),
+              ] else if (webPreviewFeaturesAvailable && (!b.inStock || b.preorderEnabled)) ...[
                 const SizedBox(height: 4),
                 const Text(
                   '(Pochtaga +4 000 won qo‘shiladi)',
@@ -4602,7 +4611,7 @@ class BookDetailPage extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 9),
-              if (b.preorderEnabled && (!webPreordersAvailable || b.inStock))
+              if (preorderActive)
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
@@ -4615,7 +4624,7 @@ class BookDetailPage extends StatelessWidget {
                       ),
                     ),
                     icon: const Icon(Icons.event_available_rounded),
-                    label: const Text('Oldindan buyurtma qilish'),
+                    label: Text(soldoutPreorder ? 'Oldindan zakaz qilish' : 'Oldindan buyurtma qilish'),
                   ),
                 )
               else if (b.inStock && !b.preorderEnabled)
@@ -5160,8 +5169,9 @@ class _BookGalleryState extends State<_BookGallery> {
 }
 
 class _BookDetailInfo extends StatelessWidget {
-  const _BookDetailInfo({required this.book});
+  const _BookDetailInfo({required this.book, required this.soldoutPreorder});
   final Book book;
+  final bool soldoutPreorder;
 
   @override
   Widget build(BuildContext context) => Column(

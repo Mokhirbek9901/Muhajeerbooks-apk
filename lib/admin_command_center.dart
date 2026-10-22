@@ -184,21 +184,43 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
   }
 
-  /// The only extra-tools menu. The six bottom navigation buttons already
-  /// own the primary screens, so none of those screens is repeated as a card
-  /// on the home dashboard or a duplicate legacy-tabs sheet.
-  Future<void> openTools() async {
-    final _AdminHomeData data;
+  Future<void> _openSoldoutBooks(BuildContext sectionContext) async {
     try {
-      data = await future;
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Qo‘shimcha bo‘limlar yuklanmadi. Bosh sahifani yangilang.'),
-        ));
+      final books = await widget.api.books();
+      if (!sectionContext.mounted) return;
+      _pushPage(sectionContext, _AdminBookListPage(
+        title: 'Tugagan kitoblar',
+        books: books.where((b) => b.isActive && b.stock == 0).toList(),
+      ));
+    } catch (e) {
+      if (sectionContext.mounted) {
+        ScaffoldMessenger.of(sectionContext).showSnackBar(
+          SnackBar(content: Text('Tugagan kitoblar yuklanmadi: $e')),
+        );
       }
-      return;
     }
+  }
+
+  Future<void> _openBusinessTools(BuildContext sectionContext) async {
+    try {
+      final books = await widget.api.books();
+      if (!sectionContext.mounted) return;
+      _pushPage(sectionContext, WebAdminToolsPage(
+        secret: widget.api.secret,
+        books: books,
+      ));
+    } catch (e) {
+      if (sectionContext.mounted) {
+        ScaffoldMessenger.of(sectionContext).showSnackBar(
+          SnackBar(content: Text('Biznes asboblari yuklanmadi: $e')),
+        );
+      }
+    }
+  }
+
+  /// The only extra-tools menu. The six bottom navigation buttons already
+  /// own the primary screens; the tool menu can open even if KPIs are offline.
+  void openTools() {
     if (!mounted) return;
     final actions = <_AdminMenuAction>[
       _AdminMenuAction('Pochta zakaslari', 'Manzil, jo‘natmalar va tracking',
@@ -208,16 +230,13 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
       _AdminMenuAction('Ombor va qoldiqlar', 'Kirgan va sotilgan kitoblar qoldig‘i',
         Icons.inventory_2_outlined, (ctx) => _goToTab(ctx, 2)),
       _AdminMenuAction('Tugagan kitoblar', 'Omborda 0 dona qolgan kitoblar',
-        Icons.inventory_2_outlined, (ctx) => _pushPage(ctx, _AdminBookListPage(
-          title: 'Tugagan kitoblar',
-          books: data.books.where((b) => b.isActive && b.stock == 0).toList()))),
+        Icons.inventory_2_outlined, (ctx) => unawaited(_openSoldoutBooks(ctx))),
       _AdminMenuAction('Katalog tartibi', 'Mijozlar ko‘radigan kitoblarni tartiblash',
         Icons.vertical_align_top_rounded, (ctx) => _pushPage(ctx,
           _CatalogPinsAdminPage(api: widget.api))),
       if (_enhancedAdminUi)
         _AdminMenuAction('Biznes asboblari', 'Tan narx, partiyalar va taqqoslash',
-          Icons.calculate_outlined, (ctx) => _pushPage(ctx,
-            WebAdminToolsPage(secret: widget.api.secret, books: data.books))),
+          Icons.calculate_outlined, (ctx) => unawaited(_openBusinessTools(ctx))),
       _AdminMenuAction('Oldindan sotuvdagi kitoblar', 'Kitoblar, kelish muddati va avans',
         Icons.event_available_outlined, (ctx) => _pushPage(ctx,
           _PreorderAdminPage(api: widget.api))),

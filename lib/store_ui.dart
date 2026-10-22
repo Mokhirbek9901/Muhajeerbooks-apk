@@ -4711,16 +4711,10 @@ class BookDetailPage extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (webPreordersAvailable) ...[
-                      const SizedBox(width: 8),
-                      Expanded(child: OutlinedButton.icon(
-                        onPressed: () => Navigator.push<void>(context, muhajeerPageRoute<void>(
-                          settings: RouteSettings(name: 'mb:preorder:${b.id}'),
-                          builder: (_) => WebPreorderPage(book: b))),
-                        icon: const Icon(Icons.event_available_outlined),
-                        label: const Text('Oldindan zakaz qilish', maxLines: 2, textAlign: TextAlign.center),
-                      )),
-                    ] else if (b.legacyId != null) ...[
+                    // A sold-out preorder is offered only when the server-side
+                    // master switch allows it. No misleading checkout CTA when
+                    // the administrator has closed the feature.
+                    if (!webPreordersAvailable && b.legacyId != null) ...[
                       const SizedBox(width: 8),
                       Expanded(
                         child: OutlinedButton.icon(

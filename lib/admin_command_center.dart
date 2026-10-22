@@ -301,6 +301,156 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
 
 /// A single operational checklist without new backend writes.
 /// Tapping an issue takes the administrator to the existing editable screen.
+/// Customers may request missing books without an ISBN or SMS confirmation.
+/// Admin explicitly manages each request state; no message is auto-sent.
+class _RequestedBooksAdminPage extends StatefulWidget {
+  const _RequestedBooksAdminPage({required this.api});
+  final _AdminApi api;
+  @override
+  State<_RequestedBooksAdminPage> createState() => _RequestedBooksAdminPageState();
+}
+
+class _RequestedBooksAdminPageState extends State<_RequestedBooksAdminPage> {
+  late Future<List<Map<String, dynamic>>> future;
+  final Set<int> saving = {};
+  String filter = 'all';
+  String search = '';
+
+  static const statusLabels = <String, String>{
+    'new':'Yangi', 'reviewed':'Ko‘rib chiqildi',
+    'ordered':'Buyurtma qilindi', 'fulfilled':'Topildi / keldi',
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    future = widget.api.requestedBooks();
+  }
+
+  Future<void> _update(Map<String, dynamic> row, String status) async {
+    final id = (row['id'] as num?)?.toInt();
+    if (id == null || saving.contains(id)) return;
+    setState(() => saving.add(id));
+    try {
+      await widget.api.setRequestedBookStatus(id, status);
+      final updated = await widget.api.requestedBooks();
+      if (!mounted) return;
+      setState(() => future = Future.value(updated));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('So‘rov holati: ${statusLabels[status] ?? status}')),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Holat saqlanmadi: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => saving.remove(id));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: UzbekCustomerColors.background,
+    appBar: AppBar(title: const Text('Mijozlar so‘ragan kitoblar'),
+      actions: [IconButton(
+        icon: const Icon(Icons.refresh_rounded),
+        tooltip: 'Yangilash',
+        onPressed: () => setState(() => future = widget.api.requestedBooks()))]),
+    body: FutureBuilder<List<Map<String, dynamic>>>(
+      future: future,
+      builder: (context,snapshot) {
+        if (snapshot.hasError) return Center(child: Text('Yuklash xatosi: ${snapshot.error}'));
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        final records = snapshot.data!;
+        final visible = records.where((row) =>
+          (filter == 'all' || row['status'] == filter) &&
+          (search.isEmpty ||
+            '${row['title']} ${row['author']} ${row['phone']}'
+              .toLowerCase().contains(search))).toList();
+        return RefreshIndicator(
+          onRefresh: () async {
+            final result = await widget.api.requestedBooks();
+            if (mounted) setState(() => future = Future.value(result));
+          },
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16,12,16,36),
+            children: [
+              Text('${records.length} ta kitob so‘rovi',
+                style: const TextStyle(fontWeight: FontWeight.w900,
+                  fontSize: 20, color: AppColors.navy)),
+              const SizedBox(height: 7),
+              const Text('Yangi → Ko‘rib chiqildi → Buyurtma qilindi → Topildi. '
+                'Holatni o‘zgartirish avtomatik SMS yubormaydi.',
+                style: TextStyle(color: AppColors.muted, fontSize: 12)),
+              const SizedBox(height: 12),
+              TextField(
+                onChanged: (value) => setState(() => search = value.trim().toLowerCase()),
+                decoration: const InputDecoration(
+                  labelText: 'Kitob yoki mijoz raqami bo‘yicha qidirish',
+                  prefixIcon: Icon(Icons.search_rounded))),
+              const SizedBox(height: 8),
+              Wrap(spacing: 6, runSpacing: 6, children: [
+                for (final key in ['all', ...statusLabels.keys])
+                  ChoiceChip(
+                    label: Text(key == 'all' ? 'Barchasi' :
+                        (statusLabels[key] ?? key)),
+                    selected: filter == key,
+                    onSelected: (_) => setState(() => filter = key)),
+              ]),
+              const SizedBox(height: 14),
+              if (visible.isEmpty)
+                const AppSurface(child: Text('Bu filtrda so‘rov topilmadi.'))
+              else
+                ...visible.map((row) {
+                  final id = (row['id'] as num?)?.toInt();
+                  final status = '${row['status'] ?? 'new'}';
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 9),
+                    child: Card(
+                      margin: EdgeInsets.zero,
+                      color: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        side: const BorderSide(color: AppColors.border),
+                        borderRadius: BorderRadius.circular(15)),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 13, vertical: 6),
+                        title: Text('${row['title'] ?? 'Kitob'}',
+                          style: const TextStyle(fontWeight: FontWeight.w900)),
+                        subtitle: Text(
+                          [
+                            if ('${row['author'] ?? ''}'.trim().isNotEmpty)
+                              'Muallif: ${row['author']}',
+                            'Holat: ${statusLabels[status] ?? status}',
+                          ].join('\n')),
+                        isThreeLine: false,
+                        trailing: PopupMenuButton<String>(
+                          enabled: id != null && !saving.contains(id),
+                          tooltip: 'So‘rov holatini o‘zgartirish',
+                          icon: saving.contains(id)
+                              ? const Icon(Icons.hourglass_top_rounded)
+                              : const Icon(Icons.more_vert_rounded),
+                          onSelected: (next) => _update(row,next),
+                          itemBuilder: (_) => statusLabels.entries
+                            .map((e) => PopupMenuItem<String>(
+                              value: e.key, child: Text(e.value)))
+                            .toList(),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+            ],
+          ),
+        );
+      },
+    ),
+  );
+}
+
 class _AdminQualityHub extends StatefulWidget {
   const _AdminQualityHub({required this.api});
   final _AdminApi api;
@@ -434,10 +584,10 @@ class _AdminQualityHubState extends State<_AdminQualityHub> {
               const SizedBox(height: 8),
               OutlinedButton.icon(
                 icon: const Icon(Icons.manage_search_rounded),
-                label: const Text('Mijozlar so‘ragan kitoblarni ko‘rish'),
+                label: const Text('Mijozlar so‘ragan kitoblarni boshqarish'),
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) => _MerchandisingAdminPage(api: widget.api))),
+                    builder: (_) => _RequestedBooksAdminPage(api: widget.api))),
               ),
             ],
           ),

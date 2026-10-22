@@ -5996,9 +5996,10 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
           final matchStatus = switch (filter) {
             'all' => o.status != 'cancelled',
             'today' => o.status != 'cancelled' && orderDay == today,
+            'today_sales' => _adminRecognizedTodaySale(o, now),
             'yesterday' => o.status != 'cancelled' && orderDay == yesterday,
-            'accepted' => (o.status == 'accepted' || o.status == 'paid') && o.preparedAt == null,
-            'prepared' => (o.status == 'accepted' || o.status == 'paid') && o.preparedAt != null,
+            'accepted' => _adminAwaitingPreparation(o),
+            'prepared' => _adminPreparedForDispatch(o),
             _ => o.status == filter,
           };
           final matchQuery =
@@ -6099,6 +6100,12 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
                         _OrderFilterChip(
                           label: 'Bugun',
                           value: 'today',
+                          selected: filter,
+                          onTap: (v) => setState(() => filter = v),
+                        ),
+                        _OrderFilterChip(
+                          label: 'Bugungi savdo',
+                          value: 'today_sales',
                           selected: filter,
                           onTap: (v) => setState(() => filter = v),
                         ),

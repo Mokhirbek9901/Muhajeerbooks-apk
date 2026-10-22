@@ -119,8 +119,11 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
   }
 
   Future<_AdminHomeData> load() async {
-    final books = await widget.api.books();
-    final orders = await widget.api.orders();
+    // Fetch in parallel to keep the landing screen responsive on mobile.
+    final booksFuture = widget.api.books();
+    final ordersFuture = widget.api.orders();
+    final books = await booksFuture;
+    final orders = await ordersFuture;
     final now = DateTime.now();
     final todayRevenue = orders.where((order) =>
       order.createdAt.year == now.year &&
@@ -137,11 +140,13 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
     // endpoint must not silently be counted as zero customer orders.
     int? preorderCount;
     try {
-      final insight = await widget.api.merchandisingInsights();
+      final insight = await widget.api.merchandisingInsights()
+          .timeout(const Duration(seconds: 4));
       final nativeRows = insight['preorders'] as List?;
       if (nativeRows != null) {
         if (webPreordersAvailable) {
-          final webRows = await WebPreorderApi().admin(widget.api.secret, 'list');
+          final webRows = await WebPreorderApi().admin(widget.api.secret, 'list')
+              .timeout(const Duration(seconds: 4));
           if (webRows is List) preorderCount = nativeRows.length + webRows.length;
         } else {
           preorderCount = nativeRows.length;
@@ -242,6 +247,9 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
               appBar: AppBar(title: const Text('Batafsil statistika')),
               body: _OverviewAdmin(api: widget.api,
                 onOpenTab: (tab) {
+                  // Close details and the topic menu before changing the
+                  // underlying dashboard tab; otherwise the menu masks it.
+                  Navigator.of(ctx).pop();
                   Navigator.of(ctx).pop();
                   widget.onOpenTab(tab);
                 }),
@@ -432,7 +440,10 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
                 onPressed: () => _pushPage(context, Scaffold(
                   appBar: AppBar(title: const Text('Batafsil eski hisobotlar')),
                   body: _OverviewAdmin(api: widget.api,
-                    onOpenTab: widget.onOpenTab))),
+                    onOpenTab: (tab) {
+                      Navigator.of(context).pop();
+                      widget.onOpenTab(tab);
+                    }))),
                 icon: const Icon(Icons.insights_outlined),
                 label: const Text('Batafsil statistika va avvalgi asboblar'),
               ),

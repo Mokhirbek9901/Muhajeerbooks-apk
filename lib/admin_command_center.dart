@@ -1,5 +1,25 @@
 part of 'admin_ui.dart';
 
+/// Shared definitions for the dashboard cards and order-list filters. Counts
+/// and drill-downs must include exactly the same orders, without modifying
+/// order status, inventory, or sales data.
+bool _adminAwaitingPreparation(ShopOrder order) =>
+    (order.status == 'accepted' || order.status == 'paid') &&
+    order.preparedAt == null;
+
+bool _adminPreparedForDispatch(ShopOrder order) =>
+    (order.status == 'accepted' || order.status == 'paid') &&
+    order.preparedAt != null;
+
+bool _adminRecognizedTodaySale(ShopOrder order, DateTime now) {
+  final created = order.createdAt.toLocal();
+  return created.year == now.year &&
+      created.month == now.month &&
+      created.day == now.day &&
+      (order.status == 'shipping' ||
+        (order.isApp && (order.status == 'accepted' || order.status == 'paid')));
+}
+
 /// The compact admin landing page. Existing operational pages are kept intact
 /// and remain reachable from these six topic-based menus.
 class _AdminCommandCenter extends StatefulWidget {
@@ -23,6 +43,8 @@ class _AdminHomeData {
     required this.orders,
     required this.todayRevenue,
     required this.newOrders,
+    required this.acceptedOrders,
+    required this.preparedOrders,
     required this.soldOutCount,
     this.preorderCount,
   });
@@ -30,6 +52,8 @@ class _AdminHomeData {
   final List<ShopOrder> orders;
   final int todayRevenue;
   final int newOrders;
+  final int acceptedOrders;
+  final int preparedOrders;
   final int soldOutCount;
   final int? preorderCount;
 }
@@ -126,13 +150,11 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
     final orders = await ordersFuture;
     final now = DateTime.now();
     final todayRevenue = orders.where((order) =>
-      order.createdAt.year == now.year &&
-      order.createdAt.month == now.month &&
-      order.createdAt.day == now.day &&
-      (order.status == 'shipping' ||
-        (order.isApp && const {'accepted','paid'}.contains(order.status))))
+        _adminRecognizedTodaySale(order, now))
       .fold<int>(0, (total, order) => total + order.total);
     final newOrders = orders.where((order) => order.status == 'new').length;
+    final acceptedOrders = orders.where(_adminAwaitingPreparation).length;
+    final preparedOrders = orders.where(_adminPreparedForDispatch).length;
     final soldOutCount = books.where((book) =>
       book.isActive && book.stock == 0).length;
 
@@ -157,7 +179,8 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
     }
     return _AdminHomeData(
       books: books, orders: orders, todayRevenue: todayRevenue,
-      newOrders: newOrders, soldOutCount: soldOutCount,
+      newOrders: newOrders, acceptedOrders: acceptedOrders,
+      preparedOrders: preparedOrders, soldOutCount: soldOutCount,
       preorderCount: preorderCount,
     );
   }
@@ -182,6 +205,35 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
 
   void _pushPage(BuildContext context, Widget page) {
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+  }
+
+  // KPI cards are explicit drill-downs; the bottom six navigation items stay
+  // unchanged. Use the same filter predicates for count and list.
+  Future<void> _openOrderMetric(String title, String filter) async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => Scaffold(
+        appBar: AppBar(title: Text(title)),
+        body: _OrdersAdmin(api: widget.api, initialFilter: filter),
+      ),
+    ));
+    if (mounted) unawaited(reloadQuietly());
+  }
+
+  Future<void> _openPreorderMetric() async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => _PreorderAdminPage(api: widget.api),
+    ));
+    if (mounted) unawaited(reloadQuietly());
+  }
+
+  Future<void> _openSoldoutMetric(List<Book> books) async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => _AdminBookListPage(
+        title: 'Tugagan kitoblar',
+        books: books.where((b) => b.isActive && b.stock == 0).toList(),
+      ),
+    ));
+    if (mounted) unawaited(reloadQuietly());
   }
 
   Future<void> _openSoldoutBooks(BuildContext sectionContext) async {
@@ -337,40 +389,64 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
                 final columns = size.maxWidth >= 720 ? 4 : 2;
                 final gap = 10.0;
                 final width = (size.maxWidth - gap * (columns - 1)) / columns;
-                final metrics = [
-                  ('Bugungi savdo', _won(data.todayRevenue), Icons.payments_outlined),
-                  ('Yangi buyurtmalar', '${data.newOrders} ta', Icons.shopping_cart_outlined),
-                  ('Tugagan kitoblar', '${data.soldOutCount} ta', Icons.inventory_2_outlined),
+                // Card order follows the operational workflow. Every count
+                // opens its own relevant and pre-filtered list.
+                final metrics = <(String, String, IconData, VoidCallback)>[
+                  ('Bugungi savdo', _won(data.todayRevenue), Icons.payments_outlined,
+                    () => unawaited(_openOrderMetric('Bugungi savdo', 'today_sales'))),
+                  ('Yangi buyurtmalar', '${data.newOrders} ta', Icons.shopping_cart_outlined,
+                    () => unawaited(_openOrderMetric('Yangi buyurtmalar', 'new'))),
+                  ('Qabul qilingan', '${data.acceptedOrders} ta', Icons.fact_check_outlined,
+                    () => unawaited(_openOrderMetric('Qabul qilingan buyurtmalar', 'accepted'))),
+                  ('Jo‘natishga tayyor', '${data.preparedOrders} ta', Icons.inventory_outlined,
+                    () => unawaited(_openOrderMetric('Jo‘natishga tayyor', 'prepared'))),
+                  ('Tugagan kitoblar', '${data.soldOutCount} ta', Icons.inventory_2_outlined,
+                    () => unawaited(_openSoldoutMetric(data.books))),
                   ('Oldindan zakazlar', data.preorderCount == null
-                    ? '—' : '${data.preorderCount} ta', Icons.event_available_outlined),
+                    ? '—' : '${data.preorderCount} ta', Icons.event_available_outlined,
+                    () => unawaited(_openPreorderMetric())),
                 ];
                 return Wrap(spacing: gap, runSpacing: gap, children: [
                   for (var i = 0; i < metrics.length; i++)
-                    SizedBox(width: width, child: Material(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      child: Container(
-                          constraints: const BoxConstraints(minHeight: 108),
-                          padding: const EdgeInsets.all(13),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: AppColors.border),
-                            borderRadius: BorderRadius.circular(16),
+                    SizedBox(
+                      width: width,
+                      child: Material(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        child: InkWell(
+                          onTap: metrics[i].$4,
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            constraints: const BoxConstraints(minHeight: 114),
+                            padding: const EdgeInsets.all(13),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: AppColors.border),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                                  Icon(metrics[i].$3, size: 21, color: AppColors.success),
+                                  const Icon(Icons.chevron_right_rounded,
+                                      size: 17, color: AppColors.muted),
+                                ]),
+                                const SizedBox(height: 7),
+                                Text(metrics[i].$1, maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 11,
+                                    color: AppColors.muted, fontWeight: FontWeight.w700)),
+                                const SizedBox(height: 5),
+                                Text(metrics[i].$2, maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 18,
+                                    fontWeight: FontWeight.w900, color: AppColors.navy)),
+                              ],
+                            ),
                           ),
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Icon(metrics[i].$3, size: 21, color: AppColors.success),
-                            const SizedBox(height: 6),
-                            Text(metrics[i].$1, maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 11, color: AppColors.muted,
-                                fontWeight: FontWeight.w700)),
-                            const SizedBox(height: 4),
-                            Text(metrics[i].$2, maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 18,
-                                fontWeight: FontWeight.w900, color: AppColors.navy)),
-                          ]),
                         ),
-                    )),
+                      ),
+                    ),
                 ]);
               }),
               const SizedBox(height: 20),

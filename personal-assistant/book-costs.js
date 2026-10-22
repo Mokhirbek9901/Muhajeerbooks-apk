@@ -74,6 +74,29 @@
         seen.add(key(title));return true;
       });
   }
+  function parseTitleEntries(text){
+    const entries=[],seen=new Map(),invalid=[];
+    for(const line of String(text).split(/\r?\n|;/)){
+      const cleaned=line.trim().replace(/^(?:[-*•▪]\s+|\d+[.)]\s+)/,'').trim();
+      if(!cleaned)continue;
+      // Only explicit "3 ta" / "3 dona" marks a quantity; book titles ending in numbers stay intact.
+      const match=cleaned.match(/^(.*?)\s*(?:[-–—:]\s*)?\(?(\d+)\s*(?:ta|dona)\)?\s*$/i);
+      const hasQuantity=Boolean(match&&match[1].trim());
+      const title=hasQuantity?match[1].trim():cleaned;
+      const count=hasQuantity?quantity(match[2]):1;
+      if(count===null){invalid.push(cleaned);continue;}
+      const normalized=key(title);
+      if(seen.has(normalized)){
+        const previous=entries[seen.get(normalized)];
+        if(previous.quantity+count>100000){invalid.push(cleaned);continue;}
+        previous.quantity+=count;
+      }else{
+        seen.set(normalized,entries.length);
+        entries.push({title,quantity:count});
+      }
+    }
+    return {entries,invalid};
+  }
   function normalize(rows,makeId){
     return (Array.isArray(rows)?rows:[]).filter(row=>row && typeof row==='object').map(row=>({
       id:String(row.id||makeId()),title:String(row.title||'').slice(0,300),
@@ -82,7 +105,7 @@
       saved:typeof row.saved==='boolean'?row.saved:Boolean(String(row.title||'').trim() && calculate(row).total!==null)
     }));
   }
-  const api={DEFAULT_WON_PER_KG,WON_PER_GRAM,rate,amount,quantity,calculate,profit,inventory,summary,key,parseTitles,normalize,normalizeRates,tariffs,compare};
+  const api={DEFAULT_WON_PER_KG,WON_PER_GRAM,rate,amount,quantity,calculate,profit,inventory,summary,key,parseTitles,parseTitleEntries,normalize,normalizeRates,tariffs,compare};
   if(typeof module==='object' && module.exports)module.exports=api;
   else root.BookCosts=api;
 })(typeof globalThis==='object'?globalThis:this);

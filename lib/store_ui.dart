@@ -5186,6 +5186,16 @@ class _BookDetailInfo extends StatelessWidget {
           border: Color(0xFFFFD4A3),
         ),
       if (book.recommended) const SizedBox(height: 10),
+      if (soldoutPreorder) ...[
+        const AppInfoPill(
+          icon: Icons.inventory_2_outlined,
+          label: 'Tugagan • oldindan zakaz ochiq',
+          foreground: AppColors.orange,
+          background: Color(0xFFFFF2E3),
+          border: Color(0xFFFFD4A3),
+        ),
+        const SizedBox(height: 10),
+      ],
       if (book.preorderEnabled) ...[
         const AppInfoPill(
           icon: Icons.event_available_rounded,
@@ -5226,10 +5236,10 @@ class _BookDetailInfo extends StatelessWidget {
             ),
           AppInfoPill(
             icon: Icons.inventory_2_outlined,
-            label: book.preorderEnabled ? 'Kelishi kutilmoqda' : (book.inStock ? '${book.stock} dona mavjud' : 'Mavjud emas'),
-            foreground: book.preorderEnabled ? AppColors.orange : (book.inStock ? AppColors.success : AppColors.danger),
-            background: book.preorderEnabled ? const Color(0xFFFFF2E3) : (book.inStock ? AppColors.successSoft : AppColors.dangerSoft),
-            border: book.preorderEnabled ? const Color(0xFFFFD4A3) : (book.inStock ? const Color(0xFFCDEAD7) : const Color(0xFFFFCCD1)),
+            label: soldoutPreorder ? 'Hozir omborda tugagan' : (book.preorderEnabled ? 'Kelishi kutilmoqda' : (book.inStock ? '${book.stock} dona mavjud' : 'Mavjud emas')),
+            foreground: (book.preorderEnabled || soldoutPreorder) ? AppColors.orange : (book.inStock ? AppColors.success : AppColors.danger),
+            background: (book.preorderEnabled || soldoutPreorder) ? const Color(0xFFFFF2E3) : (book.inStock ? AppColors.successSoft : AppColors.dangerSoft),
+            border: (book.preorderEnabled || soldoutPreorder) ? const Color(0xFFFFD4A3) : (book.inStock ? const Color(0xFFCDEAD7) : const Color(0xFFFFCCD1)),
           ),
           if (book.coverType != 'Ko‘rsatilmagan')
             AppInfoPill(icon: Icons.book_outlined, label: book.coverType),
@@ -5237,6 +5247,30 @@ class _BookDetailInfo extends StatelessWidget {
             AppInfoPill(icon: Icons.menu_book_outlined, label: '${book.pageCount} bet'),
         ],
       ),
+      if (soldoutPreorder) ...[
+        const SizedBox(height: 18),
+        AppSurface(
+          backgroundColor: const Color(0xFFFFF7E8),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Row(children: [
+              Icon(Icons.inventory_2_outlined, color: AppColors.orange),
+              SizedBox(width: 8),
+              Expanded(child: Text('Hozirda tugagan — oldindan buyurtma mavjud',
+                style: TextStyle(fontWeight: FontWeight.w900))),
+            ]),
+            const SizedBox(height: 10),
+            Text('Oldingi sotuv narxi: ${won(book.currentPrice)}',
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+            Text('Oldindan to‘lov: ${won(book.preorderDepositMin)} – ${won(book.preorderDepositMax)}',
+              style: const TextStyle(fontWeight: FontWeight.w700)),
+            const Text('택배 (yetkazib berish): ₩4,000',
+              style: TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            const Text('Kitob qayta kelganida yakuniy narx tasdiqlanadi. Valyuta kursi sabab narx o‘zgarishi mumkin. Oldindan to‘lov yakuniy narxdan ayriladi.',
+              style: TextStyle(fontSize: 12, color: AppColors.muted, height: 1.4)),
+          ]),
+        ),
+      ],
       if (book.preorderEnabled) ...[
         const SizedBox(height: 18),
         AppSurface(
@@ -5271,7 +5305,7 @@ class _BookDetailInfo extends StatelessWidget {
             const _DetailFact(
               icon: Icons.local_shipping_outlined,
               title: 'Yetkazish',
-              value: '1–2 ish kuni',
+              value: (book.preorderEnabled || soldoutPreorder) ? 'Kitob kelgach' : '1–2 ish kuni',
             ),
             const SizedBox(width: 8),
             const _DetailFact(

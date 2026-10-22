@@ -1,4 +1,5 @@
-2026-10-22 TestFlight ONLY: move admin bottom navigation fourth icon from Moliya wallet to Sotilgan kitoblar.
-Use latest merged main commit 1e37142224e9a5bd25416cf68554ff06694d73f1 and preserve the new six-section admin dashboard.
-Fourth button now opens existing sold books history with Bugun/Kecha filters; Moliya remains in the finance/statistics menu.
-No public App Store or Google Play submission; no backend or customer order data changes.
+2026-10-22 TestFlight ONLY: merged admin navigation and sales UX fix e352f7aa386cb9946e3dadf2fdf374cb38771a78.
+Six bottom tabs: Bosh, Buyurtmalar, Kitoblar, Sotilgan, Moliya, Bo‘limlar. Finance remains separately accessible.
+Sales counters reduced in size; counters/search/source filters scroll away within the same lazy sales-list viewport.
+Remove repeated admin links; keep canonical feature pages and existing data intact.
+Do not submit public App Store or Google Play updates. Build and upload latest main to iOS TestFlight only.

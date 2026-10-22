@@ -3471,18 +3471,20 @@
   }
 
   function addCostTitles(text){
-    const titles=costs.parseTitles(text);
-    if(!titles.length){toast('Kitob nomlarini kiriting.');return;}
+    const {entries,invalid}=costs.parseTitleEntries(text);
+    if(invalid.length){toast('Kitob soni 1 dan 100 000 gacha bo‘lsin. Xato qator: '+invalid[0]);return;}
+    if(!entries.length){toast('Kitob nomlarini kiriting.');return;}
     const existing=new Set(state.bookCosts.map(row=>costs.key(row.title)));
-    let added=0;
-    for(const title of titles){
+    let added=0,units=0;
+    for(const entry of entries){
+      const title=entry.title.slice(0,300);
       if(existing.has(costs.key(title)))continue;
-      state.bookCosts.push({id:makeId(),title:title.slice(0,300),price:null,grams:null,saved:false});
-      existing.add(costs.key(title));added++;
+      state.bookCosts.push({id:makeId(),title,quantity:entry.quantity,price:null,grams:null,saved:false});
+      existing.add(costs.key(title));added++;units+=entry.quantity;
     }
     $('costBulkNames').value='';
     costView='entry';costEditingId='';costEditingAll=false;costEditingIds.clear();renderBookCosts();
-    const message=added+' ta kitob qo‘shildi.'+(titles.length>added?' Takrorlangan nomlar qayta qo‘shilmadi.':'');
+    const message=added+' xil kitob ('+units+' ta nusxa) qo‘shildi.'+(entries.length>added?' Avvalgi ro‘yxatdagi nomlar qayta qo‘shilmadi.':'');
     if(persistBookCosts(message))toast(message);
   }
 

@@ -1,6 +1,5 @@
-2026-10-22 iOS TestFlight release trigger after Flutter CI success.
-Include merged f91286bfb18bd44243a97efdf3d7a124b1d0f6c5 with web feature parity:
-sold-out advance orders, last known price, separate deposit and 4,000 KRW 택배,
-exchange-rate notice, secured admin global on/off switch (initially off).
-Preserve all existing web, cart, orders and catalog fixes already on main.
-Build and upload TestFlight ONLY; no public App Store/Google Play submission.
+2026-10-22 TestFlight ONLY: ship merged admin command center b79f5aee7bb0d7ff0501152a92a50a388bd94c99.
+New responsive six-section professional admin dashboard, simplified five-item nav,
+all existing admin features reachable through section menus and legacy detailed reports.
+Fix preorders add-book floating button covering records.
+Use current main source and current backend; no App Store review submission and no Google Play release.

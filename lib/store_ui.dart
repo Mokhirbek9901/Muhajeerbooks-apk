@@ -5306,7 +5306,7 @@ class _BookDetailInfo extends StatelessWidget {
         backgroundColor: AppColors.surfaceSoft,
         child: Row(
           children: [
-            const _DetailFact(
+            _DetailFact(
               icon: Icons.local_shipping_outlined,
               title: 'Yetkazish',
               value: (book.preorderEnabled || soldoutPreorder) ? 'Kitob kelgach' : '1–2 ish kuni',

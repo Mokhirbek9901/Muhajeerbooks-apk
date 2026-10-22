@@ -1555,7 +1555,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
   void _showAllTabsMenu() {
     final home = _homeKey.currentState;
     if (home != null) {
-      unawaited(home.openTools());
+      home.openTools();
       return;
     }
     // The home tab is normally mounted in IndexedStack. Recover safely when
@@ -1564,7 +1564,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final ready = _homeKey.currentState;
-        if (ready != null) unawaited(ready.openTools());
+        if (ready != null) ready.openTools();
       }
     });
   }

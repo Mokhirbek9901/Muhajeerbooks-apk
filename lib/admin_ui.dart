@@ -205,6 +205,23 @@ class _AdminApi {
         .toList();
   }
 
+  /// A single server-side switch controls every eligible sold-out book,
+  /// including titles that become unavailable after this setting is saved.
+  Future<Map<String, dynamic>> soldoutPreorderSettings() async {
+    final value = await _rpc('admin_soldout_preorder_manage', params: {
+      'p_secret': secret,
+    });
+    return Map<String, dynamic>.from(value as Map);
+  }
+
+  Future<Map<String, dynamic>> setSoldoutPreorders(bool enabled) async {
+    final value = await _rpc('admin_soldout_preorder_manage', params: {
+      'p_secret': secret,
+      'p_enabled': enabled,
+    });
+    return Map<String, dynamic>.from(value as Map);
+  }
+
   Future<void> setCatalogPins(List<String> ids) async {
     await _rpc('admin_set_catalog_pins', params: {
       'p_secret': secret,
@@ -4923,13 +4940,53 @@ class _PreorderAdminPage extends StatefulWidget {
 class _PreorderAdminPageState extends State<_PreorderAdminPage> {
   late Future<List<Object>> future;
   bool demandAllTime = false;
+  bool soldoutSaving = false;
   @override
   void initState() { super.initState(); future = _load(); }
+
+  Future<Map<String, dynamic>> _soldoutStatus() async {
+    try {
+      return await widget.api.soldoutPreorderSettings();
+    } catch (e) {
+      // A not-yet-deployed migration must not break the existing admin page.
+      return {'error': '$e'};
+    }
+  }
+
   Future<List<Object>> _load() async => <Object>[
     await widget.api.books(),
     await widget.api.merchandisingInsights(),
+    await _soldoutStatus(),
   ];
   void reload() => setState(() => future = _load());
+
+  Future<void> _toggleSoldout(bool enabled, int eligible) async {
+    if (soldoutSaving) return;
+    final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: Text(enabled ? 'Oldindan buyurtmalarni ochish' : 'Oldindan buyurtmalarni yopish'),
+      content: Text(enabled
+          ? 'Omborda tugagan $eligible ta kitob uchun oldindan buyurtma qabul qilish yoqiladi. Yangi tugagan kitoblar ham avtomatik qo‘shiladi. Oldingi narx kafolatlanmaydi.'
+          : 'Barcha tugagan kitoblarga yangi oldindan buyurtma berish yopiladi. Oldin qabul qilingan buyurtmalar saqlanadi.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Bekor qilish')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(enabled ? 'Yoqish' : 'O‘chirish')),
+      ],
+    ));
+    if (confirm != true || !mounted) return;
+    setState(() => soldoutSaving = true);
+    try {
+      await widget.api.setSoldoutPreorders(enabled);
+      if (!mounted) return;
+      reload();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
+        enabled ? 'Tugagan kitoblar uchun oldindan buyurtma ochildi.' : 'Tugagan kitoblar uchun yangi oldindan buyurtmalar yopildi.',
+      )));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Saqlanmadi: $e')));
+    } finally {
+      if (mounted) setState(() => soldoutSaving = false);
+    }
+  }
 
   Future<void> _edit([Book? book]) async {
     final changed = await Navigator.push<bool>(
@@ -4967,6 +5024,10 @@ class _PreorderAdminPageState extends State<_PreorderAdminPage> {
           return const Center(child: CircularProgressIndicator());
         }
         final books = (snap.data![0] as List<Book>).where((b) => b.preorderEnabled).toList();
+        final soldout = Map<String, dynamic>.from(snap.data![2] as Map);
+        final soldoutReady = soldout['enabled'] is bool;
+        final soldoutEnabled = soldout['enabled'] == true;
+        final eligible = (soldout['eligible_count'] as num?)?.toInt() ?? 0;
         final insight = Map<String,dynamic>.from(snap.data![1] as Map);
         final requests = ((insight['preorders'] as List?) ?? const []).whereType<Map>().map((e)=>Map<String,dynamic>.from(e)).toList();
         return RefreshIndicator(
@@ -4974,6 +5035,38 @@ class _PreorderAdminPageState extends State<_PreorderAdminPage> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16,16,16,100),
             children: [
+              AppSurface(
+                backgroundColor: const Color(0xFFE9F4F0),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Row(children: [
+                    Icon(Icons.inventory_2_outlined, color: AppColors.success),
+                    SizedBox(width: 8),
+                    Expanded(child: Text('Tugagan kitoblar • umumiy boshqaruv',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900))),
+                  ]),
+                  const SizedBox(height: 8),
+                  Text('$eligible ta kitob hozir omborda yo‘q. Qabul ochiq bo‘lsa, mijoz oldingi narxni, ₩4,000 택배 to‘lovini va kurs bo‘yicha narx o‘zgarishi mumkinligini ko‘radi.',
+                      style: const TextStyle(color: AppColors.muted, height: 1.4)),
+                  if (!soldoutReady) Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text('Sozlama serverda hali mavjud emas: ${soldout['error'] ?? 'Qayta yuklab ko‘ring.'}',
+                        style: const TextStyle(color: AppColors.danger, fontSize: 12)),
+                  ),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(soldoutEnabled ? 'Qabul ochiq' : 'Qabul yopiq',
+                        style: const TextStyle(fontWeight: FontWeight.w800)),
+                    subtitle: const Text('Bitta tugma barcha tugagan kitoblarga va keyin tugaydigan kitoblarga ta’sir qiladi. Maxsus oldindan sotuvlar alohida qoladi.'),
+                    secondary: soldoutSaving
+                        ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                        : Icon(soldoutEnabled ? Icons.toggle_on_rounded : Icons.toggle_off_outlined),
+                    value: soldoutEnabled,
+                    onChanged: soldoutReady && !soldoutSaving
+                        ? (value) => _toggleSoldout(value, eligible) : null,
+                  ),
+                ]),
+              ),
+              const SizedBox(height: 18),
               AppSectionHeader(
                 title: 'Oldindan sotuvdagi kitoblar',
                 subtitle: 'Rasm, ma’lumot, kelish muddati va oldindan to‘lov',

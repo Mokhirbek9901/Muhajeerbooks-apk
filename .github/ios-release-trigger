@@ -1,6 +1,6 @@
-2026-10-23 TestFlight ONLY admin navigation deduplication release.
-Build latest main including squash commit 201e6c0e668c8375f73355ba2cdf477eee4bba17.
-Use one canonical entry point per admin function: bottom bar remains Bosh, Buyurtmalar, Kitoblar, Sotilgan, Moliya, Bo‘limlar.
-Keep six command center categories for unique tools, remove repeated order/catalog/finance/preorder/notice/business/push shortcuts; read-only dashboard statistics retained.
-Keep this week and last week sold book filters, scrolling header/compact chips, and all existing orders/stock/finance untouched.
-Do not submit to public App Store or Play Market. TestFlight testers only.
+2026-10-23 TestFlight ONLY: remove duplicated six admin command-center cards.
+Build latest main including merged 65e8e4b77186a5d50e65555e532ff7556429b0fb.
+Keep all SIX bottom admin tabs unchanged and in order: Bosh, Buyurtmalar, Kitoblar, Sotilgan, Moliya, Bo‘limlar.
+Main Boshqaruv markazi retains KPI summaries, but not the six redundant menu cards.
+Bo‘limlar opens 13 unique supplemental tools instead of duplicating bottom destinations. Extra tools must remain accessible even if home KPI loading fails.
+Preserve all existing sales week filters, stock/order/finance data and preorders. TestFlight only: no public App Store or Google Play submission.

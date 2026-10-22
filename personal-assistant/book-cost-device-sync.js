@@ -9,7 +9,22 @@
     function scalar(b,l,r,name){if(equal(l,r))return l;if(equal(l,b))return r;if(equal(r,b))return l;conflicts.push(name);return l;}
     function records(b,l,r,name){const bm=new Map((b||[]).map(x=>[x.id,x])),lm=new Map(l.map(x=>[x.id,x])),rm=new Map(r.map(x=>[x.id,x]));const out=[];
       for(const id of new Set([...rm.keys(),...lm.keys(),...bm.keys()])){const bv=bm.get(id),lv=lm.get(id),rv=rm.get(id);let v;
-        if(lv && rv && bv){v={id};for(const k of new Set([...Object.keys(bv),...Object.keys(lv),...Object.keys(rv)]))v[k]=k==='batches'?records(bv.batches||[],lv.batches||[],rv.batches||[],'Partiya'):scalar(bv[k],lv[k],rv[k],(lv.title||lv.label||id)+' · '+k);}
+        if(lv && rv && bv){
+          v={id};
+          const isBook=name==='Kitob' && ('batches' in lv || 'batches' in rv);
+          const sumBatches=item=>(item?.batches||[]).reduce((sum,b)=>sum+Number(b.quantity||0),0);
+          for(const k of new Set([...Object.keys(bv),...Object.keys(lv),...Object.keys(rv)])){
+            if(k==='batches')v[k]=records(bv.batches||[],lv.batches||[],rv.batches||[],'Partiya');
+            else if(k!=='quantity'||!isBook)v[k]=scalar(bv[k],lv[k],rv[k],(lv.title||lv.label||id)+' · '+k);
+          }
+          if(isBook){
+            const original=item=>Number(item.quantity??1)-sumBatches(item);
+            const oldQty=scalar(original(bv),original(lv),original(rv),(lv.title||id)+' · oldingi partiya soni');
+            const mergedQty=oldQty+(v.batches||[]).reduce((sum,b)=>sum+Number(b.quantity||0),0);
+            if(!Number.isSafeInteger(mergedQty)||mergedQty>100000||mergedQty<1){conflicts.push((lv.title||id)+' · jami nusxa chegarasi');v.quantity=lv.quantity;}
+            else v.quantity=mergedQty;
+          }
+        }
         else v=scalar(bv,lv,rv,name+' · '+(lv?.title||rv?.title||id));
         if(v)out.push(v);
       }return out;

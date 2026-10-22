@@ -709,6 +709,32 @@ class _AdminApi {
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
 
+  /// Read and manage customer-requested books without sending SMS.
+  Future<List<Map<String, dynamic>>> requestedBooks() async {
+    final raw = await _rpc(
+      'admin_book_requests_list',
+      params: {'p_secret': secret},
+    );
+    return ((raw as List?) ?? const [])
+      .whereType<Map>()
+      .map((e) => Map<String, dynamic>.from(e))
+      .toList();
+  }
+
+  Future<void> setRequestedBookStatus(int id, String status) async {
+    final result = await _rpc(
+      'admin_book_request_set_status',
+      params: {
+        'p_secret': secret,
+        'p_id': id,
+        'p_status': status,
+      },
+    );
+    if (result is! Map || result['status'] != status) {
+      throw StateError('Kitob so‘rovi holati tasdiqlanmadi.');
+    }
+  }
+
   Future<List<Map<String, dynamic>>> bundles() async {
     final raw = await _rpc(
       'admin_bundle_list',

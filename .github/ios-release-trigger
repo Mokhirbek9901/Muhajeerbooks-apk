@@ -1,5 +1,6 @@
-2026-10-22 TestFlight ONLY: merged admin navigation and sales UX fix e352f7aa386cb9946e3dadf2fdf374cb38771a78.
-Six bottom tabs: Bosh, Buyurtmalar, Kitoblar, Sotilgan, Moliya, Bo‘limlar. Finance remains separately accessible.
-Sales counters reduced in size; counters/search/source filters scroll away within the same lazy sales-list viewport.
-Remove repeated admin links; keep canonical feature pages and existing data intact.
-Do not submit public App Store or Google Play updates. Build and upload latest main to iOS TestFlight only.
+2026-10-22 TestFlight ONLY: add "Bu hafta" and "O‘tgan hafta" count/filter chips immediately after "Kecha" to admin sold-books history.
+Include merged main commit 81c357529714673e40cf88829ac2587eb6f49db8.
+Weeks are Monday through Sunday (Korea-local calendar) and previous week is the adjacent full calendar week.
+Keep existing admin six bottom tabs: Bosh, Buyurtmalar, Kitoblar, Sotilgan, Moliya, Bo‘limlar.
+Preserve compact sales filters that scroll away with the sales list and deduplicated admin section menus.
+Only TestFlight; do not submit public App Store/Google Play releases or change sales/order/inventory records.

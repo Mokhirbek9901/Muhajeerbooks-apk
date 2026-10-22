@@ -76,7 +76,7 @@ String won(int value) => '₩${_money.format(value)}';
 /// Sold-out titles have a last known selling price, not a guarantee.
 /// Explicit new-release preorders remain a separate flow.
 bool soldoutPreorderIsAvailable(Book book, bool globallyEnabled) =>
-    globallyEnabled && book.isActive && book.stock == 0 &&
+    webPreordersAvailable && globallyEnabled && book.isActive && book.stock == 0 &&
     book.price > 0 && !book.preorderEnabled;
 
 String preorderEstimatedPrice(Book book) {
@@ -4204,6 +4204,10 @@ class BookCard extends StatelessWidget {
                   ),
                   if (soldoutPreorder) ...[
                     const SizedBox(height: 4),
+                    Text('Avans: ${won(book.preorderDepositMin)} – ${won(book.preorderDepositMax)}',
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800,
+                        color: AppColors.orange)),
                     const Text('택배: ₩4,000', style: TextStyle(
                       color: AppColors.navy, fontWeight: FontWeight.w800, fontSize: 10.5)),
                     const Text('Kurs sabab narx o‘zgarishi mumkin',

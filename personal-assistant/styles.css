@@ -2425,3 +2425,20 @@ body[data-workspace="costs"][data-cost-view="report"] #costReportPanel{border-ra
  .book-rate-editor .book-rate-swap{width:46px;justify-self:center;margin-bottom:0}
  .book-rate-hint,.exchange-rate-hint,.currency-result,.korea-summary-grid b,.korea-item-rate span{overflow-wrap:anywhere}
 }
+
+/* Yordamchi: per-arrival batch ledger */
+.cost-batches{margin:12px 0;border:1px solid var(--line);border-radius:13px;background:var(--surface);padding:10px 12px}
+.cost-batches>summary{cursor:pointer;font-weight:750;font-size:.82rem;min-height:40px;padding:8px 0;color:var(--green2)}
+.cost-batch-explainer{color:var(--muted);font-size:.72rem;line-height:1.5;margin:3px 0 12px}
+.cost-batch-original,.cost-batch-card{padding:12px;border:1px solid var(--line);border-radius:12px;margin-bottom:9px;background:var(--surface2);overflow:hidden}
+.cost-batch-original b,.cost-batch-card>b{display:block;font-size:.78rem;margin-bottom:5px}
+.cost-batch-original small,.cost-batch-card small{display:block;line-height:1.6;font-size:.72rem;color:var(--muted)}
+.cost-batch-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0}
+.cost-batch-fields label{min-width:0;font-size:.7rem;color:var(--muted)}
+.cost-batch-fields input{display:block;box-sizing:border-box;width:100%;min-width:0;padding:10px 7px;margin-top:5px;background:var(--surface);border:1px solid var(--line);border-radius:10px;color:var(--ink);font-size:16px}
+.cost-batch-fields input[aria-invalid="true"]{border-color:var(--red)}
+.cost-batch-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.cost-batch-actions button{min-height:38px;font-size:.72rem;flex:1}
+.cost-batch-error{color:var(--red)!important}
+.cost-import-undo{margin-top:10px;width:100%;min-height:42px;font-size:.75rem}
+@media(max-width:390px){.cost-batch-fields{grid-template-columns:1fr}}

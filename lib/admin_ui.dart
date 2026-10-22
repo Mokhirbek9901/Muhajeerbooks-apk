@@ -5027,13 +5027,6 @@ class _PreorderAdminPageState extends State<_PreorderAdminPage> {
                   ),
                 )),
               const SizedBox(height: 20),
-              if (webPreordersAvailable) ...[
-                FilledButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(
-                  builder: (_) => WebPreorderAdminPage(secret: widget.api.secret))),
-                  icon: const Icon(Icons.fact_check_outlined),
-                  label: const Text('Oldindan buyurtmalarni boshqarish')),
-                const SizedBox(height: 12),
-              ],
               AppSectionHeader(
                 title: 'Oldindan buyurtmalar',
                 subtitle: 'Mijoz yuborgan oldindan to‘lovlar',
@@ -7546,13 +7539,6 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
                     clipBehavior: Clip.antiAlias,
                     child: Column(children: [
                       ListTile(
-                        leading: const Icon(Icons.campaign_rounded, color: AppColors.danger),
-                        title: const Text('Muhim xabar', style: TextStyle(fontWeight: FontWeight.w900)),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Muhim xabar')), body: _EmergencyNoticeAdmin(api: widget.api)))),
-                      ),
-                      const Divider(height: 1),
-                      ListTile(
                         leading: const Icon(Icons.notifications_active_rounded, color: AppColors.success),
                         title: const Text('Xabarnoma yuborish', style: TextStyle(fontWeight: FontWeight.w900)),
                         trailing: const Icon(Icons.chevron_right_rounded),
@@ -7564,13 +7550,6 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
                         title: const Text('Kutayotganlar', style: TextStyle(fontWeight: FontWeight.w900)),
                         trailing: const Icon(Icons.chevron_right_rounded),
                         onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Kutayotganlar')), body: _RestockAdmin(api: widget.api)))),
-                      ),
-                      const Divider(height: 1),
-                      ListTile(
-                        leading: const Icon(Icons.event_available_rounded),
-                        title: const Text('Oldindan sotuvda', style: TextStyle(fontWeight: FontWeight.w900)),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () async { await Navigator.of(context).push(MaterialPageRoute(builder: (_) => _PreorderAdminPage(api: widget.api))); if (mounted) setState(_reload); },
                       ),
                       const Divider(height: 1),
                       ListTile(

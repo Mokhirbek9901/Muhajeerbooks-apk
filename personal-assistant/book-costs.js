@@ -91,7 +91,7 @@
   }
   function compare(rows,main,extra=[]){
     return tariffs(main,extra).map(tariff=>{
-      const complete=rows.filter(row=>calculate(row,tariff.rate).total!==null);
+      const complete=rows.filter(row=>inventory(row,tariff.rate).readyQuantity>0);
       return {...tariff,...summary(rows,tariff.rate),shipping:complete.reduce((sum,row)=>currency.add(sum,inventory(row,tariff.rate).knownShipping),0)};
     });
   }

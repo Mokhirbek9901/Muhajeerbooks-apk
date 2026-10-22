@@ -8555,6 +8555,39 @@ class _SalesAdminState extends State<_SalesAdmin> {
     return DateTime.tryParse(raw)?.toLocal();
   }
 
+
+  Widget _salesPeriodChip({
+    required String label,
+    required IconData icon,
+    required String filter,
+    required Color foreground,
+  }) {
+    final selected = period == filter;
+    return Material(
+      color: selected ? foreground.withValues(alpha: .10) : Colors.white,
+      borderRadius: BorderRadius.circular(13),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(13),
+        onTap: () => setState(() => period = filter),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 34),
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(color: selected ? foreground : AppColors.border),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 14, color: foreground),
+            const SizedBox(width: 5),
+            Text(label, style: TextStyle(
+              color: foreground, fontSize: 12, fontWeight: FontWeight.w800,
+            )),
+          ]),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Map<String, dynamic>>>(
@@ -8672,9 +8705,18 @@ class _SalesAdminState extends State<_SalesAdmin> {
           return matchesSource && matchesQuery && matchesPeriod(row);
         }).toList();
 
-        return Column(
-          children: [
-            Padding(
+        // One vertically scrolling viewport: period filters and search move
+        // away with the sales list rather than remaining pinned on screen.
+        return RefreshIndicator(
+          onRefresh: () async {
+            final fresh = await widget.api.sales();
+            if (mounted) setState(() => future = Future.value(fresh));
+          },
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
               padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -8688,83 +8730,23 @@ class _SalesAdminState extends State<_SalesAdmin> {
                       icon: const Icon(Icons.refresh_rounded),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 10),
                   Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
+                    spacing: 7,
+                    runSpacing: 7,
                     children: [
-                      GestureDetector(
-                        onTap: () => setState(() => period = 'all'),
-                        child: AppInfoPill(
-                          icon: Icons.auto_stories_rounded,
-                          label: 'Jami ${all.length} ta',
-                          foreground: AppColors.navy,
-                          background: period == 'all'
-                              ? AppColors.infoSoft
-                              : Colors.white,
-                          border: AppColors.border,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => setState(() => period = 'today'),
-                        child: AppInfoPill(
-                          icon: Icons.today_rounded,
-                          label: 'Bugun $todayCount ta',
-                          foreground: AppColors.success,
-                          background: period == 'today'
-                              ? AppColors.successSoft
-                              : Colors.white,
-                          border: AppColors.border,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => setState(() => period = 'yesterday'),
-                        child: AppInfoPill(
-                          icon: Icons.history_toggle_off_rounded,
-                          label: 'Kecha $yesterdayCount ta',
-                          foreground: AppColors.navy,
-                          background: period == 'yesterday'
-                              ? AppColors.infoSoft
-                              : Colors.white,
-                          border: AppColors.border,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => setState(() => period = 'month'),
-                        child: AppInfoPill(
-                          icon: Icons.calendar_month_rounded,
-                          label: 'Shu oy $monthCount ta',
-                          foreground: AppColors.orange,
-                          background: period == 'month'
-                              ? const Color(0xFFFFF3E3)
-                              : Colors.white,
-                          border: AppColors.border,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => setState(() => period = 'previous_month'),
-                        child: AppInfoPill(
-                          icon: Icons.history_rounded,
-                          label: 'O‘tgan oy $previousMonthCount ta',
-                          foreground: AppColors.navy,
-                          background: period == 'previous_month'
-                              ? AppColors.infoSoft
-                              : Colors.white,
-                          border: AppColors.border,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => setState(() => period = 'previous_year'),
-                        child: AppInfoPill(
-                          icon: Icons.event_repeat_rounded,
-                          label: 'O‘tgan yil $previousYearCount ta',
-                          foreground: AppColors.navy,
-                          background: period == 'previous_year'
-                              ? AppColors.infoSoft
-                              : Colors.white,
-                          border: AppColors.border,
-                        ),
-                      ),
+                      _salesPeriodChip(label: 'Jami ${all.length}', icon: Icons.auto_stories_rounded,
+                        filter: 'all', foreground: AppColors.navy),
+                      _salesPeriodChip(label: 'Bugun $todayCount', icon: Icons.today_rounded,
+                        filter: 'today', foreground: AppColors.success),
+                      _salesPeriodChip(label: 'Kecha $yesterdayCount', icon: Icons.history_toggle_off_rounded,
+                        filter: 'yesterday', foreground: AppColors.navy),
+                      _salesPeriodChip(label: 'Shu oy $monthCount', icon: Icons.calendar_month_rounded,
+                        filter: 'month', foreground: AppColors.orange),
+                      _salesPeriodChip(label: 'O‘tgan oy $previousMonthCount', icon: Icons.history_rounded,
+                        filter: 'previous_month', foreground: AppColors.navy),
+                      _salesPeriodChip(label: 'O‘tgan yil $previousYearCount', icon: Icons.event_repeat_rounded,
+                        filter: 'previous_year', foreground: AppColors.navy),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -8830,32 +8812,23 @@ class _SalesAdminState extends State<_SalesAdmin> {
                 ],
               ),
             ),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: () async => reload(),
-                child: filtered.isEmpty
-                    ? ListView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.all(18),
-                        children: const [
-                          SizedBox(height: 80),
-                          Center(
-                            child: Text(
-                              'Hozircha mos sotuv topilmadi.',
-                              style: TextStyle(
-                                color: AppColors.muted,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ],
-                      )
-                    : ListView.separated(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(18, 4, 18, 28),
-                        itemCount: filtered.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
-                        itemBuilder: (context, index) {
+              ),
+              if (filtered.isEmpty)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(18, 45, 18, 30),
+                    child: Center(child: Text(
+                      'Hozircha mos sotuv topilmadi.',
+                      style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700),
+                    )),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(18, 4, 18, 28),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
                           final row = filtered[index];
                           final title = (row['title'] ?? 'Kitob').toString();
                           final rowSource = (row['source'] ?? 'app').toString();
@@ -8863,7 +8836,9 @@ class _SalesAdminState extends State<_SalesAdmin> {
                           final date = dt == null
                               ? '—'
                               : DateFormat('dd.MM.yyyy').format(dt);
-                          return AppSurface(
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: AppSurface(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 14,
                               vertical: 12,
@@ -8901,12 +8876,15 @@ class _SalesAdminState extends State<_SalesAdmin> {
                                 ),
                               ],
                             ),
-                          );
-                        },
-                      ),
-              ),
-            ),
-          ],
+                          ));
+
+                      },
+                      childCount: filtered.length,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         );
       },
     );

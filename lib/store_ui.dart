@@ -4107,7 +4107,11 @@ class BookCard extends StatelessWidget {
                               ? 'Tugagan • zakaz ochiq'
                               : book.preorderEnabled
                               ? 'Oldindan sotuvda'
-                              : (book.inStock ? '${book.stock} dona mavjud' : 'Hozircha mavjud emas'),
+                              : (book.inStock
+                                    ? (book.stock == 1 ? 'Oxirgi 1 dona' :
+                                        book.stock == 2 ? 'Faqat 2 dona qoldi' :
+                                        '${book.stock} dona mavjud')
+                                    : 'Hozircha mavjud emas'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -4538,6 +4542,10 @@ class BookDetailPage extends StatelessWidget {
                       const SizedBox(height: 22),
                       _WebBookReviews(book: b),
                     ],
+                    if (b.stock <= 0 && _webOrPlayCustomer) ...[
+                      const SizedBox(height: 24),
+                      _SimilarAvailableBooks(book: b),
+                    ],
                   ],
                 ),
               ),
@@ -4733,6 +4741,74 @@ class BookDetailPage extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Recommend only available books in the same genre or by the same
+/// author. Never promise inventory for a title with zero stock.
+class _SimilarAvailableBooks extends StatelessWidget {
+  const _SimilarAvailableBooks({required this.book});
+  final Book book;
+
+  @override
+  Widget build(BuildContext context) {
+    final candidates = context.watch<AppState>().books.where((candidate) {
+      if (!candidate.isActive || candidate.stock <= 0 ||
+          candidate.id == book.id || candidate.preorderEnabled) return false;
+      return (book.author.trim().isNotEmpty &&
+                 book.author != 'Ko‘rsatilmagan' &&
+                 candidate.author.trim().toLowerCase() ==
+                    book.author.trim().toLowerCase()) ||
+          (book.category.trim().isNotEmpty &&
+              candidate.category.trim().toLowerCase() ==
+                 book.category.trim().toLowerCase());
+    }).toList()..sort((a, b) {
+      final sameAuthorA = a.author.toLowerCase() == book.author.toLowerCase();
+      final sameAuthorB = b.author.toLowerCase() == book.author.toLowerCase();
+      if (sameAuthorA != sameAuthorB) return sameAuthorA ? -1 : 1;
+      return b.stock.compareTo(a.stock);
+    });
+    if (candidates.isEmpty) return const SizedBox.shrink();
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const AppSectionHeader(
+        title: 'O‘rniga o‘qish uchun',
+        subtitle: 'Hozir omborda bor, o‘xshash kitoblar',
+        icon: Icons.auto_awesome_outlined,
+      ),
+      const SizedBox(height: 10),
+      SizedBox(
+        height: 174,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: candidates.length > 5 ? 5 : candidates.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 9),
+          itemBuilder: (context, index) {
+            final item = candidates[index];
+            return SizedBox(
+              width: 130,
+              child: InkWell(
+                onTap: () => _openBookDetail(context, item),
+                borderRadius: BorderRadius.circular(12),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Expanded(child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: _BookCover(book: item),
+                  )),
+                  const SizedBox(height: 5),
+                  Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12,
+                      fontWeight: FontWeight.w800)),
+                  Text(won(item.currentPrice), maxLines: 1,
+                    style: const TextStyle(fontSize: 12,
+                      color: AppColors.success, fontWeight: FontWeight.w800)),
+                ]),
+              ),
+            );
+          },
+        ),
+      ),
+    ]);
   }
 }
 
@@ -5522,6 +5598,29 @@ class CartPage extends StatelessWidget {
                         : AppColors.border,
                   ),
                 ),
+                if (state.cartDisplayCount > 0 &&
+                    state.cartDisplayCount < 4 &&
+                    state.cartDeliveryFee > 0 &&
+                    !state.discountBlocksFourPlusFreeDelivery &&
+                    !state.cartBundleDeliveryIncluded) ...[
+                  AppSurface(
+                    backgroundColor: AppColors.successSoft,
+                    child: Row(children: [
+                      const Icon(Icons.card_giftcard_rounded,
+                          color: AppColors.success),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(
+                        'Yana ${4 - state.cartDisplayCount} ta mahsulot qo‘shing — '
+                        '₩4,000 yetkazib berish bepul bo‘ladi!',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.navy,
+                        ),
+                      )),
+                    ]),
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 if (state.discountBlocksFourPlusFreeDelivery &&
                     !state.cartBundleDeliveryIncluded) ...[
                   const _DiscountShippingWarning(),

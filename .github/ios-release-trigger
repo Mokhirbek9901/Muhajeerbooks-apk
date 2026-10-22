@@ -1,6 +1,6 @@
-2026-10-22 TestFlight ONLY: add "Bu hafta" and "O‘tgan hafta" count/filter chips immediately after "Kecha" to admin sold-books history.
-Include merged main commit 81c357529714673e40cf88829ac2587eb6f49db8.
-Weeks are Monday through Sunday (Korea-local calendar) and previous week is the adjacent full calendar week.
-Keep existing admin six bottom tabs: Bosh, Buyurtmalar, Kitoblar, Sotilgan, Moliya, Bo‘limlar.
-Preserve compact sales filters that scroll away with the sales list and deduplicated admin section menus.
-Only TestFlight; do not submit public App Store/Google Play releases or change sales/order/inventory records.
+2026-10-23 TestFlight ONLY admin navigation deduplication release.
+Build latest main including squash commit 201e6c0e668c8375f73355ba2cdf477eee4bba17.
+Use one canonical entry point per admin function: bottom bar remains Bosh, Buyurtmalar, Kitoblar, Sotilgan, Moliya, Bo‘limlar.
+Keep six command center categories for unique tools, remove repeated order/catalog/finance/preorder/notice/business/push shortcuts; read-only dashboard statistics retained.
+Keep this week and last week sold book filters, scrolling header/compact chips, and all existing orders/stock/finance untouched.
+Do not submit to public App Store or Play Market. TestFlight testers only.

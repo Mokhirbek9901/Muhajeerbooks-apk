@@ -1,1 +1,6 @@
-2026-10-22 TestFlight only: include current main web parity and web_book_purchase_count_v2 badge; keep preorder, receipt, catalog and current web fixes. Explicitly EXCLUDE unmerged PR #53 existing-order book additions. No App Store or Google Play submission.
+2026-10-22 iOS TestFlight release trigger after Flutter CI success.
+Include merged f91286bfb18bd44243a97efdf3d7a124b1d0f6c5 with web feature parity:
+sold-out advance orders, last known price, separate deposit and 4,000 KRW 택배,
+exchange-rate notice, secured admin global on/off switch (initially off).
+Preserve all existing web, cart, orders and catalog fixes already on main.
+Build and upload TestFlight ONLY; no public App Store/Google Play submission.

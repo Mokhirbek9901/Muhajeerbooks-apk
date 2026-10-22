@@ -3,7 +3,9 @@ name: Build and Upload iOS to TestFlight
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    # QA-only release from this isolated branch while Railway is unavailable.
+    # The public App Store/Play workflows and main branch are unchanged.
+    branches: [main, feature/testflight-quality-and-reliability-20261023]
     paths:
       - '.github/workflows/testflight_upload.yml'
       - '.github/ios-release-trigger'

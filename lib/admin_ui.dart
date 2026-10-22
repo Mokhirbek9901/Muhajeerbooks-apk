@@ -5048,11 +5048,16 @@ class _PreorderAdminPageState extends State<_PreorderAdminPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Oldindan sotuvda')),
-    floatingActionButton: FloatingActionButton.extended(
-      onPressed: () => _edit(),
-      icon: const Icon(Icons.add_rounded),
-      label: const Text('Yangi kitob'),
+    appBar: AppBar(
+      title: const Text('Oldindan sotuvda'),
+      actions: [
+        IconButton(
+          tooltip: 'Yangi oldindan sotuv kitobi',
+          onPressed: () => _edit(),
+          icon: const Icon(Icons.add_circle_outline_rounded),
+        ),
+        const SizedBox(width: 8),
+      ],
     ),
     body: FutureBuilder<List<Object>>(
       future: future,

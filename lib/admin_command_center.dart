@@ -299,6 +299,154 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
   );
 }
 
+/// A single operational checklist without new backend writes.
+/// Tapping an issue takes the administrator to the existing editable screen.
+class _AdminQualityHub extends StatefulWidget {
+  const _AdminQualityHub({required this.api});
+  final _AdminApi api;
+  @override
+  State<_AdminQualityHub> createState() => _AdminQualityHubState();
+}
+
+class _AdminQualityHubState extends State<_AdminQualityHub> {
+  late Future<({List<Book> books, List<ShopOrder> orders})> future;
+
+  @override
+  void initState() {
+    super.initState();
+    future = _load();
+  }
+
+  Future<({List<Book> books, List<ShopOrder> orders})> _load() async {
+    final booksRequest = widget.api.books();
+    final ordersRequest = widget.api.orders();
+    return (books: await booksRequest, orders: await ordersRequest);
+  }
+
+  void _openBookFilter(String filter) {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => Scaffold(
+        appBar: const AppBar(title: Text('Kitoblar va ombor')),
+        body: _BooksAdmin(api: widget.api, initialFilter: filter),
+      ),
+    )).then((_) {
+      if (mounted) setState(() => future = _load());
+    });
+  }
+
+  void _openTracking() {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => Scaffold(
+        appBar: const AppBar(title: Text('Tracking kiritilmagan')),
+        body: _OrdersAdmin(api: widget.api, initialFilter: 'tracking_missing'),
+      ),
+    )).then((_) {
+      if (mounted) setState(() => future = _load());
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: UzbekCustomerColors.background,
+    appBar: AppBar(title: const Text('Nazorat markazi'),
+      actions: [
+        IconButton(
+          tooltip: 'Yangilash',
+          icon: const Icon(Icons.refresh_rounded),
+          onPressed: () => setState(() => future = _load())),
+      ]),
+    body: FutureBuilder<({List<Book> books, List<ShopOrder> orders})>(
+      future: future,
+      builder: (ctx,snapshot) {
+        if (snapshot.hasError) return Center(child: Text(
+          'Nazorat markazi yuklanmadi: ${snapshot.error}'));
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        final books = snapshot.data!.books.where((b) => b.isActive).toList();
+        final orders = snapshot.data!.orders;
+        final noPages = books.where((b) => b.pageCount <= 0).length;
+        final noAuthor = books.where((b) =>
+          b.author.trim().isEmpty || b.author.trim() == 'Ko‘rsatilmagan').length;
+        final noPublisher = books.where((b) => b.publisher.trim().isEmpty).length;
+        final lowStock = books.where((b) => b.stock > 0 && b.stock <= 2).length;
+        final noDescription = books.where((b) => b.description.trim().isEmpty).length;
+        final tracking = orders.where((o) =>
+          o.status == 'shipping' && o.deliveryType != 'pickup' &&
+          o.trackingNumber.trim().isEmpty).length;
+        final items = <(String, String, int, IconData, VoidCallback)>[
+          ('Sahifa soni yetishmaydi', 'Kitoblar ma’lumotini to‘ldirish',
+            noPages, Icons.menu_book_outlined,
+            () => _openBookFilter('missing_page_count')),
+          ('Nashriyoti yo‘q', 'Nashriyot nomlarini to‘ldirish',
+            noPublisher, Icons.business_outlined,
+            () => _openBookFilter('missing_publisher')),
+          ('Muallifi yo‘q', 'Mualliflarni to‘ldirish',
+            noAuthor, Icons.person_outline,
+            () => _openBookFilter('missing_author')),
+          ('Tavsifi yo‘q', 'Kitob tavsiflarini to‘ldirish',
+            noDescription, Icons.notes_outlined,
+            () => _openBookFilter('missing_description')),
+          ('Kam qolgan kitoblar', '1 yoki 2 dona qolganlar',
+            lowStock, Icons.inventory_2_outlined,
+            () => _openBookFilter('low_stock')),
+          ('Tracking kiritilmagan', 'Jo‘natilgan pochta buyurtmalari',
+            tracking, Icons.local_shipping_outlined,
+            _openTracking),
+        ];
+        return RefreshIndicator(
+          onRefresh: () async {
+            final data = await _load();
+            if (mounted) setState(() => future = Future.value(data));
+          },
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16,16,16,36),
+            children: [
+              const Text('Tuzatilishi kerak bo‘lgan ma’lumotlar',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900,
+                  color: AppColors.navy)),
+              const SizedBox(height: 5),
+              const Text('Raqamlar joriy ombor va buyurtmalar ro‘yxatidan '
+                'hisoblanadi. Hech narsa avtomatik o‘chirilmaydi.',
+                style: TextStyle(color: AppColors.muted)),
+              const SizedBox(height: 15),
+              ...items.map((item) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Card(
+                  margin: EdgeInsets.zero,
+                  color: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    side: const BorderSide(color: AppColors.border),
+                    borderRadius: BorderRadius.circular(16)),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 8),
+                    leading: Icon(item.$4, color: AppColors.navy),
+                    title: Text(item.$1,
+                      style: const TextStyle(fontWeight: FontWeight.w900)),
+                    subtitle: Text(item.$2),
+                    trailing: Text('${item.$3} ta',
+                      style: const TextStyle(color: AppColors.navy,
+                        fontWeight: FontWeight.w900)),
+                    onTap: item.$5,
+                  ),
+                ),
+              )),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.manage_search_rounded),
+                label: const Text('Mijozlar so‘ragan kitoblarni ko‘rish'),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => _MerchandisingAdminPage(api: widget.api))),
+              ),
+            ],
+          ),
+        );
+      },
+    ),
+  );
+}
+
 class _AdminCommandCenterState extends State<_AdminCommandCenter> {
   late Future<_AdminHomeData> future;
 
@@ -441,6 +589,9 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
   void openTools() {
     if (!mounted) return;
     final actions = <_AdminMenuAction>[
+      _AdminMenuAction('Nazorat markazi', 'Kam qoldiq, kitob ma’lumotlari va tracking',
+        Icons.health_and_safety_outlined, (ctx) => _pushPage(ctx,
+          _AdminQualityHub(api: widget.api))),
       _AdminMenuAction('Pochta zakaslari', 'Manzil, jo‘natmalar va tracking',
         Icons.local_shipping_outlined, (ctx) => _pushPage(ctx,
           Scaffold(appBar: AppBar(title: const Text('Pochta zakaslari')),

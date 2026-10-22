@@ -92,7 +92,7 @@
   function compare(rows,main,extra=[]){
     return tariffs(main,extra).map(tariff=>{
       const complete=rows.filter(row=>calculate(row,tariff.rate).total!==null);
-      return {...tariff,...summary(rows,tariff.rate),shipping:complete.reduce((sum,row)=>currency.add(sum,inventory(row,tariff.rate).shipping),0)};
+      return {...tariff,...summary(rows,tariff.rate),shipping:complete.reduce((sum,row)=>currency.add(sum,inventory(row,tariff.rate).knownShipping),0)};
     });
   }
   function key(title){return String(title).normalize('NFKC').toLowerCase().replace(/[‘’ʻʼ`]/g,"'").replace(/\s+/g,' ').trim();}

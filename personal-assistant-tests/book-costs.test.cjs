@@ -48,10 +48,46 @@ test('bulk import saves each book quantity for per-batch inventory calculations'
   rows[0].price=8000;rows[0].grams=300;
   assert.equal(costs.inventory(rows[0]).total,33000);
   api.addCostTitles('Arosat 5 ta');
-  assert.equal(api.getState().bookCosts[0].quantity,3); // Existing entries are not silently overwritten.
+  assert.equal(api.getState().bookCosts[0].quantity,8);
+  assert.equal(api.getState().bookCosts[0].batches[0].quantity,5);
   assert.equal(api.getState().bookCosts.length,3);
 });
 
+test('new arrivals preserve the old partiya, while new cost changes are calculated separately',()=>{
+ const old={id:'a',title:'Arosat',quantity:4,price:8000,grams:300,salePrice:15000,saved:true};
+ const batch={id:'b2',date:'2026-10-22',quantity:3,price:null,grams:null,rate:10000};
+ const row={...old,quantity:7,batches:[batch]};
+ const pending=costs.inventory(row);
+ assert.equal(pending.quantity,7);assert.equal(pending.readyQuantity,4);
+ assert.equal(pending.pendingQuantity,3);assert.equal(pending.knownTotal,44000);
+ assert.equal(pending.total,null);
+ assert.equal(costs.summary([row]).total,44000);
+ batch.price=9000;batch.grams=300;
+ const updated=costs.inventory(row);
+ assert.equal(updated.total,80000);assert.equal(updated.purchase,59000);
+ assert.equal(updated.profit,25000);assert.equal(costs.baseQuantity(row),4);
+ assert.equal(costs.normalize([row],()=> 'new')[0].batches[0].price,9000);
+});
+test('last bulk import can be undone without deleting the previous saved copies',()=>{
+ const {api,node,data}=appHarness();api.bindBookCosts();
+ api.addCostTitles('Arosat 4 ta');
+ const original=api.getState().bookCosts[0];
+ original.saved=true;original.price=8000;original.grams=300;
+ api.addCostTitles('Arosat 3 ta\\nOq nilufarlar 2 ta');
+ assert.equal(original.quantity,7);
+ assert.equal(original.batches.length,1);
+ assert.equal(original.batches[0].date.length,10);
+ assert.equal(api.getState().bookCosts.length,2);
+ assert.equal(costs.inventory(original).knownTotal,44000);
+ assert.match(node('costReadyList').innerHTML,/Partiyalar tarixi/);
+ assert.ok(JSON.parse(data.get('bek_personal_assistant_v4')).bookCostLastImport);
+ node('costUndoLastImportBtn').listeners.click();
+ assert.equal(original.quantity,4);assert.equal(original.batches.length,0);
+ assert.equal(api.getState().bookCosts.length,1);
+ assert.equal(api.getState().bookCosts[0].title,'Arosat');
+ assert.equal(costs.inventory(original).total,44000);
+ assert.equal(api.getState().bookCostLastImport,null);
+});
 test('saved cost records survive JSON reload and old backups default to empty',()=>{
   assert.deepEqual(costs.normalize(undefined,()=> 'new'),[]);
   const rows=[{id:'a',title:'Arosat',price:8000,grams:300,saved:true},{id:'b',title:'',price:null,grams:null,saved:false}];
@@ -465,8 +501,10 @@ test('quantity multiplies batch expense and future profit, without changing Muha
  const unit=costs.calculate(row,10000),v=costs.inventory(row,10000),summary=costs.summary([row],10000);
  assert.deepEqual(unit,{shipping:2000,total:17000});
  assert.equal(costs.profit(row,10000),7000);
- assert.deepEqual(v,{quantity:10,unitPurchase:15000,unitShipping:2000,unitCost:17000,unitSale:24000,
-   purchase:150000,shipping:20000,total:170000,revenue:240000,profit:70000});
+ assert.equal(v.quantity,10);assert.equal(v.unitCost,17000);
+ assert.equal(v.purchase,150000);assert.equal(v.shipping,20000);
+ assert.equal(v.total,170000);assert.equal(v.revenue,240000);
+ assert.equal(v.profit,70000);assert.equal(v.readyQuantity,10);assert.equal(v.pendingQuantity,0);
  assert.equal(summary.quantityTotal,10);assert.equal(summary.quantityReady,10);
  assert.equal(summary.total,170000);assert.equal(summary.purchaseTotal,150000);
  assert.equal(summary.shippingTotal,20000);assert.equal(summary.profitTotal,70000);

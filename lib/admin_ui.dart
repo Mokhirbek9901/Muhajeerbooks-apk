@@ -8642,6 +8642,21 @@ class _SalesAdminState extends State<_SalesAdmin> {
               dt.month == yesterday.month &&
               dt.day == yesterday.day;
         }).length;
+        // Local calendar weeks start on Monday and end on the next Monday.
+        // Use [start, end) so Sunday night, month and year boundaries
+        // are counted correctly without overlapping neighbouring weeks.
+        final thisWeekStart = DateTime(
+          now.year, now.month, now.day - (now.weekday - DateTime.monday));
+        final nextWeekStart = DateTime(
+          thisWeekStart.year, thisWeekStart.month, thisWeekStart.day + 7);
+        final previousWeekStart = DateTime(
+          thisWeekStart.year, thisWeekStart.month, thisWeekStart.day - 7);
+        bool inWeek(DateTime? date, DateTime start, DateTime end) =>
+            date != null && !date.isBefore(start) && date.isBefore(end);
+        final thisWeekCount = all.where((row) =>
+            inWeek(_soldAt(row), thisWeekStart, nextWeekStart)).length;
+        final previousWeekCount = all.where((row) =>
+            inWeek(_soldAt(row), previousWeekStart, thisWeekStart)).length;
         final monthCount = all.where((row) {
           final dt = _soldAt(row);
           return dt != null && dt.year == now.year && dt.month == now.month;
@@ -8671,6 +8686,10 @@ class _SalesAdminState extends State<_SalesAdmin> {
               return dt.year == yesterday.year &&
                   dt.month == yesterday.month &&
                   dt.day == yesterday.day;
+            case 'this_week':
+              return inWeek(dt, thisWeekStart, nextWeekStart);
+            case 'previous_week':
+              return inWeek(dt, previousWeekStart, thisWeekStart);
             case 'month':
               return dt.year == now.year && dt.month == now.month;
             case 'previous_month':
@@ -8741,6 +8760,10 @@ class _SalesAdminState extends State<_SalesAdmin> {
                         filter: 'today', foreground: AppColors.success),
                       _salesPeriodChip(label: 'Kecha $yesterdayCount', icon: Icons.history_toggle_off_rounded,
                         filter: 'yesterday', foreground: AppColors.navy),
+                      _salesPeriodChip(label: 'Bu hafta $thisWeekCount', icon: Icons.date_range_rounded,
+                        filter: 'this_week', foreground: AppColors.success),
+                      _salesPeriodChip(label: 'O‘tgan hafta $previousWeekCount', icon: Icons.history_rounded,
+                        filter: 'previous_week', foreground: AppColors.navy),
                       _salesPeriodChip(label: 'Shu oy $monthCount', icon: Icons.calendar_month_rounded,
                         filter: 'month', foreground: AppColors.orange),
                       _salesPeriodChip(label: 'O‘tgan oy $previousMonthCount', icon: Icons.history_rounded,

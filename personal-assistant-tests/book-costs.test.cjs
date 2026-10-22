@@ -73,7 +73,7 @@ test('last bulk import can be undone without deleting the previous saved copies'
  api.addCostTitles('Arosat 4 ta');
  const original=api.getState().bookCosts[0];
  original.saved=true;original.price=8000;original.grams=300;
- api.addCostTitles('Arosat 3 ta\\nOq nilufarlar 2 ta');
+ api.addCostTitles('Arosat 3 ta\nOq nilufarlar 2 ta');
  assert.equal(original.quantity,7);
  assert.equal(original.batches.length,1);
  assert.equal(original.batches[0].date.length,10);

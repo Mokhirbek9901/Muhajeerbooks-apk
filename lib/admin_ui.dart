@@ -1549,39 +1549,24 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
     }
   }
 
+  // "Bo‘limlar" lists only tools that are NOT duplicated in the six
+  // primary bottom destinations. The old eight-tab sheet repeated those
+  // destinations, which was confusing to administrators.
   void _showAllTabsMenu() {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: FractionallySizedBox(
-          heightFactor: .75,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
-            children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(12, 8, 12, 12),
-                child: Text('Barcha admin bo‘limlari',
-                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 19)),
-              ),
-              for (var i = 0; i < titles.length; i++)
-                ListTile(
-                  leading: Icon(icons[i], color: AppColors.navy),
-                  title: Text(titles[i]),
-                  trailing: tab == i
-                      ? const Icon(Icons.check_circle_rounded, color: AppColors.success)
-                      : const Icon(Icons.chevron_right_rounded),
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    _selectTab(i);
-                  },
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
+    final home = _homeKey.currentState;
+    if (home != null) {
+      home.openTools();
+      return;
+    }
+    // The home tab is normally mounted in IndexedStack. Recover safely when
+    // returning from an old saved admin session.
+    _selectTab(0);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final ready = _homeKey.currentState;
+        if (ready != null) ready.openTools();
+      }
+    });
   }
 
   void _selectTab(int value) {

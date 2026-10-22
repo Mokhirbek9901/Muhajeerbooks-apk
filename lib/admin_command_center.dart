@@ -184,92 +184,96 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
   }
 
-  void _showSection(int index, _AdminHomeData data) {
-    final List<_AdminMenuAction> actions;
-    final String title;
-    final String subtitle;
-    switch (index) {
-      case 0:
-        title = 'Pochta va jo‘natmalar';
-        subtitle = 'Buyurtmalar pastki menyuda; bu yerda pochta ro‘yxati va kuzatuv ma’lumotlarini boshqaring.';
-        actions = [
-          _AdminMenuAction('Pochta zakaslari', 'Ism, telefon, manzil va tracking',
-            Icons.local_shipping_outlined, (ctx) => _pushPage(ctx,
-              Scaffold(appBar: AppBar(title: const Text('Pochta zakaslari')),
-                body: _ShippingQueueAdmin(api: widget.api)))),
-        ];
-      case 1:
-        title = 'Ombor va katalog sozlamalari';
-        subtitle = 'Kitoblar pastki menyuda; bu yerda qoldiq, partiyalar va tartibni boshqaring.';
-        actions = [
-          _AdminMenuAction('Ombor va qoldiqlar', 'Kirgan va sotilgan kitoblar',
-            Icons.inventory_2_outlined, (ctx) => _goToTab(ctx, 2)),
-          _AdminMenuAction('Tugagan kitoblar', 'Omborda 0 dona qolgan kitoblar',
-            Icons.inventory_2_outlined, (ctx) => _pushPage(ctx, _AdminBookListPage(
-              title: 'Tugagan kitoblar',
-              books: data.books.where((b) => b.isActive && b.stock == 0).toList()))),
-          _AdminMenuAction('Katalog tartibi', 'Eng tepada chiqadigan kitoblarni belgilang',
-            Icons.vertical_align_top_rounded, (ctx) => _pushPage(ctx,
-              _CatalogPinsAdminPage(api: widget.api))),
-          if (_enhancedAdminUi)
-            _AdminMenuAction('Biznes asboblari', 'Tan narx, partiyalar va taqqoslash',
-              Icons.calculate_outlined, (ctx) => _pushPage(ctx,
-                WebAdminToolsPage(secret: widget.api.secret, books: data.books))),
-        ];
-      case 2:
-        title = 'Oldindan buyurtmalar';
-        subtitle = 'Tugagan kitoblar uchun qabulni boshqarish va maxsus oldindan sotuvlar.';
-        actions = [
-          _AdminMenuAction('Oldindan sotuvdagi kitoblar', 'Kitoblar, kelish muddati va avanslar',
-            Icons.event_available_outlined, (ctx) => _pushPage(ctx,
-              _PreorderAdminPage(api: widget.api))),
-          if (webPreordersAvailable)
-            _AdminMenuAction('Buyurtmalar va sozlamalar', 'Qabulni ochish/yopish, mijoz so‘rovlari',
-              Icons.fact_check_outlined, (ctx) => _pushPage(ctx,
-                WebPreorderAdminPage(secret: widget.api.secret))),
-        ];
-      case 3:
-        title = 'Batafsil hisobotlar';
-        subtitle = 'Asosiy moliya pastki menyuda; qo‘shimcha ko‘rsatkichlar shu yerda.';
-        actions = [
-          _AdminMenuAction('Batafsil statistika', 'Avvalgi barcha hisob va ko‘rsatkichlar saqlangan',
-            Icons.insights_outlined, (ctx) => _pushPage(ctx, Scaffold(
-              appBar: AppBar(title: const Text('Batafsil statistika')),
-              body: _OverviewAdmin(api: widget.api,
-                onOpenTab: (tab) {
-                  // Close details and the topic menu before changing the
-                  // underlying dashboard tab; otherwise the menu masks it.
-                  Navigator.of(ctx).pop();
-                  Navigator.of(ctx).pop();
-                  widget.onOpenTab(tab);
-                }),
-            ))),
-        ];
-      case 4:
-        title = 'Marketing va mijozlar';
-        subtitle = 'Mijozlar, chegirmalar, bildirishnomalar va savdo imkoniyatlari.';
-        actions = [
-          _AdminMenuAction('Mijozlar', 'Ro‘yxatlar, aloqalar va statistika',
-            Icons.people_alt_outlined, (ctx) => _goToTab(ctx, 5)),
-          _AdminMenuAction('Savdo imkoniyatlari', 'Chegirmalar, kutayotganlar va xabarlar',
-            Icons.campaign_outlined, (ctx) => _pushPage(ctx,
-              _MerchandisingAdminPage(api: widget.api))),
-          _AdminMenuAction('Muhim e’lon', 'Mijozlarga ko‘rinadigan do‘kon e’loni',
-            Icons.notifications_active_outlined, (ctx) => _pushPage(ctx,
-              _EmergencyNoticeAdmin(api: widget.api))),
-          _AdminMenuAction('Admin AI', 'Kitob va biznes bo‘yicha AI vositalar',
-            Icons.auto_awesome_outlined, (ctx) => _goToTab(ctx, 7)),
-        ];
-      default:
-        title = 'Sozlamalar';
-        subtitle = 'Admin bildirishnomalari, katalog ko‘rinishi va qo‘shimcha vositalar.';
-        actions = [
-          _AdminMenuAction('Admin bildirishnomalari', 'Yangi buyurtmalar uchun push xabarlar',
-            Icons.notifications_outlined, (_) => widget.onPushSettings()),
-        ];
+  Future<void> _openSoldoutBooks(BuildContext sectionContext) async {
+    try {
+      final books = await widget.api.books();
+      if (!sectionContext.mounted) return;
+      _pushPage(sectionContext, _AdminBookListPage(
+        title: 'Tugagan kitoblar',
+        books: books.where((b) => b.isActive && b.stock == 0).toList(),
+      ));
+    } catch (e) {
+      if (sectionContext.mounted) {
+        ScaffoldMessenger.of(sectionContext).showSnackBar(
+          SnackBar(content: Text('Tugagan kitoblar yuklanmadi: $e')),
+        );
+      }
     }
+  }
+
+  Future<void> _openBusinessTools(BuildContext sectionContext) async {
+    try {
+      final books = await widget.api.books();
+      if (!sectionContext.mounted) return;
+      _pushPage(sectionContext, WebAdminToolsPage(
+        secret: widget.api.secret,
+        books: books,
+      ));
+    } catch (e) {
+      if (sectionContext.mounted) {
+        ScaffoldMessenger.of(sectionContext).showSnackBar(
+          SnackBar(content: Text('Biznes asboblari yuklanmadi: $e')),
+        );
+      }
+    }
+  }
+
+  /// The only extra-tools menu. The six bottom navigation buttons already
+  /// own the primary screens; the tool menu can open even if KPIs are offline.
+  void openTools() {
+    if (!mounted) return;
+    final actions = <_AdminMenuAction>[
+      _AdminMenuAction('Pochta zakaslari', 'Manzil, jo‘natmalar va tracking',
+        Icons.local_shipping_outlined, (ctx) => _pushPage(ctx,
+          Scaffold(appBar: AppBar(title: const Text('Pochta zakaslari')),
+            body: _ShippingQueueAdmin(api: widget.api)))),
+      _AdminMenuAction('Ombor va qoldiqlar', 'Kirgan va sotilgan kitoblar qoldig‘i',
+        Icons.inventory_2_outlined, (ctx) => _goToTab(ctx, 2)),
+      _AdminMenuAction('Tugagan kitoblar', 'Omborda 0 dona qolgan kitoblar',
+        Icons.inventory_2_outlined, (ctx) => unawaited(_openSoldoutBooks(ctx))),
+      _AdminMenuAction('Katalog tartibi', 'Mijozlar ko‘radigan kitoblarni tartiblash',
+        Icons.vertical_align_top_rounded, (ctx) => _pushPage(ctx,
+          _CatalogPinsAdminPage(api: widget.api))),
+      if (_enhancedAdminUi)
+        _AdminMenuAction('Biznes asboblari', 'Tan narx, partiyalar va taqqoslash',
+          Icons.calculate_outlined, (ctx) => unawaited(_openBusinessTools(ctx))),
+      _AdminMenuAction('Oldindan sotuvdagi kitoblar', 'Kitoblar, kelish muddati va avans',
+        Icons.event_available_outlined, (ctx) => _pushPage(ctx,
+          _PreorderAdminPage(api: widget.api))),
+      if (webPreordersAvailable)
+        _AdminMenuAction('Oldindan buyurtma sozlamalari',
+          'Mijoz so‘rovlari va oldindan buyurtma qabuli',
+          Icons.fact_check_outlined, (ctx) => _pushPage(ctx,
+            WebPreorderAdminPage(secret: widget.api.secret))),
+      _AdminMenuAction('Batafsil statistika', 'Qo‘shimcha hisobot va ko‘rsatkichlar',
+        Icons.insights_outlined, (ctx) => _pushPage(ctx, Scaffold(
+          appBar: AppBar(title: const Text('Batafsil statistika')),
+          body: _OverviewAdmin(api: widget.api, onOpenTab: (tab) {
+            Navigator.of(ctx).pop();
+            Navigator.of(ctx).pop();
+            widget.onOpenTab(tab);
+          }),
+        ))),
+      _AdminMenuAction('Mijozlar', 'Ro‘yxat va mijozlar statistikasi',
+        Icons.people_alt_outlined, (ctx) => _goToTab(ctx, 5)),
+      _AdminMenuAction('Savdo imkoniyatlari', 'Chegirmalar, kutayotganlar va xabar yuborish',
+        Icons.campaign_outlined, (ctx) => _pushPage(ctx,
+          _MerchandisingAdminPage(api: widget.api))),
+      _AdminMenuAction('Muhim e’lon', 'Mijozlarga ko‘rinadigan do‘kon e’loni',
+        Icons.notifications_active_outlined, (ctx) => _pushPage(ctx,
+          _EmergencyNoticeAdmin(api: widget.api))),
+      _AdminMenuAction('Admin AI', 'Kitob va biznes bo‘yicha AI vositalar',
+        Icons.auto_awesome_outlined, (ctx) => _goToTab(ctx, 7)),
+      _AdminMenuAction('Admin bildirishnomalari',
+        'Yangi buyurtmalar uchun push xabarlari',
+        Icons.notifications_outlined, (_) => widget.onPushSettings()),
+    ];
     _pushPage(context, _AdminSectionPage(
-      title: title, subtitle: subtitle, actions: actions));
+      title: 'Qo‘shimcha bo‘limlar',
+      subtitle: 'Asosiy oltita sahifa faqat pastki menyuda. '
+          'Bu yerda esa qolgan kerakli boshqaruv vositalari jamlangan.',
+      actions: actions,
+    ));
   }
 
   @override
@@ -293,14 +297,6 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
         return const Center(child: CircularProgressIndicator());
       }
       final data = snapshot.data!;
-      const sections = [
-        ('Pochta va jo‘natmalar','Pochta ro‘yxati • tracking', Icons.local_shipping_outlined),
-        ('Ombor va katalog sozlamalari','Qoldiq • partiyalar • tartib', Icons.inventory_2_outlined),
-        ('Oldindan buyurtmalar','Tugagan kitoblar • avans • qabul', Icons.event_available_outlined),
-        ('Batafsil hisobotlar','Qo‘shimcha statistika va hisobotlar', Icons.bar_chart_rounded),
-        ('Marketing va mijozlar','Bildirishnomalar • chegirmalar • mijozlar', Icons.campaign_outlined),
-        ('Sozlamalar','Xabarnomalar • ilova boshqaruvi • xavfsizlik', Icons.settings_outlined),
-      ];
       return RefreshIndicator(
         onRefresh: reloadQuietly,
         child: Center(child: ConstrainedBox(
@@ -377,38 +373,18 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
                     )),
                 ]);
               }),
-              const SizedBox(height: 22),
-              const Text('Boshqaruv bo‘limlari', style: TextStyle(
-                fontWeight: FontWeight.w900, fontSize: 17, color: AppColors.navy)),
-              const SizedBox(height: 11),
-              for (var i = 0; i < sections.length; i++) ...[
-                Card(
-                  margin: EdgeInsets.zero, elevation: 0, color: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
-                    side: const BorderSide(color: AppColors.border),
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
-                    leading: Container(
-                      width: 45, height: 45,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEAF4F1),
-                        borderRadius: BorderRadius.circular(13),
-                      ),
-                      child: Icon(sections[i].$3, color: AppColors.navy),
-                    ),
-                    title: Text(sections[i].$1,
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
-                    subtitle: Text(sections[i].$2,
-                      maxLines: 2, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11.5)),
-                    trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
-                    onTap: () => _showSection(i, data),
-                  ),
-                ),
-                const SizedBox(height: 9),
-              ],
+              const SizedBox(height: 20),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 5, vertical: 8),
+                child: Row(children: [
+                  Icon(Icons.grid_view_rounded, color: AppColors.muted, size: 19),
+                  SizedBox(width: 10),
+                  Expanded(child: Text(
+                    'Qo‘shimcha boshqaruv uchun pastdagi “Bo‘limlar”ni bosing.',
+                    style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+                  )),
+                ]),
+              ),
             ],
           ),
         )),

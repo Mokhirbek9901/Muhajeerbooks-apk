@@ -39,3 +39,17 @@ test('legacy device payload with no quantity can still merge with modern records
  assert.equal(result.value.books[0].quantity,1);
  assert.equal(result.value.books[0].price,200);
 });
+
+test('independent devices can add different batches for the same book without overwriting totals',()=>{
+ const original={...row('a',8000),grams:300,quantity:4,batches:[]};
+ const base=snap([original]);
+ const local=snap([{...original,quantity:7,batches:[{id:'local-partiya',date:'2026-10-22',quantity:3,price:null,grams:null,rate:10000}]}]);
+ const remote=snap([{...original,quantity:6,batches:[{id:'remote-partiya',date:'2026-10-22',quantity:2,price:null,grams:null,rate:10000}]}]);
+ const merged=sync.merge(base,local,remote);
+ assert.deepEqual(merged.conflicts,[]);
+ assert.equal(merged.value.books[0].quantity,9);
+ assert.equal(merged.value.books[0].batches.length,2);
+ const snapRoundTrip=sync.snapshot({bookCosts:merged.value.books,bookCostRate:10000,bookCostComparisons:[]});
+ assert.equal(snapRoundTrip.books[0].quantity,9);
+ assert.equal(snapRoundTrip.books[0].batches[0].id,'remote-partiya');
+});

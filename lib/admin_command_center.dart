@@ -133,6 +133,172 @@ class _AdminSectionPage extends StatelessWidget {
   );
 }
 
+/// One read-only timeline for BOTH native and web advance reservations.
+/// Administrative actions remain in their corresponding established screens.
+class _CombinedPreorderPage extends StatefulWidget {
+  const _CombinedPreorderPage({required this.api});
+  final _AdminApi api;
+  @override
+  State<_CombinedPreorderPage> createState() => _CombinedPreorderPageState();
+}
+
+class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
+  late Future<({List<Map<String, dynamic>> rows, List<String> errors})> future;
+
+  @override
+  void initState() {
+    super.initState();
+    future = _load();
+  }
+
+  Future<({List<Map<String, dynamic>> rows, List<String> errors})> _load() async {
+    final rows = <Map<String, dynamic>>[];
+    final errors = <String>[];
+    try {
+      final insight = await widget.api.merchandisingInsights();
+      for (final raw in (insight['preorders'] as List?) ?? const []) {
+        if (raw is Map) rows.add({
+          ...Map<String, dynamic>.from(raw), '_origin': 'native',
+        });
+      }
+    } catch (e) {
+      errors.add('Ilova oldindan zakazlari yuklanmadi: $e');
+    }
+    if (webPreordersAvailable) {
+      try {
+        final data = await WebPreorderApi().admin(widget.api.secret, 'list');
+        if (data is List) {
+          for (final raw in data) {
+            if (raw is Map) rows.add({
+              ...Map<String, dynamic>.from(raw), '_origin': 'web',
+            });
+          }
+        } else {
+          errors.add('Web zakazlar ro‘yxati noto‘g‘ri qaytdi.');
+        }
+      } catch (e) {
+        errors.add('Web oldindan zakazlari yuklanmadi: $e');
+      }
+    }
+    rows.sort((a,b) {
+      final ad = DateTime.tryParse('${a['created_at'] ?? ''}');
+      final bd = DateTime.tryParse('${b['created_at'] ?? ''}');
+      return (bd ?? DateTime.fromMillisecondsSinceEpoch(0))
+          .compareTo(ad ?? DateTime.fromMillisecondsSinceEpoch(0));
+    });
+    return (rows: rows, errors: errors);
+  }
+
+  Future<void> _openRecord(Map<String, dynamic> row) async {
+    if (row['_origin'] == 'web' && webPreordersAvailable) {
+      await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => WebPreorderAdminPage(secret: widget.api.secret),
+      ));
+    } else {
+      await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => _PreorderAdminPage(api: widget.api),
+      ));
+    }
+    if (mounted) setState(() => future = _load());
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: UzbekCustomerColors.background,
+    appBar: AppBar(
+      title: const Text('Barcha oldindan zakazlar'),
+      actions: [IconButton(
+        tooltip: 'Yangilash',
+        icon: const Icon(Icons.refresh),
+        onPressed: () => setState(() => future = _load()),
+      )],
+    ),
+    body: FutureBuilder<({List<Map<String, dynamic>> rows, List<String> errors})>(
+      future: future,
+      builder: (ctx,snapshot) {
+        if (snapshot.hasError) return Center(child: Text('Yuklashda xato: ${snapshot.error}'));
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        final data = snapshot.data!;
+        final rows = data.rows;
+        return RefreshIndicator(
+          onRefresh: () async {
+            final next = await _load();
+            if (mounted) setState(() => future = Future.value(next));
+          },
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16,12,16,35),
+            children: [
+              Text('${rows.length} ta oldindan buyurtma',
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900,
+                  color: AppColors.navy)),
+              const SizedBox(height: 8),
+              if (data.errors.isNotEmpty)
+                AppSurface(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Ba’zi ma’lumotlar vaqtincha olinmadi',
+                      style: TextStyle(fontWeight: FontWeight.w900,
+                        color: AppColors.danger)),
+                    ...data.errors.map((e) => Text(e,
+                      style: const TextStyle(color: AppColors.danger,
+                        fontSize: 11))),
+                  ],
+                )),
+              if (data.errors.isNotEmpty)
+                const SizedBox(height: 10),
+              if (rows.isEmpty)
+                const AppSurface(child: Text('Oldindan buyurtmalar topilmadi.'))
+              else
+                ...rows.map((row) {
+                  final web = row['_origin'] == 'web';
+                  final title = '${web ? row['book_title'] : row['title']}';
+                  final price = (row['deposit_amount'] as num?)?.toInt() ?? 0;
+                  final status = '${row['status'] ?? 'waiting'}';
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 9),
+                    child: Card(
+                      color: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: const BorderSide(color: AppColors.border),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 13, vertical: 8),
+                        title: Text(title, maxLines: 2,
+                          style: const TextStyle(fontWeight: FontWeight.w900)),
+                        subtitle: Text(
+                          '${row['customer_name'] ?? 'Mijoz'} • Avans ${_won(price)}\n'
+                          '${web ? 'Web zakaz' : 'Ilova zakazi'} • $status',
+                        ),
+                        isThreeLine: true,
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () => _openRecord(row),
+                      ),
+                    ),
+                  );
+                }),
+              const SizedBox(height: 8),
+              const Text('Zakazni bosib to‘lov cheki va holatlarini '
+                'tegishli boshqaruv sahifasida tekshiring.',
+                style: TextStyle(color: AppColors.muted, fontSize: 12)),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.event_available_outlined),
+                label: const Text('Kitoblar va avans sozlamalari'),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => _PreorderAdminPage(api: widget.api))),
+              ),
+            ],
+          ),
+        );
+      },
+    ),
+  );
+}
+
 class _AdminCommandCenterState extends State<_AdminCommandCenter> {
   late Future<_AdminHomeData> future;
 
@@ -221,7 +387,7 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
 
   Future<void> _openPreorderMetric() async {
     await Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => _PreorderAdminPage(api: widget.api),
+      builder: (_) => _CombinedPreorderPage(api: widget.api),
     ));
     if (mounted) unawaited(reloadQuietly());
   }
@@ -289,14 +455,9 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
       if (_enhancedAdminUi)
         _AdminMenuAction('Biznes asboblari', 'Tan narx, partiyalar va taqqoslash',
           Icons.calculate_outlined, (ctx) => unawaited(_openBusinessTools(ctx))),
-      _AdminMenuAction('Oldindan sotuvdagi kitoblar', 'Kitoblar, kelish muddati va avans',
+      _AdminMenuAction('Oldindan zakazlar', 'Ilova va web zakazlari bitta ro‘yxatda',
         Icons.event_available_outlined, (ctx) => _pushPage(ctx,
-          _PreorderAdminPage(api: widget.api))),
-      if (webPreordersAvailable)
-        _AdminMenuAction('Oldindan buyurtma sozlamalari',
-          'Mijoz so‘rovlari va oldindan buyurtma qabuli',
-          Icons.fact_check_outlined, (ctx) => _pushPage(ctx,
-            WebPreorderAdminPage(secret: widget.api.secret))),
+          _CombinedPreorderPage(api: widget.api))),
       _AdminMenuAction('Batafsil statistika', 'Qo‘shimcha hisobot va ko‘rsatkichlar',
         Icons.insights_outlined, (ctx) => _pushPage(ctx, Scaffold(
           appBar: AppBar(title: const Text('Batafsil statistika')),

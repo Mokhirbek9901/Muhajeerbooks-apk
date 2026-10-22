@@ -190,22 +190,18 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
     final String subtitle;
     switch (index) {
       case 0:
-        title = 'Buyurtmalar';
-        subtitle = 'Buyurtmalarni qabul qilish, tayyorlash, jo‘natish va pochta ishlari.';
+        title = 'Pochta va jo‘natmalar';
+        subtitle = 'Buyurtmalar pastki menyuda; bu yerda pochta ro‘yxati va kuzatuv ma’lumotlarini boshqaring.';
         actions = [
-          _AdminMenuAction('Barcha buyurtmalar', 'Yangi, qabul qilingan va jo‘natilgan',
-            Icons.receipt_long_outlined, (ctx) => _goToTab(ctx, 3)),
           _AdminMenuAction('Pochta zakaslari', 'Ism, telefon, manzil va tracking',
             Icons.local_shipping_outlined, (ctx) => _pushPage(ctx,
               Scaffold(appBar: AppBar(title: const Text('Pochta zakaslari')),
                 body: _ShippingQueueAdmin(api: widget.api)))),
         ];
       case 1:
-        title = 'Kitoblar va ombor';
-        subtitle = 'Katalog, qoldiq, tugagan kitoblar, partiyalar va joylashuv tartibi.';
+        title = 'Ombor va katalog sozlamalari';
+        subtitle = 'Kitoblar pastki menyuda; bu yerda qoldiq, partiyalar va tartibni boshqaring.';
         actions = [
-          _AdminMenuAction('Kitoblar katalogi', 'Qo‘shish, tahrirlash va qidirish',
-            Icons.menu_book_outlined, (ctx) => _goToTab(ctx, 1)),
           _AdminMenuAction('Ombor va qoldiqlar', 'Kirgan va sotilgan kitoblar',
             Icons.inventory_2_outlined, (ctx) => _goToTab(ctx, 2)),
           _AdminMenuAction('Tugagan kitoblar', 'Omborda 0 dona qolgan kitoblar',
@@ -233,11 +229,9 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
                 WebPreorderAdminPage(secret: widget.api.secret))),
         ];
       case 3:
-        title = 'Moliya va statistika';
-        subtitle = 'Savdo, xarajatlar, foyda va umumiy ko‘rsatkichlar.';
+        title = 'Batafsil hisobotlar';
+        subtitle = 'Asosiy moliya pastki menyuda; qo‘shimcha ko‘rsatkichlar shu yerda.';
         actions = [
-          _AdminMenuAction('Moliya va xarajatlar', 'Hisobotlar, foyda, yil va oy filtrlari',
-            Icons.account_balance_wallet_outlined, (ctx) => _goToTab(ctx, 6)),
           _AdminMenuAction('Batafsil statistika', 'Avvalgi barcha hisob va ko‘rsatkichlar saqlangan',
             Icons.insights_outlined, (ctx) => _pushPage(ctx, Scaffold(
               appBar: AppBar(title: const Text('Batafsil statistika')),
@@ -300,10 +294,10 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
       }
       final data = snapshot.data!;
       const sections = [
-        ('Buyurtmalar','Yangi • qabul qilingan • jo‘natilgan', Icons.shopping_bag_outlined),
-        ('Kitoblar va ombor','Katalog • qoldiq • partiyalar', Icons.menu_book_outlined),
+        ('Pochta va jo‘natmalar','Pochta ro‘yxati • tracking', Icons.local_shipping_outlined),
+        ('Ombor va katalog sozlamalari','Qoldiq • partiyalar • tartib', Icons.inventory_2_outlined),
         ('Oldindan buyurtmalar','Tugagan kitoblar • avans • qabul', Icons.event_available_outlined),
-        ('Moliya va statistika','Savdo • foyda • xarajatlar', Icons.bar_chart_rounded),
+        ('Batafsil hisobotlar','Qo‘shimcha statistika va hisobotlar', Icons.bar_chart_rounded),
         ('Marketing va mijozlar','Bildirishnomalar • chegirmalar • mijozlar', Icons.campaign_outlined),
         ('Sozlamalar','Xabarnomalar • ilova boshqaruvi • xavfsizlik', Icons.settings_outlined),
       ];
@@ -359,15 +353,7 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
                     SizedBox(width: width, child: Material(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: () {
-                          if (i == 0) widget.onOpenTab(6);
-                          if (i == 1) widget.onOpenTab(3);
-                          if (i == 2) _showSection(1, data);
-                          if (i == 3) _showSection(2, data);
-                        },
-                        child: Container(
+                      child: Container(
                           constraints: const BoxConstraints(minHeight: 108),
                           padding: const EdgeInsets.all(13),
                           decoration: BoxDecoration(
@@ -388,7 +374,6 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
                                 fontWeight: FontWeight.w900, color: AppColors.navy)),
                           ]),
                         ),
-                      ),
                     )),
                 ]);
               }),

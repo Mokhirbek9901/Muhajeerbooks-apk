@@ -1693,22 +1693,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
               ],
             ),
             actions: [
-              if (kIsWeb || NativeAdminPush.supported)
-                IconButton(
-                  tooltip: _adminPushConfigured
-                      ? 'Admin buyurtma xabarlari yoqilgan'
-                      : 'Admin buyurtma xabarlarini yoqish',
-                  onPressed: _adminPushBusy ? null :
-                    () => unawaited(_showAdminPushInfo()),
-                  icon: Icon(
-                    _adminPushConfigured
-                        ? Icons.notifications_active_rounded
-                        : Icons.notifications_none_rounded,
-                    color: _adminPushConfigured
-                        ? AppColors.success
-                        : AppColors.navy,
-                  ),
-                ),
               const Padding(
                 padding: EdgeInsets.only(right: 14),
                 child: AppInfoPill(
@@ -2199,119 +2183,16 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(18),
           children: [
-            if (webPreviewFeaturesAvailable) ...[
-              WebTodayWork(
-                books: books,
-                orders: orders,
-                openTab: (value) => widget.onOpenTab?.call(value),
-              ),
-              const SizedBox(height: 10),
-              Card(child: ListTile(
-                leading: const Icon(Icons.calculate_outlined,
-                  color: UzbekCustomerColors.teal),
-                title: const Text('Biznes asboblari',
-                  style: TextStyle(fontWeight: FontWeight.w900)),
-                subtitle: const Text(
-                  'Narx • partiyalar • o‘zgarishlar • server xarajatlari'),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => Navigator.push(context, MaterialPageRoute<void>(
-                  builder: (_) => WebAdminToolsPage(
-                    secret: widget.api.secret, books: books))),
-              )),
-              const SizedBox(height: 12),
-            ],
-            if (webPreordersAvailable) ...[
-              Card(child: ListTile(
-                leading: const Icon(Icons.event_available_outlined, color: AppColors.success),
-                title: const Text('Oldindan buyurtma • Sozlamalar',
-                  style: TextStyle(fontWeight: FontWeight.w900)),
-                subtitle: const Text('Qabulni yoqish/o‘chirish • kelish sanasi • avans • mijoz so‘rovlari'),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                  builder: (_) => WebPreorderAdminPage(secret: widget.api.secret))),
-              )),
-              const SizedBox(height: 10),
-            ],
-            if (_enhancedAdminUi) ...[
-              _WebAdminDashboardHeader(
-                todayRevenue: todayRevenue,
-                todayOrders: todayOrders,
-                customerCount: orders
-                    .map((o) => o.phone.trim())
-                    .where((phone) => phone.isNotEmpty)
-                    .toSet()
-                    .length,
-                totalStock: totalStock,
-                onRefresh: reload,
-              ),
-              const SizedBox(height: 18),
-              Card(
-                clipBehavior: Clip.antiAlias,
-                child: ListTile(
-                  minTileHeight: 78,
-                  leading: const Icon(
-                    Icons.auto_awesome_rounded,
-                    color: AppColors.success,
-                    size: 30,
-                  ),
-                  title: const Text(
-                    'Savdo imkoniyatlari',
-                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
-                  ),
-                  subtitle: const Text(
-                    'Xabarlar • kutayotganlar • oldindan sotuv • chegirma • savdo tahlili',
-                  ),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => _MerchandisingAdminPage(api: widget.api),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-            ] else ...[
-              AppPageHeading(
-                title: 'Boshqaruv markazi',
-                subtitle: 'Savdo, buyurtmalar va ombor holati real vaqtga yaqin ko‘rinishda.',
-                trailing: IconButton.filledTonal(
-                  onPressed: reload,
-                  tooltip: 'Yangilash',
-                  icon: const Icon(Icons.refresh_rounded),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Card(
-                clipBehavior: Clip.antiAlias,
-                child: ListTile(
-                  minTileHeight: 78,
-                  leading: const Icon(Icons.auto_awesome_rounded, color: AppColors.success, size: 30),
-                  title: const Text('Savdo imkoniyatlari', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
-                  subtitle: const Text('Xabarlar • kutayotganlar • oldindan sotuv • chegirma • savdo tahlili'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                    builder: (_) => _MerchandisingAdminPage(api: widget.api),
-                  )),
-                ),
-              ),
-              const SizedBox(height: 14),
-            ],
-            Card(
-              clipBehavior: Clip.antiAlias,
-              child: ListTile(
-                minTileHeight: 80,
-                leading: const Icon(Icons.vertical_align_top_rounded,
-                    color: AppColors.navy, size: 30),
-                title: const Text('Katalog tartibini boshqarish',
-                  style: TextStyle(fontWeight: FontWeight.w900)),
-                subtitle: const Text('Eng tepada qaysi kitoblar turishini o‘zingiz tanlang va tartiblang'),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                  builder: (_) => _CatalogPinsAdminPage(api: widget.api),
-                )),
+            AppPageHeading(
+              title: 'Batafsil statistika',
+              subtitle: 'Bu sahifa faqat qo‘shimcha hisoblarni ko‘rsatadi. Boshqaruv tugmalari o‘z bo‘limlarida joylashgan.',
+              trailing: IconButton.filledTonal(
+                onPressed: reload,
+                tooltip: 'Hisobotni yangilash',
+                icon: const Icon(Icons.refresh_rounded),
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 18),
             LayoutBuilder(
               builder: (context, c) {
                 final cardWidth = c.maxWidth >= 1200
@@ -2327,10 +2208,7 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                   children: [
                     SizedBox(
                       width: cardWidth,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(AppRadii.large),
-                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Yangi buyurtmalar')), body: _OrdersAdmin(api: widget.api, initialFilter: 'new')))),
-                        child: AppMetricCard(
+                      child: AppMetricCard(
                         icon: Icons.new_releases_outlined,
                         label: 'Yangi buyurtmalar',
                         value: '$newOrders',
@@ -2338,7 +2216,6 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                         note: proofOrders > 0
                             ? '$proofOrders ta chek kutilmoqda'
                             : 'Tekshirish navbati',
-                        ),
                       ),
                     ),
                     SizedBox(
@@ -2353,39 +2230,12 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                     ),
                     SizedBox(
                       width: cardWidth,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(AppRadii.large),
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => Scaffold(
-                                appBar: AppBar(title: const Text('Zakaslar')),
-                                body: _ShippingQueueAdmin(api: widget.api),
-                              ),
-                            ),
-                          );
-                        },
-                        child: const AppMetricCard(
-                          icon: Icons.local_shipping_outlined,
-                          label: 'Zakaslar',
-                          value: 'Ochish',
-                          accent: AppColors.navy,
-                          note: 'Pochta uchun nusxa olish',
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: cardWidth,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(AppRadii.large),
-                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => _AdminBookListPage(title: 'Ombordagi kitoblar', books: books.where((b) => b.stock > 0).toList()))),
-                        child: AppMetricCard(
+                      child: AppMetricCard(
                         icon: Icons.inventory_2_outlined,
                         label: 'Ombordagi dona',
                         value: '$totalStock',
                         accent: const Color(0xFF6B5DD3),
                         note: '${books.length} xil kitob',
-                        ),
                       ),
                     ),
                     SizedBox(
@@ -2454,16 +2304,12 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                     ),
                     SizedBox(
                       width: cardWidth,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(AppRadii.large),
-                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => _AdminBookListPage(title: 'Tugagan kitoblar', books: books.where((b) => b.stock == 0).toList()))),
-                        child: AppMetricCard(
+                      child: AppMetricCard(
                         icon: Icons.remove_shopping_cart_outlined,
                         label: 'Tugagan kitob',
                         value: '$outOfStock',
                         accent: AppColors.danger,
                         note: 'Omborda 0 dona',
-                        ),
                       ),
                     ),
                   ],
@@ -5155,13 +5001,6 @@ class _PreorderAdminPageState extends State<_PreorderAdminPage> {
                   ),
                 )),
               const SizedBox(height: 20),
-              if (webPreordersAvailable) ...[
-                FilledButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(
-                  builder: (_) => WebPreorderAdminPage(secret: widget.api.secret))),
-                  icon: const Icon(Icons.fact_check_outlined),
-                  label: const Text('Oldindan buyurtmalarni boshqarish')),
-                const SizedBox(height: 12),
-              ],
               AppSectionHeader(
                 title: 'Oldindan buyurtmalar',
                 subtitle: 'Mijoz yuborgan oldindan to‘lovlar',
@@ -7674,13 +7513,6 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
                     clipBehavior: Clip.antiAlias,
                     child: Column(children: [
                       ListTile(
-                        leading: const Icon(Icons.campaign_rounded, color: AppColors.danger),
-                        title: const Text('Muhim xabar', style: TextStyle(fontWeight: FontWeight.w900)),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Muhim xabar')), body: _EmergencyNoticeAdmin(api: widget.api)))),
-                      ),
-                      const Divider(height: 1),
-                      ListTile(
                         leading: const Icon(Icons.notifications_active_rounded, color: AppColors.success),
                         title: const Text('Xabarnoma yuborish', style: TextStyle(fontWeight: FontWeight.w900)),
                         trailing: const Icon(Icons.chevron_right_rounded),
@@ -7692,13 +7524,6 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
                         title: const Text('Kutayotganlar', style: TextStyle(fontWeight: FontWeight.w900)),
                         trailing: const Icon(Icons.chevron_right_rounded),
                         onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Kutayotganlar')), body: _RestockAdmin(api: widget.api)))),
-                      ),
-                      const Divider(height: 1),
-                      ListTile(
-                        leading: const Icon(Icons.event_available_rounded),
-                        title: const Text('Oldindan sotuvda', style: TextStyle(fontWeight: FontWeight.w900)),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () async { await Navigator.of(context).push(MaterialPageRoute(builder: (_) => _PreorderAdminPage(api: widget.api))); if (mounted) setState(_reload); },
                       ),
                       const Divider(height: 1),
                       ListTile(

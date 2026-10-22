@@ -3987,8 +3987,9 @@ class _BulkAiBookEditorPageState extends State<_BulkAiBookEditorPage> {
 
 
 class _BooksAdmin extends StatefulWidget {
-  const _BooksAdmin({super.key, required this.api});
+  const _BooksAdmin({super.key, required this.api, this.initialFilter = 'all'});
   final _AdminApi api;
+  final String initialFilter;
 
   @override
   State<_BooksAdmin> createState() => _BooksAdminState();
@@ -4011,6 +4012,8 @@ class _BooksAdminState extends State<_BooksAdmin> {
     'low_stock',
     'invalid_image',
     'missing_author',
+    'missing_page_count',
+    'missing_publisher',
     'gallery_over_2',
     'gallery_over_1',
   };
@@ -4026,6 +4029,7 @@ class _BooksAdminState extends State<_BooksAdmin> {
   bool _galleryOverOne(Book book) => book.galleryImages.length >= 2;
 
   bool _missingPageCount(Book book) => book.pageCount <= 0;
+  bool _missingPublisher(Book book) => book.publisher.trim().isEmpty;
 
   bool _missingDescription(Book book) {
     final value = book.description
@@ -4087,6 +4091,8 @@ class _BooksAdminState extends State<_BooksAdmin> {
       book.costPrice <= 0 ||
       _invalidImage(book) ||
       _missingAuthor(book) ||
+      _missingPageCount(book) ||
+      _missingPublisher(book) ||
       (webPreviewFeaturesAvailable && _galleryOverTwo(book)) ||
       _outOfStock(book) ||
       _lowStock(book) ||
@@ -4133,6 +4139,8 @@ class _BooksAdminState extends State<_BooksAdmin> {
         return _invalidImage(book);
       case 'missing_author':
         return _missingAuthor(book);
+      case 'missing_publisher':
+        return _missingPublisher(book);
       case 'gallery_over_2':
         return webPreviewFeaturesAvailable && _galleryOverTwo(book);
       case 'gallery_over_1':
@@ -4160,6 +4168,10 @@ class _BooksAdminState extends State<_BooksAdmin> {
         return 'Rasmi bor, lekin xato';
       case 'missing_author':
         return 'Muallifi kiritilmagan';
+      case 'missing_page_count':
+        return 'Sahifasi ko‘rsatilmagan';
+      case 'missing_publisher':
+        return 'Nashriyoti kiritilmagan';
       case 'gallery_over_2':
         return '2 tadan ortiq rasmli (3+)';
       case 'gallery_over_1':
@@ -4187,6 +4199,10 @@ class _BooksAdminState extends State<_BooksAdmin> {
         return all.where(_invalidImage).length;
       case 'missing_author':
         return all.where(_missingAuthor).length;
+      case 'missing_page_count':
+        return all.where(_missingPageCount).length;
+      case 'missing_publisher':
+        return all.where(_missingPublisher).length;
       case 'gallery_over_2':
         return all.where(_galleryOverTwo).length;
       case 'gallery_over_1':
@@ -4199,6 +4215,7 @@ class _BooksAdminState extends State<_BooksAdmin> {
   @override
   void initState() {
     super.initState();
+    filter = widget.initialFilter;
     future = widget.api.books();
     unawaited(_startThumbnailBackfill(future));
     unawaited(_loadSales());
@@ -4370,6 +4387,16 @@ class _BooksAdminState extends State<_BooksAdmin> {
         key: 'missing_author',
         label: 'Muallifi kiritilmagan',
         icon: Icons.person_off_outlined,
+      ),
+      (
+        key: 'missing_publisher',
+        label: 'Nashriyoti kiritilmagan',
+        icon: Icons.business_outlined,
+      ),
+      (
+        key: 'missing_page_count',
+        label: 'Sahifa soni kiritilmagan',
+        icon: Icons.menu_book_outlined,
       ),
       if (webPreviewFeaturesAvailable) ...[
         (
@@ -6000,6 +6027,9 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
             'yesterday' => o.status != 'cancelled' && orderDay == yesterday,
             'accepted' => _adminAwaitingPreparation(o),
             'prepared' => _adminPreparedForDispatch(o),
+            'tracking_missing' => o.status == 'shipping' &&
+                o.deliveryType != 'pickup' &&
+                o.trackingNumber.trim().isEmpty,
             _ => o.status == filter,
           };
           final matchQuery =
@@ -6137,6 +6167,12 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
                         _OrderFilterChip(
                           label: 'Jo‘natilgan',
                           value: 'shipping',
+                          selected: filter,
+                          onTap: (v) => setState(() => filter = v),
+                        ),
+                        _OrderFilterChip(
+                          label: 'Tracking yo‘q',
+                          value: 'tracking_missing',
                           selected: filter,
                           onTap: (v) => setState(() => filter = v),
                         ),

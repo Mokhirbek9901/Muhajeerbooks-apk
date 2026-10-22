@@ -1520,13 +1520,18 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       final id = await _local.installId();
       const playStoreBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
       const appStoreBuild = bool.fromEnvironment('APP_STORE_BUILD');
+      const testFlightBuild = bool.fromEnvironment('TESTFLIGHT_PREVIEW');
+      // TestFlight sets APP_STORE_BUILD for feature parity, but those
+      // installations are testers rather than public App Store customers.
       final platform = kIsWeb
           ? 'web'
-          : (defaultTargetPlatform == TargetPlatform.android && playStoreBuild)
-              ? 'android_play'
-              : (defaultTargetPlatform == TargetPlatform.iOS && appStoreBuild)
-                  ? 'ios_app_store'
-                  : defaultTargetPlatform.name;
+          : (defaultTargetPlatform == TargetPlatform.iOS && testFlightBuild)
+              ? 'ios_testflight'
+              : (defaultTargetPlatform == TargetPlatform.android && playStoreBuild)
+                  ? 'android_play'
+                  : (defaultTargetPlatform == TargetPlatform.iOS && appStoreBuild)
+                      ? 'ios_app_store'
+                      : defaultTargetPlatform.name;
       await _backend?.registerInstallation(id, platform, phone: (savedCustomer['phone'] ?? '').trim());
     } catch (_) {
       // Analytics must never slow or block shopping.

@@ -31,6 +31,8 @@ import 'web_admin_upgrades.dart';
 import 'web_preorders.dart';
 import 'preview_features.dart';
 
+part 'admin_command_center.dart';
+
 const _navy = Color(0xFF10213D);
 const _orange = Color(0xFFFF8A00);
 final _money = NumberFormat('#,###', 'en_US');
@@ -1284,7 +1286,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
   bool _liveRefreshInFlight = false;
   bool _adminPushBusy = false;
   bool _adminPushConfigured = false;
-  final _overviewKey = GlobalKey<_OverviewAdminState>();
+  final _homeKey = GlobalKey<_AdminCommandCenterState>();
   final _booksKey = GlobalKey<_BooksAdminState>();
   final _inventoryKey = GlobalKey<_InventoryAdminState>();
   final _ordersKey = GlobalKey<_OrdersAdminState>();
@@ -1451,7 +1453,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
     try {
       switch (tab) {
         case 0:
-          final state = _overviewKey.currentState;
+          final state = _homeKey.currentState;
           if (state != null) await state.reloadQuietly();
         case 1:
           final state = _booksKey.currentState;
@@ -1524,6 +1526,62 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
     }
   }
 
+  // Original eight internal tabs remain intact (also for saved admin sessions).
+  int get _primaryIndex {
+    switch (tab) {
+      case 0: return 0;
+      case 3: return 1;
+      case 1: return 2;
+      case 6: return 3;
+      default: return 4;
+    }
+  }
+
+  void _selectPrimary(int index) {
+    switch (index) {
+      case 0: _selectTab(0);
+      case 1: _selectTab(3);
+      case 2: _selectTab(1);
+      case 3: _selectTab(6);
+      default: _showAllTabsMenu();
+    }
+  }
+
+  void _showAllTabsMenu() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: FractionallySizedBox(
+          heightFactor: .75,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(12, 8, 12, 12),
+                child: Text('Barcha admin bo‘limlari',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 19)),
+              ),
+              for (var i = 0; i < titles.length; i++)
+                ListTile(
+                  leading: Icon(icons[i], color: AppColors.navy),
+                  title: Text(titles[i]),
+                  trailing: tab == i
+                      ? const Icon(Icons.check_circle_rounded, color: AppColors.success)
+                      : const Icon(Icons.chevron_right_rounded),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _selectTab(i);
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _selectTab(int value) {
     if (value == tab && _loadedTabs.contains(value)) return;
     setState(() {
@@ -1537,10 +1595,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
   Widget build(BuildContext context) {
     final pages = <Widget>[
       _loadedTabs.contains(0)
-          ? _OverviewAdmin(
-              key: _overviewKey,
+          ? _AdminCommandCenter(
+              key: _homeKey,
               api: api,
               onOpenTab: _selectTab,
+              onPushSettings: () => unawaited(_showAdminPushInfo()),
             )
           : const SizedBox.shrink(),
       _loadedTabs.contains(1)
@@ -1565,44 +1624,24 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
     ];
     const railDestinations = [
       NavigationRailDestination(
-        icon: Icon(Icons.dashboard_outlined),
-        selectedIcon: Icon(Icons.dashboard_rounded),
+        icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard_rounded),
         label: Text('Bosh sahifa'),
       ),
       NavigationRailDestination(
-        icon: Icon(Icons.menu_book_outlined),
-        selectedIcon: Icon(Icons.menu_book_rounded),
-        label: Text('Kitoblar'),
-      ),
-      NavigationRailDestination(
-        icon: Icon(Icons.inventory_2_outlined),
-        selectedIcon: Icon(Icons.inventory_2_rounded),
-        label: Text('Ombor'),
-      ),
-      NavigationRailDestination(
-        icon: Icon(Icons.receipt_long_outlined),
-        selectedIcon: Icon(Icons.receipt_long_rounded),
+        icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long_rounded),
         label: Text('Buyurtmalar'),
       ),
       NavigationRailDestination(
-        icon: Icon(Icons.sell_outlined),
-        selectedIcon: Icon(Icons.sell_rounded),
-        label: Text('Sotilgan kitoblar'),
+        icon: Icon(Icons.menu_book_outlined), selectedIcon: Icon(Icons.menu_book_rounded),
+        label: Text('Kitoblar'),
       ),
       NavigationRailDestination(
-        icon: Icon(Icons.people_alt_outlined),
-        selectedIcon: Icon(Icons.people_alt_rounded),
-        label: Text('Mijozlar'),
-      ),
-      NavigationRailDestination(
-        icon: Icon(Icons.account_balance_wallet_outlined),
-        selectedIcon: Icon(Icons.account_balance_wallet_rounded),
+        icon: Icon(Icons.account_balance_wallet_outlined), selectedIcon: Icon(Icons.account_balance_wallet_rounded),
         label: Text('Moliya'),
       ),
       NavigationRailDestination(
-        icon: Icon(Icons.auto_awesome_outlined),
-        selectedIcon: Icon(Icons.auto_awesome_rounded),
-        label: Text('Admin AI'),
+        icon: Icon(Icons.grid_view_outlined), selectedIcon: Icon(Icons.grid_view_rounded),
+        label: Text('Bo‘limlar'),
       ),
     ];
 
@@ -1681,8 +1720,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
                   children: [
                     NavigationRail(
                       extended: extended,
-                      selectedIndex: tab,
-                      onDestinationSelected: _selectTab,
+                      selectedIndex: _primaryIndex,
+                      onDestinationSelected: _selectPrimary,
                       labelType: extended
                           ? NavigationRailLabelType.none
                           : NavigationRailLabelType.selected,
@@ -1726,17 +1765,16 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
           bottomNavigationBar: desktop
               ? null
               : NavigationBar(
-                  selectedIndex: tab,
-                  onDestinationSelected: _selectTab,
-                  labelBehavior:
-                      NavigationDestinationLabelBehavior.onlyShowSelected,
-                  destinations: List.generate(
-                    titles.length,
-                    (i) => NavigationDestination(
-                      icon: Icon(icons[i]),
-                      label: i == 0 ? 'Bosh' : titles[i],
-                    ),
-                  ),
+                  selectedIndex: _primaryIndex,
+                  onDestinationSelected: _selectPrimary,
+                  labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+                  destinations: const [
+                    NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Bosh'),
+                    NavigationDestination(icon: Icon(Icons.receipt_long_outlined), label: 'Buyurtmalar'),
+                    NavigationDestination(icon: Icon(Icons.menu_book_outlined), label: 'Kitoblar'),
+                    NavigationDestination(icon: Icon(Icons.account_balance_wallet_outlined), label: 'Moliya'),
+                    NavigationDestination(icon: Icon(Icons.grid_view_outlined), label: 'Bo‘limlar'),
+                  ],
                 ),
         );
       },
@@ -5010,11 +5048,16 @@ class _PreorderAdminPageState extends State<_PreorderAdminPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Oldindan sotuvda')),
-    floatingActionButton: FloatingActionButton.extended(
-      onPressed: () => _edit(),
-      icon: const Icon(Icons.add_rounded),
-      label: const Text('Yangi kitob'),
+    appBar: AppBar(
+      title: const Text('Oldindan sotuvda'),
+      actions: [
+        IconButton(
+          tooltip: 'Yangi oldindan sotuv kitobi',
+          onPressed: () => _edit(),
+          icon: const Icon(Icons.add_circle_outline_rounded),
+        ),
+        const SizedBox(width: 8),
+      ],
     ),
     body: FutureBuilder<List<Object>>(
       future: future,

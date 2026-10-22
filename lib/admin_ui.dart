@@ -1693,22 +1693,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
               ],
             ),
             actions: [
-              if (kIsWeb || NativeAdminPush.supported)
-                IconButton(
-                  tooltip: _adminPushConfigured
-                      ? 'Admin buyurtma xabarlari yoqilgan'
-                      : 'Admin buyurtma xabarlarini yoqish',
-                  onPressed: _adminPushBusy ? null :
-                    () => unawaited(_showAdminPushInfo()),
-                  icon: Icon(
-                    _adminPushConfigured
-                        ? Icons.notifications_active_rounded
-                        : Icons.notifications_none_rounded,
-                    color: _adminPushConfigured
-                        ? AppColors.success
-                        : AppColors.navy,
-                  ),
-                ),
               const Padding(
                 padding: EdgeInsets.only(right: 14),
                 child: AppInfoPill(
@@ -2242,16 +2226,6 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                         value: '$todayOrders',
                         accent: AppColors.info,
                         note: DateFormat('yyyy.MM.dd').format(now),
-                      ),
-                    ),
-                    SizedBox(
-                      width: cardWidth,
-                      child: const AppMetricCard(
-                        icon: Icons.local_shipping_outlined,
-                        label: 'Pochta ro‘yxati',
-                        value: 'Boshqaruvda',
-                        accent: AppColors.navy,
-                        note: 'Pochta va jo‘natmalar bo‘limida',
                       ),
                     ),
                     SizedBox(

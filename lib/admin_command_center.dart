@@ -195,8 +195,6 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
         actions = [
           _AdminMenuAction('Barcha buyurtmalar', 'Yangi, qabul qilingan va jo‘natilgan',
             Icons.receipt_long_outlined, (ctx) => _goToTab(ctx, 3)),
-          _AdminMenuAction('Sotilgan kitoblar', 'Bugun, kecha va boshqa davrlar bo‘yicha',
-            Icons.sell_outlined, (ctx) => _goToTab(ctx, 4)),
           _AdminMenuAction('Pochta zakaslari', 'Ism, telefon, manzil va tracking',
             Icons.local_shipping_outlined, (ctx) => _pushPage(ctx,
               Scaffold(appBar: AppBar(title: const Text('Pochta zakaslari')),
@@ -217,7 +215,7 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
           _AdminMenuAction('Katalog tartibi', 'Eng tepada chiqadigan kitoblarni belgilang',
             Icons.vertical_align_top_rounded, (ctx) => _pushPage(ctx,
               _CatalogPinsAdminPage(api: widget.api))),
-          if (webPreviewFeaturesAvailable)
+          if (_enhancedAdminUi)
             _AdminMenuAction('Biznes asboblari', 'Tan narx, partiyalar va taqqoslash',
               Icons.calculate_outlined, (ctx) => _pushPage(ctx,
                 WebAdminToolsPage(secret: widget.api.secret, books: data.books))),
@@ -240,8 +238,6 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
         actions = [
           _AdminMenuAction('Moliya va xarajatlar', 'Hisobotlar, foyda, yil va oy filtrlari',
             Icons.account_balance_wallet_outlined, (ctx) => _goToTab(ctx, 6)),
-          _AdminMenuAction('Sotuv tarixi', 'Sotilgan kitoblar va sana filtrlari',
-            Icons.bar_chart_rounded, (ctx) => _goToTab(ctx, 4)),
           _AdminMenuAction('Batafsil statistika', 'Avvalgi barcha hisob va ko‘rsatkichlar saqlangan',
             Icons.insights_outlined, (ctx) => _pushPage(ctx, Scaffold(
               appBar: AppBar(title: const Text('Batafsil statistika')),
@@ -276,13 +272,6 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
         actions = [
           _AdminMenuAction('Admin bildirishnomalari', 'Yangi buyurtmalar uchun push xabarlar',
             Icons.notifications_outlined, (_) => widget.onPushSettings()),
-          _AdminMenuAction('Katalog tartibi', 'Asosiy sahifadagi kitoblarni tartiblash',
-            Icons.tune_outlined, (ctx) => _pushPage(ctx,
-              _CatalogPinsAdminPage(api: widget.api))),
-          if (webPreviewFeaturesAvailable)
-            _AdminMenuAction('Biznes asboblari', 'Tan narx va server xarajatlarini ko‘rish',
-              Icons.build_circle_outlined, (ctx) => _pushPage(ctx,
-                WebAdminToolsPage(secret: widget.api.secret, books: data.books))),
         ];
     }
     _pushPage(context, _AdminSectionPage(
@@ -435,18 +424,6 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
                 ),
                 const SizedBox(height: 9),
               ],
-              const SizedBox(height: 6),
-              OutlinedButton.icon(
-                onPressed: () => _pushPage(context, Scaffold(
-                  appBar: AppBar(title: const Text('Batafsil eski hisobotlar')),
-                  body: _OverviewAdmin(api: widget.api,
-                    onOpenTab: (tab) {
-                      Navigator.of(context).pop();
-                      widget.onOpenTab(tab);
-                    }))),
-                icon: const Icon(Icons.insights_outlined),
-                label: const Text('Batafsil statistika va avvalgi asboblar'),
-              ),
             ],
           ),
         )),

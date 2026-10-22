@@ -1532,7 +1532,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
       case 0: return 0;
       case 3: return 1;
       case 1: return 2;
-      case 6: return 3;
+      case 4: return 3;
       default: return 4;
     }
   }
@@ -1542,7 +1542,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
       case 0: _selectTab(0);
       case 1: _selectTab(3);
       case 2: _selectTab(1);
-      case 3: _selectTab(6);
+      case 3: _selectTab(4);
       default: _showAllTabsMenu();
     }
   }
@@ -1636,8 +1636,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
         label: Text('Kitoblar'),
       ),
       NavigationRailDestination(
-        icon: Icon(Icons.account_balance_wallet_outlined), selectedIcon: Icon(Icons.account_balance_wallet_rounded),
-        label: Text('Moliya'),
+        icon: Icon(Icons.sell_outlined), selectedIcon: Icon(Icons.sell_rounded),
+        label: Text('Sotilgan kitoblar'),
       ),
       NavigationRailDestination(
         icon: Icon(Icons.grid_view_outlined), selectedIcon: Icon(Icons.grid_view_rounded),
@@ -1772,7 +1772,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
                     NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Bosh'),
                     NavigationDestination(icon: Icon(Icons.receipt_long_outlined), label: 'Buyurtmalar'),
                     NavigationDestination(icon: Icon(Icons.menu_book_outlined), label: 'Kitoblar'),
-                    NavigationDestination(icon: Icon(Icons.account_balance_wallet_outlined), label: 'Moliya'),
+                    NavigationDestination(icon: Icon(Icons.sell_outlined), selectedIcon: Icon(Icons.sell_rounded), label: 'Sotilgan'),
                     NavigationDestination(icon: Icon(Icons.grid_view_outlined), label: 'Bo‘limlar'),
                   ],
                 ),

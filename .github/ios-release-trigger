@@ -1,5 +1,4 @@
-2026-10-22 TestFlight ONLY: ship merged admin command center b79f5aee7bb0d7ff0501152a92a50a388bd94c99.
-New responsive six-section professional admin dashboard, simplified five-item nav,
-all existing admin features reachable through section menus and legacy detailed reports.
-Fix preorders add-book floating button covering records.
-Use current main source and current backend; no App Store review submission and no Google Play release.
+2026-10-22 TestFlight ONLY: move admin bottom navigation fourth icon from Moliya wallet to Sotilgan kitoblar.
+Use latest merged main commit 1e37142224e9a5bd25416cf68554ff06694d73f1 and preserve the new six-section admin dashboard.
+Fourth button now opens existing sold books history with Bugun/Kecha filters; Moliya remains in the finance/statistics menu.
+No public App Store or Google Play submission; no backend or customer order data changes.

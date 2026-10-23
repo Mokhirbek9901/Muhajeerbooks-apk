@@ -7060,10 +7060,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     groupValue: delivery,
                     onChanged: (v) => setState(() => delivery = v!),
                     title: const Text(
-                      'Gyeongsandan olib ketish — BEPUL',
+                      '경산dan (Gyeongsan) o‘zim olib ketaman',
                       style: TextStyle(fontWeight: FontWeight.w800),
                     ),
-                    subtitle: const Text('BEPUL • Olib ketish vaqtini admin bilan kelishasiz'),
+                    subtitle: const Text('BEPUL • Pochta puli olinmaydi'),
                     secondary: const Icon(Icons.storefront_outlined),
                   ),
                   if (isGyeongsanPickup)
@@ -7087,7 +7087,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Olib ketish joyi va vaqtini kelishish uchun admin siz bilan bog‘lanadi. Taxminiy joy: One Mart atrofi.',
+                              'Bu faqat 경산 (Gyeongsan) hududida yashaydiganlar uchun. One Mart atrofiga olib boramiz.\n' 
+                              'Olib ketish joyi va vaqtini kelishish uchun admin siz bilan bog‘lanadi.',
                               style: TextStyle(
                                 fontSize: 12.5,
                                 height: 1.4,

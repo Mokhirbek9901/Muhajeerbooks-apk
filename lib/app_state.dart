@@ -1865,7 +1865,14 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     // grant verified-customer status without authentication.
     // A local storage failure must never re-submit a paid preorder.
     try {
-      final digits = phone.replaceAll(RegExp(r'\\D'), '');
+      final digits = phone.replaceAll(RegExp(r'\D'), '');
+      final previousPhone =
+          (savedCustomer['phone'] ?? '').replaceAll(RegExp(r'\D'), '');
+      if (previousPhone.isNotEmpty && previousPhone != digits) {
+        // A preorder cannot reuse an old phone number's verified identity.
+        customerVerified = false;
+        await _local.saveCustomerVerified(false);
+      }
       savedCustomer = {
         ...savedCustomer,
         'name': customerName.trim(),

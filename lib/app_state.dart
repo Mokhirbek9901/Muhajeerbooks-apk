@@ -1775,14 +1775,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       final profile=await _backend!.pinProfile(token);
       if(profile['valid']!=true)throw StateError('Expired PIN session');
       _pinSession=token;
-      final savedName=(savedCustomer['name']??'').trim();
-      final savedPhone=(savedCustomer['phone']??'').trim();
-      if(savedName.isEmpty||savedPhone.isEmpty){
-        await setAuthenticatedCustomer(
-          '${profile['name']??''}','${profile['phone']??''}',verified:false);
-      }else {
-        notifyListeners();
-      }
+      await setAuthenticatedCustomer(
+        '${profile['name']??''}', '${profile['phone']??''}',
+        verified:false);
     }catch(_){
       _pinSession=null;
       await _local.clearPinSession();
@@ -1807,6 +1802,14 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     customerVerified = false;
     OwnerStoryAccess.instance.lock();
     await _local.clearCustomer();
+    // PIN logout must not leave old personal orders/notifications displayed
+    // under the next person's name on this same phone.
+    _localOrders.clear();
+    _customerNotices.clear();
+    await Future.wait([
+      _local.saveOrders(const <ShopOrder>[]),
+      _local.saveCustomerNotices(const <Map<String, dynamic>>[]),
+    ]);
     notifyListeners();
 
     if (backendConfigured) {

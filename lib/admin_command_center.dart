@@ -144,6 +144,7 @@ class _CombinedPreorderPage extends StatefulWidget {
 
 class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
   late Future<({List<Map<String, dynamic>> rows, List<String> errors})> future;
+  String statusFilter = 'all';
 
   @override
   void initState() {
@@ -241,7 +242,17 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
         if (snapshot.hasError) return Center(child: Text('Yuklashda xato: ${snapshot.error}'));
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         final data = snapshot.data!;
-        final rows = data.rows;
+        final rows = data.rows.where((row) {
+          final status = '${row['status'] ?? 'waiting'}';
+          return switch (statusFilter) {
+            'all' => status != 'cancelled',
+            'waiting' => status == 'waiting',
+            'accepted' => status == 'accepted' || status == 'ordered',
+            'arrived' => status == 'arrived' || status == 'fulfilled',
+            'cancelled' => status == 'cancelled',
+            _ => status != 'cancelled',
+          };
+        }).toList();
         return RefreshIndicator(
           onRefresh: () async {
             final next = await _load();
@@ -251,11 +262,30 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16,12,16,35),
             children: [
-              Text('${rows.length} ta oldindan buyurtma',
+              Text('${rows.length} ta ${statusFilter == 'cancelled' ? 'bekor qilingan' : 'oldindan buyurtma'}',
                 style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900,
                   color: AppColors.navy)),
-              const SizedBox(height: 4),
-              const Text('Ilova va web oldindan zakazlari barcha holatlari bilan sana tartibida. Yuklash cheklansa, yuqorida ogohlantirish chiqadi.',
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 7,
+                runSpacing: 7,
+                children: [
+                  for (final entry in const {
+                    'all': 'Barchasi',
+                    'waiting': 'Tekshirish kerak',
+                    'accepted': 'Qabul qilingan',
+                    'arrived': 'Yangi kelgan',
+                    'cancelled': 'Bekor qilingan',
+                  }.entries)
+                    ChoiceChip(
+                      label: Text(entry.value),
+                      selected: statusFilter == entry.key,
+                      onSelected: (_) => setState(() => statusFilter = entry.key),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              const Text('Barchasi faqat faol zakazlar. Bekor qilinganlar alohida bo‘limda. Ilova va web sanaga ko‘ra birlashtirilgan.',
                 style: TextStyle(color: AppColors.muted, fontSize: 12)),
               const SizedBox(height: 8),
               if (data.errors.isNotEmpty)

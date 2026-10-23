@@ -374,6 +374,11 @@ class _NotificationPermissionGateState
                 return;
               }
               final result = await Permission.notification.request();
+              if (result.isGranted && mounted) {
+                // A user consented; register APNs for a phone-linked profile.
+                // No push is sent by this operation.
+                unawaited(context.read<AppState>().syncNativeCustomerPushIfAllowed());
+              }
               if (result.isPermanentlyDenied) {
                 await openAppSettings();
               }

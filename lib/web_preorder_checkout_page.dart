@@ -21,7 +21,7 @@ class _WebPreorderCheckoutPageState extends State<WebPreorderCheckoutPage> {
   void initState(){super.initState();reload();}
   Future<void> reload() async {
     final next=context.read<AppState>().webPreorderInvoice(widget.preorderId);
-    if(mounted)setState(()=>pending=next);
+    if (mounted) setState(() { pending = next; });
     try{await next;}catch(_){}
   }
   void notice(String text){if(mounted)ScaffoldMessenger.of(context).showSnackBar(
@@ -104,6 +104,7 @@ class _WebPreorderCheckoutPageState extends State<WebPreorderCheckoutPage> {
       final due=(d['amount_due'] as num?)?.toInt()??0;
       final shipping=(d['shipping_fee'] as num?)?.toInt()??0;
       final ready=d['price_ready']==true;
+      final cancelled=d['status']=='cancelled';
       final canEdit=d['can_edit']==true;
       final details=((d['extras'] as List?)??const []).whereType<Map>()
         .map((e)=>Map<String,dynamic>.from(e)).toList();
@@ -118,9 +119,16 @@ class _WebPreorderCheckoutPageState extends State<WebPreorderCheckoutPage> {
           if(ready)Text('Kitob narxi: '+won(price)+' × '+qty.toString()),
         ])),
         const SizedBox(height:12),
-        if(!ready)AppSurface(child:Text((d['note']??'Narx tasdiqlanmagan').toString()+
+        if(cancelled)const AppSurface(child:Text(
+          'Bu oldindan zakaz admin tomonidan bekor qilingan. '
+          'Ushbu zakaz bo‘yicha yangi to‘lov yubormang. '
+          'Agar kitob uchun oldindan sotuv ochiq bo‘lsa, katalogdan '
+          'yangi zakaz berishingiz mumkin. Eski avans avtomatik '
+          'ko‘chirilmaydi; avans qaytarilmagan bo‘lsa, qayta to‘lashdan '
+          'oldin do‘kon bilan hisobni aniqlashtiring.')),
+        if(!cancelled&&!ready)AppSurface(child:Text((d['note']??'Narx tasdiqlanmagan').toString()+
           '. Avans qayta olinmaydi. Hozir to‘lov yubormang.')),
-        if(ready)...[
+        if(!cancelled&&ready)...[
           AppSurface(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
             const Text('Buyurtma hisobi',style:TextStyle(fontSize:19,fontWeight:FontWeight.w900)),
             const Divider(),

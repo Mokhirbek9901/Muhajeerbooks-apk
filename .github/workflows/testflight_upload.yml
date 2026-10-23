@@ -5,7 +5,7 @@ on:
   push:
     # QA-only release from this isolated branch while Railway is unavailable.
     # The public App Store/Play workflows and main branch are unchanged.
-    branches: [main, feature/testflight-quality-and-reliability-20261023, feature/preorder-invoice-pin-login-20261023]
+    branches: [main, feature/testflight-quality-and-reliability-20261023, feature/preorder-invoice-pin-login-20261023, fix/cancelled-preorder-reorder-20261024]
     paths:
       - '.github/workflows/testflight_upload.yml'
       - '.github/ios-release-trigger'

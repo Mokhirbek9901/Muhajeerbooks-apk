@@ -827,6 +827,22 @@ class BackendService {
         .map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
+  Future<List<Map<String,dynamic>>> discoverPreorders(
+      String installId,String name,String phone) async {
+    final raw=await _customerRpc('customer_preorder_discovery',{
+      'p_install_id':installId,'p_name':name,'p_phone':phone});
+    if(raw is! List)return const [];
+    return raw.whereType<Map>().map((row)=>Map<String,dynamic>.from(row)).toList();
+  }
+
+  Future<List<Map<String,dynamic>>> preorderActivity(
+      String installId,String name,String phone) async {
+    final raw=await _customerRpc('customer_preorder_activity_list',{
+      'p_install_id':installId,'p_name':name,'p_phone':phone,'p_limit':60});
+    if(raw is! List)return const [];
+    return raw.whereType<Map>().map((row)=>Map<String,dynamic>.from(row)).toList();
+  }
+
   Future<void> changePreorderExtra(String installId, int preorderId,
       String bookId, int delta) async {
     final result = await _customerRpc('customer_preorder_extra_change', {
@@ -1554,6 +1570,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _startLiveBooksSync();
     unawaited(_checkRestockNotificationsQuietly());
     unawaited(refreshCustomerPushMessages());
+      unawaited(refreshPreorderNotices());
     unawaited(_refreshCustomerOrderStatusesQuietly());
     _orderStatusTimer?.cancel();
     _orderStatusTimer = Timer.periodic(
@@ -1689,6 +1706,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       unawaited(_refreshBooksQuietly());
       unawaited(_checkRestockNotificationsQuietly());
       unawaited(refreshCustomerPushMessages());
+      unawaited(refreshPreorderNotices());
     });
   }
 
@@ -1885,6 +1903,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       );
       notifyListeners();
       unawaited(refreshCustomerPushMessages());
+      unawaited(refreshPreorderNotices());
       unawaited(syncNativeCustomerPushIfAllowed());
     } catch (error) {
       debugPrint('Preorder local contact save skipped: ${error.runtimeType}');
@@ -1896,6 +1915,58 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     if (_backend == null) return const [];
     final id = await _local.installId();
     return _backend!.fetchPreorderBalances(id);
+  }
+
+  Future<String> preorderInstallationId() => _local.installId();
+
+  Future<List<Map<String,dynamic>>> myDiscoveredPreorders() async {
+    if(_backend==null)return const [];
+    final id=await _local.installId();
+    return _backend!.discoverPreorders(id,
+      (savedCustomer['name']??'').trim(),(savedCustomer['phone']??'').trim());
+  }
+
+  bool _preorderNoticeRefreshing=false;
+  Future<void> refreshPreorderNotices() async {
+    if(_backend==null||_preorderNoticeRefreshing)return;
+    _preorderNoticeRefreshing=true;
+    try{
+      final id=await _local.installId();
+      final events=await _backend!.preorderActivity(id,
+        (savedCustomer['name']??'').trim(),(savedCustomer['phone']??'').trim());
+      final seen=_customerNotices.map((n)=>'${n['id']??''}').toSet();
+      var changed=false;
+      for(final e in events){
+        final noticeId='preorder:${e['id']}';
+        if(seen.contains(noticeId))continue;
+        _customerNotices.add({
+          'id':noticeId,'kind':'preorder_status','status':'push',
+          'title':'${e['title']??'Oldindan zakaz'}',
+          'message':'${e['message']??''}',
+          'preorder_id':'${e['preorder_id']??''}',
+          'preorder_source':'${e['source']??''}',
+          'order_id':'',
+          'created_at':'${e['created_at']??DateTime.now().toIso8601String()}',
+          'read':false,
+        });
+        seen.add(noticeId);changed=true;
+      }
+      if(!changed)return;
+      _customerNotices.sort((a,b){
+        final da=DateTime.tryParse('${a['created_at']??''}') ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+        final db=DateTime.tryParse('${b['created_at']??''}') ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+        return db.compareTo(da);
+      });
+      if(_customerNotices.length>80){
+        _customerNotices.removeRange(80,_customerNotices.length);
+      }
+      await _local.saveCustomerNotices(_customerNotices);
+      notifyListeners();
+    }catch(error){
+      debugPrint('Preorder notices unavailable: ${error.runtimeType}');
+    }finally{_preorderNoticeRefreshing=false;}
   }
 
   Future<void> changePreorderExtra(int preorderId, String bookId, int delta) async {
@@ -2120,6 +2191,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(refreshCustomerPushMessages());
+      unawaited(refreshPreorderNotices());
       unawaited(_refreshCustomerOrderStatusesQuietly());
       unawaited(_checkRestockNotificationsQuietly());
     }

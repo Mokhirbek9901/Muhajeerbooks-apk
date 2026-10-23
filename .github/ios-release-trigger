@@ -68,3 +68,11 @@ No schema/order/stock bulk data changes in mobile app; protected read-only admin
 - Finalize reuses original PIN-protected prepaid record and settlement RPC; MUST NOT run normal placeOrder or create a duplicate order. Proof-submitted users may save address but cannot upload second receipt.
 - Flutter CI run 39997641868 SUCCESS (analyzer, all tests incl. new true checkout address + advance regression, iOS preview, KST order boundary checks).
 - This is iOS TestFlight ONLY. DO NOT modify public App Store, Play Market, main, Railway, or customer data. No production app update submission.
+
+2026-10-24 KST — GYEONGSAN CITY FREE HOME DELIVERY + PAID-RECEIPT RECONCILIATION, TESTFLIGHT ONLY
+- Real customer cart CheckoutPage is used for arriving preorders, with THREE selectable delivery modes: Korea postal, 경산 무료배송 (FREE home delivery to validated Gyeongsan address), and 경산 직접수령 (free pickup). The city delivery is NOT pickup.
+- Prepaid receipt proof_submitted / verified must not disable delivery radio controls. Choosing cheaper FREE Gyeongsan shipping is allowed; the ORIGINAL receipt amount is immutable; refundable overpayment is flagged for admin (not auto-refunded). No second checkout, deposit or proof.
+- Regular cart also recognizes 경산 무료배송 with no fee, validates city address; existing 4+ free delivery logic elsewhere kept.
+- Production Supabase migration gyeongsan_free_delivery_paid_preorders_20261024 successful; customer-rpc Edge v24 deployed. Original Yusufning qizi proof (₩16,000) preserved; new Gyeongsan hypothetical due ₩12,000, pending admin refund ₩4,000 after customer selects and saves.
+- Flutter CI #40001527617 SUCCESS (all Flutter tests including paid preorder switching to local FREE delivery, analyzer, iOS TestFlight preview).
+- Submit only iOS TestFlight; DO NOT publish App Store or Play Market, merge main, or touch Railway.

@@ -41,3 +41,10 @@ No schema/order/stock bulk data changes in mobile app; protected read-only admin
 2026-10-23 final iOS TestFlight-only candidate superseding preview #2072: preserve original installation-linked preorder balance checkout plus store verified/non-verified preorder contact for in-app notices without granting account verification to a changed phone number. Tested database reservation, deposit reconciliation, extras, cancellation rollback, 4+ shipping. Does NOT submit to public App Store, Google Play, Railway or main.
 
 2026-10-23 final QA additive shipment update for iOS TESTFLIGHT ONLY: admin preorder detail now has Yangi partiya qo‘shish (incremental received stock; existing stock never overwritten). Backend admin_preorder_receive_batch atomic and service-role only; accepted preorders reserved from received batch before remaining stock is shown. Simulated initial 1 + received 2, reserve 2, free 1 with rollback. Maintains double-cancel confirmation, prepaid invoice/add-ons, private customer in-app messages. No public App Store/Play, Railway, or main merge; native OS push delivery not yet deployed.
+
+2026-10-23 owner-requested TestFlight-only customer preorder lookup:
+- Profile > Oldindan zakazlarim combines native and web preorders; device-ID OR exact profile name+phone discovers legacy web TestFlight requests.
+- New web preorders save install ID; legacy contact matches show safe read-only status with no payment proof disclosure.
+- Install-scoped/contact-scoped in-app preorder activity events route customer notice taps to matching preorder first.
+- Web UUID preorder IDs handled as strings, not numbers; widget regression tests included.
+- No public App Store, Play Market or Railway deployment; no main merge.

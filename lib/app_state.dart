@@ -1147,6 +1147,7 @@ class _LocalStore {
   static const _installIdKey = 'muhajeer_install_id_v1';
   static const _secureInstallIdKey = 'muhajeer_install_id_secure_v2';
   static const _customerPinSessionKey = 'muhajeer_pin_session_v1';
+  static const _pinOrderArchiveKey = 'muhajeer_pin_order_archive_v1';
   static const _restockSubscriptionsKey = 'muhajeer_restock_subscriptions_v1';
   static const _recentlyViewedKey = 'muhajeer_recently_viewed_v1';
   static const _catalogCursorKey = 'muhajeer_catalog_cursor_v1';
@@ -1192,6 +1193,56 @@ class _LocalStore {
       _ordersKey,
       jsonEncode(orders.map((e) => e.toMap()).toList()),
     );
+  }
+
+  /// Keep private native order history encrypted across local sign-out.
+  /// Never expose it until a matching PIN login has succeeded.
+  Future<void> archiveOrdersForPin(String phone, List<ShopOrder> orders) async {
+    if (kIsWeb) return;
+    final key = phone.replaceAll(RegExp(r'\D'), '');
+    if (key.length < 9 || orders.isEmpty) return;
+    final raw = await _secureStorage.read(key: _pinOrderArchiveKey);
+    final records = <String, dynamic>{};
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        records.addAll(Map<String, dynamic>.from(jsonDecode(raw) as Map));
+      } catch (_) { /* Ignore a corrupted old cache. */ }
+    }
+    final permitted = orders.where((order) =>
+      order.phone.replaceAll(RegExp(r'\D'), '') == key).toList();
+    if (permitted.isEmpty) return;
+    final oldRows = (records[key] as List?) ?? const [];
+    final dedup = <String, Map<String, dynamic>>{};
+    for (final row in oldRows.whereType<Map>()) {
+      final entry = Map<String, dynamic>.from(row);
+      final id = (entry['id'] ?? '').toString();
+      if (id.isNotEmpty) dedup[id] = entry;
+    }
+    for (final order in permitted) {
+      dedup[order.id] = order.toMap();
+    }
+    records[key] = dedup.values.toList();
+    await _secureStorage.write(
+      key: _pinOrderArchiveKey, value: jsonEncode(records));
+  }
+
+  Future<List<ShopOrder>> readOrdersAfterPinLogin(String phone) async {
+    if (kIsWeb) return const [];
+    final key = phone.replaceAll(RegExp(r'\D'), '');
+    if (key.length < 9) return const [];
+    try {
+      final raw = await _secureStorage.read(key: _pinOrderArchiveKey);
+      if (raw == null || raw.isEmpty) return const [];
+      final data = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+      return ((data[key] as List?) ?? const [])
+        .whereType<Map>()
+        .map((row) => ShopOrder.fromMap(Map<String, dynamic>.from(row)))
+        .where((order) =>
+          order.phone.replaceAll(RegExp(r'\D'), '') == key)
+        .toList();
+    } catch (_) {
+      return const [];
+    }
   }
 
   Future<List<Map<String, dynamic>>> loadCustomerNotices() async {
@@ -1825,6 +1876,19 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     await setAuthenticatedCustomer(name,savedPhone,verified:false);
     await _local.savePinSession(token);
     _pinSession=token;
+    final restored = await _local.readOrdersAfterPinLogin(savedPhone);
+    if (restored.isNotEmpty) {
+      final ordersById = <String, ShopOrder>{
+        for (final order in _localOrders.where((o) =>
+            _customerPhoneKey(o.phone) == _customerPhoneKey(savedPhone)))
+          order.id: order,
+        for (final order in restored) order.id: order,
+      };
+      _localOrders
+        ..clear()
+        ..addAll(ordersById.values);
+      await _local.saveOrders(_localOrders);
+    }
     notifyListeners();
   }
 
@@ -1857,6 +1921,15 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
     if ((savedCustomer['phone'] ?? '').trim().isNotEmpty) {
       unawaited(_unregisterNativeCustomerPushQuietly());
+    }
+    // Securely archive existing orders BEFORE clearing this device's data.
+    final oldPhone = (savedCustomer['phone'] ?? '').trim();
+    try {
+      await _local.archiveOrdersForPin(oldPhone,
+        _localOrders.isNotEmpty ? List<ShopOrder>.from(_localOrders)
+          : await _local.loadOrders());
+    } catch (archiveError) {
+      debugPrint('Secure order archive not available');
     }
     // Clear this device's account-specific data. Keep the durable device ID:
     // it is used for unique-install analytics and PIN-linked order recovery.

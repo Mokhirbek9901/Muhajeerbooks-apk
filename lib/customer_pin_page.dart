@@ -91,8 +91,9 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
                    '${state.savedCustomer['phone'] ?? ''}',
                 textAlign: TextAlign.center),
               const SizedBox(height: 18),
-              const Text('Shu qurilmada PINni har buyurtmada yozish shart emas. '
-                'Boshqa qurilmadan eski buyurtmalaringizni topish uchun PINingizni eslab qoling.',
+              const Text('Shaxsiy PIN: ••••\nPIN maxfiy saqlanadi va ochiq ko‘rsatilmaydi. '
+                'Shu qurilmada uni har buyurtmada yozish shart emas. '
+                'Boshqa qurilmada telefon raqam va PIN bilan kiring.',
                 textAlign: TextAlign.center),
               const SizedBox(height: 20),
               OutlinedButton.icon(
@@ -121,16 +122,18 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
             children: [
               const Icon(Icons.password_outlined, size: 48),
               const SizedBox(height: 12),
-              Text(creating ? 'Ism, telefon va PIN' : 'Boshqa qurilmadan kirish',
+              Text(creating ? 'Ism, telefon va PIN' :
+                 (phone.text.trim().isNotEmpty && !editLoginPhone
+                    ? 'PIN bilan kirish' : 'Boshqa qurilmadan kirish'),
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 21,fontWeight: FontWeight.w800)),
               const SizedBox(height: 7),
               Text(creating
                 ? 'Bir marta ism, telefon va 4 xonali PINni kiriting. '
-                  'Keyingi buyurtmalarda avtomatik ishlatiladi. '
-                  'Boshqa qurilmada buyurtmalaringizni topish uchun '
-                  'PINni unutmang.'
-                : 'Telefon raqamingiz va 4 xonali PINni yozing. SMS kelmaydi.',
+                  'Keyingi buyurtmalarda avtomatik ishlatiladi. PINni unutmang.'
+                : (phone.text.trim().isNotEmpty && !editLoginPhone
+                  ? 'Bu telefonda faqat 4 xonali PINni kiriting. SMS kelmaydi.'
+                  : 'Telefon raqamingiz va 4 xonali PINni kiriting. SMS kelmaydi.'),
                 textAlign: TextAlign.center),
               const SizedBox(height: 22),
               if (creating) ...[
@@ -144,7 +147,18 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
                 ),
                 const SizedBox(height: 12),
               ],
-              TextFormField(
+              if (!creating && phone.text.trim().isNotEmpty && !editLoginPhone) ...[
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.phone_outlined),
+                  title: Text(phone.text),
+                  subtitle: const Text('Saqlangan raqam'),
+                  trailing: TextButton(
+                    onPressed: () => setState(() => editLoginPhone = true),
+                    child: const Text('Boshqa raqam'),
+                  ),
+                ),
+              ] else TextFormField(
                 controller: phone,
                 keyboardType: TextInputType.phone,
                 decoration: const InputDecoration(
@@ -204,6 +218,7 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
               TextButton(
                 onPressed: busy ? null : () => setState(() {
                   creating = !creating;
+                  editLoginPhone = false;
                   pin.clear();
                   confirm.clear();
                 }),
@@ -213,8 +228,8 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
               ),
               const SizedBox(height: 12),
               const Text('Muhim: PINni eslab qoling! SMS orqali tiklash mavjud emas. '
-                'Sessiyadan chiqib ketganingizdan keyin eski profilni '
-                'ismsiz va PINsiz ochib bo‘lmaydi. PINni xavfsiz saqlang.',
+                'Boshqa qurilmada telefon raqami va PIN kerak bo‘ladi. '
+                'PIN ilovada ochiq ko‘rsatilmaydi.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.black54, fontSize: 12)),
             ],

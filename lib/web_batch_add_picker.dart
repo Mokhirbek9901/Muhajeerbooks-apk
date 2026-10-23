@@ -353,9 +353,23 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   onChanged: (_) => setState(() {}),
                   decoration: const InputDecoration(
-                    labelText: 'Kelgan dona', isDense: true,
+                    labelText: _mode=='old'
+                      ? 'Shu partiyada jami (tahrirlash)' : 'Kelgan dona',
+                    isDense: true,
                     border: OutlineInputBorder()),
                 )),
+                IconButton(
+                  tooltip:'1 dona kamaytirish',
+                  onPressed:_submitting || chosen.qty<=(_mode=='old'?0:1)
+                    ?null:()=>setState(()=>
+                      chosen.quantity.text='${chosen.qty-1}'),
+                  icon:const Icon(Icons.remove_circle_outline)),
+                IconButton(
+                  tooltip:'1 dona ko‘paytirish',
+                  onPressed:_submitting || chosen.qty>=10000
+                    ?null:()=>setState(()=>
+                      chosen.quantity.text='${chosen.qty+1}'),
+                  icon:const Icon(Icons.add_circle_outline)),
                 const SizedBox(width: 10),
                 Expanded(child: TextField(
                   controller: chosen.cost,
@@ -375,6 +389,15 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                   },
                   icon: const Icon(Icons.restore_outlined)),
               ]),
+              if(_mode=='old' && _previousQty.containsKey(id))
+                Padding(padding:const EdgeInsets.only(top:8),
+                  child:Align(alignment:Alignment.centerLeft,
+                    child:Text(
+                      'Avval: ${_previousQty[id]} ta  →  '
+                      'Hozir: ${chosen.qty} ta  '
+                      '(farq: ${chosen.qty-(_previousQty[id]??0)} ta)',
+                      style:const TextStyle(
+                        fontWeight:FontWeight.w800,fontSize:12)))),
               Align(alignment: Alignment.centerRight,
                 child: Text('Partiya qiymati: ${_money(chosen.qty * (chosen.unitCost < 0 ? 0 : chosen.unitCost))}',
                 style: const TextStyle(
@@ -409,7 +432,8 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
           .fold<int>(0, (sum, t) => sum + ((t['amount'] as num?)?.toInt() ?? 0));
         final listOfExisting = <DropdownMenuItem<String>>[
           for (final row in imported) DropdownMenuItem(
-            value: 'import:${row['id']}',
+            value: (row['source']=='finance_group'?'finance_group':'import')+
+              ':${row['id']}',
             child: Text(
               '${row['purchase_date']} • ${row['title']}',
               overflow: TextOverflow.ellipsis)),
@@ -421,7 +445,16 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
         ];
         final search = _search.text.trim().toLowerCase();
         final visible = books.where((b) =>
-          (b['title'] ?? '').toString().toLowerCase().contains(search)).toList();
+          (b['title'] ?? '').toString().toLowerCase().contains(search)
+          && (!_onlySelected || _selected.containsKey(b['id'].toString())))
+          .toList()
+          ..sort((a,b) {
+            final aChosen=_selected.containsKey(a['id'].toString())?0:1;
+            final bChosen=_selected.containsKey(b['id'].toString())?0:1;
+            if(aChosen!=bChosen)return aChosen.compareTo(bChosen);
+            return (a['title']??'').toString().compareTo(
+              (b['title']??'').toString());
+          });
         final sum = _selected.values.fold<int>(0,(s,e) =>
           s + e.qty * (e.unitCost < 0 ? 0 : e.unitCost));
         return Column(children: [
@@ -439,6 +472,8 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                   ],
                   selected: {_mode}, onSelectionChanged: _submitting
                     ? null : (x) => setState(() {
+                      _resetDraft();
+                      _existing=null;
                       _mode = x.first;
                       _syncStock = false;
                     })),
@@ -479,7 +514,25 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                       labelText: 'Eski partiyani tanlang',
                       border: OutlineInputBorder()),
                     items: listOfExisting,
-                    onChanged: _submitting ? null : (v) => setState(() => _existing=v)),
+                    onChanged: _submitting ? null : (v) => _openOldBatch(v,data)),
+                  if(_existingLoading)
+                    const Padding(padding:EdgeInsets.symmetric(vertical:12),
+                      child:Row(children:[
+                        SizedBox(width:20,height:20,
+                          child:CircularProgressIndicator(strokeWidth:2)),
+                        SizedBox(width:12),
+                        Expanded(child:Text('Eski partiyadagi kitoblar yuklanmoqda...')),
+                      ]))
+                  else if(_existingRevision!=null)
+                    Padding(padding:const EdgeInsets.symmetric(vertical:9),
+                      child:Text(
+                        'Avvalgi partiyadagi ${_previousQty.length} nomdagi '
+                        'kitob va ularning dona soni yuklandi. '
+                        'Sonni ustiga bosib to‘g‘rilang. 2 → 3 degani '
+                        'yangi 3 ta qo‘shish emas, jami 3 ta bo‘ladi.',
+                        style:const TextStyle(
+                          fontWeight:FontWeight.w800,
+                          color:UzbekCustomerColors.navy))),
                   const SizedBox(height: 8),
                   const Text(
                     'Eski partiyaga kitoblar faqat tarixiy qayd sifatida bog‘lanadi. '
@@ -549,6 +602,13 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                   ),
                 ),
                 _sectionTitle('3. Katalogdan kitoblarni belgilang'),
+                if(_mode=='old') SwitchListTile.adaptive(
+                  contentPadding:EdgeInsets.zero,
+                  value:_onlySelected,
+                  onChanged:(v)=>setState(()=>_onlySelected=v),
+                  title:const Text('Faqat shu partiyadagi belgilangan kitoblar'),
+                  subtitle:const Text('Qidiruvni osonlashtiradi;'
+                    ' barcha kitoblarni ko‘rish uchun o‘chiring')),
                 const Text(
                   'Eski partiyaga faqat transport bog‘lash uchun '
                   'kitob tanlash shart emas.',
@@ -597,7 +657,7 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                   ],
                 )),
                 FilledButton.icon(
-                  onPressed: _submitting ? null : _save,
+                  onPressed: _submitting || _existingLoading ? null : _save,
                   icon: _submitting ? const SizedBox(width: 16,height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.save_outlined),

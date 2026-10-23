@@ -524,7 +524,7 @@ class _AdminQualityHubState extends State<_AdminQualityHub> {
   void _openTracking() {
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => Scaffold(
-        appBar: AppBar(title: const Text('Kuzatuv raqamisiz')),
+        appBar: AppBar(title: const Text('Yangi ilova zakazlari — tracking yo‘q')),
         body: _OrdersAdmin(api: widget.api, initialFilter: 'tracking_missing'),
       ),
     )).then((_) {
@@ -556,9 +556,7 @@ class _AdminQualityHubState extends State<_AdminQualityHub> {
         final noPublisher = books.where((b) => b.publisher.trim().isEmpty).length;
         final lowStock = books.where((b) => b.stock > 0 && b.stock <= 2).length;
         final noDescription = books.where((b) => b.description.trim().isEmpty).length;
-        final tracking = orders.where((o) =>
-          o.status == 'shipping' && o.deliveryType != 'pickup' &&
-          o.trackingNumber.trim().isEmpty).length;
+        final tracking = orders.where(_requiresAppShipmentTracking).length;
         final items = <(String, String, int, IconData, VoidCallback)>[
           ('Sahifa soni yetishmaydi', 'Kitoblar ma’lumotini to‘ldirish',
             noPages, Icons.menu_book_outlined,
@@ -575,7 +573,7 @@ class _AdminQualityHubState extends State<_AdminQualityHub> {
           ('Kam qolgan kitoblar', '1 yoki 2 dona qolganlar',
             lowStock, Icons.inventory_2_outlined,
             () => _openBookFilter('low_stock')),
-          ('Kuzatuv raqamisiz', 'Ma’lumot uchun: raqam ixtiyoriy, jo‘natish yakuniy holat',
+          ('Tracking kiritilmagan', 'Faqat yangi ilova zakazlari; eski, Telegram va Instagram chiqarilgan',
             tracking, Icons.local_shipping_outlined,
             _openTracking),
         ];

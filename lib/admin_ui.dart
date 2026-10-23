@@ -745,6 +745,27 @@ class _AdminApi {
     throw StateError('20 000 dan ortiq yozuv bor. Tarix to‘liq yuklanmadi.');
   }
 
+  /// Updates one native preorder, optimistic-status guarded on the server.
+  /// Unlike a normal sale, this does not touch inventory or an existing receipt.
+  Future<Map<String, dynamic>> setNativePreorderStatus({
+    required int id,
+    required String expectedStatus,
+    required String status,
+    String note = '',
+  }) async {
+    final result = await _rpc('admin_native_preorder_set_status', params: {
+      'p_secret': secret,
+      'p_id': id,
+      'p_expected_status': expectedStatus,
+      'p_status': status,
+      'p_note': note.trim(),
+    });
+    if (result is! Map || result['status'] != status) {
+      throw StateError('Zakaz holati serverda tasdiqlanmadi.');
+    }
+    return Map<String, dynamic>.from(result);
+  }
+
   Future<Map<String, dynamic>> demandAnalytics() async {
     final raw = await _rpc('admin_demand_analytics', params: {'p_secret': secret});
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};

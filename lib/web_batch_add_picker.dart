@@ -104,7 +104,6 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
   final Set<String> _originalTransportIds = <String>{};
   int _loadGeneration = 0;
   bool _existingLoading = false;
-  bool _onlySelected = false;
   bool _syncStock = false;
   bool _submitting = false;
   bool _confirming = false;
@@ -153,7 +152,6 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
     _existingSnapshot=null;
     _existingRevision=null;
     _existingLoading=false;
-    _onlySelected=false;
   }
 
   Future<void> _openOldBatch(
@@ -213,7 +211,6 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
         _selectedTransportIds.addAll(linked);
         // Show the previously entered books first; searching still lets an
         // admin select any other book.
-        _onlySelected=true;
         _existingLoading=false;
       });
     } catch(error) {
@@ -730,19 +727,10 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
               '${row['batch_date']} • ${row['title']}',
               overflow: TextOverflow.ellipsis)),
         ];
-        final search = _search.text.trim().toLowerCase();
-        final visible = books.where((b) =>
-          (b['title'] ?? '').toString().toLowerCase().contains(search)
-          && (search.isNotEmpty || _selected.containsKey(b['id'].toString())
-              || (_mode=='old' && !_onlySelected)))
-          .toList()
-          ..sort((a,b) {
-            final aChosen=_selected.containsKey(a['id'].toString())?0:1;
-            final bChosen=_selected.containsKey(b['id'].toString())?0:1;
-            if(aChosen!=bChosen)return aChosen.compareTo(bChosen);
-            return (a['title']??'').toString().compareTo(
-              (b['title']??'').toString());
-          });
+        final selectedBooks=books
+          .where((b)=>_selected.containsKey(b['id'].toString())).toList();
+        final totalQuantity=_selected.values.fold<int>(0,
+          (count,item)=>count+item.qty);
         final sum = _bookValue();
         final financeAmount =
           (_existingSnapshot?['finance_purchase_total'] as num?)?.toInt();
@@ -925,122 +913,101 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                     style: TextStyle(fontSize: 12,
                       color: UzbekCustomerColors.textMuted)),
                 ],
-                _sectionTitle('2. Transport xarajatlarini tanlang'),
-                const Text(
-                  'Moliya bo‘limida saqlangan transport xarajatlari. '
-                  'Tegishli xarajatlarni belgilang: boshqa partiyaga '
-                  'biriktirilgan transport qayta tanlanmaydi.',
-                  style: TextStyle(fontSize: 12,
-                    color: UzbekCustomerColors.textMuted, height: 1.35),
-                ),
-                const SizedBox(height: 8),
-                if (transports.isEmpty)
-                  const Card(child: Padding(
-                    padding: EdgeInsets.all(15),
-                    child: Text('Moliyada transport xarajatlari topilmadi.')))
-                else
-                  for (final transport in transports)
-                    Builder(builder: (ctx) {
-                      final expenseId = (transport['id'] ?? '').toString();
-                      final alreadyLinked = transport['linked_to'] != null;
-                      final transportAmount =
-                        (transport['amount'] as num?)?.toInt() ?? 0;
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: CheckboxListTile(
-                          value: _selectedTransportIds.contains(expenseId),
-                          onChanged: _submitting || alreadyLinked ? null
-                            : (value) => setState(() {
-                              if (value ?? false) {
-                                _selectedTransportIds.add(expenseId);
-                              } else {
-                                _selectedTransportIds.remove(expenseId);
-                              }
-                            }),
-                          controlAffinity: ListTileControlAffinity.leading,
-                          title: Text(
-                            '${_money(transportAmount)} • '
-                            '${(transport['note'] ?? 'Transport').toString()}',
-                            style: const TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                          subtitle: Text(
-                            '${transport['expense_date'] ?? ''} • '
-                            '${alreadyLinked
-                                ? 'Biriktirilgan: ${transport['linked_to']}'
-                                : 'Partiyaga biriktirilmagan'}',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ),
-                      );
-                    }),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Text(
-                      'Tanlangan transport: ${_money(transportTotal)}',
-                      style: const TextStyle(fontWeight: FontWeight.w900,
-                        color: UzbekCustomerColors.navy),
-                    ),
+                _sectionTitle('2. Partiyadagi kitoblar'),
+                Card(color:Colors.white,child:Padding(
+                  padding:const EdgeInsets.all(14),
+                  child:Column(
+                    crossAxisAlignment:CrossAxisAlignment.start,
+                    children:[
+                      Text(
+                        '${_selected.length} nomdagi kitob • $totalQuantity dona',
+                        style:const TextStyle(fontWeight:FontWeight.w900,
+                          fontSize:16,color:UzbekCustomerColors.navy)),
+                      const SizedBox(height:4),
+                      const Text('Pastda tanlangan kitoblarning soni '
+                        'va tannarxini alohida tahrirlang.',
+                        style:TextStyle(fontSize:12,
+                          color:UzbekCustomerColors.textMuted)),
+                      const SizedBox(height:12),
+                      SizedBox(width:double.infinity,
+                        child:FilledButton.icon(
+                          onPressed:_submitting || _existingLoading
+                            ?null:()=>_openBookPicker(books),
+                          icon:const Icon(Icons.library_add_outlined),
+                          label:Text(_selected.isEmpty
+                            ?'Kitoblarni tanlash'
+                            :'Yana kitob qo‘shish'),
+                        )),
+                    ],
                   ),
-                ),
-                _sectionTitle('3. Katalogdan kitoblarni belgilang'),
-                if(_mode=='old')...[
-                  SwitchListTile.adaptive(
-                    contentPadding:EdgeInsets.zero,
-                    value:_onlySelected,
-                    onChanged:(v)=>setState(()=>_onlySelected=v),
-                    title:const Text('Faqat shu partiyadagi kitoblar'),
-                    subtitle:const Text('Qidiruvda boshqa kitoblar ham chiqadi.')),
-                  OutlinedButton.icon(
-                    onPressed:_submitting || _existingLoading
-                      ? null:_showAllBooksForAdding,
-                    icon:const Icon(Icons.add_circle_outline),
-                    label:const Text('Yana kitob qo‘shish / barcha kitoblar'),
-                  ),
-                ],
-                const Text(
-                  'Eski partiyaga faqat transport bog‘lash uchun '
-                  'kitob tanlash shart emas.',
-                  style: TextStyle(fontSize: 12,
-                    color: UzbekCustomerColors.textMuted),
-                ),
-                TextField(
-                  controller: _search,
-                  focusNode: _searchFocus,
-                  onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(
-                    hintText: 'Kitob nomini yozib tez toping...',
-                    prefixIcon: Icon(Icons.search_rounded),
-                    suffixIcon:_search.text.isNotEmpty?IconButton(
-                      tooltip:'Qidiruvni tozalash',
-                      onPressed:()=>setState(()=>_search.clear()),
-                      icon:const Icon(Icons.close)):null,
-                    border:const OutlineInputBorder()),
-                ),
-                const SizedBox(height: 7),
-                Text('${_selected.length} ta kitob belgilandi • '
-                  '${visible.length} ta katalog natijasi',
-                  style: const TextStyle(fontWeight: FontWeight.w700,
-                    color: UzbekCustomerColors.textMuted, fontSize: 12)),
-                const SizedBox(height: 8),
-                if(visible.isEmpty)
-                  Padding(
-                    padding:const EdgeInsets.symmetric(vertical:22),
-                    child:Text(
-                      search.isEmpty && _selected.isEmpty
-                        ? 'Kitob qo‘shish uchun yuqoridagi qidiruvga '
-                          'kitob nomini yozing.'
-                        : search.isEmpty && _onlySelected
-                        ? 'Bu partiyada belgilangan kitob yo‘q. '
-                          'Yangi kitob qo‘shish tugmasini bosing.'
-                        : 'Bu nomda kitob topilmadi.',
-                      textAlign:TextAlign.center,
-                      style:const TextStyle(
+                )),
+                const SizedBox(height:10),
+                if(selectedBooks.isEmpty)
+                  const Card(child:Padding(
+                    padding:EdgeInsets.all(20),
+                    child:Column(children:[
+                      Icon(Icons.menu_book_outlined,size:32,
                         color:UzbekCustomerColors.textMuted),
-                    ),
-                  ),
-                for (final book in visible) _bookCard(book),
+                      SizedBox(height:8),
+                      Text('Hali kitob belgilanmagan',
+                        style:TextStyle(fontWeight:FontWeight.w800)),
+                      SizedBox(height:5),
+                      Text('Yuqoridagi tugma orqali kitob nomini '
+                        'qidirib qo‘shing.'),
+                    ])))
+                else
+                  for(final book in selectedBooks) _bookCard(book),
+                const SizedBox(height:14),
+                Card(color:Colors.white,child:ExpansionTile(
+                  key:const ValueKey('batch-transport'),
+                  initiallyExpanded:false,
+                  leading:const Icon(Icons.local_shipping_outlined,
+                    color:UzbekCustomerColors.navy),
+                  title:const Text('3. Transport xarajatlari',
+                    style:TextStyle(fontWeight:FontWeight.w900)),
+                  subtitle:Text('${_selectedTransportIds.length} ta tanlangan'
+                    ' • ${_money(transportTotal)}',
+                    style:const TextStyle(fontSize:12)),
+                  children:[
+                    const Padding(
+                      padding:EdgeInsets.fromLTRB(14,4,14,10),
+                      child:Text('Moliyada avval yozilgan transport '
+                        'xarajatlarini bog‘lash mumkin. '
+                        'Bu yerda qayta xarajat yaratilmaydi.',
+                        style:TextStyle(fontSize:12,
+                          color:UzbekCustomerColors.textMuted))),
+                    if(transports.isEmpty)
+                      const Padding(
+                        padding:EdgeInsets.all(14),
+                        child:Text('Transport xarajati topilmadi.'))
+                    else
+                      for(final transport in transports)
+                        Builder(builder:(ctx) {
+                          final id=(transport['id']??'').toString();
+                          final linked=transport['linked_to']!=null;
+                          final amount=(transport['amount'] as num?)?.toInt()??0;
+                          return CheckboxListTile(
+                            dense:true,
+                            value:_selectedTransportIds.contains(id),
+                            onChanged:_submitting || linked?null:(v)=>setState((){
+                              if(v??false){_selectedTransportIds.add(id);}
+                              else{_selectedTransportIds.remove(id);}
+                            }),
+                            controlAffinity:ListTileControlAffinity.leading,
+                            title:Text('${_money(amount)} • '
+                              '${transport['note']??'Transport'}',
+                              style:const TextStyle(
+                                fontWeight:FontWeight.w800)),
+                            subtitle:Text(linked
+                              ?'Biriktirilgan: ${transport['linked_to']}'
+                              :'Mavjud, biriktirilmagan',
+                              style:const TextStyle(fontSize:11)),
+                          );
+                        }),
+                    const SizedBox(height:8),
+                  ],
+                )),
+                const SizedBox(height:18),
               ]),
           ))),
           SafeArea(top: false, child: Container(

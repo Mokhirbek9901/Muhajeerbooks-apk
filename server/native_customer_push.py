@@ -42,39 +42,42 @@ def send_customer_apns_order_event(event_secret, phone, notifications, order, rp
             "apns-priority": "10",
         }
         sent = failed = 0
-        order_id = str(order.get("order_id") or "")[:64]
-        order_number = str(order.get("order_number") or "")[:24]
+        # Phone ownership is not verified through SMS in this app.
+        # Do not reveal order IDs, items, amounts or addresses on lock screens.
+        event = str(order.get("event", "")).strip().lower()
+        title, message = {
+            "submitted": ("Buyurtma yuborildi ✅", "Buyurtmangiz haqidagi ma’lumot ilovada."),
+            "accepted": ("Buyurtma qabul qilindi ✅", "Buyurtmangiz holati yangilandi. Tafsilotlar ilovada."),
+            "shipping": ("Buyurtmangiz jo‘natildi 🚚", "Pochtaga topshirildi. Odatda 1–2 kunda yetib boradi. Tafsilotlar ilovada."),
+            "review_reminder": ("Muhajeer Books 📚", "Kitoblaringiz haqidagi yangi eslatma ilovada."),
+        }.get(event, ("Muhajeer Books", "Ilovada yangi bildirishnoma bor."))
+        payload = {
+            "aps": {"alert": {"title": title, "body": message},
+                    "sound": "default"},
+            "kind": "customer_order",
+        }
         with httpx.Client(http2=True, timeout=8.0) as client:
-            for note in notifications:
-                message = {
-                    "aps": {"alert": {
-                        "title": str(note.get("title", ""))[:200],
-                        "body": str(note.get("body", ""))[:950],
-                    }, "sound": "default"},
-                    "kind": "customer_order",
-                    "order_id": order_id, "order_number": order_number,
-                }
-                for token in tokens:
-                    try:
-                        response = client.post(
-                            f"https://api.push.apple.com/3/device/{token}",
-                            json=message, headers=headers,
-                        )
-                        if response.status_code == 200:
-                            sent += 1
-                        else:
-                            failed += 1
-                            reason = ""
-                            try:
-                                reason = str(response.json().get("reason", ""))[:80]
-                            except Exception:
-                                pass
-                            print(f"Customer APNs HTTP {response.status_code}: {reason}", flush=True)
-                    except Exception as exc:
+            for token in tokens:
+                try:
+                    response = client.post(
+                        f"https://api.push.apple.com/3/device/{token}",
+                        json=payload, headers=headers,
+                    )
+                    if response.status_code == 200:
+                        sent += 1
+                    else:
                         failed += 1
-                        print(f"Customer APNs request error: {type(exc).__name__}", flush=True)
+                        reason = ""
+                        try:
+                            reason = str(response.json().get("reason", ""))[:80]
+                        except Exception:
+                            pass
+                        print(f"Customer APNs HTTP {response.status_code}: {reason}", flush=True)
+                except Exception as exc:
+                    failed += 1
+                    print(f"Customer APNs request error: {type(exc).__name__}", flush=True)
         return {"configured": True, "devices": len(tokens), "sent": sent, "failed": failed}
     except Exception as exc:
         print(f"Customer APNs configuration error: {type(exc).__name__}", flush=True)
         return {"configured": True, "devices": len(tokens), "sent": 0,
-                "failed": len(tokens) * len(notifications)}
+                "failed": len(tokens)}

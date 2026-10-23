@@ -372,7 +372,7 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
               child:FilledButton.icon(
                 onPressed:()=>Navigator.pop(sheet),
                 icon:const Icon(Icons.check_circle_outline),
-                label:Text('${_selected.length} ta tanlandi • Tayyor')))),
+                label:Text('${_selected.length} ta tanlandi • Tayyor'))))),
         ]));
       }),
     );

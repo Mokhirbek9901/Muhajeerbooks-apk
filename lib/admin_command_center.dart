@@ -445,7 +445,7 @@ class _CombinedPreorderDetailPageState extends State<_CombinedPreorderDetailPage
 
   Future<void> _setStatus(String target) async {
     if (saving) return;
-    final noteController = TextEditingController();
+    var noteValue = '';
     final key = GlobalKey<FormState>();
     final requireReason = target == 'cancelled' || target == 'waiting';
     final title = const <String, String>{
@@ -470,7 +470,7 @@ class _CombinedPreorderDetailPageState extends State<_CombinedPreorderDetailPage
                   : 'Qayta ochish sababini kiriting.'),
             const SizedBox(height: 12),
             TextFormField(
-              controller: noteController,
+              onChanged: (value) => noteValue = value,
               maxLength: 500,
               maxLines: 3,
               decoration: InputDecoration(
@@ -492,13 +492,8 @@ class _CombinedPreorderDetailPageState extends State<_CombinedPreorderDetailPage
         ],
       ),
     );
-    if (confirmed != true || !mounted) {
-      // The dialog has been dismissed; its controller is no longer in use.
-      noteController.dispose();
-      return;
-    }
-    final note = noteController.text.trim();
-    noteController.dispose();
+    if (confirmed != true || !mounted) return;
+    final note = noteValue.trim();
     setState(() => saving = true);
     try {
       if (isWeb) {

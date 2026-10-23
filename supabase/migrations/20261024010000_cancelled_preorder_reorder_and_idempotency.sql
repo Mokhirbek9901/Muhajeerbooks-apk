@@ -193,6 +193,132 @@ exception when unique_violation then
 end;
 $function$;
 
+-- Reopening a cancelled historical record must not collide with a fresh order.
+CREATE OR REPLACE FUNCTION public.admin_native_preorder_set_status(p_secret text, p_id bigint, p_expected_status text, p_status text, p_note text DEFAULT ''::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare v public.preorders%rowtype; n text:=trim(coalesce(p_note,''));
+        h private.preorder_stock_holds%rowtype; e record;
+begin
+  if public._admin_secret_ok(p_secret) is not true then raise exception 'Admin ruxsati yo‘q'; end if;
+  if p_status not in ('waiting','accepted','cancelled') or p_id is null or length(n)>500 then
+    raise exception 'Noto‘g‘ri holat yoki izoh'; end if;
+  select * into v from public.preorders where id=p_id for update;
+  if not found then raise exception 'Zakaz topilmadi'; end if;
+  if exists(select 1 from private.admin_preorder_hidden a where a.source='native' and a.order_id=p_id::text)
+    then raise exception 'Arxiv zakazi'; end if;
+  if v.status is distinct from p_expected_status then raise exception 'Zakaz holati boshqa oynada o‘zgargan'; end if;
+  if v.status=p_status then return jsonb_build_object('status',p_status,'duplicate',true); end if;
+  if not ((v.status='waiting' and p_status in ('accepted','cancelled')) or
+    (v.status='contacted' and p_status in ('accepted','cancelled')) or
+    (v.status='accepted' and p_status='cancelled') or
+    (v.status='arrived' and p_status='cancelled') or
+    (v.status='cancelled' and p_status='waiting')) then raise exception 'Holat o‘tishi noto‘g‘ri'; end if;
+  if v.status='cancelled' and p_status='waiting' and exists(
+    select 1 from public.preorders newer
+      where newer.id<>p_id and newer.book_id=v.book_id
+        and newer.install_id=v.install_id
+        and newer.status in ('waiting','contacted','accepted','arrived')
+  ) then
+    raise exception 'Mijoz bu kitobga yangi faol zakaz bergan. Eski bekor qilingan zakazni qayta ochmang.';
+  end if;
+  if p_status in ('cancelled','waiting') and length(n)<3 then raise exception 'Sababini yozing'; end if;
+  if p_status='cancelled' then
+    if exists(select 1 from private.preorder_payment_requests r where r.preorder_id=p_id and r.payment_state='verified')
+      then raise exception 'Tasdiqlangan to‘lovni bekor qilishdan oldin qayta hisoblang'; end if;
+    -- Change status BEFORE restoring available stock. Otherwise the stock
+    -- trigger would immediately re-reserve these copies for this same order.
+    update public.preorders set status='cancelled' where id=p_id;
+    for e in select book_id,quantity from private.preorder_extra_holds
+      where preorder_id=p_id order by book_id for update
+    loop
+      delete from private.preorder_extra_holds where preorder_id=p_id and book_id=e.book_id;
+      update public.books set stock=stock+e.quantity where id=e.book_id;
+    end loop;
+    select * into h from private.preorder_stock_holds where preorder_id=p_id for update;
+    if found then
+      delete from private.preorder_stock_holds where preorder_id=p_id;
+      update public.books set stock=stock+h.quantity where id=h.book_id;
+    end if;
+    update private.preorder_payment_requests set payment_state='cancelled',updated_at=now()
+      where preorder_id=p_id;
+  end if;
+  if p_status<>'cancelled' then
+    update public.preorders set status=p_status where id=p_id;
+  end if;
+  if p_status='accepted' then
+    update public.books set stock=stock where id=v.book_id;
+  end if;
+  insert into private.admin_preorder_status_events(preorder_id,old_status,new_status,admin_note)
+    values(p_id,v.status,p_status,n);
+  return jsonb_build_object('status',p_status,'duplicate',false);
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.admin_web_preorder_manage(p_secret text, p_action text, p_payload jsonb DEFAULT '{}'::jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare s public.web_preorder_settings%rowtype; r public.web_preorder_requests%rowtype;
+ enabled_value boolean; arrival text; amount integer; batch integer; target text; note_value text;
+begin
+ if public._admin_secret_ok(p_secret) is not true then raise exception 'Ruxsat yo‘q'; end if;
+ if p_action='settings' then return public.web_preorder_config();
+ elsif p_action='save' then
+  enabled_value:=(p_payload->>'enabled')::boolean; arrival:=trim(coalesce(p_payload->>'arrival_note',''));
+  amount:=(p_payload->>'deposit_amount')::integer; batch:=(p_payload->>'batch_quantity')::integer;
+  if enabled_value is null or amount is null or batch is null or length(arrival)>200 or
+    (enabled_value and arrival='') or amount not between 5000 and 10000000 or batch not between 0 and 100000 then
+   raise exception 'Sana, avans va sonni tekshiring.'; end if;
+  select * into s from public.web_preorder_settings where id for update;
+  if (p_payload->>'revision')::bigint is distinct from s.revision then
+   raise exception 'Sozlamalar boshqa oynada o‘zgargan. Sahifani yangilang.'; end if;
+  update public.web_preorder_settings set enabled=enabled_value,arrival_note=arrival,deposit_amount=amount,
+   batch_quantity=batch,revision=revision+1,updated_at=now() where id;
+  return public.web_preorder_config();
+ elsif p_action='list' then
+  return coalesce((select jsonb_agg(to_jsonb(x)) from (select req.*,
+    (select e.delivery_state from private.web_preorder_events e where e.preorder_id=req.id and e.audience='customer' order by version desc limit 1) as notification_state,
+    (select coalesce(jsonb_agg(jsonb_build_object('status',h.status,'created_at',h.created_at,'message',h.body) order by h.version desc),'[]') from private.web_preorder_events h where h.preorder_id=req.id and h.audience='customer') as history
+    from public.web_preorder_requests req
+    where not exists (select 1 from private.admin_preorder_hidden h
+      where h.source='web' and h.order_id=req.id::text)
+    order by req.created_at desc,req.id desc
+      limit least(200,greatest(1,coalesce((p_payload->>'limit')::integer,200)))
+      offset greatest(0,coalesce((p_payload->>'offset')::integer,0))) x),'[]');
+ elsif p_action='status' then
+  target:=p_payload->>'status'; note_value:=trim(coalesce(p_payload->>'note',''));
+  if target is null or target not in ('waiting','accepted','arrived','cancelled') or length(note_value)>500 then raise exception 'Noto‘g‘ri holat'; end if;
+  select * into r from public.web_preorder_requests q where q.id=(p_payload->>'id')::uuid for update;
+  if not found then raise exception 'Buyurtma topilmadi'; end if;
+  if r.status=target then return jsonb_build_object('status',r.status,'version',r.status_version,'duplicate',true); end if;
+  if (p_payload->>'version')::integer is distinct from r.status_version then raise exception 'Holat boshqa oynada o‘zgargan. Ro‘yxatni yangilang.'; end if;
+  if not ((r.status='waiting' and target in ('accepted','cancelled')) or
+    (r.status='accepted' and target in ('arrived','cancelled')) or
+    (r.status='arrived' and target='cancelled') or
+    (r.status='cancelled' and target='waiting')) then raise exception 'Avval buyurtmani qabul qiling yoki bekor qilingan buyurtmani qayta oching.'; end if;
+  if r.status='cancelled' and target='waiting' and exists(
+    select 1 from public.web_preorder_requests newer
+     where newer.id<>r.id and newer.phone=r.phone
+       and newer.status in ('waiting','accepted','arrived')
+       and ( (r.book_id is not null and newer.book_id=r.book_id)
+         or (r.book_id is null and newer.book_id is null and newer.book_title=r.book_title))
+  ) then
+    raise exception 'Bu mijoz allaqachon yangi faol zakaz yuborgan. Eski bekor qilinganini qayta ochmang.';
+  end if;
+  if target in ('cancelled','waiting') and length(note_value)<3 then raise exception 'Sababini yozing (kamida 3 belgi).'; end if;
+  update public.web_preorder_requests q set status=target,status_note=note_value,status_version=q.status_version+1,updated_at=now() where q.id=r.id returning * into r;
+  return jsonb_build_object('status',r.status,'version',r.status_version,'duplicate',false,'inbox_created',true);
+ end if;
+ raise exception 'Noto‘g‘ri amal';
+end;
+$function$;
+
 revoke all on function public.customer_preorder_submit(text,uuid,text,text,integer,integer,text,text) from public,anon,authenticated;
 grant execute on function public.customer_preorder_submit(text,uuid,text,text,integer,integer,text,text) to service_role;
 revoke all on function public.web_preorder_submit(jsonb) from public,anon,authenticated;

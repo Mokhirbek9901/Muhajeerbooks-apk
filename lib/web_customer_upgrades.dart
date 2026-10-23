@@ -1,10 +1,14 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'uzbek_customer_style.dart';
 import 'push_notifications.dart';
+import 'app_state.dart';
+import 'preview_features.dart';
 
 // Address data remains on the customer's device: the current phone-only
 // profile is not verified strongly enough to expose cloud address records.
@@ -139,6 +143,9 @@ class WebCustomerSettingsPage extends StatefulWidget {
 class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
   String _status = 'checking';
   bool _busy = false;
+  bool get _nativeIosPreview =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS &&
+      webPreviewFeaturesAvailable;
 
   @override
   void initState() {
@@ -147,6 +154,15 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
   }
 
   Future<void> _checkStatus() async {
+    if (_nativeIosPreview) {
+      final permission = await Permission.notification.status;
+      if (!mounted) return;
+      setState(() => _status = permission.isGranted
+          ? 'native_allowed'
+          : permission.isPermanentlyDenied || permission.isRestricted
+              ? 'blocked' : 'off');
+      return;
+    }
     if (!kIsWeb || !pushNotificationsSupported) {
       if (mounted) setState(() => _status = 'unsupported');
       return;
@@ -169,7 +185,32 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
   }
 
   Future<void> _push() async {
-    if (_busy || !kIsWeb || !pushNotificationsSupported) return;
+    if (_busy) return;
+    if (_nativeIosPreview) {
+      setState(() => _busy = true);
+      try {
+        final current = await Permission.notification.status;
+        if (current.isPermanentlyDenied || current.isRestricted) {
+          await openAppSettings();
+        } else {
+          final permission = current.isGranted
+              ? current : await Permission.notification.request();
+          if (permission.isGranted && mounted) {
+            await context.read<AppState>().syncNativeCustomerPushIfAllowed();
+          }
+        }
+        await _checkStatus();
+        if (mounted && _status == 'native_allowed') {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('iPhone ruxsati faol. Push yetib borishi qurilmada tekshiriladi.'),
+          ));
+        }
+      } finally {
+        if (mounted) setState(() => _busy = false);
+      }
+      return;
+    }
+    if (!kIsWeb || !pushNotificationsSupported) return;
     setState(() => _busy = true);
     try {
       final ok = await enablePushNotifications();
@@ -208,9 +249,10 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final enabled = _status == 'enabled';
-    final available = kIsWeb && pushNotificationsSupported;
+    final enabled = _status == 'enabled' || _status == 'native_allowed';
+    final available = (kIsWeb && pushNotificationsSupported) || _nativeIosPreview;
     final statusLabel = _status == 'checking' ? 'Holat tekshirilmoqda…'
+      : _status == 'native_allowed' ? 'iPhone bildirishnoma ruxsati berilgan'
       : enabled ? 'Bildirishnomalar faol'
       : _status == 'blocked' ? 'Bildirishnoma ruxsati bloklangan'
       : available ? 'Hozircha yoqilmagan'
@@ -260,11 +302,12 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
                 const SizedBox(height: 12),
                 if (available) SizedBox(width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: _busy || enabled || _status == 'checking'
-                      ? null : _push,
+                    onPressed: _busy || _status == 'checking' ||
+                        (enabled && !_nativeIosPreview) ? null : _push,
                     icon: Icon(enabled ? Icons.check_circle_outline :
                         Icons.notifications_active_outlined),
                     label: Text(_busy ? 'Yoqilmoqda…'
+                      : _nativeIosPreview && enabled ? 'iPhone pushni qayta ulash'
                       : enabled ? 'Bildirishnomalar yoqilgan'
                       : 'Bildirishnomalarni yoqish'),
                   )),

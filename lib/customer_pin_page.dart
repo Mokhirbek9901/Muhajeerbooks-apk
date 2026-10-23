@@ -4,7 +4,8 @@ import 'package:provider/provider.dart';
 
 import 'app_state.dart';
 
-/// Optional PIN protects cross-device profile restoration; it is NOT SMS proof.
+/// SMS-free PIN-backed profile for placing orders and restoring access on another device.
+/// A PIN does not prove ownership of a telephone number.
 class CustomerPinPage extends StatefulWidget {
   const CustomerPinPage({super.key});
 
@@ -27,8 +28,8 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
     final saved = context.read<AppState>().savedCustomer;
     name = TextEditingController(text: saved['name'] ?? '');
     phone = TextEditingController(text: saved['phone'] ?? '');
-    creating = (saved['name'] ?? '').trim().length >= 2 &&
-        (saved['phone'] ?? '').trim().isNotEmpty;
+    // New profiles create a PIN; returning users can switch to PIN login.
+    creating = true;
   }
 
   @override
@@ -46,16 +47,15 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
     try {
       final state = context.read<AppState>();
       if (creating) {
-        await state.setAuthenticatedCustomer(
-          name.text.trim(), phone.text.trim(), verified: false);
-        await state.createPersonalPin(pin.text);
+        await state.enrollCustomerWithPin(
+          name.text.trim(), phone.text.trim(), pin.text);
       } else {
         await state.loginPersonalPin(phone.text.trim(), pin.text);
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(creating
-          ? '4 xonali PIN saqlandi ✅'
+          ? 'Profil yaratildi, PIN xavfsiz saqlandi ✅'
           : 'Profilingiz boshqa telefonda ham ochildi ✅'),
       ));
       Navigator.of(context).pop(true);
@@ -90,8 +90,8 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
                    '${state.savedCustomer['phone'] ?? ''}',
                 textAlign: TextAlign.center),
               const SizedBox(height: 18),
-              const Text('Shu qurilmada qayta-qayta kod yozish shart emas. '
-                'Boshqa telefon uchun o‘zingiz tanlagan PIN kerak.',
+              const Text('Shu qurilmada PINni har buyurtmada yozish shart emas. '
+                'Boshqa qurilmadan eski buyurtmalaringizni topish uchun PINingizni eslab qoling.',
                 textAlign: TextAlign.center),
               const SizedBox(height: 20),
               OutlinedButton.icon(
@@ -109,7 +109,7 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
       );
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('Shaxsiy 4 xonali PIN')),
+      appBar: AppBar(title: const Text('Mening ma’lumotlarim')),
       body: Center(child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 460),
         child: Form(
@@ -120,13 +120,15 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
             children: [
               const Icon(Icons.password_outlined, size: 48),
               const SizedBox(height: 12),
-              Text(creating ? 'Shaxsiy kod yarating' : 'PIN bilan kiring',
+              Text(creating ? 'Ism, telefon va PIN' : 'Boshqa qurilmadan kirish',
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 21,fontWeight: FontWeight.w800)),
               const SizedBox(height: 7),
               Text(creating
-                ? 'Ism va telefon bir marta saqlanadi. Boshqa telefoningizda '
-                  'profilga kirish uchun ushbu PIN kerak bo‘ladi.'
+                ? 'Bir marta ism, telefon va 4 xonali PINni kiriting. '
+                  'Keyingi buyurtmalarda avtomatik ishlatiladi. '
+                  'Boshqa qurilmada buyurtmalaringizni topish uchun '
+                  'PINni unutmang.'
                 : 'Telefon raqamingiz va 4 xonali PINni yozing. SMS kelmaydi.',
                 textAlign: TextAlign.center),
               const SizedBox(height: 22),
@@ -209,7 +211,7 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
                   : 'Yangi profil uchun PIN yaratish'),
               ),
               const SizedBox(height: 12),
-              const Text('Muhim: PIN unutilsa, SMS orqali tiklash mavjud emas. '
+              const Text('Muhim: PINni eslab qoling! SMS orqali tiklash mavjud emas. '
                 'Sessiyadan chiqib ketganingizdan keyin eski profilni '
                 'ismsiz va PINsiz ochib bo‘lmaydi. PINni xavfsiz saqlang.',
                 textAlign: TextAlign.center,
@@ -220,4 +222,17 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
       )),
     );
   }
+}
+
+ 
+/// One-time checkout gate; returns to the unfinished order after registration.
+/// For offline demo/test mode there is no remote identity service to enroll in.
+Future<bool> ensureCustomerCheckoutIdentity(BuildContext context) async {
+  final current=context.read<AppState>();
+  if (!current.backendConfigured || current.checkoutIdentityReady) return true;
+  await Navigator.of(context).push<bool>(MaterialPageRoute(
+    settings: const RouteSettings(name:'mb:checkout-profile'),
+    builder: (_) => const CustomerPinPage(),
+  ));
+  return context.mounted && context.read<AppState>().checkoutIdentityReady;
 }

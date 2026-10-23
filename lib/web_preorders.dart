@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_state.dart';
+import 'customer_pin_page.dart';
 import 'design_system.dart';
 import 'push_notifications.dart';
 import 'preview_features.dart';
@@ -312,6 +313,21 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
     initialName = name.text;
     initialPhone = phone.text;
     _reload();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _requireProfile());
+  }
+
+  Future<bool> _requireProfile() async {
+    if (!mounted) return false;
+    final ready = await ensureCustomerCheckoutIdentity(context);
+    if (!mounted) return false;
+    if (!ready) {
+      if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+      return false;
+    }
+    final saved = context.read<AppState>().savedCustomer;
+    name.text = (saved['name'] ?? '').trim();
+    phone.text = (saved['phone'] ?? '').trim();
+    return true;
   }
 
   @override
@@ -495,7 +511,8 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
   }
 
   Future<void> _submit() async {
-    if (busy || !_validateDetails()) return;
+    if (busy || !await _requireProfile()) return;
+    if (!mounted || !_validateDetails()) return;
     if (proofImage == null) {
       _message('Avans to‘lovi chekini yuklang.');
       return;

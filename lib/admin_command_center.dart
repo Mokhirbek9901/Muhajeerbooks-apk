@@ -425,6 +425,33 @@ class _CombinedPreorderDetailPageState extends State<_CombinedPreorderDetailPage
     }
   }
 
+  Future<void> _refreshRecord() async {
+    if (saving) return;
+    setState(() => saving = true);
+    try {
+      if (isWeb) {
+        final raw = await WebPreorderApi().admin(
+          widget.api.secret, 'list', {'limit': 200, 'offset': 0});
+        if (raw is! List) throw StateError('Zakazlar olinmadi');
+        final same = raw.whereType<Map>().where(
+          (v) => '${v['id']}' == '${record['id']}').toList();
+        if (same.isEmpty) throw StateError('Zakaz birinchi ro‘yxatda topilmadi');
+        if (mounted) setState(() =>
+          record.addAll(Map<String, dynamic>.from(same.first)));
+      } else {
+        final raw = await widget.api.nativePreordersAll();
+        final same = raw.where((v) => '${v['id']}' == '${record['id']}').toList();
+        if (same.isEmpty) throw StateError('Zakaz topilmadi');
+        if (mounted) setState(() => record.addAll(same.first));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Zakaz yangilanmadi: $e')));
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
   Future<void> _viewProof() async {
     final proof = '${record[isWeb ? 'payment_proof_url' : 'payment_proof_path'] ?? ''}'.trim();
     if (proof.isEmpty) return;
@@ -744,7 +771,14 @@ class _CombinedPreorderDetailPageState extends State<_CombinedPreorderDetailPage
     final proof = '${record[isWeb ? 'payment_proof_url' : 'payment_proof_path'] ?? ''}'.trim();
     return Scaffold(
       backgroundColor: UzbekCustomerColors.background,
-      appBar: AppBar(title: const Text('Oldindan zakazni boshqarish')),
+      appBar: AppBar(
+        title: const Text('Oldindan zakazni boshqarish'),
+        actions: [IconButton(
+          icon: const Icon(Icons.refresh_rounded),
+          tooltip: 'To‘lov holati va chekni yangilash',
+          onPressed: saving ? null : _refreshRecord,
+        )],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
         children: [

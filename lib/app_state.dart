@@ -2030,6 +2030,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     String note = '',
   }) async {
     if (_backend == null) return 'Oldindan buyurtma uchun internet kerak.';
+    if (!checkoutIdentityReady ||
+        customerName.trim() != (savedCustomer['name'] ?? '').trim() ||
+        phone.replaceAll(RegExp(r'\D'), '') !=
+          (savedCustomer['phone'] ?? '').replaceAll(RegExp(r'\D'), '')) {
+      throw StateError('Avval Mening ma’lumotlarim bo‘limida ism, telefon va PIN bilan kiring');
+    }
     final min = book.preorderDepositMin;
     final max = book.preorderDepositMax;
     if (quantity < 1 || quantity > 20) throw StateError('Kitob soni 1–20 orasida bo‘lishi kerak');
@@ -2752,6 +2758,16 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     String paymentStatus = 'paid',
     int? manualSubtotal,
   }) async {
+    if (_backend != null && !preserveCustomerProfile) {
+      if (!checkoutIdentityReady) {
+        throw StateError('Buyurtma berish uchun Mening ma’lumotlarim bo‘limida ism, telefon va PINni kiriting');
+      }
+      if (customerName.trim() != (savedCustomer['name'] ?? '').trim() ||
+          phone.replaceAll(RegExp(r'\D'), '') !=
+              (savedCustomer['phone'] ?? '').replaceAll(RegExp(r'\D'), '')) {
+        throw StateError('Buyurtmani profilingizdagi ism va telefon bilan rasmiylashtiring');
+      }
+    }
     final lines = cartLines;
     if (lines.isEmpty) throw StateError('Savatcha bo‘sh.');
     for (final line in lines) {

@@ -6746,15 +6746,57 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final savedProfessionalPhone =
         (state.savedCustomer['phone'] ?? '').replaceAll(RegExp(r'\D'), '');
     final canShowProfessionalMode =
-        savedProfessionalName == 'mohirbek' &&
+        !isPrepaid && savedProfessionalName == 'mohirbek' &&
         savedProfessionalPhone == '01024338600';
     final isGyeongsanPickup = delivery == '경산 직접수령';
-    final deliveryFee = isGyeongsanPickup ? 0 : state.cartDeliveryFee;
+    final prepaidDetails = ((prepaid?['extras'] as List?) ?? const [])
+      .whereType<Map>().map((r)=>Map<String,dynamic>.from(r)).toList();
+    final prepaidCount = ((prepaid?['quantity'] as num?)?.toInt() ?? 0) +
+      prepaidDetails.fold<int>(0,(sum,row)=>
+        sum+((row['quantity'] as num?)?.toInt() ?? 0));
+    final prepaidCanEdit = prepaid?['can_edit'] == true;
+    final prepaidShip = !prepaidCanEdit
+      ? ((prepaid?['shipping_fee'] as num?)?.toInt() ?? 4000)
+      : (isGyeongsanPickup ? 0
+        : (prepaidCount >= 4 && !state.discountBlocksFourPlusFreeDelivery
+          ? 0 : 4000));
+    final deliveryFee = isPrepaid ? prepaidShip
+      : (isGyeongsanPickup ? 0 : state.cartDeliveryFee);
+    final prepaidSubtotal = ((prepaid?['unit_price'] as num?)?.toInt() ?? 0) *
+       ((prepaid?['quantity'] as num?)?.toInt() ?? 0) +
+       ((prepaid?['extra_total'] as num?)?.toInt() ?? 0);
+    final prepaidDeposit = (prepaid?['deposit_credit'] as num?)?.toInt() ?? 0;
+    final prepaidDue = (prepaidSubtotal + prepaidShip - prepaidDeposit)
+      .clamp(0, 100000000).toInt();
     final professionalSubtotal =
         int.tryParse(manualPrice.text.trim()) ?? state.cartSubtotal;
-    final total =
-        (professionalMode ? professionalSubtotal : state.cartSubtotal) +
+    final total = isPrepaid ? prepaidSubtotal + prepaidShip
+      : (professionalMode ? professionalSubtotal : state.cartSubtotal) +
         deliveryFee;
+    if (isPrepaid && (prepaidLoading || prepaid == null) &&
+        prepaidError == null) {
+      return Scaffold(appBar:AppBar(title:const Text('Buyurtmani rasmiylashtirish')),
+        body:const Center(child:CircularProgressIndicator()));
+    }
+    if (isPrepaid && prepaidError != null) {
+      return Scaffold(appBar:AppBar(title:const Text('Buyurtmani rasmiylashtirish')),
+        body:Center(child:Padding(padding:const EdgeInsets.all(20),
+          child:Column(mainAxisSize:MainAxisSize.min,children:[
+            Text('Oldindan zakaz ochilmadi: $prepaidError',
+              textAlign:TextAlign.center),
+            TextButton(onPressed:()=>_refreshPrepaid(hydrate:true),
+              child:const Text('Qayta urinish')),
+          ]))));
+    }
+    if (isPrepaid &&
+        (prepaid?['status'] != 'arrived' || prepaid?['price_ready'] != true)) {
+      return Scaffold(appBar:AppBar(title:const Text('Buyurtmani rasmiylashtirish')),
+        body:Center(child:Padding(padding:const EdgeInsets.all(20),
+          child:Text(prepaid?['status'] == 'cancelled'
+            ? 'Bu oldindan zakaz bekor qilingan. Katalogdan yangi zakaz bering.'
+            : 'Kitob kelgandan keyin ushbu zakazni rasmiylashtira olasiz.',
+            textAlign:TextAlign.center))));
+    }
 
     return Scaffold(
       backgroundColor: UzbekCustomerColors.background,
@@ -6982,13 +7024,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   RadioListTile<String>(
                     value: '택배',
                     groupValue: delivery,
-                    onChanged: (v) => setState(() => delivery = v!),
+                    onChanged: isPrepaid && !prepaidCanEdit
+                      ? null : (v) => setState(() => delivery = v!),
                     title: const Text(
                       'Koreya bo‘ylab pochta (택배)',
                       style: TextStyle(fontWeight: FontWeight.w800),
                     ),
                     subtitle: Text(
-                      state.cartBundleDeliveryIncluded
+                      isPrepaid
+                          ? (prepaidCanEdit
+                              ? (prepaidShip == 0 ? '4+ kitob — BEPUL' : '₩4,000 • 1–2 ish kuni')
+                              : 'Avval yuborilgan to‘lovdagi pochta narxi saqlanadi')
+                          : state.cartBundleDeliveryIncluded
                           ? 'Set narxiga pochta kiritilgan • qo‘shimcha ₩0'
                           : (state.cartDeliveryFee == 0
                               ? (state.cartBundles.isNotEmpty
@@ -7003,7 +7050,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   RadioListTile<String>(
                     value: '경산 직접수령',
                     groupValue: delivery,
-                    onChanged: (v) => setState(() => delivery = v!),
+                    onChanged: isPrepaid && !prepaidCanEdit
+                      ? null : (v) => setState(() => delivery = v!),
                     title: const Text(
                       '경산dan (Gyeongsan) o‘zim olib ketaman',
                       style: TextStyle(fontWeight: FontWeight.w800),

@@ -1837,6 +1837,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     Book book, {
     required String customerName,
     required String phone,
+    int quantity = 1,
     required int depositAmount,
     required XFile paymentProof,
     String note = '',
@@ -1844,8 +1845,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     if (_backend == null) return 'Oldindan buyurtma uchun internet kerak.';
     final min = book.preorderDepositMin;
     final max = book.preorderDepositMax;
-    if (depositAmount < min || depositAmount > max) {
-      return 'Oldindan to‘lov ₩$min–₩$max oralig‘ida bo‘lishi kerak.';
+    if (quantity < 1 || quantity > 20) throw StateError('Kitob soni 1–20 orasida bo‘lishi kerak');
+    if (depositAmount < min * quantity || depositAmount > max * quantity) {
+      throw StateError('Jami avans ₩${min * quantity}–₩${max * quantity} oralig‘ida bo‘lsin.');
     }
     final proofPath = await _backend!.uploadPaymentProof(paymentProof);
     final installId = await _local.installId();
@@ -1854,6 +1856,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       book.id,
       customerName,
       phone,
+      quantity: quantity,
       depositAmount: depositAmount,
       paymentProofPath: proofPath,
       note: note,

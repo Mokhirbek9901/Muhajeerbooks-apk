@@ -1872,7 +1872,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     final id = await _local.installId();
     await _backend!.changePreorderExtra(id, preorderId, bookId, delta);
     // Inventory changed, including stock available for other customers.
-    unawaited(refreshFromBackend());
+    unawaited(refreshBooks());
   }
 
   Future<void> submitPreorderRemainingPayment(int preorderId, XFile file) async {

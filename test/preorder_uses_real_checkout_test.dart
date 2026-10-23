@@ -130,7 +130,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final scroll = find.byType(Scrollable).first;
-    final oldPickup = find.text('Gyeongsandan olib ketish — BEPUL');
+    final oldPickup = find.text('경산dan (Gyeongsan) o‘zim olib ketaman');
     await tester.scrollUntilVisible(oldPickup, 170, scrollable: scroll);
     expect(find.text('Gyeongsan ichida manzilga bepul yetkazish'), findsNothing);
     expect(oldPickup, findsOneWidget);
@@ -141,6 +141,9 @@ void main() {
     expect(values.length, 2);
     await tester.tap(oldPickup);
     await tester.pumpAndSettle();
+    expect(find.textContaining(
+      'Bu faqat 경산 (Gyeongsan) hududida yashaydiganlar uchun. One Mart atrofiga olib boramiz.'),
+      findsOneWidget);
     expect(find.textContaining(
       'Olib ketish joyi va vaqtini kelishish uchun admin siz bilan bog‘lanadi'),
       findsOneWidget);

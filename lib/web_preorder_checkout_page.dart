@@ -211,57 +211,7 @@ class _WebPreorderCheckoutPageState extends State<WebPreorderCheckoutPage> {
                 LengthLimitingTextInputFormatter(11)],
               decoration:const InputDecoration(labelText:'Telefon raqami',
                 hintText:'01012345678',prefixIcon:Icon(Icons.phone_outlined)),
-              validator:(v)=>RegExp(r'^010\d{8},style:TextStyle(fontSize:19,fontWeight:FontWeight.w900)),
-            const Divider(),
-            item('Zakaz qilingan kitob',qty*price),
-            item('Yetkazib berish',shipping),
-            item('Qo‘shimcha kitoblar',extra),
-            const Divider(),
-            item('Jami',base+extra),
-            item('Oldindan to‘langan avans',-deposit),
-            const Divider(),
-            item('Qolgan to‘lov',due,big:true),
-            Text((d['note']??'').toString(),style:const TextStyle(fontSize:12)),
-          ])),
-          const SizedBox(height:12),
-          AppSurface(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-            const Text('Qo‘shimcha kitoblar',style:TextStyle(fontWeight:FontWeight.w900,fontSize:18)),
-            for(final line in details)ListTile(
-              contentPadding:EdgeInsets.zero,
-              title:Text((line['title']??'Kitob').toString()),
-              subtitle:Text(won((line['unit_price'] as num?)?.toInt()??0)+' × '+
-                (line['quantity']??1).toString()),
-              trailing:canEdit?IconButton(icon:const Icon(Icons.remove_circle_outline),
-                tooltip:'Bitta olib tashlash',onPressed:busy?null:()=>
-                  change((line['book_id']??'').toString(),-1)):null,
-            ),
-            if(canEdit)OutlinedButton.icon(onPressed:busy?null:()=>
-              pickBook((d['book_id']??'').toString()),
-              icon:const Icon(Icons.add_shopping_cart),label:const Text('Yana kitob qo‘shish')),
-          ])),
-          const SizedBox(height:12),
-          AppSurface(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-            const Text('Qolgan to‘lovni yuborish',style:TextStyle(fontWeight:FontWeight.w900,fontSize:18)),
-            const SizedBox(height:10),
-            const SelectableText(AppState.bankName+' • '+AppState.bankAccount+' • '+AppState.bankOwner),
-            TextButton.icon(onPressed:() async{
-              await Clipboard.setData(const ClipboardData(text:AppState.bankAccount));
-              notice('Bank raqami nusxalandi');
-            },icon:const Icon(Icons.copy),label:const Text('Bank raqamini nusxalash')),
-            if(canEdit&&due>0)FilledButton.icon(onPressed:busy?null:()=>sendProof(due),
-              icon:const Icon(Icons.receipt_long),label:Text(won(due)+' uchun chek yuborish')),
-            if(canEdit&&due==0)const Text('Avans barcha xarajatni qopladi. Admin tasdig‘ini kuting.'),
-            if(!canEdit)Text(d['payment_state']=='proof_submitted'
-              ? 'Qolgan to‘lov cheki yuborilgan. Admin tekshiradi.'
-              : d['payment_state']=='verified'?'To‘lov tasdiqlangan ✅'
-              : 'To‘lov hozircha yopiq.'),
-          ])),
-        ],
-      ]));
-    }),
-  );
-}
-).hasMatch((v??'').trim())
+              validator:(v)=>RegExp(r'^010\d{8}$').hasMatch((v??'').trim())
                 ?null:'010 bilan boshlanuvchi 11 raqamni kiriting'),
             const SizedBox(height:10),
             TextFormField(controller:recipientAddress,

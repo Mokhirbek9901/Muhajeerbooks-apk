@@ -647,7 +647,7 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                               const Text('Moliyada qayd etilgan partiya xarajati',
                                 style:TextStyle(fontSize:12,
                                   color:UzbekCustomerColors.textMuted)),
-                              Text(_money(financeAmount),
+                              Text(_money(financeAmount ?? 0),
                                 style:const TextStyle(fontSize:25,
                                   fontWeight:FontWeight.w900,
                                   color:UzbekCustomerColors.navy)),
@@ -832,7 +832,7 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                         fontWeight: FontWeight.w800, fontSize: 12)),
                     if(_mode=='old' && _existingRevision!=null)...[
                       Text(financeLinked
-                        ? 'Moliyadagi xarajat: ${_money(financeAmount)}'
+                        ? 'Moliyadagi xarajat: ${_money(financeAmount ?? 0)}'
                         : 'Moliyadagi xarajat biriktirilmagan',
                         style:const TextStyle(
                           fontWeight:FontWeight.w900,fontSize:13)),

@@ -20,7 +20,7 @@ CREATE OR REPLACE FUNCTION public.admin_preorders_all_list(p_secret text, p_limi
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare v_rows jsonb; v_total integer;
 begin
   if public._admin_secret_ok(p_secret) is not true then
@@ -57,7 +57,7 @@ CREATE OR REPLACE FUNCTION public.admin_web_preorder_manage(p_secret text, p_act
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare s public.web_preorder_settings%rowtype; r public.web_preorder_requests%rowtype;
  enabled_value boolean; arrival text; amount integer; batch integer; target text; note_value text;
 begin
@@ -109,7 +109,7 @@ CREATE OR REPLACE FUNCTION public.admin_merchandising_insights(p_secret text)
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
-AS $function$;
+AS $function$
 declare v_pre jsonb; v_req jsonb; v_search jsonb; v_restock jsonb; v_bundle_sales jsonb; v_bundle_summary jsonb;
 begin
  if not public._admin_secret_ok(p_secret) then raise exception 'Ruxsat yo‘q'; end if;
@@ -169,7 +169,7 @@ CREATE OR REPLACE FUNCTION public.admin_update_order_tracking(p_secret text, p_i
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare
   v_carrier text := lower(trim(coalesce(p_carrier,'')));
   v_tracking text := regexp_replace(coalesce(p_tracking_number,''), '[^0-9A-Za-z-]', '', 'g');

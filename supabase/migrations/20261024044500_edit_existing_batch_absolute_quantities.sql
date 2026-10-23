@@ -207,20 +207,14 @@ begin
     end if;
 
     if v_cost_edit and v_qty>0 then
-      update public.web_book_batches l set
-        unit_cost=v_cost,cost_origin='manual'
-      from public.web_batch_imports i
+      update public.web_book_batches l
+        set unit_cost=v_cost,cost_origin='manual'
       where l.book_id=v_book and
         ((p_scope='old_import' and l.batch_import_id=v_import)
         or (p_scope='old_group' and l.batch_group_id=v_group)
-        or (p_scope='old_finance_group' and l.batch_import_id=i.id
-            and i.finance_group_id=v_finance));
-      -- The FROM join above can omit group rows with no import ID.
-      if p_scope='old_group' then
-        update public.web_book_batches
-          set unit_cost=v_cost,cost_origin='manual'
-          where book_id=v_book and batch_group_id=v_group;
-      end if;
+        or (p_scope='old_finance_group' and l.batch_import_id in (
+          select i.id from public.web_batch_imports i
+          where i.finance_group_id=v_finance)));
     end if;
     v_book_count:=v_book_count+1;
   end loop;

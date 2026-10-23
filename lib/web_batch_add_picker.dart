@@ -884,21 +884,40 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                                 color:UzbekCustomerColors.textMuted)),
                             if(difference!=null)...[
                               const SizedBox(height:10),
-                              Text(
-                                'Farq: ${_money(difference.abs())}'
-                                '${difference>0?" • Moliyada ko‘proq":difference<0?" • Kitoblar ko‘proq":" • Hisob teng"}',
-                                style:const TextStyle(
-                                  fontSize:14,fontWeight:FontWeight.w800)),
-                              Text(difference>0
-                                ? 'Xarajat kitoblar yig‘indisidan ko‘p. '
-                                  'Kitob yoki tannarx qolib ketganini tekshiring.'
-                                : difference<0
-                                ? 'Kitoblar yig‘indisi xarajatdan oshgan. '
-                                  'Dona soni yoki tannarx ortiqcha emasligini tekshiring.'
-                                : 'Partiyadagi kitoblar tannarxi moliya '
-                                  'xarajatiga teng.',
-                                style:const TextStyle(fontSize:12,
-                                  color:UzbekCustomerColors.textMuted)),
+                              Container(
+                                padding:const EdgeInsets.all(12),
+                                decoration:BoxDecoration(
+                                  color:difference==0
+                                    ?const Color(0xFFECF9F0)
+                                    :const Color(0xFFFFF3E4),
+                                  borderRadius:BorderRadius.circular(12)),
+                                child:Row(children:[
+                                  Icon(difference==0
+                                    ?Icons.check_circle_outline
+                                    :Icons.warning_amber_rounded,
+                                    color:difference==0
+                                      ?const Color(0xFF237847)
+                                      :const Color(0xFF985800)),
+                                  const SizedBox(width:10),
+                                  Expanded(child:Column(
+                                    crossAxisAlignment:CrossAxisAlignment.start,
+                                    children:[
+                                      Text('Farq: ${_money(difference.abs())}',
+                                        style:const TextStyle(fontSize:17,
+                                          fontWeight:FontWeight.w900)),
+                                      const SizedBox(height:2),
+                                      Text(difference>0
+                                        ?'Moliyadagi xarajat ko‘proq — '
+                                          'kitob yoki tannarx qolmaganini tekshiring.'
+                                        :difference<0
+                                        ?'Kitoblar tannarxi ko‘proq — '
+                                          'ortiqcha son va narxni tekshiring.'
+                                        :'Hisob to‘g‘ri, summalar mos.',
+                                        style:const TextStyle(fontSize:12)),
+                                    ],
+                                  )),
+                                ]),
+                              ),
                             ],
                             if(mixedAdjusted)
                               const Padding(

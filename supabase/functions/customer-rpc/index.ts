@@ -19,6 +19,9 @@ const allowed = new Set([
   "register_app_install",
   "register_app_install_v2",
   "customer_preorder_submit",
+  "customer_preorder_balance_list",
+  "customer_preorder_extra_change",
+  "customer_preorder_balance_proof",
   "customer_book_request_submit",
   "customer_search_miss_log",
   "customer_book_view_log",
@@ -100,6 +103,19 @@ function validate(name: string, p: Record<string, unknown>): string | null {
     if (!textParam(p.p_phone, 32) || !textParam(p.p_recovery_code, 80) || String(p.p_recovery_code).replace(/[^0-9a-f]/gi, "").length < 12) return "Invalid recovery request";
   } else if (name === "customer_preorder_submit") {
     if (!textParam(p.p_install_id, 120) || String(p.p_install_id).trim().length < 12 || typeof p.p_book_id !== "string" || !uuidRe.test(p.p_book_id) || !Number.isInteger(p.p_quantity) || Number(p.p_quantity) < 1 || Number(p.p_quantity) > 20) return "Invalid preorder";
+  } else if (name === "customer_preorder_balance_list" ||
+    name === "customer_preorder_extra_change" ||
+    name === "customer_preorder_balance_proof") {
+    if (!textParam(p.p_install_id, 120) ||
+        String(p.p_install_id).trim().length < 12) return "Invalid install ID";
+    if (name !== "customer_preorder_balance_list" &&
+        (!Number.isInteger(p.p_preorder_id) || Number(p.p_preorder_id) < 1)) return "Invalid preorder ID";
+    if (name === "customer_preorder_extra_change" &&
+        (typeof p.p_book_id !== "string" || !uuidRe.test(p.p_book_id) ||
+         !Number.isInteger(p.p_delta) || Math.abs(Number(p.p_delta)) > 5 ||
+         Number(p.p_delta) === 0)) return "Invalid add-on";
+    if (name === "customer_preorder_balance_proof" &&
+        !textParam(p.p_path, 500)) return "Invalid payment proof";
   } else if (name === "customer_book_request_submit") {
     if (!textParam(p.p_install_id, 120) || String(p.p_install_id).trim().length < 12 || !textParam(p.p_title, 160) || String(p.p_title).trim().length < 2) return "Invalid book request";
   } else if (name === "customer_book_view_log") {

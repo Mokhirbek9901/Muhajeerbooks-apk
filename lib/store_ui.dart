@@ -3127,7 +3127,10 @@ class _CustomerNotificationsPageState extends State<CustomerNotificationsPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final state = context.read<AppState>();
-      await state.refreshCustomerPushMessages();
+      await Future.wait([
+        state.refreshCustomerPushMessages(),
+        state.refreshPreorderNotices(),
+      ]);
       if (mounted) await state.markCustomerNoticesRead();
     });
   }
@@ -3170,8 +3173,9 @@ class _CustomerNotificationsPageState extends State<CustomerNotificationsPage> {
                   final match = RegExp(r'#\s*(\d+)').firstMatch(combinedText);
                   orderNumber = int.tryParse(match?.group(1) ?? '');
                 }
-                final preorderNotice = (notice['kind'] ?? '').toString() ==
-                    'preorder_balance';
+                final preorderNotice =
+                    (notice['kind'] ?? '').toString() == 'preorder_balance' ||
+                    (notice['kind'] ?? '').toString() == 'preorder_status';
                 final canOpenOrder =
                     orderId.isNotEmpty || (orderNumber != null && orderNumber > 0);
                 return Card(
@@ -3180,7 +3184,10 @@ class _CustomerNotificationsPageState extends State<CustomerNotificationsPage> {
                           context,
                           muhajeerPageRoute(
                             settings: const RouteSettings(name: 'mb:preorder-balances'),
-                            builder: (_) => const CustomerPreorderBalancesPage(),
+                            builder: (_) => CustomerPreorderBalancesPage(
+                              focusPreorderId: '${notice['preorder_id'] ?? ''}'.isEmpty
+                                ? null : '${notice['preorder_id']}',
+                            ),
                           ),
                         )
                         : canOpenOrder

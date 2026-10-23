@@ -113,7 +113,7 @@ void main() {
   });
 
 
-  testWidgets('paid preorder lets customer switch to FREE Gyeongsan home delivery, with 4000 refund flagged',
+  testWidgets('prepaid checkout has only postal and ORIGINAL Gyeongsan pickup (new city delivery removed)',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
     tester.view.physicalSize = const Size(440, 1050);
@@ -130,11 +130,17 @@ void main() {
     await tester.pumpAndSettle();
 
     final scroll = find.byType(Scrollable).first;
-    final local = find.text('Gyeongsan ichida manzilga bepul yetkazish');
-    await tester.scrollUntilVisible(local, 170, scrollable: scroll);
-    await tester.tap(local);
+    final oldPickup = find.text('경산dan (Gyeongsan) o‘zim olib ketaman');
+    await tester.scrollUntilVisible(oldPickup, 170, scrollable: scroll);
+    expect(find.text('Gyeongsan ichida manzilga bepul yetkazish'), findsNothing);
+    expect(oldPickup, findsOneWidget);
+    final values = tester.widgetList<RadioListTile<String>>(
+      find.byType(RadioListTile<String>)).map((widget) => widget.value).toList();
+    expect(values, containsAll(['택배', '경산 직접수령']));
+    expect(values, isNot(contains('경산 무료배송')));
+    expect(values.length, 2);
+    await tester.tap(oldPickup);
     await tester.pumpAndSettle();
-    expect(find.text('Gyeongsan ichida manzilga bepul yetkazish'), findsOneWidget);
 
     final addr = find.widgetWithText(TextFormField, 'Manzil');
     await tester.scrollUntilVisible(addr, -185, scrollable: scroll);
@@ -147,16 +153,10 @@ void main() {
     await tester.tap(find.text('Qabul qiluvchi va manzilni saqlash'));
     await tester.pumpAndSettle();
 
-    expect(state.savedDeliveryType, '경산 무료배송');
+    expect(state.savedDeliveryType, '경산 직접수령');
     expect(state.deliverySaves, 1);
     expect(state.savedAddress, contains('경산시'));
     expect(find.text('Yana kitob qo‘shish'), findsNothing);
     expect(state.localOrders, isEmpty);
-  });
-
-  test('Gyeongsan eligibility matches actual city address and blocks nonlocal', () {
-    expect(isGyeongsanDeliveryAddress('경상북도 경산시 계양로 37'), isTrue);
-    expect(isGyeongsanDeliveryAddress('Gyeongsan, 33 Some-ro'), isTrue);
-    expect(isGyeongsanDeliveryAddress('대구광역시 수성구 12'), isFalse);
   });
 }

@@ -173,7 +173,11 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
   }
 
   Future<void> _save() async {
-    if (_submitting) return;
+    if (_submitting || _existingLoading) return;
+    if (_mode == 'old' && (_existing==null || _existingRevision==null)) {
+      _message('Avval eski partiyani tanlab, undagi kitoblar yuklanishini kuting.');
+      return;
+    }
     if (_selected.isEmpty && _selectedTransportIds.isEmpty) {
       _message('Kamida bitta kitob yoki transport xarajatini belgilang.');
       return;
@@ -192,17 +196,38 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
     }
     final list = <Map<String,dynamic>>[];
     for (final row in _selected.values) {
-      if (row.qty < 1 || row.qty > 10000 || row.unitCost < 0 ||
-          row.unitCost > 100000000) {
+      if (row.qty < (_mode=='old'?0:1) || row.qty > 10000 ||
+          row.unitCost < 0 || row.unitCost > 100000000) {
         _message('${row.title}: dona soni yoki tannarx noto‘g‘ri.');
         return;
       }
+      final original=_previousQty[row.id]??0;
+      if(_mode=='old' && row.qty==original && !row.changedCost) continue;
       list.add({
         'book_id': row.id,
         'quantity': row.qty,
-        if (row.changedCost) 'unit_cost': row.unitCost,
+        if(_mode=='old' || row.changedCost) 'unit_cost': row.unitCost,
         'edited_cost': row.changedCost,
       });
+    }
+    if(_mode=='old') {
+      for(final old in _previousQty.entries) {
+        if(!_selected.containsKey(old.key)) {
+          final previous=_list(_existingSnapshot?['items'])
+            .where((x)=>x['book_id'].toString()==old.key).firstOrNull;
+          list.add({
+            'book_id':old.key,'quantity':0,
+            'unit_cost':(previous?['unit_cost'] as num?)?.toInt()??0,
+            'edited_cost':false,
+          });
+        }
+      }
+    }
+    final newTransportIds=_selectedTransportIds
+      .difference(_originalTransportIds).toList();
+    if(_mode=='old' && list.isEmpty && newTransportIds.isEmpty) {
+      _message('Hozircha hech narsa o‘zgarmagan.');
+      return;
     }
     final nBooks = list.length;
     final nQty = _selected.values.fold<int>(0, (s, x) => s + x.qty);
@@ -215,12 +240,20 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
     final transportNote = '${_selectedTransportIds.length} ta transport: '
         '${_money(transportSum)}. Bu xarajatlar moliyada avval hisoblangan, '
         'ikkinchi marta xarajat yozilmaydi.';
+    final corrections=list.map((row) {
+      final id=row['book_id'].toString();
+      final prev=_previousQty[id]??0;
+      final next=(row['quantity'] as num?)?.toInt()??0;
+      final difference=next-prev;
+      return '$prev → $next ($difference dona)';
+    }).take(8).join('; ');
     final text = isOld
-      ? 'Eski partiyaga $nBooks nomdagi, jami $nQty dona kitob qayd etiladi. '
-        '$transportNote '
-        'Bu tarixiy ma’lumot; ombor va moliyaga qayta qo‘shilmaydi. '
-        'Avtomatik narxlar joriy katalog tannarxidir, tarixiy tannarx '
-        'ekanligini tekshirish kerak.'
+      ? 'Eski partiyada $nBooks nomdagi kitob tahrirlanadi. '
+        '$corrections. '
+        'Ombor qoldig‘i va moliya qayta hisoblanmaydi. '
+        'Eski yozuvlar tahrirdan oldin audit tarixida saqlanadi. '
+        'Yangi transport: ${newTransportIds.length} ta. '
+        'Xarajat takrorlanmaydi.'
       : 'Yangi partiyaga $nBooks nomdagi, jami $nQty dona kitob qo‘shiladi. '
         '$transportNote '
         '${_syncStock ? 'OMBOR QOLDIG‘I HAM ORTADI VA JORIY TANNARX YANGILANADI.' : 'Ombor va moliyaga ta’sir qilmaydi.'} '
@@ -241,23 +274,34 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
     if (confirmed != true || !mounted) return;
     setState(() => _submitting = true);
     try {
-      final pieces = (_existing ?? '').split(':');
-      final oldType = pieces.firstOrNull == 'import'
-        ? 'old_import' : 'old_group';
-      await Supabase.instance.client.rpc('admin_web_bulk_batch_save',
-        params: {
-          'p_secret': widget.secret,
-          'p_data': {
-            'mode': isOld ? oldType : 'new',
-            if (!isOld) 'title': _title.text.trim(),
-            if (!isOld) 'date': DateFormat('yyyy-MM-dd').format(_date),
-            if (!isOld) 'note': _note.text.trim(),
-            if (isOld) 'existing_id': pieces.skip(1).join(':'),
-            'apply_to_inventory': !isOld && _syncStock,
-            'transport_ids': _selectedTransportIds.toList(),
-            'items': list,
-          },
-        });
+      if(isOld) {
+        final parts=(_existing??'').split(':');
+        final oldKind=parts.first=='import'?'old_import'
+          :parts.first=='group'?'old_group':'old_finance_group';
+        await Supabase.instance.client.rpc('admin_web_batch_edit_existing',
+          params:{
+            'p_secret':widget.secret,
+            'p_scope':oldKind,
+            'p_id':parts.skip(1).join(':'),
+            'p_expected_revision':_existingRevision,
+            'p_items':list,
+            'p_transport_ids':newTransportIds,
+          });
+      } else {
+        await Supabase.instance.client.rpc('admin_web_bulk_batch_save',
+          params: {
+            'p_secret': widget.secret,
+            'p_data': {
+              'mode':'new',
+              'title': _title.text.trim(),
+              'date': DateFormat('yyyy-MM-dd').format(_date),
+              'note': _note.text.trim(),
+              'apply_to_inventory': _syncStock,
+              'transport_ids': _selectedTransportIds.toList(),
+              'items': list,
+            },
+          });
+      }
       if (!mounted) return;
       Navigator.pop(context, true);
     } catch (error) {

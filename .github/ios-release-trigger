@@ -61,3 +61,10 @@ No schema/order/stock bulk data changes in mobile app; protected read-only admin
 - Logout clears local profile, cart, favorites, recently viewed, notices and order screens. Encrypted native local order archive becomes available ONLY after successful same-phone PIN login. Original server prepaid records are not deleted.
 - PIN-protected preorder page requires login, with offline test fallback. Forgotten existing PIN requires admin identity review; never replace old PIN based on phone alone.
 - Must complete Flutter analyze + widget tests BEFORE signed IPA/TestFlight upload. NO public App Store/Play Market release, NO Railway deploy, NO main merge.
+
+2026-10-24 KST — TRUE CHECKOUT PAGE (not cloned prepaid form) TestFlight-only release.
+- Profile → Oldindan zakazlarim → item now navigates directly into EXISTING CheckoutPage(preorderId: id) in store_ui.dart, the actual same Flutter form used by normal cart orders.
+- Main prepaid book, selectable extra books prior to proof submission, contact + full address, Gyeongsan pickup/post, bank receipt, totals + single existing prepaid credit are displayed on this real checkout. Unrelated ordinary cart is never merged.
+- Finalize reuses original PIN-protected prepaid record and settlement RPC; MUST NOT run normal placeOrder or create a duplicate order. Proof-submitted users may save address but cannot upload second receipt.
+- Flutter CI run 39997641868 SUCCESS (analyzer, all tests incl. new true checkout address + advance regression, iOS preview, KST order boundary checks).
+- This is iOS TestFlight ONLY. DO NOT modify public App Store, Play Market, main, Railway, or customer data. No production app update submission.

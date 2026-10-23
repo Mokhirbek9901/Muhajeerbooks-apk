@@ -75,7 +75,9 @@ void main() {
     expect(find.text('Buyurtmani rasmiylashtirish'), findsOneWidget);
     expect(find.widgetWithText(TextFormField, 'Manzil'), findsOneWidget);
 
-    final scroll = find.byType(Scrollable).last;
+    // The first Scrollable is the checkout ListView. The last one can be a
+    // tiny TextFormField internal scroll viewport, which is not draggable.
+    final scroll = find.byType(Scrollable).first;
     await tester.scrollUntilVisible(
       find.text('Yusufning qizi'), 250, scrollable: scroll,
     );

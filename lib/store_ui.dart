@@ -7700,6 +7700,11 @@ class _WebMyProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
+    // First-time customers fill name, phone and PIN immediately from
+    // Mening ma’lumotlarim, without another nested menu.
+    if (state.backendConfigured && !state.checkoutIdentityReady) {
+      return const CustomerPinPage();
+    }
     final displayName = (state.savedCustomer['name'] ?? '').trim().isNotEmpty
         ? state.savedCustomer['name']!.trim()
         : 'Muhajeer kitobxoni';

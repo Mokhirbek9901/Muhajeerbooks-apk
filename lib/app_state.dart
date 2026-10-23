@@ -1592,18 +1592,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _catalogCursor = secondary[9] as String;
 
     if (_backend != null) unawaited(_restorePersonalPinQuietly());
-    if (storedVerification == null) {
-      final legacyName = (savedCustomer['name'] ?? '').trim();
-      final legacyPhone = (savedCustomer['phone'] ?? '').replaceAll(
-        RegExp(r'\D'),
-        '',
-      );
-      customerVerified = legacyName.length >= 2 && legacyPhone.length >= 9;
-      if (customerVerified) {
-        unawaited(_local.saveCustomerVerified(true));
-      }
-    } else {
-      customerVerified = storedVerification;
+    // Name and phone are a convenience profile, not proof of phone ownership.
+    // Older builds used to mark saved contacts as "verified" without SMS;
+    // reset that flag rather than granting identity privileges silently.
+    customerVerified = false;
+    if (storedVerification == true) {
+      unawaited(_local.saveCustomerVerified(false));
     }
 
     _sanitizeCart();
@@ -1722,7 +1716,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     String name,
     String phone, {
     String? address,
-    bool verified = true,
+    bool verified = false,
   }) async {
     final cleanName = name.trim();
     final cleanPhone = phone.trim();
@@ -2763,6 +2757,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         'phone': phone.trim(),
         'address': address.trim(),
       };
+      // A submitted contact is not SMS-verified. Keep normal purchases free
+      // of OTP while never treating typed phone numbers as authentication.
+      customerVerified = false;
+      unawaited(_local.saveCustomerVerified(false));
+      notifyListeners();
       unawaited(syncPushIdentity(phone.trim()));
       unawaited(OwnerStoryAccess.instance.refreshFor(this));
     }

@@ -245,25 +245,14 @@ class _WebPreorderCheckoutPageState extends State<WebPreorderCheckoutPage> {
               subtitle:const Text('Gyeongsan • BEPUL')),
           ])),
           const SizedBox(height:16),
-          const Text('3. Buyurtma jami',style:TextStyle(
+          const Text('3. Kitoblar',style:TextStyle(
             fontSize:20,fontWeight:FontWeight.w900)),
-          const SizedBox(height:10),
-          AppSurface(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-            const Text('Buyurtma hisobi',style:TextStyle(fontSize:19,fontWeight:FontWeight.w900)),
-            const Divider(),
-            item('Zakaz qilingan kitob',qty*price),
-            item('Yetkazib berish',shipping),
-            item('Qo‘shimcha kitoblar',extra),
-            const Divider(),
-            item('Jami',base+extra),
-            item('Oldindan to‘langan avans',-deposit),
-            const Divider(),
-            item('Qolgan to‘lov',due,big:true),
-            Text((d['note']??'').toString(),style:const TextStyle(fontSize:12)),
-          ])),
           const SizedBox(height:12),
           AppSurface(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-            const Text('Qo‘shimcha kitoblar',style:TextStyle(fontWeight:FontWeight.w900,fontSize:18)),
+            const Text('Zakaz qilingan kitoblar',style:TextStyle(fontWeight:FontWeight.w900,fontSize:18)),
+            ListTile(contentPadding:EdgeInsets.zero,
+              title:Text((d['title']??'Kitob').toString()),
+              subtitle:Text(won(price)+' × '+qty.toString())),
             for(final line in details)ListTile(
               contentPadding:EdgeInsets.zero,
               title:Text((line['title']??'Kitob').toString()),
@@ -276,19 +265,53 @@ class _WebPreorderCheckoutPageState extends State<WebPreorderCheckoutPage> {
             if(canEdit)OutlinedButton.icon(onPressed:busy?null:()=>
               pickBook((d['book_id']??'').toString()),
               icon:const Icon(Icons.add_shopping_cart),label:const Text('Yana kitob qo‘shish')),
+            if(!canEdit&&d['payment_state']=='proof_submitted')
+              const Text('Chek yuborilgan. Kitob qo‘shish '
+                'uchun admin bilan bog‘laning.',style:TextStyle(fontSize:12)),
           ])),
-          const SizedBox(height:12),
+          const SizedBox(height:16),
+          const Text('4. Buyurtma jami',style:TextStyle(
+            fontSize:20,fontWeight:FontWeight.w900)),
+          const SizedBox(height:10),
           AppSurface(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-            const Text('Qolgan to‘lovni yuborish',style:TextStyle(fontWeight:FontWeight.w900,fontSize:18)),
+            const Text('Buyurtma hisobi',style:TextStyle(fontSize:19,fontWeight:FontWeight.w900)),
+            const Divider(),
+            item('Zakaz qilingan kitob',qty*price),
+            item('Yetkazib berish',shownShipping),
+            item('Qo‘shimcha kitoblar',extra),
+            const Divider(),
+            item('Jami',shownTotal),
+            item('Oldindan to‘langan avans',-deposit),
+            const Divider(),
+            item('Qolgan to‘lov',shownDue,big:true),
+            Text((d['note']??'').toString(),style:const TextStyle(fontSize:12)),
+          ])),
+          const SizedBox(height:16),
+          const Text('5. To‘lov va chek',style:TextStyle(
+            fontSize:20,fontWeight:FontWeight.w900)),
+          const SizedBox(height:10),
+          AppSurface(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            const Text('To‘lov ma’lumotlari',style:TextStyle(fontWeight:FontWeight.w900,fontSize:18)),
             const SizedBox(height:10),
             const SelectableText(AppState.bankName+' • '+AppState.bankAccount+' • '+AppState.bankOwner),
             TextButton.icon(onPressed:() async{
               await Clipboard.setData(const ClipboardData(text:AppState.bankAccount));
               notice('Bank raqami nusxalandi');
             },icon:const Icon(Icons.copy),label:const Text('Bank raqamini nusxalash')),
-            if(canEdit&&due>0)FilledButton.icon(onPressed:busy?null:()=>sendProof(due),
-              icon:const Icon(Icons.receipt_long),label:Text(won(due)+' uchun chek yuborish')),
-            if(canEdit&&due==0)const Text('Avans barcha xarajatni qopladi. Admin tasdig‘ini kuting.'),
+            const SizedBox(height:10),
+            OutlinedButton.icon(
+              onPressed:busy?null:()=>saveDelivery(),
+              icon:const Icon(Icons.save_outlined),
+              label:const Text('Qabul qiluvchi va manzilni saqlash')),
+            if(canEdit&&shownDue>0)...[
+              const SizedBox(height:10),
+              FilledButton.icon(onPressed:busy?null:()=>sendProof(shownDue),
+                icon:const Icon(Icons.receipt_long),
+                label:Text(won(shownDue)+' uchun chek yuborish')),
+            ],
+            if(canEdit&&shownDue==0)
+              const Text('Avans barcha xarajatni qopladi. '
+                'Manzilni saqlang, admin tasdiqlaydi.'),
             if(!canEdit)Text(d['payment_state']=='proof_submitted'
               ? 'Qolgan to‘lov cheki yuborilgan. Admin tekshiradi.'
               : d['payment_state']=='verified'?'To‘lov tasdiqlangan ✅'

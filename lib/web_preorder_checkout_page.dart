@@ -1,0 +1,174 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'app_state.dart';
+import 'design_system.dart';
+
+/// Completes the original web preorder; never creates a duplicate order.
+class WebPreorderCheckoutPage extends StatefulWidget {
+  const WebPreorderCheckoutPage({super.key,required this.preorderId});
+  final String preorderId;
+  @override
+  State<WebPreorderCheckoutPage> createState()=>_WebPreorderCheckoutPageState();
+}
+class _WebPreorderCheckoutPageState extends State<WebPreorderCheckoutPage> {
+  Future<Map<String,dynamic>>? pending;
+  bool busy=false;
+  String won(int amount)=>'₩'+NumberFormat('#,##0','en_US').format(amount);
+  @override
+  void initState(){super.initState();reload();}
+  Future<void> reload() async {
+    final next=context.read<AppState>().webPreorderInvoice(widget.preorderId);
+    if(mounted)setState(()=>pending=next);
+    try{await next;}catch(_){}
+  }
+  void notice(String text){if(mounted)ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content:Text(text.replaceFirst('Bad state: ',''))));}
+  Future<void> change(String id,int delta) async {
+    if(busy)return;
+    setState(()=>busy=true);
+    try{
+      await context.read<AppState>().changeWebPreorderExtra(widget.preorderId,id,delta);
+      if(mounted)await reload();
+    }catch(e){notice(e.toString());}
+    finally{if(mounted)setState(()=>busy=false);}
+  }
+  Future<void> pickBook(String original) async {
+    final books=context.read<AppState>().books.where((b)=>
+      b.isActive && b.stock>0 && b.price>0 && b.id!=original).toList();
+    String q='';
+    final selected=await showModalBottomSheet<Book>(context:context,
+      isScrollControlled:true,showDragHandle:true,
+      builder:(sheet)=>StatefulBuilder(builder:(sheet,update){
+        final visible=books.where((b)=>b.title.toLowerCase().contains(q.toLowerCase())).toList();
+        return SafeArea(child:Padding(
+          padding:EdgeInsets.fromLTRB(16,8,16,MediaQuery.viewInsetsOf(sheet).bottom+12),
+          child:SizedBox(height:MediaQuery.sizeOf(sheet).height*.65,child:Column(children:[
+            const Text('Yana kitob qo‘shish',style:TextStyle(fontWeight:FontWeight.w900,fontSize:20)),
+            TextField(onChanged:(v)=>update(()=>q=v),
+              decoration:const InputDecoration(labelText:'Kitob qidirish',prefixIcon:Icon(Icons.search))),
+            Expanded(child:ListView.builder(itemCount:visible.length,itemBuilder:(_,i){
+              final book=visible[i];
+              return ListTile(title:Text(book.title),
+                subtitle:Text(won(book.price)+' • '+book.stock.toString()+' ta'),
+                trailing:const Icon(Icons.add_circle_outline),
+                onTap:()=>Navigator.pop(sheet,book));
+            })),
+          ])),
+        ));
+      }));
+    if(selected!=null&&mounted)await change(selected.id,1);
+  }
+  Future<void> sendProof(int due) async {
+    if(busy||due<=0)return;
+    final photo=await ImagePicker().pickImage(source:ImageSource.gallery,
+      imageQuality:78,maxWidth:1600,maxHeight:2400);
+    if(photo==null||!mounted)return;
+    final approved=await showDialog<bool>(context:context,builder:(dialog)=>AlertDialog(
+      title:const Text('Qolgan to‘lov'),
+      content:Text(won(due)+' o‘tkazilganini tekshiring. Avans chegirilgan. '
+        'Chek yuborilgach savatni o‘zgartirib bo‘lmaydi.'),
+      actions:[TextButton(onPressed:()=>Navigator.pop(dialog,false),child:const Text('Qaytish')),
+        FilledButton(onPressed:()=>Navigator.pop(dialog,true),child:const Text('Chekni yuborish'))]));
+    if(approved!=true||!mounted)return;
+    setState(()=>busy=true);
+    try{
+      await context.read<AppState>().submitWebPreorderRemainingPayment(widget.preorderId,photo);
+      if(mounted)await reload();
+      notice('Qolgan to‘lov cheki yuborildi. Admin tekshiradi ✅');
+    }catch(e){notice(e.toString());}
+    finally{if(mounted)setState(()=>busy=false);}
+  }
+  Widget item(String label,int value,{bool big=false})=>Padding(
+    padding:const EdgeInsets.symmetric(vertical:5),child:Row(children:[
+      Expanded(child:Text(label,style:TextStyle(fontWeight:big?FontWeight.w900:FontWeight.w600))),
+      Text((value<0?'−':'')+won(value.abs()),style:TextStyle(
+        fontSize:big?22:15,fontWeight:FontWeight.w900)),
+    ]));
+  @override
+  Widget build(BuildContext context)=>Scaffold(
+    appBar:AppBar(title:const Text('Oldindan zakaz • buyurtma'),actions:[
+      IconButton(tooltip:'Yangilash',onPressed:busy?null:reload,icon:const Icon(Icons.refresh))]),
+    body:FutureBuilder<Map<String,dynamic>>(future:pending,builder:(ctx,snapshot){
+      if(snapshot.hasError)return Center(child:Padding(padding:const EdgeInsets.all(20),
+        child:Text('Buyurtmani ochib bo‘lmadi: '+snapshot.error.toString())));
+      if(!snapshot.hasData)return const Center(child:CircularProgressIndicator());
+      final d=snapshot.data!;
+      final qty=(d['quantity'] as num?)?.toInt()??1;
+      final price=(d['unit_price'] as num?)?.toInt()??0;
+      final base=(d['base_total'] as num?)?.toInt()??0;
+      final extra=(d['extra_total'] as num?)?.toInt()??0;
+      final deposit=(d['deposit_credit'] as num?)?.toInt()??0;
+      final due=(d['amount_due'] as num?)?.toInt()??0;
+      final shipping=(d['shipping_fee'] as num?)?.toInt()??0;
+      final ready=d['price_ready']==true;
+      final canEdit=d['can_edit']==true;
+      final details=((d['extras'] as List?)??const []).whereType<Map>()
+        .map((e)=>Map<String,dynamic>.from(e)).toList();
+      return ListView(padding:const EdgeInsets.all(16),children:[
+        if(busy)const LinearProgressIndicator(),
+        AppSurface(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          const Text('Oldindan zakaz qilingan kitob'),
+          const SizedBox(height:8),
+          Text((d['title']??'Kitob').toString(),style:const TextStyle(fontSize:22,fontWeight:FontWeight.w900)),
+          Text('Miqdor: '+qty.toString()+' ta • Holat: '+
+            (d['status']=='arrived'?'Kitob keldi':(d['status']??'Kutilmoqda').toString())),
+          if(ready)Text('Kitob narxi: '+won(price)+' × '+qty.toString()),
+        ])),
+        const SizedBox(height:12),
+        if(!ready)AppSurface(child:Text((d['note']??'Narx tasdiqlanmagan').toString()+
+          '. Avans qayta olinmaydi. Hozir to‘lov yubormang.')),
+        if(ready)...[
+          AppSurface(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            const Text('Buyurtma hisobi',style:TextStyle(fontSize:19,fontWeight:FontWeight.w900)),
+            const Divider(),
+            item('Zakaz qilingan kitob',qty*price),
+            item('Yetkazib berish',shipping),
+            item('Qo‘shimcha kitoblar',extra),
+            const Divider(),
+            item('Jami',base+extra),
+            item('Oldindan to‘langan avans',-deposit),
+            const Divider(),
+            item('Qolgan to‘lov',due,big:true),
+            Text((d['note']??'').toString(),style:const TextStyle(fontSize:12)),
+          ])),
+          const SizedBox(height:12),
+          AppSurface(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            const Text('Qo‘shimcha kitoblar',style:TextStyle(fontWeight:FontWeight.w900,fontSize:18)),
+            for(final line in details)ListTile(
+              contentPadding:EdgeInsets.zero,
+              title:Text((line['title']??'Kitob').toString()),
+              subtitle:Text(won((line['unit_price'] as num?)?.toInt()??0)+' × '+
+                (line['quantity']??1).toString()),
+              trailing:canEdit?IconButton(icon:const Icon(Icons.remove_circle_outline),
+                tooltip:'Bitta olib tashlash',onPressed:busy?null:()=>
+                  change((line['book_id']??'').toString(),-1)):null,
+            ),
+            if(canEdit)OutlinedButton.icon(onPressed:busy?null:()=>
+              pickBook((d['book_id']??'').toString()),
+              icon:const Icon(Icons.add_shopping_cart),label:const Text('Yana kitob qo‘shish')),
+          ])),
+          const SizedBox(height:12),
+          AppSurface(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            const Text('Qolgan to‘lovni yuborish',style:TextStyle(fontWeight:FontWeight.w900,fontSize:18)),
+            const SizedBox(height:10),
+            const SelectableText(AppState.bankName+' • '+AppState.bankAccount+' • '+AppState.bankOwner),
+            TextButton.icon(onPressed:() async{
+              await Clipboard.setData(const ClipboardData(text:AppState.bankAccount));
+              notice('Bank raqami nusxalandi');
+            },icon:const Icon(Icons.copy),label:const Text('Bank raqamini nusxalash')),
+            if(canEdit&&due>0)FilledButton.icon(onPressed:busy?null:()=>sendProof(due),
+              icon:const Icon(Icons.receipt_long),label:Text(won(due)+' uchun chek yuborish')),
+            if(canEdit&&due==0)const Text('Avans barcha xarajatni qopladi. Admin tasdig‘ini kuting.'),
+            if(!canEdit)Text(d['payment_state']=='proof_submitted'
+              ? 'Qolgan to‘lov cheki yuborilgan. Admin tekshiradi.'
+              : d['payment_state']=='verified'?'To‘lov tasdiqlangan ✅'
+              : 'To‘lov hozircha yopiq.'),
+          ])),
+        ],
+      ]);
+    }),
+  );
+}

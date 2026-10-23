@@ -139,6 +139,11 @@ begin
     'amount_due',inv.amount_due,'payment_state',inv.payment_state,
     'extras',detail,
     'can_edit',v.status='arrived' and inv.payment_state='requested',
+    'recipient_name',coalesce(nullif(inv.recipient_name,''),v.customer_name),
+    'recipient_phone',coalesce(nullif(inv.recipient_phone,''),v.phone),
+    'delivery_address',inv.delivery_address,
+    'delivery_type',coalesce(nullif(inv.delivery_type,''),'택배'),
+    'delivery_saved',coalesce(inv.delivery_saved,false),
     'note',case when inv.preorder_id is null
       then 'Yakuniy narxni admin tasdiqlashi kerak'
       else 'Joriy katalog narxi asosida hisoblangan; admin tekshiradi' end);

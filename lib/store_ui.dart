@@ -7715,7 +7715,7 @@ class _WebMyProfilePage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: UzbekCustomerColors.background,
         surfaceTintColor: Colors.transparent,
-        title: const Text('Mening'),
+        title: const Text('Mening ma’lumotlarim'),
       ),
       body: Center(
         child: ConstrainedBox(
@@ -7764,7 +7764,9 @@ class _WebMyProfilePage extends StatelessWidget {
                     OutlinedButton.icon(
                       onPressed: () => _editProfile(context),
                       icon: const Icon(Icons.edit_outlined, size: 18),
-                      label: const Text('Ism, telefon va PIN'),
+                      label: Text(state.pinSessionActive
+                        ? 'Shaxsiy PIN: ••••  •  PIN sozlamalari'
+                        : 'PIN bilan kirish'),
                     ),
                     if (iosTestFlightPreview) ...[
                       const SizedBox(height: 10),
@@ -7783,8 +7785,11 @@ class _WebMyProfilePage extends StatelessWidget {
                     : 'Buyurtma berish uchun ism, telefon va PINni kiriting.',
                     style: const TextStyle(fontWeight: FontWeight.w800)),
                   const SizedBox(height: 6),
-                  const Text('SMS talab qilinmaydi. Boshqa telefondan '
-                    'buyurtmalarni topish uchun 4 xonali PINni eslab qoling.'),
+                  Text(state.pinSessionActive
+                    ? 'Shaxsiy PIN: •••• (maxfiy saqlanadi). Boshqa telefonda '
+                      'telefon raqami va PIN bilan kirasiz.'
+                    : 'SMS talab qilinmaydi. Oldin profil yaratgan bo‘lsangiz '
+                      'PIN bilan kiring. Yangi qurilmada raqam va PIN kerak bo‘ladi.'),
                 ],
               )),
               const SizedBox(height: 14),

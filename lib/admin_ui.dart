@@ -768,6 +768,23 @@ class _AdminApi {
 
   /// Atomically reserves received copies, creates final amount and notifies
   /// the customer in-app. Fails when the batch has not been entered into stock.
+  /// Increment a received physical shipment, do not replace absolute stock.
+  /// Accepted preorder holds are assigned by the same DB transaction.
+  Future<Map<String, dynamic>> receiveNativePreorderBatch({
+    required String bookId,
+    required int quantity,
+  }) async {
+    final result = await _rpc('admin_preorder_receive_batch',params: {
+      'p_secret': secret,
+      'p_book_id': bookId,
+      'p_quantity': quantity,
+    });
+    if (result is! Map || (result['received'] as num?)?.toInt() != quantity) {
+      throw StateError('Yangi partiya omborga qo‘shilmadi');
+    }
+    return Map<String, dynamic>.from(result);
+  }
+
   Future<Map<String, dynamic>> arriveNativePreorder({
     required int id,
     required String expectedStatus,

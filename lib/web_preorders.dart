@@ -1200,7 +1200,7 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
                     TextField(onChanged: (value) => setState(() => search = value.trim().toLowerCase()),
                       decoration: const InputDecoration(labelText: 'Kitob, mijoz yoki telefon bo‘yicha qidirish', prefixIcon: Icon(Icons.search))),
                     Wrap(spacing: 6, children: [
-                      for (final entry in const {'all': 'Barchasi', 'waiting': 'Tekshirish kerak', 'accepted': 'Qabul qilindi', 'arrived': 'Keldi', 'cancelled': 'Bekor qilindi'}.entries)
+                      for (final entry in const {'all': 'Barchasi', 'waiting': 'Tekshirish kerak', 'accepted': 'Qabul qilingan', 'arrived': 'Yangi kelgan', 'cancelled': 'Bekor qilingan'}.entries)
                         ChoiceChip(label: Text(entry.value), selected: statusFilter == entry.key,
                           onSelected: (_) => setState(() => statusFilter = entry.key)),
                     ]),
@@ -1217,7 +1217,7 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
                             child: CircularProgressIndicator(),
                           );
                         final loaded = (snap.data as List).whereType<Map>().toList();
-                        final rows = loaded.where((r) => (statusFilter == 'all' || r['status'] == statusFilter) &&
+                        final rows = loaded.where((r) => (statusFilter == 'all' ? r['status'] != 'cancelled' : r['status'] == statusFilter) &&
                           (search.isEmpty || '${r['book_title']} ${r['request_items']} ${r['customer_name']} ${r['phone']}'.toLowerCase().contains(search))).toList();
                         if (rows.isEmpty)
                           return Column(children: [

@@ -2276,10 +2276,10 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                       width: cardWidth,
                       child: AppMetricCard(
                         icon: Icons.payments_outlined,
-                        label: 'Faol savdo',
+                        label: 'Jami tasdiqlangan savdo',
                         value: _won(activeRevenue),
                         accent: AppColors.success,
-                        note: 'Qabul qilingan buyurtmalar',
+                        note: 'Qabul qilingan va jo‘natilgan',
                       ),
                     ),
                     SizedBox(
@@ -2323,7 +2323,7 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                         label: 'O‘rtacha buyurtma',
                         value: _won(averageOrder),
                         accent: const Color(0xFF7A5AF8),
-                        note: 'Faol buyurtmalar bo‘yicha',
+                        note: 'Qabul qilingan va jo‘natilganlar bo‘yicha',
                       ),
                     ),
                     SizedBox(

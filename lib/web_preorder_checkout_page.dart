@@ -21,7 +21,7 @@ class _WebPreorderCheckoutPageState extends State<WebPreorderCheckoutPage> {
   void initState(){super.initState();reload();}
   Future<void> reload() async {
     final next=context.read<AppState>().webPreorderInvoice(widget.preorderId);
-    if(mounted)setState(()=>pending=next);
+    if (mounted) setState(() { pending = next; });
     try{await next;}catch(_){}
   }
   void notice(String text){if(mounted)ScaffoldMessenger.of(context).showSnackBar(

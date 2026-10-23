@@ -766,6 +766,37 @@ class _AdminApi {
     return Map<String, dynamic>.from(result);
   }
 
+  /// Atomically reserves received copies, creates final amount and notifies
+  /// the customer in-app. Fails when the batch has not been entered into stock.
+  Future<Map<String, dynamic>> arriveNativePreorder({
+    required int id,
+    required String expectedStatus,
+    required int unitPrice,
+    required int shippingFee,
+    required String adminNote,
+  }) async {
+    final raw = await _rpc('admin_native_preorder_arrive_invoice', params: {
+      'p_secret': secret,
+      'p_id': id,
+      'p_expected_status': expectedStatus,
+      'p_unit_price': unitPrice,
+      'p_shipping_fee': shippingFee,
+      'p_note': adminNote.trim(),
+    });
+    if (raw is! Map || raw['status'] != 'arrived') {
+      throw StateError('Kelgan kitob va to‘lov summasi saqlanmadi.');
+    }
+    return Map<String, dynamic>.from(raw);
+  }
+
+  Future<void> confirmNativePreorderPayment(int id) async {
+    final raw = await _rpc('admin_native_preorder_payment_confirm',
+      params: {'p_secret': secret, 'p_preorder_id': id});
+    if (raw is! Map || raw['payment_state'] != 'verified') {
+      throw StateError('Qolgan to‘lov tasdiqlanmadi.');
+    }
+  }
+
   Future<Map<String, dynamic>> demandAnalytics() async {
     final raw = await _rpc('admin_demand_analytics', params: {'p_secret': secret});
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};

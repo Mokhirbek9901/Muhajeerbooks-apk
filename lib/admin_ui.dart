@@ -38,6 +38,24 @@ const _orange = Color(0xFFFF8A00);
 final _money = NumberFormat('#,###', 'en_US');
 String _won(int value) => '₩${_money.format(value)}';
 
+/// Legacy shipments created before the owner's 23 Oct 2026 instruction are
+/// exempt; only NEW app orders require a tracking reminder.
+final DateTime _appTrackingReminderCutoff = DateTime.utc(2026, 10, 23, 10, 33, 32);
+
+bool _requiresAppShipmentTracking(ShopOrder order) =>
+    order.isApp &&
+    order.status == 'shipping' &&
+    order.deliveryType != 'pickup' &&
+    order.trackingNumber.trim().isEmpty &&
+    order.createdAt.toUtc().isAfter(_appTrackingReminderCutoff);
+
+bool _showsAppTrackingEditor(ShopOrder order) =>
+    order.isApp &&
+    order.status != 'cancelled' &&
+    (order.trackingNumber.trim().isNotEmpty ||
+      order.createdAt.toUtc().isAfter(_appTrackingReminderCutoff));
+
+
 // Bring the web administration experience to the new signed iOS tester
 // build. Browser-specific passkeys and URL handling must remain web-only.
 const bool _iosTesterParity = bool.fromEnvironment('APP_STORE_BUILD');
@@ -704,9 +722,127 @@ class _AdminApi {
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
 
+  /// All native preorder states, not just the 100 waiting items in insights.
+  /// Read-only, bounded pages; throws instead of silently dropping history.
+  Future<List<Map<String, dynamic>>> nativePreordersAll() async {
+    const pageSize = 200;
+    final all = <Map<String, dynamic>>[];
+    for (var offset = 0; offset < 20000; offset += pageSize) {
+      final raw = await _rpc(
+        'admin_preorders_all_list',
+        params: {'p_secret': secret, 'p_limit': pageSize, 'p_offset': offset},
+      );
+      if (raw is! Map || raw['rows'] is! List) {
+        throw StateError('Oldindan zakazlar server javobi noto‘g‘ri.');
+      }
+      final page = (raw['rows'] as List)
+          .whereType<Map>()
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList();
+      all.addAll(page);
+      if (page.length < pageSize) return all;
+    }
+    throw StateError('20 000 dan ortiq yozuv bor. Tarix to‘liq yuklanmadi.');
+  }
+
+  /// Updates one native preorder, optimistic-status guarded on the server.
+  /// Unlike a normal sale, this does not touch inventory or an existing receipt.
+  Future<Map<String, dynamic>> setNativePreorderStatus({
+    required int id,
+    required String expectedStatus,
+    required String status,
+    String note = '',
+  }) async {
+    final result = await _rpc('admin_native_preorder_set_status', params: {
+      'p_secret': secret,
+      'p_id': id,
+      'p_expected_status': expectedStatus,
+      'p_status': status,
+      'p_note': note.trim(),
+    });
+    if (result is! Map || result['status'] != status) {
+      throw StateError('Zakaz holati serverda tasdiqlanmadi.');
+    }
+    return Map<String, dynamic>.from(result);
+  }
+
+  /// Atomically reserves received copies, creates final amount and notifies
+  /// the customer in-app. Fails when the batch has not been entered into stock.
+  /// Increment a received physical shipment, do not replace absolute stock.
+  /// Accepted preorder holds are assigned by the same DB transaction.
+  Future<Map<String, dynamic>> receiveNativePreorderBatch({
+    required String bookId,
+    required int quantity,
+  }) async {
+    final result = await _rpc('admin_preorder_receive_batch',params: {
+      'p_secret': secret,
+      'p_book_id': bookId,
+      'p_quantity': quantity,
+    });
+    if (result is! Map || (result['received'] as num?)?.toInt() != quantity) {
+      throw StateError('Yangi partiya omborga qo‘shilmadi');
+    }
+    return Map<String, dynamic>.from(result);
+  }
+
+  Future<Map<String, dynamic>> arriveNativePreorder({
+    required int id,
+    required String expectedStatus,
+    required int unitPrice,
+    required int shippingFee,
+    required String adminNote,
+  }) async {
+    final raw = await _rpc('admin_native_preorder_arrive_invoice', params: {
+      'p_secret': secret,
+      'p_id': id,
+      'p_expected_status': expectedStatus,
+      'p_unit_price': unitPrice,
+      'p_shipping_fee': shippingFee,
+      'p_note': adminNote.trim(),
+    });
+    if (raw is! Map || raw['status'] != 'arrived') {
+      throw StateError('Kelgan kitob va to‘lov summasi saqlanmadi.');
+    }
+    return Map<String, dynamic>.from(raw);
+  }
+
+  Future<void> confirmNativePreorderPayment(int id) async {
+    final raw = await _rpc('admin_native_preorder_payment_confirm',
+      params: {'p_secret': secret, 'p_preorder_id': id});
+    if (raw is! Map || raw['payment_state'] != 'verified') {
+      throw StateError('Qolgan to‘lov tasdiqlanmadi.');
+    }
+  }
+
   Future<Map<String, dynamic>> demandAnalytics() async {
     final raw = await _rpc('admin_demand_analytics', params: {'p_secret': secret});
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+  }
+
+  /// Read and manage customer-requested books without sending SMS.
+  Future<List<Map<String, dynamic>>> requestedBooks() async {
+    final raw = await _rpc(
+      'admin_book_requests_list',
+      params: {'p_secret': secret},
+    );
+    return ((raw as List?) ?? const [])
+      .whereType<Map>()
+      .map((e) => Map<String, dynamic>.from(e))
+      .toList();
+  }
+
+  Future<void> setRequestedBookStatus(int id, String status) async {
+    final result = await _rpc(
+      'admin_book_request_set_status',
+      params: {
+        'p_secret': secret,
+        'p_id': id,
+        'p_status': status,
+      },
+    );
+    if (result is! Map || result['status'] != status) {
+      throw StateError('Kitob so‘rovi holati tasdiqlanmadi.');
+    }
   }
 
   Future<List<Map<String, dynamic>>> bundles() async {
@@ -2227,10 +2363,10 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                       width: cardWidth,
                       child: AppMetricCard(
                         icon: Icons.payments_outlined,
-                        label: 'Faol savdo',
+                        label: 'Jami tasdiqlangan savdo',
                         value: _won(activeRevenue),
                         accent: AppColors.success,
-                        note: 'Qabul qilingan buyurtmalar',
+                        note: 'Qabul qilingan va jo‘natilgan',
                       ),
                     ),
                     SizedBox(
@@ -2274,7 +2410,7 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                         label: 'O‘rtacha buyurtma',
                         value: _won(averageOrder),
                         accent: const Color(0xFF7A5AF8),
-                        note: 'Faol buyurtmalar bo‘yicha',
+                        note: 'Qabul qilingan va jo‘natilganlar bo‘yicha',
                       ),
                     ),
                     SizedBox(
@@ -3987,8 +4123,9 @@ class _BulkAiBookEditorPageState extends State<_BulkAiBookEditorPage> {
 
 
 class _BooksAdmin extends StatefulWidget {
-  const _BooksAdmin({super.key, required this.api});
+  const _BooksAdmin({super.key, required this.api, this.initialFilter = 'all'});
   final _AdminApi api;
+  final String initialFilter;
 
   @override
   State<_BooksAdmin> createState() => _BooksAdminState();
@@ -4011,6 +4148,8 @@ class _BooksAdminState extends State<_BooksAdmin> {
     'low_stock',
     'invalid_image',
     'missing_author',
+    'missing_page_count',
+    'missing_publisher',
     'gallery_over_2',
     'gallery_over_1',
   };
@@ -4026,6 +4165,7 @@ class _BooksAdminState extends State<_BooksAdmin> {
   bool _galleryOverOne(Book book) => book.galleryImages.length >= 2;
 
   bool _missingPageCount(Book book) => book.pageCount <= 0;
+  bool _missingPublisher(Book book) => book.publisher.trim().isEmpty;
 
   bool _missingDescription(Book book) {
     final value = book.description
@@ -4087,6 +4227,8 @@ class _BooksAdminState extends State<_BooksAdmin> {
       book.costPrice <= 0 ||
       _invalidImage(book) ||
       _missingAuthor(book) ||
+      _missingPageCount(book) ||
+      _missingPublisher(book) ||
       (webPreviewFeaturesAvailable && _galleryOverTwo(book)) ||
       _outOfStock(book) ||
       _lowStock(book) ||
@@ -4133,6 +4275,8 @@ class _BooksAdminState extends State<_BooksAdmin> {
         return _invalidImage(book);
       case 'missing_author':
         return _missingAuthor(book);
+      case 'missing_publisher':
+        return _missingPublisher(book);
       case 'gallery_over_2':
         return webPreviewFeaturesAvailable && _galleryOverTwo(book);
       case 'gallery_over_1':
@@ -4160,6 +4304,10 @@ class _BooksAdminState extends State<_BooksAdmin> {
         return 'Rasmi bor, lekin xato';
       case 'missing_author':
         return 'Muallifi kiritilmagan';
+      case 'missing_page_count':
+        return 'Sahifasi ko‘rsatilmagan';
+      case 'missing_publisher':
+        return 'Nashriyoti kiritilmagan';
       case 'gallery_over_2':
         return '2 tadan ortiq rasmli (3+)';
       case 'gallery_over_1':
@@ -4187,6 +4335,10 @@ class _BooksAdminState extends State<_BooksAdmin> {
         return all.where(_invalidImage).length;
       case 'missing_author':
         return all.where(_missingAuthor).length;
+      case 'missing_page_count':
+        return all.where(_missingPageCount).length;
+      case 'missing_publisher':
+        return all.where(_missingPublisher).length;
       case 'gallery_over_2':
         return all.where(_galleryOverTwo).length;
       case 'gallery_over_1':
@@ -4199,6 +4351,7 @@ class _BooksAdminState extends State<_BooksAdmin> {
   @override
   void initState() {
     super.initState();
+    filter = widget.initialFilter;
     future = widget.api.books();
     unawaited(_startThumbnailBackfill(future));
     unawaited(_loadSales());
@@ -4370,6 +4523,16 @@ class _BooksAdminState extends State<_BooksAdmin> {
         key: 'missing_author',
         label: 'Muallifi kiritilmagan',
         icon: Icons.person_off_outlined,
+      ),
+      (
+        key: 'missing_publisher',
+        label: 'Nashriyoti kiritilmagan',
+        icon: Icons.business_outlined,
+      ),
+      (
+        key: 'missing_page_count',
+        label: 'Sahifa soni kiritilmagan',
+        icon: Icons.menu_book_outlined,
       ),
       if (webPreviewFeaturesAvailable) ...[
         (
@@ -6000,6 +6163,7 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
             'yesterday' => o.status != 'cancelled' && orderDay == yesterday,
             'accepted' => _adminAwaitingPreparation(o),
             'prepared' => _adminPreparedForDispatch(o),
+            'tracking_missing' => _requiresAppShipmentTracking(o),
             _ => o.status == filter,
           };
           final matchQuery =
@@ -6137,6 +6301,12 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
                         _OrderFilterChip(
                           label: 'Jo‘natilgan',
                           value: 'shipping',
+                          selected: filter,
+                          onTap: (v) => setState(() => filter = v),
+                        ),
+                        _OrderFilterChip(
+                          label: 'Tracking yo‘q',
+                          value: 'tracking_missing',
                           selected: filter,
                           onTap: (v) => setState(() => filter = v),
                         ),
@@ -6476,7 +6646,7 @@ class _ProfessionalOrderCard extends StatelessWidget {
             const SizedBox(height: 12),
             _PaymentProofPanel(api: api, path: order.paymentProofPath),
           ],
-          if (_enhancedAdminUi && order.status != 'cancelled') ...[
+          if (_enhancedAdminUi && _showsAppTrackingEditor(order)) ...[
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
@@ -8972,7 +9142,9 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                         ])),
                     const SizedBox(height: 12),
                     sourceTile('Play / beta (tarixiy va yangi IDlar)', 'play_market_or_test'),
-                    sourceTile('App Store / TestFlight', 'app_store_or_testflight'),
+                    sourceTile('App Store (eski testlar ham bo‘lishi mumkin)', 'app_store_or_testflight'),
+                    if (n('ios_testflight', 'installation_ids') > 0)
+                      sourceTile('TestFlight (yangi buildlar)', 'ios_testflight'),
                     sourceTile('Web brauzer', 'web'),
                     sourceTile('Android APK', 'android_apk'),
                     if (n('ios_other', 'installation_ids') > 0)
@@ -8982,8 +9154,10 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                       'Ilovaga kirishlar identifikatorlar orqali qayd etiladi. '
                       'Sana bo‘yicha ajratish test yoki haqiqiy mijozni tasdiqlamaydi. '
                       'Bu Google Play haqiqiy yuklab olish soni emas. '
-                      'App Store va TestFlight, Play Market va beta '
-                      'versiyalarini ushbu bazadan aniq ajratib bo‘lmaydi. '
+                      'Yangi TestFlight buildlari alohida sanaladi, ammo eski '
+                      'App Store sifatida belgilangan testlarni ortga qarab '
+                      'aniq ajratib bo‘lmaydi. Play va beta versiyalari '
+                      'haqida ham xuddi shunday cheklov bor. '
                       'Rasmiy raqamlarni Play Console va App Store Connect '
                       'orqali tekshiring.',
                       style: TextStyle(color: AppColors.muted, height: 1.4),

@@ -8,11 +8,13 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'push_notifications.dart';
 import 'owner_story_access.dart';
+import 'native_admin_push.dart';
 import 'preview_features.dart';
 
 String normalizePublisher(String value) {
@@ -717,6 +719,24 @@ class BackendService {
     );
   }
 
+  /// Registers a consenting, phone-linked iOS device for existing APNs events.
+  /// Only called from a physical iOS app after notification permission.
+  Future<void> registerCustomerNativeApns(
+    String token, String phone, String installId,
+  ) async {
+    await _customerRpc('customer_register_native_apns', {
+      'p_token': token,
+      'p_phone': phone.trim(),
+      'p_install_id': installId,
+    });
+  }
+
+  Future<void> unregisterCustomerNativeApns(String installId) async {
+    await _customerRpc('customer_unregister_native_apns', {
+      'p_install_id': installId,
+    });
+  }
+
   Future<Map<String, dynamic>> subscribeRestock(
     String installId,
     String bookId, {
@@ -796,6 +816,86 @@ class BackendService {
       'p_note': note,
     });
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+  }
+
+  Future<Map<String,dynamic>> pinCreate(
+      String name,String phone,String pin,String installId) async {
+    final data=await _customerRpc('customer_pin_register',{
+      'p_name':name,'p_phone':phone,'p_pin':pin,'p_install_id':installId});
+    if(data is! Map)throw StateError('PIN yaratilmadi');
+    final m=Map<String,dynamic>.from(data);
+    if(m['error']!=null)throw StateError('${m['error']}');
+    return m;
+  }
+  Future<Map<String,dynamic>> pinLogin(
+      String phone,String pin,String installId) async {
+    final data=await _customerRpc('customer_pin_login',{
+      'p_phone':phone,'p_pin':pin,'p_install_id':installId});
+    if(data is! Map)throw StateError('PIN tekshirilmadi');
+    final m=Map<String,dynamic>.from(data);
+    if(m['error']!=null)throw StateError('${m['error']}');
+    return m;
+  }
+  Future<Map<String,dynamic>> pinProfile(String token) async {
+    final raw=await _customerRpc('customer_pin_profile',{'p_session':token});
+    if(raw is! Map)throw StateError('PIN sessiyasi tugagan');
+    return Map<String,dynamic>.from(raw);
+  }
+  Future<List<Map<String,dynamic>>> pinPreorders(String token) async {
+    final raw=await _customerRpc('customer_pin_preorders',{'p_session':token});
+    if(raw is! List)return const [];
+    return raw.whereType<Map>().map((e)=>Map<String,dynamic>.from(e)).toList();
+  }
+  Future<void> pinLogout(String token) async {
+    await _customerRpc('customer_pin_logout',{'p_session':token});
+  }
+
+  Future<List<Map<String, dynamic>>> fetchPreorderBalances(String installId) async {
+    final raw = await _customerRpc('customer_preorder_balance_list', {
+      'p_install_id': installId,
+    });
+    if (raw is! List) return const [];
+    return raw.whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<List<Map<String,dynamic>>> discoverPreorders(
+      String installId,String name,String phone) async {
+    final raw=await _customerRpc('customer_preorder_discovery',{
+      'p_install_id':installId,'p_name':name,'p_phone':phone});
+    if(raw is! List)return const [];
+    return raw.whereType<Map>().map((row)=>Map<String,dynamic>.from(row)).toList();
+  }
+
+  Future<List<Map<String,dynamic>>> preorderActivity(
+      String installId,String name,String phone) async {
+    final raw=await _customerRpc('customer_preorder_activity_list',{
+      'p_install_id':installId,'p_name':name,'p_phone':phone,'p_limit':60});
+    if(raw is! List)return const [];
+    return raw.whereType<Map>().map((row)=>Map<String,dynamic>.from(row)).toList();
+  }
+
+  Future<void> changePreorderExtra(String installId, int preorderId,
+      String bookId, int delta) async {
+    final result = await _customerRpc('customer_preorder_extra_change', {
+      'p_install_id': installId,
+      'p_preorder_id': preorderId,
+      'p_book_id': bookId,
+      'p_delta': delta,
+    });
+    if (result is! Map) throw StateError('Qo‘shimcha kitob saqlanmadi');
+  }
+
+  Future<void> submitPreorderBalanceProof(String installId, int preorderId,
+      String proofPath) async {
+    final result = await _customerRpc('customer_preorder_balance_proof', {
+      'p_install_id': installId,
+      'p_preorder_id': preorderId,
+      'p_path': proofPath,
+    });
+    if (result is! Map || result['payment_state'] != 'proof_submitted') {
+      throw StateError('Qolgan to‘lov cheki saqlanmadi');
+    }
   }
 
   Future<Map<String, dynamic>> requestMissingBook(String installId, String title, {String author = '', String phone = ''}) async {
@@ -1029,6 +1129,7 @@ class _LocalStore {
   static const _customerVerifiedKey = 'muhajeer_customer_verified_v1';
   static const _installIdKey = 'muhajeer_install_id_v1';
   static const _secureInstallIdKey = 'muhajeer_install_id_secure_v2';
+  static const _customerPinSessionKey = 'muhajeer_pin_session_v1';
   static const _restockSubscriptionsKey = 'muhajeer_restock_subscriptions_v1';
   static const _recentlyViewedKey = 'muhajeer_recently_viewed_v1';
   static const _catalogCursorKey = 'muhajeer_catalog_cursor_v1';
@@ -1140,6 +1241,27 @@ class _LocalStore {
     await prefs.setString(_customerNameKey, name);
     await prefs.setString(_customerPhoneKey, phone);
     await prefs.setString(_customerAddressKey, address);
+  }
+
+  Future<void> savePinSession(String token) async {
+    if (kIsWeb) {
+      await (await _prefs).setString(_customerPinSessionKey, token);
+    } else {
+      await _secureStorage.write(key:_customerPinSessionKey,value:token);
+    }
+  }
+
+  Future<String?> readPinSession() async {
+    if (kIsWeb) return (await _prefs).getString(_customerPinSessionKey);
+    return _secureStorage.read(key:_customerPinSessionKey);
+  }
+
+  Future<void> clearPinSession() async {
+    if (kIsWeb) {
+      await (await _prefs).remove(_customerPinSessionKey);
+    } else {
+      await _secureStorage.delete(key:_customerPinSessionKey);
+    }
   }
 
   Future<bool?> loadCustomerVerified() async =>
@@ -1324,6 +1446,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   bool loading = true;
   String? error;
   bool customerVerified = false;
+  String? _pinSession;
+  bool get pinSessionActive => _pinSession != null && _pinSession!.isNotEmpty;
   Map<String, String> savedCustomer = const {
     'name': '',
     'phone': '',
@@ -1467,18 +1591,13 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     unawaited(_local.saveCustomerNotices(_customerNotices));
     _catalogCursor = secondary[9] as String;
 
-    if (storedVerification == null) {
-      final legacyName = (savedCustomer['name'] ?? '').trim();
-      final legacyPhone = (savedCustomer['phone'] ?? '').replaceAll(
-        RegExp(r'\\D'),
-        '',
-      );
-      customerVerified = legacyName.length >= 2 && legacyPhone.length >= 9;
-      if (customerVerified) {
-        unawaited(_local.saveCustomerVerified(true));
-      }
-    } else {
-      customerVerified = storedVerification;
+    if (_backend != null) unawaited(_restorePersonalPinQuietly());
+    // Name and phone are a convenience profile, not proof of phone ownership.
+    // Older builds used to mark saved contacts as "verified" without SMS;
+    // reset that flag rather than granting identity privileges silently.
+    customerVerified = false;
+    if (storedVerification == true) {
+      unawaited(_local.saveCustomerVerified(false));
     }
 
     _sanitizeCart();
@@ -1502,6 +1621,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _startLiveBooksSync();
     unawaited(_checkRestockNotificationsQuietly());
     unawaited(refreshCustomerPushMessages());
+      unawaited(refreshPreorderNotices());
     unawaited(_refreshCustomerOrderStatusesQuietly());
     _orderStatusTimer?.cancel();
     _orderStatusTimer = Timer.periodic(
@@ -1512,6 +1632,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> _registerInstallation() async {
     try {
+      // QA emulators must not be counted as customers or real devices.
+      if (const bool.fromEnvironment('ANALYTICS_TEST_BUILD')) return;
       // Google Play Pre-launch Report Firebase Test Lab qurilmalarida
       // analytics install yaratmaymiz. Aks holda avtomatik Robo testlar
       // haqiqiy mijoz/qurilma sifatida sanalib ketadi.
@@ -1520,27 +1642,91 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       final id = await _local.installId();
       const playStoreBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
       const appStoreBuild = bool.fromEnvironment('APP_STORE_BUILD');
+      const testFlightBuild = bool.fromEnvironment('TESTFLIGHT_PREVIEW');
+      // TestFlight sets APP_STORE_BUILD for feature parity, but those
+      // installations are testers rather than public App Store customers.
       final platform = kIsWeb
           ? 'web'
-          : (defaultTargetPlatform == TargetPlatform.android && playStoreBuild)
-              ? 'android_play'
-              : (defaultTargetPlatform == TargetPlatform.iOS && appStoreBuild)
-                  ? 'ios_app_store'
-                  : defaultTargetPlatform.name;
+          : (defaultTargetPlatform == TargetPlatform.iOS && testFlightBuild)
+              ? 'ios_testflight'
+              : (defaultTargetPlatform == TargetPlatform.android && playStoreBuild)
+                  ? 'android_play'
+                  : (defaultTargetPlatform == TargetPlatform.iOS && appStoreBuild)
+                      ? 'ios_app_store'
+                      : defaultTargetPlatform.name;
       await _backend?.registerInstallation(id, platform, phone: (savedCustomer['phone'] ?? '').trim());
+      // Device analytics and APNs are independent: a valid customer should
+      // still be able to receive push after accepting notification access.
     } catch (_) {
       // Analytics must never slow or block shopping.
+    } finally {
+      unawaited(syncNativeCustomerPushIfAllowed());
     }
+  }
+
+  /// Safe to call after a user grants notification permission, and on login.
+  /// Does not request permission, block the storefront, or send messages.
+  Future<void> syncNativeCustomerPushIfAllowed() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS ||
+        const bool.fromEnvironment('ANALYTICS_TEST_BUILD')) return;
+    final backend = _backend;
+    final phone = (savedCustomer['phone'] ?? '').trim();
+    if (backend == null || phone.isEmpty) return;
+    try {
+      if (!(await Permission.notification.status).isGranted) return;
+      final token = await NativeAdminPush.requestDeviceToken()
+          .timeout(const Duration(seconds: 20));
+      if (token.isEmpty) return;
+      final id = await _local.installId();
+      await backend.registerCustomerNativeApns(token, phone, id);
+    } catch (error) {
+      // APNs network/permission failure must not interrupt shopping.
+      debugPrint('Customer native push registration unavailable: ${error.runtimeType}');
+    }
+  }
+
+  Future<void> _unregisterNativeCustomerPushQuietly() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS ||
+        _backend == null) return;
+    try {
+      final id = await _local.installId();
+      await _backend!.unregisterCustomerNativeApns(id);
+    } catch (_) {
+      // Local sign-out remains immediate even when the network is offline.
+    }
+  }
+
+  Future<void> _unlinkLocalPinQuietly() async {
+    final token=_pinSession;
+    _pinSession=null;
+    try{await _local.clearPinSession();}catch(_){}
+    if(token!=null&&_backend!=null){
+      unawaited(_backend!.pinLogout(token).catchError((_) {}));
+    }
+    _localOrders.clear();
+    _customerNotices.clear();
+    await Future.wait([
+      _local.saveOrders(const <ShopOrder>[]),
+      _local.saveCustomerNotices(const <Map<String,dynamic>>[]),
+    ]);
+    notifyListeners();
   }
 
   Future<void> setAuthenticatedCustomer(
     String name,
     String phone, {
     String? address,
-    bool verified = true,
+    bool verified = false,
   }) async {
     final cleanName = name.trim();
     final cleanPhone = phone.trim();
+    final previousPhone=(savedCustomer['phone']??'')
+      .replaceAll(RegExp(r'\D'),'');
+    final nextPhone=cleanPhone.replaceAll(RegExp(r'\D'),'');
+    if(_pinSession!=null && previousPhone.isNotEmpty &&
+        nextPhone.isNotEmpty && previousPhone!=nextPhone){
+      await _unlinkLocalPinQuietly();
+    }
     final cleanAddress = address?.trim();
     savedCustomer = {
       'name': cleanName.isEmpty ? (savedCustomer['name'] ?? '') : cleanName,
@@ -1557,17 +1743,118 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     customerVerified = verified;
     await _local.saveCustomerVerified(verified);
     unawaited(OwnerStoryAccess.instance.refreshFor(this));
-    if (_backend != null) unawaited(_registerInstallation());
+    if (_backend != null) {
+      unawaited(_registerInstallation());
+      unawaited(syncNativeCustomerPushIfAllowed());
+    }
+    notifyListeners();
+    unawaited(refreshPreorderNotices());
+  }
+
+  /// Checkout requires a reusable PIN-backed local profile, not an SMS code.
+  /// Existing successful PIN logins stay active until the session expires.
+  bool get checkoutIdentityReady =>
+      pinSessionActive &&
+      (savedCustomer['name'] ?? '').trim().length >= 2 &&
+      (savedCustomer['phone'] ?? '').replaceAll(RegExp(r'\D'), '').length >= 9;
+
+  /// Register first, then save locally: an existing phone/PIN must not replace
+  /// the current local identity when account registration fails.
+  Future<void> enrollCustomerWithPin(String name, String phone, String pin) async {
+    if (_backend == null) throw StateError('Ro‘yxatdan o‘tish uchun internet kerak');
+    final cleanName = name.trim();
+    final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
+    if (cleanName.length < 2 || cleanPhone.length < 9 ||
+        !RegExp(r'^[0-9]{4}$').hasMatch(pin)) {
+      throw StateError('Ism, telefon yoki 4 xonali PINni tekshiring');
+    }
+    final installId = await _local.installId();
+    final result = await _backend!.pinCreate(cleanName, cleanPhone, pin, installId);
+    final token = '${result['session'] ?? ''}';
+    if (token.length != 64) throw StateError('PIN ro‘yxati tasdiqlanmadi');
+    await setAuthenticatedCustomer(cleanName, cleanPhone, verified: false);
+    await _local.savePinSession(token);
+    _pinSession = token;
+    notifyListeners();
+    unawaited(refreshPreorderNotices());
+  }
+
+  Future<void> createPersonalPin(String pin) async {
+    if(_backend==null)throw StateError('Internet kerak');
+    final name=(savedCustomer['name']??'').trim();
+    final phone=(savedCustomer['phone']??'').trim();
+    if(name.length<2 || phone.isEmpty) {
+      throw StateError('Avval ism va telefonni profilga kiriting');
+    }
+    final id=await _local.installId();
+    final result=await _backend!.pinCreate(name,phone,pin,id);
+    final token='${result['session']??''}';
+    if(token.length!=64)throw StateError('Kirish sessiyasi olinmadi');
+    await _local.savePinSession(token);
+    _pinSession=token;
     notifyListeners();
   }
 
+  Future<void> loginPersonalPin(String phone,String pin) async {
+    if(_backend==null)throw StateError('Internet kerak');
+    final id=await _local.installId();
+    final result=await _backend!.pinLogin(phone.trim(),pin,id);
+    final token='${result['session']??''}';
+    if(token.length!=64)throw StateError('Kirish sessiyasi olinmadi');
+    final name='${result['name']??''}'.trim();
+    final savedPhone='${result['phone']??''}'.trim();
+    if(name.isEmpty || savedPhone.isEmpty)throw StateError('Profil olinmadi');
+    // Clear any previously logged-in phone before connecting the NEW token.
+    await setAuthenticatedCustomer(name,savedPhone,verified:false);
+    await _local.savePinSession(token);
+    _pinSession=token;
+    notifyListeners();
+  }
+
+  Future<void> _restorePersonalPinQuietly() async {
+    if(_backend==null)return;
+    try {
+      final token=await _local.readPinSession();
+      if(token==null||token.isEmpty)return;
+      final profile=await _backend!.pinProfile(token);
+      if(profile['valid']!=true)throw StateError('Expired PIN session');
+      await setAuthenticatedCustomer(
+        '${profile['name']??''}', '${profile['phone']??''}',
+        verified:false);
+      _pinSession=token;
+      notifyListeners();
+    }catch(_){
+      _pinSession=null;
+      await _local.clearPinSession();
+      notifyListeners();
+    }
+  }
+
   Future<void> signOutCustomer() async {
+    final token=_pinSession;
+    _pinSession=null;
+    try{await _local.clearPinSession();}catch(_){}
+    if(token!=null&&_backend!=null){
+      unawaited(_backend!.pinLogout(token).catchError((_){ }));
+    }
+
+    if ((savedCustomer['phone'] ?? '').trim().isNotEmpty) {
+      unawaited(_unregisterNativeCustomerPushQuietly());
+    }
     // Profil lokal qurilmada saqlanadi. Uni tarmoq javobini kutmasdan darhol
     // tozalaymiz, shuning uchun tugma internet sust bo‘lsa ham ishlaydi.
     savedCustomer = const {'name': '', 'phone': '', 'address': ''};
     customerVerified = false;
     OwnerStoryAccess.instance.lock();
     await _local.clearCustomer();
+    // PIN logout must not leave old personal orders/notifications displayed
+    // under the next person's name on this same phone.
+    _localOrders.clear();
+    _customerNotices.clear();
+    await Future.wait([
+      _local.saveOrders(const <ShopOrder>[]),
+      _local.saveCustomerNotices(const <Map<String, dynamic>>[]),
+    ]);
     notifyListeners();
 
     if (backendConfigured) {
@@ -1588,6 +1875,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       unawaited(_refreshBooksQuietly());
       unawaited(_checkRestockNotificationsQuietly());
       unawaited(refreshCustomerPushMessages());
+      unawaited(refreshPreorderNotices());
     });
   }
 
@@ -1736,15 +2024,23 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     Book book, {
     required String customerName,
     required String phone,
+    int quantity = 1,
     required int depositAmount,
     required XFile paymentProof,
     String note = '',
   }) async {
     if (_backend == null) return 'Oldindan buyurtma uchun internet kerak.';
+    if (!checkoutIdentityReady ||
+        customerName.trim() != (savedCustomer['name'] ?? '').trim() ||
+        phone.replaceAll(RegExp(r'\D'), '') !=
+          (savedCustomer['phone'] ?? '').replaceAll(RegExp(r'\D'), '')) {
+      throw StateError('Avval Mening ma’lumotlarim bo‘limida ism, telefon va PIN bilan kiring');
+    }
     final min = book.preorderDepositMin;
     final max = book.preorderDepositMax;
-    if (depositAmount < min || depositAmount > max) {
-      return 'Oldindan to‘lov ₩$min–₩$max oralig‘ida bo‘lishi kerak.';
+    if (quantity < 1 || quantity > 20) throw StateError('Kitob soni 1–20 orasida bo‘lishi kerak');
+    if (depositAmount < min * quantity || depositAmount > max * quantity) {
+      throw StateError('Jami avans ₩${min * quantity}–₩${max * quantity} oralig‘ida bo‘lsin.');
     }
     final proofPath = await _backend!.uploadPaymentProof(paymentProof);
     final installId = await _local.installId();
@@ -1753,11 +2049,123 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       book.id,
       customerName,
       phone,
+      quantity: quantity,
       depositAmount: depositAmount,
       paymentProofPath: proofPath,
       note: note,
     );
+    // Use the preorder contact for in-app arrival notices, but do NOT
+    // grant verified-customer status without authentication.
+    // A local storage failure must never re-submit a paid preorder.
+    try {
+      final digits = phone.replaceAll(RegExp(r'\D'), '');
+      final previousPhone =
+          (savedCustomer['phone'] ?? '').replaceAll(RegExp(r'\D'), '');
+      if (previousPhone.isNotEmpty && previousPhone != digits) {
+        if(_pinSession!=null)await _unlinkLocalPinQuietly();
+        // A preorder cannot reuse an old phone number's verified identity.
+        customerVerified = false;
+        await _local.saveCustomerVerified(false);
+      }
+      savedCustomer = {
+        ...savedCustomer,
+        'name': customerName.trim(),
+        'phone': digits,
+      };
+      await _local.saveCustomer(
+        savedCustomer['name'] ?? '',
+        digits,
+        savedCustomer['address'] ?? '',
+      );
+      notifyListeners();
+      unawaited(refreshCustomerPushMessages());
+      unawaited(refreshPreorderNotices());
+      unawaited(syncNativeCustomerPushIfAllowed());
+    } catch (error) {
+      debugPrint('Preorder local contact save skipped: ${error.runtimeType}');
+    }
     return 'Oldindan buyurtma qabul qilindi ✅';
+  }
+
+  Future<List<Map<String, dynamic>>> myPreorderBalances() async {
+    if (_backend == null) return const [];
+    final id = await _local.installId();
+    return _backend!.fetchPreorderBalances(id);
+  }
+
+  // Test/offline builds do not need a secure-storage installation token.
+  // Avoid a platform-channel read before a mock checkout is committed.
+  Future<String?> preorderInstallationId() =>
+      backendConfigured ? _local.installId() : Future<String?>.value(null);
+
+  Future<List<Map<String,dynamic>>> myPinPreorders() async {
+    if(_backend==null||_pinSession==null)return const [];
+    return _backend!.pinPreorders(_pinSession!);
+  }
+
+  Future<List<Map<String,dynamic>>> myDiscoveredPreorders() async {
+    if(_backend==null)return const [];
+    final id=await _local.installId();
+    return _backend!.discoverPreorders(id,
+      (savedCustomer['name']??'').trim(),(savedCustomer['phone']??'').trim());
+  }
+
+  bool _preorderNoticeRefreshing=false;
+  Future<void> refreshPreorderNotices() async {
+    if(_backend==null||_preorderNoticeRefreshing)return;
+    _preorderNoticeRefreshing=true;
+    try{
+      final id=await _local.installId();
+      final events=await _backend!.preorderActivity(id,
+        (savedCustomer['name']??'').trim(),(savedCustomer['phone']??'').trim());
+      final seen=_customerNotices.map((n)=>'${n['id']??''}').toSet();
+      var changed=false;
+      for(final e in events){
+        final noticeId='preorder:${e['id']}';
+        if(seen.contains(noticeId))continue;
+        _customerNotices.add({
+          'id':noticeId,'kind':'preorder_status','status':'push',
+          'title':'${e['title']??'Oldindan zakaz'}',
+          'message':'${e['message']??''}',
+          'preorder_id':'${e['preorder_id']??''}',
+          'preorder_source':'${e['source']??''}',
+          'order_id':'',
+          'created_at':'${e['created_at']??DateTime.now().toIso8601String()}',
+          'read':false,
+        });
+        seen.add(noticeId);changed=true;
+      }
+      if(!changed)return;
+      _customerNotices.sort((a,b){
+        final da=DateTime.tryParse('${a['created_at']??''}') ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+        final db=DateTime.tryParse('${b['created_at']??''}') ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+        return db.compareTo(da);
+      });
+      if(_customerNotices.length>80){
+        _customerNotices.removeRange(80,_customerNotices.length);
+      }
+      await _local.saveCustomerNotices(_customerNotices);
+      notifyListeners();
+    }catch(error){
+      debugPrint('Preorder notices unavailable: ${error.runtimeType}');
+    }finally{_preorderNoticeRefreshing=false;}
+  }
+
+  Future<void> changePreorderExtra(int preorderId, String bookId, int delta) async {
+    if (_backend == null) throw StateError('Internetga ulaning');
+    final id = await _local.installId();
+    await _backend!.changePreorderExtra(id, preorderId, bookId, delta);
+    // Inventory changed, including stock available for other customers.
+    unawaited(refreshBooks());
+  }
+
+  Future<void> submitPreorderRemainingPayment(int preorderId, XFile file) async {
+    if (_backend == null) throw StateError('Internetga ulaning');
+    final proofPath = await _backend!.uploadPaymentProof(file);
+    final id = await _local.installId();
+    await _backend!.submitPreorderBalanceProof(id, preorderId, proofPath);
   }
 
   Future<String> requestMissingBook(String title) async {
@@ -1967,6 +2375,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(refreshCustomerPushMessages());
+      unawaited(refreshPreorderNotices());
       unawaited(_refreshCustomerOrderStatusesQuietly());
       unawaited(_checkRestockNotificationsQuietly());
     }
@@ -2349,6 +2758,16 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     String paymentStatus = 'paid',
     int? manualSubtotal,
   }) async {
+    if (_backend != null && !preserveCustomerProfile) {
+      if (!checkoutIdentityReady) {
+        throw StateError('Buyurtma berish uchun Mening ma’lumotlarim bo‘limida ism, telefon va PINni kiriting');
+      }
+      if (customerName.trim() != (savedCustomer['name'] ?? '').trim() ||
+          phone.replaceAll(RegExp(r'\D'), '') !=
+              (savedCustomer['phone'] ?? '').replaceAll(RegExp(r'\D'), '')) {
+        throw StateError('Buyurtmani profilingizdagi ism va telefon bilan rasmiylashtiring');
+      }
+    }
     final lines = cartLines;
     if (lines.isEmpty) throw StateError('Savatcha bo‘sh.');
     for (final line in lines) {
@@ -2367,6 +2786,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         isGyeongsanPickup ? 0 : cartDeliveryFee;
     final total = subtotal + safeDeliveryFee;
     if (!preserveCustomerProfile) {
+      final prior=(savedCustomer['phone']??'').replaceAll(RegExp(r'\D'),'');
+      final next=phone.replaceAll(RegExp(r'\D'),'');
+      if(_pinSession!=null && prior.isNotEmpty && prior!=next){
+        await _unlinkLocalPinQuietly();
+      }
       await _local.saveCustomer(
         customerName.trim(),
         phone.trim(),
@@ -2377,6 +2801,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         'phone': phone.trim(),
         'address': address.trim(),
       };
+      // A submitted contact is not SMS-verified. Keep normal purchases free
+      // of OTP while never treating typed phone numbers as authentication.
+      customerVerified = false;
+      unawaited(_local.saveCustomerVerified(false));
+      notifyListeners();
       unawaited(syncPushIdentity(phone.trim()));
       unawaited(OwnerStoryAccess.instance.refreshFor(this));
     }
@@ -2745,7 +3174,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
                     'Izoh: ${row['customer_accept_note'].toString().trim()}',
                 ].join('\n'),
                 'paid' => 'To‘lov tekshirildi. Buyurtmangiz tayyorlanmoqda.',
-                'shipping' => 'Buyurtmangiz jo‘natildi! Pochta kuzatuv raqami va yetkazish holatini “Mening buyurtmalarim” bo‘limida tekshiring.',
+                'shipping' => 'Buyurtmangiz jo‘natildi! Pochta orqali odatda 1–2 kunda yetib boradi. Kuzatuv raqami berilgan bo‘lsa, “Mening buyurtmalarim” bo‘limida ko‘rishingiz mumkin.',
                 'cancelled' => 'Buyurtma bekor qilindi. Savol bo‘lsa Muhajeer Books bilan bog‘laning.',
                 _ => 'Buyurtmangiz holati yangilandi.',
               },

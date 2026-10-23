@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_state.dart';
+import 'customer_pin_page.dart';
 import 'design_system.dart';
 import 'push_notifications.dart';
 import 'preview_features.dart';
@@ -312,6 +313,24 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
     initialName = name.text;
     initialPhone = phone.text;
     _reload();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _requireProfile());
+  }
+
+  Future<bool> _requireProfile() async {
+    if (!mounted) return false;
+    final ready = await ensureCustomerCheckoutIdentity(context);
+    if (!mounted) return false;
+    if (!ready) {
+      if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+      return false;
+    }
+    final state = context.read<AppState>();
+    if (state.checkoutIdentityReady) {
+      final saved = state.savedCustomer;
+      name.text = (saved['name'] ?? '').trim();
+      phone.text = (saved['phone'] ?? '').trim();
+    }
+    return true;
   }
 
   @override
@@ -495,7 +514,8 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
   }
 
   Future<void> _submit() async {
-    if (busy || !_validateDetails()) return;
+    if (busy || !await _requireProfile()) return;
+    if (!mounted || !_validateDetails()) return;
     if (proofImage == null) {
       _message('Avans to‘lovi chekini yuklang.');
       return;
@@ -507,9 +527,11 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
       if (widget.book == null) bookPath ??= await api.upload(id, 'book', bookImage!, c.revision);
       proofPath ??= await api.upload(id, 'proof', proofImage!, c.revision,
         bookId: widget.book?.id, termsToken: widget.book == null ? null : c.termsToken);
+      final preorderInstallId = await context.read<AppState>().preorderInstallationId();
       await api.call('submit', {
         'p_request': {
           'id': id,
+          'install_id': preorderInstallId,
           if (widget.book != null) 'book_id': widget.book!.id,
           'terms_token': c.termsToken,
           'customer_name': name.text.trim(),
@@ -1200,7 +1222,7 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
                     TextField(onChanged: (value) => setState(() => search = value.trim().toLowerCase()),
                       decoration: const InputDecoration(labelText: 'Kitob, mijoz yoki telefon bo‘yicha qidirish', prefixIcon: Icon(Icons.search))),
                     Wrap(spacing: 6, children: [
-                      for (final entry in const {'all': 'Barchasi', 'waiting': 'Tekshirish kerak', 'accepted': 'Qabul qilindi', 'arrived': 'Keldi', 'cancelled': 'Bekor qilindi'}.entries)
+                      for (final entry in const {'all': 'Barchasi', 'waiting': 'Tekshirish kerak', 'accepted': 'Qabul qilingan', 'arrived': 'Yangi kelgan', 'cancelled': 'Bekor qilingan'}.entries)
                         ChoiceChip(label: Text(entry.value), selected: statusFilter == entry.key,
                           onSelected: (_) => setState(() => statusFilter = entry.key)),
                     ]),
@@ -1217,7 +1239,7 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
                             child: CircularProgressIndicator(),
                           );
                         final loaded = (snap.data as List).whereType<Map>().toList();
-                        final rows = loaded.where((r) => (statusFilter == 'all' || r['status'] == statusFilter) &&
+                        final rows = loaded.where((r) => (statusFilter == 'all' ? r['status'] != 'cancelled' : r['status'] == statusFilter) &&
                           (search.isEmpty || '${r['book_title']} ${r['request_items']} ${r['customer_name']} ${r['phone']}'.toLowerCase().contains(search))).toList();
                         if (rows.isEmpty)
                           return Column(children: [

@@ -1,0 +1,28 @@
+name: Customer native push backend QA
+on:
+  push:
+    branches:
+      - feature/testflight-quality-and-reliability-20261023
+    paths:
+      - 'server/app.py'
+      - 'server/native_customer_push.py'
+      - 'server/tests/test_native_customer_push.py'
+      - '.github/workflows/customer_native_push_qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  customer-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate backend Python syntax
+        run: python -m py_compile server/app.py server/native_customer_push.py
+      - name: Run customer APNs unit tests without sending any push
+        run: python -m unittest discover -s server/tests -p 'test_native_customer_push.py' -v

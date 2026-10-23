@@ -32,6 +32,8 @@ import 'web_preorders.dart';
 import 'web_book_purchase_count.dart';
 import 'preview_features.dart';
 import 'purchase_price_notice.dart';
+import 'preorder_balance_page.dart';
+import 'customer_pin_page.dart';
 
 const bool _playStoreCustomerBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
 const bool _appStoreCustomerBuild = bool.fromEnvironment('APP_STORE_BUILD');
@@ -235,63 +237,55 @@ Future<void> _openBookDetail(BuildContext context, Book book) async {
   );
 }
 
-Future<bool> _openRestockLogin(BuildContext context) async {
+/// Simple customer profile: name + phone only, no SMS or mandatory PIN.
+/// Sensitive balance/receipt access remains tied to the original installation.
+Future<bool> _saveNamePhoneWithoutSms(BuildContext context) async {
   final state = context.read<AppState>();
-  final name = TextEditingController(text: state.savedCustomer['name'] ?? '');
-  final phone = TextEditingController(text: state.savedCustomer['phone'] ?? '');
-  final address = TextEditingController(text: state.savedCustomer['address'] ?? '');
+  var customerName = (state.savedCustomer['name'] ?? '').trim();
+  var customerPhone = (state.savedCustomer['phone'] ?? '').trim();
   final formKey = GlobalKey<FormState>();
-
-  final saved = await showDialog<bool>(
+  final save = await showDialog<bool>(
     context: context,
     barrierDismissible: false,
     builder: (dialogContext) => AlertDialog(
-      title: const Text('Login qiling'),
+      title: const Text('Ism va telefon raqami'),
       content: SizedBox(
-        width: 440,
+        width: 420,
         child: Form(
           key: formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                'Kitobni kutish ro‘yxatiga qo‘shish uchun ma’lumotlaringizni saqlang.',
+                'Bir marta kiriting. Keyingi buyurtmalarda avtomatik to‘ldiriladi. SMS kod kerak emas.',
               ),
               const SizedBox(height: 14),
               TextFormField(
-                controller: name,
-                autofocus: true,
+                initialValue: customerName,
+                autofocus: customerName.isEmpty,
+                maxLength: 80,
+                textCapitalization: TextCapitalization.words,
+                onChanged: (value) => customerName = value,
                 decoration: const InputDecoration(
-                  labelText: 'Ism',
+                  labelText: 'Ismingiz',
                   prefixIcon: Icon(Icons.person_outline_rounded),
                 ),
-                validator: (v) => (v ?? '').trim().length < 2
-                    ? 'Ismingizni kiriting'
+                validator: (value) => (value ?? '').trim().length < 2
+                    ? 'Ismingizni kamida 2 harf bilan kiriting'
                     : null,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               TextFormField(
-                controller: phone,
+                initialValue: customerPhone,
                 keyboardType: TextInputType.phone,
+                onChanged: (value) => customerPhone = value,
                 decoration: const InputDecoration(
                   labelText: 'Telefon raqami',
                   hintText: '01012345678',
                   prefixIcon: Icon(Icons.phone_outlined),
                 ),
-                validator: (v) => !_isSupportedCustomerPhone(v ?? '')
+                validator: (value) => !_isSupportedCustomerPhone(value ?? '')
                     ? 'Koreya 010 raqamini to‘liq kiriting'
-                    : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: address,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'Manzil',
-                  prefixIcon: Icon(Icons.location_on_outlined),
-                ),
-                validator: (v) => (v ?? '').trim().length < 5
-                    ? 'Manzilingizni kiriting'
                     : null,
               ),
             ],
@@ -303,29 +297,34 @@ Future<bool> _openRestockLogin(BuildContext context) async {
           onPressed: () => Navigator.pop(dialogContext, false),
           child: const Text('Bekor qilish'),
         ),
-        FilledButton(
+        FilledButton.icon(
           onPressed: () {
             if (formKey.currentState?.validate() != true) return;
             Navigator.pop(dialogContext, true);
           },
-          child: const Text('Saqlash'),
+          icon: const Icon(Icons.check_rounded),
+          label: const Text('Saqlash'),
         ),
       ],
     ),
   );
-
-  if (saved == true && context.mounted) {
-    await state.setAuthenticatedCustomer(
-      name.text,
-      phone.text,
-      address: address.text,
+  if (save != true || !context.mounted) return false;
+  final digits = customerPhone.replaceAll(RegExp(r'\D'), '');
+  await state.setAuthenticatedCustomer(
+    customerName.trim(), digits, verified: false,
+  );
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(
+        'Profil saqlandi. Buyurtmalarni SMSsiz davom ettirishingiz mumkin ✅',
+      )),
     );
   }
-  name.dispose();
-  phone.dispose();
-  address.dispose();
-  return saved == true;
+  return true;
 }
+
+Future<bool> _openRestockLogin(BuildContext context) =>
+    _saveNamePhoneWithoutSms(context);
 
 Future<String> _toggleRestockWithWebContact(
   BuildContext context,
@@ -339,8 +338,7 @@ Future<String> _toggleRestockWithWebContact(
 
   final name = (state.savedCustomer['name'] ?? '').trim();
   final phone = (state.savedCustomer['phone'] ?? '').trim();
-  final address = (state.savedCustomer['address'] ?? '').trim();
-  if (name.isEmpty || !_isSupportedCustomerPhone(phone) || address.isEmpty) {
+  if (name.isEmpty || !_isSupportedCustomerPhone(phone)) {
     final loggedIn = await _openRestockLogin(context);
     if (!loggedIn || !context.mounted) {
       return 'Kutish ro‘yxatiga qo‘shilmadi.';
@@ -810,6 +808,7 @@ class _PreorderCheckoutPage extends StatefulWidget {
 }
 
 class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
+  int quantity = 1;
   final formKey=GlobalKey<FormState>();
   final picker=ImagePicker();
   late final TextEditingController name;
@@ -826,10 +825,35 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
     name=TextEditingController(text:saved['name']??'');
     phone=TextEditingController(text:(saved['phone']??'').replaceAll(RegExp(r'\D'),''));
     amount=TextEditingController(text:'${widget.book.preorderDepositMin}');
+    WidgetsBinding.instance.addPostFrameCallback((_) => _requireCustomerProfile());
+  }
+
+  Future<bool> _requireCustomerProfile() async {
+    if (!mounted) return false;
+    final ok = await ensureCustomerCheckoutIdentity(context);
+    if (!mounted) return false;
+    if (!ok) {
+      if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+      return false;
+    }
+    final saved = context.read<AppState>().savedCustomer;
+    name.text = (saved['name'] ?? '').trim();
+    phone.text = (saved['phone'] ?? '').replaceAll(RegExp(r'\D'), '');
+    return true;
   }
 
   @override
   void dispose(){ name.dispose();phone.dispose();amount.dispose();note.dispose();super.dispose(); }
+
+  void _changeQuantity(int delta) {
+    if (saving) return;
+    final newQty = (quantity + delta).clamp(1, 20).toInt();
+    if (newQty == quantity) return;
+    setState(() {
+      quantity = newQty;
+      amount.text = '${widget.book.preorderDepositMin * quantity}';
+    });
+  }
 
   Future<void> pickProof() async {
     final file=await picker.pickImage(source:ImageSource.gallery,imageQuality:76,maxWidth:1440,maxHeight:2400);
@@ -842,7 +866,8 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
   }
 
   Future<void> submit() async {
-    if(!formKey.currentState!.validate()) return;
+    if (!await _requireCustomerProfile()) return;
+    if (!mounted || !formKey.currentState!.validate()) return;
     if(proof==null){
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Oldindan to‘lov chekini tanlang.')));
       return;
@@ -855,6 +880,7 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
         widget.book,
         customerName:name.text.trim(),
         phone:phone.text.trim(),
+        quantity:quantity,
         depositAmount:value,
         paymentProof:proof!,
         note:note.text.trim(),
@@ -891,11 +917,28 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
             Text(preorderEstimatedPrice(b), style: const TextStyle(fontWeight:FontWeight.w800,color:AppColors.navy)),
           ])),
         ])),
+        const SizedBox(height: 14),
+        AppSurface(child: Row(children: [
+          const Expanded(child: Text('Oldindan band qilinadigan son',
+            style: TextStyle(fontWeight: FontWeight.w900))),
+          IconButton(
+            tooltip: 'Bitta kamaytirish',
+            onPressed: quantity > 1 && !saving ? () => _changeQuantity(-1) : null,
+            icon: const Icon(Icons.remove_circle_outline),
+          ),
+          Text('$quantity ta',
+            style: const TextStyle(fontWeight:FontWeight.w900,fontSize:17)),
+          IconButton(
+            tooltip: 'Bitta qo‘shish',
+            onPressed: quantity < 20 && !saving ? () => _changeQuantity(1) : null,
+            icon: const Icon(Icons.add_circle_outline),
+          ),
+        ])),
         const SizedBox(height:14),
         AppSurface(backgroundColor:const Color(0xFFFFF7E8),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
           const Text('Oldindan to‘lov',style:TextStyle(fontWeight:FontWeight.w900)),
           const SizedBox(height:5),
-          Text('${won(b.preorderDepositMin)} – ${won(b.preorderDepositMax)}',style:const TextStyle(fontSize:22,fontWeight:FontWeight.w900,color:AppColors.navy)),
+          Text('${won(b.preorderDepositMin * quantity)} – ${won(b.preorderDepositMax * quantity)}',style:const TextStyle(fontSize:22,fontWeight:FontWeight.w900,color:AppColors.navy)),
           const SizedBox(height:5),
           const Text(
             'Shu oraliqdagi summani yuboring. Yakuniy narx kitob kelganda aniq bo‘ladi va oldindan to‘lov yakuniy summadan ayriladi.',
@@ -919,13 +962,14 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
         TextFormField(
           controller:amount,keyboardType:TextInputType.number,
           inputFormatters:[FilteringTextInputFormatter.digitsOnly],
-          decoration:InputDecoration(labelText:'Oldindan to‘lov miqdori',prefixText:'₩ ',helperText:'${won(b.preorderDepositMin)} – ${won(b.preorderDepositMax)} oralig‘ida'),
-          validator:(v){final n=int.tryParse((v??'').trim())??0;return n<b.preorderDepositMin||n>b.preorderDepositMax?'Ruxsat etilgan oraliqni kiriting':null;},
+          decoration:InputDecoration(labelText:'Oldindan to‘lov miqdori',prefixText:'₩ ',helperText:'${won(b.preorderDepositMin * quantity)} – ${won(b.preorderDepositMax * quantity)} jami avans'),
+          validator:(v){final n=int.tryParse((v??'').trim())??0;return n<b.preorderDepositMin*quantity||n>b.preorderDepositMax*quantity?'Jami avans oraliqqa mos emas':null;},
         ),
         const SizedBox(height:8),
         Wrap(spacing:8,children:[
-          for(final v in <int>{b.preorderDepositMin,7000,b.preorderDepositMax}.where((v)=>v>=b.preorderDepositMin&&v<=b.preorderDepositMax))
-            ActionChip(label:Text(won(v)),onPressed:()=>setState(()=>amount.text='$v')),
+          for(final perCopy in <int>{b.preorderDepositMin,7000,b.preorderDepositMax}.where((v)=>v>=b.preorderDepositMin&&v<=b.preorderDepositMax))
+            ActionChip(label:Text(won(perCopy * quantity)),
+              onPressed:()=>setState(()=>amount.text='${perCopy * quantity}')),
         ]),
         const SizedBox(height:12),
         TextFormField(controller:note,maxLines:3,decoration:const InputDecoration(labelText:'Izoh (ixtiyoriy)',hintText:'Masalan: kelganda xabar bering')),
@@ -3096,7 +3140,10 @@ class _CustomerNotificationsPageState extends State<CustomerNotificationsPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final state = context.read<AppState>();
-      await state.refreshCustomerPushMessages();
+      await Future.wait([
+        state.refreshCustomerPushMessages(),
+        state.refreshPreorderNotices(),
+      ]);
       if (mounted) await state.markCustomerNoticesRead();
     });
   }
@@ -3139,11 +3186,24 @@ class _CustomerNotificationsPageState extends State<CustomerNotificationsPage> {
                   final match = RegExp(r'#\s*(\d+)').firstMatch(combinedText);
                   orderNumber = int.tryParse(match?.group(1) ?? '');
                 }
+                final preorderNotice =
+                    (notice['kind'] ?? '').toString() == 'preorder_balance' ||
+                    (notice['kind'] ?? '').toString() == 'preorder_status';
                 final canOpenOrder =
                     orderId.isNotEmpty || (orderNumber != null && orderNumber > 0);
                 return Card(
                   child: ListTile(
-                    onTap: canOpenOrder
+                    onTap: preorderNotice ? () => Navigator.push(
+                          context,
+                          muhajeerPageRoute(
+                            settings: const RouteSettings(name: 'mb:preorder-balances'),
+                            builder: (_) => CustomerPreorderBalancesPage(
+                              focusPreorderId: '${notice['preorder_id'] ?? ''}'.isEmpty
+                                ? null : '${notice['preorder_id']}',
+                            ),
+                          ),
+                        )
+                        : canOpenOrder
                         ? () => Navigator.push(
                               context,
                               muhajeerPageRoute(
@@ -3155,7 +3215,7 @@ class _CustomerNotificationsPageState extends State<CustomerNotificationsPage> {
                               ),
                             )
                         : null,
-                    trailing: canOpenOrder
+                    trailing: (preorderNotice || canOpenOrder)
                         ? const Icon(Icons.chevron_right_rounded)
                         : null,
                     contentPadding: const EdgeInsets.symmetric(
@@ -4107,7 +4167,11 @@ class BookCard extends StatelessWidget {
                               ? 'Tugagan • zakaz ochiq'
                               : book.preorderEnabled
                               ? 'Oldindan sotuvda'
-                              : (book.inStock ? '${book.stock} dona mavjud' : 'Hozircha mavjud emas'),
+                              : (book.inStock
+                                    ? (book.stock == 1 ? 'Oxirgi 1 dona' :
+                                        book.stock == 2 ? 'Faqat 2 dona qoldi' :
+                                        '${book.stock} dona mavjud')
+                                    : 'Hozircha mavjud emas'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -4538,6 +4602,10 @@ class BookDetailPage extends StatelessWidget {
                       const SizedBox(height: 22),
                       _WebBookReviews(book: b),
                     ],
+                    if (b.stock <= 0 && _webOrPlayCustomer) ...[
+                      const SizedBox(height: 24),
+                      _SimilarAvailableBooks(book: b),
+                    ],
                   ],
                 ),
               ),
@@ -4703,16 +4771,10 @@ class BookDetailPage extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (webPreordersAvailable) ...[
-                      const SizedBox(width: 8),
-                      Expanded(child: OutlinedButton.icon(
-                        onPressed: () => Navigator.push<void>(context, muhajeerPageRoute<void>(
-                          settings: RouteSettings(name: 'mb:preorder:${b.id}'),
-                          builder: (_) => WebPreorderPage(book: b))),
-                        icon: const Icon(Icons.event_available_outlined),
-                        label: const Text('Oldindan zakaz qilish', maxLines: 2, textAlign: TextAlign.center),
-                      )),
-                    ] else if (b.legacyId != null) ...[
+                    // A sold-out preorder is offered only when the server-side
+                    // master switch allows it. No misleading checkout CTA when
+                    // the administrator has closed the feature.
+                    if (!webPreordersAvailable && b.legacyId != null) ...[
                       const SizedBox(width: 8),
                       Expanded(
                         child: OutlinedButton.icon(
@@ -4733,6 +4795,74 @@ class BookDetailPage extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Recommend only available books in the same genre or by the same
+/// author. Never promise inventory for a title with zero stock.
+class _SimilarAvailableBooks extends StatelessWidget {
+  const _SimilarAvailableBooks({required this.book});
+  final Book book;
+
+  @override
+  Widget build(BuildContext context) {
+    final candidates = context.watch<AppState>().books.where((candidate) {
+      if (!candidate.isActive || candidate.stock <= 0 ||
+          candidate.id == book.id || candidate.preorderEnabled) return false;
+      return (book.author.trim().isNotEmpty &&
+                 book.author != 'Ko‘rsatilmagan' &&
+                 candidate.author.trim().toLowerCase() ==
+                    book.author.trim().toLowerCase()) ||
+          (book.category.trim().isNotEmpty &&
+              candidate.category.trim().toLowerCase() ==
+                 book.category.trim().toLowerCase());
+    }).toList()..sort((a, b) {
+      final sameAuthorA = a.author.toLowerCase() == book.author.toLowerCase();
+      final sameAuthorB = b.author.toLowerCase() == book.author.toLowerCase();
+      if (sameAuthorA != sameAuthorB) return sameAuthorA ? -1 : 1;
+      return b.stock.compareTo(a.stock);
+    });
+    if (candidates.isEmpty) return const SizedBox.shrink();
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const AppSectionHeader(
+        title: 'O‘rniga o‘qish uchun',
+        subtitle: 'Hozir omborda bor, o‘xshash kitoblar',
+        icon: Icons.auto_awesome_outlined,
+      ),
+      const SizedBox(height: 10),
+      SizedBox(
+        height: 174,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: candidates.length > 5 ? 5 : candidates.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 9),
+          itemBuilder: (context, index) {
+            final item = candidates[index];
+            return SizedBox(
+              width: 130,
+              child: InkWell(
+                onTap: () => _openBookDetail(context, item),
+                borderRadius: BorderRadius.circular(12),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Expanded(child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: _BookCover(book: item),
+                  )),
+                  const SizedBox(height: 5),
+                  Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12,
+                      fontWeight: FontWeight.w800)),
+                  Text(won(item.currentPrice), maxLines: 1,
+                    style: const TextStyle(fontSize: 12,
+                      color: AppColors.success, fontWeight: FontWeight.w800)),
+                ]),
+              ),
+            );
+          },
+        ),
+      ),
+    ]);
   }
 }
 
@@ -5522,6 +5652,29 @@ class CartPage extends StatelessWidget {
                         : AppColors.border,
                   ),
                 ),
+                if (state.cartDisplayCount > 0 &&
+                    state.cartDisplayCount < 4 &&
+                    state.cartDeliveryFee > 0 &&
+                    !state.discountBlocksFourPlusFreeDelivery &&
+                    !state.cartBundleDeliveryIncluded) ...[
+                  AppSurface(
+                    backgroundColor: AppColors.successSoft,
+                    child: Row(children: [
+                      const Icon(Icons.card_giftcard_rounded,
+                          color: AppColors.success),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(
+                        'Yana ${4 - state.cartDisplayCount} ta mahsulot qo‘shing — '
+                        '₩4,000 yetkazib berish bepul bo‘ladi!',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.navy,
+                        ),
+                      )),
+                    ]),
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 if (state.discountBlocksFourPlusFreeDelivery &&
                     !state.cartBundleDeliveryIncluded) ...[
                   const _DiscountShippingWarning(),
@@ -6305,6 +6458,23 @@ class _CheckoutPageState extends State<CheckoutPage> {
     instagram = TextEditingController();
     orderNote = TextEditingController();
     manualPrice = TextEditingController();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _requireCustomerProfile());
+  }
+
+  Future<bool> _requireCustomerProfile() async {
+    if (!mounted || professionalMode) return true;
+    final ok = await ensureCustomerCheckoutIdentity(context);
+    if (!mounted) return false;
+    if (!ok) {
+      if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+      return false;
+    }
+    final saved = context.read<AppState>().savedCustomer;
+    final savedName = (saved['name'] ?? '').trim();
+    final savedPhone = (saved['phone'] ?? '').replaceAll(RegExp(r'\D'), '');
+    if (savedName.isNotEmpty) name.text = savedName;
+    if (savedPhone.isNotEmpty) phone.text = savedPhone;
+    return true;
   }
 
   @override
@@ -6951,7 +7121,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Future<void> _submit(AppState state, int deliveryFee) async {
-    if (!formKey.currentState!.validate()) return;
+    if (!professionalMode && !await _requireCustomerProfile()) return;
+    if (!mounted || !formKey.currentState!.validate()) return;
     if (!professionalMode && (!paymentDone || paymentProof == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -7360,31 +7531,34 @@ class ProfilePage extends StatelessWidget {
             child: Column(
               children: [
                 ListTile(
+                  minTileHeight: 74,
+                  leading: const _ProfileIcon(icon: Icons.person_outline_rounded),
+                  title: const Text('Mening ma’lumotlarim',
+                    style: TextStyle(fontWeight: FontWeight.w800)),
+                  subtitle: Text(state.checkoutIdentityReady
+                    ? 'Ism, telefon va PIN saqlangan • buyurtmaga tayyor'
+                    : 'Ism, telefon va PIN • SMSsiz ro‘yxatdan o‘tish'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => Navigator.push(context, muhajeerPageRoute(
+                    settings: const RouteSettings(name:'mb:my-profile-web'),
+                    builder: (_) => const _WebMyProfilePage(),
+                  )),
+                ),
+                const Divider(),
+                ListTile(
                   minTileHeight: 68,
-                  leading: _ProfileIcon(
-                    icon: _webOrPlayCustomer
-                        ? Icons.person_outline_rounded
-                        : Icons.receipt_long_outlined,
-                  ),
-                  title: Text(
-                    _webOrPlayCustomer ? 'Mening ma’lumotlarim' : 'Mening buyurtmalarim',
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  subtitle: Text(
-                    _webOrPlayCustomer
-                        ? 'Profil, buyurtmalar, manzil va yordam'
-                        : 'Holatini kuzatish va tarixni ko‘rish',
-                  ),
+                  leading: const _ProfileIcon(
+                    icon: Icons.event_available_outlined),
+                  title: const Text('Oldindan zakazlarim',
+                    style: TextStyle(fontWeight: FontWeight.w800)),
+                  subtitle: const Text(
+                    'Avans, band qilingan kitoblar va qolgan to‘lov'),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => Navigator.push(
                     context,
                     muhajeerPageRoute(
-                      settings: RouteSettings(
-                        name: _webOrPlayCustomer ? 'mb:my-profile-web' : 'mb:orders',
-                      ),
-                      builder: (_) => _webOrPlayCustomer
-                          ? const _WebMyProfilePage()
-                          : const MyOrdersPage(),
+                      settings: const RouteSettings(name: 'mb:preorder-balances'),
+                      builder: (_) => const CustomerPreorderBalancesPage(),
                     ),
                   ),
                 ),
@@ -7480,54 +7654,10 @@ class _WebMyProfilePage extends StatelessWidget {
   const _WebMyProfilePage();
 
   Future<void> _editProfile(BuildContext context) async {
-    final state = context.read<AppState>();
-    final name = TextEditingController(text: state.savedCustomer['name'] ?? '');
-    final phone = TextEditingController(text: state.savedCustomer['phone'] ?? '');
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Profilni tahrirlash'),
-        content: SizedBox(
-          width: 420,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: name,
-                decoration: const InputDecoration(
-                  labelText: 'Ism',
-                  prefixIcon: Icon(Icons.person_outline_rounded),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: phone,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Telefon',
-                  prefixIcon: Icon(Icons.phone_outlined),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Bekor qilish'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Saqlash'),
-          ),
-        ],
-      ),
-    );
-    if (saved == true && context.mounted) {
-      await state.setAuthenticatedCustomer(name.text, phone.text);
-    }
-    name.dispose();
-    phone.dispose();
+    await Navigator.push(context, muhajeerPageRoute(
+      settings: const RouteSettings(name: 'mb:customer-pin'),
+      builder: (_) => const CustomerPinPage(),
+    ));
   }
 
   Future<void> _showAddress(BuildContext context) async {
@@ -7570,6 +7700,11 @@ class _WebMyProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
+    // First-time customers fill name, phone and PIN immediately from
+    // Mening ma’lumotlarim, without another nested menu.
+    if (state.backendConfigured && !state.checkoutIdentityReady) {
+      return const CustomerPinPage();
+    }
     final displayName = (state.savedCustomer['name'] ?? '').trim().isNotEmpty
         ? state.savedCustomer['name']!.trim()
         : 'Muhajeer kitobxoni';
@@ -7629,7 +7764,7 @@ class _WebMyProfilePage extends StatelessWidget {
                     OutlinedButton.icon(
                       onPressed: () => _editProfile(context),
                       icon: const Icon(Icons.edit_outlined, size: 18),
-                      label: const Text('Profilni tahrirlash'),
+                      label: const Text('Ism, telefon va PIN'),
                     ),
                     if (iosTestFlightPreview) ...[
                       const SizedBox(height: 10),
@@ -7639,6 +7774,19 @@ class _WebMyProfilePage extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: 14),
+              AppSurface(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(state.checkoutIdentityReady
+                    ? 'Profilingiz buyurtmalarga tayyor'
+                    : 'Buyurtma berish uchun ism, telefon va PINni kiriting.',
+                    style: const TextStyle(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 6),
+                  const Text('SMS talab qilinmaydi. Boshqa telefondan '
+                    'buyurtmalarni topish uchun 4 xonali PINni eslab qoling.'),
+                ],
+              )),
               const SizedBox(height: 14),
               AppSurface(
                 padding: EdgeInsets.zero,

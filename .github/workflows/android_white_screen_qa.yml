@@ -1,0 +1,131 @@
+name: Android white screen emergency QA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/testflight-quality-and-reliability-20261023]
+    paths:
+      - 'lib/main.dart'
+      - 'lib/app_state.dart'
+      - 'tools/prepare_android_release_compat.py'
+      - 'tools/assert_android_startup_frame.py'
+      - '.github/workflows/android_white_screen_qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  android-smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - api: 28
+            target: default
+            profile: pixel_2
+          - api: 35
+            target: default
+            profile: pixel_6
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.7'
+          channel: stable
+          cache: true
+      - name: Generate Android and validate startup source
+        run: |
+          flutter create . --platforms=android --project-name muhajeerbooks --org com.muhajeerbooks
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+      - name: Match Play package, permissions and Android rendering fallback
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('android/app/build.gradle.kts')
+          s=p.read_text()
+          s=re.sub(r'applicationId\s*=\s*"[^"]+"','applicationId = "com.muhajeerbooks.app"',s)
+          p.write_text(s)
+          p=Path('android/app/src/main/AndroidManifest.xml')
+          m=p.read_text()
+          for permission in ('android.permission.INTERNET','android.permission.POST_NOTIFICATIONS'):
+              if permission not in m:
+                  m=m.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
+                      '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="'+permission+'" />',1)
+          if 'io.flutter.embedding.android.EnableImpeller' not in m:
+              m=m.replace('</application>','    <meta-data android:name="io.flutter.embedding.android.EnableImpeller" android:value="false" />\n</application>',1)
+          p.write_text(m)
+          assert 'EnableImpeller' in m
+          assert 'com.muhajeerbooks.app' in s
+          PY
+      - name: Fix Pigeon SharedPreferences release compatibility
+        run: |
+          python3 tools/prepare_android_release_compat.py
+          python3 tools/prepare_android_testlab_analytics.py
+          python3 tools/prepare_android_biometrics.py
+      - name: Build Play equivalent Android release APK for QA only
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          flutter build apk --release --build-number=1189 \
+            --dart-define=PLAY_STORE_BUILD=true \
+            --dart-define=ANALYTICS_TEST_BUILD=true \
+            --dart-define=APP_BUILD_NUMBER=1189 \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+      - name: Prepare screenshot validation
+        run: python3 -m pip install --quiet pillow
+      - name: Smoke test Android ${{ matrix.api }} emulator startup and capture screenshot
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          target: ${{ matrix.target }}
+          profile: ${{ matrix.profile }}
+          ram-size: 2048M
+          disk-size: 6144M
+          emulator-boot-timeout: 900
+          disable-animations: true
+          script: |
+            adb install -r build/app/outputs/flutter-apk/app-release.apk
+            adb logcat -c
+            # Resolve the actual LAUNCHER activity from the APK's manifest.
+            # It may not be com.muhajeerbooks.app.MainActivity.
+            adb shell monkey -p com.muhajeerbooks.app -c android.intent.category.LAUNCHER 1 | tee android9-launch.txt
+            sleep 20
+            adb exec-out screencap -p > android9-startup.png
+            adb logcat -d -v brief > android9-startup.log
+            adb shell dumpsys activity activities > android9-activities.txt
+            adb shell pidof com.muhajeerbooks.app | tee android9-pid.txt
+            # API 35 does not always emit the API 28 mResumedActivity key.
+            # Require a live target process plus a nonblank captured frame,
+            # while logging current window focus for physical QA.
+            adb shell dumpsys window windows > android9-window.txt
+            if ! grep -Eq '(mResumedActivity|topResumedActivity|ResumedActivity).*com.muhajeerbooks.app' android9-activities.txt &&
+               ! grep -Eq '(mCurrentFocus|mFocusedApp).*com.muhajeerbooks.app' android9-window.txt; then
+              echo 'WARN: Android version uses a different resumed-activity marker'
+            fi
+            test -n "$(adb shell pidof com.muhajeerbooks.app)"
+            if grep -E "FATAL EXCEPTION|Process: com.muhajeerbooks.app|SIGSEGV|Muhajeer Books Android bootstrap failed|SharedPreferencesApiRegistrar|NoSuchMethodError|Unhandled Exception|PlatformException" android9-startup.log; then echo 'ERROR: App crashed or failed to initialize on Android 9'; exit 1; fi
+            test -s android9-startup.png
+            python3 tools/assert_android_startup_frame.py android9-startup.png
+      - name: Upload test APK and startup evidence (NOT a Play release)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-white-screen-qa-api-${{ matrix.api }}
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            android9-startup.png
+            android9-startup.log
+            android9-activities.txt
+            android9-window.txt
+            android9-pid.txt
+            android9-launch.txt
+          if-no-files-found: warn
+          retention-days: 7

@@ -5,3 +5,52 @@ Show SIX tappable dashboard cards: Bugungi savdo, Yangi buyurtmalar, Qabul qilin
 Jo‘natishga tayyor (prepared, not yet shipped), Tugagan kitoblar, and Oldindan zakazlar.
 Each opens its corresponding existing filtered order/book/preorder details. Daily revenue and drill-down matching use the same predicate.
 Do not change data, stock, orders, API/backend, or user-facing iOS App Store and Play Market releases.
+
+2026-10-23 TestFlight QA refresh on isolated branch only.
+Include admin requested-book customer phone, localized preorder states, and accurate limited timeline description.
+Required code commit: 4b5e6974f16506ae634c52c17bf3c43ca84855b8.
+Do not merge to main, deploy Railway, or release to public App Store/Play Market.
+
+2026-10-23 owner-requested iOS TestFlight QA only; NO PUBLIC APP STORE, PLAY MARKET OR RAILWAY RELEASE.
+Updated customer shipped notice: mail courier delivery normally 1–2 days, with no extra done/delivered admin status.
+Admin full native/web preorder history paginated with protected RPC and safe fallback; tracking is informational, not an open task.
+Android startup/white-screen compatibility included in shared source for separate emulator and physical-device QA, no Play publishing.
+No schema/order/stock bulk data changes in mobile app; protected read-only admin RPC and the existing shipping push copy updated server-side.
+
+2026-10-23 second owner-requested preview upload after confirmed TestFlight build 2065. Include separate ios_testflight analytics group, corrected admin label treating shipped as completed shop work. Flutter validation must pass before signed IPA upload. NO release or review submission, NO Android Play deploy, NO Railway/main merge.
+
+2026-10-23 final candidate for iOS TESTFLIGHT ONLY, after build 2066 passed Apple upload verification. Include consent-gated iOS customer APNs registration/unregistration (existing Swift channel and Supabase backend), distinct TestFlight metrics, all-status paginated preorders, shipped-is-final semantics and 1–2 day courier notice. Android white-screen fixes stay in branch for separate emulator/physical QA; DO NOT publish to App Store, Play Market or Railway, or merge to main.
+
+2026-10-23 latest TESTFLIGHT ONLY candidate: supersede preliminary iOS build 2067 with the customer-facing iPhone notification settings retry/status page, consent-only customer APNs token enrollment, native and web preorder pagination, correct source analytics, and shipped-final customer messaging. Workflow Flutter tests are a mandatory gate; no public App Store submission, no Google Play release, no Railway deploy, no main merge.
+2026-10-23 19:50 KST TestFlight-only QA: hide exactly two owner-selected preorder rows without deleting records; active-only Barchasi filter plus Tekshirish kerak, Qabul qilingan, Yangi kelgan, Bekor qilingan; app-only tracking reminder for orders created after 2026-10-23T10:33:32Z and no social/old-order backlog. Consented iOS customer APNs registration and privacy-safe push dispatcher source; backend dispatcher must be deployed separately before native push works live. No public iOS or Android release, no Railway/main deploy.
+
+2026-10-23 — TestFlight QA ONLY: per-order native/web preorder management screen opens when the user taps an order card. Native waiting -> accepted -> arrived; cancellation and reasoned reopening; web status uses existing server version check. View deposit proof and buyer note per order. Back-end guarded native status RPC deployed, no live customer preorder changed. All new releases must stay off public App Store, Play Market and Railway/main.
+
+2026-10-23 TestFlight ONLY release candidate: professional native preorder workflow.
+- Cancel requires TWO confirmations, a reason and never deletes the order or refunds the deposit automatically.
+- "Kitob keldi" asks for final price per unit, courier fee and a required admin note; server refuses to mark arrived until accepted preorder copies are actually reserved in physical stock.
+- Automatically reserve accepted native preorder copies from incoming inventory before exposing available stock: 3 received, 2 reserved, only 1 publicly sellable.
+- Single deposit credit against final invoice; 4+ books free delivery unless active promotion explicitly disables.
+- Original-install customer screen "Oldindan zakazlarim" shows amount due/admin note; lets them add/remove extra books with transactional inventory holds, copies bank details and uploads final payment proof; admin can view proof and confirm payment.
+- Durable in-app preorder arrival/verification notices, with customer notification deep-link. Physical APNs delivery from Railway remains pending backend deployment; no SMS.
+- Supabase admin-rpc v33, customer-rpc v19 and transactional migrations deployed; existing real preorder status, payment and stock remain unchanged.
+- No main merge, no public App Store, no Play Market, no Railway deployment.
+
+2026-10-23 final native preorder financial QA candidate for iOS TESTFLIGHT ONLY, superseding preliminary build 2071. Includes per-copy advance for 1–20 reserved copies, double-confirm cancellation and correct released inventory, automated stock holding on restock, admin priced arrival + note, in-app customer alert, invoice showing deposit deduction, 4+ shipping rule, add-on cart with atomic stock reservation and removal, balance proof upload, admin proof review/payment verification and refresh. SQL transactional QA 3 incoming minus 2 reserved = 1 free passed; live booking unchanged. No public App Store or Play Market, no Railway/main deployment. Native phone push is not verified live and preorder finance-to-sales conversion is not automatic.
+
+2026-10-23 final iOS TestFlight-only candidate superseding preview #2072: preserve original installation-linked preorder balance checkout plus store verified/non-verified preorder contact for in-app notices without granting account verification to a changed phone number. Tested database reservation, deposit reconciliation, extras, cancellation rollback, 4+ shipping. Does NOT submit to public App Store, Google Play, Railway or main.
+
+2026-10-23 final QA additive shipment update for iOS TESTFLIGHT ONLY: admin preorder detail now has Yangi partiya qo‘shish (incremental received stock; existing stock never overwritten). Backend admin_preorder_receive_batch atomic and service-role only; accepted preorders reserved from received batch before remaining stock is shown. Simulated initial 1 + received 2, reserve 2, free 1 with rollback. Maintains double-cancel confirmation, prepaid invoice/add-ons, private customer in-app messages. No public App Store/Play, Railway, or main merge; native OS push delivery not yet deployed.
+
+2026-10-23 owner-requested TestFlight-only customer preorder lookup:
+- Profile > Oldindan zakazlarim combines native and web preorders; device-ID OR exact profile name+phone discovers legacy web TestFlight requests.
+- New web preorders save install ID; legacy contact matches show safe read-only status with no payment proof disclosure.
+- Install-scoped/contact-scoped in-app preorder activity events route customer notice taps to matching preorder first.
+- Web UUID preorder IDs handled as strings, not numbers; widget regression tests included.
+- No public App Store, Play Market or Railway deployment; no main merge.
+
+2026-10-23 TestFlight QA ONLY: optional SMS-free 4-digit PIN profile creation, confirm twice, phone+PIN sign-in from another device, secure session restore, failed-attempt throttling, no forgotten-PIN recovery. Name and phone remain sufficient for checkout without SMS. PIN-protected other-device preorder summaries are read-only, never show data via name/phone matching alone. No public App Store or Google Play release, no Railway deploy, no main merge.
+
+2026-10-23 — OWNER REQUEST, TESTFLIGHT ONLY: implement straightforward SMS-free name and Korea 010 phone profile. Profile gets one-tap create/edit, saved locally across visits, auto-filled in regular and preorder checkout, restock no longer requires address at registration. Existing optional PIN stays optional. No claim of verified phone ownership from typed name+phone, do not expose other devices' payment receipts or order secrets. Flutter CI 1570 passed (run 39960486230). No App Store or Play Market public release, no main merge or Railway deploy.
+
+2026-10-23 SMS-FREE PIN CONSOLIDATION TestFlight QA ONLY. Mening ma’lumotlarim is single entry for name+phone+required four-digit PIN. Regular checkout, native preorder and web preorder checkout require PIN session and preserve draft on successful registration. PIN-session matching legacy NULL-install-id web preorder is returned read-only as a safe status summary, not a payment ledger. Flutter CI 1585 success. No public App Store, Play Market, Railway deployment, or main branch merge.

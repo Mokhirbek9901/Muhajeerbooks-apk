@@ -704,6 +704,29 @@ class _AdminApi {
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
 
+  /// All native preorder states, not just the 100 waiting items in insights.
+  /// Read-only, bounded pages; throws instead of silently dropping history.
+  Future<List<Map<String, dynamic>>> nativePreordersAll() async {
+    const pageSize = 200;
+    final all = <Map<String, dynamic>>[];
+    for (var offset = 0; offset < 20000; offset += pageSize) {
+      final raw = await _rpc(
+        'admin_preorders_all_list',
+        params: {'p_secret': secret, 'p_limit': pageSize, 'p_offset': offset},
+      );
+      if (raw is! Map || raw['rows'] is! List) {
+        throw StateError('Oldindan zakazlar server javobi noto‘g‘ri.');
+      }
+      final page = (raw['rows'] as List)
+          .whereType<Map>()
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList();
+      all.addAll(page);
+      if (page.length < pageSize) return all;
+    }
+    throw StateError('20 000 dan ortiq yozuv bor. Tarix to‘liq yuklanmadi.');
+  }
+
   Future<Map<String, dynamic>> demandAnalytics() async {
     final raw = await _rpc('admin_demand_analytics', params: {'p_secret': secret});
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};

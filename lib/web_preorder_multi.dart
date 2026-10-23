@@ -45,6 +45,21 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
     initialName = name.text;
     initialPhone = phone.text;
     _reload();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _requireProfile());
+  }
+
+  Future<bool> _requireProfile() async {
+    if (!mounted) return false;
+    final ready = await ensureCustomerCheckoutIdentity(context);
+    if (!mounted) return false;
+    if (!ready) {
+      if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+      return false;
+    }
+    final saved=context.read<AppState>().savedCustomer;
+    name.text=(saved['name']??'').trim();
+    phone.text=(saved['phone']??'').trim();
+    return true;
   }
 
   @override
@@ -214,7 +229,8 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
   }
 
   Future<void> submit() async {
-    if (saving || picking || completed || !validateDetails()) return;
+    if (saving || picking || completed || !await _requireProfile()) return;
+    if (!mounted || !validateDetails()) return;
     if (proof == null) { message('Jami avans uchun to‘lov chekini yuklang.'); return; }
     setState(() => saving = true);
     try {

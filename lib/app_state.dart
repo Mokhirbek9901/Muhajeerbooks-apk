@@ -1522,7 +1522,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     if (storedVerification == null) {
       final legacyName = (savedCustomer['name'] ?? '').trim();
       final legacyPhone = (savedCustomer['phone'] ?? '').replaceAll(
-        RegExp(r'\\D'),
+        RegExp(r'\D'),
         '',
       );
       customerVerified = legacyName.length >= 2 && legacyPhone.length >= 9;

@@ -132,7 +132,7 @@ function validate(name: string, p: Record<string, unknown>): string | null {
         !textParam(p.p_recipient_name,80) ||
         !textParam(p.p_recipient_phone,32) ||
         typeof p.p_address !== "string" || p.p_address.length > 500 ||
-        !["택배","경산 직접수령"].includes(p.p_delivery_type))
+        !["택배","경산 직접수령","경산 무료배송"].includes(p.p_delivery_type))
       return "Invalid prepaid delivery";
   } else if (name === "customer_register_free") {
     if (!textParam(p.p_name, 80) || String(p.p_name).trim().length < 2 || !textParam(p.p_phone, 32)) return "Invalid registration";

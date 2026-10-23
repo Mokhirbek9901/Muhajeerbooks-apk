@@ -818,6 +818,38 @@ class BackendService {
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
 
+  Future<List<Map<String, dynamic>>> fetchPreorderBalances(String installId) async {
+    final raw = await _customerRpc('customer_preorder_balance_list', {
+      'p_install_id': installId,
+    });
+    if (raw is! List) return const [];
+    return raw.whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<void> changePreorderExtra(String installId, int preorderId,
+      String bookId, int delta) async {
+    final result = await _customerRpc('customer_preorder_extra_change', {
+      'p_install_id': installId,
+      'p_preorder_id': preorderId,
+      'p_book_id': bookId,
+      'p_delta': delta,
+    });
+    if (result is! Map) throw StateError('Qo‘shimcha kitob saqlanmadi');
+  }
+
+  Future<void> submitPreorderBalanceProof(String installId, int preorderId,
+      String proofPath) async {
+    final result = await _customerRpc('customer_preorder_balance_proof', {
+      'p_install_id': installId,
+      'p_preorder_id': preorderId,
+      'p_path': proofPath,
+    });
+    if (result is! Map || result['payment_state'] != 'proof_submitted') {
+      throw StateError('Qolgan to‘lov cheki saqlanmadi');
+    }
+  }
+
   Future<Map<String, dynamic>> requestMissingBook(String installId, String title, {String author = '', String phone = ''}) async {
     final raw = await _customerRpc('customer_book_request_submit', {'p_install_id': installId, 'p_title': title, 'p_author': author, 'p_phone': phone});
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
@@ -1827,6 +1859,27 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       note: note,
     );
     return 'Oldindan buyurtma qabul qilindi ✅';
+  }
+
+  Future<List<Map<String, dynamic>>> myPreorderBalances() async {
+    if (_backend == null) return const [];
+    final id = await _local.installId();
+    return _backend!.fetchPreorderBalances(id);
+  }
+
+  Future<void> changePreorderExtra(int preorderId, String bookId, int delta) async {
+    if (_backend == null) throw StateError('Internetga ulaning');
+    final id = await _local.installId();
+    await _backend!.changePreorderExtra(id, preorderId, bookId, delta);
+    // Inventory changed, including stock available for other customers.
+    unawaited(refreshFromBackend());
+  }
+
+  Future<void> submitPreorderRemainingPayment(int preorderId, XFile file) async {
+    if (_backend == null) throw StateError('Internetga ulaning');
+    final proofPath = await _backend!.uploadPaymentProof(file);
+    final id = await _local.installId();
+    await _backend!.submitPreorderBalanceProof(id, preorderId, proofPath);
   }
 
   Future<String> requestMissingBook(String title) async {

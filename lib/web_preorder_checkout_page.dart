@@ -167,7 +167,15 @@ class _WebPreorderCheckoutPageState extends State<WebPreorderCheckoutPage> {
       final canEdit=d['can_edit']==true;
       final details=((d['extras'] as List?)??const []).whereType<Map>()
         .map((e)=>Map<String,dynamic>.from(e)).toList();
-      return ListView(padding:const EdgeInsets.all(16),children:[
+      final extraCount=details.fold<int>(0,(sum,line)=>
+        sum+((line['quantity'] as num?)?.toInt()??0));
+      final chosenShipping=deliveryType=='경산 직접수령'?0:
+        (qty+extraCount>=4&&!context.watch<AppState>().discountBlocksFourPlusFreeDelivery?0:4000);
+      final shownShipping=canEdit?chosenShipping:shipping;
+      final shownTotal=qty*price+extra+shownShipping;
+      final shownDue=(shownTotal-deposit).clamp(0,100000000).toInt();
+      return Form(key:form,child:ListView(
+        padding:const EdgeInsets.all(16),children:[
         if(busy)const LinearProgressIndicator(),
         AppSurface(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
           const Text('Oldindan zakaz qilingan kitob'),
@@ -188,6 +196,108 @@ class _WebPreorderCheckoutPageState extends State<WebPreorderCheckoutPage> {
         if(!cancelled&&!ready)AppSurface(child:Text((d['note']??'Narx tasdiqlanmagan').toString()+
           '. Avans qayta olinmaydi. Hozir to‘lov yubormang.')),
         if(!cancelled&&ready)...[
+          const Text('1. Qabul qiluvchi',style:TextStyle(
+            fontSize:20,fontWeight:FontWeight.w900)),
+          const SizedBox(height:10),
+          AppSurface(child:Column(children:[
+            TextFormField(controller:recipientName,
+              decoration:const InputDecoration(labelText:'Ism',
+                prefixIcon:Icon(Icons.person_outline)),
+              validator:(v)=>(v??'').trim().length<2?'Ismingizni kiriting':null),
+            const SizedBox(height:10),
+            TextFormField(controller:recipientPhone,
+              keyboardType:TextInputType.phone,
+              inputFormatters:[FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(11)],
+              decoration:const InputDecoration(labelText:'Telefon raqami',
+                hintText:'01012345678',prefixIcon:Icon(Icons.phone_outlined)),
+              validator:(v)=>RegExp(r'^010\d{8},style:TextStyle(fontSize:19,fontWeight:FontWeight.w900)),
+            const Divider(),
+            item('Zakaz qilingan kitob',qty*price),
+            item('Yetkazib berish',shipping),
+            item('Qo‘shimcha kitoblar',extra),
+            const Divider(),
+            item('Jami',base+extra),
+            item('Oldindan to‘langan avans',-deposit),
+            const Divider(),
+            item('Qolgan to‘lov',due,big:true),
+            Text((d['note']??'').toString(),style:const TextStyle(fontSize:12)),
+          ])),
+          const SizedBox(height:12),
+          AppSurface(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            const Text('Qo‘shimcha kitoblar',style:TextStyle(fontWeight:FontWeight.w900,fontSize:18)),
+            for(final line in details)ListTile(
+              contentPadding:EdgeInsets.zero,
+              title:Text((line['title']??'Kitob').toString()),
+              subtitle:Text(won((line['unit_price'] as num?)?.toInt()??0)+' × '+
+                (line['quantity']??1).toString()),
+              trailing:canEdit?IconButton(icon:const Icon(Icons.remove_circle_outline),
+                tooltip:'Bitta olib tashlash',onPressed:busy?null:()=>
+                  change((line['book_id']??'').toString(),-1)):null,
+            ),
+            if(canEdit)OutlinedButton.icon(onPressed:busy?null:()=>
+              pickBook((d['book_id']??'').toString()),
+              icon:const Icon(Icons.add_shopping_cart),label:const Text('Yana kitob qo‘shish')),
+          ])),
+          const SizedBox(height:12),
+          AppSurface(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            const Text('Qolgan to‘lovni yuborish',style:TextStyle(fontWeight:FontWeight.w900,fontSize:18)),
+            const SizedBox(height:10),
+            const SelectableText(AppState.bankName+' • '+AppState.bankAccount+' • '+AppState.bankOwner),
+            TextButton.icon(onPressed:() async{
+              await Clipboard.setData(const ClipboardData(text:AppState.bankAccount));
+              notice('Bank raqami nusxalandi');
+            },icon:const Icon(Icons.copy),label:const Text('Bank raqamini nusxalash')),
+            if(canEdit&&due>0)FilledButton.icon(onPressed:busy?null:()=>sendProof(due),
+              icon:const Icon(Icons.receipt_long),label:Text(won(due)+' uchun chek yuborish')),
+            if(canEdit&&due==0)const Text('Avans barcha xarajatni qopladi. Admin tasdig‘ini kuting.'),
+            if(!canEdit)Text(d['payment_state']=='proof_submitted'
+              ? 'Qolgan to‘lov cheki yuborilgan. Admin tekshiradi.'
+              : d['payment_state']=='verified'?'To‘lov tasdiqlangan ✅'
+              : 'To‘lov hozircha yopiq.'),
+          ])),
+        ],
+      ]));
+    }),
+  );
+}
+).hasMatch((v??'').trim())
+                ?null:'010 bilan boshlanuvchi 11 raqamni kiriting'),
+            const SizedBox(height:10),
+            TextFormField(controller:recipientAddress,
+              maxLines:3,minLines:2,
+              decoration:InputDecoration(
+                labelText:deliveryType=='택배'?'To‘liq manzil':'Manzil (ixtiyoriy)',
+                helperText:deliveryType=='택배'
+                  ?'Bino, uy va xona raqamini yozing.'
+                  :'Gyeongsandan o‘zingiz olib ketasiz',
+                prefixIcon:const Icon(Icons.location_on_outlined)),
+              validator:(v)=>deliveryType=='택배'&&(v??'').trim().length<8
+                ?'To‘liq manzilni kiriting':null),
+          ])),
+          const SizedBox(height:16),
+          const Text('2. Yetkazib berish',style:TextStyle(
+            fontSize:20,fontWeight:FontWeight.w900)),
+          const SizedBox(height:10),
+          AppSurface(child:Column(children:[
+            RadioListTile<String>(
+              value:'택배',groupValue:deliveryType,
+              onChanged:canEdit?(value)=>setState(()=>deliveryType=value!):null,
+              title:const Text('Koreya bo‘ylab pochta (택배)'),
+              subtitle:Text(canEdit
+                ?(chosenShipping==0?'4+ kitob — BEPUL':'₩4,000 • 1–2 ish kuni')
+                :'To‘lov cheki yuborilgan, narx o‘zgarmaydi')),
+            const Divider(height:1),
+            RadioListTile<String>(
+              value:'경산 직접수령',groupValue:deliveryType,
+              onChanged:canEdit?(value)=>setState(()=>deliveryType=value!):null,
+              title:const Text('경산dan o‘zim olib ketaman'),
+              subtitle:const Text('Gyeongsan • BEPUL')),
+          ])),
+          const SizedBox(height:16),
+          const Text('3. Buyurtma jami',style:TextStyle(
+            fontSize:20,fontWeight:FontWeight.w900)),
+          const SizedBox(height:10),
           AppSurface(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
             const Text('Buyurtma hisobi',style:TextStyle(fontSize:19,fontWeight:FontWeight.w900)),
             const Divider(),
@@ -235,7 +345,7 @@ class _WebPreorderCheckoutPageState extends State<WebPreorderCheckoutPage> {
               : 'To‘lov hozircha yopiq.'),
           ])),
         ],
-      ]);
+      ]));
     }),
   );
 }

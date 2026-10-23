@@ -51,6 +51,31 @@ int batchBookCostValue({
   return quantity*unitCost;
 }
 
+/// Search handles Uzbek apostrophe/hyphen spellings and ranks already
+/// selected titles first so the operator can re-find and adjust them quickly.
+List<Map<String,dynamic>> searchBatchCatalogBooks(
+  List<Map<String,dynamic>> books, String search, Set<String> selectedIds) {
+  String normalize(String raw) => raw.toLowerCase()
+    .replaceAll(RegExp(r"['ʻ‘’ʼ`´]"),'')
+    .replaceAll(RegExp(r'[-_.,/]+'),' ')
+    .replaceAll(RegExp(r'\s+'),' ')
+    .trim();
+  final words=normalize(search).split(' ')
+    .where((w)=>w.isNotEmpty).toList();
+  final results=books.where((book) {
+    final title=normalize((book['title']??'').toString());
+    return words.every(title.contains);
+  }).toList();
+  results.sort((a,b) {
+    final x=selectedIds.contains(a['id'].toString())?0:1;
+    final y=selectedIds.contains(b['id'].toString())?0:1;
+    if(x!=y)return x.compareTo(y);
+    return (a['title']??'').toString().compareTo(
+      (b['title']??'').toString());
+  });
+  return results;
+}
+
 class _SelectedBatchBook {
   _SelectedBatchBook(Map<String,dynamic> raw,{
     int initialQuantity = 1, int? historicalUnitCost})
@@ -104,7 +129,6 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
   final Set<String> _originalTransportIds = <String>{};
   int _loadGeneration = 0;
   bool _existingLoading = false;
-  bool _onlySelected = false;
   bool _syncStock = false;
   bool _submitting = false;
   bool _confirming = false;
@@ -153,7 +177,6 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
     _existingSnapshot=null;
     _existingRevision=null;
     _existingLoading=false;
-    _onlySelected=false;
   }
 
   Future<void> _openOldBatch(
@@ -213,7 +236,6 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
         _selectedTransportIds.addAll(linked);
         // Show the previously entered books first; searching still lets an
         // admin select any other book.
-        _onlySelected=true;
         _existingLoading=false;
       });
     } catch(error) {
@@ -240,12 +262,118 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
     });
   }
 
-  void _showAllBooksForAdding() {
-    setState(() {
-      _onlySelected=false;
-      _search.clear();
-    });
-    _searchFocus.requestFocus();
+
+  Future<void> _removeSelectedBook(String id) async {
+    if(_submitting || _confirming)return;
+    if(_mode=='old' && _previousQty.containsKey(id)) {
+      final agreed=await showDialog<bool>(
+        context:context,
+        builder:(dialog)=>AlertDialog(
+          title:const Text('Kitobni partiyadan olib tashlash'),
+          content:const Text('Bu kitobning ushbu eski partiyadagi soni 0 '
+            'bo‘ladi. Ombor va moliya o‘zgarmaydi. '
+            'Saqlashda yana tasdiqlaysiz.'),
+          actions:[
+            TextButton(onPressed:()=>Navigator.pop(dialog,false),
+              child:const Text('Qoldirish')),
+            FilledButton(onPressed:()=>Navigator.pop(dialog,true),
+              child:const Text('Olib tashlash')),
+          ],
+        ),
+      );
+      if(!mounted||agreed!=true)return;
+    }
+    setState(()=>_selected.remove(id)?.dispose());
+  }
+
+  Future<void> _openBookPicker(List<Map<String,dynamic>> books) async {
+    if(_submitting||_confirming||_existingLoading)return;
+    _search.clear();
+    await showModalBottomSheet<void>(
+      context:context,
+      isScrollControlled:true,
+      useSafeArea:true,
+      showDragHandle:true,
+      backgroundColor:UzbekCustomerColors.background,
+      builder:(sheet)=>StatefulBuilder(builder:(sheet,refresh) {
+        final q=_search.text.trim();
+        final matching=searchBatchCatalogBooks(
+          books,q,_selected.keys.toSet());
+        return FractionallySizedBox(heightFactor:0.9,child:Column(children:[
+          Padding(padding:const EdgeInsets.fromLTRB(16,5,16,10),
+            child:Column(crossAxisAlignment:CrossAxisAlignment.start,
+              children:[
+                const Text('Kitob tanlash',style:TextStyle(fontSize:22,
+                  fontWeight:FontWeight.w900,color:UzbekCustomerColors.navy)),
+                Text('${_selected.length} nom tanlangan',
+                  style:const TextStyle(fontSize:12,
+                    color:UzbekCustomerColors.textMuted)),
+                const SizedBox(height:12),
+                TextField(
+                  controller:_search,focusNode:_searchFocus,autofocus:true,
+                  onChanged:(_)=>refresh((){}),
+                  decoration:InputDecoration(
+                    hintText:'Kitob nomini qidiring...',
+                    prefixIcon:const Icon(Icons.search_rounded),
+                    suffixIcon:q.isEmpty?null:IconButton(
+                      onPressed:(){_search.clear();refresh((){});},
+                      icon:const Icon(Icons.close),
+                      tooltip:'Qidiruvni tozalash'),
+                    filled:true,fillColor:Colors.white,
+                    border:OutlineInputBorder(
+                      borderRadius:BorderRadius.circular(14))),
+                ),
+                const SizedBox(height:6),
+                Text('${matching.length} ta natija',
+                  style:const TextStyle(fontSize:12,
+                    color:UzbekCustomerColors.textMuted)),
+              ])),
+          Expanded(child:matching.isEmpty
+            ?const Center(child:Text('Bunday kitob topilmadi.'))
+            :ListView.builder(
+              keyboardDismissBehavior:ScrollViewKeyboardDismissBehavior.onDrag,
+              itemCount:matching.length,
+              itemBuilder:(ctx,i) {
+                final book=matching[i];
+                final id=book['id'].toString();
+                final chosen=_selected[id];
+                return Padding(
+                  padding:const EdgeInsets.symmetric(horizontal:12,vertical:3),
+                  child:Material(color:Colors.white,
+                    borderRadius:BorderRadius.circular(12),
+                    child:ListTile(
+                      contentPadding:const EdgeInsets.symmetric(
+                        horizontal:12,vertical:4),
+                      title:Text((book['title']??'Kitob').toString(),
+                        maxLines:2,overflow:TextOverflow.ellipsis,
+                        style:const TextStyle(fontWeight:FontWeight.w800)),
+                      subtitle:Text(chosen!=null
+                        ?'Tanlangan: ${chosen.qty} dona'
+                        :'Tannarx: ${_money((book['cost_price'] as num?)?.toInt()??0)}'
+                         ' • Qoldiq: ${book['stock']??0}',
+                        style:const TextStyle(fontSize:11.5)),
+                      trailing:chosen!=null
+                        ?const Tooltip(
+                          message:'Tanlangan — sonini asosiy sahifada tahrirlang',
+                          child:Icon(Icons.check_circle_rounded,
+                            color:UzbekCustomerColors.navy,size:29))
+                        :IconButton.filled(
+                          tooltip:'Partiyaga qo‘shish',
+                          icon:const Icon(Icons.add),
+                          onPressed:(){_pick(book,true);refresh((){});}),
+                    )));},
+            )),
+          SafeArea(top:false,child:Padding(
+            padding:const EdgeInsets.fromLTRB(16,8,16,14),
+            child:SizedBox(width:double.infinity,
+              child:FilledButton.icon(
+                onPressed:()=>Navigator.pop(sheet),
+                icon:const Icon(Icons.check_circle_outline),
+                label:Text('${_selected.length} ta tanlandi • Tayyor'))))),
+        ]));
+      }),
+    );
+    if(mounted)setState((){});
   }
 
   int _bookValue() {
@@ -448,93 +576,134 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
       color: UzbekCustomerColors.navy)));
 
   Widget _bookCard(Map<String,dynamic> raw) {
-    final id = raw['id'].toString();
-    final chosen = _selected[id];
-    final selected = chosen != null;
-    final currentCost = (raw['cost_price'] as num?)?.toInt() ?? 0;
+    final id=raw['id'].toString();
+    final item=_selected[id];
+    if(item==null)return const SizedBox.shrink();
+    final before=_previousQty[id];
+    final changed=(before!=null && item.qty!=before) || item.changedCost;
+    final historic=_list(_existingSnapshot?['items'])
+      .where((r)=>r['book_id'].toString()==id).firstOrNull;
+    final worth=batchBookCostValue(
+      quantity:item.qty,
+      unitCost:item.unitCost<0?0:item.unitCost,
+      previousQuantity:before??0,
+      historicalLineValue:(historic?['line_value'] as num?)?.toInt(),
+      historicalLots:_list(historic?['cost_lots']).map((lot)=>BatchCostLot(
+        (lot['quantity'] as num?)?.toInt()??0,
+        (lot['unit_cost'] as num?)?.toInt()??0)).toList(),
+      changedUnitCost:item.changedCost,
+    );
     return Card(
-      margin: const EdgeInsets.only(bottom: 7),
-      child: Column(children: [
-        CheckboxListTile(
-          controlAffinity: ListTileControlAffinity.leading,
-          value: selected,
-          onChanged: _submitting ? null : (v) => _pick(raw, v ?? false),
-          title: Text((raw['title'] ?? 'Kitob').toString(),
-            maxLines: 2, overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w800)),
-          subtitle: Text('Bazadagi tannarx: ${_money(currentCost)}'
-            ' • Qoldiq: ${raw['stock'] ?? 0} dona',
-            style: const TextStyle(fontSize: 11.5)),
-        ),
-        if (chosen != null)
-          Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-            child: Column(children: [
-              Row(children: [
-                Expanded(child: TextField(
-                  controller: chosen.quantity,
-                  enabled: !_submitting,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(
-                    labelText: _mode=='old'
-                      ? 'Partiyada jami dona' : 'Kelgan dona',
-                    isDense: true,
-                    border: const OutlineInputBorder()),
-                )),
-                const SizedBox(width: 8),
-                IconButton(
-                  tooltip:'1 dona kamaytirish',
-                  onPressed:_submitting || chosen.qty<=(_mode=='old'?0:1)
-                    ?null:()=>setState(()=>
-                      chosen.quantity.text='${chosen.qty-1}'),
-                  icon:const Icon(Icons.remove_circle_outline)),
-                IconButton(
-                  tooltip:'1 dona ko‘paytirish',
-                  onPressed:_submitting || chosen.qty>=10000
-                    ?null:()=>setState(()=>
-                      chosen.quantity.text='${chosen.qty+1}'),
-                  icon:const Icon(Icons.add_circle_outline)),
-              ]),
-              const SizedBox(height:8),
-              Row(children:[
-                Expanded(child:TextField(
-                  controller:chosen.cost,
-                  enabled:!_submitting,
-                  keyboardType:TextInputType.number,
-                  inputFormatters:[FilteringTextInputFormatter.digitsOnly],
-                  onChanged:(_)=>setState(() =>
-                    chosen.changedCost=chosen.unitCost!=chosen.originalUnitCost),
-                  decoration:const InputDecoration(
-                    labelText:'Bir dona tannarx ₩',
-                    isDense:true,border:OutlineInputBorder()),
-                )),
-                IconButton(
-                  tooltip:_mode=='old'
-                    ? 'Partiyada oldin yozilgan tannarxni qaytarish'
-                    : 'Katalogdagi tannarxni qaytarish',
-                  onPressed:_submitting ? null : (){
-                    chosen.cost.text=chosen.originalUnitCost.toString();
-                    setState(()=>chosen.changedCost=false);
-                  },
-                  icon:const Icon(Icons.restore_outlined)),
-              ]),
-              if(_mode=='old' && _previousQty.containsKey(id))
-                Padding(padding:const EdgeInsets.only(top:8),
-                  child:Align(alignment:Alignment.centerLeft,
-                    child:Text(
-                      'Avval: ${_previousQty[id]} ta  →  '
-                      'Hozir: ${chosen.qty} ta  '
-                      '(farq: ${chosen.qty-(_previousQty[id]??0)} ta)',
-                      style:const TextStyle(
-                        fontWeight:FontWeight.w800,fontSize:12)))),
-              Align(alignment: Alignment.centerRight,
-                child: Text('Partiya qiymati: ${_money(chosen.qty * (chosen.unitCost < 0 ? 0 : chosen.unitCost))}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800, fontSize: 12))),
-            ]),
-          ),
-      ]),
+      key:ValueKey('selected-book-$id'),
+      margin:const EdgeInsets.only(bottom:9),
+      color:Colors.white,
+      shape:RoundedRectangleBorder(
+        borderRadius:BorderRadius.circular(16),
+        side:BorderSide(
+          color:changed?UzbekCustomerColors.navy:const Color(0xFFE2E8F0),
+          width:changed?1.5:1)),
+      child:Padding(padding:const EdgeInsets.all(13),
+        child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          Row(children:[
+            Expanded(child:Column(
+              crossAxisAlignment:CrossAxisAlignment.start,
+              children:[
+                Text(item.title,maxLines:2,overflow:TextOverflow.ellipsis,
+                  style:const TextStyle(fontSize:15,
+                    fontWeight:FontWeight.w900,
+                    color:UzbekCustomerColors.navy)),
+                const SizedBox(height:3),
+                Text(before!=null
+                  ?'Avval: $before dona  •  Hozir: ${item.qty} dona'
+                  :'Yangi qo‘shilgan kitob',
+                  style:const TextStyle(fontSize:12,
+                    color:UzbekCustomerColors.textMuted)),
+              ])),
+            if(changed)
+              const Padding(padding:EdgeInsets.only(right:6),
+                child:Icon(Icons.edit_note_rounded,
+                  color:UzbekCustomerColors.navy)),
+            IconButton(
+              icon:const Icon(Icons.close_rounded),
+              tooltip:'Partiyadan olib tashlash',
+              onPressed:_submitting?null:()=>_removeSelectedBook(id),
+              color:UzbekCustomerColors.textMuted),
+          ]),
+          const SizedBox(height:12),
+          Row(children:[
+            const Text('Dona soni',style:TextStyle(
+              fontWeight:FontWeight.w800,fontSize:13)),
+            const Spacer(),
+            IconButton.filledTonal(
+              tooltip:'Bittaga kamaytirish',
+              onPressed:_submitting || item.qty<=(_mode=='old'?0:1)
+                ?null:()=>setState(()=>
+                  item.quantity.text='${item.qty-1}'),
+              icon:const Icon(Icons.remove,size:19)),
+            const SizedBox(width:6),
+            SizedBox(width:66,child:TextField(
+              controller:item.quantity,
+              enabled:!_submitting,
+              textAlign:TextAlign.center,
+              keyboardType:TextInputType.number,
+              inputFormatters:[FilteringTextInputFormatter.digitsOnly],
+              onChanged:(_)=>setState((){}),
+              style:const TextStyle(fontSize:18,fontWeight:FontWeight.w900),
+              decoration:InputDecoration(
+                isDense:true,contentPadding:const EdgeInsets.symmetric(
+                  vertical:12,horizontal:6),
+                border:OutlineInputBorder(
+                  borderRadius:BorderRadius.circular(10))),
+            )),
+            const SizedBox(width:6),
+            IconButton.filledTonal(
+              tooltip:'Bittaga ko‘paytirish',
+              onPressed:_submitting || item.qty>=10000
+                ?null:()=>setState(()=>
+                  item.quantity.text='${item.qty+1}'),
+              icon:const Icon(Icons.add,size:19)),
+          ]),
+          if(before!=null && item.qty!=before)
+            Padding(padding:const EdgeInsets.only(top:5),
+              child:Text('Farq: ${item.qty-before>0?'+':''}${item.qty-before} dona',
+                style:const TextStyle(fontSize:12,
+                  fontWeight:FontWeight.w800,
+                  color:UzbekCustomerColors.navy))),
+          const SizedBox(height:10),
+          Row(children:[
+            Expanded(child:TextField(
+              controller:item.cost,
+              enabled:!_submitting,
+              keyboardType:TextInputType.number,
+              inputFormatters:[FilteringTextInputFormatter.digitsOnly],
+              onChanged:(_)=>setState(()=>
+                item.changedCost=item.unitCost!=item.originalUnitCost),
+              decoration:InputDecoration(
+                labelText:'1 dona tannarxi',
+                prefixText:'₩ ',
+                isDense:true,
+                border:OutlineInputBorder(
+                  borderRadius:BorderRadius.circular(10))),
+            )),
+            IconButton(
+              tooltip:'Avvalgi tannarxni qaytarish',
+              icon:const Icon(Icons.restore_rounded),
+              onPressed:_submitting?null:(){
+                item.cost.text=item.originalUnitCost.toString();
+                setState(()=>item.changedCost=false);
+              }),
+          ]),
+          const SizedBox(height:11),
+          Row(children:[
+            const Text('Shu kitoblarning jami tannarxi',
+              style:TextStyle(fontSize:11,
+                color:UzbekCustomerColors.textMuted)),
+            const Spacer(),
+            Text(_money(worth),style:const TextStyle(
+              fontSize:14,fontWeight:FontWeight.w900,
+              color:UzbekCustomerColors.navy)),
+          ]),
+        ])),
     );
   }
 
@@ -573,19 +742,10 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
               '${row['batch_date']} • ${row['title']}',
               overflow: TextOverflow.ellipsis)),
         ];
-        final search = _search.text.trim().toLowerCase();
-        final visible = books.where((b) =>
-          (b['title'] ?? '').toString().toLowerCase().contains(search)
-          && (search.isNotEmpty || _selected.containsKey(b['id'].toString())
-              || (_mode=='old' && !_onlySelected)))
-          .toList()
-          ..sort((a,b) {
-            final aChosen=_selected.containsKey(a['id'].toString())?0:1;
-            final bChosen=_selected.containsKey(b['id'].toString())?0:1;
-            if(aChosen!=bChosen)return aChosen.compareTo(bChosen);
-            return (a['title']??'').toString().compareTo(
-              (b['title']??'').toString());
-          });
+        final selectedBooks=books
+          .where((b)=>_selected.containsKey(b['id'].toString())).toList();
+        final totalQuantity=_selected.values.fold<int>(0,
+          (count,item)=>count+item.qty);
         final sum = _bookValue();
         final financeAmount =
           (_existingSnapshot?['finance_purchase_total'] as num?)?.toInt();
@@ -724,21 +884,40 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                                 color:UzbekCustomerColors.textMuted)),
                             if(difference!=null)...[
                               const SizedBox(height:10),
-                              Text(
-                                'Farq: ${_money(difference.abs())}'
-                                '${difference>0?" • Moliyada ko‘proq":difference<0?" • Kitoblar ko‘proq":" • Hisob teng"}',
-                                style:const TextStyle(
-                                  fontSize:14,fontWeight:FontWeight.w800)),
-                              Text(difference>0
-                                ? 'Xarajat kitoblar yig‘indisidan ko‘p. '
-                                  'Kitob yoki tannarx qolib ketganini tekshiring.'
-                                : difference<0
-                                ? 'Kitoblar yig‘indisi xarajatdan oshgan. '
-                                  'Dona soni yoki tannarx ortiqcha emasligini tekshiring.'
-                                : 'Partiyadagi kitoblar tannarxi moliya '
-                                  'xarajatiga teng.',
-                                style:const TextStyle(fontSize:12,
-                                  color:UzbekCustomerColors.textMuted)),
+                              Container(
+                                padding:const EdgeInsets.all(12),
+                                decoration:BoxDecoration(
+                                  color:difference==0
+                                    ?const Color(0xFFECF9F0)
+                                    :const Color(0xFFFFF3E4),
+                                  borderRadius:BorderRadius.circular(12)),
+                                child:Row(children:[
+                                  Icon(difference==0
+                                    ?Icons.check_circle_outline
+                                    :Icons.warning_amber_rounded,
+                                    color:difference==0
+                                      ?const Color(0xFF237847)
+                                      :const Color(0xFF985800)),
+                                  const SizedBox(width:10),
+                                  Expanded(child:Column(
+                                    crossAxisAlignment:CrossAxisAlignment.start,
+                                    children:[
+                                      Text('Farq: ${_money(difference.abs())}',
+                                        style:const TextStyle(fontSize:17,
+                                          fontWeight:FontWeight.w900)),
+                                      const SizedBox(height:2),
+                                      Text(difference>0
+                                        ?'Moliyadagi xarajat ko‘proq — '
+                                          'kitob yoki tannarx qolmaganini tekshiring.'
+                                        :difference<0
+                                        ?'Kitoblar tannarxi ko‘proq — '
+                                          'ortiqcha son va narxni tekshiring.'
+                                        :'Hisob to‘g‘ri, summalar mos.',
+                                        style:const TextStyle(fontSize:12)),
+                                    ],
+                                  )),
+                                ]),
+                              ),
                             ],
                             if(mixedAdjusted)
                               const Padding(
@@ -768,122 +947,101 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                     style: TextStyle(fontSize: 12,
                       color: UzbekCustomerColors.textMuted)),
                 ],
-                _sectionTitle('2. Transport xarajatlarini tanlang'),
-                const Text(
-                  'Moliya bo‘limida saqlangan transport xarajatlari. '
-                  'Tegishli xarajatlarni belgilang: boshqa partiyaga '
-                  'biriktirilgan transport qayta tanlanmaydi.',
-                  style: TextStyle(fontSize: 12,
-                    color: UzbekCustomerColors.textMuted, height: 1.35),
-                ),
-                const SizedBox(height: 8),
-                if (transports.isEmpty)
-                  const Card(child: Padding(
-                    padding: EdgeInsets.all(15),
-                    child: Text('Moliyada transport xarajatlari topilmadi.')))
-                else
-                  for (final transport in transports)
-                    Builder(builder: (ctx) {
-                      final expenseId = (transport['id'] ?? '').toString();
-                      final alreadyLinked = transport['linked_to'] != null;
-                      final transportAmount =
-                        (transport['amount'] as num?)?.toInt() ?? 0;
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: CheckboxListTile(
-                          value: _selectedTransportIds.contains(expenseId),
-                          onChanged: _submitting || alreadyLinked ? null
-                            : (value) => setState(() {
-                              if (value ?? false) {
-                                _selectedTransportIds.add(expenseId);
-                              } else {
-                                _selectedTransportIds.remove(expenseId);
-                              }
-                            }),
-                          controlAffinity: ListTileControlAffinity.leading,
-                          title: Text(
-                            '${_money(transportAmount)} • '
-                            '${(transport['note'] ?? 'Transport').toString()}',
-                            style: const TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                          subtitle: Text(
-                            '${transport['expense_date'] ?? ''} • '
-                            '${alreadyLinked
-                                ? 'Biriktirilgan: ${transport['linked_to']}'
-                                : 'Partiyaga biriktirilmagan'}',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ),
-                      );
-                    }),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Text(
-                      'Tanlangan transport: ${_money(transportTotal)}',
-                      style: const TextStyle(fontWeight: FontWeight.w900,
-                        color: UzbekCustomerColors.navy),
-                    ),
+                _sectionTitle('2. Partiyadagi kitoblar'),
+                Card(color:Colors.white,child:Padding(
+                  padding:const EdgeInsets.all(14),
+                  child:Column(
+                    crossAxisAlignment:CrossAxisAlignment.start,
+                    children:[
+                      Text(
+                        '${_selected.length} nomdagi kitob • $totalQuantity dona',
+                        style:const TextStyle(fontWeight:FontWeight.w900,
+                          fontSize:16,color:UzbekCustomerColors.navy)),
+                      const SizedBox(height:4),
+                      const Text('Pastda tanlangan kitoblarning soni '
+                        'va tannarxini alohida tahrirlang.',
+                        style:TextStyle(fontSize:12,
+                          color:UzbekCustomerColors.textMuted)),
+                      const SizedBox(height:12),
+                      SizedBox(width:double.infinity,
+                        child:FilledButton.icon(
+                          onPressed:_submitting || _existingLoading
+                            ?null:()=>_openBookPicker(books),
+                          icon:const Icon(Icons.library_add_outlined),
+                          label:Text(_selected.isEmpty
+                            ?'Kitoblarni tanlash'
+                            :'Yana kitob qo‘shish'),
+                        )),
+                    ],
                   ),
-                ),
-                _sectionTitle('3. Katalogdan kitoblarni belgilang'),
-                if(_mode=='old')...[
-                  SwitchListTile.adaptive(
-                    contentPadding:EdgeInsets.zero,
-                    value:_onlySelected,
-                    onChanged:(v)=>setState(()=>_onlySelected=v),
-                    title:const Text('Faqat shu partiyadagi kitoblar'),
-                    subtitle:const Text('Qidiruvda boshqa kitoblar ham chiqadi.')),
-                  OutlinedButton.icon(
-                    onPressed:_submitting || _existingLoading
-                      ? null:_showAllBooksForAdding,
-                    icon:const Icon(Icons.add_circle_outline),
-                    label:const Text('Yana kitob qo‘shish / barcha kitoblar'),
-                  ),
-                ],
-                const Text(
-                  'Eski partiyaga faqat transport bog‘lash uchun '
-                  'kitob tanlash shart emas.',
-                  style: TextStyle(fontSize: 12,
-                    color: UzbekCustomerColors.textMuted),
-                ),
-                TextField(
-                  controller: _search,
-                  focusNode: _searchFocus,
-                  onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(
-                    hintText: 'Kitob nomini yozib tez toping...',
-                    prefixIcon: Icon(Icons.search_rounded),
-                    suffixIcon:_search.text.isNotEmpty?IconButton(
-                      tooltip:'Qidiruvni tozalash',
-                      onPressed:()=>setState(()=>_search.clear()),
-                      icon:const Icon(Icons.close)):null,
-                    border:const OutlineInputBorder()),
-                ),
-                const SizedBox(height: 7),
-                Text('${_selected.length} ta kitob belgilandi • '
-                  '${visible.length} ta katalog natijasi',
-                  style: const TextStyle(fontWeight: FontWeight.w700,
-                    color: UzbekCustomerColors.textMuted, fontSize: 12)),
-                const SizedBox(height: 8),
-                if(visible.isEmpty)
-                  Padding(
-                    padding:const EdgeInsets.symmetric(vertical:22),
-                    child:Text(
-                      search.isEmpty && _selected.isEmpty
-                        ? 'Kitob qo‘shish uchun yuqoridagi qidiruvga '
-                          'kitob nomini yozing.'
-                        : search.isEmpty && _onlySelected
-                        ? 'Bu partiyada belgilangan kitob yo‘q. '
-                          'Yangi kitob qo‘shish tugmasini bosing.'
-                        : 'Bu nomda kitob topilmadi.',
-                      textAlign:TextAlign.center,
-                      style:const TextStyle(
+                )),
+                const SizedBox(height:10),
+                if(selectedBooks.isEmpty)
+                  const Card(child:Padding(
+                    padding:EdgeInsets.all(20),
+                    child:Column(children:[
+                      Icon(Icons.menu_book_outlined,size:32,
                         color:UzbekCustomerColors.textMuted),
-                    ),
-                  ),
-                for (final book in visible) _bookCard(book),
+                      SizedBox(height:8),
+                      Text('Hali kitob belgilanmagan',
+                        style:TextStyle(fontWeight:FontWeight.w800)),
+                      SizedBox(height:5),
+                      Text('Yuqoridagi tugma orqali kitob nomini '
+                        'qidirib qo‘shing.'),
+                    ])))
+                else
+                  for(final book in selectedBooks) _bookCard(book),
+                const SizedBox(height:14),
+                Card(color:Colors.white,child:ExpansionTile(
+                  key:const ValueKey('batch-transport'),
+                  initiallyExpanded:false,
+                  leading:const Icon(Icons.local_shipping_outlined,
+                    color:UzbekCustomerColors.navy),
+                  title:const Text('3. Transport xarajatlari',
+                    style:TextStyle(fontWeight:FontWeight.w900)),
+                  subtitle:Text('${_selectedTransportIds.length} ta tanlangan'
+                    ' • ${_money(transportTotal)}',
+                    style:const TextStyle(fontSize:12)),
+                  children:[
+                    const Padding(
+                      padding:EdgeInsets.fromLTRB(14,4,14,10),
+                      child:Text('Moliyada avval yozilgan transport '
+                        'xarajatlarini bog‘lash mumkin. '
+                        'Bu yerda qayta xarajat yaratilmaydi.',
+                        style:TextStyle(fontSize:12,
+                          color:UzbekCustomerColors.textMuted))),
+                    if(transports.isEmpty)
+                      const Padding(
+                        padding:EdgeInsets.all(14),
+                        child:Text('Transport xarajati topilmadi.'))
+                    else
+                      for(final transport in transports)
+                        Builder(builder:(ctx) {
+                          final id=(transport['id']??'').toString();
+                          final linked=transport['linked_to']!=null;
+                          final amount=(transport['amount'] as num?)?.toInt()??0;
+                          return CheckboxListTile(
+                            dense:true,
+                            value:_selectedTransportIds.contains(id),
+                            onChanged:_submitting || linked?null:(v)=>setState((){
+                              if(v??false){_selectedTransportIds.add(id);}
+                              else{_selectedTransportIds.remove(id);}
+                            }),
+                            controlAffinity:ListTileControlAffinity.leading,
+                            title:Text('${_money(amount)} • '
+                              '${transport['note']??'Transport'}',
+                              style:const TextStyle(
+                                fontWeight:FontWeight.w800)),
+                            subtitle:Text(linked
+                              ?'Biriktirilgan: ${transport['linked_to']}'
+                              :'Mavjud, biriktirilmagan',
+                              style:const TextStyle(fontSize:11)),
+                          );
+                        }),
+                    const SizedBox(height:8),
+                  ],
+                )),
+                const SizedBox(height:18),
               ]),
           ))),
           SafeArea(top: false, child: Container(
@@ -893,47 +1051,52 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: Center(child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 800),
-              child: Row(children: [
-                Expanded(child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min, children: [
-                    Text('${_selected.length} nomdagi kitob',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800, fontSize: 12)),
+              child:LayoutBuilder(builder:(context,size) {
+                final narrow=size.maxWidth<520;
+                final summary=Column(
+                  crossAxisAlignment:CrossAxisAlignment.start,
+                  mainAxisSize:MainAxisSize.min,
+                  children:[
+                    Text('${_selected.length} nom • $totalQuantity dona',
+                      style:const TextStyle(
+                        fontWeight:FontWeight.w900,fontSize:13,
+                        color:UzbekCustomerColors.navy)),
                     if(_mode=='old' && _existingRevision!=null)...[
                       Text(financeLinked
-                        ? 'Moliyadagi xarajat: ${_money(financeAmount ?? 0)}'
-                        : 'Moliyadagi xarajat biriktirilmagan',
-                        style:const TextStyle(
-                          fontWeight:FontWeight.w900,fontSize:13)),
-                      Text('Kitoblarning jami tannarxi: ${_money(sum)}',
-                        style:const TextStyle(
-                          fontWeight:FontWeight.w600,fontSize:11.5)),
+                        ?'Moliyadagi xarajat: ${_money(financeAmount??0)}'
+                        :'Moliyada xarajat bog‘lanmagan',
+                        style:const TextStyle(fontSize:12,
+                          fontWeight:FontWeight.w800)),
+                      Text('Kitoblar tannarxi: ${_money(sum)}',
+                        style:const TextStyle(fontSize:12)),
                       if(difference!=null)
                         Text('Farq: ${_money(difference.abs())}',
-                          style:const TextStyle(
-                            fontWeight:FontWeight.w800,fontSize:12)),
-                    ] else ...[
-                      Text('Kitoblar ${_money(sum)} + '
-                          'transport ${_money(transportTotal)}',
-                        style:const TextStyle(
-                          fontWeight:FontWeight.w700,fontSize:11.5)),
-                      Text('Jami ${_money(sum + transportTotal)}',
-                        style:const TextStyle(
-                          fontWeight:FontWeight.w900,fontSize:17,
-                          color:UzbekCustomerColors.navy)),
-                    ],
+                          style:const TextStyle(fontWeight:FontWeight.w800,
+                            fontSize:12)),
+                    ] else
+                      Text('Kitoblar: ${_money(sum)}'
+                        ' • Transport: ${_money(transportTotal)}',
+                        style:const TextStyle(fontSize:12)),
                   ],
-                )),
-                FilledButton.icon(
-                  onPressed: _submitting || _existingLoading ||
-                    _confirming ? null : _save,
-                  icon: _submitting ? const SizedBox(width: 16,height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.save_outlined),
-                  label: const Text('Partiyani saqlash'),
-                ),
-              ]),
+                );
+                final action=FilledButton.icon(
+                  onPressed:_submitting || _existingLoading ||
+                    _confirming?null:_save,
+                  icon:_submitting
+                    ?const SizedBox(width:16,height:16,
+                      child:CircularProgressIndicator(strokeWidth:2))
+                    :const Icon(Icons.save_outlined),
+                  label:const Text('Partiyani saqlash'),
+                );
+                return narrow
+                  ?Column(crossAxisAlignment:CrossAxisAlignment.stretch,
+                    children:[summary,const SizedBox(height:8),action])
+                  :Row(children:[
+                    Expanded(child:summary),
+                    const SizedBox(width:16),
+                    action,
+                  ]);
+              }),
             ))),
           ),
         ]);

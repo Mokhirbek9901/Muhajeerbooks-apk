@@ -148,21 +148,10 @@ void main() {
       'Olib ketish joyi va vaqtini kelishish uchun admin siz bilan bog‘lanadi'),
       findsOneWidget);
 
-    final addr = find.widgetWithText(TextFormField, 'Manzil');
-    await tester.scrollUntilVisible(addr, -185, scrollable: scroll);
-    await tester.enterText(addr, '경상북도 경산시 계양로 37길 7-3 808호');
-    await tester.scrollUntilVisible(
-      find.text('Admin qaytarishi kerak'), 170, scrollable: scroll);
-    expect(find.text('Admin qaytarishi kerak'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('Qabul qiluvchi va manzilni saqlash'), 175, scrollable: scroll);
-    await tester.tap(find.text('Qabul qiluvchi va manzilni saqlash'));
-    await tester.pumpAndSettle();
-
-    expect(state.savedDeliveryType, '경산 직접수령');
-    expect(state.deliverySaves, 1);
-    expect(state.savedAddress, contains('경산시'));
-    expect(find.text('Yana kitob qo‘shish'), findsNothing);
+    // This regression is only about preserving the original pickup wording
+    // and showing the new admin-contact text after selection. The separate
+    // checkout regression above already checks address saving.
+    expect(state.deliverySaves, 0);
     expect(state.localOrders, isEmpty);
   });
 }

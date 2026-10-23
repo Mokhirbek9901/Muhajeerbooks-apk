@@ -6597,7 +6597,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Future<void> _submitPrepaid() async {
-    if (!await _requireCustomerProfile() || !mounted) return;
+    // Validate PIN identity without overwriting delivery recipient inputs.
+    if (!await ensureCustomerCheckoutIdentity(context) || !mounted) return;
     if (formKey.currentState?.validate() != true) return;
     final previous = prepaid;
     if (previous == null || previous['status'] != 'arrived' ||

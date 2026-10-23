@@ -328,7 +328,7 @@ class _CustomerPreorderBalancesPageState
               : status=='accepted'
                 ? 'Zakazingiz qabul qilingan. Keyingi xabarni kuting.'
                 : status=='cancelled'
-                  ? 'Zakaz bekor qilingan.'
+                  ? 'Zakaz bekor qilingan. Katalogda oldindan sotuv ochiq bo‘lsa, shu kitobga qayta buyurtma berishingiz mumkin. Eski avans avtomatik ko‘chirilmaydi.'
                   : 'Zakazingiz holatini shu yerdan kuzatishingiz mumkin.'),
             if(source=='web') ...[
               const SizedBox(height:8),
@@ -426,7 +426,7 @@ class _CustomerPreorderBalancesPageState
                 : paymentState == 'verified'
                   ? 'To‘lov tasdiqlangan ✅'
                   : paymentState == 'cancelled'
-                    ? 'Zakaz bekor qilingan.'
+                    ? 'Zakaz bekor qilingan. Katalogda oldindan sotuv ochiq bo‘lsa, shu kitobga qayta buyurtma berishingiz mumkin. Eski avans avtomatik ko‘chirilmaydi.'
                     : 'To‘lov holati: $paymentState'),
             ],
           ],

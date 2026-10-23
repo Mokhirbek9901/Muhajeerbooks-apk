@@ -10,3 +10,9 @@ Do not change data, stock, orders, API/backend, or user-facing iOS App Store and
 Include admin requested-book customer phone, localized preorder states, and accurate limited timeline description.
 Required code commit: 4b5e6974f16506ae634c52c17bf3c43ca84855b8.
 Do not merge to main, deploy Railway, or release to public App Store/Play Market.
+
+2026-10-23 owner-requested iOS TestFlight QA only; NO PUBLIC APP STORE, PLAY MARKET OR RAILWAY RELEASE.
+Updated customer shipped notice: mail courier delivery normally 1–2 days, with no extra done/delivered admin status.
+Admin full native/web preorder history paginated with protected RPC and safe fallback; tracking is informational, not an open task.
+Android startup/white-screen compatibility included in shared source for separate emulator and physical-device QA, no Play publishing.
+No schema/order/stock bulk data changes in mobile app; protected read-only admin RPC and the existing shipping push copy updated server-side.

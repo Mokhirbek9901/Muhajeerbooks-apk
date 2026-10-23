@@ -237,63 +237,55 @@ Future<void> _openBookDetail(BuildContext context, Book book) async {
   );
 }
 
-Future<bool> _openRestockLogin(BuildContext context) async {
+/// Simple customer profile: name + phone only, no SMS or mandatory PIN.
+/// Sensitive balance/receipt access remains tied to the original installation.
+Future<bool> _saveNamePhoneWithoutSms(BuildContext context) async {
   final state = context.read<AppState>();
-  final name = TextEditingController(text: state.savedCustomer['name'] ?? '');
-  final phone = TextEditingController(text: state.savedCustomer['phone'] ?? '');
-  final address = TextEditingController(text: state.savedCustomer['address'] ?? '');
+  var customerName = (state.savedCustomer['name'] ?? '').trim();
+  var customerPhone = (state.savedCustomer['phone'] ?? '').trim();
   final formKey = GlobalKey<FormState>();
-
-  final saved = await showDialog<bool>(
+  final save = await showDialog<bool>(
     context: context,
     barrierDismissible: false,
     builder: (dialogContext) => AlertDialog(
-      title: const Text('Login qiling'),
+      title: const Text('Ism va telefon raqami'),
       content: SizedBox(
-        width: 440,
+        width: 420,
         child: Form(
           key: formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                'Kitobni kutish ro‘yxatiga qo‘shish uchun ma’lumotlaringizni saqlang.',
+                'Bir marta kiriting. Keyingi buyurtmalarda avtomatik to‘ldiriladi. SMS kod kerak emas.',
               ),
               const SizedBox(height: 14),
               TextFormField(
-                controller: name,
-                autofocus: true,
+                initialValue: customerName,
+                autofocus: customerName.isEmpty,
+                maxLength: 80,
+                textCapitalization: TextCapitalization.words,
+                onChanged: (value) => customerName = value,
                 decoration: const InputDecoration(
-                  labelText: 'Ism',
+                  labelText: 'Ismingiz',
                   prefixIcon: Icon(Icons.person_outline_rounded),
                 ),
-                validator: (v) => (v ?? '').trim().length < 2
-                    ? 'Ismingizni kiriting'
+                validator: (value) => (value ?? '').trim().length < 2
+                    ? 'Ismingizni kamida 2 harf bilan kiriting'
                     : null,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               TextFormField(
-                controller: phone,
+                initialValue: customerPhone,
                 keyboardType: TextInputType.phone,
+                onChanged: (value) => customerPhone = value,
                 decoration: const InputDecoration(
                   labelText: 'Telefon raqami',
                   hintText: '01012345678',
                   prefixIcon: Icon(Icons.phone_outlined),
                 ),
-                validator: (v) => !_isSupportedCustomerPhone(v ?? '')
+                validator: (value) => !_isSupportedCustomerPhone(value ?? '')
                     ? 'Koreya 010 raqamini to‘liq kiriting'
-                    : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: address,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'Manzil',
-                  prefixIcon: Icon(Icons.location_on_outlined),
-                ),
-                validator: (v) => (v ?? '').trim().length < 5
-                    ? 'Manzilingizni kiriting'
                     : null,
               ),
             ],
@@ -305,29 +297,34 @@ Future<bool> _openRestockLogin(BuildContext context) async {
           onPressed: () => Navigator.pop(dialogContext, false),
           child: const Text('Bekor qilish'),
         ),
-        FilledButton(
+        FilledButton.icon(
           onPressed: () {
             if (formKey.currentState?.validate() != true) return;
             Navigator.pop(dialogContext, true);
           },
-          child: const Text('Saqlash'),
+          icon: const Icon(Icons.check_rounded),
+          label: const Text('Saqlash'),
         ),
       ],
     ),
   );
-
-  if (saved == true && context.mounted) {
-    await state.setAuthenticatedCustomer(
-      name.text,
-      phone.text,
-      address: address.text,
+  if (save != true || !context.mounted) return false;
+  final digits = customerPhone.replaceAll(RegExp(r'\D'), '');
+  await state.setAuthenticatedCustomer(
+    customerName.trim(), digits, verified: false,
+  );
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(
+        'Profil saqlandi. Buyurtmalarni SMSsiz davom ettirishingiz mumkin ✅',
+      )),
     );
   }
-  name.dispose();
-  phone.dispose();
-  address.dispose();
-  return saved == true;
+  return true;
 }
+
+Future<bool> _openRestockLogin(BuildContext context) =>
+    _saveNamePhoneWithoutSms(context);
 
 Future<String> _toggleRestockWithWebContact(
   BuildContext context,
@@ -341,8 +338,7 @@ Future<String> _toggleRestockWithWebContact(
 
   final name = (state.savedCustomer['name'] ?? '').trim();
   final phone = (state.savedCustomer['phone'] ?? '').trim();
-  final address = (state.savedCustomer['address'] ?? '').trim();
-  if (name.isEmpty || !_isSupportedCustomerPhone(phone) || address.isEmpty) {
+  if (name.isEmpty || !_isSupportedCustomerPhone(phone)) {
     final loggedIn = await _openRestockLogin(context);
     if (!loggedIn || !context.mounted) {
       return 'Kutish ro‘yxatiga qo‘shilmadi.';
@@ -7502,6 +7498,20 @@ class ProfilePage extends StatelessWidget {
               children: [
                 ListTile(
                   minTileHeight: 68,
+                  leading: const _ProfileIcon(icon: Icons.person_add_alt_1_outlined),
+                  title: Text(
+                    displayPhone.trim().isEmpty
+                        ? 'Ism va telefon bilan kirish'
+                        : 'Ism va telefonni tahrirlash',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  subtitle: const Text('SMSsiz kirish • keyingi zakaslarda avtomatik'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => _saveNamePhoneWithoutSms(context),
+                ),
+                const Divider(),
+                ListTile(
+                  minTileHeight: 68,
                   leading: _ProfileIcon(
                     icon: _webOrPlayCustomer
                         ? Icons.person_outline_rounded
@@ -7533,7 +7543,7 @@ class ProfilePage extends StatelessWidget {
                 ListTile(
                   minTileHeight: 68,
                   leading: const _ProfileIcon(icon: Icons.password_rounded),
-                  title: const Text('Shaxsiy 4 xonali PIN',
+                  title: const Text('Ixtiyoriy 4 xonali PIN',
                     style: TextStyle(fontWeight: FontWeight.w800)),
                   subtitle: Text(state.pinSessionActive
                     ? 'PIN faol • boshqa telefondan kirish mumkin'
@@ -7657,54 +7667,7 @@ class _WebMyProfilePage extends StatelessWidget {
   const _WebMyProfilePage();
 
   Future<void> _editProfile(BuildContext context) async {
-    final state = context.read<AppState>();
-    final name = TextEditingController(text: state.savedCustomer['name'] ?? '');
-    final phone = TextEditingController(text: state.savedCustomer['phone'] ?? '');
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Profilni tahrirlash'),
-        content: SizedBox(
-          width: 420,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: name,
-                decoration: const InputDecoration(
-                  labelText: 'Ism',
-                  prefixIcon: Icon(Icons.person_outline_rounded),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: phone,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Telefon',
-                  prefixIcon: Icon(Icons.phone_outlined),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Bekor qilish'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Saqlash'),
-          ),
-        ],
-      ),
-    );
-    if (saved == true && context.mounted) {
-      await state.setAuthenticatedCustomer(name.text, phone.text);
-    }
-    name.dispose();
-    phone.dispose();
+    await _saveNamePhoneWithoutSms(context);
   }
 
   Future<void> _showAddress(BuildContext context) async {
@@ -7823,7 +7786,7 @@ class _WebMyProfilePage extends StatelessWidget {
                   children: [
                     _WebProfileMenuTile(
                       icon: Icons.password_rounded,
-                      title: 'Shaxsiy 4 xonali PIN',
+                      title: 'Ixtiyoriy PIN himoyasi',
                       onTap: () => Navigator.push(
                         context,
                         muhajeerPageRoute(

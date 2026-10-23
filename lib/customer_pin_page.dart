@@ -149,7 +149,7 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
                   hintText: '01012345678',
                   prefixIcon: Icon(Icons.phone_outlined)),
                 validator: (v) {
-                  final digits = (v ?? '').replaceAll(RegExp(r'\\D'), '');
+                  final digits = (v ?? '').replaceAll(RegExp(r'\D'), '');
                   return digits.length < 9 || digits.length > 13
                     ? 'Telefon raqamini to‘liq kiriting' : null;
                 },

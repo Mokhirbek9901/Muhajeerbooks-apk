@@ -2947,8 +2947,13 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
     final subtotal = manualSubtotal ?? cartSubtotal;
     final isGyeongsanPickup = deliveryType == '경산 직접수령';
+    final isFreeGyeongsan = deliveryType == '경산 무료배송';
+    if (isFreeGyeongsan &&
+        !RegExp(r'경산|gyeongsan', caseSensitive: false).hasMatch(address)) {
+      throw StateError('Gyeongsan ichiga bepul yetkazish uchun 경산시 manzilini kiriting');
+    }
     final safeDeliveryFee =
-        isGyeongsanPickup ? 0 : cartDeliveryFee;
+        (isGyeongsanPickup || isFreeGyeongsan) ? 0 : cartDeliveryFee;
     final total = subtotal + safeDeliveryFee;
     if (!preserveCustomerProfile) {
       final prior=(savedCustomer['phone']??'').replaceAll(RegExp(r'\D'),'');

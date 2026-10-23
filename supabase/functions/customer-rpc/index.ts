@@ -12,6 +12,11 @@ const allowed = new Set([
   "customer_order_statuses_v2",
   "customer_order_submit",
   "customer_register_free",
+  "customer_pin_register",
+  "customer_pin_login",
+  "customer_pin_profile",
+  "customer_pin_logout",
+  "customer_pin_preorders",
   "customer_restock_notifications",
   "customer_restock_subscribe",
   "customer_restock_unsubscribe",
@@ -96,6 +101,19 @@ function validate(name: string, p: Record<string, unknown>): string | null {
     if (!p.p_order || typeof p.p_order !== "object" || Array.isArray(p.p_order)) return "Invalid order";
   } else if (name === "customer_order_statuses" || name === "customer_order_statuses_v2") {
     if (!Array.isArray(p.p_ids) || p.p_ids.length > 50 || p.p_ids.some((x) => typeof x !== "string" || !uuidRe.test(x))) return "Invalid order ids";
+  } else if (name === "customer_pin_register" || name === "customer_pin_login") {
+    if (!textParam(p.p_phone, 32) ||
+        !textParam(p.p_install_id, 120) ||
+        String(p.p_install_id).trim().length < 12 ||
+        typeof p.p_pin !== "string" || !/^[0-9]{4}$/.test(p.p_pin) ||
+        (name === "customer_pin_register" &&
+          (!textParam(p.p_name, 80) || String(p.p_name).trim().length < 2)))
+      return "Invalid four-digit PIN request";
+  } else if (name === "customer_pin_profile" ||
+        name === "customer_pin_logout" ||
+        name === "customer_pin_preorders") {
+    if (typeof p.p_session !== "string" || !/^[a-f0-9]{64}$/.test(p.p_session))
+      return "Invalid PIN session";
   } else if (name === "customer_register_free") {
     if (!textParam(p.p_name, 80) || String(p.p_name).trim().length < 2 || !textParam(p.p_phone, 32)) return "Invalid registration";
   } else if (name === "customer_restock_notifications") {
@@ -207,6 +225,10 @@ Deno.serve(async (req) => {
     if (name === "customer_professional_code_verify" &&
         !professionalRateOk(`professional:${key(req)}`)) {
       return out(origin, 429, { ok: false, error: "Too many attempts" });
+    }
+    if ((name === "customer_pin_login" || name === "customer_pin_register") &&
+        !professionalRateOk("profile-pin:" + key(req))) {
+      return out(origin, 429, { ok: false, error: "Too many PIN attempts. Try later." });
     }
     const invalid = validate(name, params);
     if (invalid) return out(origin, 400, { ok: false, error: invalid });

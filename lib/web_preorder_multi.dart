@@ -224,8 +224,9 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
         book.path ??= await api.upload(id, 'book', book.image!, c.revision);
       }
       proofPath ??= await api.upload(id, 'proof', proof!, c.revision);
+      final preorderInstallId = await context.read<AppState>().preorderInstallationId();
       await api.call('submit_multi', {'p_request': {
-        'id': id, 'customer_name': name.text.trim(), 'phone': phone.text.trim(),
+        'id': id, 'install_id': preorderInstallId, 'customer_name': name.text.trim(), 'phone': phone.text.trim(),
         'revision': c.revision, 'deposit_amount': total, 'payment_proof_path': proofPath,
         'items': [for (final b in books) {'book_title': b.title.text.trim(), 'book_image_path': b.path, 'quantity': b.quantity}],
       }});

@@ -18,6 +18,7 @@ const allowed = new Set([
   "customer_pin_logout",
   "customer_pin_preorders",
   "customer_web_preorder_checkout",
+  "customer_web_preorder_delivery",
   "customer_restock_notifications",
   "customer_restock_subscribe",
   "customer_restock_unsubscribe",
@@ -125,6 +126,14 @@ function validate(name: string, p: Record<string, unknown>): string | null {
          p.p_delta === 0)) return "Invalid add-on";
     if (p.p_action === "proof" &&
         !textParam(p.p_path, 500)) return "Invalid remaining payment proof";
+  } else if (name === "customer_web_preorder_delivery") {
+    if (typeof p.p_session !== "string" || !/^[a-f0-9]{64}$/.test(p.p_session) ||
+        typeof p.p_preorder_id !== "string" || !uuidRe.test(p.p_preorder_id) ||
+        !textParam(p.p_recipient_name,80) ||
+        !textParam(p.p_recipient_phone,32) ||
+        typeof p.p_address !== "string" || p.p_address.length > 500 ||
+        !["택배","경산 직접수령","경산 무료배송"].includes(p.p_delivery_type))
+      return "Invalid prepaid delivery";
   } else if (name === "customer_register_free") {
     if (!textParam(p.p_name, 80) || String(p.p_name).trim().length < 2 || !textParam(p.p_phone, 32)) return "Invalid registration";
   } else if (name === "customer_restock_notifications") {

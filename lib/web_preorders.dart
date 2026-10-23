@@ -1066,6 +1066,8 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
       }
       final due=(raw['amount_due'] as num?)?.toInt()??0;
       final deposited=(raw['deposit_credit'] as num?)?.toInt()??0;
+      final submitted=(raw['proof_submitted_amount'] as num?)?.toInt()??0;
+      final refund=(raw['shipping_refund_due'] as num?)?.toInt()??0;
       final extra=(raw['extra_total'] as num?)?.toInt()??0;
       final status='${raw['payment_state']??''}';
       final receipt='${raw['balance_proof_url']??''}';
@@ -1084,6 +1086,27 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
             Text('Qolgan summa: ${webPreorderMoney(due)}',
               style:const TextStyle(fontWeight:FontWeight.w900,fontSize:20)),
             Text('Holat: $status'),
+            if(submitted>0)Text(
+              'Yuborilgan chek summasi: ${webPreorderMoney(submitted)}'),
+            if(refund>0)...[
+              const SizedBox(height:8),
+              Text('MUHIM: Mijozga ${webPreorderMoney(refund)} '
+                'yetkazish puli qaytarilishi kerak.',
+                style:const TextStyle(fontWeight:FontWeight.w900,
+                  color:Colors.deepOrange)),
+              const Text('Bepul Gyeongsan yetkazish tanlangan. '
+                'Bankdagi to‘lovni tekshirib, ortiqcha pulni qaytaring. '
+                'Bu xabar pul qaytarildi degani emas.'),
+            ],
+            const Divider(height:16),
+            Text(raw['delivery_saved']==true
+              ? 'Qabul qiluvchi: '+(raw['recipient_name']??'').toString()
+              : 'Yetkazish ma’lumotlari hali kiritilmagan'),
+            if(raw['delivery_saved']==true)...[
+              Text('Telefon: '+(raw['recipient_phone']??'').toString()),
+              Text('Yetkazish: '+(raw['delivery_type']??'').toString()),
+              Text('Manzil: '+(raw['delivery_address']??'').toString()),
+            ],
             if(receipt.isNotEmpty)TextButton.icon(
               onPressed:(){Navigator.pop(ctx,false);_view(receipt);},
               icon:const Icon(Icons.receipt_long),

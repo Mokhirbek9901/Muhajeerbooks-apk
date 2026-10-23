@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 
 import 'app_state.dart';
 import 'customer_pin_page.dart';
-import 'web_preorder_checkout_page.dart';
+import 'store_ui.dart' show CheckoutPage;
 import 'design_system.dart';
 import 'uzbek_customer_style.dart';
 
@@ -272,8 +272,8 @@ class _CustomerPreorderBalancesPageState
     }
     if(!mounted)return;
     await Navigator.of(context).push(MaterialPageRoute<void>(
-      settings:const RouteSettings(name:'mb:web-preorder-checkout'),
-      builder:(_)=>WebPreorderCheckoutPage(
+      settings:const RouteSettings(name:'mb:web-preorder-to-real-checkout'),
+      builder:(_)=>CheckoutPage(
         preorderId:(record['id']??'').toString()),
     ));
     if(mounted)await refresh();

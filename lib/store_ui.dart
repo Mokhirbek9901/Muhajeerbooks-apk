@@ -6422,7 +6422,10 @@ class _DiscountShippingWarning extends StatelessWidget {
 }
 
 class CheckoutPage extends StatefulWidget {
-  const CheckoutPage({super.key});
+  const CheckoutPage({super.key, this.preorderId});
+  /// If set, use this SAME checkout for the existing prepaid order.
+  /// Do not combine it with the unrelated user's standard cart.
+  final String? preorderId;
 
   @override
   State<CheckoutPage> createState() => _CheckoutPageState();
@@ -6430,6 +6433,10 @@ class CheckoutPage extends StatefulWidget {
 
 class _CheckoutPageState extends State<CheckoutPage> {
   final formKey = GlobalKey<FormState>();
+  Map<String,dynamic>? prepaid;
+  bool prepaidLoading = false;
+  String? prepaidError;
+  bool get isPrepaid => widget.preorderId != null;
   final picker = ImagePicker();
   late final TextEditingController name;
   late final TextEditingController phone;
@@ -6458,6 +6465,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
     instagram = TextEditingController();
     orderNote = TextEditingController();
     manualPrice = TextEditingController();
+    if (isPrepaid) {
+      unawaited(_refreshPrepaid(hydrate: true));
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => _requireCustomerProfile());
   }
 
@@ -6486,6 +6496,149 @@ class _CheckoutPageState extends State<CheckoutPage> {
     orderNote.dispose();
     manualPrice.dispose();
     super.dispose();
+  }
+
+  Future<void> _refreshPrepaid({bool hydrate = false}) async {
+    final id = widget.preorderId;
+    if (id == null) return;
+    if (mounted) setState(() { prepaidLoading = true; prepaidError = null; });
+    try {
+      final result = await context.read<AppState>().webPreorderInvoice(id);
+      if (!mounted) return;
+      setState(() {
+        prepaid = result;
+        prepaidLoading = false;
+        if (hydrate) {
+          final oldName = (result['recipient_name'] ?? '').toString().trim();
+          final oldPhone = (result['recipient_phone'] ?? '').toString().trim();
+          if (oldName.isNotEmpty) name.text = oldName;
+          if (oldPhone.isNotEmpty) phone.text = oldPhone;
+          if (result['delivery_saved'] == true) {
+            delivery = result['delivery_type'] == '경산 직접수령'
+              ? '경산 직접수령' : '택배';
+            address.text = delivery == '택배'
+              ? (result['delivery_address'] ?? '').toString() : '';
+          }
+        }
+      });
+    } catch (error) {
+      if (mounted) setState(() {
+        prepaidLoading = false;
+        prepaidError = error.toString().replaceFirst('Bad state: ', '');
+      });
+    }
+  }
+
+  Future<void> _changePrepaidBook(String bookId,int delta) async {
+    final id = widget.preorderId;
+    if (id == null || saving) return;
+    setState(() => saving = true);
+    try {
+      await context.read<AppState>().changeWebPreorderExtra(id,bookId,delta);
+      if (mounted) await _refreshPrepaid();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text('Kitob o‘zgartirilmadi: $error')));
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  Future<void> _choosePrepaidBook() async {
+    final original = (prepaid?['book_id'] ?? '').toString();
+    final books = context.read<AppState>().books.where((b) =>
+      b.isActive && b.stock > 0 && b.price > 0 && b.id != original).toList();
+    String query = '';
+    final chosen = await showModalBottomSheet<Book>(
+      context:context,isScrollControlled:true,showDragHandle:true,
+      builder:(sheet) => StatefulBuilder(builder:(sheet, update) {
+        final matching = books.where((b) =>
+          b.title.toLowerCase().contains(query.toLowerCase())).toList();
+        return SafeArea(child:Padding(
+          padding:EdgeInsets.fromLTRB(16,8,16,MediaQuery.viewInsetsOf(sheet).bottom+12),
+          child:SizedBox(height:MediaQuery.sizeOf(sheet).height*.68,
+            child:Column(children:[
+              const Text('Yana kitob qo‘shish',
+                style:TextStyle(fontSize:20,fontWeight:FontWeight.w800)),
+              const SizedBox(height:12),
+              TextField(onChanged:(v)=>update(()=>query=v),
+                decoration:const InputDecoration(
+                  labelText:'Kitob qidirish',prefixIcon:Icon(Icons.search))),
+              Expanded(child:ListView.builder(itemCount:matching.length,
+                itemBuilder:(_,i)=>ListTile(
+                  title:Text(matching[i].title),
+                  subtitle:Text('${won(matching[i].price)} • ${matching[i].stock} ta'),
+                  trailing:const Icon(Icons.add_circle_outline),
+                  onTap:()=>Navigator.pop(sheet,matching[i])))),
+            ])),
+        ));
+      }),
+    );
+    if (chosen != null && mounted) await _changePrepaidBook(chosen.id,1);
+  }
+
+  Future<Map<String,dynamic>?> _savePrepaidAddress() async {
+    final id = widget.preorderId;
+    if (id == null || !mounted || formKey.currentState?.validate() != true) return null;
+    setState(() => saving = true);
+    try {
+      final value = await context.read<AppState>().saveWebPreorderDelivery(id,
+        recipientName:name.text.trim(),recipientPhone:phone.text.trim(),
+        address:address.text.trim(),deliveryType:delivery);
+      if (mounted) setState(() => prepaid = value);
+      return value;
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text('Manzil saqlanmadi: $error')));
+      return null;
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  Future<void> _submitPrepaid() async {
+    // Validate PIN identity without overwriting delivery recipient inputs.
+    if (!await ensureCustomerCheckoutIdentity(context) || !mounted) return;
+    if (formKey.currentState?.validate() != true) return;
+    final previous = prepaid;
+    if (previous == null || previous['status'] != 'arrived' ||
+        previous['price_ready'] != true) return;
+    final updated = await _savePrepaidAddress();
+    if (updated == null || !mounted) return;
+    final paymentState = (updated['payment_state'] ?? '').toString();
+    final due = (updated['amount_due'] as num?)?.toInt() ?? 0;
+    if (paymentState == 'requested' && due > 0) {
+      if (paymentProof == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content:Text('Qolgan to‘lov chekini tanlang.')));
+        return;
+      }
+      setState(() => saving = true);
+      try {
+        await context.read<AppState>().submitWebPreorderRemainingPayment(
+          widget.preorderId!,paymentProof!);
+        if (mounted) {
+          await _refreshPrepaid();
+          if (mounted) showDialog<void>(
+            context:context,builder:(ctx)=>AlertDialog(
+              title:const Text('Buyurtma yuborildi'),
+              content:const Text('Oldingi avans chegirildi. '
+                'Qolgan to‘lov cheki va yetkazish manzili shu eski zakazga '
+                'biriktirildi. Admin tekshiradi.'),
+              actions:[FilledButton(onPressed:()=>Navigator.pop(ctx),
+                child:const Text('Tushunarli'))]));
+        }
+      } catch (error) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content:Text('To‘lov cheki yuborilmadi: $error')));
+      } finally {
+        if (mounted) setState(()=>saving = false);
+      }
+    } else {
+      // Already submitted: do not upload a second receipt or create an order.
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content:Text('Manzil saqlandi. Buyurtma va oldingi chek o‘zgarmadi ✅')));
+    }
   }
 
   bool _professionalPhoneOk(String raw) {
@@ -6594,15 +6747,63 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final savedProfessionalPhone =
         (state.savedCustomer['phone'] ?? '').replaceAll(RegExp(r'\D'), '');
     final canShowProfessionalMode =
-        savedProfessionalName == 'mohirbek' &&
+        !isPrepaid && savedProfessionalName == 'mohirbek' &&
         savedProfessionalPhone == '01024338600';
     final isGyeongsanPickup = delivery == '경산 직접수령';
-    final deliveryFee = isGyeongsanPickup ? 0 : state.cartDeliveryFee;
+    // Use the original Gyeongsan pickup option only.
+    // The extra city-home-delivery choice was removed at the owner's request.
+    final prepaidDetails = ((prepaid?['extras'] as List?) ?? const [])
+      .whereType<Map>().map((r)=>Map<String,dynamic>.from(r)).toList();
+    final prepaidCount = ((prepaid?['quantity'] as num?)?.toInt() ?? 0) +
+      prepaidDetails.fold<int>(0,(sum,row)=>
+        sum+((row['quantity'] as num?)?.toInt() ?? 0));
+    final prepaidCanEdit = prepaid?['can_edit'] == true;
+    // Preview the selected shipping method even after a proof is submitted.
+    // A cheaper shipping choice creates a credit for admin review.
+    final prepaidShip = isGyeongsanPickup ? 0
+      : (prepaidCount >= 4 && !state.discountBlocksFourPlusFreeDelivery
+          ? 0 : 4000);
+    final deliveryFee = isPrepaid ? prepaidShip
+      : (isGyeongsanPickup ? 0 : state.cartDeliveryFee);
+    final prepaidSubtotal = ((prepaid?['unit_price'] as num?)?.toInt() ?? 0) *
+       ((prepaid?['quantity'] as num?)?.toInt() ?? 0) +
+       ((prepaid?['extra_total'] as num?)?.toInt() ?? 0);
+    final prepaidDeposit = (prepaid?['deposit_credit'] as num?)?.toInt() ?? 0;
+    final prepaidDue = (prepaidSubtotal + prepaidShip - prepaidDeposit)
+      .clamp(0, 100000000).toInt();
+    final submittedAmount = (prepaid?['proof_submitted_amount'] as num?)?.toInt() ??
+      (prepaidCanEdit ? 0 : ((prepaid?['amount_due'] as num?)?.toInt() ?? 0));
+    final pendingRefund = !prepaidCanEdit && submittedAmount > prepaidDue
+      ? submittedAmount-prepaidDue : 0;
     final professionalSubtotal =
         int.tryParse(manualPrice.text.trim()) ?? state.cartSubtotal;
-    final total =
-        (professionalMode ? professionalSubtotal : state.cartSubtotal) +
+    final total = isPrepaid ? prepaidSubtotal + prepaidShip
+      : (professionalMode ? professionalSubtotal : state.cartSubtotal) +
         deliveryFee;
+    if (isPrepaid && (prepaidLoading || prepaid == null) &&
+        prepaidError == null) {
+      return Scaffold(appBar:AppBar(title:const Text('Buyurtmani rasmiylashtirish')),
+        body:const Center(child:CircularProgressIndicator()));
+    }
+    if (isPrepaid && prepaidError != null) {
+      return Scaffold(appBar:AppBar(title:const Text('Buyurtmani rasmiylashtirish')),
+        body:Center(child:Padding(padding:const EdgeInsets.all(20),
+          child:Column(mainAxisSize:MainAxisSize.min,children:[
+            Text('Oldindan zakaz ochilmadi: $prepaidError',
+              textAlign:TextAlign.center),
+            TextButton(onPressed:()=>_refreshPrepaid(hydrate:true),
+              child:const Text('Qayta urinish')),
+          ]))));
+    }
+    if (isPrepaid &&
+        (prepaid?['status'] != 'arrived' || prepaid?['price_ready'] != true)) {
+      return Scaffold(appBar:AppBar(title:const Text('Buyurtmani rasmiylashtirish')),
+        body:Center(child:Padding(padding:const EdgeInsets.all(20),
+          child:Text(prepaid?['status'] == 'cancelled'
+            ? 'Bu oldindan zakaz bekor qilingan. Katalogdan yangi zakaz bering.'
+            : 'Kitob kelgandan keyin ushbu zakazni rasmiylashtira olasiz.',
+            textAlign:TextAlign.center))));
+    }
 
     return Scaffold(
       backgroundColor: UzbekCustomerColors.background,
@@ -6724,11 +6925,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             : 'Manzil va xona raqamini to‘liq yozing.\nMasalan: 경상북도 경산시 계양로 37길 7-3, 808호',
                         prefixIcon: const Icon(Icons.location_on_outlined),
                       ),
-                      validator: (v) => isGyeongsanPickup
-                          ? null
-                          : (v == null || v.trim().length < 8
-                                ? 'To‘liq manzilni kiriting'
-                                : null),
+                      validator: (v) {
+                        if (isGyeongsanPickup) return null;
+                        if (v == null || v.trim().length < 8) {
+                          return 'To‘liq manzilni kiriting';
+                        }
+                        return null;
+                      },
                     ),
                     if (webPreviewFeaturesAvailable && !professionalMode) ...[
                       const SizedBox(height: 8),
@@ -6836,7 +7039,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       style: TextStyle(fontWeight: FontWeight.w800),
                     ),
                     subtitle: Text(
-                      state.cartBundleDeliveryIncluded
+                      isPrepaid
+                          ? (prepaidShip == 0
+                            ? '4+ kitob — BEPUL' : '₩4,000 • 1–2 ish kuni')
+                          : state.cartBundleDeliveryIncluded
                           ? 'Set narxiga pochta kiritilgan • qo‘shimcha ₩0'
                           : (state.cartDeliveryFee == 0
                               ? (state.cartBundles.isNotEmpty
@@ -6847,6 +7053,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                   : '₩4,000 • 1–2 ish kuni')),
                     ),
                   ),
+
                   const Divider(height: 1),
                   RadioListTile<String>(
                     value: '경산 직접수령',
@@ -6880,7 +7087,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Bu faqat 경산 (Gyeongsan) hududida yashaydiganlar uchun. One Mart atrofiga olib boramiz.',
+                              'Bu faqat 경산 (Gyeongsan) hududida yashaydiganlar uchun. One Mart atrofiga olib boramiz.\n' 
+                              'Olib ketish joyi va vaqtini kelishish uchun admin siz bilan bog‘lanadi.',
                               style: TextStyle(
                                 fontSize: 12.5,
                                 height: 1.4,
@@ -6906,7 +7114,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (webPreviewFeaturesAvailable && !paymentDone) ...[
+                      if (isPrepaid && !prepaidCanEdit) ...[
+                        const Text('Qolgan to‘lov cheki allaqachon yuborilgan '
+                          'yoki tasdiqlangan. Yana to‘lamang. '
+                          'Yetkazish turini va manzilni saqlashingiz mumkin.',
+                          style:TextStyle(fontWeight:FontWeight.w700)),
+                        if (pendingRefund > 0) Text(
+                          'Bepul yetkazish tanlandi. '
+                          'Ortiqcha ${won(pendingRefund)} to‘lovni '
+                          'admin tekshirib qaytaradi.',
+                          style:const TextStyle(fontWeight:FontWeight.w700)),
+                      ],
+                      if ((!isPrepaid || prepaidCanEdit) &&
+                          webPreviewFeaturesAvailable && !paymentDone) ...[
                         const Text('To‘lov qilgan bo‘lsangiz, chekni tanlang.',
                           style: TextStyle(fontWeight: FontWeight.w800)),
                         const SizedBox(height: 9),
@@ -6918,7 +7138,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           ),
                         ),
                       ],
-                      if (!webPreviewFeaturesAvailable) SwitchListTile.adaptive(
+                      if ((!isPrepaid || prepaidCanEdit) &&
+                          !webPreviewFeaturesAvailable) SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
                         value: paymentDone,
                         onChanged: (v) => setState(() {
@@ -6933,7 +7154,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           'To‘lov qilgan bo‘lsangiz, chek skrinshotini yuboring.',
                         ),
                       ),
-                      if (paymentDone) ...[
+                      if ((!isPrepaid || prepaidCanEdit) && paymentDone) ...[
                         const Divider(height: 20),
                         if (paymentProof == null)
                           SizedBox(
@@ -7005,25 +7226,71 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    _priceRow(
-                      state.cartBundleDiscount > 0
-                          ? 'Kitoblar (set narxida)'
-                          : 'Kitoblar',
-                      state.cartSubtotal,
-                    ),
-                    if (state.cartBundleDiscount > 0) ...[
+                    if (isPrepaid) ...[
+                      ListTile(
+                        contentPadding:EdgeInsets.zero,
+                        title:Text((prepaid?['title'] ?? 'Oldindan zakaz qilingan kitob').toString()),
+                        subtitle:Text('${(prepaid?['quantity'] ?? 1)} ta • '
+                          'Avvalgi zakazdan avtomatik qo‘shildi'),
+                        trailing:Text(won(
+                          ((prepaid?['quantity'] as num?)?.toInt() ?? 0) *
+                          ((prepaid?['unit_price'] as num?)?.toInt() ?? 0))),
+                      ),
+                      for (final line in prepaidDetails) ListTile(
+                        contentPadding:EdgeInsets.zero,
+                        title:Text((line['title']??'Kitob').toString()),
+                        subtitle:Text('${line['quantity']} ta'),
+                        trailing:prepaidCanEdit ? IconButton(
+                          icon:const Icon(Icons.remove_circle_outline),
+                          onPressed:saving ? null : ()=>
+                            _changePrepaidBook((line['book_id']??'').toString(),-1),
+                        ) : null,
+                      ),
+                      if (prepaidCanEdit)
+                        OutlinedButton.icon(
+                          onPressed:saving ? null : _choosePrepaidBook,
+                          icon:const Icon(Icons.add_shopping_cart),
+                          label:const Text('Yana kitob qo‘shish')),
+                      const Divider(height:20),
+                      _priceRow('Kitoblar',prepaidSubtotal),
+                    ] else ...[
+                      _priceRow(
+                        state.cartBundleDiscount > 0
+                            ? 'Kitoblar (set narxida)' : 'Kitoblar',
+                        state.cartSubtotal,
+                      ),
+                    ],
+                    if (!isPrepaid && state.cartBundleDiscount > 0) ...[
                       const SizedBox(height: 8),
                       _priceRow('Set orqali tejash', -state.cartBundleDiscount),
                     ],
                     const SizedBox(height: 8),
                     _priceRow(
-                      state.cartBundleDeliveryIncluded
+                      !isPrepaid && state.cartBundleDeliveryIncluded
                           ? 'Yetkazib berish (set ichida)'
                           : 'Yetkazib berish',
                       deliveryFee,
                     ),
                     const Divider(height: 24),
                     _priceRow('Jami', total, bold: true),
+                    if (isPrepaid) ...[
+                      const SizedBox(height:8),
+                      _priceRow('Oldindan to‘langan avans', -prepaidDeposit),
+                      const Divider(height:22),
+                      _priceRow('Qolgan to‘lov', prepaidDue, bold:true),
+                      if (!prepaidCanEdit) ...[
+                        const SizedBox(height:8),
+                        _priceRow('Yuborilgan chekdagi summa',submittedAmount),
+                        if (pendingRefund > 0)...[
+                          const SizedBox(height:8),
+                          _priceRow('Admin qaytarishi kerak',pendingRefund,bold:true),
+                          const Text('Yetkazish turi bepulga o‘zgardi. '
+                            'Avval yuborilgan chek saqlanadi. Ortiqcha summa '
+                            'avtomatik qaytarilmaydi — admin tekshiradi.',
+                            style:TextStyle(fontSize:12)),
+                        ],
+                      ],
+                    ],
                   ],
                 ),
               ),
@@ -7035,14 +7302,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 color: const Color(0xFFFFF7E8),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: const Row(
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.info_outline_rounded, size: 20, color: _orange),
+                  const Icon(Icons.info_outline_rounded, size: 20, color: _orange),
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Buyurtma yuborilganda kitoblar ombordan darhol band qilinadi. Buyurtma bekor qilinsa, omborga avtomatik qaytadi.',
+                      isPrepaid
+                        ? 'Bu avvalgi oldindan zakazning davomidir. '
+                          'Yangi buyurtma ochilmaydi, avans qayta olinmaydi.'
+                        : 'Buyurtma yuborilganda kitoblar ombordan darhol band qilinadi. Buyurtma bekor qilinsa, omborga avtomatik qaytadi.',
                       style: TextStyle(
                         fontSize: 12,
                         height: 1.4,
@@ -7054,7 +7324,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
               ),
             ),
             const SizedBox(height: 14),
-            if (professionalMode || (paymentDone && paymentProof != null))
+            if (isPrepaid)
+              SizedBox(
+                height:52,
+                child:FilledButton.icon(
+                  onPressed:saving || prepaidLoading ? null : _submitPrepaid,
+                  icon:const Icon(Icons.send_rounded),
+                  label:Text(prepaidCanEdit && prepaidDue > 0
+                    ? 'Qolgan to‘lovni yuborish'
+                    : 'Qabul qiluvchi va manzilni saqlash'),
+                ),
+              )
+            else if (professionalMode || (paymentDone && paymentProof != null))
               SizedBox(
                 height: 52,
                 child: FilledButton.icon(
@@ -7121,6 +7402,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Future<void> _submit(AppState state, int deliveryFee) async {
+    if (isPrepaid) { await _submitPrepaid(); return; }
     if (!professionalMode && !await _requireCustomerProfile()) return;
     if (!mounted || !formKey.currentState!.validate()) return;
     if (!professionalMode && (!paymentDone || paymentProof == null)) {
@@ -7327,22 +7609,26 @@ class _PaymentCard extends StatelessWidget {
 
 Widget _priceRow(String label, int value, {bool bold = false}) => Row(
   children: [
-    Text(
+    Expanded(child: Text(
       label,
+      maxLines: 2,
       style: TextStyle(
         fontWeight: bold ? FontWeight.w900 : FontWeight.w500,
         fontSize: bold ? 17 : 14,
       ),
-    ),
-    const Spacer(),
-    Text(
+    )),
+    const SizedBox(width: 8),
+    Flexible(child: Text(
       won(value),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      textAlign: TextAlign.end,
       style: TextStyle(
         fontWeight: bold ? FontWeight.w900 : FontWeight.w700,
         fontSize: bold ? 20 : 14,
         color: bold ? _navy : null,
       ),
-    ),
+    )),
   ],
 );
 

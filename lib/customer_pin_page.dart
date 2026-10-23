@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'app_state.dart';
 
@@ -299,6 +300,15 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
                         'Eski buyurtmalar yangi profilga avtomatik o‘tmaydi.',
                       ),
                       actions: [
+                        TextButton(
+                          onPressed: () async {
+                            await launchUrl(
+                              Uri.parse('https://www.instagram.com/muhajeerbooks/'),
+                              mode: LaunchMode.externalApplication,
+                            );
+                          },
+                          child: const Text('Admin bilan bog‘lanish'),
+                        ),
                         FilledButton(
                           onPressed: () => Navigator.pop(dialog),
                           child: const Text('Tushunarli'),

@@ -161,3 +161,56 @@ revoke all on function public.customer_web_preorder_checkout(text,uuid,text,uuid
   from public,anon,authenticated;
 grant execute on function public.customer_web_preorder_checkout(text,uuid,text,uuid,integer,text)
   to service_role;
+
+
+-- Allow admin to inspect and verify the new remaining-payment receipt.
+create or replace function public.admin_web_preorder_checkout_detail(p_secret text,p_preorder_id uuid)
+returns jsonb language plpgsql security definer set search_path='' as $$
+declare inv private.web_preorder_checkout%rowtype; rows jsonb;
+begin
+ if public._admin_secret_ok(p_secret) is not true then raise exception 'Admin ruxsati yo‘q'; end if;
+ select * into inv from private.web_preorder_checkout where preorder_id=p_preorder_id;
+ if not found then return jsonb_build_object('price_ready',false); end if;
+ select coalesce(jsonb_agg(jsonb_build_object('title',b.title,'quantity',e.quantity,
+     'unit_price',e.unit_price) order by e.created_at),'[]'::jsonb)
+   into rows from private.web_preorder_checkout_items e
+     join public.books b on b.id=e.book_id where e.preorder_id=p_preorder_id;
+ return jsonb_build_object('price_ready',true,'unit_price',inv.unit_price,
+   'base_total',inv.base_total,'extra_total',inv.extra_total,
+   'deposit_credit',inv.deposit_credit,'amount_due',inv.amount_due,
+   'payment_state',inv.payment_state,'balance_proof_path',inv.balance_proof_path,
+   'extras',rows);
+end;
+$$;
+revoke all on function public.admin_web_preorder_checkout_detail(text,uuid) from public,anon,authenticated;
+grant execute on function public.admin_web_preorder_checkout_detail(text,uuid) to service_role;
+
+create or replace function public.admin_web_preorder_checkout_confirm(p_secret text,p_preorder_id uuid)
+returns jsonb language plpgsql security definer set search_path='' as $$
+declare v public.web_preorder_requests%rowtype; inv private.web_preorder_checkout%rowtype;
+begin
+ if public._admin_secret_ok(p_secret) is not true then raise exception 'Admin ruxsati yo‘q'; end if;
+ select * into v from public.web_preorder_requests where id=p_preorder_id for update;
+ if not found or v.status<>'arrived' then raise exception 'Zakaz topilmadi yoki kelmagan'; end if;
+ select * into inv from private.web_preorder_checkout where preorder_id=v.id for update;
+ if not found then raise exception 'To‘lov hisobi mavjud emas'; end if;
+ if inv.payment_state='verified' then
+   return jsonb_build_object('payment_state','verified','duplicate',true); end if;
+ if inv.amount_due>0 and (inv.payment_state<>'proof_submitted' or inv.balance_proof_path='') then
+   raise exception 'Qolgan to‘lov cheki kelmagan'; end if;
+ update private.web_preorder_checkout
+   set payment_state='verified',updated_at=now() where preorder_id=v.id;
+ update public.web_preorder_requests
+   set status_note='Qolgan to‘lov tasdiqlandi',updated_at=now(),
+     status_version=coalesce(status_version,0)+1 where id=v.id;
+ if coalesce(trim(v.phone),'')<>'' then
+   insert into public.customer_push_messages(phone,title,body,kind)
+   values(v.phone,'Oldindan zakaz to‘lovi tasdiqlandi ✅',
+     'Qolgan to‘lov tasdiqlandi. Yetkazish bo‘yicha do‘kon xabar beradi.',
+     'preorder_balance');
+ end if;
+ return jsonb_build_object('payment_state','verified','duplicate',false);
+end;
+$$;
+revoke all on function public.admin_web_preorder_checkout_confirm(text,uuid) from public,anon,authenticated;
+grant execute on function public.admin_web_preorder_checkout_confirm(text,uuid) to service_role;

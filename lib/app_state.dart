@@ -1512,6 +1512,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> _registerInstallation() async {
     try {
+      // QA emulators must not be counted as customers or real devices.
+      if (const bool.fromEnvironment('ANALYTICS_TEST_BUILD')) return;
       // Google Play Pre-launch Report Firebase Test Lab qurilmalarida
       // analytics install yaratmaymiz. Aks holda avtomatik Robo testlar
       // haqiqiy mijoz/qurilma sifatida sanalib ketadi.
@@ -2750,7 +2752,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
                     'Izoh: ${row['customer_accept_note'].toString().trim()}',
                 ].join('\n'),
                 'paid' => 'To‘lov tekshirildi. Buyurtmangiz tayyorlanmoqda.',
-                'shipping' => 'Buyurtmangiz jo‘natildi! Pochta kuzatuv raqami va yetkazish holatini “Mening buyurtmalarim” bo‘limida tekshiring.',
+                'shipping' => 'Buyurtmangiz jo‘natildi! Pochta orqali odatda 1–2 kunda yetib boradi. Kuzatuv raqami berilgan bo‘lsa, “Mening buyurtmalarim” bo‘limida ko‘rishingiz mumkin.',
                 'cancelled' => 'Buyurtma bekor qilindi. Savol bo‘lsa Muhajeer Books bilan bog‘laning.',
                 _ => 'Buyurtmangiz holati yangilandi.',
               },

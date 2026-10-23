@@ -16,3 +16,5 @@ Updated customer shipped notice: mail courier delivery normally 1–2 days, with
 Admin full native/web preorder history paginated with protected RPC and safe fallback; tracking is informational, not an open task.
 Android startup/white-screen compatibility included in shared source for separate emulator and physical-device QA, no Play publishing.
 No schema/order/stock bulk data changes in mobile app; protected read-only admin RPC and the existing shipping push copy updated server-side.
+
+2026-10-23 second owner-requested preview upload after confirmed TestFlight build 2065. Include separate ios_testflight analytics group, corrected admin label treating shipped as completed shop work. Flutter validation must pass before signed IPA upload. NO release or review submission, NO Android Play deploy, NO Railway/main merge.

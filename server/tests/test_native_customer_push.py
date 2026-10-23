@@ -71,6 +71,9 @@ class NativeCustomerPushTest(unittest.TestCase):
         self.assertEqual(len(posts), 1)
         self.assertTrue(posts[0][0].endswith(token))
         self.assertEqual(posts[0][1]["kind"], "customer_order")
+        self.assertNotIn("order_id", posts[0][1])
+        self.assertNotIn("order_number", posts[0][1])
+        self.assertNotIn("amount", posts[0][1])
         self.assertEqual(posts[0][2]["apns-topic"], "com.muhajeerbooks.app")
         lookup.assert_called_once_with("event_customer_apns_for_phone", {
             "p_event_secret": "event-secret", "p_phone": "01012345678",

@@ -6443,6 +6443,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   late final TextEditingController address;
   String delivery = '택배';
   bool saving = false;
+  bool _prepaidSubmitInFlight = false;
   bool paymentDone = false;
   XFile? paymentProof;
   bool professionalMode = false;
@@ -6479,11 +6480,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
       if (Navigator.of(context).canPop()) Navigator.of(context).pop();
       return false;
     }
-    final saved = context.read<AppState>().savedCustomer;
-    final savedName = (saved['name'] ?? '').trim();
-    final savedPhone = (saved['phone'] ?? '').replaceAll(RegExp(r'\D'), '');
-    if (savedName.isNotEmpty) name.text = savedName;
-    if (savedPhone.isNotEmpty) phone.text = savedPhone;
+    // In ordinary cart checkout the customer profile supplies their
+    // identity. For a prepaid order these fields are the RECIPIENT:
+    // never overwrite an explicitly entered recipient on PIN validation.
+    if (!isPrepaid) {
+      final saved = context.read<AppState>().savedCustomer;
+      final savedName = (saved['name'] ?? '').trim();
+      final savedPhone = (saved['phone'] ?? '').replaceAll(RegExp(r'\D'), '');
+      if (savedName.isNotEmpty) name.text = savedName;
+      if (savedPhone.isNotEmpty) phone.text = savedPhone;
+    }
     return true;
   }
 
@@ -6597,47 +6603,62 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Future<void> _submitPrepaid() async {
-    // Validate PIN identity without overwriting delivery recipient inputs.
-    if (!await ensureCustomerCheckoutIdentity(context) || !mounted) return;
-    if (formKey.currentState?.validate() != true) return;
-    final previous = prepaid;
-    if (previous == null || previous['status'] != 'arrived' ||
-        previous['price_ready'] != true) return;
-    final updated = await _savePrepaidAddress();
-    if (updated == null || !mounted) return;
-    final paymentState = (updated['payment_state'] ?? '').toString();
-    final due = (updated['amount_due'] as num?)?.toInt() ?? 0;
-    if (paymentState == 'requested' && due > 0) {
-      if (paymentProof == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content:Text('Qolgan to‘lov chekini tanlang.')));
-        return;
-      }
-      setState(() => saving = true);
-      try {
-        await context.read<AppState>().submitWebPreorderRemainingPayment(
-          widget.preorderId!,paymentProof!);
-        if (mounted) {
-          await _refreshPrepaid();
-          if (mounted) showDialog<void>(
-            context:context,builder:(ctx)=>AlertDialog(
-              title:const Text('Buyurtma yuborildi'),
-              content:const Text('Oldingi avans chegirildi. '
-                'Qolgan to‘lov cheki va yetkazish manzili shu eski zakazga '
-                'biriktirildi. Admin tekshiradi.'),
-              actions:[FilledButton(onPressed:()=>Navigator.pop(ctx),
-                child:const Text('Tushunarli'))]));
+    // An early synchronous latch prevents consecutive taps from both uploading
+    // the same bank receipt while awaiting network responses.
+    if (_prepaidSubmitInFlight || saving || prepaidLoading) return;
+    _prepaidSubmitInFlight = true;
+    if (mounted) setState(() {});
+    try {
+      if (!await ensureCustomerCheckoutIdentity(context) || !mounted) return;
+      if (formKey.currentState?.validate() != true) return;
+      final previous = prepaid;
+      if (previous == null || previous['status'] != 'arrived' ||
+          previous['price_ready'] != true) return;
+
+      // Recipient/delivery must be persisted on THIS original preorder first.
+      final updated = await _savePrepaidAddress();
+      if (updated == null || !mounted) return;
+      final paymentState = (updated['payment_state'] ?? '').toString();
+      final due = (updated['amount_due'] as num?)?.toInt() ?? 0;
+      if (paymentState == 'requested' && due > 0) {
+        if (paymentProof == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content:Text('Qolgan to‘lov chekini tanlang.')));
+          return;
         }
-      } catch (error) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content:Text('To‘lov cheki yuborilmadi: $error')));
-      } finally {
-        if (mounted) setState(()=>saving = false);
+        setState(() => saving = true);
+        try {
+          await context.read<AppState>().submitWebPreorderRemainingPayment(
+            widget.preorderId!,paymentProof!);
+          if (mounted) {
+            paymentProof = null;
+            await _refreshPrepaid();
+            if (mounted) showDialog<void>(
+              context:context,builder:(ctx)=>AlertDialog(
+                title:const Text('Buyurtma yuborildi'),
+                content:const Text('Oldingi avans chegirildi. '
+                  'Qolgan to‘lov cheki va yetkazish manzili shu eski zakazga '
+                  'biriktirildi. Admin tekshiradi.'),
+                actions:[FilledButton(onPressed:()=>Navigator.pop(ctx),
+                  child:const Text('Tushunarli'))]));
+          }
+        } catch (error) {
+          // If the upload succeeded but the reply was lost, reconcile the
+          // server's authoritative payment status before inviting another tap.
+          if (mounted) await _refreshPrepaid();
+          if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content:Text('To‘lov holatini tekshiring: $error')));
+        } finally {
+          if (mounted) setState(() => saving = false);
+        }
+      } else {
+        // Already submitted/verified: never create another checkout or proof.
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content:Text('Manzil saqlandi. Oldingi chek o‘zgarmadi ✅')));
       }
-    } else {
-      // Already submitted: do not upload a second receipt or create an order.
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content:Text('Manzil saqlandi. Buyurtma va oldingi chek o‘zgarmadi ✅')));
+    } finally {
+      _prepaidSubmitInFlight = false;
+      if (mounted) setState(() {});
     }
   }
 
@@ -7328,7 +7349,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               SizedBox(
                 height:52,
                 child:FilledButton.icon(
-                  onPressed:saving || prepaidLoading ? null : _submitPrepaid,
+                  onPressed:saving || prepaidLoading || _prepaidSubmitInFlight ? null : _submitPrepaid,
                   icon:const Icon(Icons.send_rounded),
                   label:Text(prepaidCanEdit && prepaidDue > 0
                     ? 'Qolgan to‘lovni yuborish'

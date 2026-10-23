@@ -20,7 +20,7 @@ CREATE OR REPLACE FUNCTION public.admin_preorders_all_list(p_secret text, p_limi
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$
+AS $function$;
 declare v_rows jsonb; v_total integer;
 begin
   if public._admin_secret_ok(p_secret) is not true then
@@ -50,14 +50,14 @@ begin
   ) as t;
   return jsonb_build_object('rows',v_rows,'total',v_total);
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.admin_web_preorder_manage(p_secret text, p_action text, p_payload jsonb DEFAULT '{}'::jsonb)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$
+AS $function$;
 declare s public.web_preorder_settings%rowtype; r public.web_preorder_requests%rowtype;
  enabled_value boolean; arrival text; amount integer; batch integer; target text; note_value text;
 begin
@@ -102,14 +102,14 @@ begin
  end if;
  raise exception 'Noto‘g‘ri amal';
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.admin_merchandising_insights(p_secret text)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
-AS $function$
+AS $function$;
 declare v_pre jsonb; v_req jsonb; v_search jsonb; v_restock jsonb; v_bundle_sales jsonb; v_bundle_summary jsonb;
 begin
  if not public._admin_secret_ok(p_secret) then raise exception 'Ruxsat yo‘q'; end if;
@@ -161,7 +161,7 @@ begin
  where o.status in ('accepted','paid','shipping','done');
  return jsonb_build_object('preorders',v_pre,'requests',v_req,'search_misses',v_search,'restock',v_restock,
    'bundle_sales',v_bundle_sales,'bundle_summary',coalesce(v_bundle_summary,'{}'::jsonb));
-end $function$
+end $function$;
 
 -- Only in-app orders may have tracking information entered/edited.
 CREATE OR REPLACE FUNCTION public.admin_update_order_tracking(p_secret text, p_id uuid, p_carrier text, p_tracking_number text)
@@ -169,7 +169,7 @@ CREATE OR REPLACE FUNCTION public.admin_update_order_tracking(p_secret text, p_i
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$
+AS $function$;
 declare
   v_carrier text := lower(trim(coalesce(p_carrier,'')));
   v_tracking text := regexp_replace(coalesce(p_tracking_number,''), '[^0-9A-Za-z-]', '', 'g');
@@ -198,5 +198,5 @@ begin
          updated_at = now()
    where id = p_id;
 end;
-$function$
+$function$;
 

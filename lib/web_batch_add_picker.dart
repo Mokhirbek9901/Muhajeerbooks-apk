@@ -545,8 +545,8 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
         final search = _search.text.trim().toLowerCase();
         final visible = books.where((b) =>
           (b['title'] ?? '').toString().toLowerCase().contains(search)
-          && (search.isNotEmpty || !_onlySelected ||
-             _selected.containsKey(b['id'].toString())))
+          && (search.isNotEmpty || _selected.containsKey(b['id'].toString())
+              || (_mode=='old' && !_onlySelected)))
           .toList()
           ..sort((a,b) {
             final aChosen=_selected.containsKey(a['id'].toString())?0:1;
@@ -821,9 +821,13 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                   focusNode: _searchFocus,
                   onChanged: (_) => setState(() {}),
                   decoration: const InputDecoration(
-                    hintText: 'Kitob nomini qidiring...',
+                    hintText: 'Kitob nomini yozib tez toping...',
                     prefixIcon: Icon(Icons.search_rounded),
-                    border: OutlineInputBorder()),
+                    suffixIcon:_search.text.isNotEmpty?IconButton(
+                      tooltip:'Qidiruvni tozalash',
+                      onPressed:()=>setState(()=>_search.clear()),
+                      icon:const Icon(Icons.close)):null,
+                    border:const OutlineInputBorder()),
                 ),
                 const SizedBox(height: 7),
                 Text('${_selected.length} ta kitob belgilandi • '
@@ -831,6 +835,22 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                   style: const TextStyle(fontWeight: FontWeight.w700,
                     color: UzbekCustomerColors.textMuted, fontSize: 12)),
                 const SizedBox(height: 8),
+                if(visible.isEmpty)
+                  Padding(
+                    padding:const EdgeInsets.symmetric(vertical:22),
+                    child:Text(
+                      search.isEmpty && _selected.isEmpty
+                        ? 'Kitob qo‘shish uchun yuqoridagi qidiruvga '
+                          'kitob nomini yozing.'
+                        : search.isEmpty && _onlySelected
+                        ? 'Bu partiyada belgilangan kitob yo‘q. '
+                          'Yangi kitob qo‘shish tugmasini bosing.'
+                        : 'Bu nomda kitob topilmadi.',
+                      textAlign:TextAlign.center,
+                      style:const TextStyle(
+                        color:UzbekCustomerColors.textMuted),
+                    ),
+                  ),
                 for (final book in visible) _bookCard(book),
               ]),
           ))),

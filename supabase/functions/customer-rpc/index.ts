@@ -20,6 +20,7 @@ const allowed = new Set([
   "register_app_install_v2",
   "customer_preorder_submit",
   "customer_preorder_balance_list",
+  "customer_preorder_event_list",
   "customer_preorder_extra_change",
   "customer_preorder_balance_proof",
   "customer_book_request_submit",
@@ -103,6 +104,9 @@ function validate(name: string, p: Record<string, unknown>): string | null {
     if (!textParam(p.p_phone, 32) || !textParam(p.p_recovery_code, 80) || String(p.p_recovery_code).replace(/[^0-9a-f]/gi, "").length < 12) return "Invalid recovery request";
   } else if (name === "customer_preorder_submit") {
     if (!textParam(p.p_install_id, 120) || String(p.p_install_id).trim().length < 12 || typeof p.p_book_id !== "string" || !uuidRe.test(p.p_book_id) || !Number.isInteger(p.p_quantity) || Number(p.p_quantity) < 1 || Number(p.p_quantity) > 20) return "Invalid preorder";
+  } else if (name === "customer_preorder_event_list") {
+    if (!textParam(p.p_install_id, 120) || String(p.p_install_id).trim().length < 12 ||
+        !Number.isInteger(p.p_limit) || Number(p.p_limit) < 1 || Number(p.p_limit) > 100) return "Invalid preorder inbox request";
   } else if (name === "customer_preorder_balance_list" ||
     name === "customer_preorder_extra_change" ||
     name === "customer_preorder_balance_proof") {

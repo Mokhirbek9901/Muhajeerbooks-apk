@@ -392,11 +392,6 @@ bool _isSupportedCustomerPhone(String raw) {
   return digits.length == 11 && digits.startsWith('010');
 }
 
-bool isGyeongsanDeliveryAddress(String address) {
-  final normalized = address.trim().toLowerCase();
-  return normalized.contains('경산') || normalized.contains('gyeongsan');
-}
-
 String isGyeongsanPickupAddress(String rawAddress, String deliveryType) {
   final value = rawAddress.trim();
   if (deliveryType == '경산 직접수령' && value.isEmpty) {
@@ -6755,8 +6750,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
         !isPrepaid && savedProfessionalName == 'mohirbek' &&
         savedProfessionalPhone == '01024338600';
     final isGyeongsanPickup = delivery == '경산 직접수령';
-    final isGyeongsanFreeDelivery = delivery == '경산 무료배송';
-    final isFreeLocalOrPickup = isGyeongsanPickup || isGyeongsanFreeDelivery;
+    // Use the original Gyeongsan pickup option only.
+    // The extra city-home-delivery choice was removed at the owner's request.
     final prepaidDetails = ((prepaid?['extras'] as List?) ?? const [])
       .whereType<Map>().map((r)=>Map<String,dynamic>.from(r)).toList();
     final prepaidCount = ((prepaid?['quantity'] as num?)?.toInt() ?? 0) +
@@ -6765,11 +6760,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final prepaidCanEdit = prepaid?['can_edit'] == true;
     // Preview the selected shipping method even after a proof is submitted.
     // A cheaper shipping choice creates a credit for admin review.
-    final prepaidShip = isFreeLocalOrPickup ? 0
+    final prepaidShip = isGyeongsanPickup ? 0
       : (prepaidCount >= 4 && !state.discountBlocksFourPlusFreeDelivery
           ? 0 : 4000);
     final deliveryFee = isPrepaid ? prepaidShip
-      : (isFreeLocalOrPickup ? 0 : state.cartDeliveryFee);
+      : (isGyeongsanPickup ? 0 : state.cartDeliveryFee);
     final prepaidSubtotal = ((prepaid?['unit_price'] as num?)?.toInt() ?? 0) *
        ((prepaid?['quantity'] as num?)?.toInt() ?? 0) +
        ((prepaid?['extra_total'] as num?)?.toInt() ?? 0);
@@ -6935,11 +6930,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         if (v == null || v.trim().length < 8) {
                           return 'To‘liq manzilni kiriting';
                         }
-                        if (isGyeongsanFreeDelivery &&
-                            !isGyeongsanDeliveryAddress(v)) {
-                          return 'Gyeongsan ichiga bepul yetkazish uchun '
-                            '경산시 manzilini kiriting';
-                        }
                         return null;
                       },
                     ),
@@ -7063,18 +7053,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                   : '₩4,000 • 1–2 ish kuni')),
                     ),
                   ),
-                  const Divider(height: 1),
-                  RadioListTile<String>(
-                    value: '경산 무료배송',
-                    groupValue: delivery,
-                    onChanged: (v) => setState(() => delivery = v!),
-                    title: const Text(
-                      'Gyeongsan ichida manzilga bepul yetkazish',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    subtitle: const Text('경산시 hududida BEPUL • to‘liq manzilni kiriting'),
-                    secondary: const Icon(Icons.local_shipping_outlined),
-                  ),
+
                   const Divider(height: 1),
                   RadioListTile<String>(
                     value: '경산 직접수령',

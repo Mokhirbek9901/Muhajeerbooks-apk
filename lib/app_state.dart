@@ -818,6 +818,38 @@ class BackendService {
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
 
+  Future<Map<String,dynamic>> pinCreate(
+      String name,String phone,String pin,String installId) async {
+    final data=await _customerRpc('customer_pin_register',{
+      'p_name':name,'p_phone':phone,'p_pin':pin,'p_install_id':installId});
+    if(data is! Map)throw StateError('PIN yaratilmadi');
+    final m=Map<String,dynamic>.from(data);
+    if(m['error']!=null)throw StateError('${m['error']}');
+    return m;
+  }
+  Future<Map<String,dynamic>> pinLogin(
+      String phone,String pin,String installId) async {
+    final data=await _customerRpc('customer_pin_login',{
+      'p_phone':phone,'p_pin':pin,'p_install_id':installId});
+    if(data is! Map)throw StateError('PIN tekshirilmadi');
+    final m=Map<String,dynamic>.from(data);
+    if(m['error']!=null)throw StateError('${m['error']}');
+    return m;
+  }
+  Future<Map<String,dynamic>> pinProfile(String token) async {
+    final raw=await _customerRpc('customer_pin_profile',{'p_session':token});
+    if(raw is! Map)throw StateError('PIN sessiyasi tugagan');
+    return Map<String,dynamic>.from(raw);
+  }
+  Future<List<Map<String,dynamic>>> pinPreorders(String token) async {
+    final raw=await _customerRpc('customer_pin_preorders',{'p_session':token});
+    if(raw is! List)return const [];
+    return raw.whereType<Map>().map((e)=>Map<String,dynamic>.from(e)).toList();
+  }
+  Future<void> pinLogout(String token) async {
+    await _customerRpc('customer_pin_logout',{'p_session':token});
+  }
+
   Future<List<Map<String, dynamic>>> fetchPreorderBalances(String installId) async {
     final raw = await _customerRpc('customer_preorder_balance_list', {
       'p_install_id': installId,
@@ -1097,6 +1129,7 @@ class _LocalStore {
   static const _customerVerifiedKey = 'muhajeer_customer_verified_v1';
   static const _installIdKey = 'muhajeer_install_id_v1';
   static const _secureInstallIdKey = 'muhajeer_install_id_secure_v2';
+  static const _customerPinSessionKey = 'muhajeer_pin_session_v1';
   static const _restockSubscriptionsKey = 'muhajeer_restock_subscriptions_v1';
   static const _recentlyViewedKey = 'muhajeer_recently_viewed_v1';
   static const _catalogCursorKey = 'muhajeer_catalog_cursor_v1';
@@ -1208,6 +1241,27 @@ class _LocalStore {
     await prefs.setString(_customerNameKey, name);
     await prefs.setString(_customerPhoneKey, phone);
     await prefs.setString(_customerAddressKey, address);
+  }
+
+  Future<void> savePinSession(String token) async {
+    if (kIsWeb) {
+      await (await _prefs).setString(_customerPinSessionKey, token);
+    } else {
+      await _secureStorage.write(key:_customerPinSessionKey,value:token);
+    }
+  }
+
+  Future<String?> readPinSession() async {
+    if (kIsWeb) return (await _prefs).getString(_customerPinSessionKey);
+    return _secureStorage.read(key:_customerPinSessionKey);
+  }
+
+  Future<void> clearPinSession() async {
+    if (kIsWeb) {
+      await (await _prefs).remove(_customerPinSessionKey);
+    } else {
+      await _secureStorage.delete(key:_customerPinSessionKey);
+    }
   }
 
   Future<bool?> loadCustomerVerified() async =>
@@ -1392,6 +1446,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   bool loading = true;
   String? error;
   bool customerVerified = false;
+  String? _pinSession;
+  bool get pinSessionActive => _pinSession != null && _pinSession!.isNotEmpty;
   Map<String, String> savedCustomer = const {
     'name': '',
     'phone': '',
@@ -1535,6 +1591,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     unawaited(_local.saveCustomerNotices(_customerNotices));
     _catalogCursor = secondary[9] as String;
 
+    if (_backend != null) unawaited(_restorePersonalPinQuietly());
     if (storedVerification == null) {
       final legacyName = (savedCustomer['name'] ?? '').trim();
       final legacyPhone = (savedCustomer['phone'] ?? '').replaceAll(
@@ -1677,7 +1734,70 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     unawaited(refreshPreorderNotices());
   }
 
+  Future<void> createPersonalPin(String pin) async {
+    if(_backend==null)throw StateError('Internet kerak');
+    final name=(savedCustomer['name']??'').trim();
+    final phone=(savedCustomer['phone']??'').trim();
+    if(name.length<2 || phone.isEmpty) {
+      throw StateError('Avval ism va telefonni profilga kiriting');
+    }
+    final id=await _local.installId();
+    final result=await _backend!.pinCreate(name,phone,pin,id);
+    final token='${result['session']??''}';
+    if(token.length!=64)throw StateError('Kirish sessiyasi olinmadi');
+    await _local.savePinSession(token);
+    _pinSession=token;
+    notifyListeners();
+  }
+
+  Future<void> loginPersonalPin(String phone,String pin) async {
+    if(_backend==null)throw StateError('Internet kerak');
+    final id=await _local.installId();
+    final result=await _backend!.pinLogin(phone.trim(),pin,id);
+    final token='${result['session']??''}';
+    if(token.length!=64)throw StateError('Kirish sessiyasi olinmadi');
+    final name='${result['name']??''}'.trim();
+    final savedPhone='${result['phone']??''}'.trim();
+    if(name.isEmpty || savedPhone.isEmpty)throw StateError('Profil olinmadi');
+    await _local.savePinSession(token);
+    _pinSession=token;
+    // An unverified phone is only treated as PIN account identity after the
+    // stored bcrypt hash was successfully checked on the server.
+    await setAuthenticatedCustomer(name,savedPhone,verified:false);
+    notifyListeners();
+  }
+
+  Future<void> _restorePersonalPinQuietly() async {
+    if(_backend==null)return;
+    try {
+      final token=await _local.readPinSession();
+      if(token==null||token.isEmpty)return;
+      final profile=await _backend!.pinProfile(token);
+      if(profile['valid']!=true)throw StateError('Expired PIN session');
+      _pinSession=token;
+      final savedName=(savedCustomer['name']??'').trim();
+      final savedPhone=(savedCustomer['phone']??'').trim();
+      if(savedName.isEmpty||savedPhone.isEmpty){
+        await setAuthenticatedCustomer(
+          '${profile['name']??''}','${profile['phone']??''}',verified:false);
+      }else {
+        notifyListeners();
+      }
+    }catch(_){
+      _pinSession=null;
+      await _local.clearPinSession();
+      notifyListeners();
+    }
+  }
+
   Future<void> signOutCustomer() async {
+    final token=_pinSession;
+    _pinSession=null;
+    try{await _local.clearPinSession();}catch(_){}
+    if(token!=null&&_backend!=null){
+      unawaited(_backend!.pinLogout(token).catchError((_){ }));
+    }
+
     if ((savedCustomer['phone'] ?? '').trim().isNotEmpty) {
       unawaited(_unregisterNativeCustomerPushQuietly());
     }
@@ -1922,6 +2042,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   // Avoid a platform-channel read before a mock checkout is committed.
   Future<String?> preorderInstallationId() =>
       backendConfigured ? _local.installId() : Future<String?>.value(null);
+
+  Future<List<Map<String,dynamic>>> myPinPreorders() async {
+    if(_backend==null||_pinSession==null)return const [];
+    return _backend!.pinPreorders(_pinSession!);
+  }
 
   Future<List<Map<String,dynamic>>> myDiscoveredPreorders() async {
     if(_backend==null)return const [];

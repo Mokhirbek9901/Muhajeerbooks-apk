@@ -206,7 +206,7 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: UzbekCustomerColors.background,
     appBar: AppBar(
-      title: const Text('Barcha oldindan zakazlar'),
+      title: const Text('Oldindan zakazlar'),
       actions: [IconButton(
         tooltip: 'Yangilash',
         icon: const Icon(Icons.refresh),
@@ -232,6 +232,9 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
               Text('${rows.length} ta oldindan buyurtma',
                 style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900,
                   color: AppColors.navy)),
+              const SizedBox(height: 4),
+              const Text('Ilovadagi navbatdagi 100 ta zakaz va webdagi so‘nggi zakazlar ko‘rsatiladi. Oldingi tarix tegishli boshqaruv sahifalarida qoladi.',
+                style: TextStyle(color: AppColors.muted, fontSize: 12)),
               const SizedBox(height: 8),
               if (data.errors.isNotEmpty)
                 AppSurface(child: Column(
@@ -255,6 +258,15 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
                   final title = '${web ? row['book_title'] : row['title']}';
                   final price = (row['deposit_amount'] as num?)?.toInt() ?? 0;
                   final status = '${row['status'] ?? 'waiting'}';
+                  final statusText = const {
+                    'waiting': 'Kutilmoqda',
+                    'accepted': 'Qabul qilindi',
+                    'arrived': 'Kitob keldi',
+                    'cancelled': 'Bekor qilindi',
+                    'fulfilled': 'Yakunlandi',
+                    'ordered': 'Buyurtma qilindi',
+                  }[status] ?? status;
+                  final phone = '${row['phone'] ?? ''}'.trim();
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 9),
                     child: Card(
@@ -270,7 +282,8 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
                           style: const TextStyle(fontWeight: FontWeight.w900)),
                         subtitle: Text(
                           '${row['customer_name'] ?? 'Mijoz'} • Avans ${_won(price)}\n'
-                          '${web ? 'Web zakaz' : 'Ilova zakazi'} • $status',
+                          '${phone.isNotEmpty ? 'Tel: $phone • ' : ''}'
+                          '${web ? 'Web zakaz' : 'Ilova zakazi'} • $statusText',
                         ),
                         isThreeLine: true,
                         trailing: const Icon(Icons.chevron_right_rounded),
@@ -424,9 +437,11 @@ class _RequestedBooksAdminPageState extends State<_RequestedBooksAdminPage> {
                           [
                             if ('${row['author'] ?? ''}'.trim().isNotEmpty)
                               'Muallif: ${row['author']}',
+                            if ('${row['phone'] ?? ''}'.trim().isNotEmpty)
+                              'Telefon: ${row['phone']}',
                             'Holat: ${statusLabels[status] ?? status}',
                           ].join('\n')),
-                        isThreeLine: false,
+                        isThreeLine: true,
                         trailing: PopupMenuButton<String>(
                           enabled: id != null && !saving.contains(id),
                           tooltip: 'So‘rov holatini o‘zgartirish',

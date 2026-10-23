@@ -240,12 +240,128 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
     });
   }
 
-  void _showAllBooksForAdding() {
-    setState(() {
-      _onlySelected=false;
-      _search.clear();
-    });
-    _searchFocus.requestFocus();
+
+  Future<void> _removeSelectedBook(String id) async {
+    if(_submitting || _confirming)return;
+    if(_mode=='old' && _previousQty.containsKey(id)) {
+      final agreed=await showDialog<bool>(
+        context:context,
+        builder:(dialog)=>AlertDialog(
+          title:const Text('Kitobni partiyadan olib tashlash'),
+          content:const Text('Bu kitobning ushbu eski partiyadagi soni 0 '
+            'bo‘ladi. Ombor va moliya o‘zgarmaydi. '
+            'Saqlashda yana tasdiqlaysiz.'),
+          actions:[
+            TextButton(onPressed:()=>Navigator.pop(dialog,false),
+              child:const Text('Qoldirish')),
+            FilledButton(onPressed:()=>Navigator.pop(dialog,true),
+              child:const Text('Olib tashlash')),
+          ],
+        ),
+      );
+      if(!mounted||agreed!=true)return;
+    }
+    setState(()=>_selected.remove(id)?.dispose());
+  }
+
+  Future<void> _openBookPicker(List<Map<String,dynamic>> books) async {
+    if(_submitting||_confirming||_existingLoading)return;
+    _search.clear();
+    await showModalBottomSheet<void>(
+      context:context,
+      isScrollControlled:true,
+      useSafeArea:true,
+      showDragHandle:true,
+      backgroundColor:UzbekCustomerColors.background,
+      builder:(sheet)=>StatefulBuilder(builder:(sheet,refresh) {
+        final q=_search.text.trim().toLowerCase();
+        final matching=books.where((b)=>
+          (b['title']??'').toString().toLowerCase().contains(q)).toList()
+          ..sort((a,b) {
+            final x=_selected.containsKey(a['id'].toString())?0:1;
+            final y=_selected.containsKey(b['id'].toString())?0:1;
+            if(x!=y)return x.compareTo(y);
+            return (a['title']??'').toString().compareTo(
+              (b['title']??'').toString());
+          });
+        return FractionallySizedBox(heightFactor:0.9,child:Column(children:[
+          Padding(padding:const EdgeInsets.fromLTRB(16,5,16,10),
+            child:Column(crossAxisAlignment:CrossAxisAlignment.start,
+              children:[
+                const Text('Kitob tanlash',style:TextStyle(fontSize:22,
+                  fontWeight:FontWeight.w900,color:UzbekCustomerColors.navy)),
+                Text('${_selected.length} nom tanlangan',
+                  style:const TextStyle(fontSize:12,
+                    color:UzbekCustomerColors.textMuted)),
+                const SizedBox(height:12),
+                TextField(
+                  controller:_search,focusNode:_searchFocus,autofocus:true,
+                  onChanged:(_)=>refresh((){}),
+                  decoration:InputDecoration(
+                    hintText:'Kitob nomini qidiring...',
+                    prefixIcon:const Icon(Icons.search_rounded),
+                    suffixIcon:q.isEmpty?null:IconButton(
+                      onPressed:(){_search.clear();refresh((){});},
+                      icon:const Icon(Icons.close),
+                      tooltip:'Qidiruvni tozalash'),
+                    filled:true,fillColor:Colors.white,
+                    border:OutlineInputBorder(
+                      borderRadius:BorderRadius.circular(14))),
+                ),
+                const SizedBox(height:6),
+                Text('${matching.length} ta natija',
+                  style:const TextStyle(fontSize:12,
+                    color:UzbekCustomerColors.textMuted)),
+              ])),
+          Expanded(child:matching.isEmpty
+            ?const Center(child:Text('Bunday kitob topilmadi.'))
+            :ListView.builder(
+              keyboardDismissBehavior:ScrollViewKeyboardDismissBehavior.onDrag,
+              itemCount:matching.length,
+              itemBuilder:(ctx,i) {
+                final book=matching[i];
+                final id=book['id'].toString();
+                final chosen=_selected[id];
+                return Padding(
+                  padding:const EdgeInsets.symmetric(horizontal:12,vertical:3),
+                  child:Material(color:Colors.white,
+                    borderRadius:BorderRadius.circular(12),
+                    child:ListTile(
+                      contentPadding:const EdgeInsets.symmetric(
+                        horizontal:12,vertical:4),
+                      title:Text((book['title']??'Kitob').toString(),
+                        maxLines:2,overflow:TextOverflow.ellipsis,
+                        style:const TextStyle(fontWeight:FontWeight.w800)),
+                      subtitle:Text(chosen!=null
+                        ?'Tanlangan: ${chosen.qty} dona'
+                        :'Tannarx: ${_money((book['cost_price'] as num?)?.toInt()??0)}'
+                         ' • Qoldiq: ${book['stock']??0}',
+                        style:const TextStyle(fontSize:11.5)),
+                      trailing:chosen!=null
+                        ?IconButton.filledTonal(
+                          tooltip:'Tanlangan kitobni olib tashlash',
+                          icon:const Icon(Icons.check_rounded),
+                          onPressed:()async{
+                            await _removeSelectedBook(id);
+                            if(sheet.mounted)refresh((){});
+                          })
+                        :IconButton.filled(
+                          tooltip:'Partiyaga qo‘shish',
+                          icon:const Icon(Icons.add),
+                          onPressed:(){_pick(book,true);refresh((){});}),
+                    )));},
+            )),
+          SafeArea(top:false,child:Padding(
+            padding:const EdgeInsets.fromLTRB(16,8,16,14),
+            child:SizedBox(width:double.infinity,
+              child:FilledButton.icon(
+                onPressed:()=>Navigator.pop(sheet),
+                icon:const Icon(Icons.check_circle_outline),
+                label:Text('${_selected.length} ta tanlandi • Tayyor')))),
+        ]));
+      }),
+    );
+    if(mounted)setState((){});
   }
 
   int _bookValue() {

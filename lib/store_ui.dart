@@ -392,6 +392,11 @@ bool _isSupportedCustomerPhone(String raw) {
   return digits.length == 11 && digits.startsWith('010');
 }
 
+bool isGyeongsanDeliveryAddress(String address) {
+  final normalized = address.trim().toLowerCase();
+  return normalized.contains('경산') || normalized.contains('gyeongsan');
+}
+
 String isGyeongsanPickupAddress(String rawAddress, String deliveryType) {
   final value = rawAddress.trim();
   if (deliveryType == '경산 직접수령' && value.isEmpty) {
@@ -6750,25 +6755,31 @@ class _CheckoutPageState extends State<CheckoutPage> {
         !isPrepaid && savedProfessionalName == 'mohirbek' &&
         savedProfessionalPhone == '01024338600';
     final isGyeongsanPickup = delivery == '경산 직접수령';
+    final isGyeongsanFreeDelivery = delivery == '경산 무료배송';
+    final isFreeLocalOrPickup = isGyeongsanPickup || isGyeongsanFreeDelivery;
     final prepaidDetails = ((prepaid?['extras'] as List?) ?? const [])
       .whereType<Map>().map((r)=>Map<String,dynamic>.from(r)).toList();
     final prepaidCount = ((prepaid?['quantity'] as num?)?.toInt() ?? 0) +
       prepaidDetails.fold<int>(0,(sum,row)=>
         sum+((row['quantity'] as num?)?.toInt() ?? 0));
     final prepaidCanEdit = prepaid?['can_edit'] == true;
-    final prepaidShip = !prepaidCanEdit
-      ? ((prepaid?['shipping_fee'] as num?)?.toInt() ?? 4000)
-      : (isGyeongsanPickup ? 0
-        : (prepaidCount >= 4 && !state.discountBlocksFourPlusFreeDelivery
-          ? 0 : 4000));
+    // Preview the selected shipping method even after a proof is submitted.
+    // A cheaper shipping choice creates a credit for admin review.
+    final prepaidShip = isFreeLocalOrPickup ? 0
+      : (prepaidCount >= 4 && !state.discountBlocksFourPlusFreeDelivery
+          ? 0 : 4000);
     final deliveryFee = isPrepaid ? prepaidShip
-      : (isGyeongsanPickup ? 0 : state.cartDeliveryFee);
+      : (isFreeLocalOrPickup ? 0 : state.cartDeliveryFee);
     final prepaidSubtotal = ((prepaid?['unit_price'] as num?)?.toInt() ?? 0) *
        ((prepaid?['quantity'] as num?)?.toInt() ?? 0) +
        ((prepaid?['extra_total'] as num?)?.toInt() ?? 0);
     final prepaidDeposit = (prepaid?['deposit_credit'] as num?)?.toInt() ?? 0;
     final prepaidDue = (prepaidSubtotal + prepaidShip - prepaidDeposit)
       .clamp(0, 100000000).toInt();
+    final submittedAmount = (prepaid?['proof_submitted_amount'] as num?)?.toInt() ??
+      (prepaidCanEdit ? 0 : ((prepaid?['amount_due'] as num?)?.toInt() ?? 0));
+    final pendingRefund = !prepaidCanEdit && submittedAmount > prepaidDue
+      ? submittedAmount-prepaidDue : 0;
     final professionalSubtotal =
         int.tryParse(manualPrice.text.trim()) ?? state.cartSubtotal;
     final total = isPrepaid ? prepaidSubtotal + prepaidShip
@@ -6919,11 +6930,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             : 'Manzil va xona raqamini to‘liq yozing.\nMasalan: 경상북도 경산시 계양로 37길 7-3, 808호',
                         prefixIcon: const Icon(Icons.location_on_outlined),
                       ),
-                      validator: (v) => isGyeongsanPickup
-                          ? null
-                          : (v == null || v.trim().length < 8
-                                ? 'To‘liq manzilni kiriting'
-                                : null),
+                      validator: (v) {
+                        if (isGyeongsanPickup) return null;
+                        if (v == null || v.trim().length < 8) {
+                          return 'To‘liq manzilni kiriting';
+                        }
+                        if (isGyeongsanFreeDelivery &&
+                            !isGyeongsanDeliveryAddress(v)) {
+                          return 'Gyeongsan ichiga bepul yetkazish uchun '
+                            '경산시 manzilini kiriting';
+                        }
+                        return null;
+                      },
                     ),
                     if (webPreviewFeaturesAvailable && !professionalMode) ...[
                       const SizedBox(height: 8),
@@ -7025,17 +7043,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   RadioListTile<String>(
                     value: '택배',
                     groupValue: delivery,
-                    onChanged: isPrepaid && !prepaidCanEdit
-                      ? null : (v) => setState(() => delivery = v!),
+                    onChanged: (v) => setState(() => delivery = v!),
                     title: const Text(
                       'Koreya bo‘ylab pochta (택배)',
                       style: TextStyle(fontWeight: FontWeight.w800),
                     ),
                     subtitle: Text(
                       isPrepaid
-                          ? (prepaidCanEdit
-                              ? (prepaidShip == 0 ? '4+ kitob — BEPUL' : '₩4,000 • 1–2 ish kuni')
-                              : 'Avval yuborilgan to‘lovdagi pochta narxi saqlanadi')
+                          ? (prepaidShip == 0
+                            ? '4+ kitob — BEPUL' : '₩4,000 • 1–2 ish kuni')
                           : state.cartBundleDeliveryIncluded
                           ? 'Set narxiga pochta kiritilgan • qo‘shimcha ₩0'
                           : (state.cartDeliveryFee == 0
@@ -7049,10 +7065,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   ),
                   const Divider(height: 1),
                   RadioListTile<String>(
+                    value: '경산 무료배송',
+                    groupValue: delivery,
+                    onChanged: (v) => setState(() => delivery = v!),
+                    title: const Text(
+                      'Gyeongsan ichida manzilga bepul yetkazish',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    subtitle: const Text('경산시 hududida BEPUL • to‘liq manzilni kiriting'),
+                    secondary: const Icon(Icons.local_shipping_outlined),
+                  ),
+                  const Divider(height: 1),
+                  RadioListTile<String>(
                     value: '경산 직접수령',
                     groupValue: delivery,
-                    onChanged: isPrepaid && !prepaidCanEdit
-                      ? null : (v) => setState(() => delivery = v!),
+                    onChanged: (v) => setState(() => delivery = v!),
                     title: const Text(
                       '경산dan (Gyeongsan) o‘zim olib ketaman',
                       style: TextStyle(fontWeight: FontWeight.w800),
@@ -7109,9 +7136,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     children: [
                       if (isPrepaid && !prepaidCanEdit) ...[
                         const Text('Qolgan to‘lov cheki allaqachon yuborilgan '
-                          'yoki tasdiqlangan. Qayta chek yubormang. '
-                          'Qabul qiluvchi va manzilni saqlashingiz mumkin.',
+                          'yoki tasdiqlangan. Yana to‘lamang. '
+                          'Yetkazish turini va manzilni saqlashingiz mumkin.',
                           style:TextStyle(fontWeight:FontWeight.w700)),
+                        if (pendingRefund > 0) Text(
+                          'Bepul yetkazish tanlandi. '
+                          'Ortiqcha ${won(pendingRefund)} to‘lovni '
+                          'admin tekshirib qaytaradi.',
+                          style:const TextStyle(fontWeight:FontWeight.w700)),
                       ],
                       if ((!isPrepaid || prepaidCanEdit) &&
                           webPreviewFeaturesAvailable && !paymentDone) ...[
@@ -7266,6 +7298,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       _priceRow('Oldindan to‘langan avans', -prepaidDeposit),
                       const Divider(height:22),
                       _priceRow('Qolgan to‘lov', prepaidDue, bold:true),
+                      if (!prepaidCanEdit) ...[
+                        const SizedBox(height:8),
+                        _priceRow('Yuborilgan chekdagi summa',submittedAmount),
+                        if (pendingRefund > 0)...[
+                          const SizedBox(height:8),
+                          _priceRow('Admin qaytarishi kerak',pendingRefund,bold:true),
+                          const Text('Yetkazish turi bepulga o‘zgardi. '
+                            'Avval yuborilgan chek saqlanadi. Ortiqcha summa '
+                            'avtomatik qaytarilmaydi — admin tekshiradi.',
+                            style:TextStyle(fontSize:12)),
+                        ],
+                      ],
                     ],
                   ],
                 ),

@@ -19,8 +19,9 @@ int batchBookCostValue({
   if (!changedUnitCost && historicalLineValue != null) {
     if (quantity == previousQuantity) return historicalLineValue;
     // Delta pricing is an estimate for previously mixed-cost lines.
-    return (historicalLineValue +
-      (quantity - previousQuantity) * unitCost).clamp(0, 0x7fffffffffffffff);
+    final adjusted = historicalLineValue +
+      (quantity - previousQuantity) * unitCost;
+    return adjusted < 0 ? 0 : adjusted;
   }
   return quantity * unitCost;
 }

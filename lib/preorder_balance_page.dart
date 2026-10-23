@@ -31,11 +31,20 @@ class _CustomerPreorderBalancesPageState
     final state=context.read<AppState>();
     final own=await state.myPreorderBalances();
     final lookups=await state.myDiscoveredPreorders();
-    final seen=own.map((r)=>'native:${r['id']}').toSet();
+    // A PIN session is required to bring other device histories together.
+    // Name and phone alone never authorize cross-device history.
+    final linked=await state.myPinPreorders();
+    final seen=<String>{};
     final rows=<Map<String,dynamic>>[
-      for(final row in own){...row,'source':'native','ownership':'device'},
+      for(final row in own)
+        if(seen.add('native:${row['id']}'))
+          {...row,'source':'native','ownership':'device'},
       for(final row in lookups)
-        if(seen.add('${row['source']}:${row['id']}')) Map<String,dynamic>.from(row),
+        if(seen.add('${row['source']}:${row['id']}'))
+          Map<String,dynamic>.from(row),
+      for(final row in linked)
+        if(seen.add('${row['source']}:${row['id']}'))
+          Map<String,dynamic>.from(row),
     ];
     rows.sort((a,b){
       final target=widget.focusPreorderId;
@@ -203,7 +212,7 @@ class _CustomerPreorderBalancesPageState
         final rows = snap.data!;
         if (rows.isEmpty) return const Center(child: Padding(
           padding: EdgeInsets.all(24),
-          child: Text('Bu qurilmadan yoki profilingizdagi ism va telefon raqamiga mos oldindan zakaz topilmadi. Profil ma’lumotlaringizni tekshiring.'),
+          child: Text('Bu qurilmadan zakaz topilmadi. Boshqa telefoningizdagi buyurtmalar uchun Profil → Shaxsiy PIN orqali kiring.'),
         ));
         return RefreshIndicator(
           onRefresh: refresh,
@@ -222,7 +231,7 @@ class _CustomerPreorderBalancesPageState
 
   Widget _invoiceCard(Map<String, dynamic> record) {
     final source='${record['source']??'native'}';
-    final contactOnly=record['ownership']=='contact';
+    final contactOnly=record['ownership']=='contact' || record['ownership']=='pin';
     final readonly=source=='web'||contactOnly;
     // Native preorder IDs are numbers; web preorder IDs are UUID strings.
     final rawId=record['id'];
@@ -248,7 +257,7 @@ class _CustomerPreorderBalancesPageState
           const SizedBox(height: 4),
           if(readonly) Text(source=='web'
             ? 'Web oldindan zakaz • ${contactOnly?'Ism va telefon bo‘yicha topildi':'Shu qurilmadan'}'
-            : 'Ism va telefon bo‘yicha topilgan eski ilova zakazi',
+            : 'Shaxsiy PIN orqali ulangan boshqa qurilmadagi zakaz',
             style:const TextStyle(color:UzbekCustomerColors.textMuted,fontSize:12)),
           const SizedBox(height: 4),
           Text('Holat: ${status == 'arrived' ? 'Kitob keldi'

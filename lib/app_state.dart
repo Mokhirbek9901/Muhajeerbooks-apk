@@ -8,11 +8,13 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'push_notifications.dart';
 import 'owner_story_access.dart';
+import 'native_admin_push.dart';
 import 'preview_features.dart';
 
 String normalizePublisher(String value) {
@@ -715,6 +717,24 @@ class BackendService {
         'p_phone': phone.trim(),
       },
     );
+  }
+
+  /// Registers a consenting, phone-linked iOS device for existing APNs events.
+  /// Only called from a physical iOS app after notification permission.
+  Future<void> registerCustomerNativeApns(
+    String token, String phone, String installId,
+  ) async {
+    await _customerRpc('customer_register_native_apns', {
+      'p_token': token,
+      'p_phone': phone.trim(),
+      'p_install_id': installId,
+    });
+  }
+
+  Future<void> unregisterCustomerNativeApns(String installId) async {
+    await _customerRpc('customer_unregister_native_apns', {
+      'p_install_id': installId,
+    });
   }
 
   Future<Map<String, dynamic>> subscribeRestock(
@@ -1535,8 +1555,44 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
                       ? 'ios_app_store'
                       : defaultTargetPlatform.name;
       await _backend?.registerInstallation(id, platform, phone: (savedCustomer['phone'] ?? '').trim());
+      // Device analytics and APNs are independent: a valid customer should
+      // still be able to receive push after accepting notification access.
     } catch (_) {
       // Analytics must never slow or block shopping.
+    } finally {
+      unawaited(syncNativeCustomerPushIfAllowed());
+    }
+  }
+
+  /// Safe to call after a user grants notification permission, and on login.
+  /// Does not request permission, block the storefront, or send messages.
+  Future<void> syncNativeCustomerPushIfAllowed() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS ||
+        const bool.fromEnvironment('ANALYTICS_TEST_BUILD')) return;
+    final backend = _backend;
+    final phone = (savedCustomer['phone'] ?? '').trim();
+    if (backend == null || phone.isEmpty) return;
+    try {
+      if (!(await Permission.notification.status).isGranted) return;
+      final token = await NativeAdminPush.requestDeviceToken()
+          .timeout(const Duration(seconds: 20));
+      if (token.isEmpty) return;
+      final id = await _local.installId();
+      await backend.registerCustomerNativeApns(token, phone, id);
+    } catch (error) {
+      // APNs network/permission failure must not interrupt shopping.
+      debugPrint('Customer native push registration unavailable: ${error.runtimeType}');
+    }
+  }
+
+  Future<void> _unregisterNativeCustomerPushQuietly() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS ||
+        _backend == null) return;
+    try {
+      final id = await _local.installId();
+      await _backend!.unregisterCustomerNativeApns(id);
+    } catch (_) {
+      // Local sign-out remains immediate even when the network is offline.
     }
   }
 
@@ -1564,11 +1620,17 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     customerVerified = verified;
     await _local.saveCustomerVerified(verified);
     unawaited(OwnerStoryAccess.instance.refreshFor(this));
-    if (_backend != null) unawaited(_registerInstallation());
+    if (_backend != null) {
+      unawaited(_registerInstallation());
+      unawaited(syncNativeCustomerPushIfAllowed());
+    }
     notifyListeners();
   }
 
   Future<void> signOutCustomer() async {
+    if ((savedCustomer['phone'] ?? '').trim().isNotEmpty) {
+      unawaited(_unregisterNativeCustomerPushQuietly());
+    }
     // Profil lokal qurilmada saqlanadi. Uni tarmoq javobini kutmasdan darhol
     // tozalaymiz, shuning uchun tugma internet sust bo‘lsa ham ishlaydi.
     savedCustomer = const {'name': '', 'phone': '', 'address': ''};

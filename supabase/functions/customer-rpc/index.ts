@@ -17,6 +17,7 @@ const allowed = new Set([
   "customer_pin_profile",
   "customer_pin_logout",
   "customer_pin_preorders",
+  "customer_web_preorder_checkout",
   "customer_restock_notifications",
   "customer_restock_subscribe",
   "customer_restock_unsubscribe",
@@ -114,6 +115,16 @@ function validate(name: string, p: Record<string, unknown>): string | null {
         name === "customer_pin_preorders") {
     if (typeof p.p_session !== "string" || !/^[a-f0-9]{64}$/.test(p.p_session))
       return "Invalid PIN session";
+  } else if (name === "customer_web_preorder_checkout") {
+    if (typeof p.p_session !== "string" || !/^[a-f0-9]{64}$/.test(p.p_session) ||
+        typeof p.p_preorder_id !== "string" || !uuidRe.test(p.p_preorder_id) ||
+        !["detail", "add", "proof"].includes(String(p.p_action))) return "Invalid prepaid order";
+    if (p.p_action === "add" &&
+        (typeof p.p_book_id !== "string" || !uuidRe.test(p.p_book_id) ||
+         !Number.isInteger(p.p_delta) || Math.abs(Number(p.p_delta)) > 5 ||
+         p.p_delta === 0)) return "Invalid add-on";
+    if (p.p_action === "proof" &&
+        !textParam(p.p_path, 500)) return "Invalid remaining payment proof";
   } else if (name === "customer_register_free") {
     if (!textParam(p.p_name, 80) || String(p.p_name).trim().length < 2 || !textParam(p.p_phone, 32)) return "Invalid registration";
   } else if (name === "customer_restock_notifications") {

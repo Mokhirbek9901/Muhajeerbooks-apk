@@ -850,6 +850,23 @@ class BackendService {
     await _customerRpc('customer_pin_logout',{'p_session':token});
   }
 
+  /// Historical web preorder: PIN-bound and idempotent, never creates an
+  /// ordinary order or charges a second deposit.
+  Future<Map<String,dynamic>> webPreorderCheckout(
+      String session,String preorderId,String action,
+      {String? bookId,int delta=0,String? proofPath}) async {
+    final raw=await _customerRpc('customer_web_preorder_checkout',{
+      'p_session':session,
+      'p_preorder_id':preorderId,
+      'p_action':action,
+      if(bookId!=null) 'p_book_id':bookId,
+      'p_delta':delta,
+      if(proofPath!=null) 'p_path':proofPath,
+    });
+    if(raw is! Map)throw StateError('Oldindan zakaz hisobi olinmadi');
+    return Map<String,dynamic>.from(raw);
+  }
+
   Future<List<Map<String, dynamic>>> fetchPreorderBalances(String installId) async {
     final raw = await _customerRpc('customer_preorder_balance_list', {
       'p_install_id': installId,
@@ -1130,6 +1147,7 @@ class _LocalStore {
   static const _installIdKey = 'muhajeer_install_id_v1';
   static const _secureInstallIdKey = 'muhajeer_install_id_secure_v2';
   static const _customerPinSessionKey = 'muhajeer_pin_session_v1';
+  static const _pinOrderArchiveKey = 'muhajeer_pin_order_archive_v1';
   static const _restockSubscriptionsKey = 'muhajeer_restock_subscriptions_v1';
   static const _recentlyViewedKey = 'muhajeer_recently_viewed_v1';
   static const _catalogCursorKey = 'muhajeer_catalog_cursor_v1';
@@ -1175,6 +1193,56 @@ class _LocalStore {
       _ordersKey,
       jsonEncode(orders.map((e) => e.toMap()).toList()),
     );
+  }
+
+  /// Keep private native order history encrypted across local sign-out.
+  /// Never expose it until a matching PIN login has succeeded.
+  Future<void> archiveOrdersForPin(String phone, List<ShopOrder> orders) async {
+    if (kIsWeb) return;
+    final key = phone.replaceAll(RegExp(r'\D'), '');
+    if (key.length < 9 || orders.isEmpty) return;
+    final raw = await _secureStorage.read(key: _pinOrderArchiveKey);
+    final records = <String, dynamic>{};
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        records.addAll(Map<String, dynamic>.from(jsonDecode(raw) as Map));
+      } catch (_) { /* Ignore a corrupted old cache. */ }
+    }
+    final permitted = orders.where((order) =>
+      order.phone.replaceAll(RegExp(r'\D'), '') == key).toList();
+    if (permitted.isEmpty) return;
+    final oldRows = (records[key] as List?) ?? const [];
+    final dedup = <String, Map<String, dynamic>>{};
+    for (final row in oldRows.whereType<Map>()) {
+      final entry = Map<String, dynamic>.from(row);
+      final id = (entry['id'] ?? '').toString();
+      if (id.isNotEmpty) dedup[id] = entry;
+    }
+    for (final order in permitted) {
+      dedup[order.id] = order.toMap();
+    }
+    records[key] = dedup.values.toList();
+    await _secureStorage.write(
+      key: _pinOrderArchiveKey, value: jsonEncode(records));
+  }
+
+  Future<List<ShopOrder>> readOrdersAfterPinLogin(String phone) async {
+    if (kIsWeb) return const [];
+    final key = phone.replaceAll(RegExp(r'\D'), '');
+    if (key.length < 9) return const [];
+    try {
+      final raw = await _secureStorage.read(key: _pinOrderArchiveKey);
+      if (raw == null || raw.isEmpty) return const [];
+      final data = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+      return ((data[key] as List?) ?? const [])
+        .whereType<Map>()
+        .map((row) => ShopOrder.fromMap(Map<String, dynamic>.from(row)))
+        .where((order) =>
+          order.phone.replaceAll(RegExp(r'\D'), '') == key)
+        .toList();
+    } catch (_) {
+      return const [];
+    }
   }
 
   Future<List<Map<String, dynamic>>> loadCustomerNotices() async {
@@ -1808,7 +1876,22 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     await setAuthenticatedCustomer(name,savedPhone,verified:false);
     await _local.savePinSession(token);
     _pinSession=token;
+    final restored = await _local.readOrdersAfterPinLogin(savedPhone);
+    if (restored.isNotEmpty) {
+      final ordersById = <String, ShopOrder>{
+        for (final order in _localOrders.where((o) =>
+            _customerPhoneKey(o.phone) == _customerPhoneKey(savedPhone)))
+          order.id: order,
+        for (final order in restored) order.id: order,
+      };
+      _localOrders
+        ..clear()
+        ..addAll(ordersById.values);
+      await _local.saveOrders(_localOrders);
+    }
     notifyListeners();
+    unawaited(refreshPreorderNotices());
+    unawaited(refreshCustomerPushMessages());
   }
 
   Future<void> _restorePersonalPinQuietly() async {
@@ -1841,8 +1924,17 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     if ((savedCustomer['phone'] ?? '').trim().isNotEmpty) {
       unawaited(_unregisterNativeCustomerPushQuietly());
     }
-    // Profil lokal qurilmada saqlanadi. Uni tarmoq javobini kutmasdan darhol
-    // tozalaymiz, shuning uchun tugma internet sust bo‘lsa ham ishlaydi.
+    // Securely archive existing orders BEFORE clearing this device's data.
+    final oldPhone = (savedCustomer['phone'] ?? '').trim();
+    try {
+      await _local.archiveOrdersForPin(oldPhone,
+        _localOrders.isNotEmpty ? List<ShopOrder>.from(_localOrders)
+          : await _local.loadOrders());
+    } catch (archiveError) {
+      debugPrint('Secure order archive not available');
+    }
+    // Clear this device's account-specific data. Keep the durable device ID:
+    // it is used for unique-install analytics and PIN-linked order recovery.
     savedCustomer = const {'name': '', 'phone': '', 'address': ''};
     customerVerified = false;
     OwnerStoryAccess.instance.lock();
@@ -1851,11 +1943,23 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     // under the next person's name on this same phone.
     _localOrders.clear();
     _customerNotices.clear();
+    _favorites.clear();
+    _cart.clear();
+    _cartBundleIds.clear();
+    _restockSubscriptions.clear();
+    _recentlyViewedIds.clear();
+    // Do not erase the database's orders or paid preorders on sign-out.
+    // They can be restored only by authenticating with the matching PIN.
+    notifyListeners();
     await Future.wait([
       _local.saveOrders(const <ShopOrder>[]),
       _local.saveCustomerNotices(const <Map<String, dynamic>>[]),
+      _local.saveFavorites(<String>{}),
+      _local.saveCart(<String, int>{}),
+      _local.saveCartBundles(<String>[]),
+      _local.saveRestockSubscriptions(<String>{}),
+      _local.saveRecentlyViewed(<String>[]),
     ]);
-    notifyListeners();
 
     if (backendConfigured) {
       unawaited(Supabase.instance.client.auth.signOut().catchError((_) {}));
@@ -2088,9 +2192,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<List<Map<String, dynamic>>> myPreorderBalances() async {
-    if (_backend == null) return const [];
+    if (_backend == null || !checkoutIdentityReady) return const [];
+    final session = _pinSession;
     final id = await _local.installId();
-    return _backend!.fetchPreorderBalances(id);
+    if (_pinSession != session || !checkoutIdentityReady) return const [];
+    final result = await _backend!.fetchPreorderBalances(id);
+    return _pinSession == session && checkoutIdentityReady ? result : const [];
   }
 
   // Test/offline builds do not need a secure-storage installation token.
@@ -2099,25 +2206,52 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       backendConfigured ? _local.installId() : Future<String?>.value(null);
 
   Future<List<Map<String,dynamic>>> myPinPreorders() async {
-    if(_backend==null||_pinSession==null)return const [];
-    return _backend!.pinPreorders(_pinSession!);
+    if(_backend==null||!checkoutIdentityReady)return const [];
+    final session=_pinSession!;
+    final result=await _backend!.pinPreorders(session);
+    return _pinSession == session && checkoutIdentityReady ? result : const [];
+  }
+
+  Future<Map<String,dynamic>> webPreorderInvoice(String id) async {
+    if(_backend==null||_pinSession==null) {
+      throw StateError('Avval Mening ma’lumotlarim orqali PIN bilan kiring');
+    }
+    return _backend!.webPreorderCheckout(_pinSession!,id,'detail');
+  }
+  Future<Map<String,dynamic>> changeWebPreorderExtra(
+      String id,String bookId,int delta) async {
+    if(_backend==null||_pinSession==null)throw StateError('PIN bilan kiring');
+    return _backend!.webPreorderCheckout(_pinSession!,id,'add',
+      bookId:bookId,delta:delta);
+  }
+  Future<Map<String,dynamic>> submitWebPreorderRemainingPayment(
+      String id,XFile image) async {
+    if(_backend==null||_pinSession==null)throw StateError('PIN bilan kiring');
+    final path=await _backend!.uploadPaymentProof(image);
+    return _backend!.webPreorderCheckout(_pinSession!,id,'proof',
+      proofPath:path);
   }
 
   Future<List<Map<String,dynamic>>> myDiscoveredPreorders() async {
-    if(_backend==null)return const [];
+    if(_backend==null||!checkoutIdentityReady)return const [];
+    final session=_pinSession;
     final id=await _local.installId();
-    return _backend!.discoverPreorders(id,
+    if (_pinSession != session || !checkoutIdentityReady) return const [];
+    final result=await _backend!.discoverPreorders(id,
       (savedCustomer['name']??'').trim(),(savedCustomer['phone']??'').trim());
+    return _pinSession == session && checkoutIdentityReady ? result : const [];
   }
 
   bool _preorderNoticeRefreshing=false;
   Future<void> refreshPreorderNotices() async {
-    if(_backend==null||_preorderNoticeRefreshing)return;
+    if(_backend==null||_preorderNoticeRefreshing||!checkoutIdentityReady)return;
+    final session=_pinSession;
     _preorderNoticeRefreshing=true;
     try{
       final id=await _local.installId();
       final events=await _backend!.preorderActivity(id,
         (savedCustomer['name']??'').trim(),(savedCustomer['phone']??'').trim());
+      if (_pinSession != session || !checkoutIdentityReady) return;
       final seen=_customerNotices.map((n)=>'${n['id']??''}').toSet();
       var changed=false;
       for(final e in events){
@@ -2310,14 +2444,17 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> refreshCustomerPushMessages() async {
-    if (_backend == null || _pushMessagesRefreshing) return;
+    if (_backend == null || _pushMessagesRefreshing || !checkoutIdentityReady) return;
+    final session = _pinSession;
+    final requestedPhone = (savedCustomer['phone'] ?? '').trim();
     _pushMessagesRefreshing = true;
     try {
       final rows = await _backend!.fetchPushMessages(
         limit: 50,
-        phone: (savedCustomer['phone'] ?? '').trim(),
+        phone: requestedPhone,
       );
-      if (rows.isEmpty) return;
+      if (rows.isEmpty || _pinSession != session || !checkoutIdentityReady ||
+          (savedCustomer['phone'] ?? '').trim() != requestedPhone) return;
 
       final existingIds = _customerNotices
           .map((n) => (n['id'] ?? '').toString())

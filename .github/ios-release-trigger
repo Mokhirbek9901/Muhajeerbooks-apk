@@ -54,3 +54,10 @@ No schema/order/stock bulk data changes in mobile app; protected read-only admin
 2026-10-23 — OWNER REQUEST, TESTFLIGHT ONLY: implement straightforward SMS-free name and Korea 010 phone profile. Profile gets one-tap create/edit, saved locally across visits, auto-filled in regular and preorder checkout, restock no longer requires address at registration. Existing optional PIN stays optional. No claim of verified phone ownership from typed name+phone, do not expose other devices' payment receipts or order secrets. Flutter CI 1570 passed (run 39960486230). No App Store or Play Market public release, no main merge or Railway deploy.
 
 2026-10-23 SMS-FREE PIN CONSOLIDATION TestFlight QA ONLY. Mening ma’lumotlarim is single entry for name+phone+required four-digit PIN. Regular checkout, native preorder and web preorder checkout require PIN session and preserve draft on successful registration. PIN-session matching legacy NULL-install-id web preorder is returned read-only as a safe status summary, not a payment ledger. Flutter CI 1585 success. No public App Store, Play Market, Railway deployment, or main branch merge.
+
+2026-10-24 KST — TESTFLIGHT ONLY PIN login / clean sign-out QA for the owner.
+- Profile opens returning-user login with phone + previous PIN, or creates new name + phone + PIN on first use.
+- Logged-in page displays name/phone/masked PIN, confirm sign-out, immediately return to Kirish. Root profile icon is a true login/logout toggle, not a false account-deletion label.
+- Logout clears local profile, cart, favorites, recently viewed, notices and order screens. Encrypted native local order archive becomes available ONLY after successful same-phone PIN login. Original server prepaid records are not deleted.
+- PIN-protected preorder page requires login, with offline test fallback. Forgotten existing PIN requires admin identity review; never replace old PIN based on phone alone.
+- Must complete Flutter analyze + widget tests BEFORE signed IPA/TestFlight upload. NO public App Store/Play Market release, NO Railway deploy, NO main merge.

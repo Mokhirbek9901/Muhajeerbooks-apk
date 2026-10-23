@@ -7384,14 +7384,23 @@ class ProfilePage extends StatelessWidget {
         title: const Text('Profil'),
         actions: [
           IconButton(
-            tooltip: 'Akkaunt va ma’lumotlarni o‘chirish',
+            tooltip: state.checkoutIdentityReady ? 'Profildan chiqish' : 'Profilga kirish',
             onPressed: () async {
-              final shouldClear = await showDialog<bool>(
+              if (!context.read<AppState>().checkoutIdentityReady) {
+                await Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const CustomerPinPage(),
+                ));
+                return;
+              }
+              final shouldSignOut = await showDialog<bool>(
                 context: context,
                 builder: (dialogContext) => AlertDialog(
-                  title: const Text('Akkauntni o‘chirish'),
+                  title: const Text('Profildan chiqish'),
                   content: const Text(
-                    'Akkaunt profili, saqlangan ism, telefon va manzil ushbu qurilmadan o‘chiriladi. Buyurtma tarixi buyurtmani yetkazish va hisob yuritish uchun saqlanishi mumkin.',
+                    'Shu telefondagi ism, telefon, manzil, '
+                    'savatcha va buyurtmalar tarixi tozalanadi. '
+                    'Serverdagi buyurtmalar o‘chmaydi: qayta '
+                    'kirish uchun eski telefon raqamingiz va PIN kerak.',
                   ),
                   actions: [
                     TextButton(
@@ -7400,19 +7409,20 @@ class ProfilePage extends StatelessWidget {
                     ),
                     FilledButton(
                       onPressed: () => Navigator.pop(dialogContext, true),
-                      child: const Text('Akkauntni o‘chirish'),
+                      child: const Text('Profildan chiqish'),
                     ),
                   ],
                 ),
               );
-              if (shouldClear != true || !context.mounted) return;
+              if (shouldSignOut != true || !context.mounted) return;
               await context.read<AppState>().signOutCustomer();
               if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Akkaunt va profil ma’lumotlari o‘chirildi.')),
+                const SnackBar(content: Text('Profildan chiqildi. Qayta kirish uchun PINni kiriting.')),
               );
             },
-            icon: const Icon(Icons.person_remove_alt_1_outlined),
+            icon: Icon(state.checkoutIdentityReady
+              ? Icons.logout_rounded : Icons.login_rounded),
           ),
           const SizedBox(width: 6),
         ],
@@ -7715,7 +7725,7 @@ class _WebMyProfilePage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: UzbekCustomerColors.background,
         surfaceTintColor: Colors.transparent,
-        title: const Text('Mening'),
+        title: const Text('Mening ma’lumotlarim'),
       ),
       body: Center(
         child: ConstrainedBox(
@@ -7764,7 +7774,9 @@ class _WebMyProfilePage extends StatelessWidget {
                     OutlinedButton.icon(
                       onPressed: () => _editProfile(context),
                       icon: const Icon(Icons.edit_outlined, size: 18),
-                      label: const Text('Ism, telefon va PIN'),
+                      label: Text(state.pinSessionActive
+                        ? 'Shaxsiy PIN: ••••  •  PIN sozlamalari'
+                        : 'PIN bilan kirish'),
                     ),
                     if (iosTestFlightPreview) ...[
                       const SizedBox(height: 10),
@@ -7783,8 +7795,11 @@ class _WebMyProfilePage extends StatelessWidget {
                     : 'Buyurtma berish uchun ism, telefon va PINni kiriting.',
                     style: const TextStyle(fontWeight: FontWeight.w800)),
                   const SizedBox(height: 6),
-                  const Text('SMS talab qilinmaydi. Boshqa telefondan '
-                    'buyurtmalarni topish uchun 4 xonali PINni eslab qoling.'),
+                  Text(state.pinSessionActive
+                    ? 'Shaxsiy PIN: •••• (maxfiy saqlanadi). Boshqa telefonda '
+                      'telefon raqami va PIN bilan kirasiz.'
+                    : 'SMS talab qilinmaydi. Oldin profil yaratgan bo‘lsangiz '
+                      'PIN bilan kiring. Yangi qurilmada raqam va PIN kerak bo‘ladi.'),
                 ],
               )),
               const SizedBox(height: 14),

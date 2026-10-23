@@ -119,6 +119,7 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
 
   void _resetDraft() {
     _loadGeneration++;
+    _search.clear();
     for (final book in _selected.values) { book.dispose(); }
     _selected.clear();
     _selectedTransportIds.clear();

@@ -850,6 +850,23 @@ class BackendService {
     await _customerRpc('customer_pin_logout',{'p_session':token});
   }
 
+  /// Historical web preorder: PIN-bound and idempotent, never creates an
+  /// ordinary order or charges a second deposit.
+  Future<Map<String,dynamic>> webPreorderCheckout(
+      String session,String preorderId,String action,
+      {String? bookId,int delta=0,String? proofPath}) async {
+    final raw=await _customerRpc('customer_web_preorder_checkout',{
+      'p_session':session,
+      'p_preorder_id':preorderId,
+      'p_action':action,
+      if(bookId!=null) 'p_book_id':bookId,
+      'p_delta':delta,
+      if(proofPath!=null) 'p_path':proofPath,
+    });
+    if(raw is! Map)throw StateError('Oldindan zakaz hisobi olinmadi');
+    return Map<String,dynamic>.from(raw);
+  }
+
   Future<List<Map<String, dynamic>>> fetchPreorderBalances(String installId) async {
     final raw = await _customerRpc('customer_preorder_balance_list', {
       'p_install_id': installId,
@@ -2101,6 +2118,26 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   Future<List<Map<String,dynamic>>> myPinPreorders() async {
     if(_backend==null||_pinSession==null)return const [];
     return _backend!.pinPreorders(_pinSession!);
+  }
+
+  Future<Map<String,dynamic>> webPreorderInvoice(String id) async {
+    if(_backend==null||_pinSession==null) {
+      throw StateError('Avval Mening ma’lumotlarim orqali PIN bilan kiring');
+    }
+    return _backend!.webPreorderCheckout(_pinSession!,id,'detail');
+  }
+  Future<Map<String,dynamic>> changeWebPreorderExtra(
+      String id,String bookId,int delta) async {
+    if(_backend==null||_pinSession==null)throw StateError('PIN bilan kiring');
+    return _backend!.webPreorderCheckout(_pinSession!,id,'add',
+      bookId:bookId,delta:delta);
+  }
+  Future<Map<String,dynamic>> submitWebPreorderRemainingPayment(
+      String id,XFile image) async {
+    if(_backend==null||_pinSession==null)throw StateError('PIN bilan kiring');
+    final path=await _backend!.uploadPaymentProof(image);
+    return _backend!.webPreorderCheckout(_pinSession!,id,'proof',
+      proofPath:path);
   }
 
   Future<List<Map<String,dynamic>>> myDiscoveredPreorders() async {

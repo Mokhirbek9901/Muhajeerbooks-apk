@@ -213,15 +213,12 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
   }
 
   Future<void> _openRecord(Map<String, dynamic> row) async {
-    if (row['_origin'] == 'web' && webPreordersAvailable) {
-      await Navigator.of(context).push(MaterialPageRoute<void>(
-        builder: (_) => WebPreorderAdminPage(secret: widget.api.secret),
-      ));
-    } else {
-      await Navigator.of(context).push(MaterialPageRoute<void>(
-        builder: (_) => _PreorderAdminPage(api: widget.api),
-      ));
-    }
+    // Open this order, not the global preorder configuration page.
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => _CombinedPreorderDetailPage(
+        api: widget.api, record: Map<String, dynamic>.from(row),
+      ),
+    ));
     if (mounted) setState(() => future = _load());
   }
 
@@ -247,7 +244,7 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
           return switch (statusFilter) {
             'all' => status != 'cancelled',
             'waiting' => status == 'waiting',
-            'accepted' => status == 'accepted' || status == 'ordered',
+            'accepted' => status == 'accepted' || status == 'contacted' || status == 'ordered',
             'arrived' => status == 'arrived' || status == 'fulfilled',
             'cancelled' => status == 'cancelled',
             _ => status != 'cancelled',
@@ -313,6 +310,8 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
                   final statusText = const {
                     'waiting': 'Kutilmoqda',
                     'accepted': 'Qabul qilindi',
+                    'contacted': 'Bog‘lanilgan',
+                    'converted': 'Buyurtmaga o‘tkazilgan',
                     'arrived': 'Kitob keldi',
                     'cancelled': 'Bekor qilindi',
                     'fulfilled': 'Yakunlandi',
@@ -362,6 +361,254 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
       },
     ),
   );
+}
+
+
+class _CombinedPreorderDetailPage extends StatefulWidget {
+  const _CombinedPreorderDetailPage({required this.api, required this.record});
+  final _AdminApi api;
+  final Map<String, dynamic> record;
+
+  @override
+  State<_CombinedPreorderDetailPage> createState() =>
+      _CombinedPreorderDetailPageState();
+}
+
+class _CombinedPreorderDetailPageState extends State<_CombinedPreorderDetailPage> {
+  late final Map<String, dynamic> record =
+      Map<String, dynamic>.from(widget.record);
+  bool saving = false;
+
+  bool get isWeb => record['_origin'] == 'web';
+  String get status => '${record['status'] ?? 'waiting'}';
+  String get bookTitle => '${(isWeb ? record['book_title'] : record['title']) ?? 'Kitob'}';
+
+  String get statusLabel => const <String, String>{
+    'waiting': 'Tekshirish kerak',
+    'accepted': 'Qabul qilingan',
+    'contacted': 'Bog‘lanilgan',
+    'arrived': 'Kitob keldi',
+    'converted': 'Buyurtmaga o‘tkazilgan',
+    'cancelled': 'Bekor qilingan',
+    'fulfilled': 'Yakunlangan',
+    'ordered': 'Buyurtma qilingan',
+  }[status] ?? status;
+
+  List<(String, String, IconData)> get actions {
+    switch (status) {
+      case 'waiting':
+        return const [
+          ('accepted', 'Qabul qilish', Icons.check_circle_outline),
+          ('cancelled', 'Bekor qilish', Icons.cancel_outlined),
+        ];
+      case 'accepted':
+        return const [
+          ('arrived', 'Kitob keldi', Icons.inventory_2_outlined),
+          ('cancelled', 'Bekor qilish', Icons.cancel_outlined),
+        ];
+      case 'contacted':
+        return const [
+          ('accepted', 'Qabul qilish', Icons.check_circle_outline),
+          ('arrived', 'Kitob keldi', Icons.inventory_2_outlined),
+          ('cancelled', 'Bekor qilish', Icons.cancel_outlined),
+        ];
+      case 'arrived':
+        return const [
+          ('cancelled', 'Bekor qilish', Icons.cancel_outlined),
+        ];
+      case 'cancelled':
+        return const [
+          ('waiting', 'Qayta ko‘rib chiqish', Icons.restart_alt_rounded),
+        ];
+      default:
+        return const [];
+    }
+  }
+
+  Future<void> _viewProof() async {
+    final proof = '${record[isWeb ? 'payment_proof_url' : 'payment_proof_path'] ?? ''}'.trim();
+    if (proof.isEmpty) return;
+    try {
+      final url = isWeb ? proof : await widget.api.paymentProofUrl(proof);
+      final uri = Uri.tryParse(url);
+      if (uri == null || !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        throw StateError('Avans cheki ochilmadi');
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Chekni ochib bo‘lmadi: $error')),
+        );
+      }
+    }
+  }
+
+  Future<void> _setStatus(String target) async {
+    if (saving) return;
+    final noteController = TextEditingController();
+    final key = GlobalKey<FormState>();
+    final requireReason = target == 'cancelled' || target == 'waiting';
+    final title = const <String, String>{
+      'accepted': 'Zakazni qabul qilish',
+      'arrived': 'Kitob keldi',
+      'cancelled': 'Zakazni bekor qilish',
+      'waiting': 'Zakazni qayta ochish',
+    }[target] ?? 'Zakazni boshqarish';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Form(
+          key: key,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(target == 'accepted'
+              ? 'Avans cheki va to‘lovni tekshirgach qabul qiling.'
+              : target == 'arrived'
+                ? 'Kitob haqiqatan kelgan bo‘lsa, holatini belgilang.'
+                : target == 'cancelled'
+                  ? 'Sababini yozing. Avans avtomatik qaytarilmaydi.'
+                  : 'Qayta ochish sababini kiriting.'),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: noteController,
+              maxLength: 500,
+              maxLines: 3,
+              decoration: InputDecoration(
+                labelText: requireReason
+                  ? 'Sababi (majburiy)'
+                  : 'Admin izohi (ixtiyoriy)',
+              ),
+              validator: (value) => requireReason && (value ?? '').trim().length < 3
+                  ? 'Kamida 3 ta belgi kiriting' : null,
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Orqaga')),
+          FilledButton(onPressed: () {
+            if (key.currentState!.validate()) Navigator.pop(ctx, true);
+          }, child: const Text('Tasdiqlash')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      // The dialog has been dismissed; its controller is no longer in use.
+      noteController.dispose();
+      return;
+    }
+    final note = noteController.text.trim();
+    noteController.dispose();
+    setState(() => saving = true);
+    try {
+      if (isWeb) {
+        // Web backend validates the status version to prevent stale updates.
+        final result = await WebPreorderApi().admin(widget.api.secret, 'status', {
+          'id': '${record['id']}',
+          'status': target,
+          'version': record['status_version'] ?? 1,
+          'note': note,
+        });
+        if (result is! Map || result['status'] != target) {
+          throw StateError('Server holatni tasdiqlamadi.');
+        }
+        record['status_version'] = result['version'] ?? record['status_version'];
+      } else {
+        final id = int.tryParse('${record['id']}');
+        if (id == null) throw StateError('Zakaz raqami noto‘g‘ri');
+        await widget.api.setNativePreorderStatus(
+          id: id, expectedStatus: status, status: target, note: note,
+        );
+      }
+      if (!mounted) return;
+      setState(() => record['status'] = target);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Zakaz holati saqlandi: $statusLabel ✅')),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Holat saqlanmadi: $error. Ro‘yxatni yangilang.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final name = '${record['customer_name'] ?? ''}'.trim();
+    final phone = '${record['phone'] ?? ''}'.trim();
+    final note = '${record['note'] ?? ''}'.trim();
+    final quantity = (record['quantity'] as num?)?.toInt() ??
+      ((record['request_items'] as List?)?.length ?? 1);
+    final amount = (record['deposit_amount'] as num?)?.toInt() ?? 0;
+    final proof = '${record[isWeb ? 'payment_proof_url' : 'payment_proof_path'] ?? ''}'.trim();
+    return Scaffold(
+      backgroundColor: UzbekCustomerColors.background,
+      appBar: AppBar(title: const Text('Oldindan zakazni boshqarish')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+        children: [
+          AppSurface(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(bookTitle, style: const TextStyle(
+                fontSize: 21, fontWeight: FontWeight.w900,
+                color: AppColors.navy,
+              )),
+              const SizedBox(height: 8),
+              Text('Holat: $statusLabel',
+                style: const TextStyle(fontWeight: FontWeight.w800)),
+              const Divider(height: 26),
+              Text('Mijoz: ${name.isEmpty ? 'Ism kiritilmagan' : name}'),
+              if (phone.isNotEmpty) Text('Telefon: $phone'),
+              Text('Manba: ${isWeb ? 'Web zakaz' : 'Ilova zakazi'}'),
+              Text('Miqdor: $quantity ta'),
+              Text('Avans: ${_won(amount)}',
+                style: const TextStyle(fontWeight: FontWeight.w800)),
+              if (note.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text('Mijoz izohi: $note'),
+              ],
+              if (proof.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: saving ? null : _viewProof,
+                  icon: const Icon(Icons.receipt_long_outlined),
+                  label: const Text('Avans chekini ko‘rish'),
+                ),
+              ],
+            ],
+          )),
+          const SizedBox(height: 18),
+          Text('Zakazni boshqarish',
+            style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 8),
+          if (saving) const LinearProgressIndicator(),
+          if (actions.isEmpty)
+            const AppSurface(child: Text(
+              'Bu zakazning holati yakuniy. O‘zgartirish mumkin emas.',
+            )),
+          ...actions.map((action) => Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: FilledButton.icon(
+              onPressed: saving ? null : () => _setStatus(action.$1),
+              icon: Icon(action.$3),
+              label: Text(action.$2),
+            ),
+          )),
+          const SizedBox(height: 10),
+          const Text(
+            'Holat serverda saqlanadi. Avans qaytarilmaydi va ombor '
+            'qoldig‘i bu tugmalar bilan avtomatik o‘zgarmaydi.',
+            style: TextStyle(color: AppColors.muted, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// A single operational checklist without new backend writes.

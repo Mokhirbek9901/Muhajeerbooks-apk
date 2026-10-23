@@ -82,6 +82,7 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
   bool _onlySelected = false;
   bool _syncStock = false;
   bool _submitting = false;
+  bool _confirming = false;
 
   @override
   void initState() {
@@ -248,7 +249,7 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
   }
 
   Future<void> _save() async {
-    if (_submitting || _existingLoading) return;
+    if (_submitting || _existingLoading || _confirming) return;
     if (_mode == 'old' && (_existing==null || _existingRevision==null)) {
       _message('Avval eski partiyani tanlab, undagi kitoblar yuklanishini kuting.');
       return;
@@ -323,9 +324,18 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
       final difference=next-prev;
       return '$prev → $next ($difference dona)';
     }).take(8).join('; ');
+    final oldExpense=(_existingSnapshot?['finance_purchase_total'] as num?)?.toInt();
+    final expenseLinked=_existingSnapshot?['finance_linked']==true &&
+      oldExpense!=null;
+    final costAfterEdit=_bookValue();
+    final summary=expenseLinked
+      ? 'Moliyadagi xarajat: ${_money(oldExpense)}. '
+        'Kitoblar tannarxi: ${_money(costAfterEdit)}. '
+        'Farq: ${_money((oldExpense-costAfterEdit).abs())}. '
+      : 'Moliyaga bog‘langan xarajat topilmadi. ';
     final text = isOld
       ? 'Eski partiyada $nBooks nomdagi kitob tahrirlanadi. '
-        '$corrections. '
+        '$corrections. $summary'
         'Ombor qoldig‘i va moliya qayta hisoblanmaydi. '
         'Eski yozuvlar tahrirdan oldin audit tarixida saqlanadi. '
         'Yangi transport: ${newTransportIds.length} ta. '
@@ -334,7 +344,10 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
         '$transportNote '
         '${_syncStock ? 'OMBOR QOLDIG‘I HAM ORTADI VA JORIY TANNARX YANGILANADI.' : 'Ombor va moliyaga ta’sir qilmaydi.'} '
         'Moliya xarajati avtomatik yaratilmaydi.';
-    final confirmed = await showDialog<bool>(
+    setState(()=>_confirming=true);
+    bool? confirmed;
+    try {
+      confirmed = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
         title: const Text('Partiyani tasdiqlash'),
@@ -347,6 +360,10 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
         ],
       ),
     );
+    } finally {
+      _confirming=false;
+      if(mounted)setState((){});
+    }
     if (confirmed != true || !mounted) return;
     setState(() => _submitting = true);
     try {
@@ -857,7 +874,8 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                   ],
                 )),
                 FilledButton.icon(
-                  onPressed: _submitting || _existingLoading ? null : _save,
+                  onPressed: _submitting || _existingLoading ||
+                    _confirming ? null : _save,
                   icon: _submitting ? const SizedBox(width: 16,height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.save_outlined),

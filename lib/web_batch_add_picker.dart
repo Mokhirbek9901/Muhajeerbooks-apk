@@ -329,9 +329,9 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
       oldExpense!=null;
     final costAfterEdit=_bookValue();
     final summary=expenseLinked
-      ? 'Moliyadagi xarajat: ${_money(oldExpense)}. '
+      ? 'Moliyadagi xarajat: ${_money(oldExpense ?? 0)}. '
         'Kitoblar tannarxi: ${_money(costAfterEdit)}. '
-        'Farq: ${_money((oldExpense-costAfterEdit).abs())}. '
+        'Farq: ${_money(((oldExpense ?? 0)-costAfterEdit).abs())}. '
       : 'Moliyaga bog‘langan xarajat topilmadi. ';
     final text = isOld
       ? 'Eski partiyada $nBooks nomdagi kitob tahrirlanadi. '

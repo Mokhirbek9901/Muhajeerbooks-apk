@@ -811,6 +811,7 @@ class _PreorderCheckoutPage extends StatefulWidget {
 }
 
 class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
+  int quantity = 1;
   final formKey=GlobalKey<FormState>();
   final picker=ImagePicker();
   late final TextEditingController name;
@@ -831,6 +832,16 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
 
   @override
   void dispose(){ name.dispose();phone.dispose();amount.dispose();note.dispose();super.dispose(); }
+
+  void _changeQuantity(int delta) {
+    if (saving) return;
+    final newQty = (quantity + delta).clamp(1, 20);
+    if (newQty == quantity) return;
+    setState(() {
+      quantity = newQty;
+      amount.text = '${widget.book.preorderDepositMin * quantity}';
+    });
+  }
 
   Future<void> pickProof() async {
     final file=await picker.pickImage(source:ImageSource.gallery,imageQuality:76,maxWidth:1440,maxHeight:2400);
@@ -856,6 +867,7 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
         widget.book,
         customerName:name.text.trim(),
         phone:phone.text.trim(),
+        quantity:quantity,
         depositAmount:value,
         paymentProof:proof!,
         note:note.text.trim(),
@@ -892,11 +904,28 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
             Text(preorderEstimatedPrice(b), style: const TextStyle(fontWeight:FontWeight.w800,color:AppColors.navy)),
           ])),
         ])),
+        const SizedBox(height: 14),
+        AppSurface(child: Row(children: [
+          const Expanded(child: Text('Oldindan band qilinadigan son',
+            style: TextStyle(fontWeight: FontWeight.w900))),
+          IconButton(
+            tooltip: 'Bitta kamaytirish',
+            onPressed: quantity > 1 && !saving ? () => _changeQuantity(-1) : null,
+            icon: const Icon(Icons.remove_circle_outline),
+          ),
+          Text('$quantity ta',
+            style: const TextStyle(fontWeight:FontWeight.w900,fontSize:17)),
+          IconButton(
+            tooltip: 'Bitta qo‘shish',
+            onPressed: quantity < 20 && !saving ? () => _changeQuantity(1) : null,
+            icon: const Icon(Icons.add_circle_outline),
+          ),
+        ])),
         const SizedBox(height:14),
         AppSurface(backgroundColor:const Color(0xFFFFF7E8),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
           const Text('Oldindan to‘lov',style:TextStyle(fontWeight:FontWeight.w900)),
           const SizedBox(height:5),
-          Text('${won(b.preorderDepositMin)} – ${won(b.preorderDepositMax)}',style:const TextStyle(fontSize:22,fontWeight:FontWeight.w900,color:AppColors.navy)),
+          Text('${won(b.preorderDepositMin * quantity)} – ${won(b.preorderDepositMax * quantity)}',style:const TextStyle(fontSize:22,fontWeight:FontWeight.w900,color:AppColors.navy)),
           const SizedBox(height:5),
           const Text(
             'Shu oraliqdagi summani yuboring. Yakuniy narx kitob kelganda aniq bo‘ladi va oldindan to‘lov yakuniy summadan ayriladi.',
@@ -920,13 +949,14 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
         TextFormField(
           controller:amount,keyboardType:TextInputType.number,
           inputFormatters:[FilteringTextInputFormatter.digitsOnly],
-          decoration:InputDecoration(labelText:'Oldindan to‘lov miqdori',prefixText:'₩ ',helperText:'${won(b.preorderDepositMin)} – ${won(b.preorderDepositMax)} oralig‘ida'),
-          validator:(v){final n=int.tryParse((v??'').trim())??0;return n<b.preorderDepositMin||n>b.preorderDepositMax?'Ruxsat etilgan oraliqni kiriting':null;},
+          decoration:InputDecoration(labelText:'Oldindan to‘lov miqdori',prefixText:'₩ ',helperText:'${won(b.preorderDepositMin * quantity)} – ${won(b.preorderDepositMax * quantity)} jami avans'),
+          validator:(v){final n=int.tryParse((v??'').trim())??0;return n<b.preorderDepositMin*quantity||n>b.preorderDepositMax*quantity?'Jami avans oraliqqa mos emas':null;},
         ),
         const SizedBox(height:8),
         Wrap(spacing:8,children:[
-          for(final v in <int>{b.preorderDepositMin,7000,b.preorderDepositMax}.where((v)=>v>=b.preorderDepositMin&&v<=b.preorderDepositMax))
-            ActionChip(label:Text(won(v)),onPressed:()=>setState(()=>amount.text='$v')),
+          for(final perCopy in <int>{b.preorderDepositMin,7000,b.preorderDepositMax}.where((v)=>v>=b.preorderDepositMin&&v<=b.preorderDepositMax))
+            ActionChip(label:Text(won(perCopy * quantity)),
+              onPressed:()=>setState(()=>amount.text='${perCopy * quantity}')),
         ]),
         const SizedBox(height:12),
         TextFormField(controller:note,maxLines:3,decoration:const InputDecoration(labelText:'Izoh (ixtiyoriy)',hintText:'Masalan: kelganda xabar bering')),

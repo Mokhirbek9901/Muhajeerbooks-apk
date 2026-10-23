@@ -5,6 +5,26 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'uzbek_customer_style.dart';
 
+/// Returns the value of the CURRENT batch selection. For unchanged
+/// multi-line historical records, preserve the exact sum of original
+/// quantity × cost rather than rounding a weighted-average unit cost.
+int batchBookCostValue({
+  required int quantity,
+  required int unitCost,
+  int previousQuantity = 0,
+  int? historicalLineValue,
+  bool changedUnitCost = false,
+}) {
+  if (quantity <= 0) return 0;
+  if (!changedUnitCost && historicalLineValue != null) {
+    if (quantity == previousQuantity) return historicalLineValue;
+    // Delta pricing is an estimate for previously mixed-cost lines.
+    return (historicalLineValue +
+      (quantity - previousQuantity) * unitCost).clamp(0, 0x7fffffffffffffff);
+  }
+  return quantity * unitCost;
+}
+
 class _SelectedBatchBook {
   _SelectedBatchBook(Map<String,dynamic> raw,{
     int initialQuantity = 1, int? historicalUnitCost})
@@ -46,6 +66,7 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
   final _title = TextEditingController();
   final _note = TextEditingController();
   final _search = TextEditingController();
+  final _searchFocus = FocusNode();
   final Map<String,_SelectedBatchBook> _selected = {};
   final Set<String> _selectedTransportIds = <String>{};
   DateTime _date = DateTime.now();
@@ -84,6 +105,7 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
   void dispose() {
     for (final item in _selected.values) { item.dispose(); }
     _title.dispose(); _note.dispose(); _search.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -161,6 +183,9 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
         _previousQty.addAll(baseline);
         _originalTransportIds.addAll(linked);
         _selectedTransportIds.addAll(linked);
+        // Show the previously entered books first; searching still lets an
+        // admin select any other book.
+        _onlySelected=true;
         _existingLoading=false;
       });
     } catch(error) {
@@ -174,10 +199,41 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
     final id = book['id'].toString();
     setState(() {
       if (select) {
-        _selected.putIfAbsent(id, () => _SelectedBatchBook(book));
+        _selected.putIfAbsent(id, () {
+          final historic=_list(_existingSnapshot?['items'])
+            .where((r)=>r['book_id'].toString()==id).firstOrNull;
+          return _SelectedBatchBook(book,
+            initialQuantity:_previousQty[id]??1,
+            historicalUnitCost:(historic?['unit_cost'] as num?)?.toInt());
+        });
       } else {
         _selected.remove(id)?.dispose();
       }
+    });
+  }
+
+  void _showAllBooksForAdding() {
+    setState(() {
+      _onlySelected=false;
+      _search.clear();
+    });
+    _searchFocus.requestFocus();
+  }
+
+  int _bookValue() {
+    final prior={
+      for (final item in _list(_existingSnapshot?['items']))
+        item['book_id'].toString():item,
+    };
+    return _selected.values.fold<int>(0,(sum,line) {
+      final original=prior[line.id];
+      return sum+batchBookCostValue(
+        quantity:line.qty,
+        unitCost:line.unitCost<0?0:line.unitCost,
+        previousQuantity:_previousQty[line.id]??0,
+        historicalLineValue:(original?['line_value'] as num?)?.toInt(),
+        changedUnitCost:line.changedCost,
+      );
     });
   }
 
@@ -480,8 +536,21 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
             return (a['title']??'').toString().compareTo(
               (b['title']??'').toString());
           });
-        final sum = _selected.values.fold<int>(0,(s,e) =>
-          s + e.qty * (e.unitCost < 0 ? 0 : e.unitCost));
+        final sum = _bookValue();
+        final financeAmount =
+          (_existingSnapshot?['finance_purchase_total'] as num?)?.toInt();
+        final financeLinked =
+          _existingSnapshot?['finance_linked']==true &&
+          financeAmount!=null;
+        final difference=financeLinked?financeAmount-sum:null;
+        final selectedCount=_selected.values.fold<int>(0,
+          (total,item)=>total+item.qty);
+        final mixedAdjusted=_list(_existingSnapshot?['items']).any((line) {
+          final id=line['book_id'].toString();
+          final chosen=_selected[id];
+          return (line['multiple_lines'] as num? ?? 0)>1 &&
+            chosen!=null && chosen.qty!=(_previousQty[id]??0);
+        });
         return Column(children: [
           Expanded(child: Center(child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 800),

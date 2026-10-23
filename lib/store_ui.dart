@@ -32,6 +32,7 @@ import 'web_preorders.dart';
 import 'web_book_purchase_count.dart';
 import 'preview_features.dart';
 import 'purchase_price_notice.dart';
+import 'preorder_balance_page.dart';
 
 const bool _playStoreCustomerBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
 const bool _appStoreCustomerBuild = bool.fromEnvironment('APP_STORE_BUILD');
@@ -3139,11 +3140,20 @@ class _CustomerNotificationsPageState extends State<CustomerNotificationsPage> {
                   final match = RegExp(r'#\s*(\d+)').firstMatch(combinedText);
                   orderNumber = int.tryParse(match?.group(1) ?? '');
                 }
+                final preorderNotice = (notice['kind'] ?? '').toString() ==
+                    'preorder_balance';
                 final canOpenOrder =
                     orderId.isNotEmpty || (orderNumber != null && orderNumber > 0);
                 return Card(
                   child: ListTile(
-                    onTap: canOpenOrder
+                    onTap: preorderNotice ? () => Navigator.push(
+                          context,
+                          muhajeerPageRoute(
+                            settings: const RouteSettings(name: 'mb:preorder-balances'),
+                            builder: (_) => const CustomerPreorderBalancesPage(),
+                          ),
+                        )
+                        : canOpenOrder
                         ? () => Navigator.push(
                               context,
                               muhajeerPageRoute(
@@ -3155,7 +3165,7 @@ class _CustomerNotificationsPageState extends State<CustomerNotificationsPage> {
                               ),
                             )
                         : null,
-                    trailing: canOpenOrder
+                    trailing: (preorderNotice || canOpenOrder)
                         ? const Icon(Icons.chevron_right_rounded)
                         : null,
                     contentPadding: const EdgeInsets.symmetric(
@@ -7478,6 +7488,24 @@ class ProfilePage extends StatelessWidget {
                       builder: (_) => _webOrPlayCustomer
                           ? const _WebMyProfilePage()
                           : const MyOrdersPage(),
+                    ),
+                  ),
+                ),
+                const Divider(),
+                ListTile(
+                  minTileHeight: 68,
+                  leading: const _ProfileIcon(
+                    icon: Icons.event_available_outlined),
+                  title: const Text('Oldindan zakazlarim',
+                    style: TextStyle(fontWeight: FontWeight.w800)),
+                  subtitle: const Text(
+                    'Avans, band qilingan kitoblar va qolgan to‘lov'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => Navigator.push(
+                    context,
+                    muhajeerPageRoute(
+                      settings: const RouteSettings(name: 'mb:preorder-balances'),
+                      builder: (_) => const CustomerPreorderBalancesPage(),
                     ),
                   ),
                 ),

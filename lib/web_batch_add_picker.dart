@@ -527,7 +527,8 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
         final search = _search.text.trim().toLowerCase();
         final visible = books.where((b) =>
           (b['title'] ?? '').toString().toLowerCase().contains(search)
-          && (!_onlySelected || _selected.containsKey(b['id'].toString())))
+          && (search.isNotEmpty || !_onlySelected ||
+             _selected.containsKey(b['id'].toString())))
           .toList()
           ..sort((a,b) {
             final aChosen=_selected.containsKey(a['id'].toString())?0:1;
@@ -627,6 +628,87 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                         style:const TextStyle(
                           fontWeight:FontWeight.w800,
                           color:UzbekCustomerColors.navy))),
+                  if(_existingRevision!=null)...[
+                    const SizedBox(height:12),
+                    Card(
+                      child:Padding(
+                        padding:const EdgeInsets.all(16),
+                        child:Column(
+                          crossAxisAlignment:CrossAxisAlignment.start,
+                          children:[
+                            const Row(children:[
+                              Icon(Icons.account_balance_wallet_outlined,size:20),
+                              SizedBox(width:8),
+                              Expanded(child:Text('Partiya xarajati va kitoblar hisobi',
+                                style:TextStyle(fontSize:15,fontWeight:FontWeight.w900))),
+                            ]),
+                            const SizedBox(height:12),
+                            if(financeLinked)...[
+                              const Text('Moliyada qayd etilgan partiya xarajati',
+                                style:TextStyle(fontSize:12,
+                                  color:UzbekCustomerColors.textMuted)),
+                              Text(_money(financeAmount),
+                                style:const TextStyle(fontSize:25,
+                                  fontWeight:FontWeight.w900,
+                                  color:UzbekCustomerColors.navy)),
+                            ] else ...[
+                              const Text('Moliyada bu partiyaga bog‘langan '
+                                'kitob xarajati topilmadi.',
+                                style:TextStyle(fontSize:13,
+                                  fontWeight:FontWeight.w700)),
+                              const Text('Bu partiya uchun moliya xarajatini '
+                                'o‘zimizcha taxmin qilib qo‘shmaymiz.',
+                                style:TextStyle(fontSize:12,
+                                  color:UzbekCustomerColors.textMuted)),
+                            ],
+                            const Divider(height:24),
+                            const Text('Shu partiyada belgilangan '
+                              'kitoblarning jami tannarxi',
+                              style:TextStyle(fontSize:12,
+                                color:UzbekCustomerColors.textMuted)),
+                            Text(_money(sum),
+                              style:const TextStyle(fontSize:17,
+                                fontWeight:FontWeight.w800)),
+                            Text('${_selected.length} nom • $selectedCount dona',
+                              style:const TextStyle(fontSize:11,
+                                color:UzbekCustomerColors.textMuted)),
+                            if(difference!=null)...[
+                              const SizedBox(height:10),
+                              Text(
+                                'Farq: ${_money(difference.abs())}'
+                                '${difference>0?" • Moliyada ko‘proq":difference<0?" • Kitoblar ko‘proq":" • Hisob teng"}',
+                                style:const TextStyle(
+                                  fontSize:14,fontWeight:FontWeight.w800)),
+                              Text(difference>0
+                                ? 'Xarajat kitoblar yig‘indisidan ko‘p. '
+                                  'Kitob yoki tannarx qolib ketganini tekshiring.'
+                                : difference<0
+                                ? 'Kitoblar yig‘indisi xarajatdan oshgan. '
+                                  'Dona soni yoki tannarx ortiqcha emasligini tekshiring.'
+                                : 'Partiyadagi kitoblar tannarxi moliya '
+                                  'xarajatiga teng.',
+                                style:const TextStyle(fontSize:12,
+                                  color:UzbekCustomerColors.textMuted)),
+                            ],
+                            if(mixedAdjusted)
+                              const Padding(
+                                padding:EdgeInsets.only(top:6),
+                                child:Text('Bir xil kitob turli tannarxlarda '
+                                  'bir necha marta yozilgan: son o‘zgarsa '
+                                  'farq taxminiy bo‘lishi mumkin.',
+                                  style:TextStyle(fontSize:11,
+                                    color:UzbekCustomerColors.textMuted))),
+                            const SizedBox(height:9),
+                            const Text('Transport xarajatlari alohida '
+                              'hisoblanadi va kitoblarning shu tannarx '
+                              'jami summasiga qayta qo‘shilmaydi.',
+                              style:TextStyle(fontSize:11,
+                                color:UzbekCustomerColors.textMuted)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   const Text(
                     'Eski partiyaga kitoblar faqat tarixiy qayd sifatida bog‘lanadi. '
@@ -696,13 +778,20 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                   ),
                 ),
                 _sectionTitle('3. Katalogdan kitoblarni belgilang'),
-                if(_mode=='old') SwitchListTile.adaptive(
-                  contentPadding:EdgeInsets.zero,
-                  value:_onlySelected,
-                  onChanged:(v)=>setState(()=>_onlySelected=v),
-                  title:const Text('Faqat shu partiyadagi belgilangan kitoblar'),
-                  subtitle:const Text('Qidiruvni osonlashtiradi;'
-                    ' barcha kitoblarni ko‘rish uchun o‘chiring')),
+                if(_mode=='old')...[
+                  SwitchListTile.adaptive(
+                    contentPadding:EdgeInsets.zero,
+                    value:_onlySelected,
+                    onChanged:(v)=>setState(()=>_onlySelected=v),
+                    title:const Text('Faqat shu partiyadagi kitoblar'),
+                    subtitle:const Text('Qidiruvda boshqa kitoblar ham chiqadi.')),
+                  OutlinedButton.icon(
+                    onPressed:_submitting || _existingLoading
+                      ? null:_showAllBooksForAdding,
+                    icon:const Icon(Icons.add_circle_outline),
+                    label:const Text('Yana kitob qo‘shish / barcha kitoblar'),
+                  ),
+                ],
                 const Text(
                   'Eski partiyaga faqat transport bog‘lash uchun '
                   'kitob tanlash shart emas.',
@@ -711,6 +800,7 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                 ),
                 TextField(
                   controller: _search,
+                  focusNode: _searchFocus,
                   onChanged: (_) => setState(() {}),
                   decoration: const InputDecoration(
                     hintText: 'Kitob nomini qidiring...',
@@ -740,14 +830,29 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                     Text('${_selected.length} nomdagi kitob',
                       style: const TextStyle(
                         fontWeight: FontWeight.w800, fontSize: 12)),
-                    Text('Kitoblar ${_money(sum)} + '
-                        'transport ${_money(transportTotal)}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 11.5)),
-                    Text('Jami ${_money(sum + transportTotal)}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w900, fontSize: 17,
-                        color: UzbekCustomerColors.navy)),
+                    if(_mode=='old' && _existingRevision!=null)...[
+                      Text(financeLinked
+                        ? 'Moliyadagi xarajat: ${_money(financeAmount)}'
+                        : 'Moliyadagi xarajat biriktirilmagan',
+                        style:const TextStyle(
+                          fontWeight:FontWeight.w900,fontSize:13)),
+                      Text('Kitoblarning jami tannarxi: ${_money(sum)}',
+                        style:const TextStyle(
+                          fontWeight:FontWeight.w600,fontSize:11.5)),
+                      if(difference!=null)
+                        Text('Farq: ${_money(difference.abs())}',
+                          style:const TextStyle(
+                            fontWeight:FontWeight.w800,fontSize:12)),
+                    ] else ...[
+                      Text('Kitoblar ${_money(sum)} + '
+                          'transport ${_money(transportTotal)}',
+                        style:const TextStyle(
+                          fontWeight:FontWeight.w700,fontSize:11.5)),
+                      Text('Jami ${_money(sum + transportTotal)}',
+                        style:const TextStyle(
+                          fontWeight:FontWeight.w900,fontSize:17,
+                          color:UzbekCustomerColors.navy)),
+                    ],
                   ],
                 )),
                 FilledButton.icon(

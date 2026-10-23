@@ -1918,7 +1918,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     return _backend!.fetchPreorderBalances(id);
   }
 
-  Future<String> preorderInstallationId() => _local.installId();
+  // Test/offline builds do not need a secure-storage installation token.
+  // Avoid a platform-channel read before a mock checkout is committed.
+  Future<String?> preorderInstallationId() =>
+      backendConfigured ? _local.installId() : Future<String?>.value(null);
 
   Future<List<Map<String,dynamic>>> myDiscoveredPreorders() async {
     if(_backend==null)return const [];

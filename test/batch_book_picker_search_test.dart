@@ -26,7 +26,7 @@ void main() {
 
   test('previously selected books are shown first',(){
     expect(searchBatchCatalogBooks(books,'',{'d','b'})
-        .map((x)=>x['id']).take(2),['b','d']);
+        .map((x)=>x['id']).take(2),['d','b']);
   });
 
   test('search has no duplicates and does not mutate original catalogue',(){

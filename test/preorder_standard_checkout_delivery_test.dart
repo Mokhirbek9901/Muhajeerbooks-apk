@@ -75,7 +75,9 @@ void main() {
       expect(find.text('5. To‘lov va chek'), findsOneWidget);
       expect(find.text('Oldindan to‘langan avans'), findsOneWidget);
       final save = find.text('Qabul qiluvchi va manzilni saqlash');
-      await tester.ensureVisible(save);
+      await tester.scrollUntilVisible(save, 180,
+        scrollable: find.byType(Scrollable).last);
+      await tester.pumpAndSettle();
       await tester.tap(save);
       await tester.pumpAndSettle();
       expect(mock.saveCount, 1);

@@ -65,13 +65,15 @@ void main() {
       expect(find.text('2. Yetkazib berish'), findsOneWidget);
       expect(find.text('3. Kitoblar'), findsOneWidget);
       expect(find.text('4. Buyurtma jami'), findsOneWidget);
-      expect(find.text('5. To‘lov va chek'), findsOneWidget);
-      expect(find.text('Oldindan to‘langan avans'), findsOneWidget);
       expect(find.byType(TextFormField), findsNWidgets(3));
       final inputs = find.byType(TextFormField);
       await tester.enterText(inputs.at(0), 'Test Customer');
       await tester.enterText(inputs.at(1), '01012345678');
       await tester.enterText(inputs.at(2), '경상북도 경산시 계양로 37-3 101호');
+      await tester.scrollUntilVisible(find.text('5. To‘lov va chek'), 260,
+        scrollable: find.byType(Scrollable).last);
+      expect(find.text('5. To‘lov va chek'), findsOneWidget);
+      expect(find.text('Oldindan to‘langan avans'), findsOneWidget);
       final save = find.text('Qabul qiluvchi va manzilni saqlash');
       await tester.ensureVisible(save);
       await tester.tap(save);

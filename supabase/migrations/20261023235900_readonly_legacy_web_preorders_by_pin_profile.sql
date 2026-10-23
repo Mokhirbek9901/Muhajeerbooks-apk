@@ -48,8 +48,8 @@ begin
         and exists(
           select 1 from private.customer_pin_profiles profile
           where profile.phone_key=k
-            and lower(regexp_replace(trim(profile.full_name),'\\s+',' ','g'))=
-                lower(regexp_replace(trim(w.customer_name),'\\s+',' ','g'))
+            and lower(regexp_replace(trim(profile.full_name),'\s+',' ','g'))=
+                lower(regexp_replace(trim(w.customer_name),'\s+',' ','g'))
         )
       )
    )

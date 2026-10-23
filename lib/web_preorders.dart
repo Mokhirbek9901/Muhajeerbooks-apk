@@ -1084,6 +1084,15 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
             Text('Qolgan summa: ${webPreorderMoney(due)}',
               style:const TextStyle(fontWeight:FontWeight.w900,fontSize:20)),
             Text('Holat: $status'),
+            const Divider(height:16),
+            Text(raw['delivery_saved']==true
+              ? 'Qabul qiluvchi: '+(raw['recipient_name']??'').toString()
+              : 'Yetkazish ma’lumotlari hali kiritilmagan'),
+            if(raw['delivery_saved']==true)...[
+              Text('Telefon: '+(raw['recipient_phone']??'').toString()),
+              Text('Yetkazish: '+(raw['delivery_type']??'').toString()),
+              Text('Manzil: '+(raw['delivery_address']??'').toString()),
+            ],
             if(receipt.isNotEmpty)TextButton.icon(
               onPressed:(){Navigator.pop(ctx,false);_view(receipt);},
               icon:const Icon(Icons.receipt_long),

@@ -470,6 +470,75 @@ class _CombinedPreorderDetailPageState extends State<_CombinedPreorderDetailPage
     }
   }
 
+  Future<void> _receivePreorderBatch() async {
+    if (saving || isWeb) return;
+    final bookId = '${record['book_id'] ?? ''}';
+    if (bookId.isEmpty) return;
+    var quantity = '';
+    final key = GlobalKey<FormState>();
+    final received = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Yangi kitob partiyasi keldi'),
+        content: Form(
+          key: key,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(bookTitle,style:const TextStyle(fontWeight:FontWeight.w800)),
+            const SizedBox(height:8),
+            const Text('Ombordagi eski son almashtirilmaydi. '
+              'Kirgan son ustiga qo‘shiladi va oldindan qabul qilingan '
+              'zakazlarga avtomatik band qilinadi.'),
+            const SizedBox(height:12),
+            TextFormField(
+              autofocus:true,keyboardType:TextInputType.number,
+              onChanged:(v)=>quantity=v.trim(),
+              decoration:const InputDecoration(
+                labelText:'Shu partiyada nechta keldi?',
+                hintText:'Masalan: 3'),
+              validator:(v) {
+                final n=int.tryParse((v??'').trim())??0;
+                return n<1||n>2000 ? '1–2000 dona oralig‘ida kiriting' : null;
+              },
+            ),
+          ]),
+        ),
+        actions:[
+          TextButton(onPressed:()=>Navigator.pop(ctx),
+            child:const Text('Bekor qilish')),
+          FilledButton(onPressed:(){
+            if(key.currentState!.validate())
+              Navigator.pop(ctx,int.parse(quantity));
+          },child:const Text('Omborga qo‘shish')),
+        ],
+      ),
+    );
+    if (received == null || !mounted) return;
+    setState(() => saving = true);
+    try {
+      final result = await widget.api.receiveNativePreorderBatch(
+        bookId: bookId,quantity:received);
+      await _refreshRecordAfterWrite();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('$received ta kelgan kitob qo‘shildi. '
+          'Band: ${result['preorders_reserved_total']}, '
+          'sotuvga ochiq: ${result['available_stock']} ✅'),
+      ));
+    } catch(e) {
+      if(mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text('Partiya saqlanmadi: $e')));
+    } finally {
+      if(mounted) setState(()=>saving=false);
+    }
+  }
+
+  Future<void> _refreshRecordAfterWrite() async {
+    final rows=await widget.api.nativePreordersAll();
+    final matching=rows.where((r)=>'${r['id']}'=='${record['id']}').toList();
+    if(matching.isEmpty) throw StateError('Zakaz topilmadi');
+    if(mounted) setState(()=>record.addAll(matching.first));
+  }
+
   Future<void> _arriveWithInvoice() async {
     if (saving || isWeb) return;
     final id = int.tryParse('${record['id']}');
@@ -848,6 +917,14 @@ class _CombinedPreorderDetailPageState extends State<_CombinedPreorderDetailPage
           Text('Zakazni boshqarish',
             style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
+          if (!isWeb && (status == 'accepted' || status == 'contacted')) ...[
+            OutlinedButton.icon(
+              onPressed: saving ? null : _receivePreorderBatch,
+              icon: const Icon(Icons.add_box_outlined),
+              label: const Text('Yangi partiya qo‘shish'),
+            ),
+            const SizedBox(height: 10),
+          ],
           if (saving) const LinearProgressIndicator(),
           if (actions.isEmpty)
             const AppSurface(child: Text(

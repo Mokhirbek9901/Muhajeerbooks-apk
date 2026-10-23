@@ -56,9 +56,12 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
       if (Navigator.of(context).canPop()) Navigator.of(context).pop();
       return false;
     }
-    final saved=context.read<AppState>().savedCustomer;
-    name.text=(saved['name']??'').trim();
-    phone.text=(saved['phone']??'').trim();
+    final state=context.read<AppState>();
+    if(state.checkoutIdentityReady){
+      final saved=state.savedCustomer;
+      name.text=(saved['name']??'').trim();
+      phone.text=(saved['phone']??'').trim();
+    }
     return true;
   }
 

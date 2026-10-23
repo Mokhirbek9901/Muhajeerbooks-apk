@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import 'app_state.dart';
+import 'customer_pin_page.dart';
+import 'web_preorder_checkout_page.dart';
 import 'design_system.dart';
 import 'uzbek_customer_style.dart';
 
@@ -229,6 +231,24 @@ class _CustomerPreorderBalancesPageState
     ),
   );
 
+  Future<void> _openWebCheckout(Map<String,dynamic> record) async {
+    final state=context.read<AppState>();
+    if(!state.pinSessionActive) {
+      await Navigator.of(context).push(MaterialPageRoute<bool>(
+        settings:const RouteSettings(name:'mb:web-preorder-pin'),
+        builder:(_)=>const CustomerPinPage(),
+      ));
+      if(!mounted||!context.read<AppState>().pinSessionActive)return;
+    }
+    if(!mounted)return;
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      settings:const RouteSettings(name:'mb:web-preorder-checkout'),
+      builder:(_)=>WebPreorderCheckoutPage(
+        preorderId:(record['id']??'').toString()),
+    ));
+    if(mounted)await refresh();
+  }
+
   Widget _invoiceCard(Map<String, dynamic> record) {
     final source='${record['source']??'native'}';
     final contactOnly=record['ownership']=='contact' || record['ownership']=='pin';
@@ -249,7 +269,9 @@ class _CustomerPreorderBalancesPageState
     final canEdit = !readonly && status == 'arrived' && paymentState == 'requested';
     return Padding(
       padding: const EdgeInsets.only(bottom: 15),
-      child: AppSurface(child: Column(
+      child: InkWell(
+        onTap:source=='web'?()=>_openWebCheckout(record):null,
+        child:AppSurface(child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('${record['title'] ?? 'Kitob'}',
@@ -271,13 +293,24 @@ class _CustomerPreorderBalancesPageState
             const SizedBox(height:10),
             Text('Miqdor: ${record['quantity']??1} ta'),
             Text(status=='arrived'
-              ? 'Kitob keldi. To‘lov va yetkazish tafsilotlari uchun '
-                'do‘kon bilan bog‘laning.'
+              ? 'Kitob keldi. Hisobni ko‘rish, kitob qo‘shish va '
+                'avans chegirilgan qolgan to‘lovni yuborish uchun bosing.'
               : status=='accepted'
                 ? 'Zakazingiz qabul qilingan. Keyingi xabarni kuting.'
                 : status=='cancelled'
                   ? 'Zakaz bekor qilingan.'
                   : 'Zakazingiz holatini shu yerdan kuzatishingiz mumkin.'),
+            if(source=='web') ...[
+              const SizedBox(height:8),
+              const Row(children:[
+                Icon(Icons.shopping_bag_outlined,size:19),
+                SizedBox(width:8),
+                Text('Buyurtma panelini ochish',
+                  style:TextStyle(fontWeight:FontWeight.w800)),
+                Spacer(),
+                Icon(Icons.chevron_right_rounded),
+              ]),
+            ],
             if(record['ownership']=='pin' && info != null) ...[
               const Divider(height:20),
               Text('Asosiy summa va pochta: ${won((info['base_total'] as num?)?.toInt() ?? 0)}'),
@@ -368,7 +401,7 @@ class _CustomerPreorderBalancesPageState
             ],
           ],
         ],
-      )),
+      ))),
     );
   }
 }

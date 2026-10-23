@@ -11,7 +11,8 @@ import 'uzbek_customer_style.dart';
 /// A separate prepaid-order checkout: no duplicate normal order is created.
 /// The original deposit is credited exactly once on the backend.
 class CustomerPreorderBalancesPage extends StatefulWidget {
-  const CustomerPreorderBalancesPage({super.key});
+  const CustomerPreorderBalancesPage({super.key,this.focusPreorderId});
+  final String? focusPreorderId;
 
   @override
   State<CustomerPreorderBalancesPage> createState() =>
@@ -26,14 +27,39 @@ class _CustomerPreorderBalancesPageState
   final money = NumberFormat('#,##0', 'en_US');
   String won(int amount) => '₩${money.format(amount)}';
 
+  Future<List<Map<String,dynamic>>> loadAll() async {
+    final state=context.read<AppState>();
+    final own=await state.myPreorderBalances();
+    final lookups=await state.myDiscoveredPreorders();
+    final seen=own.map((r)=>'native:${r['id']}').toSet();
+    final rows=<Map<String,dynamic>>[
+      for(final row in own){...row,'source':'native','ownership':'device'},
+      for(final row in lookups)
+        if(seen.add('${row['source']}:${row['id']}')) Map<String,dynamic>.from(row),
+    ];
+    rows.sort((a,b){
+      final target=widget.focusPreorderId;
+      if(target!=null){
+        if('${a['id']}'==target&&'${b['id']}'!=target)return -1;
+        if('${b['id']}'==target&&'${a['id']}'!=target)return 1;
+      }
+      final aa=DateTime.tryParse('${a['created_at']??''}') ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+      final bb=DateTime.tryParse('${b['created_at']??''}') ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+      return bb.compareTo(aa);
+    });
+    return rows;
+  }
+
   @override
   void initState() {
     super.initState();
-    future = context.read<AppState>().myPreorderBalances();
+    future = loadAll();
   }
 
   Future<void> refresh() async {
-    final next = context.read<AppState>().myPreorderBalances();
+    final next = loadAll();
     if (mounted) setState(() => future = next);
     await next;
   }
@@ -177,7 +203,7 @@ class _CustomerPreorderBalancesPageState
         final rows = snap.data!;
         if (rows.isEmpty) return const Center(child: Padding(
           padding: EdgeInsets.all(24),
-          child: Text('Ushbu qurilmadan qilingan oldindan zakazlar topilmadi.'),
+          child: Text('Bu qurilmadan yoki profilingizdagi ism va telefon raqamiga mos oldindan zakaz topilmadi. Profil ma’lumotlaringizni tekshiring.'),
         ));
         return RefreshIndicator(
           onRefresh: refresh,
@@ -195,7 +221,10 @@ class _CustomerPreorderBalancesPageState
   );
 
   Widget _invoiceCard(Map<String, dynamic> record) {
-    final id = (record['id'] as num?)?.toInt() ?? 0;
+    final source='${record['source']??'native'}';
+    final contactOnly=record['ownership']=='contact';
+    final readonly=source=='web'||contactOnly;
+    final id=(record['id'] as num?)?.toInt() ?? 0;
     final bookId = '${record['book_id'] ?? ''}';
     // The summary is scoped to the original installation ID by Supabase.
     final info = record['invoice'] is Map
@@ -206,7 +235,7 @@ class _CustomerPreorderBalancesPageState
     final extras = ((info?['extras'] as List?) ?? const [])
       .whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
     final due = (info?['amount_due'] as num?)?.toInt() ?? 0;
-    final canEdit = status == 'arrived' && paymentState == 'requested';
+    final canEdit = !readonly && status == 'arrived' && paymentState == 'requested';
     return Padding(
       padding: const EdgeInsets.only(bottom: 15),
       child: AppSurface(child: Column(
@@ -215,13 +244,34 @@ class _CustomerPreorderBalancesPageState
           Text('${record['title'] ?? 'Kitob'}',
             style: const TextStyle(fontSize: 19,fontWeight: FontWeight.w900)),
           const SizedBox(height: 4),
+          if(readonly) Text(source=='web'
+            ? 'Web oldindan zakaz • ${contactOnly?'Ism va telefon bo‘yicha topildi':'Shu qurilmadan'}'
+            : 'Ism va telefon bo‘yicha topilgan eski ilova zakazi',
+            style:const TextStyle(color:UzbekCustomerColors.textMuted,fontSize:12)),
+          const SizedBox(height: 4),
           Text('Holat: ${status == 'arrived' ? 'Kitob keldi'
             : status == 'accepted' ? 'Qabul qilingan'
             : status == 'cancelled' ? 'Bekor qilingan'
             : 'Tekshirilmoqda'}',
             style: const TextStyle(fontWeight: FontWeight.w700)),
-          Text('Band qilingan: ${record['reserved_quantity'] ?? 0} ta'),
-          if (info == null) ...[
+          if(!readonly)
+            Text('Band qilingan: ${record['reserved_quantity'] ?? 0} ta'),
+          if(readonly) ...[
+            const SizedBox(height:10),
+            Text('Miqdor: ${record['quantity']??1} ta'),
+            Text(status=='arrived'
+              ? 'Kitob keldi. To‘lov va yetkazish tafsilotlari uchun '
+                'do‘kon bilan bog‘laning.'
+              : status=='accepted'
+                ? 'Zakazingiz qabul qilingan. Keyingi xabarni kuting.'
+                : status=='cancelled'
+                  ? 'Zakaz bekor qilingan.'
+                  : 'Zakazingiz holatini shu yerdan kuzatishingiz mumkin.'),
+            if(contactOnly)
+              const Text('To‘lov va chek ma’lumotlari xavfsizlik uchun '
+                'faqat asl qurilmada ko‘rinadi.',
+                style:TextStyle(color:UzbekCustomerColors.textMuted,fontSize:12)),
+          ] else if (info == null) ...[
             const SizedBox(height: 10),
             const Text('Yakuniy narx va qolgan to‘lov haqida '
               'admin kitob kelganda xabar beradi.'),

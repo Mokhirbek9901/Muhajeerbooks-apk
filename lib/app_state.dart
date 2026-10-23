@@ -1861,6 +1861,27 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       paymentProofPath: proofPath,
       note: note,
     );
+    // Use the preorder contact for in-app arrival notices, but do NOT
+    // grant verified-customer status without authentication.
+    // A local storage failure must never re-submit a paid preorder.
+    try {
+      final digits = phone.replaceAll(RegExp(r'\\D'), '');
+      savedCustomer = {
+        ...savedCustomer,
+        'name': customerName.trim(),
+        'phone': digits,
+      };
+      await _local.saveCustomer(
+        savedCustomer['name'] ?? '',
+        digits,
+        savedCustomer['address'] ?? '',
+      );
+      notifyListeners();
+      unawaited(refreshCustomerPushMessages());
+      unawaited(syncNativeCustomerPushIfAllowed());
+    } catch (error) {
+      debugPrint('Preorder local contact save skipped: ${error.runtimeType}');
+    }
     return 'Oldindan buyurtma qabul qilindi ✅';
   }
 

@@ -51,6 +51,31 @@ int batchBookCostValue({
   return quantity*unitCost;
 }
 
+/// Search handles Uzbek apostrophe/hyphen spellings and ranks already
+/// selected titles first so the operator can re-find and adjust them quickly.
+List<Map<String,dynamic>> searchBatchCatalogBooks(
+  List<Map<String,dynamic>> books, String search, Set<String> selectedIds) {
+  String normalize(String raw) => raw.toLowerCase()
+    .replaceAll(RegExp(r"['ʻ‘’ʼ`´]"),'')
+    .replaceAll(RegExp(r'[-_.,/]+'),' ')
+    .replaceAll(RegExp(r'\\s+'),' ')
+    .trim();
+  final words=normalize(search).split(' ')
+    .where((w)=>w.isNotEmpty).toList();
+  final results=books.where((book) {
+    final title=normalize((book['title']??'').toString());
+    return words.every(title.contains);
+  }).toList();
+  results.sort((a,b) {
+    final x=selectedIds.contains(a['id'].toString())?0:1;
+    final y=selectedIds.contains(b['id'].toString())?0:1;
+    if(x!=y)return x.compareTo(y);
+    return (a['title']??'').toString().compareTo(
+      (b['title']??'').toString());
+  });
+  return results;
+}
+
 class _SelectedBatchBook {
   _SelectedBatchBook(Map<String,dynamic> raw,{
     int initialQuantity = 1, int? historicalUnitCost})
@@ -271,16 +296,9 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
       showDragHandle:true,
       backgroundColor:UzbekCustomerColors.background,
       builder:(sheet)=>StatefulBuilder(builder:(sheet,refresh) {
-        final q=_search.text.trim().toLowerCase();
-        final matching=books.where((b)=>
-          (b['title']??'').toString().toLowerCase().contains(q)).toList()
-          ..sort((a,b) {
-            final x=_selected.containsKey(a['id'].toString())?0:1;
-            final y=_selected.containsKey(b['id'].toString())?0:1;
-            if(x!=y)return x.compareTo(y);
-            return (a['title']??'').toString().compareTo(
-              (b['title']??'').toString());
-          });
+        final q=_search.text.trim();
+        final matching=searchBatchCatalogBooks(
+          books,q,_selected.keys.toSet());
         return FractionallySizedBox(heightFactor:0.9,child:Column(children:[
           Padding(padding:const EdgeInsets.fromLTRB(16,5,16,10),
             child:Column(crossAxisAlignment:CrossAxisAlignment.start,

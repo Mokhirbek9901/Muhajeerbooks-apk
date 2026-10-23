@@ -357,12 +357,13 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: _mode=='old'
-                      ? 'Shu partiyada jami (tahrirlash)' : 'Kelgan dona',
+                      ? 'Partiyada jami dona' : 'Kelgan dona',
                     isDense: true,
-                    border: OutlineInputBorder()),
+                    border: const OutlineInputBorder()),
                 )),
+                const SizedBox(width: 8),
                 IconButton(
                   tooltip:'1 dona kamaytirish',
                   onPressed:_submitting || chosen.qty<=(_mode=='old'?0:1)
@@ -375,27 +376,29 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                     ?null:()=>setState(()=>
                       chosen.quantity.text='${chosen.qty+1}'),
                   icon:const Icon(Icons.add_circle_outline)),
-                const SizedBox(width: 10),
-                Expanded(child: TextField(
-                  controller: chosen.cost,
-                  enabled: !_submitting,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  onChanged: (_) => setState(() =>
-                    chosen.changedCost = chosen.unitCost!=chosen.originalUnitCost),
-                  decoration: const InputDecoration(
-                    labelText: 'Bir dona tannarx ₩',
-                    isDense: true, border: OutlineInputBorder()),
+              ]),
+              const SizedBox(height:8),
+              Row(children:[
+                Expanded(child:TextField(
+                  controller:chosen.cost,
+                  enabled:!_submitting,
+                  keyboardType:TextInputType.number,
+                  inputFormatters:[FilteringTextInputFormatter.digitsOnly],
+                  onChanged:(_)=>setState(() =>
+                    chosen.changedCost=chosen.unitCost!=chosen.originalUnitCost),
+                  decoration:const InputDecoration(
+                    labelText:'Bir dona tannarx ₩',
+                    isDense:true,border:OutlineInputBorder()),
                 )),
                 IconButton(
-                  tooltip: _mode=='old'
+                  tooltip:_mode=='old'
                     ? 'Partiyada oldin yozilgan tannarxni qaytarish'
                     : 'Katalogdagi tannarxni qaytarish',
-                  onPressed: _submitting ? null : () {
-                    chosen.cost.text = chosen.originalUnitCost.toString();
-                    setState(() => chosen.changedCost = false);
+                  onPressed:_submitting ? null : (){
+                    chosen.cost.text=chosen.originalUnitCost.toString();
+                    setState(()=>chosen.changedCost=false);
                   },
-                  icon: const Icon(Icons.restore_outlined)),
+                  icon:const Icon(Icons.restore_outlined)),
               ]),
               if(_mode=='old' && _previousQty.containsKey(id))
                 Padding(padding:const EdgeInsets.only(top:8),

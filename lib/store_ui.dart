@@ -835,7 +835,7 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
 
   void _changeQuantity(int delta) {
     if (saving) return;
-    final newQty = (quantity + delta).clamp(1, 20);
+    final newQty = (quantity + delta).clamp(1, 20).toInt();
     if (newQty == quantity) return;
     setState(() {
       quantity = newQty;

@@ -40,8 +40,10 @@ class _WebPreorderCheckoutPageState extends State<WebPreorderCheckoutPage> {
       if (!mounted || hydrated) return;
       final saved = context.read<AppState>().savedCustomer;
       setState(() {
-        recipientName.text = (d['recipient_name'] ?? saved['name'] ?? '').toString();
-        recipientPhone.text = (d['recipient_phone'] ?? saved['phone'] ?? '').toString();
+        final oldName = (d['recipient_name'] ?? '').toString().trim();
+        final oldPhone = (d['recipient_phone'] ?? '').toString().trim();
+        recipientName.text = oldName.isNotEmpty ? oldName : (saved['name'] ?? '');
+        recipientPhone.text = oldPhone.isNotEmpty ? oldPhone : (saved['phone'] ?? '');
         deliveryType = d['delivery_type'] == '경산 직접수령' ? '경산 직접수령' : '택배';
         recipientAddress.text = d['delivery_saved'] == true
           ? (deliveryType == '택배' ? (d['delivery_address'] ?? '').toString() : '')

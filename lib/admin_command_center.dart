@@ -155,32 +155,54 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
     final rows = <Map<String, dynamic>>[];
     final errors = <String>[];
     try {
-      final insight = await widget.api.merchandisingInsights();
-      for (final raw in (insight['preorders'] as List?) ?? const []) {
-        if (raw is Map) rows.add({
-          ...Map<String, dynamic>.from(raw), '_origin': 'native',
-        });
+      final native = await widget.api.nativePreordersAll();
+      for (final row in native) {
+        rows.add({...row, '_origin': 'native'});
       }
     } catch (e) {
-      errors.add('Ilova oldindan zakazlari yuklanmadi: $e');
+      // Older backend deployments still support the waiting-only insights.
+      // Never claim that the fallback is the complete history.
+      errors.add('Ilovaning to‘liq tarixi olinmadi: $e');
+      try {
+        final insight = await widget.api.merchandisingInsights();
+        for (final raw in (insight['preorders'] as List?) ?? const []) {
+          if (raw is Map) {
+            rows.add({...Map<String, dynamic>.from(raw), '_origin': 'native'});
+          }
+        }
+      } catch (fallbackError) {
+        errors.add('Ilovadagi kutilayotgan zakazlar ham olinmadi: $fallbackError');
+      }
     }
     if (webPreordersAvailable) {
       try {
-        final data = await WebPreorderApi().admin(widget.api.secret, 'list');
-        if (data is List) {
-          for (final raw in data) {
-            if (raw is Map) rows.add({
-              ...Map<String, dynamic>.from(raw), '_origin': 'web',
-            });
+        const pageSize = 200;
+        var completed = false;
+        for (var offset = 0; offset < 20000; offset += pageSize) {
+          final data = await WebPreorderApi().admin(
+            widget.api.secret, 'list', {'limit': pageSize, 'offset': offset},
+          );
+          if (data is! List) {
+            throw StateError('Web zakazlar ro‘yxati noto‘g‘ri qaytdi.');
           }
-        } else {
-          errors.add('Web zakazlar ro‘yxati noto‘g‘ri qaytdi.');
+          for (final raw in data) {
+            if (raw is Map) {
+              rows.add({...Map<String, dynamic>.from(raw), '_origin': 'web'});
+            }
+          }
+          if (data.length < pageSize) {
+            completed = true;
+            break;
+          }
+        }
+        if (!completed) {
+          errors.add('Web tarixi 20 000 tadan ko‘p. Qolganini alohida boshqaruv sahifasida ko‘ring.');
         }
       } catch (e) {
-        errors.add('Web oldindan zakazlari yuklanmadi: $e');
+        errors.add('Web oldindan zakazlari to‘liq yuklanmadi: $e');
       }
     }
-    rows.sort((a,b) {
+    rows.sort((a, b) {
       final ad = DateTime.tryParse('${a['created_at'] ?? ''}');
       final bd = DateTime.tryParse('${b['created_at'] ?? ''}');
       return (bd ?? DateTime.fromMillisecondsSinceEpoch(0))
@@ -233,7 +255,7 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
                 style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900,
                   color: AppColors.navy)),
               const SizedBox(height: 4),
-              const Text('Ilovadagi navbatdagi 100 ta zakaz va webdagi so‘nggi zakazlar ko‘rsatiladi. Oldingi tarix tegishli boshqaruv sahifalarida qoladi.',
+              const Text('Ilova va web oldindan zakazlari barcha holatlari bilan sana tartibida. Yuklash cheklansa, yuqorida ogohlantirish chiqadi.',
                 style: TextStyle(color: AppColors.muted, fontSize: 12)),
               const SizedBox(height: 8),
               if (data.errors.isNotEmpty)

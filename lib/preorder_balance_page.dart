@@ -224,7 +224,9 @@ class _CustomerPreorderBalancesPageState
     final source='${record['source']??'native'}';
     final contactOnly=record['ownership']=='contact';
     final readonly=source=='web'||contactOnly;
-    final id=(record['id'] as num?)?.toInt() ?? 0;
+    // Native preorder IDs are numbers; web preorder IDs are UUID strings.
+    final rawId=record['id'];
+    final id=rawId is num ? rawId.toInt() : int.tryParse('$rawId') ?? 0;
     final bookId = '${record['book_id'] ?? ''}';
     // The summary is scoped to the original installation ID by Supabase.
     final info = record['invoice'] is Map

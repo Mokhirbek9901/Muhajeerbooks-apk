@@ -7106,7 +7106,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (webPreviewFeaturesAvailable && !paymentDone) ...[
+                      if (isPrepaid && !prepaidCanEdit) ...[
+                        const Text('Qolgan to‘lov cheki allaqachon yuborilgan '
+                          'yoki tasdiqlangan. Qayta chek yubormang. '
+                          'Qabul qiluvchi va manzilni saqlashingiz mumkin.',
+                          style:TextStyle(fontWeight:FontWeight.w700)),
+                      ],
+                      if ((!isPrepaid || prepaidCanEdit) &&
+                          webPreviewFeaturesAvailable && !paymentDone) ...[
                         const Text('To‘lov qilgan bo‘lsangiz, chekni tanlang.',
                           style: TextStyle(fontWeight: FontWeight.w800)),
                         const SizedBox(height: 9),
@@ -7118,7 +7125,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           ),
                         ),
                       ],
-                      if (!webPreviewFeaturesAvailable) SwitchListTile.adaptive(
+                      if ((!isPrepaid || prepaidCanEdit) &&
+                          !webPreviewFeaturesAvailable) SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
                         value: paymentDone,
                         onChanged: (v) => setState(() {
@@ -7133,7 +7141,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           'To‘lov qilgan bo‘lsangiz, chek skrinshotini yuboring.',
                         ),
                       ),
-                      if (paymentDone) ...[
+                      if ((!isPrepaid || prepaidCanEdit) && paymentDone) ...[
                         const Divider(height: 20),
                         if (paymentProof == null)
                           SizedBox(
@@ -7205,25 +7213,59 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    _priceRow(
-                      state.cartBundleDiscount > 0
-                          ? 'Kitoblar (set narxida)'
-                          : 'Kitoblar',
-                      state.cartSubtotal,
-                    ),
-                    if (state.cartBundleDiscount > 0) ...[
+                    if (isPrepaid) ...[
+                      ListTile(
+                        contentPadding:EdgeInsets.zero,
+                        title:Text((prepaid?['title'] ?? 'Oldindan zakaz qilingan kitob').toString()),
+                        subtitle:Text('${(prepaid?['quantity'] ?? 1)} ta • '
+                          'Avvalgi zakazdan avtomatik qo‘shildi'),
+                        trailing:Text(won(
+                          ((prepaid?['quantity'] as num?)?.toInt() ?? 0) *
+                          ((prepaid?['unit_price'] as num?)?.toInt() ?? 0))),
+                      ),
+                      for (final line in prepaidDetails) ListTile(
+                        contentPadding:EdgeInsets.zero,
+                        title:Text((line['title']??'Kitob').toString()),
+                        subtitle:Text('${line['quantity']} ta'),
+                        trailing:prepaidCanEdit ? IconButton(
+                          icon:const Icon(Icons.remove_circle_outline),
+                          onPressed:saving ? null : ()=>
+                            _changePrepaidBook((line['book_id']??'').toString(),-1),
+                        ) : null,
+                      ),
+                      if (prepaidCanEdit)
+                        OutlinedButton.icon(
+                          onPressed:saving ? null : _choosePrepaidBook,
+                          icon:const Icon(Icons.add_shopping_cart),
+                          label:const Text('Yana kitob qo‘shish')),
+                      const Divider(height:20),
+                      _priceRow('Kitoblar',prepaidSubtotal),
+                    ] else ...[
+                      _priceRow(
+                        state.cartBundleDiscount > 0
+                            ? 'Kitoblar (set narxida)' : 'Kitoblar',
+                        state.cartSubtotal,
+                      ),
+                    ],
+                    if (!isPrepaid && state.cartBundleDiscount > 0) ...[
                       const SizedBox(height: 8),
                       _priceRow('Set orqali tejash', -state.cartBundleDiscount),
                     ],
                     const SizedBox(height: 8),
                     _priceRow(
-                      state.cartBundleDeliveryIncluded
+                      !isPrepaid && state.cartBundleDeliveryIncluded
                           ? 'Yetkazib berish (set ichida)'
                           : 'Yetkazib berish',
                       deliveryFee,
                     ),
                     const Divider(height: 24),
                     _priceRow('Jami', total, bold: true),
+                    if (isPrepaid) ...[
+                      const SizedBox(height:8),
+                      _priceRow('Oldindan to‘langan avans', -prepaidDeposit),
+                      const Divider(height:22),
+                      _priceRow('Qolgan to‘lov', prepaidDue, bold:true),
+                    ],
                   ],
                 ),
               ),
@@ -7235,14 +7277,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 color: const Color(0xFFFFF7E8),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: const Row(
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.info_outline_rounded, size: 20, color: _orange),
+                  const Icon(Icons.info_outline_rounded, size: 20, color: _orange),
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Buyurtma yuborilganda kitoblar ombordan darhol band qilinadi. Buyurtma bekor qilinsa, omborga avtomatik qaytadi.',
+                      isPrepaid
+                        ? 'Bu avvalgi oldindan zakazning davomidir. '
+                          'Yangi buyurtma ochilmaydi, avans qayta olinmaydi.'
+                        : 'Buyurtma yuborilganda kitoblar ombordan darhol band qilinadi. Buyurtma bekor qilinsa, omborga avtomatik qaytadi.',
                       style: TextStyle(
                         fontSize: 12,
                         height: 1.4,
@@ -7254,7 +7299,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
               ),
             ),
             const SizedBox(height: 14),
-            if (professionalMode || (paymentDone && paymentProof != null))
+            if (isPrepaid)
+              SizedBox(
+                height:52,
+                child:FilledButton.icon(
+                  onPressed:saving || prepaidLoading ? null : _submitPrepaid,
+                  icon:const Icon(Icons.send_rounded),
+                  label:Text(prepaidCanEdit && prepaidDue > 0
+                    ? 'Qolgan to‘lovni yuborish'
+                    : 'Qabul qiluvchi va manzilni saqlash'),
+                ),
+              )
+            else if (professionalMode || (paymentDone && paymentProof != null))
               SizedBox(
                 height: 52,
                 child: FilledButton.icon(
@@ -7321,6 +7377,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Future<void> _submit(AppState state, int deliveryFee) async {
+    if (isPrepaid) { await _submitPrepaid(); return; }
     if (!professionalMode && !await _requireCustomerProfile()) return;
     if (!mounted || !formKey.currentState!.validate()) return;
     if (!professionalMode && (!paymentDone || paymentProof == null)) {

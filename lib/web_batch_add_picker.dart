@@ -5,25 +5,50 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'uzbek_customer_style.dart';
 
-/// Returns the value of the CURRENT batch selection. For unchanged
-/// multi-line historical records, preserve the exact sum of original
-/// quantity × cost rather than rounding a weighted-average unit cost.
+/// One original batch line in newest-first order. This matches the
+/// backend's quantity correction algorithm: adjust the latest line first.
+class BatchCostLot {
+  const BatchCostLot(this.quantity,this.unitCost);
+  final int quantity;
+  final int unitCost;
+}
+
+/// Calculate the selected books' actual procurement value, including when
+/// a title was purchased at several distinct historical unit costs.
 int batchBookCostValue({
   required int quantity,
   required int unitCost,
   int previousQuantity = 0,
   int? historicalLineValue,
+  List<BatchCostLot> historicalLots = const [],
   bool changedUnitCost = false,
 }) {
   if (quantity <= 0) return 0;
-  if (!changedUnitCost && historicalLineValue != null) {
+  if (changedUnitCost) return quantity*unitCost;
+  if (historicalLineValue != null) {
     if (quantity == previousQuantity) return historicalLineValue;
-    // Delta pricing is an estimate for previously mixed-cost lines.
-    final adjusted = historicalLineValue +
-      (quantity - previousQuantity) * unitCost;
-    return adjusted < 0 ? 0 : adjusted;
+    if (historicalLots.isNotEmpty) {
+      if (quantity > previousQuantity) {
+        return historicalLineValue +
+          (quantity-previousQuantity)*historicalLots.first.unitCost;
+      }
+      var leftToRemove=previousQuantity-quantity;
+      var value=historicalLineValue;
+      for(final lot in historicalLots) {
+        if(leftToRemove==0)break;
+        final removed=leftToRemove<lot.quantity
+          ?leftToRemove:lot.quantity;
+        value-=removed*lot.unitCost;
+        leftToRemove-=removed;
+      }
+      return value<0?0:value;
+    }
+    // Older server responses without cost_lots: retain a safe fallback.
+    final adjusted=historicalLineValue +
+      (quantity-previousQuantity)*unitCost;
+    return adjusted<0?0:adjusted;
   }
-  return quantity * unitCost;
+  return quantity*unitCost;
 }
 
 class _SelectedBatchBook {
@@ -235,6 +260,11 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
         unitCost:line.unitCost<0?0:line.unitCost,
         previousQuantity:_previousQty[line.id]??0,
         historicalLineValue:(original?['line_value'] as num?)?.toInt(),
+        historicalLots:_list(original?['cost_lots']).map((entry)=>
+          BatchCostLot(
+            (entry['quantity'] as num?)?.toInt()??0,
+            (entry['unit_cost'] as num?)?.toInt()??0,
+          )).toList(),
         changedUnitCost:line.changedCost,
       );
     });
@@ -569,6 +599,7 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
           final id=line['book_id'].toString();
           final chosen=_selected[id];
           return (line['multiple_lines'] as num? ?? 0)>1 &&
+            _list(line['cost_lots']).isEmpty &&
             chosen!=null && chosen.qty!=(_previousQty[id]??0);
         });
         return Column(children: [

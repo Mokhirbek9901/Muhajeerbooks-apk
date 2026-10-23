@@ -353,13 +353,10 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                          ' • Qoldiq: ${book['stock']??0}',
                         style:const TextStyle(fontSize:11.5)),
                       trailing:chosen!=null
-                        ?IconButton.filledTonal(
-                          tooltip:'Tanlangan kitobni olib tashlash',
-                          icon:const Icon(Icons.check_rounded),
-                          onPressed:()async{
-                            await _removeSelectedBook(id);
-                            if(sheet.mounted)refresh((){});
-                          })
+                        ?const Tooltip(
+                          message:'Tanlangan — sonini asosiy sahifada tahrirlang',
+                          child:Icon(Icons.check_circle_rounded,
+                            color:UzbekCustomerColors.navy,size:29))
                         :IconButton.filled(
                           tooltip:'Partiyaga qo‘shish',
                           icon:const Icon(Icons.add),

@@ -6,13 +6,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'uzbek_customer_style.dart';
 
 class _SelectedBatchBook {
-  _SelectedBatchBook(Map<String,dynamic> raw)
+  _SelectedBatchBook(Map<String,dynamic> raw,{
+    int initialQuantity = 1, int? historicalUnitCost})
     : id = raw['id'].toString(),
       title = (raw['title'] ?? 'Kitob').toString(),
       catalogCost = (raw['cost_price'] as num?)?.toInt() ?? 0,
-      quantity = TextEditingController(text: '1'),
+      quantity = TextEditingController(text: '$initialQuantity'),
       cost = TextEditingController(
-        text: ((raw['cost_price'] as num?)?.toInt() ?? 0).toString());
+        text: (historicalUnitCost ??
+          ((raw['cost_price'] as num?)?.toInt() ?? 0)).toString());
   final String id;
   final String title;
   final int catalogCost;
@@ -41,6 +43,13 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
   DateTime _date = DateTime.now();
   String _mode = 'new';
   String? _existing;
+  String? _existingRevision;
+  Map<String,dynamic>? _existingSnapshot;
+  final Map<String,int> _previousQty = {};
+  final Set<String> _originalTransportIds = <String>{};
+  int _loadGeneration = 0;
+  bool _existingLoading = false;
+  bool _onlySelected = false;
   bool _syncStock = false;
   bool _submitting = false;
 
@@ -66,6 +75,82 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
     : [];
 
   String _money(num v) => '₩${NumberFormat('#,###').format(v.round())}';
+
+  void _resetDraft() {
+    _loadGeneration++;
+    for (final book in _selected.values) { book.dispose(); }
+    _selected.clear();
+    _selectedTransportIds.clear();
+    _originalTransportIds.clear();
+    _previousQty.clear();
+    _existingSnapshot=null;
+    _existingRevision=null;
+    _existingLoading=false;
+  }
+
+  Future<void> _openOldBatch(
+      String? selection, Map<String,dynamic> data) async {
+    setState(() {
+      _resetDraft();
+      _existing=selection;
+    });
+    if(selection==null) return;
+    final parts=selection.split(':');
+    if(parts.length!=2 || parts.last.isEmpty) {
+      _message('Partiya ID noto‘g‘ri');
+      return;
+    }
+    final kind=parts.first=='import'?'old_import'
+      :parts.first=='group'?'old_group'
+      :parts.first=='finance_group'?'old_finance_group':'';
+    if(kind.isEmpty) {
+      _message('Partiya turi noto‘g‘ri');
+      return;
+    }
+    final gen=++_loadGeneration;
+    setState(() => _existingLoading=true);
+    try {
+      final raw=await Supabase.instance.client.rpc(
+        'admin_web_batch_existing_data', params:{
+          'p_secret':widget.secret,'p_scope':kind,'p_id':parts.last,
+        });
+      if(!mounted || gen!=_loadGeneration || _existing!=selection) return;
+      final result=raw is Map ? Map<String,dynamic>.from(raw)
+        : <String,dynamic>{};
+      final catalog={
+        for(final book in _list(data['books']))
+          book['id'].toString():book,
+      };
+      final prefill=<String,_SelectedBatchBook>{};
+      final baseline=<String,int>{};
+      for(final line in _list(result['items'])) {
+        final id=line['book_id'].toString();
+        final book=catalog[id];
+        if(book==null) continue; // Deleted books are never fabricated.
+        final qty=(line['quantity'] as num?)?.toInt()??0;
+        if(qty<=0) continue;
+        final unit=(line['unit_cost'] as num?)?.toInt()??0;
+        prefill[id]=_SelectedBatchBook(book,
+          initialQuantity:qty,historicalUnitCost:unit);
+        baseline[id]=qty;
+      }
+      final linked=((result['transport_ids'] as List?)??const [])
+        .map((e)=>e.toString()).toSet();
+      setState(() {
+        _existingRevision=(result['revision']??'').toString();
+        _existingSnapshot=result;
+        _selected.addAll(prefill);
+        _previousQty.addAll(baseline);
+        _originalTransportIds.addAll(linked);
+        _selectedTransportIds.addAll(linked);
+        _existingLoading=false;
+      });
+    } catch(error) {
+      if(!mounted || gen!=_loadGeneration) return;
+      setState(() { _existingLoading=false; _existingRevision=null; });
+      _message('Partiya tarixini ochib bo‘lmadi: $error');
+    }
+  }
 
   void _pick(Map<String,dynamic> book, bool select) {
     final id = book['id'].toString();

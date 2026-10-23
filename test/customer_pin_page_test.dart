@@ -10,9 +10,13 @@ void main() {
       create: (_) => AppState(backendConfigured: false),
       child: const MaterialApp(home: CustomerPinPage()),
     ));
-    expect(find.text('Shaxsiy 4 xonali PIN'), findsOneWidget);
-    expect(find.text('PIN bilan kiring'), findsOneWidget);
+    expect(find.text('Mening ma’lumotlarim'), findsOneWidget);
+    expect(find.text('Ism, telefon va PIN'), findsOneWidget);
     expect(find.text('SMS kelmaydi.'), findsNothing);
+    await tester.ensureVisible(find.text('PINim bor — boshqa telefondan kirish'));
+    await tester.tap(find.text('PINim bor — boshqa telefondan kirish'));
+    await tester.pumpAndSettle();
+    expect(find.text('Boshqa qurilmadan kirish'), findsOneWidget);
     await tester.enterText(find.byType(TextFormField).at(0), '01012345678');
     await tester.enterText(find.byType(TextFormField).at(1), '123');
     await tester.tap(find.text('Kirish'));
@@ -25,8 +29,8 @@ void main() {
       create: (_) => AppState(backendConfigured: false),
       child: const MaterialApp(home: CustomerPinPage()),
     ));
-    await tester.tap(find.text('Yangi profil uchun PIN yaratish'));
-    await tester.pumpAndSettle();
+    // New customers see the combined name, phone and PIN form immediately.
+    expect(find.text('Ism, telefon va PIN'), findsOneWidget);
     final inputs = find.byType(TextFormField);
     expect(inputs, findsNWidgets(4));
     await tester.enterText(inputs.at(0), 'Sinov Mijoz');

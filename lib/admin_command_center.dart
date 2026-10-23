@@ -502,7 +502,7 @@ class _AdminQualityHubState extends State<_AdminQualityHub> {
   void _openTracking() {
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => Scaffold(
-        appBar: AppBar(title: const Text('Tracking kiritilmagan')),
+        appBar: AppBar(title: const Text('Kuzatuv raqamisiz')),
         body: _OrdersAdmin(api: widget.api, initialFilter: 'tracking_missing'),
       ),
     )).then((_) {
@@ -553,7 +553,7 @@ class _AdminQualityHubState extends State<_AdminQualityHub> {
           ('Kam qolgan kitoblar', '1 yoki 2 dona qolganlar',
             lowStock, Icons.inventory_2_outlined,
             () => _openBookFilter('low_stock')),
-          ('Tracking kiritilmagan', 'Jo‘natilgan pochta buyurtmalari',
+          ('Kuzatuv raqamisiz', 'Ma’lumot uchun: raqam ixtiyoriy, jo‘natish yakuniy holat',
             tracking, Icons.local_shipping_outlined,
             _openTracking),
         ];

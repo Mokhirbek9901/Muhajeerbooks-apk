@@ -1702,6 +1702,22 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _unlinkLocalPinQuietly() async {
+    final token=_pinSession;
+    _pinSession=null;
+    try{await _local.clearPinSession();}catch(_){}
+    if(token!=null&&_backend!=null){
+      unawaited(_backend!.pinLogout(token).catchError((_) {}));
+    }
+    _localOrders.clear();
+    _customerNotices.clear();
+    await Future.wait([
+      _local.saveOrders(const <ShopOrder>[]),
+      _local.saveCustomerNotices(const <Map<String,dynamic>>[]),
+    ]);
+    notifyListeners();
+  }
+
   Future<void> setAuthenticatedCustomer(
     String name,
     String phone, {
@@ -1710,6 +1726,13 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }) async {
     final cleanName = name.trim();
     final cleanPhone = phone.trim();
+    final previousPhone=(savedCustomer['phone']??'')
+      .replaceAll(RegExp(r'\D'),'');
+    final nextPhone=cleanPhone.replaceAll(RegExp(r'\D'),'');
+    if(_pinSession!=null && previousPhone.isNotEmpty &&
+        nextPhone.isNotEmpty && previousPhone!=nextPhone){
+      await _unlinkLocalPinQuietly();
+    }
     final cleanAddress = address?.trim();
     savedCustomer = {
       'name': cleanName.isEmpty ? (savedCustomer['name'] ?? '') : cleanName,
@@ -1759,11 +1782,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     final name='${result['name']??''}'.trim();
     final savedPhone='${result['phone']??''}'.trim();
     if(name.isEmpty || savedPhone.isEmpty)throw StateError('Profil olinmadi');
+    // Clear any previously logged-in phone before connecting the NEW token.
+    await setAuthenticatedCustomer(name,savedPhone,verified:false);
     await _local.savePinSession(token);
     _pinSession=token;
-    // An unverified phone is only treated as PIN account identity after the
-    // stored bcrypt hash was successfully checked on the server.
-    await setAuthenticatedCustomer(name,savedPhone,verified:false);
     notifyListeners();
   }
 
@@ -1774,10 +1796,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       if(token==null||token.isEmpty)return;
       final profile=await _backend!.pinProfile(token);
       if(profile['valid']!=true)throw StateError('Expired PIN session');
-      _pinSession=token;
       await setAuthenticatedCustomer(
         '${profile['name']??''}', '${profile['phone']??''}',
         verified:false);
+      _pinSession=token;
+      notifyListeners();
     }catch(_){
       _pinSession=null;
       await _local.clearPinSession();
@@ -2011,6 +2034,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       final previousPhone =
           (savedCustomer['phone'] ?? '').replaceAll(RegExp(r'\D'), '');
       if (previousPhone.isNotEmpty && previousPhone != digits) {
+        if(_pinSession!=null)await _unlinkLocalPinQuietly();
         // A preorder cannot reuse an old phone number's verified identity.
         customerVerified = false;
         await _local.saveCustomerVerified(false);
@@ -2724,6 +2748,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         isGyeongsanPickup ? 0 : cartDeliveryFee;
     final total = subtotal + safeDeliveryFee;
     if (!preserveCustomerProfile) {
+      final prior=(savedCustomer['phone']??'').replaceAll(RegExp(r'\D'),'');
+      final next=phone.replaceAll(RegExp(r'\D'),'');
+      if(_pinSession!=null && prior.isNotEmpty && prior!=next){
+        await _unlinkLocalPinQuietly();
+      }
       await _local.saveCustomer(
         customerName.trim(),
         phone.trim(),

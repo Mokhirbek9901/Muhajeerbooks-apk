@@ -33,6 +33,7 @@ import 'web_book_purchase_count.dart';
 import 'preview_features.dart';
 import 'purchase_price_notice.dart';
 import 'preorder_balance_page.dart';
+import 'customer_pin_page.dart';
 
 const bool _playStoreCustomerBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
 const bool _appStoreCustomerBuild = bool.fromEnvironment('APP_STORE_BUILD');
@@ -7531,6 +7532,24 @@ class ProfilePage extends StatelessWidget {
                 const Divider(),
                 ListTile(
                   minTileHeight: 68,
+                  leading: const _ProfileIcon(icon: Icons.password_rounded),
+                  title: const Text('Shaxsiy 4 xonali PIN',
+                    style: TextStyle(fontWeight: FontWeight.w800)),
+                  subtitle: Text(state.pinSessionActive
+                    ? 'PIN faol • boshqa telefondan kirish mumkin'
+                    : 'SMSsiz himoya • boshqa telefondan kirish'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => Navigator.push(
+                    context,
+                    muhajeerPageRoute(
+                      settings: const RouteSettings(name: 'mb:customer-pin'),
+                      builder: (_) => const CustomerPinPage(),
+                    ),
+                  ),
+                ),
+                const Divider(),
+                ListTile(
+                  minTileHeight: 68,
                   leading: const _ProfileIcon(
                     icon: Icons.event_available_outlined),
                   title: const Text('Oldindan zakazlarim',
@@ -7802,6 +7821,18 @@ class _WebMyProfilePage extends StatelessWidget {
                 padding: EdgeInsets.zero,
                 child: Column(
                   children: [
+                    _WebProfileMenuTile(
+                      icon: Icons.password_rounded,
+                      title: 'Shaxsiy 4 xonali PIN',
+                      onTap: () => Navigator.push(
+                        context,
+                        muhajeerPageRoute(
+                          settings: const RouteSettings(name: 'mb:customer-pin'),
+                          builder: (_) => const CustomerPinPage(),
+                        ),
+                      ),
+                    ),
+                    const Divider(height: 1),
                     _WebProfileMenuTile(
                       icon: Icons.receipt_long_outlined,
                       title: 'Buyurtmalarim',

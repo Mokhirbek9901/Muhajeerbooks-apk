@@ -25,3 +25,13 @@ No schema/order/stock bulk data changes in mobile app; protected read-only admin
 2026-10-23 19:50 KST TestFlight-only QA: hide exactly two owner-selected preorder rows without deleting records; active-only Barchasi filter plus Tekshirish kerak, Qabul qilingan, Yangi kelgan, Bekor qilingan; app-only tracking reminder for orders created after 2026-10-23T10:33:32Z and no social/old-order backlog. Consented iOS customer APNs registration and privacy-safe push dispatcher source; backend dispatcher must be deployed separately before native push works live. No public iOS or Android release, no Railway/main deploy.
 
 2026-10-23 — TestFlight QA ONLY: per-order native/web preorder management screen opens when the user taps an order card. Native waiting -> accepted -> arrived; cancellation and reasoned reopening; web status uses existing server version check. View deposit proof and buyer note per order. Back-end guarded native status RPC deployed, no live customer preorder changed. All new releases must stay off public App Store, Play Market and Railway/main.
+
+2026-10-23 TestFlight ONLY release candidate: professional native preorder workflow.
+- Cancel requires TWO confirmations, a reason and never deletes the order or refunds the deposit automatically.
+- "Kitob keldi" asks for final price per unit, courier fee and a required admin note; server refuses to mark arrived until accepted preorder copies are actually reserved in physical stock.
+- Automatically reserve accepted native preorder copies from incoming inventory before exposing available stock: 3 received, 2 reserved, only 1 publicly sellable.
+- Single deposit credit against final invoice; 4+ books free delivery unless active promotion explicitly disables.
+- Original-install customer screen "Oldindan zakazlarim" shows amount due/admin note; lets them add/remove extra books with transactional inventory holds, copies bank details and uploads final payment proof; admin can view proof and confirm payment.
+- Durable in-app preorder arrival/verification notices, with customer notification deep-link. Physical APNs delivery from Railway remains pending backend deployment; no SMS.
+- Supabase admin-rpc v33, customer-rpc v19 and transactional migrations deployed; existing real preorder status, payment and stock remain unchanged.
+- No main merge, no public App Store, no Play Market, no Railway deployment.

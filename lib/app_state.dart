@@ -867,6 +867,22 @@ class BackendService {
     return Map<String,dynamic>.from(raw);
   }
 
+  Future<Map<String,dynamic>> saveWebPreorderDelivery(
+      String session,String preorderId,{
+      required String recipientName,required String recipientPhone,
+      required String address,required String deliveryType}) async {
+    final raw=await _customerRpc('customer_web_preorder_delivery',{
+      'p_session':session,
+      'p_preorder_id':preorderId,
+      'p_recipient_name':recipientName,
+      'p_recipient_phone':recipientPhone,
+      'p_address':address,
+      'p_delivery_type':deliveryType,
+    });
+    if(raw is! Map)throw StateError('Yetkazish ma’lumotlari saqlanmadi');
+    return Map<String,dynamic>.from(raw);
+  }
+
   Future<List<Map<String, dynamic>>> fetchPreorderBalances(String installId) async {
     final raw = await _customerRpc('customer_preorder_balance_list', {
       'p_install_id': installId,
@@ -2218,6 +2234,18 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     }
     return _backend!.webPreorderCheckout(_pinSession!,id,'detail');
   }
+  Future<Map<String,dynamic>> saveWebPreorderDelivery(String id,{
+      required String recipientName,required String recipientPhone,
+      required String address,required String deliveryType}) async {
+    if(_backend==null||_pinSession==null) {
+      throw StateError('Avval PIN orqali kiring');
+    }
+    return _backend!.saveWebPreorderDelivery(
+      _pinSession!,id,recipientName:recipientName,
+      recipientPhone:recipientPhone,address:address,
+      deliveryType:deliveryType);
+  }
+
   Future<Map<String,dynamic>> changeWebPreorderExtra(
       String id,String bookId,int delta) async {
     if(_backend==null||_pinSession==null)throw StateError('PIN bilan kiring');

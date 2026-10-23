@@ -29,3 +29,12 @@
 - Preorder to‘lovlarini asosiy Moliya/sotuvlar statistikasiga avtomatik o‘tkazish bu ish hajmiga kirmagan; alohida xavfsiz migratsiya kerak.
 - Oldindan buyurtma uchun yangi to‘lov va avtomatik stock-hold aynan native ilova buyurtmalariga tegishli; web oldindan zakazlarning eski holat boshqaruvi o‘zgarmagan.
 - App Store, Play Market va Railway nashri amalga oshirilmagan.
+
+## Yangi partiyani adminning o‘zidan kiritish
+- Oldindan zakaz kartasi → "Yangi partiya qo‘shish" tugmasini bosing; kelgan miqdorni (1–2000) kiriting.
+- Bu qiymat mavjud books.stock ni almashtirmaydi, unga atomik ravishda qo‘shiladi.
+- BEFORE UPDATE trigger avval qabul qilingan zakazlar uchun yetarli nusxani bandlaydi, qolgan miqdorgina erkin sotuvda ko‘rinadi.
+- Shu misolda ombor boshida 0, qabul qilingan 2 ta, yangi partiya 3 ta → band2, ochiq1.
+- Tizim o‘zgarishlarni bir tranzaksiyada qiladi va yakuniy mavjud/band miqdorlarini adminga ko‘rsatadi.
+- SQL rollback sinovi: mavjud 1 ta va qo‘shimcha 2 ta kiritilganda accepted2 band, erkin1; haqiqiy stock qaytarilgan.
+- Himoyalangan admin_preorder_receive_batch RPC faqat service_role va tasdiqlangan admin kodi orqali ishlaydi.

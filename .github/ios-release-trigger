@@ -5,3 +5,8 @@ Show SIX tappable dashboard cards: Bugungi savdo, Yangi buyurtmalar, Qabul qilin
 Jo‘natishga tayyor (prepared, not yet shipped), Tugagan kitoblar, and Oldindan zakazlar.
 Each opens its corresponding existing filtered order/book/preorder details. Daily revenue and drill-down matching use the same predicate.
 Do not change data, stock, orders, API/backend, or user-facing iOS App Store and Play Market releases.
+
+2026-10-23 TestFlight QA refresh on isolated branch only.
+Include admin requested-book customer phone, localized preorder states, and accurate limited timeline description.
+Required code commit: 4b5e6974f16506ae634c52c17bf3c43ca84855b8.
+Do not merge to main, deploy Railway, or release to public App Store/Play Market.

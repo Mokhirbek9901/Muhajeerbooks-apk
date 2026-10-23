@@ -15,17 +15,66 @@ class WebPreorderCheckoutPage extends StatefulWidget {
 }
 class _WebPreorderCheckoutPageState extends State<WebPreorderCheckoutPage> {
   Future<Map<String,dynamic>>? pending;
+  final form = GlobalKey<FormState>();
+  final recipientName = TextEditingController();
+  final recipientPhone = TextEditingController();
+  final recipientAddress = TextEditingController();
+  String deliveryType = '택배';
+  bool hydrated = false;
   bool busy=false;
   String won(int amount)=>'₩'+NumberFormat('#,##0','en_US').format(amount);
   @override
   void initState(){super.initState();reload();}
+  @override
+  void dispose() {
+    recipientName.dispose();
+    recipientPhone.dispose();
+    recipientAddress.dispose();
+    super.dispose();
+  }
   Future<void> reload() async {
     final next=context.read<AppState>().webPreorderInvoice(widget.preorderId);
     if (mounted) setState(() { pending = next; });
-    try{await next;}catch(_){}
+    try {
+      final d = await next;
+      if (!mounted || hydrated) return;
+      final saved = context.read<AppState>().savedCustomer;
+      setState(() {
+        recipientName.text = (d['recipient_name'] ?? saved['name'] ?? '').toString();
+        recipientPhone.text = (d['recipient_phone'] ?? saved['phone'] ?? '').toString();
+        deliveryType = d['delivery_type'] == '경산 직접수령' ? '경산 직접수령' : '택배';
+        recipientAddress.text = d['delivery_saved'] == true
+          ? (deliveryType == '택배' ? (d['delivery_address'] ?? '').toString() : '')
+          : (saved['address'] ?? '');
+        hydrated = true;
+      });
+    } catch (_) { /* FutureBuilder displays the server error. */ }
   }
   void notice(String text){if(mounted)ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(content:Text(text.replaceFirst('Bad state: ',''))));}
+  Future<Map<String,dynamic>?> saveDelivery({bool notify = true}) async {
+    if (busy || form.currentState?.validate() != true) return null;
+    setState(() => busy = true);
+    try {
+      final result = await context.read<AppState>().saveWebPreorderDelivery(
+        widget.preorderId,
+        recipientName: recipientName.text.trim(),
+        recipientPhone: recipientPhone.text.trim(),
+        address: recipientAddress.text.trim(),
+        deliveryType: deliveryType,
+      );
+      if (!mounted) return null;
+      setState(() => pending = Future.value(result));
+      if (notify) notice('Qabul qiluvchi va manzil saqlandi ✅');
+      return result;
+    } catch (error) {
+      notice('Yetkazish ma’lumotlari saqlanmadi: ' + error.toString());
+      return null;
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   Future<void> change(String id,int delta) async {
     if(busy)return;
     setState(()=>busy=true);
@@ -61,8 +110,18 @@ class _WebPreorderCheckoutPageState extends State<WebPreorderCheckoutPage> {
       }));
     if(selected!=null&&mounted)await change(selected.id,1);
   }
-  Future<void> sendProof(int due) async {
-    if(busy||due<=0)return;
+  Future<void> sendProof(int previousDue) async {
+    final saved = await saveDelivery(notify: false);
+    if (saved == null || !mounted) return;
+    final due = (saved['amount_due'] as num?)?.toInt() ?? 0;
+    if (saved['payment_state'] != 'requested') {
+      notice('Bu zakazning cheki oldin yuborilgan.');
+      return;
+    }
+    if (due <= 0) {
+      notice('Qolgan to‘lov ₩0. Manzil saqlandi, admin tekshiradi.');
+      return;
+    }
     final photo=await ImagePicker().pickImage(source:ImageSource.gallery,
       imageQuality:78,maxWidth:1600,maxHeight:2400);
     if(photo==null||!mounted)return;
@@ -89,7 +148,7 @@ class _WebPreorderCheckoutPageState extends State<WebPreorderCheckoutPage> {
     ]));
   @override
   Widget build(BuildContext context)=>Scaffold(
-    appBar:AppBar(title:const Text('Oldindan zakaz • buyurtma'),actions:[
+    appBar:AppBar(title:const Text('Buyurtmani rasmiylashtirish'),actions:[
       IconButton(tooltip:'Yangilash',onPressed:busy?null:reload,icon:const Icon(Icons.refresh))]),
     body:FutureBuilder<Map<String,dynamic>>(future:pending,builder:(ctx,snapshot){
       if(snapshot.hasError)return Center(child:Padding(padding:const EdgeInsets.all(20),

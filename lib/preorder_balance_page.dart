@@ -31,6 +31,7 @@ class _CustomerPreorderBalancesPageState
 
   Future<List<Map<String,dynamic>>> loadAll() async {
     final state=context.read<AppState>();
+    if (!state.checkoutIdentityReady) return const [];
     final own=await state.myPreorderBalances();
     final lookups=await state.myDiscoveredPreorders();
     // A PIN session is required to bring other device histories together.
@@ -202,7 +203,35 @@ class _CustomerPreorderBalancesPageState
         ),
       ],
     ),
-    body: FutureBuilder<List<Map<String, dynamic>>>(
+    body: !context.watch<AppState>().checkoutIdentityReady
+      ? Center(child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.lock_outline_rounded, size: 52),
+            const SizedBox(height: 14),
+            const Text('Zakazlarni ko‘rish uchun profilga kiring',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            const Text('Oldingi telefon raqamingiz va PIN bilan kirsangiz, '
+              'oldindan zakazlaringiz ko‘rinadi.',
+              textAlign: TextAlign.center),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: () async {
+                await Navigator.of(context).push<bool>(MaterialPageRoute(
+                  builder: (_) => const CustomerPinPage(),
+                ));
+                if (mounted && context.read<AppState>().checkoutIdentityReady) {
+                  await refresh();
+                }
+              },
+              icon: const Icon(Icons.login_rounded),
+              label: const Text('Kirish'),
+            ),
+          ]),
+        ))
+      : FutureBuilder<List<Map<String, dynamic>>>(
       future: future,
       builder: (context, snap) {
         if (snap.hasError) return Center(child: Padding(

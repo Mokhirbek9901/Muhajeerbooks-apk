@@ -95,7 +95,7 @@ void main() {
     expect(find.text('Yana kitob qo‘shish'), findsNothing);
 
     final field = find.widgetWithText(TextFormField, 'Manzil');
-    await tester.ensureVisible(field);
+    await tester.scrollUntilVisible(field, -230, scrollable: scroll);
     await tester.enterText(field, '경상북도 경산시 계양로 37길 7-3 808호');
     await tester.scrollUntilVisible(
       find.text('Qabul qiluvchi va manzilni saqlash'), 250,

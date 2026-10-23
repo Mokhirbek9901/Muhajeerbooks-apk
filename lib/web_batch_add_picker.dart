@@ -11,6 +11,8 @@ class _SelectedBatchBook {
     : id = raw['id'].toString(),
       title = (raw['title'] ?? 'Kitob').toString(),
       catalogCost = (raw['cost_price'] as num?)?.toInt() ?? 0,
+      originalUnitCost = historicalUnitCost ??
+        ((raw['cost_price'] as num?)?.toInt() ?? 0),
       quantity = TextEditingController(text: '$initialQuantity'),
       cost = TextEditingController(
         text: (historicalUnitCost ??
@@ -18,6 +20,7 @@ class _SelectedBatchBook {
   final String id;
   final String title;
   final int catalogCost;
+  final int originalUnitCost;
   final TextEditingController quantity;
   final TextEditingController cost;
   bool changedCost = false;
@@ -86,6 +89,7 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
     _existingSnapshot=null;
     _existingRevision=null;
     _existingLoading=false;
+    _onlySelected=false;
   }
 
   Future<void> _openOldBatch(
@@ -178,7 +182,8 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
       _message('Avval eski partiyani tanlab, undagi kitoblar yuklanishini kuting.');
       return;
     }
-    if (_selected.isEmpty && _selectedTransportIds.isEmpty) {
+    if (_selected.isEmpty && _selectedTransportIds.isEmpty &&
+        !(_mode=='old' && _previousQty.isNotEmpty)) {
       _message('Kamida bitta kitob yoki transport xarajatini belgilang.');
       return;
     }
@@ -376,15 +381,18 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                   enabled: !_submitting,
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  onChanged: (_) => setState(() => chosen.changedCost = true),
+                  onChanged: (_) => setState(() =>
+                    chosen.changedCost = chosen.unitCost!=chosen.originalUnitCost),
                   decoration: const InputDecoration(
                     labelText: 'Bir dona tannarx ₩',
                     isDense: true, border: OutlineInputBorder()),
                 )),
                 IconButton(
-                  tooltip: 'Bazadagi tannarxni qaytarish',
+                  tooltip: _mode=='old'
+                    ? 'Partiyada oldin yozilgan tannarxni qaytarish'
+                    : 'Katalogdagi tannarxni qaytarish',
                   onPressed: _submitting ? null : () {
-                    chosen.cost.text = chosen.catalogCost.toString();
+                    chosen.cost.text = chosen.originalUnitCost.toString();
                     setState(() => chosen.changedCost = false);
                   },
                   icon: const Icon(Icons.restore_outlined)),
@@ -537,8 +545,8 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                   const Text(
                     'Eski partiyaga kitoblar faqat tarixiy qayd sifatida bog‘lanadi. '
                     'Ombor ko‘paymaydi va moliyaga qayta xarajat yozilmaydi. '
-                    'Bazada chiqqan tannarx joriy tannarxdir, '
-                    'eski partiyada farq qilgan bo‘lsa tuzating.',
+                    'Oldingi yozuvlar partiyadagi o‘z tannarxi va soni '
+                    'bilan yuklanadi. Tahrir tarixga yoziladi.',
                     style: TextStyle(fontSize: 12,
                       color: UzbekCustomerColors.textMuted)),
                 ],

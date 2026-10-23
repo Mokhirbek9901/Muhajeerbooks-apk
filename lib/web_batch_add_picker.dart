@@ -564,93 +564,134 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
       color: UzbekCustomerColors.navy)));
 
   Widget _bookCard(Map<String,dynamic> raw) {
-    final id = raw['id'].toString();
-    final chosen = _selected[id];
-    final selected = chosen != null;
-    final currentCost = (raw['cost_price'] as num?)?.toInt() ?? 0;
+    final id=raw['id'].toString();
+    final item=_selected[id];
+    if(item==null)return const SizedBox.shrink();
+    final before=_previousQty[id];
+    final changed=(before!=null && item.qty!=before) || item.changedCost;
+    final historic=_list(_existingSnapshot?['items'])
+      .where((r)=>r['book_id'].toString()==id).firstOrNull;
+    final worth=batchBookCostValue(
+      quantity:item.qty,
+      unitCost:item.unitCost<0?0:item.unitCost,
+      previousQuantity:before??0,
+      historicalLineValue:(historic?['line_value'] as num?)?.toInt(),
+      historicalLots:_list(historic?['cost_lots']).map((lot)=>BatchCostLot(
+        (lot['quantity'] as num?)?.toInt()??0,
+        (lot['unit_cost'] as num?)?.toInt()??0)).toList(),
+      changedUnitCost:item.changedCost,
+    );
     return Card(
-      margin: const EdgeInsets.only(bottom: 7),
-      child: Column(children: [
-        CheckboxListTile(
-          controlAffinity: ListTileControlAffinity.leading,
-          value: selected,
-          onChanged: _submitting ? null : (v) => _pick(raw, v ?? false),
-          title: Text((raw['title'] ?? 'Kitob').toString(),
-            maxLines: 2, overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w800)),
-          subtitle: Text('Bazadagi tannarx: ${_money(currentCost)}'
-            ' • Qoldiq: ${raw['stock'] ?? 0} dona',
-            style: const TextStyle(fontSize: 11.5)),
-        ),
-        if (chosen != null)
-          Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-            child: Column(children: [
-              Row(children: [
-                Expanded(child: TextField(
-                  controller: chosen.quantity,
-                  enabled: !_submitting,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(
-                    labelText: _mode=='old'
-                      ? 'Partiyada jami dona' : 'Kelgan dona',
-                    isDense: true,
-                    border: const OutlineInputBorder()),
-                )),
-                const SizedBox(width: 8),
-                IconButton(
-                  tooltip:'1 dona kamaytirish',
-                  onPressed:_submitting || chosen.qty<=(_mode=='old'?0:1)
-                    ?null:()=>setState(()=>
-                      chosen.quantity.text='${chosen.qty-1}'),
-                  icon:const Icon(Icons.remove_circle_outline)),
-                IconButton(
-                  tooltip:'1 dona ko‘paytirish',
-                  onPressed:_submitting || chosen.qty>=10000
-                    ?null:()=>setState(()=>
-                      chosen.quantity.text='${chosen.qty+1}'),
-                  icon:const Icon(Icons.add_circle_outline)),
-              ]),
-              const SizedBox(height:8),
-              Row(children:[
-                Expanded(child:TextField(
-                  controller:chosen.cost,
-                  enabled:!_submitting,
-                  keyboardType:TextInputType.number,
-                  inputFormatters:[FilteringTextInputFormatter.digitsOnly],
-                  onChanged:(_)=>setState(() =>
-                    chosen.changedCost=chosen.unitCost!=chosen.originalUnitCost),
-                  decoration:const InputDecoration(
-                    labelText:'Bir dona tannarx ₩',
-                    isDense:true,border:OutlineInputBorder()),
-                )),
-                IconButton(
-                  tooltip:_mode=='old'
-                    ? 'Partiyada oldin yozilgan tannarxni qaytarish'
-                    : 'Katalogdagi tannarxni qaytarish',
-                  onPressed:_submitting ? null : (){
-                    chosen.cost.text=chosen.originalUnitCost.toString();
-                    setState(()=>chosen.changedCost=false);
-                  },
-                  icon:const Icon(Icons.restore_outlined)),
-              ]),
-              if(_mode=='old' && _previousQty.containsKey(id))
-                Padding(padding:const EdgeInsets.only(top:8),
-                  child:Align(alignment:Alignment.centerLeft,
-                    child:Text(
-                      'Avval: ${_previousQty[id]} ta  →  '
-                      'Hozir: ${chosen.qty} ta  '
-                      '(farq: ${chosen.qty-(_previousQty[id]??0)} ta)',
-                      style:const TextStyle(
-                        fontWeight:FontWeight.w800,fontSize:12)))),
-              Align(alignment: Alignment.centerRight,
-                child: Text('Partiya qiymati: ${_money(chosen.qty * (chosen.unitCost < 0 ? 0 : chosen.unitCost))}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800, fontSize: 12))),
-            ]),
-          ),
-      ]),
+      key:ValueKey('selected-book-$id'),
+      margin:const EdgeInsets.only(bottom:9),
+      color:Colors.white,
+      shape:RoundedRectangleBorder(
+        borderRadius:BorderRadius.circular(16),
+        side:BorderSide(
+          color:changed?UzbekCustomerColors.navy:const Color(0xFFE2E8F0),
+          width:changed?1.5:1)),
+      child:Padding(padding:const EdgeInsets.all(13),
+        child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          Row(children:[
+            Expanded(child:Column(
+              crossAxisAlignment:CrossAxisAlignment.start,
+              children:[
+                Text(item.title,maxLines:2,overflow:TextOverflow.ellipsis,
+                  style:const TextStyle(fontSize:15,
+                    fontWeight:FontWeight.w900,
+                    color:UzbekCustomerColors.navy)),
+                const SizedBox(height:3),
+                Text(before!=null
+                  ?'Avval: $before dona  •  Hozir: ${item.qty} dona'
+                  :'Yangi qo‘shilgan kitob',
+                  style:const TextStyle(fontSize:12,
+                    color:UzbekCustomerColors.textMuted)),
+              ])),
+            if(changed)
+              const Padding(padding:EdgeInsets.only(right:6),
+                child:Icon(Icons.edit_note_rounded,
+                  color:UzbekCustomerColors.navy)),
+            IconButton(
+              icon:const Icon(Icons.close_rounded),
+              tooltip:'Partiyadan olib tashlash',
+              onPressed:_submitting?null:()=>_removeSelectedBook(id),
+              color:UzbekCustomerColors.textMuted),
+          ]),
+          const SizedBox(height:12),
+          Row(children:[
+            const Text('Dona soni',style:TextStyle(
+              fontWeight:FontWeight.w800,fontSize:13)),
+            const Spacer(),
+            IconButton.filledTonal(
+              tooltip:'Bittaga kamaytirish',
+              onPressed:_submitting || item.qty<=(_mode=='old'?0:1)
+                ?null:()=>setState(()=>
+                  item.quantity.text='${item.qty-1}'),
+              icon:const Icon(Icons.remove,size:19)),
+            const SizedBox(width:6),
+            SizedBox(width:66,child:TextField(
+              controller:item.quantity,
+              enabled:!_submitting,
+              textAlign:TextAlign.center,
+              keyboardType:TextInputType.number,
+              inputFormatters:[FilteringTextInputFormatter.digitsOnly],
+              onChanged:(_)=>setState((){}),
+              style:const TextStyle(fontSize:18,fontWeight:FontWeight.w900),
+              decoration:InputDecoration(
+                isDense:true,contentPadding:const EdgeInsets.symmetric(
+                  vertical:12,horizontal:6),
+                border:OutlineInputBorder(
+                  borderRadius:BorderRadius.circular(10))),
+            )),
+            const SizedBox(width:6),
+            IconButton.filledTonal(
+              tooltip:'Bittaga ko‘paytirish',
+              onPressed:_submitting || item.qty>=10000
+                ?null:()=>setState(()=>
+                  item.quantity.text='${item.qty+1}'),
+              icon:const Icon(Icons.add,size:19)),
+          ]),
+          if(before!=null && item.qty!=before)
+            Padding(padding:const EdgeInsets.only(top:5),
+              child:Text('Farq: ${item.qty-before>0?'+':''}${item.qty-before} dona',
+                style:const TextStyle(fontSize:12,
+                  fontWeight:FontWeight.w800,
+                  color:UzbekCustomerColors.navy))),
+          const SizedBox(height:10),
+          Row(children:[
+            Expanded(child:TextField(
+              controller:item.cost,
+              enabled:!_submitting,
+              keyboardType:TextInputType.number,
+              inputFormatters:[FilteringTextInputFormatter.digitsOnly],
+              onChanged:(_)=>setState(()=>
+                item.changedCost=item.unitCost!=item.originalUnitCost),
+              decoration:InputDecoration(
+                labelText:'1 dona tannarxi',
+                prefixText:'₩ ',
+                isDense:true,
+                border:OutlineInputBorder(
+                  borderRadius:BorderRadius.circular(10))),
+            )),
+            IconButton(
+              tooltip:'Avvalgi tannarxni qaytarish',
+              icon:const Icon(Icons.restore_rounded),
+              onPressed:_submitting?null:(){
+                item.cost.text=item.originalUnitCost.toString();
+                setState(()=>item.changedCost=false);
+              }),
+          ]),
+          const SizedBox(height:11),
+          Row(children:[
+            const Text('Shu kitoblarning jami tannarxi',
+              style:TextStyle(fontSize:11,
+                color:UzbekCustomerColors.textMuted)),
+            const Spacer(),
+            Text(_money(worth),style:const TextStyle(
+              fontSize:14,fontWeight:FontWeight.w900,
+              color:UzbekCustomerColors.navy)),
+          ]),
+        ])),
     );
   }
 

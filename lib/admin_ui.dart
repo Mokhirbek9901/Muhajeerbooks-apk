@@ -38,6 +38,24 @@ const _orange = Color(0xFFFF8A00);
 final _money = NumberFormat('#,###', 'en_US');
 String _won(int value) => '₩${_money.format(value)}';
 
+/// Legacy shipments created before the owner's 23 Oct 2026 instruction are
+/// exempt; only NEW app orders require a tracking reminder.
+final DateTime _appTrackingReminderCutoff = DateTime.utc(2026, 10, 23, 10, 33, 32);
+
+bool _requiresAppShipmentTracking(ShopOrder order) =>
+    order.isApp &&
+    order.status == 'shipping' &&
+    order.deliveryType != 'pickup' &&
+    order.trackingNumber.trim().isEmpty &&
+    order.createdAt.toUtc().isAfter(_appTrackingReminderCutoff);
+
+bool _showsAppTrackingEditor(ShopOrder order) =>
+    order.isApp &&
+    order.status != 'cancelled' &&
+    (order.trackingNumber.trim().isNotEmpty ||
+      order.createdAt.toUtc().isAfter(_appTrackingReminderCutoff));
+
+
 // Bring the web administration experience to the new signed iOS tester
 // build. Browser-specific passkeys and URL handling must remain web-only.
 const bool _iosTesterParity = bool.fromEnvironment('APP_STORE_BUILD');
@@ -6076,9 +6094,7 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
             'yesterday' => o.status != 'cancelled' && orderDay == yesterday,
             'accepted' => _adminAwaitingPreparation(o),
             'prepared' => _adminPreparedForDispatch(o),
-            'tracking_missing' => o.status == 'shipping' &&
-                o.deliveryType != 'pickup' &&
-                o.trackingNumber.trim().isEmpty,
+            'tracking_missing' => _requiresAppShipmentTracking(o),
             _ => o.status == filter,
           };
           final matchQuery =
@@ -6561,7 +6577,7 @@ class _ProfessionalOrderCard extends StatelessWidget {
             const SizedBox(height: 12),
             _PaymentProofPanel(api: api, path: order.paymentProofPath),
           ],
-          if (_enhancedAdminUi && order.status != 'cancelled') ...[
+          if (_enhancedAdminUi && _showsAppTrackingEditor(order)) ...[
             const SizedBox(height: 12),
             Container(
               width: double.infinity,

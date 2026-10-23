@@ -1052,6 +1052,68 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
     }
   }
 
+  /// Legacy prepaid order balance is separate from the original advance.
+  /// Only the authenticated administrator can see the remaining receipt.
+  Future<void> _checkoutPayment(Map row) async {
+    final id='${row['id']}';
+    try {
+      final raw=await api.admin(widget.secret,'checkout_detail',{'id':id});
+      if(!mounted)return;
+      if(raw is! Map || raw['price_ready']!=true) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content:Text('Yakuniy narx hali tasdiqlanmagan yoki hisob ochilmagan.')));
+        return;
+      }
+      final due=(raw['amount_due'] as num?)?.toInt()??0;
+      final deposited=(raw['deposit_credit'] as num?)?.toInt()??0;
+      final extra=(raw['extra_total'] as num?)?.toInt()??0;
+      final status='${raw['payment_state']??''}';
+      final receipt='${raw['balance_proof_url']??''}';
+      final added=((raw['extras'] as List?)??const []).whereType<Map>().toList();
+      final confirm=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
+        title:const Text('Oldindan zakaz • Qolgan to‘lov'),
+        content:SizedBox(width:430,child:SingleChildScrollView(child:Column(
+          mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,
+          children:[
+            Text('Kitob: ${row['book_title']??''}'),
+            Text('Avans: ${webPreorderMoney(deposited)}'),
+            Text('Qo‘shimcha kitoblar: ${webPreorderMoney(extra)}'),
+            for(final item in added)
+              Text('• ${item['title']} × ${item['quantity']}'),
+            const SizedBox(height:8),
+            Text('Qolgan summa: ${webPreorderMoney(due)}',
+              style:const TextStyle(fontWeight:FontWeight.w900,fontSize:20)),
+            Text('Holat: $status'),
+            if(receipt.isNotEmpty)TextButton.icon(
+              onPressed:(){Navigator.pop(ctx,false);_view(receipt);},
+              icon:const Icon(Icons.receipt_long),
+              label:const Text('Qolgan to‘lov chekini ko‘rish')),
+            if(status=='proof_submitted')
+              const Text('Tasdiqlashdan oldin bankdagi haqiqiy tushumni tekshiring.'),
+          ],
+        ))),
+        actions:[
+          TextButton(onPressed:()=>Navigator.pop(ctx,false),
+            child:const Text('Yopish')),
+          if(status=='proof_submitted'||(due==0&&status=='requested'))
+            FilledButton(onPressed:()=>Navigator.pop(ctx,true),
+              child:const Text('Qolgan to‘lovni tasdiqlash')),
+        ],
+      ));
+      if(confirm!=true||!mounted)return;
+      final result=await api.admin(widget.secret,'checkout_confirm',{'id':id});
+      if(result is! Map||result['payment_state']!='verified') {
+        throw StateError('To‘lov tasdiqlanmadi');
+      }
+      await _load();
+      if(mounted)ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content:Text('To‘lov tasdiqlandi ✅')));
+    }catch(e){
+      if(mounted)ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text('Qolgan to‘lov tekshirilmadi: $e')));
+    }
+  }
+
   Future<void> _more(List<Map> loaded) async {
     if (loadingMore) return;
     setState(() => loadingMore = true);
@@ -1332,6 +1394,11 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
                                                 Icons.receipt_outlined,
                                               ),
                                               label: const Text('Avans cheki'),
+                                            ),
+                                            OutlinedButton.icon(
+                                              onPressed:()=>_checkoutPayment(r),
+                                              icon:const Icon(Icons.account_balance_wallet_outlined),
+                                              label:const Text('Qolgan to‘lov va chek'),
                                             ),
                                             for (final action in <String>[
                                               if (r['status'] == 'waiting') 'accepted',

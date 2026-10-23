@@ -17,15 +17,18 @@ class _PrepaidCheckoutState extends AppState {
   int deliverySaves = 0;
   int ordinaryOrders = 0;
   String savedAddress = '';
+  String savedDeliveryType = '택배';
   @override
   Future<Map<String, dynamic>> webPreorderInvoice(String id) async => {
     'source': 'web', 'id': id, 'title': 'Yusufning qizi',
     'book_id': 'fabb4d3a-fd96-470a-bcc8-738f59ce157d',
     'status': 'arrived', 'price_ready': true,
     'quantity': 1, 'unit_price': 17000,
-    'extra_total': 0, 'base_total': 21000,
-    'deposit_credit': 5000, 'amount_due': 16000,
-    'shipping_fee': 4000,
+    'extra_total': 0, 'base_total': savedDeliveryType == '택배' ? 21000 : 17000,
+    'deposit_credit': 5000, 'amount_due': savedDeliveryType == '택배' ? 16000 : 12000,
+    'shipping_fee': savedDeliveryType == '택배' ? 4000 : 0,
+    'proof_submitted_amount': 16000,
+    'shipping_refund_due': savedDeliveryType == '택배' ? 0 : 4000,
     'payment_state': 'proof_submitted', 'can_edit': false,
     'delivery_type': '택배', 'delivery_saved': false,
     'recipient_name': 'Test Mijoz', 'recipient_phone': '01012345678',
@@ -39,6 +42,7 @@ class _PrepaidCheckoutState extends AppState {
   }) async {
     deliverySaves++;
     savedAddress = address;
+    savedDeliveryType = deliveryType;
     return {
       ...await webPreorderInvoice(id),
       'delivery_saved': true,
@@ -106,5 +110,53 @@ void main() {
     expect(state.deliverySaves, 1);
     expect(state.savedAddress, contains('경산시'));
     expect(state.localOrders, isEmpty);
+  });
+
+
+  testWidgets('paid preorder lets customer switch to FREE Gyeongsan home delivery, with 4000 refund flagged',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(440, 1050);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final state = _PrepaidCheckoutState();
+    await tester.pumpWidget(ChangeNotifierProvider<AppState>.value(
+      value: state,
+      child: const MaterialApp(home: CheckoutPage(
+        preorderId: 'fabb4d3a-fd96-470a-bcc8-738f59ce157d',
+      )),
+    ));
+    await tester.pumpAndSettle();
+
+    final scroll = find.byType(Scrollable).first;
+    final local = find.text('Gyeongsan ichida manzilga bepul yetkazish');
+    await tester.scrollUntilVisible(local, 170, scrollable: scroll);
+    await tester.tap(local);
+    await tester.pumpAndSettle();
+    expect(find.text('Gyeongsan ichida manzilga bepul yetkazish'), findsOneWidget);
+
+    final addr = find.widgetWithText(TextFormField, 'Manzil');
+    await tester.scrollUntilVisible(addr, -185, scrollable: scroll);
+    await tester.enterText(addr, '경상북도 경산시 계양로 37길 7-3 808호');
+    await tester.scrollUntilVisible(
+      find.text('Admin qaytarishi kerak'), 170, scrollable: scroll);
+    expect(find.text('Admin qaytarishi kerak'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Qabul qiluvchi va manzilni saqlash'), 175, scrollable: scroll);
+    await tester.tap(find.text('Qabul qiluvchi va manzilni saqlash'));
+    await tester.pumpAndSettle();
+
+    expect(state.savedDeliveryType, '경산 무료배송');
+    expect(state.deliverySaves, 1);
+    expect(state.savedAddress, contains('경산시'));
+    expect(find.text('Yana kitob qo‘shish'), findsNothing);
+    expect(state.localOrders, isEmpty);
+  });
+
+  test('Gyeongsan eligibility matches actual city address and blocks nonlocal', () {
+    expect(isGyeongsanDeliveryAddress('경상북도 경산시 계양로 37'), isTrue);
+    expect(isGyeongsanDeliveryAddress('Gyeongsan, 33 Some-ro'), isTrue);
+    expect(isGyeongsanDeliveryAddress('대구광역시 수성구 12'), isFalse);
   });
 }

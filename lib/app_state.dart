@@ -1512,6 +1512,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> _registerInstallation() async {
     try {
+      if (const bool.fromEnvironment('ANALYTICS_TEST_BUILD')) return;
       // Google Play Pre-launch Report Firebase Test Lab qurilmalarida
       // analytics install yaratmaymiz. Aks holda avtomatik Robo testlar
       // haqiqiy mijoz/qurilma sifatida sanalib ketadi.

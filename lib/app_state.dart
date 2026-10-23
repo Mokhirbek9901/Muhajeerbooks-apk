@@ -1890,6 +1890,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       await _local.saveOrders(_localOrders);
     }
     notifyListeners();
+    unawaited(refreshPreorderNotices());
+    unawaited(refreshCustomerPushMessages());
   }
 
   Future<void> _restorePersonalPinQuietly() async {

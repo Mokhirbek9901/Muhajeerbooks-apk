@@ -30,8 +30,13 @@ class _SelectedBatchBook {
 }
 
 class WebBatchMultiAddPage extends StatefulWidget {
-  const WebBatchMultiAddPage({super.key, required this.secret});
+  const WebBatchMultiAddPage({
+    super.key, required this.secret, this.initialBatch,
+  });
   final String secret;
+  /// Directly open an old historical batch without navigating the dropdown.
+  /// Examples: import:6, finance_group:<uuid>, group:<uuid>.
+  final String? initialBatch;
   @override
   State<WebBatchMultiAddPage> createState() => _WebBatchMultiAddPageState();
 }
@@ -64,6 +69,15 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
       .then((value) => value is Map
         ? Map<String,dynamic>.from(value)
         : <String,dynamic>{});
+    if(widget.initialBatch!=null) {
+      _mode='old';
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        try {
+          final data=await _data;
+          if(mounted) await _openOldBatch(widget.initialBatch,data);
+        } catch (_) { /* FutureBuilder presents the loading error. */ }
+      });
+    }
   }
 
   @override

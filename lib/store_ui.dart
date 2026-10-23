@@ -7585,22 +7585,26 @@ class _PaymentCard extends StatelessWidget {
 
 Widget _priceRow(String label, int value, {bool bold = false}) => Row(
   children: [
-    Text(
+    Expanded(child: Text(
       label,
+      maxLines: 2,
       style: TextStyle(
         fontWeight: bold ? FontWeight.w900 : FontWeight.w500,
         fontSize: bold ? 17 : 14,
       ),
-    ),
-    const Spacer(),
-    Text(
+    )),
+    const SizedBox(width: 8),
+    Flexible(child: Text(
       won(value),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      textAlign: TextAlign.end,
       style: TextStyle(
         fontWeight: bold ? FontWeight.w900 : FontWeight.w700,
         fontSize: bold ? 20 : 14,
         color: bold ? _navy : null,
       ),
-    ),
+    )),
   ],
 );
 

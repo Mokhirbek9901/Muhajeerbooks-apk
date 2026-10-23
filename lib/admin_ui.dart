@@ -9057,7 +9057,9 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                         ])),
                     const SizedBox(height: 12),
                     sourceTile('Play / beta (tarixiy va yangi IDlar)', 'play_market_or_test'),
-                    sourceTile('App Store / TestFlight', 'app_store_or_testflight'),
+                    sourceTile('App Store (eski testlar ham bo‘lishi mumkin)', 'app_store_or_testflight'),
+                    if (n('ios_testflight', 'installation_ids') > 0)
+                      sourceTile('TestFlight (yangi buildlar)', 'ios_testflight'),
                     sourceTile('Web brauzer', 'web'),
                     sourceTile('Android APK', 'android_apk'),
                     if (n('ios_other', 'installation_ids') > 0)
@@ -9067,8 +9069,10 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                       'Ilovaga kirishlar identifikatorlar orqali qayd etiladi. '
                       'Sana bo‘yicha ajratish test yoki haqiqiy mijozni tasdiqlamaydi. '
                       'Bu Google Play haqiqiy yuklab olish soni emas. '
-                      'App Store va TestFlight, Play Market va beta '
-                      'versiyalarini ushbu bazadan aniq ajratib bo‘lmaydi. '
+                      'Yangi TestFlight buildlari alohida sanaladi, ammo eski '
+                      'App Store sifatida belgilangan testlarni ortga qarab '
+                      'aniq ajratib bo‘lmaydi. Play va beta versiyalari '
+                      'haqida ham xuddi shunday cheklov bor. '
                       'Rasmiy raqamlarni Play Console va App Store Connect '
                       'orqali tekshiring.',
                       style: TextStyle(color: AppColors.muted, height: 1.4),

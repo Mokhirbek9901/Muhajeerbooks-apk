@@ -25,9 +25,9 @@ jobs:
             target: default
             profile: pixel_2
           - api: 35
-            target: google_apis
+            target: default
             profile: pixel_6
-    timeout-minutes: 40
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -80,7 +80,7 @@ jobs:
             --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
       - name: Prepare screenshot validation
         run: python3 -m pip install --quiet pillow
-      - name: Smoke test Android 9 emulator startup and capture screenshot
+      - name: Smoke test Android ${{ matrix.api }} emulator startup and capture screenshot
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api }}
@@ -88,7 +88,8 @@ jobs:
           target: ${{ matrix.target }}
           profile: ${{ matrix.profile }}
           ram-size: 2048M
-          disk-size: 4096M
+          disk-size: 6144M
+          emulator-boot-timeout: 900
           disable-animations: true
           script: |
             adb install -r build/app/outputs/flutter-apk/app-release.apk

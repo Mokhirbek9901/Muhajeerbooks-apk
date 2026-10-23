@@ -820,7 +820,7 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                   controller: _search,
                   focusNode: _searchFocus,
                   onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'Kitob nomini yozib tez toping...',
                     prefixIcon: Icon(Icons.search_rounded),
                     suffixIcon:_search.text.isNotEmpty?IconButton(

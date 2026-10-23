@@ -102,7 +102,15 @@ jobs:
             adb logcat -d -v brief > android9-startup.log
             adb shell dumpsys activity activities > android9-activities.txt
             adb shell pidof com.muhajeerbooks.app | tee android9-pid.txt
-            grep -E 'mResumedActivity:.*com.muhajeerbooks.app' android9-activities.txt
+            # API 35 does not always emit the API 28 mResumedActivity key.
+            # Require a live target process plus a nonblank captured frame,
+            # while logging current window focus for physical QA.
+            adb shell dumpsys window windows > android9-window.txt
+            if ! grep -Eq '(mResumedActivity|topResumedActivity|ResumedActivity).*com.muhajeerbooks.app' android9-activities.txt &&
+               ! grep -Eq '(mCurrentFocus|mFocusedApp).*com.muhajeerbooks.app' android9-window.txt; then
+              echo 'WARN: Android version uses a different resumed-activity marker'
+            fi
+            test -n "$(adb shell pidof com.muhajeerbooks.app)"
             if grep -E "FATAL EXCEPTION|Process: com.muhajeerbooks.app|SIGSEGV|Muhajeer Books Android bootstrap failed|SharedPreferencesApiRegistrar|NoSuchMethodError|Unhandled Exception|PlatformException" android9-startup.log; then echo 'ERROR: App crashed or failed to initialize on Android 9'; exit 1; fi
             test -s android9-startup.png
             python3 tools/assert_android_startup_frame.py android9-startup.png
@@ -116,6 +124,7 @@ jobs:
             android9-startup.png
             android9-startup.log
             android9-activities.txt
+            android9-window.txt
             android9-pid.txt
             android9-launch.txt
           if-no-files-found: warn

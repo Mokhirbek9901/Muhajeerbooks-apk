@@ -31,7 +31,7 @@ class _CustomerPreorderBalancesPageState
 
   Future<List<Map<String,dynamic>>> loadAll() async {
     final state=context.read<AppState>();
-    if (!state.checkoutIdentityReady) return const [];
+    if (state.backendConfigured && !state.checkoutIdentityReady) return const [];
     final own=await state.myPreorderBalances();
     final lookups=await state.myDiscoveredPreorders();
     // A PIN session is required to bring other device histories together.
@@ -203,7 +203,8 @@ class _CustomerPreorderBalancesPageState
         ),
       ],
     ),
-    body: !context.watch<AppState>().checkoutIdentityReady
+    body: context.watch<AppState>().backendConfigured &&
+          !context.watch<AppState>().checkoutIdentityReady
       ? Center(child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(mainAxisSize: MainAxisSize.min, children: [

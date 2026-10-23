@@ -1751,6 +1751,34 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     unawaited(refreshPreorderNotices());
   }
 
+  /// Checkout requires a reusable PIN-backed local profile, not an SMS code.
+  /// Existing successful PIN logins stay active until the session expires.
+  bool get checkoutIdentityReady =>
+      pinSessionActive &&
+      (savedCustomer['name'] ?? '').trim().length >= 2 &&
+      (savedCustomer['phone'] ?? '').replaceAll(RegExp(r'\D'), '').length >= 9;
+
+  /// Register first, then save locally: an existing phone/PIN must not replace
+  /// the current local identity when account registration fails.
+  Future<void> enrollCustomerWithPin(String name, String phone, String pin) async {
+    if (_backend == null) throw StateError('Ro‘yxatdan o‘tish uchun internet kerak');
+    final cleanName = name.trim();
+    final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
+    if (cleanName.length < 2 || cleanPhone.length < 9 ||
+        !RegExp(r'^[0-9]{4}$').hasMatch(pin)) {
+      throw StateError('Ism, telefon yoki 4 xonali PINni tekshiring');
+    }
+    final installId = await _local.installId();
+    final result = await _backend!.pinCreate(cleanName, cleanPhone, pin, installId);
+    final token = '${result['session'] ?? ''}';
+    if (token.length != 64) throw StateError('PIN ro‘yxati tasdiqlanmadi');
+    await setAuthenticatedCustomer(cleanName, cleanPhone, verified: false);
+    await _local.savePinSession(token);
+    _pinSession = token;
+    notifyListeners();
+    unawaited(refreshPreorderNotices());
+  }
+
   Future<void> createPersonalPin(String pin) async {
     if(_backend==null)throw StateError('Internet kerak');
     final name=(savedCustomer['name']??'').trim();

@@ -58,7 +58,7 @@ List<Map<String,dynamic>> searchBatchCatalogBooks(
   String normalize(String raw) => raw.toLowerCase()
     .replaceAll(RegExp(r"['ʻ‘’ʼ`´]"),'')
     .replaceAll(RegExp(r'[-_.,/]+'),' ')
-    .replaceAll(RegExp(r'\\s+'),' ')
+    .replaceAll(RegExp(r'\s+'),' ')
     .trim();
   final words=normalize(search).split(' ')
     .where((w)=>w.isNotEmpty).toList();

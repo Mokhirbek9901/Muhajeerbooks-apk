@@ -6422,7 +6422,10 @@ class _DiscountShippingWarning extends StatelessWidget {
 }
 
 class CheckoutPage extends StatefulWidget {
-  const CheckoutPage({super.key});
+  const CheckoutPage({super.key, this.preorderId});
+  /// If set, use this SAME checkout for the existing prepaid order.
+  /// Do not combine it with the unrelated user's standard cart.
+  final String? preorderId;
 
   @override
   State<CheckoutPage> createState() => _CheckoutPageState();
@@ -6430,6 +6433,10 @@ class CheckoutPage extends StatefulWidget {
 
 class _CheckoutPageState extends State<CheckoutPage> {
   final formKey = GlobalKey<FormState>();
+  Map<String,dynamic>? prepaid;
+  bool prepaidLoading = false;
+  String? prepaidError;
+  bool get isPrepaid => widget.preorderId != null;
   final picker = ImagePicker();
   late final TextEditingController name;
   late final TextEditingController phone;
@@ -6458,6 +6465,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
     instagram = TextEditingController();
     orderNote = TextEditingController();
     manualPrice = TextEditingController();
+    if (isPrepaid) {
+      unawaited(_refreshPrepaid(hydrate: true));
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => _requireCustomerProfile());
   }
 
@@ -6486,6 +6496,148 @@ class _CheckoutPageState extends State<CheckoutPage> {
     orderNote.dispose();
     manualPrice.dispose();
     super.dispose();
+  }
+
+  Future<void> _refreshPrepaid({bool hydrate = false}) async {
+    final id = widget.preorderId;
+    if (id == null) return;
+    if (mounted) setState(() { prepaidLoading = true; prepaidError = null; });
+    try {
+      final result = await context.read<AppState>().webPreorderInvoice(id);
+      if (!mounted) return;
+      setState(() {
+        prepaid = result;
+        prepaidLoading = false;
+        if (hydrate) {
+          final oldName = (result['recipient_name'] ?? '').toString().trim();
+          final oldPhone = (result['recipient_phone'] ?? '').toString().trim();
+          if (oldName.isNotEmpty) name.text = oldName;
+          if (oldPhone.isNotEmpty) phone.text = oldPhone;
+          if (result['delivery_saved'] == true) {
+            delivery = result['delivery_type'] == '경산 직접수령'
+              ? '경산 직접수령' : '택배';
+            address.text = delivery == '택배'
+              ? (result['delivery_address'] ?? '').toString() : '';
+          }
+        }
+      });
+    } catch (error) {
+      if (mounted) setState(() {
+        prepaidLoading = false;
+        prepaidError = error.toString().replaceFirst('Bad state: ', '');
+      });
+    }
+  }
+
+  Future<void> _changePrepaidBook(String bookId,int delta) async {
+    final id = widget.preorderId;
+    if (id == null || saving) return;
+    setState(() => saving = true);
+    try {
+      await context.read<AppState>().changeWebPreorderExtra(id,bookId,delta);
+      if (mounted) await _refreshPrepaid();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text('Kitob o‘zgartirilmadi: $error')));
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  Future<void> _choosePrepaidBook() async {
+    final original = (prepaid?['book_id'] ?? '').toString();
+    final books = context.read<AppState>().books.where((b) =>
+      b.isActive && b.stock > 0 && b.price > 0 && b.id != original).toList();
+    String query = '';
+    final chosen = await showModalBottomSheet<Book>(
+      context:context,isScrollControlled:true,showDragHandle:true,
+      builder:(sheet) => StatefulBuilder(builder:(sheet, update) {
+        final matching = books.where((b) =>
+          b.title.toLowerCase().contains(query.toLowerCase())).toList();
+        return SafeArea(child:Padding(
+          padding:EdgeInsets.fromLTRB(16,8,16,MediaQuery.viewInsetsOf(sheet).bottom+12),
+          child:SizedBox(height:MediaQuery.sizeOf(sheet).height*.68,
+            child:Column(children:[
+              const Text('Yana kitob qo‘shish',
+                style:TextStyle(fontSize:20,fontWeight:FontWeight.w800)),
+              const SizedBox(height:12),
+              TextField(onChanged:(v)=>update(()=>query=v),
+                decoration:const InputDecoration(
+                  labelText:'Kitob qidirish',prefixIcon:Icon(Icons.search))),
+              Expanded(child:ListView.builder(itemCount:matching.length,
+                itemBuilder:(_,i)=>ListTile(
+                  title:Text(matching[i].title),
+                  subtitle:Text('${won(matching[i].price)} • ${matching[i].stock} ta'),
+                  trailing:const Icon(Icons.add_circle_outline),
+                  onTap:()=>Navigator.pop(sheet,matching[i])))),
+            ])),
+        ));
+      }),
+    );
+    if (chosen != null && mounted) await _changePrepaidBook(chosen.id,1);
+  }
+
+  Future<Map<String,dynamic>?> _savePrepaidAddress() async {
+    final id = widget.preorderId;
+    if (id == null || !mounted || formKey.currentState?.validate() != true) return null;
+    setState(() => saving = true);
+    try {
+      final value = await context.read<AppState>().saveWebPreorderDelivery(id,
+        recipientName:name.text.trim(),recipientPhone:phone.text.trim(),
+        address:address.text.trim(),deliveryType:delivery);
+      if (mounted) setState(() => prepaid = value);
+      return value;
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text('Manzil saqlanmadi: $error')));
+      return null;
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  Future<void> _submitPrepaid() async {
+    if (!await _requireCustomerProfile() || !mounted) return;
+    if (formKey.currentState?.validate() != true) return;
+    final previous = prepaid;
+    if (previous == null || previous['status'] != 'arrived' ||
+        previous['price_ready'] != true) return;
+    final updated = await _savePrepaidAddress();
+    if (updated == null || !mounted) return;
+    final paymentState = (updated['payment_state'] ?? '').toString();
+    final due = (updated['amount_due'] as num?)?.toInt() ?? 0;
+    if (paymentState == 'requested' && due > 0) {
+      if (paymentProof == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content:Text('Qolgan to‘lov chekini tanlang.')));
+        return;
+      }
+      setState(() => saving = true);
+      try {
+        await context.read<AppState>().submitWebPreorderRemainingPayment(
+          widget.preorderId!,paymentProof!);
+        if (mounted) {
+          await _refreshPrepaid();
+          if (mounted) showDialog<void>(
+            context:context,builder:(ctx)=>AlertDialog(
+              title:const Text('Buyurtma yuborildi'),
+              content:const Text('Oldingi avans chegirildi. '
+                'Qolgan to‘lov cheki va yetkazish manzili shu eski zakazga '
+                'biriktirildi. Admin tekshiradi.'),
+              actions:[FilledButton(onPressed:()=>Navigator.pop(ctx),
+                child:const Text('Tushunarli'))]));
+        }
+      } catch (error) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content:Text('To‘lov cheki yuborilmadi: $error')));
+      } finally {
+        if (mounted) setState(()=>saving = false);
+      }
+    } else {
+      // Already submitted: do not upload a second receipt or create an order.
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content:Text('Manzil saqlandi. Buyurtma va oldingi chek o‘zgarmadi ✅')));
+    }
   }
 
   bool _professionalPhoneOk(String raw) {

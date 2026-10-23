@@ -576,6 +576,21 @@ class _CombinedPreorderDetailPageState extends State<_CombinedPreorderDetailPage
     }
   }
 
+  Future<void> _viewRemainingProof() async {
+    final path = '${record['balance_proof_path'] ?? ''}'.trim();
+    if (path.isEmpty || isWeb) return;
+    try {
+      final url = await widget.api.paymentProofUrl(path);
+      final uri = Uri.tryParse(url);
+      if (uri == null || !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        throw StateError('Chek ochilmadi');
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Qolgan to‘lov cheki ochilmadi: $e')));
+    }
+  }
+
   Future<void> _confirmRemainingPayment() async {
     final id = int.tryParse('${record['id']}');
     if (id == null || saving || isWeb) return;
@@ -765,7 +780,18 @@ class _CombinedPreorderDetailPageState extends State<_CombinedPreorderDetailPage
                 Text('Qo‘shimcha kitoblar: ${_won((record['extra_total'] as num?)?.toInt() ?? 0)}'),
                 Text('Qolgan to‘lov: ${_won((record['amount_due'] as num?)?.toInt() ?? 0)}',
                   style: const TextStyle(fontWeight:FontWeight.w900)),
-                Text('To‘lov holati: ${record['payment_state'] ?? 'requested'}'),
+                Text('To‘lov holati: ${{
+                  'requested': 'Mijoz to‘lovi kutilmoqda',
+                  'proof_submitted': 'Chek yuborildi — tekshirish kerak',
+                  'verified': 'To‘lov tasdiqlandi',
+                  'cancelled': 'Bekor qilindi',
+                }[record['payment_state']] ?? record['payment_state']}'),
+                if ('${record['balance_proof_path'] ?? ''}'.trim().isNotEmpty)
+                  TextButton.icon(
+                    icon: const Icon(Icons.receipt_long_outlined),
+                    label: const Text('Qolgan to‘lov chekini ko‘rish'),
+                    onPressed: saving ? null : _viewRemainingProof,
+                  ),
                 if ('${record['admin_note'] ?? ''}'.trim().isNotEmpty)
                   Text('Admin izohi: ${record['admin_note']}'),
               ],
@@ -805,11 +831,16 @@ class _CombinedPreorderDetailPageState extends State<_CombinedPreorderDetailPage
           if (!isWeb && status == 'arrived' &&
             record['payment_state'] != 'verified') ...[
             const SizedBox(height: 8),
-            FilledButton.icon(
-              onPressed: saving ? null : _confirmRemainingPayment,
-              icon: const Icon(Icons.verified_outlined),
-              label: const Text('Qolgan to‘lovni tekshirib tasdiqlash'),
-            ),
+            if (record['payment_state'] != 'proof_submitted' &&
+                (record['amount_due'] as num? ?? 0) > 0)
+              const Text('Mijoz hali qolgan to‘lov chekini yubormagan.',
+                style: TextStyle(color: AppColors.muted))
+            else
+              FilledButton.icon(
+                onPressed: saving ? null : _confirmRemainingPayment,
+                icon: const Icon(Icons.verified_outlined),
+                label: const Text('Qolgan to‘lovni tekshirib tasdiqlash'),
+              ),
           ],
           const SizedBox(height: 10),
           const Text(

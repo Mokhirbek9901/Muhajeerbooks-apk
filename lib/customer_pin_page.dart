@@ -21,6 +21,7 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
   final confirm = TextEditingController();
   bool creating = true;
   bool busy = false;
+  bool editLoginPhone = false;
 
   @override
   void initState() {
@@ -28,8 +29,8 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
     final saved = context.read<AppState>().savedCustomer;
     name = TextEditingController(text: saved['name'] ?? '');
     phone = TextEditingController(text: saved['phone'] ?? '');
-    // New profiles create a PIN; returning users can switch to PIN login.
-    creating = true;
+    // Returning users sign in with their saved phone and PIN.
+    creating = phone.text.trim().isEmpty;
   }
 
   @override

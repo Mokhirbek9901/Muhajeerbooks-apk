@@ -76,3 +76,10 @@ No schema/order/stock bulk data changes in mobile app; protected read-only admin
 - Production Supabase migration gyeongsan_free_delivery_paid_preorders_20261024 successful; customer-rpc Edge v24 deployed. Original Yusufning qizi proof (₩16,000) preserved; new Gyeongsan hypothetical due ₩12,000, pending admin refund ₩4,000 after customer selects and saves.
 - Flutter CI #40001527617 SUCCESS (all Flutter tests including paid preorder switching to local FREE delivery, analyzer, iOS TestFlight preview).
 - Submit only iOS TestFlight; DO NOT publish App Store or Play Market, merge main, or touch Railway.
+
+2026-10-24 04:06 KST — OWNER APPROVED TESTFLIGHT SUBMISSION. FINAL CODE SHA cb553ef395e4e5a891f61e123a3f3463460214fe passed Flutter CI run 40004731240.
+- Original checkout form stays; Gyeongsan pickup label: "경산dan (Gyeongsan) o‘zim olib ketaman".
+- Original subtitle: "BEPUL • Pochta puli olinmaydi".
+- Original One Mart area text stays. ONLY add selected-state notice: "Olib ketish joyi va vaqtini kelishish uchun admin siz bilan bog‘lanadi."
+- Remove newly added duplicate Gyeongsan FREE home-delivery radio choice, preserve existing checkout/advance receipts.
+- Build and upload latest branch to **iOS TestFlight ONLY**, verify upload. Do not submit to public App Store review, Play Market, main or Railway. Do not change real orders, deposits or stock.

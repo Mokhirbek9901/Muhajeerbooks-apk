@@ -232,19 +232,19 @@ class _WebPreorderCheckoutPageState extends State<WebPreorderCheckoutPage> {
             fontSize:20,fontWeight:FontWeight.w900)),
           const SizedBox(height:10),
           AppSurface(child:Column(children:[
-            RadioListTile<String>(
+            Material(color:Colors.transparent,child:RadioListTile<String>(
               value:'택배',groupValue:deliveryType,
               onChanged:canEdit?(value)=>setState(()=>deliveryType=value!):null,
               title:const Text('Koreya bo‘ylab pochta (택배)'),
               subtitle:Text(canEdit
                 ?(chosenShipping==0?'4+ kitob — BEPUL':'₩4,000 • 1–2 ish kuni')
-                :'To‘lov cheki yuborilgan, narx o‘zgarmaydi')),
+                :'To‘lov cheki yuborilgan, narx o‘zgarmaydi'))),
             const Divider(height:1),
-            RadioListTile<String>(
+            Material(color:Colors.transparent,child:RadioListTile<String>(
               value:'경산 직접수령',groupValue:deliveryType,
               onChanged:canEdit?(value)=>setState(()=>deliveryType=value!):null,
               title:const Text('경산dan o‘zim olib ketaman'),
-              subtitle:const Text('Gyeongsan • BEPUL')),
+              subtitle:const Text('Gyeongsan • BEPUL'))),
           ])),
           const SizedBox(height:16),
           const Text('3. Kitoblar',style:TextStyle(

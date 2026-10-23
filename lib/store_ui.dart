@@ -7497,65 +7497,18 @@ class ProfilePage extends StatelessWidget {
             child: Column(
               children: [
                 ListTile(
-                  minTileHeight: 68,
-                  leading: const _ProfileIcon(icon: Icons.person_add_alt_1_outlined),
-                  title: Text(
-                    displayPhone.trim().isEmpty
-                        ? 'Ism va telefon bilan kirish'
-                        : 'Ism va telefonni tahrirlash',
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  subtitle: const Text('SMSsiz kirish • keyingi zakaslarda avtomatik'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => _saveNamePhoneWithoutSms(context),
-                ),
-                const Divider(),
-                ListTile(
-                  minTileHeight: 68,
-                  leading: _ProfileIcon(
-                    icon: _webOrPlayCustomer
-                        ? Icons.person_outline_rounded
-                        : Icons.receipt_long_outlined,
-                  ),
-                  title: Text(
-                    _webOrPlayCustomer ? 'Mening ma’lumotlarim' : 'Mening buyurtmalarim',
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  subtitle: Text(
-                    _webOrPlayCustomer
-                        ? 'Profil, buyurtmalar, manzil va yordam'
-                        : 'Holatini kuzatish va tarixni ko‘rish',
-                  ),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => Navigator.push(
-                    context,
-                    muhajeerPageRoute(
-                      settings: RouteSettings(
-                        name: _webOrPlayCustomer ? 'mb:my-profile-web' : 'mb:orders',
-                      ),
-                      builder: (_) => _webOrPlayCustomer
-                          ? const _WebMyProfilePage()
-                          : const MyOrdersPage(),
-                    ),
-                  ),
-                ),
-                const Divider(),
-                ListTile(
-                  minTileHeight: 68,
-                  leading: const _ProfileIcon(icon: Icons.password_rounded),
-                  title: const Text('Ixtiyoriy 4 xonali PIN',
+                  minTileHeight: 74,
+                  leading: const _ProfileIcon(icon: Icons.person_outline_rounded),
+                  title: const Text('Mening ma’lumotlarim',
                     style: TextStyle(fontWeight: FontWeight.w800)),
-                  subtitle: Text(state.pinSessionActive
-                    ? 'PIN faol • boshqa telefondan kirish mumkin'
-                    : 'SMSsiz himoya • boshqa telefondan kirish'),
+                  subtitle: Text(state.checkoutIdentityReady
+                    ? 'Ism, telefon va PIN saqlangan • buyurtmaga tayyor'
+                    : 'Ism, telefon va PIN • SMSsiz ro‘yxatdan o‘tish'),
                   trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => Navigator.push(
-                    context,
-                    muhajeerPageRoute(
-                      settings: const RouteSettings(name: 'mb:customer-pin'),
-                      builder: (_) => const CustomerPinPage(),
-                    ),
-                  ),
+                  onTap: () => Navigator.push(context, muhajeerPageRoute(
+                    settings: const RouteSettings(name:'mb:my-profile-web'),
+                    builder: (_) => const _WebMyProfilePage(),
+                  )),
                 ),
                 const Divider(),
                 ListTile(
@@ -7667,7 +7620,10 @@ class _WebMyProfilePage extends StatelessWidget {
   const _WebMyProfilePage();
 
   Future<void> _editProfile(BuildContext context) async {
-    await _saveNamePhoneWithoutSms(context);
+    await Navigator.push(context, muhajeerPageRoute(
+      settings: const RouteSettings(name: 'mb:customer-pin'),
+      builder: (_) => const CustomerPinPage(),
+    ));
   }
 
   Future<void> _showAddress(BuildContext context) async {
@@ -7769,7 +7725,7 @@ class _WebMyProfilePage extends StatelessWidget {
                     OutlinedButton.icon(
                       onPressed: () => _editProfile(context),
                       icon: const Icon(Icons.edit_outlined, size: 18),
-                      label: const Text('Profilni tahrirlash'),
+                      label: const Text('Ism, telefon va PIN'),
                     ),
                     if (iosTestFlightPreview) ...[
                       const SizedBox(height: 10),
@@ -7780,22 +7736,23 @@ class _WebMyProfilePage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
+              AppSurface(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(state.checkoutIdentityReady
+                    ? 'Profilingiz buyurtmalarga tayyor'
+                    : 'Buyurtma berish uchun ism, telefon va PINni kiriting.',
+                    style: const TextStyle(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 6),
+                  const Text('SMS talab qilinmaydi. Boshqa telefondan '
+                    'buyurtmalarni topish uchun 4 xonali PINni eslab qoling.'),
+                ],
+              )),
+              const SizedBox(height: 14),
               AppSurface(
                 padding: EdgeInsets.zero,
                 child: Column(
                   children: [
-                    _WebProfileMenuTile(
-                      icon: Icons.password_rounded,
-                      title: 'Ixtiyoriy PIN himoyasi',
-                      onTap: () => Navigator.push(
-                        context,
-                        muhajeerPageRoute(
-                          settings: const RouteSettings(name: 'mb:customer-pin'),
-                          builder: (_) => const CustomerPinPage(),
-                        ),
-                      ),
-                    ),
-                    const Divider(height: 1),
                     _WebProfileMenuTile(
                       icon: Icons.receipt_long_outlined,
                       title: 'Buyurtmalarim',

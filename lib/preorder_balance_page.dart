@@ -278,7 +278,20 @@ class _CustomerPreorderBalancesPageState
                 : status=='cancelled'
                   ? 'Zakaz bekor qilingan.'
                   : 'Zakazingiz holatini shu yerdan kuzatishingiz mumkin.'),
-            if(contactOnly)
+            if(record['ownership']=='pin' && info != null) ...[
+              const Divider(height:20),
+              Text('Asosiy summa va pochta: ${won((info['base_total'] as num?)?.toInt() ?? 0)}'),
+              Text('Qo‘shimcha kitoblar: ${won((info['extra_total'] as num?)?.toInt() ?? 0)}'),
+              Text('To‘langan avans: −${won((info['deposit_credit'] as num?)?.toInt() ?? 0)}'),
+              Text('Qolgan to‘lov: ${won((info['amount_due'] as num?)?.toInt() ?? 0)}',
+                style:const TextStyle(fontWeight:FontWeight.w900)),
+              if('${info['admin_note']??''}'.trim().isNotEmpty)
+                Text('Admin izohi: ${info['admin_note']}'),
+              const Text('Hisob PIN orqali faqat ko‘rish uchun ochilgan. '
+                'Chek yuborish uchun asosiy buyurtma qurilmasidan foydalaning.',
+                style:TextStyle(color:UzbekCustomerColors.textMuted,fontSize:12)),
+            ],
+            if(contactOnly && record['ownership']!='pin')
               const Text('To‘lov va chek ma’lumotlari xavfsizlik uchun '
                 'faqat asl qurilmada ko‘rinadi.',
                 style:TextStyle(color:UzbekCustomerColors.textMuted,fontSize:12)),

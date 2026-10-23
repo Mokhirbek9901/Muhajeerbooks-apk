@@ -825,6 +825,21 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
     name=TextEditingController(text:saved['name']??'');
     phone=TextEditingController(text:(saved['phone']??'').replaceAll(RegExp(r'\D'),''));
     amount=TextEditingController(text:'${widget.book.preorderDepositMin}');
+    WidgetsBinding.instance.addPostFrameCallback((_) => _requireCustomerProfile());
+  }
+
+  Future<bool> _requireCustomerProfile() async {
+    if (!mounted) return false;
+    final ok = await ensureCustomerCheckoutIdentity(context);
+    if (!mounted) return false;
+    if (!ok) {
+      if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+      return false;
+    }
+    final saved = context.read<AppState>().savedCustomer;
+    name.text = (saved['name'] ?? '').trim();
+    phone.text = (saved['phone'] ?? '').replaceAll(RegExp(r'\D'), '');
+    return true;
   }
 
   @override
@@ -851,7 +866,8 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
   }
 
   Future<void> submit() async {
-    if(!formKey.currentState!.validate()) return;
+    if (!await _requireCustomerProfile()) return;
+    if (!mounted || !formKey.currentState!.validate()) return;
     if(proof==null){
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Oldindan to‘lov chekini tanlang.')));
       return;
@@ -6442,6 +6458,23 @@ class _CheckoutPageState extends State<CheckoutPage> {
     instagram = TextEditingController();
     orderNote = TextEditingController();
     manualPrice = TextEditingController();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _requireCustomerProfile());
+  }
+
+  Future<bool> _requireCustomerProfile() async {
+    if (!mounted || professionalMode) return true;
+    final ok = await ensureCustomerCheckoutIdentity(context);
+    if (!mounted) return false;
+    if (!ok) {
+      if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+      return false;
+    }
+    final saved = context.read<AppState>().savedCustomer;
+    final savedName = (saved['name'] ?? '').trim();
+    final savedPhone = (saved['phone'] ?? '').replaceAll(RegExp(r'\D'), '');
+    if (savedName.isNotEmpty) name.text = savedName;
+    if (savedPhone.isNotEmpty) phone.text = savedPhone;
+    return true;
   }
 
   @override
@@ -7088,7 +7121,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Future<void> _submit(AppState state, int deliveryFee) async {
-    if (!formKey.currentState!.validate()) return;
+    if (!professionalMode && !await _requireCustomerProfile()) return;
+    if (!mounted || !formKey.currentState!.validate()) return;
     if (!professionalMode && (!paymentDone || paymentProof == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

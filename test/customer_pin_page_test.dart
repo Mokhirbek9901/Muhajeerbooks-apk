@@ -33,7 +33,10 @@ void main() {
     await tester.enterText(inputs.at(1), '01012345678');
     await tester.enterText(inputs.at(2), '1234');
     await tester.enterText(inputs.at(3), '4321');
-    await tester.ensureVisible(find.text('PINni saqlash'));
+    await tester.scrollUntilVisible(
+      find.text('PINni saqlash'), 180,
+      scrollable: find.byType(Scrollable),
+    );
     await tester.tap(find.text('PINni saqlash'));
     await tester.pump();
     expect(find.text('PINlar bir xil emas'), findsOneWidget);

@@ -1017,47 +1017,52 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: Center(child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 800),
-              child: Row(children: [
-                Expanded(child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min, children: [
-                    Text('${_selected.length} nomdagi kitob',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800, fontSize: 12)),
+              child:LayoutBuilder(builder:(context,size) {
+                final narrow=size.maxWidth<520;
+                final summary=Column(
+                  crossAxisAlignment:CrossAxisAlignment.start,
+                  mainAxisSize:MainAxisSize.min,
+                  children:[
+                    Text('${_selected.length} nom • $totalQuantity dona',
+                      style:const TextStyle(
+                        fontWeight:FontWeight.w900,fontSize:13,
+                        color:UzbekCustomerColors.navy)),
                     if(_mode=='old' && _existingRevision!=null)...[
                       Text(financeLinked
-                        ? 'Moliyadagi xarajat: ${_money(financeAmount ?? 0)}'
-                        : 'Moliyadagi xarajat biriktirilmagan',
-                        style:const TextStyle(
-                          fontWeight:FontWeight.w900,fontSize:13)),
-                      Text('Kitoblarning jami tannarxi: ${_money(sum)}',
-                        style:const TextStyle(
-                          fontWeight:FontWeight.w600,fontSize:11.5)),
+                        ?'Moliyadagi xarajat: ${_money(financeAmount??0)}'
+                        :'Moliyada xarajat bog‘lanmagan',
+                        style:const TextStyle(fontSize:12,
+                          fontWeight:FontWeight.w800)),
+                      Text('Kitoblar tannarxi: ${_money(sum)}',
+                        style:const TextStyle(fontSize:12)),
                       if(difference!=null)
                         Text('Farq: ${_money(difference.abs())}',
-                          style:const TextStyle(
-                            fontWeight:FontWeight.w800,fontSize:12)),
-                    ] else ...[
-                      Text('Kitoblar ${_money(sum)} + '
-                          'transport ${_money(transportTotal)}',
-                        style:const TextStyle(
-                          fontWeight:FontWeight.w700,fontSize:11.5)),
-                      Text('Jami ${_money(sum + transportTotal)}',
-                        style:const TextStyle(
-                          fontWeight:FontWeight.w900,fontSize:17,
-                          color:UzbekCustomerColors.navy)),
-                    ],
+                          style:const TextStyle(fontWeight:FontWeight.w800,
+                            fontSize:12)),
+                    ] else
+                      Text('Kitoblar: ${_money(sum)}'
+                        ' • Transport: ${_money(transportTotal)}',
+                        style:const TextStyle(fontSize:12)),
                   ],
-                )),
-                FilledButton.icon(
-                  onPressed: _submitting || _existingLoading ||
-                    _confirming ? null : _save,
-                  icon: _submitting ? const SizedBox(width: 16,height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.save_outlined),
-                  label: const Text('Partiyani saqlash'),
-                ),
-              ]),
+                );
+                final action=FilledButton.icon(
+                  onPressed:_submitting || _existingLoading ||
+                    _confirming?null:_save,
+                  icon:_submitting
+                    ?const SizedBox(width:16,height:16,
+                      child:CircularProgressIndicator(strokeWidth:2))
+                    :const Icon(Icons.save_outlined),
+                  label:const Text('Partiyani saqlash'),
+                );
+                return narrow
+                  ?Column(crossAxisAlignment:CrossAxisAlignment.stretch,
+                    children:[summary,const SizedBox(height:8),action])
+                  :Row(children:[
+                    Expanded(child:summary),
+                    const SizedBox(width:16),
+                    action,
+                  ]);
+              }),
             ))),
           ),
         ]);

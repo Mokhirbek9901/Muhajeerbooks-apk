@@ -507,9 +507,11 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
       if (widget.book == null) bookPath ??= await api.upload(id, 'book', bookImage!, c.revision);
       proofPath ??= await api.upload(id, 'proof', proofImage!, c.revision,
         bookId: widget.book?.id, termsToken: widget.book == null ? null : c.termsToken);
+      final preorderInstallId = await context.read<AppState>().preorderInstallationId();
       await api.call('submit', {
         'p_request': {
           'id': id,
+          'install_id': preorderInstallId,
           if (widget.book != null) 'book_id': widget.book!.id,
           'terms_token': c.termsToken,
           'customer_name': name.text.trim(),

@@ -443,8 +443,177 @@ class _CombinedPreorderDetailPageState extends State<_CombinedPreorderDetailPage
     }
   }
 
+  Future<void> _arriveWithInvoice() async {
+    if (saving || isWeb) return;
+    final id = int.tryParse('${record['id']}');
+    if (id == null) return;
+    final oldStatus = status;
+    var priceText = '${record['catalog_price'] ?? 0}';
+    var shippingText = '4000';
+    var noteText = '';
+    final key = GlobalKey<FormState>();
+    final form = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, update) {
+        final qty = (record['quantity'] as num?)?.toInt() ?? 1;
+        final deposit = (record['deposit_amount'] as num?)?.toInt() ?? 0;
+        final subtotal = (int.tryParse(priceText) ?? 0) * qty;
+        final total = subtotal + (int.tryParse(shippingText) ?? 0);
+        final due = total - deposit;
+        return AlertDialog(
+          title: const Text('Kitob keldi — to‘lov hisoblash'),
+          content: SizedBox(width: 440, child: SingleChildScrollView(
+            child: Form(key: key, child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('$bookTitle • $qty ta',
+                  style: const TextStyle(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 8),
+                Text('Band qilingan: ${record['reserved_qty'] ?? 0} ta. '
+                  'Erkin sotuvda: ${record['available_stock'] ?? 0} ta.'),
+                const SizedBox(height: 8),
+                const Text('Avval kelgan partiyani omborga kiriting. '
+                  'Tizim avansli kitobni boshqalarga sotishga bermaydi.',
+                  style: TextStyle(color: AppColors.muted)),
+                const SizedBox(height: 14),
+                TextFormField(
+                  initialValue: priceText,
+                  keyboardType: TextInputType.number,
+                  onChanged: (v) => update(() => priceText = v),
+                  decoration: const InputDecoration(
+                    labelText: 'Bitta kitobning yakuniy narxi (₩)',
+                  ),
+                  validator: (v) => (int.tryParse(v ?? '') ?? 0)<=0
+                    ? 'Narxni kiriting' : null,
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  initialValue: shippingText,
+                  keyboardType: TextInputType.number,
+                  onChanged: (v) => update(() => shippingText = v),
+                  decoration: const InputDecoration(
+                    labelText: 'Pochta to‘lovi (₩)',helperText: 'Bepul bo‘lsa 0',
+                  ),
+                  validator: (v) => (int.tryParse(v ?? '') ?? -1)<0
+                    ? '0 yoki musbat summa kiriting' : null,
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  onChanged: (v) => noteText = v,
+                  maxLength: 500, maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Mijozga admin izohi (majburiy)',
+                    hintText: 'Masalan: Kitobingiz keldi, qolgan to‘lovni amalga oshiring.',
+                  ),
+                  validator: (v) => (v ?? '').trim().length < 3
+                    ? 'Kamida 3 ta belgi kiriting' : null,
+                ),
+                const Divider(height: 22),
+                Text('Kitoblar: ${_won(subtotal)}'),
+                Text('Pochta: ${_won(int.tryParse(shippingText) ?? 0)}'),
+                Text('To‘langan avans: −${_won(deposit)}'),
+                Text('Qolgan to‘lov: ${_won(due < 0 ? 0 : due)}',
+                  style: const TextStyle(
+                    fontSize: 19, fontWeight: FontWeight.w900,
+                  )),
+              ],
+            )),
+          )),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx),
+              child: const Text('Hozir emas')),
+            FilledButton.icon(
+              icon: const Icon(Icons.send_outlined),
+              label: const Text('Saqlash va mijozga xabar'),
+              onPressed: () {
+                if (!key.currentState!.validate()) return;
+                if (due < 0) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                    content: Text('Jami summa avansdan kam. Narxlarni tekshiring.'),
+                  ));
+                  return;
+                }
+                Navigator.pop(ctx,{
+                  'price': int.parse(priceText),
+                  'shipping': int.parse(shippingText),
+                  'note': noteText.trim(),
+                });
+              },
+            ),
+          ],
+        );
+      }),
+    );
+    if (form == null || !mounted) return;
+    setState(() => saving = true);
+    try {
+      final result = await widget.api.arriveNativePreorder(
+        id: id, expectedStatus: oldStatus,
+        unitPrice: form['price'] as int,
+        shippingFee: form['shipping'] as int,
+        adminNote: form['note'] as String,
+      );
+      if (!mounted) return;
+      setState(() {
+        record['status'] = 'arrived';
+        record['amount_due'] = result['amount_due'];
+        record['base_total'] = result['total'];
+        record['deposit_credit'] = result['deposit_credit'];
+        record['reserved_qty'] = result['quantity_reserved'];
+        record['admin_note'] = form['note'];
+        record['payment_state'] = 'requested';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Kitob band qilindi. Qolgan to‘lov ilovada ko‘rinadi ✅'),
+      ));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Kitob keldi saqlanmadi: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  Future<void> _confirmRemainingPayment() async {
+    final id = int.tryParse('${record['id']}');
+    if (id == null || saving || isWeb) return;
+    final agree = await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
+      title: const Text('Qolgan to‘lovni tasdiqlaysizmi?'),
+      content: Text(
+        'Qolgan summa ${_won((record['amount_due'] as num?)?.toInt() ?? 0)}. '
+        'Bankdagi pul va mijoz yuborgan chekni tekshirgandan keyin tasdiqlang.',
+      ),
+      actions: [
+        TextButton(onPressed:()=>Navigator.pop(ctx,false),
+          child:const Text('Orqaga')),
+        FilledButton(onPressed:()=>Navigator.pop(ctx,true),
+          child:const Text('To‘lovni tasdiqlash')),
+      ],
+    ));
+    if (agree != true || !mounted) return;
+    setState(() => saving = true);
+    try {
+      await widget.api.confirmNativePreorderPayment(id);
+      if (!mounted) return;
+      setState(() => record['payment_state'] = 'verified');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content:Text('Qolgan to‘lov tasdiqlandi ✅')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text('To‘lov tasdiqlanmadi: $e')));
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
   Future<void> _setStatus(String target) async {
     if (saving) return;
+    if (target == 'arrived' && !isWeb) {
+      await _arriveWithInvoice();
+      return;
+    }
     var noteValue = '';
     final key = GlobalKey<FormState>();
     final requireReason = target == 'cancelled' || target == 'waiting';
@@ -493,6 +662,24 @@ class _CombinedPreorderDetailPageState extends State<_CombinedPreorderDetailPage
       ),
     );
     if (confirmed != true || !mounted) return;
+    if (target == 'cancelled') {
+      final really = await showDialog<bool>(context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Rostdan bekor qilasizmi?'),
+          content: const Text('Bu zakaz ro‘yxatdan Bekor qilingan bo‘limiga '
+            'o‘tadi. Band qilingan kitoblar sotuvga qaytadi. '
+            'To‘langan avans avtomatik qaytarilmaydi.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Yo‘q, qaytish')),
+            TextButton(onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Ha, bekor qilish',
+                style: TextStyle(color: AppColors.danger))),
+          ],
+        ),
+      );
+      if (really != true || !mounted) return;
+    }
     final note = noteValue.trim();
     setState(() => saving = true);
     try {
@@ -567,6 +754,21 @@ class _CombinedPreorderDetailPageState extends State<_CombinedPreorderDetailPage
                 const SizedBox(height: 10),
                 Text('Mijoz izohi: $note'),
               ],
+              if (!isWeb && (record['reserved_qty'] as num? ?? 0)>0)
+                Text('Bu zakaz uchun band: ${record['reserved_qty']} ta',
+                  style: const TextStyle(fontWeight: FontWeight.w800,
+                    color: AppColors.success)),
+              if (record['amount_due'] is num) ...[
+                const SizedBox(height: 12),
+                Text('Asosiy summa + pochta: ${_won((record['base_total'] as num?)?.toInt() ?? 0)}'),
+                Text('Avans: −${_won((record['deposit_credit'] as num?)?.toInt() ?? 0)}'),
+                Text('Qo‘shimcha kitoblar: ${_won((record['extra_total'] as num?)?.toInt() ?? 0)}'),
+                Text('Qolgan to‘lov: ${_won((record['amount_due'] as num?)?.toInt() ?? 0)}',
+                  style: const TextStyle(fontWeight:FontWeight.w900)),
+                Text('To‘lov holati: ${record['payment_state'] ?? 'requested'}'),
+                if ('${record['admin_note'] ?? ''}'.trim().isNotEmpty)
+                  Text('Admin izohi: ${record['admin_note']}'),
+              ],
               if (proof.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
@@ -588,16 +790,33 @@ class _CombinedPreorderDetailPageState extends State<_CombinedPreorderDetailPage
             )),
           ...actions.map((action) => Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: FilledButton.icon(
-              onPressed: saving ? null : () => _setStatus(action.$1),
-              icon: Icon(action.$3),
-              label: Text(action.$2),
-            ),
+            child: action.$1 == 'cancelled'
+                ? OutlinedButton.icon(
+                    onPressed: saving ? null : () => _setStatus(action.$1),
+                    icon: Icon(action.$3,color:AppColors.danger),
+                    label: Text(action.$2,
+                      style: const TextStyle(color:AppColors.danger)),
+                  )
+                : FilledButton.icon(
+                    onPressed: saving ? null : () => _setStatus(action.$1),
+                    icon: Icon(action.$3),label:Text(action.$2),
+                  ),
           )),
+          if (!isWeb && status == 'arrived' &&
+            record['payment_state'] != 'verified') ...[
+            const SizedBox(height: 8),
+            FilledButton.icon(
+              onPressed: saving ? null : _confirmRemainingPayment,
+              icon: const Icon(Icons.verified_outlined),
+              label: const Text('Qolgan to‘lovni tekshirib tasdiqlash'),
+            ),
+          ],
           const SizedBox(height: 10),
           const Text(
-            'Holat serverda saqlanadi. Avans qaytarilmaydi va ombor '
-            'qoldig‘i bu tugmalar bilan avtomatik o‘zgarmaydi.',
+            'Qabul qilingan kitoblar avtomatik band qilinadi. '
+            'Bekor qilsangiz band qilingan son qaytadi. Avans esa '
+            'avtomatik qaytarilmaydi. Kitob kelganda admin narx, '
+            'pochta va izohni belgilaydi.',
             style: TextStyle(color: AppColors.muted, fontSize: 12),
           ),
         ],

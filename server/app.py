@@ -11,6 +11,7 @@ from pywebpush import webpush, WebPushException
 from flask import Flask, jsonify, request, Response
 
 from preorder_delivery import register_preorder_routes
+from native_customer_push import send_customer_apns_order_event
 
 app = Flask(__name__)
 register_preorder_routes(app, webpush)
@@ -535,9 +536,8 @@ def order_push_event():
     if not isinstance(subscriptions,list):
         subscriptions=[]
 
+    # Native APNs does not depend on browser VAPID credentials.
     private_key=os.getenv("VAPID_PRIVATE_KEY","").strip()
-    if not private_key:
-        return jsonify(error="Push server sozlanmagan."),503
 
     try:
       order_no=int(body.get("order_number") or 0)
@@ -591,7 +591,7 @@ def order_push_event():
     elif event=="shipping":
       notifications=[{
         "title":"Buyurtmangiz jo‘natildi 🚚",
-        "body":f"{order_label} pochtaga topshirildi. Yetkazib berish holati va kuzatuv raqamini “Mening buyurtmalarim” bo‘limida tekshiring.",
+        "body":f"{order_label} pochtaga topshirildi. Odatda 1–2 kunda yetib boradi. Kuzatuv raqami mavjud bo‘lsa, “Mening buyurtmalarim” bo‘limida ko‘ring.",
         "tag":f"order-{order_no or 'new'}-shipping",
       }]
     elif event=="review_reminder":
@@ -630,6 +630,9 @@ def order_push_event():
 
     # Admin APNs is independent of Web Push (browser subscription).
     native_result = _send_admin_apns_order_event(supplied,notifications[0],body) if event=="admin_new_order" else None
+    customer_native_result = send_customer_apns_order_event(
+        supplied,phone,notifications,body,_admin_rpc_call
+    ) if event!="admin_new_order" else None
 
     import json
     success=0
@@ -652,7 +655,7 @@ def order_push_event():
         "icon":"/icons/Icon-192.png",
         "badge":"/icons/Icon-192.png",
       },ensure_ascii=False)
-      for row in subscriptions:
+      for row in subscriptions if private_key else []:
         if not isinstance(row,dict): continue
         try:
           webpush(
@@ -670,7 +673,7 @@ def order_push_event():
         except Exception as exc:
           print(f"Order WebPush failed error={type(exc).__name__}",flush=True)
           failure+=1
-    return jsonify(ok=True,subscriptions=len(subscriptions),sent=success,failed=failure,apns=native_result)
+    return jsonify(ok=True,subscriptions=len(subscriptions),sent=success,failed=failure,apns=native_result,customer_apns=customer_native_result,web_push_configured=bool(private_key),web_push_skipped=(not bool(private_key) and len(subscriptions)>0))
 
 
 def _verify_admin_code(code):

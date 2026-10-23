@@ -48,3 +48,5 @@ No schema/order/stock bulk data changes in mobile app; protected read-only admin
 - Install-scoped/contact-scoped in-app preorder activity events route customer notice taps to matching preorder first.
 - Web UUID preorder IDs handled as strings, not numbers; widget regression tests included.
 - No public App Store, Play Market or Railway deployment; no main merge.
+
+2026-10-23 TestFlight QA ONLY: optional SMS-free 4-digit PIN profile creation, confirm twice, phone+PIN sign-in from another device, secure session restore, failed-attempt throttling, no forgotten-PIN recovery. Name and phone remain sufficient for checkout without SMS. PIN-protected other-device preorder summaries are read-only, never show data via name/phone matching alone. No public App Store or Google Play release, no Railway deploy, no main merge.

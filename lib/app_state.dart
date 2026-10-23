@@ -1674,6 +1674,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       unawaited(syncNativeCustomerPushIfAllowed());
     }
     notifyListeners();
+    unawaited(refreshPreorderNotices());
   }
 
   Future<void> signOutCustomer() async {

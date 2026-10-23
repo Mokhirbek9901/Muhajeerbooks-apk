@@ -83,3 +83,12 @@ No schema/order/stock bulk data changes in mobile app; protected read-only admin
 - Original One Mart area text stays. ONLY add selected-state notice: "Olib ketish joyi va vaqtini kelishish uchun admin siz bilan bog‘lanadi."
 - Remove newly added duplicate Gyeongsan FREE home-delivery radio choice, preserve existing checkout/advance receipts.
 - Build and upload latest branch to **iOS TestFlight ONLY**, verify upload. Do not submit to public App Store review, Play Market, main or Railway. Do not change real orders, deposits or stock.
+
+2026-10-24 batch finance reconciliation single QA release
+- Owner requested easy batch entry plus a finance ledger comparison in the existing one-release QA project.
+- Show expense from the selected Finance partiya prominently; small subtitle book procurement cost (sum of all current selected books), and live difference; show same figures in confirmation.
+- Keep historical books prefilled, +/− quantity, selected-first search, book-add action and search-first for new partiya.
+- Exact item-value calculation across duplicate historical lots at distinct unit costs. Use authoritative database finance_expenses and do not double-count transport.
+- Supabase additive, read-only RPC upgrades deployed and validated with rollback SQL. Original finance, orders, stock and historical audit remain intact.
+- Flutter CI 40019235916 SUCCESS: flutter analyze, all tests, full iOS TestFlight preview and Seoul timestamp tests.
+- One consolidated iOS TESTFLIGHT-ONLY upload. Do not submit to public App Store or Play Market, merge main, deploy web/Railway or repeat customer charges.

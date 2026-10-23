@@ -24,11 +24,13 @@ class WebProfessionalBatches extends StatefulWidget {
     required this.registered,
     required this.onAdd,
     required this.onReloadRegistered,
+    this.onEdit,
   });
   final String secret;
   final List<Book> books;
   final Future<List<dynamic>> registered;
   final VoidCallback onAdd;
+  final ValueChanged<String>? onEdit;
   final VoidCallback onReloadRegistered;
 
   @override
@@ -228,6 +230,12 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
           _detail('Transport xarajatlari',_batchMoney(transport)),
           _detail('Kitob + transport (hisoblangan)',_batchMoney(books + transport)),
           const SizedBox(height: 6),
+          if(widget.onEdit!=null)
+            Align(alignment:Alignment.centerRight,
+              child:OutlinedButton.icon(
+                onPressed:()=>widget.onEdit!('group:$id'),
+                icon:const Icon(Icons.edit_outlined),
+                label:const Text('Partiyani tahrirlash'))),
           for(final expense in linked) _transportLine(expense),
           const Text('Kitob tannarxi partiyaga kiritilgan qiymatlar '
             'asosida hisoblangan. Transport moliyada allaqachon mavjud, '
@@ -344,6 +352,16 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
           ] else
             _detail('Kitoblar tarkibi',
               verified ? 'Tasdiqlangan' : 'Kitobma-kitob tasdiqlanmagan'),
+          if (widget.onEdit!=null) ...[
+            const SizedBox(height:10),
+            Align(alignment:Alignment.centerRight,
+              child:OutlinedButton.icon(
+                onPressed:()=>widget.onEdit!(grouped
+                  ? 'finance_group:${item['finance_group_id']}'
+                  : 'import:${item['id']}'),
+                icon:const Icon(Icons.edit_outlined),
+                label:const Text('Shu partiyadagi kitoblarni tahrirlash'))),
+          ],
           if (linked.isNotEmpty) ...[
             const SizedBox(height: 12),
             const Align(
@@ -439,6 +457,15 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
             _batchMoney(_batchNum(item['suggested_price']))),
           if ((item['note'] ?? '').toString().trim().isNotEmpty)
             _detail('Izoh', (item['note'] ?? '').toString()),
+          if (widget.onEdit!=null && item['batch_type']!='legacy')
+            Align(alignment:Alignment.centerRight,
+              child:TextButton.icon(
+                onPressed:()=>widget.onEdit!(
+                  item['batch_type']=='finance'
+                    ? 'import:${item['batch_import_id']}'
+                    : 'group:${item['batch_group_id']}'),
+                icon:const Icon(Icons.edit_outlined),
+                label:const Text('Partiyadagi sonni tahrirlash'))),
         ],
       ),
     );

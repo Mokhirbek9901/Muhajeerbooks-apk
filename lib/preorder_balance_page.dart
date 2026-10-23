@@ -292,6 +292,8 @@ class _CustomerPreorderBalancesPageState
       ? Map<String, dynamic>.from(record['invoice'] as Map)
       : null;
     final status = '${record['status'] ?? ''}';
+    // Hide unavailable checkout actions for unfinished/recovered orders.
+    final canOpenWebCheckout=source=='web' && !contactOnly && status=='arrived';
     final paymentState = '${info?['payment_state'] ?? ''}';
     final extras = ((info?['extras'] as List?) ?? const [])
       .whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
@@ -300,7 +302,7 @@ class _CustomerPreorderBalancesPageState
     return Padding(
       padding: const EdgeInsets.only(bottom: 15),
       child: InkWell(
-        onTap:source=='web'?()=>_openWebCheckout(record):null,
+        onTap:canOpenWebCheckout?()=>_openWebCheckout(record):null,
         child:AppSurface(child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -330,7 +332,7 @@ class _CustomerPreorderBalancesPageState
                 : status=='cancelled'
                   ? 'Zakaz bekor qilingan. Katalogda oldindan sotuv ochiq bo‘lsa, shu kitobga qayta buyurtma berishingiz mumkin. Eski avans avtomatik ko‘chirilmaydi.'
                   : 'Zakazingiz holatini shu yerdan kuzatishingiz mumkin.'),
-            if(source=='web') ...[
+            if(canOpenWebCheckout) ...[
               const SizedBox(height:8),
               const Row(children:[
                 Icon(Icons.shopping_bag_outlined,size:19),

@@ -5,17 +5,68 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'uzbek_customer_style.dart';
 
+/// One original batch line in newest-first order. This matches the
+/// backend's quantity correction algorithm: adjust the latest line first.
+class BatchCostLot {
+  const BatchCostLot(this.quantity,this.unitCost);
+  final int quantity;
+  final int unitCost;
+}
+
+/// Calculate the selected books' actual procurement value, including when
+/// a title was purchased at several distinct historical unit costs.
+int batchBookCostValue({
+  required int quantity,
+  required int unitCost,
+  int previousQuantity = 0,
+  int? historicalLineValue,
+  List<BatchCostLot> historicalLots = const [],
+  bool changedUnitCost = false,
+}) {
+  if (quantity <= 0) return 0;
+  if (changedUnitCost) return quantity*unitCost;
+  if (historicalLineValue != null) {
+    if (quantity == previousQuantity) return historicalLineValue;
+    if (historicalLots.isNotEmpty) {
+      if (quantity > previousQuantity) {
+        return historicalLineValue +
+          (quantity-previousQuantity)*historicalLots.first.unitCost;
+      }
+      var leftToRemove=previousQuantity-quantity;
+      var value=historicalLineValue;
+      for(final lot in historicalLots) {
+        if(leftToRemove==0)break;
+        final removed=leftToRemove<lot.quantity
+          ?leftToRemove:lot.quantity;
+        value-=removed*lot.unitCost;
+        leftToRemove-=removed;
+      }
+      return value<0?0:value;
+    }
+    // Older server responses without cost_lots: retain a safe fallback.
+    final adjusted=historicalLineValue +
+      (quantity-previousQuantity)*unitCost;
+    return adjusted<0?0:adjusted;
+  }
+  return quantity*unitCost;
+}
+
 class _SelectedBatchBook {
-  _SelectedBatchBook(Map<String,dynamic> raw)
+  _SelectedBatchBook(Map<String,dynamic> raw,{
+    int initialQuantity = 1, int? historicalUnitCost})
     : id = raw['id'].toString(),
       title = (raw['title'] ?? 'Kitob').toString(),
       catalogCost = (raw['cost_price'] as num?)?.toInt() ?? 0,
-      quantity = TextEditingController(text: '1'),
+      originalUnitCost = historicalUnitCost ??
+        ((raw['cost_price'] as num?)?.toInt() ?? 0),
+      quantity = TextEditingController(text: '$initialQuantity'),
       cost = TextEditingController(
-        text: ((raw['cost_price'] as num?)?.toInt() ?? 0).toString());
+        text: (historicalUnitCost ??
+          ((raw['cost_price'] as num?)?.toInt() ?? 0)).toString());
   final String id;
   final String title;
   final int catalogCost;
+  final int originalUnitCost;
   final TextEditingController quantity;
   final TextEditingController cost;
   bool changedCost = false;
@@ -25,8 +76,13 @@ class _SelectedBatchBook {
 }
 
 class WebBatchMultiAddPage extends StatefulWidget {
-  const WebBatchMultiAddPage({super.key, required this.secret});
+  const WebBatchMultiAddPage({
+    super.key, required this.secret, this.initialBatch,
+  });
   final String secret;
+  /// Directly open an old historical batch without navigating the dropdown.
+  /// Examples: import:6, finance_group:<uuid>, group:<uuid>.
+  final String? initialBatch;
   @override
   State<WebBatchMultiAddPage> createState() => _WebBatchMultiAddPageState();
 }
@@ -36,13 +92,22 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
   final _title = TextEditingController();
   final _note = TextEditingController();
   final _search = TextEditingController();
+  final _searchFocus = FocusNode();
   final Map<String,_SelectedBatchBook> _selected = {};
   final Set<String> _selectedTransportIds = <String>{};
   DateTime _date = DateTime.now();
   String _mode = 'new';
   String? _existing;
+  String? _existingRevision;
+  Map<String,dynamic>? _existingSnapshot;
+  final Map<String,int> _previousQty = {};
+  final Set<String> _originalTransportIds = <String>{};
+  int _loadGeneration = 0;
+  bool _existingLoading = false;
+  bool _onlySelected = false;
   bool _syncStock = false;
   bool _submitting = false;
+  bool _confirming = false;
 
   @override
   void initState() {
@@ -52,12 +117,22 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
       .then((value) => value is Map
         ? Map<String,dynamic>.from(value)
         : <String,dynamic>{});
+    if(widget.initialBatch!=null) {
+      _mode='old';
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        try {
+          final data=await _data;
+          if(mounted) await _openOldBatch(widget.initialBatch,data);
+        } catch (_) { /* FutureBuilder presents the loading error. */ }
+      });
+    }
   }
 
   @override
   void dispose() {
     for (final item in _selected.values) { item.dispose(); }
     _title.dispose(); _note.dispose(); _search.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -67,14 +142,131 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
 
   String _money(num v) => '₩${NumberFormat('#,###').format(v.round())}';
 
+  void _resetDraft() {
+    _loadGeneration++;
+    _search.clear();
+    for (final book in _selected.values) { book.dispose(); }
+    _selected.clear();
+    _selectedTransportIds.clear();
+    _originalTransportIds.clear();
+    _previousQty.clear();
+    _existingSnapshot=null;
+    _existingRevision=null;
+    _existingLoading=false;
+    _onlySelected=false;
+  }
+
+  Future<void> _openOldBatch(
+      String? selection, Map<String,dynamic> data) async {
+    setState(() {
+      _resetDraft();
+      _existing=selection;
+    });
+    if(selection==null) return;
+    final parts=selection.split(':');
+    if(parts.length!=2 || parts.last.isEmpty) {
+      _message('Partiya ID noto‘g‘ri');
+      return;
+    }
+    final kind=parts.first=='import'?'old_import'
+      :parts.first=='group'?'old_group'
+      :parts.first=='finance_group'?'old_finance_group':'';
+    if(kind.isEmpty) {
+      _message('Partiya turi noto‘g‘ri');
+      return;
+    }
+    final gen=++_loadGeneration;
+    setState(() => _existingLoading=true);
+    try {
+      final raw=await Supabase.instance.client.rpc(
+        'admin_web_batch_existing_data', params:{
+          'p_secret':widget.secret,'p_scope':kind,'p_id':parts.last,
+        });
+      if(!mounted || gen!=_loadGeneration || _existing!=selection) return;
+      final result=raw is Map ? Map<String,dynamic>.from(raw)
+        : <String,dynamic>{};
+      final catalog={
+        for(final book in _list(data['books']))
+          book['id'].toString():book,
+      };
+      final prefill=<String,_SelectedBatchBook>{};
+      final baseline=<String,int>{};
+      for(final line in _list(result['items'])) {
+        final id=line['book_id'].toString();
+        final book=catalog[id];
+        if(book==null) continue; // Deleted books are never fabricated.
+        final qty=(line['quantity'] as num?)?.toInt()??0;
+        if(qty<=0) continue;
+        final unit=(line['unit_cost'] as num?)?.toInt()??0;
+        prefill[id]=_SelectedBatchBook(book,
+          initialQuantity:qty,historicalUnitCost:unit);
+        baseline[id]=qty;
+      }
+      final linked=((result['transport_ids'] as List?)??const [])
+        .map((e)=>e.toString()).toSet();
+      setState(() {
+        _existingRevision=(result['revision']??'').toString();
+        _existingSnapshot=result;
+        _selected.addAll(prefill);
+        _previousQty.addAll(baseline);
+        _originalTransportIds.addAll(linked);
+        _selectedTransportIds.addAll(linked);
+        // Show the previously entered books first; searching still lets an
+        // admin select any other book.
+        _onlySelected=true;
+        _existingLoading=false;
+      });
+    } catch(error) {
+      if(!mounted || gen!=_loadGeneration) return;
+      setState(() { _existingLoading=false; _existingRevision=null; });
+      _message('Partiya tarixini ochib bo‘lmadi: $error');
+    }
+  }
+
   void _pick(Map<String,dynamic> book, bool select) {
     final id = book['id'].toString();
     setState(() {
       if (select) {
-        _selected.putIfAbsent(id, () => _SelectedBatchBook(book));
+        _selected.putIfAbsent(id, () {
+          final historic=_list(_existingSnapshot?['items'])
+            .where((r)=>r['book_id'].toString()==id).firstOrNull;
+          return _SelectedBatchBook(book,
+            initialQuantity:_previousQty[id]??1,
+            historicalUnitCost:(historic?['unit_cost'] as num?)?.toInt());
+        });
       } else {
         _selected.remove(id)?.dispose();
       }
+    });
+  }
+
+  void _showAllBooksForAdding() {
+    setState(() {
+      _onlySelected=false;
+      _search.clear();
+    });
+    _searchFocus.requestFocus();
+  }
+
+  int _bookValue() {
+    final prior={
+      for (final item in _list(_existingSnapshot?['items']))
+        item['book_id'].toString():item,
+    };
+    return _selected.values.fold<int>(0,(sum,line) {
+      final original=prior[line.id];
+      return sum+batchBookCostValue(
+        quantity:line.qty,
+        unitCost:line.unitCost<0?0:line.unitCost,
+        previousQuantity:_previousQty[line.id]??0,
+        historicalLineValue:(original?['line_value'] as num?)?.toInt(),
+        historicalLots:_list(original?['cost_lots']).map((entry)=>
+          BatchCostLot(
+            (entry['quantity'] as num?)?.toInt()??0,
+            (entry['unit_cost'] as num?)?.toInt()??0,
+          )).toList(),
+        changedUnitCost:line.changedCost,
+      );
     });
   }
 
@@ -88,8 +280,13 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
   }
 
   Future<void> _save() async {
-    if (_submitting) return;
-    if (_selected.isEmpty && _selectedTransportIds.isEmpty) {
+    if (_submitting || _existingLoading || _confirming) return;
+    if (_mode == 'old' && (_existing==null || _existingRevision==null)) {
+      _message('Avval eski partiyani tanlab, undagi kitoblar yuklanishini kuting.');
+      return;
+    }
+    if (_selected.isEmpty && _selectedTransportIds.isEmpty &&
+        !(_mode=='old' && _previousQty.isNotEmpty)) {
       _message('Kamida bitta kitob yoki transport xarajatini belgilang.');
       return;
     }
@@ -107,17 +304,38 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
     }
     final list = <Map<String,dynamic>>[];
     for (final row in _selected.values) {
-      if (row.qty < 1 || row.qty > 10000 || row.unitCost < 0 ||
-          row.unitCost > 100000000) {
+      if (row.qty < (_mode=='old'?0:1) || row.qty > 10000 ||
+          row.unitCost < 0 || row.unitCost > 100000000) {
         _message('${row.title}: dona soni yoki tannarx noto‘g‘ri.');
         return;
       }
+      final original=_previousQty[row.id]??0;
+      if(_mode=='old' && row.qty==original && !row.changedCost) continue;
       list.add({
         'book_id': row.id,
         'quantity': row.qty,
-        if (row.changedCost) 'unit_cost': row.unitCost,
+        if(_mode=='old' || row.changedCost) 'unit_cost': row.unitCost,
         'edited_cost': row.changedCost,
       });
+    }
+    if(_mode=='old') {
+      for(final old in _previousQty.entries) {
+        if(!_selected.containsKey(old.key)) {
+          final previous=_list(_existingSnapshot?['items'])
+            .where((x)=>x['book_id'].toString()==old.key).firstOrNull;
+          list.add({
+            'book_id':old.key,'quantity':0,
+            'unit_cost':(previous?['unit_cost'] as num?)?.toInt()??0,
+            'edited_cost':false,
+          });
+        }
+      }
+    }
+    final newTransportIds=_selectedTransportIds
+      .difference(_originalTransportIds).toList();
+    if(_mode=='old' && list.isEmpty && newTransportIds.isEmpty) {
+      _message('Hozircha hech narsa o‘zgarmagan.');
+      return;
     }
     final nBooks = list.length;
     final nQty = _selected.values.fold<int>(0, (s, x) => s + x.qty);
@@ -130,17 +348,37 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
     final transportNote = '${_selectedTransportIds.length} ta transport: '
         '${_money(transportSum)}. Bu xarajatlar moliyada avval hisoblangan, '
         'ikkinchi marta xarajat yozilmaydi.';
+    final corrections=list.map((row) {
+      final id=row['book_id'].toString();
+      final prev=_previousQty[id]??0;
+      final next=(row['quantity'] as num?)?.toInt()??0;
+      final difference=next-prev;
+      return '$prev → $next ($difference dona)';
+    }).take(8).join('; ');
+    final oldExpense=(_existingSnapshot?['finance_purchase_total'] as num?)?.toInt();
+    final expenseLinked=_existingSnapshot?['finance_linked']==true &&
+      oldExpense!=null;
+    final costAfterEdit=_bookValue();
+    final summary=expenseLinked
+      ? 'Moliyadagi xarajat: ${_money(oldExpense ?? 0)}. '
+        'Kitoblar tannarxi: ${_money(costAfterEdit)}. '
+        'Farq: ${_money(((oldExpense ?? 0)-costAfterEdit).abs())}. '
+      : 'Moliyaga bog‘langan xarajat topilmadi. ';
     final text = isOld
-      ? 'Eski partiyaga $nBooks nomdagi, jami $nQty dona kitob qayd etiladi. '
-        '$transportNote '
-        'Bu tarixiy ma’lumot; ombor va moliyaga qayta qo‘shilmaydi. '
-        'Avtomatik narxlar joriy katalog tannarxidir, tarixiy tannarx '
-        'ekanligini tekshirish kerak.'
+      ? 'Eski partiyada $nBooks nomdagi kitob tahrirlanadi. '
+        '$corrections. $summary'
+        'Ombor qoldig‘i va moliya qayta hisoblanmaydi. '
+        'Eski yozuvlar tahrirdan oldin audit tarixida saqlanadi. '
+        'Yangi transport: ${newTransportIds.length} ta. '
+        'Xarajat takrorlanmaydi.'
       : 'Yangi partiyaga $nBooks nomdagi, jami $nQty dona kitob qo‘shiladi. '
         '$transportNote '
         '${_syncStock ? 'OMBOR QOLDIG‘I HAM ORTADI VA JORIY TANNARX YANGILANADI.' : 'Ombor va moliyaga ta’sir qilmaydi.'} '
         'Moliya xarajati avtomatik yaratilmaydi.';
-    final confirmed = await showDialog<bool>(
+    setState(()=>_confirming=true);
+    bool? confirmed;
+    try {
+      confirmed = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
         title: const Text('Partiyani tasdiqlash'),
@@ -153,26 +391,41 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
         ],
       ),
     );
+    } finally {
+      _confirming=false;
+      if(mounted)setState((){});
+    }
     if (confirmed != true || !mounted) return;
     setState(() => _submitting = true);
     try {
-      final pieces = (_existing ?? '').split(':');
-      final oldType = pieces.firstOrNull == 'import'
-        ? 'old_import' : 'old_group';
-      await Supabase.instance.client.rpc('admin_web_bulk_batch_save',
-        params: {
-          'p_secret': widget.secret,
-          'p_data': {
-            'mode': isOld ? oldType : 'new',
-            if (!isOld) 'title': _title.text.trim(),
-            if (!isOld) 'date': DateFormat('yyyy-MM-dd').format(_date),
-            if (!isOld) 'note': _note.text.trim(),
-            if (isOld) 'existing_id': pieces.skip(1).join(':'),
-            'apply_to_inventory': !isOld && _syncStock,
-            'transport_ids': _selectedTransportIds.toList(),
-            'items': list,
-          },
-        });
+      if(isOld) {
+        final parts=(_existing??'').split(':');
+        final oldKind=parts.first=='import'?'old_import'
+          :parts.first=='group'?'old_group':'old_finance_group';
+        await Supabase.instance.client.rpc('admin_web_batch_edit_existing',
+          params:{
+            'p_secret':widget.secret,
+            'p_scope':oldKind,
+            'p_id':parts.skip(1).join(':'),
+            'p_expected_revision':_existingRevision,
+            'p_items':list,
+            'p_transport_ids':newTransportIds,
+          });
+      } else {
+        await Supabase.instance.client.rpc('admin_web_bulk_batch_save',
+          params: {
+            'p_secret': widget.secret,
+            'p_data': {
+              'mode':'new',
+              'title': _title.text.trim(),
+              'date': DateFormat('yyyy-MM-dd').format(_date),
+              'note': _note.text.trim(),
+              'apply_to_inventory': _syncStock,
+              'transport_ids': _selectedTransportIds.toList(),
+              'items': list,
+            },
+          });
+      }
       if (!mounted) return;
       Navigator.pop(context, true);
     } catch (error) {
@@ -223,29 +476,58 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(
-                    labelText: 'Kelgan dona', isDense: true,
-                    border: OutlineInputBorder()),
+                  decoration: InputDecoration(
+                    labelText: _mode=='old'
+                      ? 'Partiyada jami dona' : 'Kelgan dona',
+                    isDense: true,
+                    border: const OutlineInputBorder()),
                 )),
-                const SizedBox(width: 10),
-                Expanded(child: TextField(
-                  controller: chosen.cost,
-                  enabled: !_submitting,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  onChanged: (_) => setState(() => chosen.changedCost = true),
-                  decoration: const InputDecoration(
-                    labelText: 'Bir dona tannarx ₩',
-                    isDense: true, border: OutlineInputBorder()),
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip:'1 dona kamaytirish',
+                  onPressed:_submitting || chosen.qty<=(_mode=='old'?0:1)
+                    ?null:()=>setState(()=>
+                      chosen.quantity.text='${chosen.qty-1}'),
+                  icon:const Icon(Icons.remove_circle_outline)),
+                IconButton(
+                  tooltip:'1 dona ko‘paytirish',
+                  onPressed:_submitting || chosen.qty>=10000
+                    ?null:()=>setState(()=>
+                      chosen.quantity.text='${chosen.qty+1}'),
+                  icon:const Icon(Icons.add_circle_outline)),
+              ]),
+              const SizedBox(height:8),
+              Row(children:[
+                Expanded(child:TextField(
+                  controller:chosen.cost,
+                  enabled:!_submitting,
+                  keyboardType:TextInputType.number,
+                  inputFormatters:[FilteringTextInputFormatter.digitsOnly],
+                  onChanged:(_)=>setState(() =>
+                    chosen.changedCost=chosen.unitCost!=chosen.originalUnitCost),
+                  decoration:const InputDecoration(
+                    labelText:'Bir dona tannarx ₩',
+                    isDense:true,border:OutlineInputBorder()),
                 )),
                 IconButton(
-                  tooltip: 'Bazadagi tannarxni qaytarish',
-                  onPressed: _submitting ? null : () {
-                    chosen.cost.text = chosen.catalogCost.toString();
-                    setState(() => chosen.changedCost = false);
+                  tooltip:_mode=='old'
+                    ? 'Partiyada oldin yozilgan tannarxni qaytarish'
+                    : 'Katalogdagi tannarxni qaytarish',
+                  onPressed:_submitting ? null : (){
+                    chosen.cost.text=chosen.originalUnitCost.toString();
+                    setState(()=>chosen.changedCost=false);
                   },
-                  icon: const Icon(Icons.restore_outlined)),
+                  icon:const Icon(Icons.restore_outlined)),
               ]),
+              if(_mode=='old' && _previousQty.containsKey(id))
+                Padding(padding:const EdgeInsets.only(top:8),
+                  child:Align(alignment:Alignment.centerLeft,
+                    child:Text(
+                      'Avval: ${_previousQty[id]} ta  →  '
+                      'Hozir: ${chosen.qty} ta  '
+                      '(farq: ${chosen.qty-(_previousQty[id]??0)} ta)',
+                      style:const TextStyle(
+                        fontWeight:FontWeight.w800,fontSize:12)))),
               Align(alignment: Alignment.centerRight,
                 child: Text('Partiya qiymati: ${_money(chosen.qty * (chosen.unitCost < 0 ? 0 : chosen.unitCost))}',
                 style: const TextStyle(
@@ -280,7 +562,8 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
           .fold<int>(0, (sum, t) => sum + ((t['amount'] as num?)?.toInt() ?? 0));
         final listOfExisting = <DropdownMenuItem<String>>[
           for (final row in imported) DropdownMenuItem(
-            value: 'import:${row['id']}',
+            value: (row['source']=='finance_group'?'finance_group':'import')+
+              ':${row['id']}',
             child: Text(
               '${row['purchase_date']} • ${row['title']}',
               overflow: TextOverflow.ellipsis)),
@@ -292,9 +575,33 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
         ];
         final search = _search.text.trim().toLowerCase();
         final visible = books.where((b) =>
-          (b['title'] ?? '').toString().toLowerCase().contains(search)).toList();
-        final sum = _selected.values.fold<int>(0,(s,e) =>
-          s + e.qty * (e.unitCost < 0 ? 0 : e.unitCost));
+          (b['title'] ?? '').toString().toLowerCase().contains(search)
+          && (search.isNotEmpty || _selected.containsKey(b['id'].toString())
+              || (_mode=='old' && !_onlySelected)))
+          .toList()
+          ..sort((a,b) {
+            final aChosen=_selected.containsKey(a['id'].toString())?0:1;
+            final bChosen=_selected.containsKey(b['id'].toString())?0:1;
+            if(aChosen!=bChosen)return aChosen.compareTo(bChosen);
+            return (a['title']??'').toString().compareTo(
+              (b['title']??'').toString());
+          });
+        final sum = _bookValue();
+        final financeAmount =
+          (_existingSnapshot?['finance_purchase_total'] as num?)?.toInt();
+        final financeLinked =
+          _existingSnapshot?['finance_linked']==true &&
+          financeAmount!=null;
+        final difference=financeLinked?financeAmount-sum:null;
+        final selectedCount=_selected.values.fold<int>(0,
+          (total,item)=>total+item.qty);
+        final mixedAdjusted=_list(_existingSnapshot?['items']).any((line) {
+          final id=line['book_id'].toString();
+          final chosen=_selected[id];
+          return (line['multiple_lines'] as num? ?? 0)>1 &&
+            _list(line['cost_lots']).isEmpty &&
+            chosen!=null && chosen.qty!=(_previousQty[id]??0);
+        });
         return Column(children: [
           Expanded(child: Center(child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 800),
@@ -310,6 +617,8 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                   ],
                   selected: {_mode}, onSelectionChanged: _submitting
                     ? null : (x) => setState(() {
+                      _resetDraft();
+                      _existing=null;
                       _mode = x.first;
                       _syncStock = false;
                     })),
@@ -350,13 +659,112 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                       labelText: 'Eski partiyani tanlang',
                       border: OutlineInputBorder()),
                     items: listOfExisting,
-                    onChanged: _submitting ? null : (v) => setState(() => _existing=v)),
+                    onChanged: _submitting ? null : (v) => _openOldBatch(v,data)),
+                  if(_existingLoading)
+                    const Padding(padding:EdgeInsets.symmetric(vertical:12),
+                      child:Row(children:[
+                        SizedBox(width:20,height:20,
+                          child:CircularProgressIndicator(strokeWidth:2)),
+                        SizedBox(width:12),
+                        Expanded(child:Text('Eski partiyadagi kitoblar yuklanmoqda...')),
+                      ]))
+                  else if(_existingRevision!=null)
+                    Padding(padding:const EdgeInsets.symmetric(vertical:9),
+                      child:Text(
+                        'Avvalgi partiyadagi ${_previousQty.length} nomdagi '
+                        'kitob va ularning dona soni yuklandi. '
+                        'Sonni ustiga bosib to‘g‘rilang. 2 → 3 degani '
+                        'yangi 3 ta qo‘shish emas, jami 3 ta bo‘ladi.',
+                        style:const TextStyle(
+                          fontWeight:FontWeight.w800,
+                          color:UzbekCustomerColors.navy))),
+                  if(_existingRevision!=null)...[
+                    const SizedBox(height:12),
+                    Card(
+                      child:Padding(
+                        padding:const EdgeInsets.all(16),
+                        child:Column(
+                          crossAxisAlignment:CrossAxisAlignment.start,
+                          children:[
+                            const Row(children:[
+                              Icon(Icons.account_balance_wallet_outlined,size:20),
+                              SizedBox(width:8),
+                              Expanded(child:Text('Partiya xarajati va kitoblar hisobi',
+                                style:TextStyle(fontSize:15,fontWeight:FontWeight.w900))),
+                            ]),
+                            const SizedBox(height:12),
+                            if(financeLinked)...[
+                              const Text('Moliyada qayd etilgan partiya xarajati',
+                                style:TextStyle(fontSize:12,
+                                  color:UzbekCustomerColors.textMuted)),
+                              Text(_money(financeAmount ?? 0),
+                                style:const TextStyle(fontSize:25,
+                                  fontWeight:FontWeight.w900,
+                                  color:UzbekCustomerColors.navy)),
+                            ] else ...[
+                              const Text('Moliyada bu partiyaga bog‘langan '
+                                'kitob xarajati topilmadi.',
+                                style:TextStyle(fontSize:13,
+                                  fontWeight:FontWeight.w700)),
+                              const Text('Bu partiya uchun moliya xarajatini '
+                                'o‘zimizcha taxmin qilib qo‘shmaymiz.',
+                                style:TextStyle(fontSize:12,
+                                  color:UzbekCustomerColors.textMuted)),
+                            ],
+                            const Divider(height:24),
+                            const Text('Shu partiyada belgilangan '
+                              'kitoblarning jami tannarxi',
+                              style:TextStyle(fontSize:12,
+                                color:UzbekCustomerColors.textMuted)),
+                            Text(_money(sum),
+                              style:const TextStyle(fontSize:17,
+                                fontWeight:FontWeight.w800)),
+                            Text('${_selected.length} nom • $selectedCount dona',
+                              style:const TextStyle(fontSize:11,
+                                color:UzbekCustomerColors.textMuted)),
+                            if(difference!=null)...[
+                              const SizedBox(height:10),
+                              Text(
+                                'Farq: ${_money(difference.abs())}'
+                                '${difference>0?" • Moliyada ko‘proq":difference<0?" • Kitoblar ko‘proq":" • Hisob teng"}',
+                                style:const TextStyle(
+                                  fontSize:14,fontWeight:FontWeight.w800)),
+                              Text(difference>0
+                                ? 'Xarajat kitoblar yig‘indisidan ko‘p. '
+                                  'Kitob yoki tannarx qolib ketganini tekshiring.'
+                                : difference<0
+                                ? 'Kitoblar yig‘indisi xarajatdan oshgan. '
+                                  'Dona soni yoki tannarx ortiqcha emasligini tekshiring.'
+                                : 'Partiyadagi kitoblar tannarxi moliya '
+                                  'xarajatiga teng.',
+                                style:const TextStyle(fontSize:12,
+                                  color:UzbekCustomerColors.textMuted)),
+                            ],
+                            if(mixedAdjusted)
+                              const Padding(
+                                padding:EdgeInsets.only(top:6),
+                                child:Text('Bir xil kitob turli tannarxlarda '
+                                  'bir necha marta yozilgan: son o‘zgarsa '
+                                  'farq taxminiy bo‘lishi mumkin.',
+                                  style:TextStyle(fontSize:11,
+                                    color:UzbekCustomerColors.textMuted))),
+                            const SizedBox(height:9),
+                            const Text('Transport xarajatlari alohida '
+                              'hisoblanadi va kitoblarning shu tannarx '
+                              'jami summasiga qayta qo‘shilmaydi.',
+                              style:TextStyle(fontSize:11,
+                                color:UzbekCustomerColors.textMuted)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   const Text(
                     'Eski partiyaga kitoblar faqat tarixiy qayd sifatida bog‘lanadi. '
                     'Ombor ko‘paymaydi va moliyaga qayta xarajat yozilmaydi. '
-                    'Bazada chiqqan tannarx joriy tannarxdir, '
-                    'eski partiyada farq qilgan bo‘lsa tuzating.',
+                    'Oldingi yozuvlar partiyadagi o‘z tannarxi va soni '
+                    'bilan yuklanadi. Tahrir tarixga yoziladi.',
                     style: TextStyle(fontSize: 12,
                       color: UzbekCustomerColors.textMuted)),
                 ],
@@ -420,6 +828,20 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                   ),
                 ),
                 _sectionTitle('3. Katalogdan kitoblarni belgilang'),
+                if(_mode=='old')...[
+                  SwitchListTile.adaptive(
+                    contentPadding:EdgeInsets.zero,
+                    value:_onlySelected,
+                    onChanged:(v)=>setState(()=>_onlySelected=v),
+                    title:const Text('Faqat shu partiyadagi kitoblar'),
+                    subtitle:const Text('Qidiruvda boshqa kitoblar ham chiqadi.')),
+                  OutlinedButton.icon(
+                    onPressed:_submitting || _existingLoading
+                      ? null:_showAllBooksForAdding,
+                    icon:const Icon(Icons.add_circle_outline),
+                    label:const Text('Yana kitob qo‘shish / barcha kitoblar'),
+                  ),
+                ],
                 const Text(
                   'Eski partiyaga faqat transport bog‘lash uchun '
                   'kitob tanlash shart emas.',
@@ -428,11 +850,16 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                 ),
                 TextField(
                   controller: _search,
+                  focusNode: _searchFocus,
                   onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(
-                    hintText: 'Kitob nomini qidiring...',
+                  decoration: InputDecoration(
+                    hintText: 'Kitob nomini yozib tez toping...',
                     prefixIcon: Icon(Icons.search_rounded),
-                    border: OutlineInputBorder()),
+                    suffixIcon:_search.text.isNotEmpty?IconButton(
+                      tooltip:'Qidiruvni tozalash',
+                      onPressed:()=>setState(()=>_search.clear()),
+                      icon:const Icon(Icons.close)):null,
+                    border:const OutlineInputBorder()),
                 ),
                 const SizedBox(height: 7),
                 Text('${_selected.length} ta kitob belgilandi • '
@@ -440,6 +867,22 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                   style: const TextStyle(fontWeight: FontWeight.w700,
                     color: UzbekCustomerColors.textMuted, fontSize: 12)),
                 const SizedBox(height: 8),
+                if(visible.isEmpty)
+                  Padding(
+                    padding:const EdgeInsets.symmetric(vertical:22),
+                    child:Text(
+                      search.isEmpty && _selected.isEmpty
+                        ? 'Kitob qo‘shish uchun yuqoridagi qidiruvga '
+                          'kitob nomini yozing.'
+                        : search.isEmpty && _onlySelected
+                        ? 'Bu partiyada belgilangan kitob yo‘q. '
+                          'Yangi kitob qo‘shish tugmasini bosing.'
+                        : 'Bu nomda kitob topilmadi.',
+                      textAlign:TextAlign.center,
+                      style:const TextStyle(
+                        color:UzbekCustomerColors.textMuted),
+                    ),
+                  ),
                 for (final book in visible) _bookCard(book),
               ]),
           ))),
@@ -457,18 +900,34 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                     Text('${_selected.length} nomdagi kitob',
                       style: const TextStyle(
                         fontWeight: FontWeight.w800, fontSize: 12)),
-                    Text('Kitoblar ${_money(sum)} + '
-                        'transport ${_money(transportTotal)}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 11.5)),
-                    Text('Jami ${_money(sum + transportTotal)}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w900, fontSize: 17,
-                        color: UzbekCustomerColors.navy)),
+                    if(_mode=='old' && _existingRevision!=null)...[
+                      Text(financeLinked
+                        ? 'Moliyadagi xarajat: ${_money(financeAmount ?? 0)}'
+                        : 'Moliyadagi xarajat biriktirilmagan',
+                        style:const TextStyle(
+                          fontWeight:FontWeight.w900,fontSize:13)),
+                      Text('Kitoblarning jami tannarxi: ${_money(sum)}',
+                        style:const TextStyle(
+                          fontWeight:FontWeight.w600,fontSize:11.5)),
+                      if(difference!=null)
+                        Text('Farq: ${_money(difference.abs())}',
+                          style:const TextStyle(
+                            fontWeight:FontWeight.w800,fontSize:12)),
+                    ] else ...[
+                      Text('Kitoblar ${_money(sum)} + '
+                          'transport ${_money(transportTotal)}',
+                        style:const TextStyle(
+                          fontWeight:FontWeight.w700,fontSize:11.5)),
+                      Text('Jami ${_money(sum + transportTotal)}',
+                        style:const TextStyle(
+                          fontWeight:FontWeight.w900,fontSize:17,
+                          color:UzbekCustomerColors.navy)),
+                    ],
                   ],
                 )),
                 FilledButton.icon(
-                  onPressed: _submitting ? null : _save,
+                  onPressed: _submitting || _existingLoading ||
+                    _confirming ? null : _save,
                   icon: _submitting ? const SizedBox(width: 16,height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.save_outlined),

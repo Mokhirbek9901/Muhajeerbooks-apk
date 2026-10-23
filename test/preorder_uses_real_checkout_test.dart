@@ -17,6 +17,8 @@ class _PrepaidCheckoutState extends AppState {
   int deliverySaves = 0;
   int ordinaryOrders = 0;
   String savedAddress = '';
+  String savedRecipientName = '';
+  String savedRecipientPhone = '';
   String savedDeliveryType = '택배';
   @override
   Future<Map<String, dynamic>> webPreorderInvoice(String id) async => {
@@ -41,6 +43,8 @@ class _PrepaidCheckoutState extends AppState {
     required String address, required String deliveryType,
   }) async {
     deliverySaves++;
+    savedRecipientName = recipientName;
+    savedRecipientPhone = recipientPhone;
     savedAddress = address;
     savedDeliveryType = deliveryType;
     return {
@@ -98,6 +102,11 @@ void main() {
     expect(find.text('Qabul qiluvchi va manzilni saqlash'), findsOneWidget);
     expect(find.text('Yana kitob qo‘shish'), findsNothing);
 
+    // A prepaid order can be delivered to someone different from the PIN
+    // account holder. Login validation must not overwrite their details.
+    final recipient = find.widgetWithText(TextFormField, 'Ism');
+    await tester.scrollUntilVisible(recipient, -230, scrollable: scroll);
+    await tester.enterText(recipient, 'Boshqa Qabulchi');
     final field = find.widgetWithText(TextFormField, 'Manzil');
     await tester.scrollUntilVisible(field, -230, scrollable: scroll);
     await tester.enterText(field, '경상북도 경산시 계양로 37길 7-3 808호');
@@ -108,6 +117,8 @@ void main() {
     await tester.tap(find.text('Qabul qiluvchi va manzilni saqlash'));
     await tester.pumpAndSettle();
     expect(state.deliverySaves, 1);
+    expect(state.savedRecipientName, 'Boshqa Qabulchi');
+    expect(state.savedRecipientPhone, '01012345678');
     expect(state.savedAddress, contains('경산시'));
     expect(state.localOrders, isEmpty);
   });

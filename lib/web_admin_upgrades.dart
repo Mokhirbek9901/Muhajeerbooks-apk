@@ -264,11 +264,12 @@ class _WebBatchesPanelState extends State<_WebBatchesPanel> {
       'admin_web_batch_line_list',
       params: {'p_secret': widget.secret},
     ).then((x) => x is List ? x : <dynamic>[]); }
-  Future<void> _add() async {
+  Future<void> _add([String? initialBatch]) async {
     final saved = await Navigator.push<bool>(
       context,
       MaterialPageRoute<bool>(
-        builder: (_) => WebBatchMultiAddPage(secret: widget.secret),
+        builder: (_) => WebBatchMultiAddPage(
+          secret: widget.secret,initialBatch:initialBatch),
       ),
     );
     if (saved == true && mounted) {
@@ -285,7 +286,8 @@ class _WebBatchesPanelState extends State<_WebBatchesPanel> {
     secret: widget.secret,
     books: widget.books,
     registered: rows,
-    onAdd: _add,
+    onAdd: () => _add(),
+    onEdit: (batch) => _add(batch),
     onReloadRegistered: () => setState(_refresh),
   );
 }

@@ -19,7 +19,9 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
   late final TextEditingController phone;
   final pin = TextEditingController();
   final confirm = TextEditingController();
-  bool creating = true;
+  // On a signed-out phone, open the returning-customer login first.
+  // New customers can switch to the full name + phone + PIN form.
+  bool creating = false;
   bool busy = false;
   bool editLoginPhone = false;
 
@@ -29,8 +31,9 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
     final saved = context.read<AppState>().savedCustomer;
     name = TextEditingController(text: saved['name'] ?? '');
     phone = TextEditingController(text: saved['phone'] ?? '');
-    // Returning users sign in with their saved phone and PIN.
-    creating = phone.text.trim().isEmpty;
+    // Never infer that a blank local profile is a brand-new account.
+    // A signed-out returning customer should see Kirish immediately.
+    creating = false;
   }
 
   @override
@@ -74,39 +77,92 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    if (state.pinSessionActive) {
+    if (state.checkoutIdentityReady) {
+      final savedName = (state.savedCustomer['name'] ?? '').trim();
+      final savedPhone = (state.savedCustomer['phone'] ?? '').trim();
       return Scaffold(
-        appBar: AppBar(title: const Text('Shaxsiy PIN')),
+        appBar: AppBar(title: const Text('Mening ma’lumotlarim')),
         body: Center(child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Padding(padding: const EdgeInsets.all(22), child: Column(
-            mainAxisSize: MainAxisSize.min,
+          constraints: const BoxConstraints(maxWidth: 460),
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.all(22),
             children: [
-              const Icon(Icons.lock_person_outlined, size: 60),
-              const SizedBox(height: 12),
-              const Text('Profil himoyalangan',
-                style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 8),
-              Text('${state.savedCustomer['name'] ?? ''}\n'
-                   '${state.savedCustomer['phone'] ?? ''}',
-                textAlign: TextAlign.center),
+              const Icon(Icons.lock_person_outlined, size: 56),
+              const SizedBox(height: 14),
+              const Text('Profilga kirilgansiz',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
               const SizedBox(height: 18),
-              const Text('Shaxsiy PIN: ••••\nPIN maxfiy saqlanadi va ochiq ko‘rsatilmaydi. '
-                'Shu qurilmada uni har buyurtmada yozish shart emas. '
-                'Boshqa qurilmada telefon raqam va PIN bilan kiring.',
-                textAlign: TextAlign.center),
+              ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: const Text('Ism'),
+                subtitle: Text(savedName),
+              ),
+              ListTile(
+                leading: const Icon(Icons.phone_outlined),
+                title: const Text('Telefon raqami'),
+                subtitle: Text(savedPhone),
+              ),
+              const ListTile(
+                leading: Icon(Icons.password_outlined),
+                title: Text('Shaxsiy PIN'),
+                subtitle: Text('••••  •  himoyalangan'),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'Bu telefonda PINni har safar kiritish shart emas. '
+                'Boshqa telefonda eski buyurtmalarni ochish uchun '
+                'telefon raqamingiz va PIN kerak.',
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 20),
               OutlinedButton.icon(
                 onPressed: busy ? null : () async {
+                  final shouldSignOut = await showDialog<bool>(
+                    context: context, builder: (dialog) => AlertDialog(
+                      title: const Text('Profildan chiqilsinmi?'),
+                      content: const Text(
+                        'Bu qurilmadagi ism, telefon, manzil, '
+                        'buyurtmalar va oldindan zakazlar tarixi '
+                        'hamda shaxsiy savat yashiriladi va tozalanadi. '
+                        'Serverdagi buyurtmalar o‘chmaydi: '
+                        'oldingi telefon va PIN bilan qayta kirasiz.',
+                      ),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(dialog, false),
+                          child: const Text('Bekor qilish')),
+                        FilledButton(onPressed: () => Navigator.pop(dialog, true),
+                          child: const Text('Chiqish')),
+                      ],
+                    ),
+                  );
+                  if (shouldSignOut != true || !mounted) return;
                   setState(() => busy = true);
-                  await state.signOutCustomer();
-                  if (context.mounted) Navigator.of(context).pop(true);
+                  try {
+                    await context.read<AppState>().signOutCustomer();
+                    if (!mounted) return;
+                    setState(() {
+                      creating = false;
+                      editLoginPhone = true;
+                      name.clear();
+                      phone.clear();
+                      pin.clear();
+                      confirm.clear();
+                    });
+                  } catch (error) {
+                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Chiqishda xato: $error')),
+                    );
+                  } finally {
+                    if (mounted) setState(() => busy = false);
+                  }
                 },
                 icon: const Icon(Icons.logout_rounded),
                 label: const Text('Profildan chiqish'),
               ),
             ],
-          )),
+          ),
         )),
       );
     }
@@ -122,18 +178,17 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
             children: [
               const Icon(Icons.password_outlined, size: 48),
               const SizedBox(height: 12),
-              Text(creating ? 'Ism, telefon va PIN' :
-                 (phone.text.trim().isNotEmpty && !editLoginPhone
-                    ? 'PIN bilan kirish' : 'Boshqa qurilmadan kirish'),
+              Text(creating ? 'Yangi profil yaratish' : 'Profilga kirish',
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 21,fontWeight: FontWeight.w800)),
               const SizedBox(height: 7),
               Text(creating
-                ? 'Bir marta ism, telefon va 4 xonali PINni kiriting. '
-                  'Keyingi buyurtmalarda avtomatik ishlatiladi. PINni unutmang.'
-                : (phone.text.trim().isNotEmpty && !editLoginPhone
-                  ? 'Bu telefonda faqat 4 xonali PINni kiriting. SMS kelmaydi.'
-                  : 'Telefon raqamingiz va 4 xonali PINni kiriting. SMS kelmaydi.'),
+                ? 'Ismingiz, telefon raqamingiz va yangi 4 xonali PINni kiriting. '
+                  'Agar bu raqamda oldin profil bo‘lsa, yangi PIN bilan uni '
+                  'almashtirib bo‘lmaydi.'
+                : 'Oldin ro‘yxatdan o‘tgan bo‘lsangiz, telefon raqamingiz '
+                  'va avvalgi PINni kiriting. Eski buyurtmalar shu '
+                  'profil bilan ochiladi.'),
                 textAlign: TextAlign.center),
               const SizedBox(height: 22),
               if (creating) ...[
@@ -223,9 +278,37 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
                   confirm.clear();
                 }),
                 child: Text(creating
-                  ? 'PINim bor — boshqa telefondan kirish'
-                  : 'Yangi profil uchun PIN yaratish'),
+                  ? 'Oldingi profilim bor — Kirish'
+                  : 'Oldin PIN yaratmaganman — Yangi profil'),
               ),
+              if (!creating) ...[
+                const SizedBox(height: 4),
+                TextButton(
+                  onPressed: busy ? null : () => showDialog<void>(
+                    context: context,
+                    builder: (dialog) => AlertDialog(
+                      title: const Text('PIN esimda yo‘q'),
+                      content: const Text(
+                        'Agar ushbu raqam uchun PIN ilgari yaratilgan bo‘lsa, '
+                        'eski buyurtmalar xavfsizligi uchun yangi PINni '
+                        'o‘zingiz o‘rnata olmaysiz. Profilni tiklashda '
+                        'do‘kon administratori shaxsingizni alohida '
+                        'tasdiqlashi kerak. '
+                        'Boshqa, ilgari ro‘yxatdan o‘tmagan raqam bilan '
+                        'yangi, bo‘sh profil yaratishingiz mumkin. '
+                        'Eski buyurtmalar yangi profilga avtomatik o‘tmaydi.',
+                      ),
+                      actions: [
+                        FilledButton(
+                          onPressed: () => Navigator.pop(dialog),
+                          child: const Text('Tushunarli'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  child: const Text('PIN esimda yo‘q'),
+                ),
+              ],
               const SizedBox(height: 12),
               const Text('Muhim: PINni eslab qoling! SMS orqali tiklash mavjud emas. '
                 'Boshqa qurilmada telefon raqami va PIN kerak bo‘ladi. '

@@ -188,7 +188,7 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
                   'almashtirib bo‘lmaydi.'
                 : 'Oldin ro‘yxatdan o‘tgan bo‘lsangiz, telefon raqamingiz '
                   'va avvalgi PINni kiriting. Eski buyurtmalar shu '
-                  'profil bilan ochiladi.'),
+                  'profil bilan ochiladi.',
                 textAlign: TextAlign.center),
               const SizedBox(height: 22),
               if (creating) ...[

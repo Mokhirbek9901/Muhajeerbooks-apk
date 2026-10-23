@@ -1,3 +1,11 @@
+-- Snapshot the original read function for instant, scoped rollback.
+insert into private.qa_backup_20261024_functions(
+  function_signature,original_definition)
+select p.oid::regprocedure::text,pg_get_functiondef(p.oid)
+from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+where n.nspname='public' and p.proname='admin_web_batch_existing_data'
+on conflict do nothing;
+
 -- Read-only comparison of booked finance expenses with actual historical
 -- book procurement value. No finance expense/stock/order records are changed.
 -- Only actual finance_expenses(category=inventory_purchase) are finance-linked.

@@ -10,6 +10,21 @@ void main() {
         previousQuantity: 2, historicalLineValue: 16000), 16000);
     });
 
+    test('mixed historical costs follow newest-line-first on increase and decrease', () {
+      const lots = [BatchCostLot(1, 9000), BatchCostLot(1, 7000)];
+      expect(batchBookCostValue(quantity: 2, unitCost: 8000,
+        previousQuantity: 2, historicalLineValue: 16000,
+        historicalLots: lots), 16000);
+      // Increasing one more copy updates the newest 9000-won line.
+      expect(batchBookCostValue(quantity: 3, unitCost: 8000,
+        previousQuantity: 2, historicalLineValue: 16000,
+        historicalLots: lots), 25000);
+      // Decreasing removes the newest 9000-won line first.
+      expect(batchBookCostValue(quantity: 1, unitCost: 8000,
+        previousQuantity: 2, historicalLineValue: 16000,
+        historicalLots: lots), 7000);
+    });
+
     test('correcting 12 stul from 2 to 3 increases amount by only ONE book', () {
       final previous = batchBookCostValue(quantity: 2, unitCost: 6500,
         previousQuantity: 2, historicalLineValue: 13000);

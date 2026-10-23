@@ -485,7 +485,11 @@ class _CombinedPreorderDetailPageState extends State<_CombinedPreorderDetailPage
         final qty = (record['quantity'] as num?)?.toInt() ?? 1;
         final deposit = (record['deposit_amount'] as num?)?.toInt() ?? 0;
         final subtotal = (int.tryParse(priceText) ?? 0) * qty;
-        final total = subtotal + (int.tryParse(shippingText) ?? 0);
+        final freeShipping = qty >= 4 &&
+          context.read<AppState>().fourPlusFreeDeliveryEnabled;
+        final effectiveShipping = freeShipping
+          ? 0 : (int.tryParse(shippingText) ?? 0);
+        final total = subtotal + effectiveShipping;
         final due = total - deposit;
         return AlertDialog(
           title: const Text('Kitob keldi — to‘lov hisoblash'),
@@ -538,7 +542,8 @@ class _CombinedPreorderDetailPageState extends State<_CombinedPreorderDetailPage
                 ),
                 const Divider(height: 22),
                 Text('Kitoblar: ${_won(subtotal)}'),
-                Text('Pochta: ${_won(int.tryParse(shippingText) ?? 0)}'),
+                Text('Pochta: ${_won(effectiveShipping)}'
+                  '${freeShipping ? ' (4+ kitob — bepul)' : ''}'),
                 Text('To‘langan avans: −${_won(deposit)}'),
                 Text('Qolgan to‘lov: ${_won(due < 0 ? 0 : due)}',
                   style: const TextStyle(

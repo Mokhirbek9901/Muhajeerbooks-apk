@@ -7,6 +7,7 @@
     const number=currency.amount(value);
     return number!==null&&number<=1e9?number:null;
   }
+  function positiveUzs(value){const text=uzsText(value);return text!==null&&Number(text)>0?text:null;}
   function quantity(value){
     // Existing Yordamchi records did not track quantity: one book is their safe default.
     if(value===null||value===undefined||String(value).trim()==='')return 1;
@@ -38,10 +39,10 @@
   function arrivalParts(row){
     const first=baseQuantity(row);
     const parts=[];
-    if(first!==null&&first>0)parts.push({id:row.originBatchId||'legacy-original',date:row.originBatchDate||'',quantity:first,price:row.price,grams:row.grams,rate:row.originRate??null,priceUzs:row.priceUzs??null});
+    if(first!==null&&first>0)parts.push({id:row.originBatchId||'legacy-original',date:row.originBatchDate||'',quantity:first,price:row.price,grams:row.grams,rate:row.originRate??null,priceUzs:row.priceUzs??null,fxPer1000:row.originFxPer1000??null,purchaseUzsTotal:row.originPurchaseUzsTotal??null});
     for(const batch of Array.isArray(row.batches)?row.batches:[]){
       const n=quantity(batch.quantity);
-      if(n!==null&&n>0)parts.push({id:batch.groupId||batch.id,date:batch.date||'',quantity:n,price:batch.price,grams:batch.grams,rate:batch.rate??null,priceUzs:batch.priceUzs??null});
+      if(n!==null&&n>0)parts.push({id:batch.groupId||batch.id,date:batch.date||'',quantity:n,price:batch.price,grams:batch.grams,rate:batch.rate??null,priceUzs:batch.priceUzs??null,fxPer1000:batch.fxPer1000??null,purchaseUzsTotal:batch.purchaseUzsTotal??null});
     }
     return parts;
   }
@@ -103,14 +104,16 @@
   // rather than guessing a grouping from dates that may contain multiple imports.
   function groupByBatch(rows,wonPerKg=DEFAULT_WON_PER_KG){
     const groups=new Map();
-    function push(id,date,legacy,row,quantityValue,price,grams,shippingRate,priceUzs){
+    function push(id,date,legacy,row,quantityValue,price,grams,shippingRate,priceUzs,fxPer1000,purchaseUzsTotal){
       const n=quantity(quantityValue);
       if(n===null||n<1)return;
       let group=groups.get(id);
       if(!group){
-        group={id,date:date||'',legacy,rows:[],titles:new Set()};
+        group={id,date:date||'',legacy,rows:[],titles:new Set(),fxPer1000:null,purchaseUzsTotal:null};
         groups.set(id,group);
       }
+      if(group.fxPer1000===null && positiveUzs(fxPer1000)!==null)group.fxPer1000=positiveUzs(fxPer1000);
+      if(group.purchaseUzsTotal===null && uzsText(purchaseUzsTotal)!==null)group.purchaseUzsTotal=uzsText(purchaseUzsTotal);
       group.titles.add(key(row.title));
       group.rows.push({
         id:row.id,title:row.title,quantity:n,price,grams,priceUzs:priceUzs??null,
@@ -124,23 +127,46 @@
       if(original!==null&&original>0){
         const known=typeof row.originBatchId==='string'&&row.originBatchId.trim();
         push(known?'partiya:'+row.originBatchId:'legacy',row.originBatchDate||'',!known,
-          row,original,row.price,row.grams,row.originRate??null,row.priceUzs);
+          row,original,row.price,row.grams,row.originRate??null,row.priceUzs,row.originFxPer1000,row.originPurchaseUzsTotal);
       }
       for(const batch of Array.isArray(row.batches)?row.batches:[]){
         const known=typeof batch.groupId==='string'&&batch.groupId.trim();
         push(known?'partiya:'+batch.groupId:'legacy',batch.date||'',!known,
-          row,batch.quantity,batch.price,batch.grams,batch.rate,batch.priceUzs);
+          row,batch.quantity,batch.price,batch.grams,batch.rate,batch.priceUzs,batch.fxPer1000,batch.purchaseUzsTotal);
       }
     }
     return [...groups.values()]
       .sort((a,b)=>a.legacy-b.legacy || b.date.localeCompare(a.date) || a.id.localeCompare(b.id))
       .map((g,index)=>{
         const totals=summary(g.rows,wonPerKg);
-        return {id:g.id,date:g.date,legacy:g.legacy,
+        const fx=positiveUzs(g.fxPer1000);
+        // An explicitly recorded batch purchase is authoritative; changing the
+        // current FX rate must never rewrite historic group accounting.
+        if(fx!==null && g.purchaseUzsTotal!==null && totals.ready){
+          const actualPurchase=currency.ratio([g.purchaseUzsTotal,1000],[fx]);
+          totals.purchaseTotal=actualPurchase;
+          totals.total=currency.add(actualPurchase,totals.shippingTotal);
+          if(totals.profitUnits===totals.quantityTotal && totals.profitUnits>0)
+            totals.profitTotal=currency.add(totals.revenueTotal,-totals.total);
+          else {totals.profitCount=0;totals.profitTotal=0;}
+        }
+        const som=fx===null?null:{
+          purchase:g.purchaseUzsTotal!==null?Number(g.purchaseUzsTotal):currency.ratio([totals.purchaseTotal,fx],[1000]),
+          shipping:currency.ratio([totals.shippingTotal,fx],[1000]),
+          total:currency.ratio([totals.total,fx],[1000]),
+          profit:totals.profitCount?currency.ratio([totals.profitTotal,fx],[1000]):null
+        };
+        return {id:g.id,date:g.date,legacy:g.legacy,fxPer1000:fx,purchaseUzsTotal:g.purchaseUzsTotal,som,
           label:g.legacy?'Eski qaydlar · partiyasi belgilanmagan':
             'Partiya · '+(g.date||'Sana yo‘q')+' · '+g.id.slice(-6),
           rows:g.rows,bookCount:g.titles.size,totals};
       });
+  }
+  function sumGroupTotals(groups){
+    const fields=['total','ready','pending','profitTotal','profitCount','quantityTotal','quantityReady','profitUnits','purchaseTotal','shippingTotal','revenueTotal'];
+    const out=Object.fromEntries(fields.map(field=>[field,0]));
+    for(const group of groups)for(const field of fields)out[field]=currency.add(out[field],group.totals[field]||0);
+    return out;
   }
   // Lock the currently stored tariff onto historical arrivals that lack snapshots.
   // Never infer a batch ID from title/date: unassigned history remains unassigned.
@@ -208,6 +234,8 @@
         .map(b=>({id:String(b.id||makeId()),date:/^\d{4}-\d{2}-\d{2}$/.test(b.date||'')?b.date:'',
           quantity:quantity(b.quantity),price:amount(b.price),grams:amount(b.grams),rate:amount(b.rate),
           ...(uzsText(b.priceUzs)!==null?{priceUzs:uzsText(b.priceUzs)}:{}),
+          ...(positiveUzs(b.fxPer1000)!==null?{fxPer1000:positiveUzs(b.fxPer1000)}:{}),
+          ...(uzsText(b.purchaseUzsTotal)!==null?{purchaseUzsTotal:uzsText(b.purchaseUzsTotal)}:{}),
            ...(typeof b.groupId==='string'&&b.groupId.trim()?{groupId:b.groupId.slice(0,120)}:{})}))
         .filter(b=>b.quantity!==null);
       let sum=0;const safeBatches=batches.filter(b=>{if(sum+b.quantity>=total)return false;sum+=b.quantity;return true;});
@@ -215,6 +243,8 @@
       id:String(row.id||makeId()),title:String(row.title||'').slice(0,300),
       price:amount(row.price),grams:amount(row.grams),salePrice:amount(row.salePrice),quantity:total,
        ...(uzsText(row.priceUzs)!==null?{priceUzs:uzsText(row.priceUzs)}:{}),
+       ...(positiveUzs(row.originFxPer1000)!==null?{originFxPer1000:positiveUzs(row.originFxPer1000)}:{}),
+       ...(uzsText(row.originPurchaseUzsTotal)!==null?{originPurchaseUzsTotal:uzsText(row.originPurchaseUzsTotal)}:{}),
        ...(amount(row.originRate)!==null?{originRate:amount(row.originRate)}:{}),
        ...(typeof row.originBatchId==='string'&&row.originBatchId.trim()?{originBatchId:row.originBatchId.slice(0,120),originBatchDate:/^\d{4}-\d{2}-\d{2}$/.test(row.originBatchDate||'')?row.originBatchDate:''}:{}),
       ...(safeBatches.length?{batches:safeBatches}:{}),
@@ -244,7 +274,7 @@
     }
     return items;
   }
-  const api={DEFAULT_WON_PER_KG,WON_PER_GRAM,rate,amount,uzsText,quantity,calculate,profit,inventory,summary,key,parseTitles,parseTitleEntries,extraQuantity,baseQuantity,arrivalParts,groupByBatch,normalize,restoreLastImportGroups,freezeHistoricalRates,normalizeRates,tariffs,compare};
+  const api={DEFAULT_WON_PER_KG,WON_PER_GRAM,rate,amount,uzsText,quantity,calculate,profit,inventory,summary,key,parseTitles,parseTitleEntries,extraQuantity,baseQuantity,arrivalParts,groupByBatch,normalize,restoreLastImportGroups,freezeHistoricalRates,sumGroupTotals,positiveUzs,normalizeRates,tariffs,compare};
   if(typeof module==='object' && module.exports)module.exports=api;
   else root.BookCosts=api;
 })(typeof globalThis==='object'?globalThis:this);

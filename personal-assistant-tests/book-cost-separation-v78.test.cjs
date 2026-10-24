@@ -92,8 +92,8 @@ test('compact style remains limited to cost workspace and cache references agree
   assert.ok(css.includes('body[data-workspace="costs"] .cost-unit-book'));
   assert.ok(css.includes('#costBatchPicker[hidden]'));
   for(const name of ['app.js','styles.css','book-costs.js']){
-    assert.ok(html.includes(name+'?v=78'));
-    assert.ok(sw.includes(name+'?v=78'));
+    assert.ok(html.includes(name+'?v=79'));
+    assert.ok(sw.includes(name+'?v=79'));
   }
-  assert.ok(sw.includes('bek-yordamchi-v78'));
+  assert.ok(sw.includes('bek-yordamchi-v79'));
 });

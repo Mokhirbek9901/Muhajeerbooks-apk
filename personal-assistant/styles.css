@@ -2906,3 +2906,39 @@ body[data-workspace="costs"] #costReportPanel .cost-report-breakdown{margin-top:
 }
 
 body[data-workspace="costs"] #costSimpleQuantityWrap[hidden],body[data-workspace="costs"] #costBatchPicker[hidden]{display:none!important}
+
+/* V79: clear, compact historical batch-accounting controls. */
+body[data-workspace="costs"] .cost-batch-history-editor,
+body[data-workspace="costs"] .cost-simple-batch-money{margin:13px 0 16px;padding:16px;background:var(--surface,#fff);border:1px solid var(--line,#e5e7eb);border-radius:18px;box-shadow:0 2px 12px rgba(18,55,46,.035)}
+body[data-workspace="costs"] .cost-batch-history-editor[hidden],
+body[data-workspace="costs"] .cost-simple-batch-money[hidden],
+body[data-workspace="costs"] #costSimpleBatchExistingHint[hidden]{display:none!important}
+body[data-workspace="costs"] .cost-batch-history-heading{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:11px}
+body[data-workspace="costs"] .cost-batch-history-heading strong,
+body[data-workspace="costs"] .cost-simple-batch-money>strong{font-size:.95rem;letter-spacing:-.015em;color:var(--text,#17342c)}
+body[data-workspace="costs"] .cost-batch-history-heading span{font-size:.72rem;color:var(--muted)}
+body[data-workspace="costs"] .cost-batch-money-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+body[data-workspace="costs"] .cost-batch-money-grid label,
+body[data-workspace="costs"] .cost-simple-batch-money label{display:flex;flex-direction:column;gap:7px;min-width:0;font-size:.77rem;font-weight:650;line-height:1.45}
+body[data-workspace="costs"] .cost-batch-money-grid input,
+body[data-workspace="costs"] .cost-simple-batch-money input{min-height:46px;max-width:100%;width:100%;padding:10px 12px;border-radius:11px;border:1px solid var(--line,#dce7e1);font:inherit;font-size:1rem;font-weight:650;font-variant-numeric:tabular-nums;background:var(--card,#fff);color:var(--text,#102a23)}
+body[data-workspace="costs"] .cost-batch-money-grid input:focus,
+body[data-workspace="costs"] .cost-simple-batch-money input:focus{outline:2px solid var(--green,#1e7f53);outline-offset:1px}
+body[data-workspace="costs"] .cost-simple-batch-money{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+body[data-workspace="costs"] .cost-simple-batch-money>strong,
+body[data-workspace="costs"] .cost-simple-batch-money>small{grid-column:1/-1}
+body[data-workspace="costs"] .cost-simple-batch-money>small,
+body[data-workspace="costs"] .cost-batch-money-hint{font-size:.74rem;line-height:1.55;color:var(--muted);margin:8px 0 10px}
+body[data-workspace="costs"] .cost-batch-history-save{min-height:42px;border-radius:11px}
+body[data-workspace="costs"] .cost-partiya-history{display:grid;grid-template-columns:1fr;gap:6px;padding:12px;margin:11px 0;background:var(--mint,#edf8f1);border-radius:12px;color:var(--text,#1e4835);font-size:.75rem}
+body[data-workspace="costs"] .cost-partiya-history span{display:flex;justify-content:space-between;gap:10px}
+body[data-workspace="costs"] .cost-partiya-history b{font-variant-numeric:tabular-nums;text-align:right;overflow-wrap:anywhere}
+body[data-workspace="costs"] .cost-unified-note{font-size:.78rem;line-height:1.55;color:var(--muted);margin:2px 0 13px}
+body[data-workspace="costs"] .cost-unified-books{display:grid;gap:7px}
+body[data-workspace="costs"] .cost-unified-book{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:11px 12px;border:1px solid var(--line,#e3e9e5);border-radius:11px}
+body[data-workspace="costs"] .cost-unified-book strong{min-width:0;font-size:.81rem;overflow-wrap:anywhere}
+body[data-workspace="costs"] .cost-unified-book span{font-size:.75rem;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+@media(max-width:560px){body[data-workspace="costs"] .cost-batch-money-grid,
+body[data-workspace="costs"] .cost-simple-batch-money{grid-template-columns:1fr}
+body[data-workspace="costs"] .cost-batch-history-editor,
+body[data-workspace="costs"] .cost-simple-batch-money{padding:13px}}

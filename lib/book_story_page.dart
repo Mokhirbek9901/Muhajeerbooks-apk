@@ -47,49 +47,35 @@ class _BookStoryPageState extends State<BookStoryPage> {
     BookStoryTemplate.velvetRose,
     BookStoryTemplate.auroraInk,
     BookStoryTemplate.hanokPaper,
-    BookStoryTemplate.kineticPop,
     BookStoryTemplate.serifLuxe,
-    BookStoryTemplate.mochaStudio,
     BookStoryTemplate.neonNight,
     BookStoryTemplate.galleryLine,
     BookStoryTemplate.goldenOrbit,
     BookStoryTemplate.obsidianEdition, // Grafit va oltin
     BookStoryTemplate.pearlEdition,    // Marvarid, ipak va nozik chiziqlar
-    BookStoryTemplate.sapphireEdition, // Ko‘k kristall
-    BookStoryTemplate.velvetEdition,   // Bordo velvet
-    BookStoryTemplate.atlasLuxeEdition,// Atlas naqshi
     BookStoryTemplate.quickPrice,       // Faqat muqova, narx va odatiy pochta narxi
     BookStoryTemplate.cleanEdition,    // Oq va toza
     BookStoryTemplate.premiumEdition,  // To‘q yashil va oltin
     BookStoryTemplate.nightEdition,    // Tun ranglari
     BookStoryTemplate.warmEdition,     // Iliq va yumshoq
     BookStoryTemplate.saleEdition,     // Sotuv uchun yorqin
-    BookStoryTemplate.editorialEdition,// Jurnal uslubida
     // Muqova ranglarini o‘zi tahlil qilib, fon/yozuv/aksentlarni moslaydi.
     BookStoryTemplate.current,    // Avto dizayn — yangi kompozitsiyani o‘zi yaratadi
-    BookStoryTemplate.oldCurrent, // Hozir — eski tanish dizayn
     BookStoryTemplate.smartMatch, // Mos dizayn — mavjud dizaynlardan muqovaga mosini tanlaydi
-    BookStoryTemplate.decorative, // Klassik
     BookStoryTemplate.spring,
     BookStoryTemplate.summer,
     BookStoryTemplate.autumn,
     BookStoryTemplate.winter,
-    BookStoryTemplate.adras,      // Naqqosh
-    BookStoryTemplate.cinema,     // Tun va shahar
     BookStoryTemplate.ornament,   // Sado
     BookStoryTemplate.noir,       // Zamonaviy
-    BookStoryTemplate.marble,
     BookStoryTemplate.terracotta,
-    BookStoryTemplate.royal,
     BookStoryTemplate.botanical,
-    BookStoryTemplate.lifestyle,
     BookStoryTemplate.cleanStudio,
     BookStoryTemplate.goldArch,
     BookStoryTemplate.scrapbook,
     BookStoryTemplate.arch,
     BookStoryTemplate.split,
     BookStoryTemplate.polaroid,
-    BookStoryTemplate.coverFocus,
   ];
 
   Future<Uint8List> _renderStoryWithRecovery(BookStoryTemplate template, {int page = 0}) async {

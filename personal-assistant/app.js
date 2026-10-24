@@ -310,7 +310,7 @@
       koreaShippingRate: window.KoreaProducts.shippingRate(input?.koreaShippingRate,costs.rate(input?.bookCostRate)),
       bookCostComparisons: costs.normalizeRates(input?.bookCostComparisons,makeId),
       bookCostMetadata: input?.bookCostMetadata && typeof input.bookCostMetadata==='object' && !Array.isArray(input.bookCostMetadata)?input.bookCostMetadata:{},
-      bookCosts: costs.normalize(input?.bookCosts,makeId),
+      bookCosts: costs.restoreLastImportGroups(input?.bookCosts,input?.bookCostLastImport,makeId),
       bookCostLastImport:input?.bookCostLastImport&&Array.isArray(input.bookCostLastImport.items)?input.bookCostLastImport:null,
       krwToUzsPer1000: window.KoreaProducts.fx(input?.krwToUzsPer1000),
       preciseExchangeRates:window.YordamchiCurrency.precise.rates(input),

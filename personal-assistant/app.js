@@ -133,7 +133,7 @@
   let currentView = 'home';
   let costView='main';
   let costAddMode='choose';
-  let costBulkDrafts=[];
+
   let selectedCostBatchId='all';
   let costReportMode='batch';
   let costEditingId='';
@@ -3362,10 +3362,17 @@
     const result=costs.calculate({...row,price:unitPurchase},state.bookCostRate);
     const purchase=uzs!==null?costUzsClean(uzs):row.price===null?'—':costSomCompact(row.price);
     const won=value=>costPlainWon(value);
-    if(row.price===null||row.grams===null)return '<article class="cost-plain-book cost-plain-incomplete">'+
-      '<div class="cost-plain-book-top"><div><h3>'+escapeHtml(row.title||'Kitob')+'</h3>'+
-      '<span>'+(row.price===null&&row.grams===null?'Narx va vazn kiritilmagan':row.price===null?'Narx kiritilmagan':'Vazn kiritilmagan')+'</span></div>'+
-      '<button type="button" class="cost-plain-edit" data-cost-edit="'+escapeHtml(row.id)+'">To‘ldirish</button></div></article>';
+    if(unitPurchase===null||row.grams===null){
+      const missingPrice=unitPurchase===null,missingWeight=row.grams===null;
+      return '<article class="cost-plain-book cost-plain-incomplete">'+
+        '<div class="cost-plain-book-top"><div><h3>'+escapeHtml(row.title||'Kitob')+'</h3>'+
+        '<span>'+(missingPrice&&missingWeight?'Narx va vazn kiritilmagan':missingPrice?'Narx kiritilmagan':'Vazn kiritilmagan')+'</span></div>'+
+        '<button type="button" class="cost-plain-edit" data-cost-edit="'+escapeHtml(row.id)+'">To‘ldirish</button></div>'+
+        (missingPrice&&missingWeight?'':'<div class="cost-plain-partial">'+
+          (missingPrice?'':'<span>Xarid: <strong>'+purchase+'</strong> · '+won(unitPurchase)+'</span>')+
+          (missingWeight?'':'<span>Yetkazish: <strong>'+won(result.shipping)+'</strong> · '+costSomCompact(result.shipping)+'</span>')+
+        '</div>')+'</article>';
+    }
     return '<article class="cost-plain-book">'+
       '<div class="cost-plain-book-top"><div><h3>'+escapeHtml(row.title||'Kitob')+'</h3>'+
       '<span>'+(row.grams===null?'Vazni kiritilmagan':row.grams+' g')+
@@ -3628,7 +3635,9 @@
     // Always price a single book using the currently selected exchange rate.
     const rawPrice=$('costSimplePrice').value.trim();
     const currency=$('costSimpleCurrency').value;
-    const normalized=currency==='UZS'?window.BookCostSimple.normalizedPrice(rawPrice,null,true):null;
+    // Fresh amounts are literal UZS: never silently multiply a typed price by 1000.
+    // The legacy 97.02 -> 97020 correction applies only to old saved records on read.
+    const normalized=currency==='UZS'?window.YordamchiCurrency.precise.valid(rawPrice):null;
     const precise=window.YordamchiCurrency.precise;
     const quoted=normalized?window.BookCostSimple.wonFromUzs(state,normalized):null;
     const converted=currency==='UZS'?{
@@ -3684,9 +3693,13 @@
     batchChoice.value=previousBatchChoice&&Array.from(batchChoice.options).some(o=>o.value===previousBatchChoice)?previousBatchChoice:'new';
     fillCostBatchMoney();
     if(!row)$('costSimplePurchaseUzsTotal').value='';
-    $('costSimpleCurrency').value=row?(row.priceUzs?'UZS':'KRW'):'UZS';
+    // Always open the editor in UZS, including books originally entered in KRW.
+    $('costSimpleCurrency').value='UZS';
+    const precise=window.YordamchiCurrency.precise;
     const existingUzs=row?.priceUzs!==undefined?window.BookCostSimple.normalizedPrice(row.priceUzs,row.price):null;
-    $('costSimplePrice').value=existingUzs?window.YordamchiCurrency.precise.text(existingUzs):row?.price??'';
+    const convertedUzs=!existingUzs&&row?.price!==null&&row?.price!==undefined?
+      window.BookCostSimple.uzsFromWon(state,String(row.price)):null;
+    $('costSimplePrice').value=existingUzs?precise.text(existingUzs):convertedUzs?precise.text(convertedUzs):'';
     $('costSimplePrice').placeholder=$('costSimpleCurrency').value==='UZS'?'Masalan: 60000':'Masalan: 8000';
     $('costSimpleGrams').value=row?.grams??'';
     $('costSimpleSale').value=row?.salePrice??'';
@@ -3702,85 +3715,68 @@
     refreshSimpleCostPreview();
   }
 
-  function newCostBulkDraft(){return {id:makeId(),title:'',priceUzs:'',grams:''};}
-  function renderCostBulkSimpleRows(){
-    const node=$('costBulkSimpleRows');
-    node.innerHTML=costBulkDrafts.map((draft,index)=>
-      '<article class="cost-bulk-line" data-cost-bulk-row="'+escapeHtml(draft.id)+'">'+
-      '<div class="cost-bulk-line-heading"><strong>'+(index+1)+'-kitob</strong>'+
-      '<button type="button" data-cost-bulk-remove="'+escapeHtml(draft.id)+'" aria-label="Qatorni o‘chirish">O‘chirish</button></div>'+
-      '<label>Kitob nomi<input data-cost-bulk-field="title" maxlength="300" autocomplete="off" placeholder="Kitob nomi" value="'+escapeHtml(draft.title)+'"></label>'+
-      '<div class="cost-bulk-line-numbers">'+
-      '<label>O‘zbekistonda (so‘m)<input data-cost-bulk-field="priceUzs" inputmode="decimal" placeholder="Masalan: 85000" value="'+escapeHtml(draft.priceUzs)+'"></label>'+
-      '<label>Vazni (g)<input data-cost-bulk-field="grams" inputmode="decimal" placeholder="Masalan: 300" value="'+escapeHtml(draft.grams)+'"></label></div>'+
-      '<div class="cost-bulk-line-result" data-cost-bulk-result></div></article>'
-    ).join('');
-    costBulkDrafts.forEach(draft=>updateCostBulkPreview(draft.id));
-  }
-  function updateCostBulkPreview(id){
-    const draft=costBulkDrafts.find(item=>item.id===id);
-    const card=qsa('[data-cost-bulk-row]',$('costBulkSimpleRows')).find(node=>node.dataset.costBulkRow===id);
-    const target=card?.querySelector('[data-cost-bulk-result]');
-    if(!draft||!target)return;
-    if(!draft.priceUzs.trim()||!draft.grams.trim()){target.textContent='Narx va vaznni kiriting — hisob shu yerda chiqadi.';return;}
-    const p=window.YordamchiCurrency.precise;
-    const uzs=window.BookCostSimple.normalizedPrice(draft.priceUzs,null,true);
-    const quote=uzs?window.BookCostSimple.wonFromUzs(state,uzs):null;
-    const grams=costs.amount(draft.grams);
-    const price=quote?costs.amount(p.number(quote)):null;
-    if(price===null||grams===null){target.textContent='Narx, gramm yoki kursni tekshiring.';return;}
-    const calc=costs.calculate({price,grams},state.bookCostRate);
-    target.textContent='1 dona: '+costPlainWon(calc.total)+' · '+costSomCompact(calc.total);
+  function updateCostBulkPasteCount(){
+    const result=window.BookCostListUI.parseNameList($('costBulkPasteNames').value,costs.key);
+    const known=new Set(state.bookCosts.map(row=>costs.key(row.title)));
+    const fresh=result.names.filter(title=>!known.has(costs.key(title)));
+    const repeated=result.names.length-fresh.length;
+    $('costBulkPasteCount').textContent=result.error?result.error:
+      result.names.length+' ta noyob nom · '+fresh.length+' ta yangi'+
+      (repeated?' · '+repeated+' tasi ro‘yxatda bor':'');
   }
   function setCostAddMode(mode){
     if(!['choose','single','bulk'].includes(mode))return;
-    // Returning from an existing book edit starts a fresh add flow.
+    // Creating a new book never silently edits the previously selected one.
     if(mode==='choose'||mode==='bulk'){
       costEditingId='';costEditingAll=false;costEditingIds.clear();
     }
     costAddMode=mode;
-    if(mode==='bulk'&&!costBulkDrafts.length)costBulkDrafts=Array.from({length:3},newCostBulkDraft);
-    if(mode==='bulk')renderCostBulkSimpleRows();
     renderBookCosts();syncWorkspaceUI();
     if(mode==='single')$('costSimpleTitle').focus({preventScroll:true});
-    if(mode==='bulk')$('costBulkSimpleRows').querySelector('input')?.focus({preventScroll:true});
+    if(mode==='bulk'){
+      updateCostBulkPasteCount();
+      $('costBulkPasteNames').focus({preventScroll:true});
+    }
   }
   function saveCostBulkSimple(event){
     event.preventDefault();
-    const drafts=costBulkDrafts.filter(draft=>Object.values(draft).some((value,key)=>key!==0&&String(value||'').trim()));
-    const fail=msg=>{$('costBulkSimpleError').hidden=false;$('costBulkSimpleError').textContent=msg;};
-    if(!drafts.length){fail('Kamida bitta kitob nomini, narxini va vaznini kiriting.');return;}
+    const result=window.BookCostListUI.parseNameList($('costBulkPasteNames').value,costs.key);
+    const fail=message=>{
+      $('costBulkSimpleError').hidden=false;
+      $('costBulkSimpleError').textContent=message;
+    };
+    if(result.error){fail(result.error);return;}
+    if(!result.names.length){fail('Kitob nomlarini har qatorga bittadan qo‘ying.');return;}
     const existing=new Set(state.bookCosts.map(row=>costs.key(row.title)).filter(Boolean));
-    const pending=new Set(),newRows=[];
-    const fx=window.BookCostSimple.bookFx(state);
-    if(!fx){fail('Valyuta kursi kiritilmagan. Avval Kurs bo‘limida kursni saqlang.');return;}
-    for(let i=0;i<drafts.length;i++){
-      const row=drafts[i],title=row.title.trim();
-      if(!title||!row.priceUzs.trim()||!row.grams.trim()){fail((i+1)+'-kitob: nom, so‘mdagi narx va gramm to‘liq kiritilsin.');return;}
+    const newRows=[];
+    let repeated=0;
+    // Prices and grams stay null. They can be saved separately later.
+    for(const title of result.names){
       const key=costs.key(title);
-      if(existing.has(key)||pending.has(key)){fail('«'+title+'» avval kiritilgan. Uni Kitoblar bo‘limidan tahrirlang.');return;}
-      const uzs=window.BookCostSimple.normalizedPrice(row.priceUzs,null,true);
-      const precise=window.YordamchiCurrency.precise;
-      const quote=uzs?window.BookCostSimple.wonFromUzs(state,uzs):null;
-      const price=quote?costs.amount(precise.number(quote)):null;
-      const grams=costs.amount(row.grams);
-      if(price===null||grams===null){fail('«'+title+'» kitobining narxi yoki vaznini tekshiring.');return;}
-      pending.add(key);
-      newRows.push({id:makeId(),title,quantity:1,price,priceUzs:precise.text(uzs),
-        grams,saved:true,originBatchId:makeId(),originBatchDate:today(),originRate:state.bookCostRate});
+      if(existing.has(key)){repeated++;continue;}
+      existing.add(key);
+      newRows.push({id:makeId(),title,quantity:1,price:null,grams:null,saved:true,
+        originBatchId:makeId(),originBatchDate:today(),originRate:state.bookCostRate});
     }
-    const previous=state.bookCosts;
-    state.bookCosts=[...previous,...newRows];
-    if(!persistBookCosts(newRows.length+' ta kitob saqlandi.',false)){
-      state.bookCosts=previous;fail('Saqlab bo‘lmadi. Qurilma xotirasini tekshiring.');return;
+    if(!newRows.length){
+      fail('Bu nomlarning barchasi oldindan ro‘yxatda bor. Hech narsa o‘zgartirilmadi.');
+      return;
     }
-    costBulkDrafts=[];
+    const before=state.bookCosts;
+    state.bookCosts=[...before,...newRows];
+    if(!persistBookCosts(newRows.length+' ta kitob nomi saqlandi.',false)){
+      state.bookCosts=before;
+      fail('Saqlash amalga oshmadi. Qurilma xotirasini tekshiring.');
+      return;
+    }
+    $('costBulkPasteNames').value='';
     $('costBulkSimpleError').hidden=true;
-    costView='list';costEditingId='';costEditingAll=false;costEditingIds.clear();
+    costView='list';costAddMode='choose';costEditingId='';costEditingAll=false;costEditingIds.clear();
     $('costSearch').value='';
-    $('costPlainListFilter').value='newest';
+    $('costPlainListFilter').value='incomplete';
     renderBookCosts();syncWorkspaceUI();
-    toast(newRows.length+' ta kitob qo‘shildi.');
+    toast(newRows.length+' ta yangi kitob qo‘shildi.'+
+      (repeated?' '+repeated+' ta oldindan mavjud nom takror qo‘shilmadi.':''));
     $('costListPanel').scrollIntoView({block:'start',behavior:'smooth'});
   }
   function openSimpleCostEditor(id=''){
@@ -3799,8 +3795,8 @@
     let error='';
     if(!title)error='Kitob nomini kiriting.';
     else if(priceError)error=priceError;
-    else if(!$('costSimplePrice').value.trim()||fields.price===null)error='Kitobning xarid narxini kiriting.';
-    else if(!$('costSimpleGrams').value.trim()||fields.grams===null)error='Kitob vaznini grammda kiriting.';
+    else if($('costSimplePrice').value.trim()&&fields.price===null)error='Xarid narxini tekshiring yoki bo‘sh qoldiring.';
+    else if($('costSimpleGrams').value.trim()&&fields.grams===null)error='Vaznni grammda to‘g‘ri kiriting yoki bo‘sh qoldiring.';
     else if(kg===null)error='1 kg yetkazish narxini to‘g‘ri kiriting.';
     else if(state.bookCosts.some(row=>row.id!==original?.id&&costs.key(row.title)===costs.key(title)))
       error='Bu kitob ro‘yxatda bor. «Kitoblar» bo‘limidan tahrirlang.';
@@ -3817,11 +3813,16 @@
       originBatchId:makeId(),originBatchDate:today(),originRate:kg
     };
     row.title=title;
-    row.price=fields.price;
+    const priceInput=$('costSimplePrice').value.trim();
+    // An old KRW-only book cannot be silently wiped when the exchange rate
+    // is unavailable and the user updates only its weight.
+    const previousPriceMissingQuote=Boolean(original&&original.price!==null&&
+      original.priceUzs===undefined&&!window.BookCostSimple.bookFx(state)&&!priceInput);
+    row.price=previousPriceMissingQuote?original.price:fields.price;
     row.grams=fields.grams;
     if(!original)row.originRate=kg;
     if(fields.priceUzs!==null)row.priceUzs=fields.priceUzs;
-    else delete row.priceUzs;
+    else if(!previousPriceMissingQuote)delete row.priceUzs;
     row.saved=true;
     if(!original)state.bookCosts.push(row);
     // Calculator save never auto-pushes costs into the separate Muhajeer Books sales app.
@@ -4128,27 +4129,9 @@
     $('costSimpleForm').addEventListener('submit',saveSimpleCostForm);
     qsa('[data-cost-add-mode]').forEach(button=>button.addEventListener('click',()=>setCostAddMode(button.dataset.costAddMode)));
     qsa('[data-cost-add-choice]').forEach(button=>button.addEventListener('click',()=>setCostAddMode('choose')));
-    $('costBulkSimpleAddRow').addEventListener('click',()=>{
-      if(costBulkDrafts.length>=200){toast('Bir safarda 200 tagacha kitob kiriting.');return;}
-      costBulkDrafts.push(newCostBulkDraft());
-      renderCostBulkSimpleRows();
-      $('costBulkSimpleRows').lastElementChild?.querySelector('input')?.focus({preventScroll:true});
-    });
-    $('costBulkSimpleRows').addEventListener('input',event=>{
-      const field=event.target.dataset.costBulkField;
-      if(!['title','priceUzs','grams'].includes(field))return;
-      const id=event.target.closest('[data-cost-bulk-row]')?.dataset.costBulkRow;
-      const draft=costBulkDrafts.find(item=>item.id===id);
-      if(!draft)return;
-      draft[field]=event.target.value;
+    $('costBulkPasteNames').addEventListener('input',()=>{
       $('costBulkSimpleError').hidden=true;
-      updateCostBulkPreview(id);
-    });
-    $('costBulkSimpleRows').addEventListener('click',event=>{
-      const button=event.target.closest('[data-cost-bulk-remove]');if(!button)return;
-      costBulkDrafts=costBulkDrafts.filter(draft=>draft.id!==button.dataset.costBulkRemove);
-      if(!costBulkDrafts.length)costBulkDrafts=[newCostBulkDraft()];
-      renderCostBulkSimpleRows();
+      updateCostBulkPasteCount();
     });
     $('costBulkSimpleForm').addEventListener('submit',saveCostBulkSimple);
     $('costSimpleBatch').addEventListener('change',()=>{fillCostBatchMoney();refreshSimpleCostPreview();});

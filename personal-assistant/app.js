@@ -3643,8 +3643,8 @@
     $('costSimpleProfitSom').textContent=perProfit===null?'—':costSomCompact(perProfit);
     $('costSimpleFxHint').textContent='Amaldagi kurs: 1 000 ₩ = '+(costFxSnapshot()?costUzsClean(costFxSnapshot()):'kiritilmagan');
     $('costSimplePriceHint').textContent=priceError || ($('costSimpleCurrency').value==='UZS'?
-      'So‘mdagi asl narx saqlanadi, von hisob esa shu paytdagi kursda saqlab qo‘yiladi.':
-      'Narx vonda kiritilmoqda; eski kitoblardagi hisob o‘zgarishsiz qoladi.');
+      'So‘mni yozing — amaldagi kursda vonga avtomatik aylanadi.':
+      'Vonni yozing — so‘mdagi qiymati avtomatik hisoblanadi.');
     $('costSimplePriceHint').classList.toggle('cost-price-warning',Boolean(priceError));
   }
   function fillSimpleCostForm(){
@@ -3691,49 +3691,49 @@
   function saveSimpleCostForm(event){
     event.preventDefault();
     const {original,fields,priceError}=costSimpleValues();
+    const kgRaw=$('costSimplePricingKg').value.trim();
+    const kg=kgRaw?costs.amount(kgRaw):state.bookCostRate;
     const title=fields.title;
-    const required=[['costSimplePrice','price'],['costSimpleGrams','grams']];
-    const invalid=required.find(([id,key])=>$(id).value.trim()!=='' && fields[key]===null);
-    const saleInvalid=!original?.muhajeerId&&$('costSimpleSale').value.trim()!==''&&fields.salePrice===null;
-    const group=original?null:costBatchByChoice();
-    const batchFx=original?null:costs.positiveUzs(group?.fxPer1000??$('costSimpleBatchFx').value);
-    const enteredFX=!original&&!group&&$('costSimpleBatchFx').value.trim()!==''&&!batchFx;
-    const batchPurchase=!original&&!group?costs.uzsText($('costSimplePurchaseUzsTotal').value):null;
-    const enteredPurchase=!original&&!group&&$('costSimplePurchaseUzsTotal').value.trim()!==''&&!batchPurchase;
-    const actualKgRaw=original||group?'':$('costSimpleBatchActualKg').value.trim();
-    const actualKg=actualKgRaw!==''?costs.amount(actualKgRaw):null;
-    const pricingKgRaw=$('costSimplePricingKg').value.trim();
-    const pricingKg=pricingKgRaw?costs.amount(pricingKgRaw):state.bookCostRate;
-    const error=priceError||(pricingKg===null?'Kitob tan narxi uchun kg tarifini to‘g‘ri kiriting.':actualKgRaw!==''&&actualKg===null?'Partiyaning haqiqiy 1 kg tarifini to‘g‘ri kiriting.':enteredFX?'Partiya kursini to‘g‘ri kiriting (1 000 ₩ uchun so‘m).':enteredPurchase?'Partiya jami xaridini to‘g‘ri kiriting.':!title?'Kitob nomini kiriting.':fields.quantity===null?'Partiyada kelgan kitoblar soni 1 yoki undan katta butun son bo‘lsin.':
-      invalid?'Xarid narxi va grammni to‘g‘ri raqamda kiriting.':
-      saleInvalid?'Sotuv narxini to‘g‘ri kiriting.':'');
-    const conflictingTitle=state.bookCosts.some(row=>row.id!==original?.id&&costs.key(row.title)===costs.key(title));
-    if(error || conflictingTitle || (original&&fields.quantity!==null && fields.quantity+costs.extraQuantity(original)>100000)){
-      $('costSimpleError').textContent=error||(conflictingTitle?'Bu kitob avval kiritilgan. «Kitoblar» bo‘limidan tahrirlang.':'Narx yoki vaznni tekshiring.');
-      $('costSimpleError').hidden=false;return;}
-    const oldRow=original?{...original}:null;
-    const chosenId=$('costSimpleBatch').value;
-    const newGroup=null;
-    const row=original||{id:makeId(),saved:true,originBatchId:makeId(),
-      originBatchDate:today(),originRate:pricingKg,
-      ...(newGroup?.fxPer1000||batchFx?{originFxPer1000:newGroup?.fxPer1000??batchFx}:{}),
-      ...(!newGroup&&batchPurchase!==null?{originPurchaseUzsTotal:batchPurchase}:{})};
-    row.title=title;row.quantity=original?original.quantity:1;row.price=fields.price;row.grams=fields.grams;
-    if(original)row.originRate=pricingKg;
-    if(fields.priceUzs!==null)row.priceUzs=fields.priceUzs;else delete row.priceUzs;
-    if(!original?.muhajeerId)row.salePrice=fields.salePrice;
+    let error='';
+    if(!title)error='Kitob nomini kiriting.';
+    else if(priceError)error=priceError;
+    else if(!$('costSimplePrice').value.trim()||fields.price===null)error='Kitobning xarid narxini kiriting.';
+    else if(!$('costSimpleGrams').value.trim()||fields.grams===null)error='Kitob vaznini grammda kiriting.';
+    else if(kg===null)error='1 kg yetkazish narxini to‘g‘ri kiriting.';
+    else if(state.bookCosts.some(row=>row.id!==original?.id&&costs.key(row.title)===costs.key(title)))
+      error='Bu kitob ro‘yxatda bor. «Kitoblar» bo‘limidan tahrirlang.';
+    if(error){
+      $('costSimpleError').textContent=error;
+      $('costSimpleError').hidden=false;
+      return;
+    }
+    const before=original?{...original}:null;
+    // Existing batch and historical data are preserved. Only the main unit
+    // calculator values change when explicitly editing this book.
+    const row=original||{
+      id:makeId(),title:'',quantity:1,saved:true,
+      originBatchId:makeId(),originBatchDate:today(),originRate:kg
+    };
+    row.title=title;
+    row.price=fields.price;
+    row.grams=fields.grams;
+    row.originRate=kg;
+    if(fields.priceUzs!==null)row.priceUzs=fields.priceUzs;
+    else delete row.priceUzs;
     row.saved=true;
     if(!original)state.bookCosts.push(row);
-    if(!persistBookCosts('✓ Kitob va kelgan nusxalar soni saqlandi.')){
-      if(original)Object.assign(original,oldRow);
-      else state.bookCosts=state.bookCosts.filter(r=>r.id!==row.id);
-      $('costSimpleError').textContent='Saqlash amalga oshmadi. Qurilma xotirasini tekshiring.';
-      $('costSimpleError').hidden=false;return;
+    if(!persistBookCosts('Kitob narxi saqlandi.')){
+      if(original)Object.assign(original,before);
+      else state.bookCosts=state.bookCosts.filter(item=>item.id!==row.id);
+      $('costSimpleError').textContent='Saqlab bo‘lmadi. Qurilma xotirasini tekshiring.';
+      $('costSimpleError').hidden=false;
+      return;
     }
     $('costSearch').value='';
-    costEditingId='';costEditingAll=false;costEditingIds.clear();costView='list';
+    costEditingId='';costEditingAll=false;costEditingIds.clear();
+    costView='list';
     renderBookCosts();syncWorkspaceUI();
-    toast('Kitob saqlandi: '+row.quantity+' ta · '+row.title);
+    toast('Kitob saqlandi: '+row.title);
     $('costListPanel').scrollIntoView({block:'start',behavior:'smooth'});
   }
   function setCostView(view){

@@ -386,7 +386,14 @@ class _BookStoryPageState extends State<BookStoryPage> {
                             borderRadius: BorderRadius.circular(3),
                             child: Stack(fit: StackFit.expand, children: [
                               ColoredBox(color: bookStoryTemplateColor(item)),
-                              FutureBuilder<Uint8List>(
+                              if (selected)
+                                Image.memory(bytes,
+                                  fit: BoxFit.contain,
+                                  gaplessPlayback: true,
+                                  filterQuality: FilterQuality.low,
+                                  semanticLabel:
+                                      '${bookStoryTemplateName(item)} tanlangan Story rasmi')
+                              else FutureBuilder<Uint8List>(
                                 future: _previewImageFor(item),
                                 builder: (context, preview) {
                                   final previewBytes = preview.data;

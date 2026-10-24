@@ -3628,7 +3628,9 @@
     // Always price a single book using the currently selected exchange rate.
     const rawPrice=$('costSimplePrice').value.trim();
     const currency=$('costSimpleCurrency').value;
-    const normalized=currency==='UZS'?window.BookCostSimple.normalizedPrice(rawPrice,null,true):null;
+    // Fresh amounts are literal UZS: never silently multiply a typed price by 1000.
+    // The legacy 97.02 -> 97020 correction applies only to old saved records on read.
+    const normalized=currency==='UZS'?window.YordamchiCurrency.precise.valid(rawPrice):null;
     const precise=window.YordamchiCurrency.precise;
     const quoted=normalized?window.BookCostSimple.wonFromUzs(state,normalized):null;
     const converted=currency==='UZS'?{
@@ -3684,9 +3686,13 @@
     batchChoice.value=previousBatchChoice&&Array.from(batchChoice.options).some(o=>o.value===previousBatchChoice)?previousBatchChoice:'new';
     fillCostBatchMoney();
     if(!row)$('costSimplePurchaseUzsTotal').value='';
-    $('costSimpleCurrency').value=row?(row.priceUzs?'UZS':'KRW'):'UZS';
+    // Always open the editor in UZS, including books originally entered in KRW.
+    $('costSimpleCurrency').value='UZS';
+    const precise=window.YordamchiCurrency.precise;
     const existingUzs=row?.priceUzs!==undefined?window.BookCostSimple.normalizedPrice(row.priceUzs,row.price):null;
-    $('costSimplePrice').value=existingUzs?window.YordamchiCurrency.precise.text(existingUzs):row?.price??'';
+    const convertedUzs=!existingUzs&&row?.price!==null&&row?.price!==undefined?
+      window.BookCostSimple.uzsFromWon(state,String(row.price)):null;
+    $('costSimplePrice').value=existingUzs?precise.text(existingUzs):convertedUzs?precise.text(convertedUzs):'';
     $('costSimplePrice').placeholder=$('costSimpleCurrency').value==='UZS'?'Masalan: 60000':'Masalan: 8000';
     $('costSimpleGrams').value=row?.grams??'';
     $('costSimpleSale').value=row?.salePrice??'';
@@ -3782,8 +3788,8 @@
     let error='';
     if(!title)error='Kitob nomini kiriting.';
     else if(priceError)error=priceError;
-    else if(!$('costSimplePrice').value.trim()||fields.price===null)error='Kitobning xarid narxini kiriting.';
-    else if(!$('costSimpleGrams').value.trim()||fields.grams===null)error='Kitob vaznini grammda kiriting.';
+    else if($('costSimplePrice').value.trim()&&fields.price===null)error='Xarid narxini tekshiring yoki bo‘sh qoldiring.';
+    else if($('costSimpleGrams').value.trim()&&fields.grams===null)error='Vaznni grammda to‘g‘ri kiriting yoki bo‘sh qoldiring.';
     else if(kg===null)error='1 kg yetkazish narxini to‘g‘ri kiriting.';
     else if(state.bookCosts.some(row=>row.id!==original?.id&&costs.key(row.title)===costs.key(title)))
       error='Bu kitob ro‘yxatda bor. «Kitoblar» bo‘limidan tahrirlang.';
@@ -3800,11 +3806,16 @@
       originBatchId:makeId(),originBatchDate:today(),originRate:kg
     };
     row.title=title;
-    row.price=fields.price;
+    const priceInput=$('costSimplePrice').value.trim();
+    // An old KRW-only book cannot be silently wiped when the exchange rate
+    // is unavailable and the user updates only its weight.
+    const previousPriceMissingQuote=Boolean(original&&original.price!==null&&
+      original.priceUzs===undefined&&!window.BookCostSimple.bookFx(state)&&!priceInput);
+    row.price=previousPriceMissingQuote?original.price:fields.price;
     row.grams=fields.grams;
     if(!original)row.originRate=kg;
     if(fields.priceUzs!==null)row.priceUzs=fields.priceUzs;
-    else delete row.priceUzs;
+    else if(!previousPriceMissingQuote)delete row.priceUzs;
     row.saved=true;
     if(!original)state.bookCosts.push(row);
     // Calculator save never auto-pushes costs into the separate Muhajeer Books sales app.

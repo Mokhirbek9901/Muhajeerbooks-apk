@@ -1,6 +1,6 @@
-2026-10-25 TestFlight ONLY — Muhajeer Books iOS QA build.
-Source: latest main, including AI search fix PR #70 and admin paid AI research robustness.
-Upload signed IPA to App Store Connect TestFlight, validate build processing and internal tester access.
-Target iOS marketing version: 2.5.20 (configured in .github/ios-marketing-version).
-Do NOT submit for App Store review or release to public users.
-Do NOT trigger Play Market release. Keep existing live/store versions unchanged.
+2026-10-25 TestFlight ONLY — Muhajeer Books iOS Story layouts update.
+Build latest main including PR #72, commit c88b7c5774faaaff60f22c7da89c1f3cf2df1196.
+Remove visible book stock quantity and publisher name from every Story design, including Avto, Premium, Classic and Smart Match.
+Present book cover, title, author when available, current price, delivery benefits and book description with spacious layouts.
+Keep iOS marketing version 2.5.20; choose a NEW build number automatically.
+Do NOT submit App Store release or deploy Play Market. This is TestFlight internal testing only.

@@ -3362,10 +3362,17 @@
     const result=costs.calculate({...row,price:unitPurchase},state.bookCostRate);
     const purchase=uzs!==null?costUzsClean(uzs):row.price===null?'—':costSomCompact(row.price);
     const won=value=>costPlainWon(value);
-    if(row.price===null||row.grams===null)return '<article class="cost-plain-book cost-plain-incomplete">'+
-      '<div class="cost-plain-book-top"><div><h3>'+escapeHtml(row.title||'Kitob')+'</h3>'+
-      '<span>'+(row.price===null&&row.grams===null?'Narx va vazn kiritilmagan':row.price===null?'Narx kiritilmagan':'Vazn kiritilmagan')+'</span></div>'+
-      '<button type="button" class="cost-plain-edit" data-cost-edit="'+escapeHtml(row.id)+'">To‘ldirish</button></div></article>';
+    if(unitPurchase===null||row.grams===null){
+      const missingPrice=unitPurchase===null,missingWeight=row.grams===null;
+      return '<article class="cost-plain-book cost-plain-incomplete">'+
+        '<div class="cost-plain-book-top"><div><h3>'+escapeHtml(row.title||'Kitob')+'</h3>'+
+        '<span>'+(missingPrice&&missingWeight?'Narx va vazn kiritilmagan':missingPrice?'Narx kiritilmagan':'Vazn kiritilmagan')+'</span></div>'+
+        '<button type="button" class="cost-plain-edit" data-cost-edit="'+escapeHtml(row.id)+'">To‘ldirish</button></div>'+
+        (missingPrice&&missingWeight?'':'<div class="cost-plain-partial">'+
+          (missingPrice?'':'<span>Xarid: <strong>'+purchase+'</strong> · '+won(unitPurchase)+'</span>')+
+          (missingWeight?'':'<span>Yetkazish: <strong>'+won(result.shipping)+'</strong> · '+costSomCompact(result.shipping)+'</span>')+
+        '</div>')+'</article>';
+    }
     return '<article class="cost-plain-book">'+
       '<div class="cost-plain-book-top"><div><h3>'+escapeHtml(row.title||'Kitob')+'</h3>'+
       '<span>'+(row.grams===null?'Vazni kiritilmagan':row.grams+' g')+

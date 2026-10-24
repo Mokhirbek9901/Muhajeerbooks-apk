@@ -32,7 +32,7 @@
   function baseQuantity(row){const total=quantity(row.quantity);return total===null?null:total-extraQuantity(row);}
   function inventory(row,wonPerKg=DEFAULT_WON_PER_KG){
     const qty=quantity(row.quantity),original=baseQuantity(row),sale=amount(row.salePrice),unit=calculate(row,wonPerKg);
-    const parts=[{...row,quantity:original,rate:rate(row.rate??wonPerKg)},
+    const parts=[{...row,quantity:original,rate:rate(row.originRate??row.rate??wonPerKg)},
       ...(Array.isArray(row.batches)?row.batches:[]).map(batch=>({...batch,salePrice:row.salePrice,rate:rate(batch.rate??wonPerKg)}))];
     let readyQuantity=0,pendingQuantity=0,knownPurchase=0,knownShipping=0,knownTotal=0,knownRevenue=0,knownProfit=0,profitUnits=0;
     let allPurchase=true,allShipping=true,allTotal=true,allProfit=true;
@@ -109,7 +109,7 @@
       if(original!==null&&original>0){
         const known=typeof row.originBatchId==='string'&&row.originBatchId.trim();
         push(known?'partiya:'+row.originBatchId:'legacy',row.originBatchDate||'',!known,
-          row,original,row.price,row.grams,null);
+          row,original,row.price,row.grams,row.originRate??null);
       }
       for(const batch of Array.isArray(row.batches)?row.batches:[]){
         const known=typeof batch.groupId==='string'&&batch.groupId.trim();
@@ -183,6 +183,7 @@
       return {
       id:String(row.id||makeId()),title:String(row.title||'').slice(0,300),
       price:amount(row.price),grams:amount(row.grams),salePrice:amount(row.salePrice),quantity:total,
+       ...(amount(row.originRate)!==null?{originRate:amount(row.originRate)}:{}),
        ...(typeof row.originBatchId==='string'&&row.originBatchId.trim()?{originBatchId:row.originBatchId.slice(0,120),originBatchDate:/^\d{4}-\d{2}-\d{2}$/.test(row.originBatchDate||'')?row.originBatchDate:''}:{}),
       ...(safeBatches.length?{batches:safeBatches}:{}),
       ...(typeof row.muhajeerId==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(row.muhajeerId)?{muhajeerId:row.muhajeerId,muhajeerTitle:String(row.muhajeerTitle||'').slice(0,300),muhajeerCost:amount(row.muhajeerCost)}:{}),

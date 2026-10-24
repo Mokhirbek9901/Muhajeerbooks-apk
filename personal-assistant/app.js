@@ -3250,7 +3250,8 @@
     $('costRateSummary').textContent='1 kg = '+formatMoney(state.bookCostRate,'KRW')+' · 100 g = '+formatMoney(window.YordamchiCurrency.ratio([state.bookCostRate],[10]),'KRW');
     const ready=state.bookCosts.filter(costIsReady);
     renderCostHomeBooks();
-    const groups=costs.groupByBatch(state.bookCosts.filter(row=>String(row.title||'').trim()),state.bookCostRate);
+    const accountingRows=state.bookCosts.filter(row=>String(row.title||'').trim());
+    const groups=costs.groupByBatch(accountingRows,state.bookCostRate);
     if(selectedCostBatchId!=='all'&&!groups.some(g=>g.id===selectedCostBatchId))selectedCostBatchId='all';
     const select=$('costBatchSelect');
     select.innerHTML='<option value="all">Barcha partiyalar · umumiy</option>'+
@@ -3260,9 +3261,9 @@
     $('costBatchFilterHint').textContent=selectedGroup?
       selectedGroup.bookCount+' xil kitob · '+selectedGroup.totals.quantityTotal+' nusxa shu partiyada. Kitoblar katalogidagi jami miqdor o‘zgarmaydi.':
       groups.length+' ta partiya ko‘rsatilmoqda. Bir partiyani tanlasangiz, yuqoridagi barcha hisoblar faqat o‘sha partiya uchun chiqadi.';
-    const reportRows=selectedGroup?selectedGroup.rows:ready;
-    const totals=selectedGroup?selectedGroup.totals:costs.summary(ready,state.bookCostRate);
-    const reportBookCount=selectedGroup?selectedGroup.bookCount:ready.length;
+    const reportRows=selectedGroup?selectedGroup.rows:accountingRows;
+    const totals=selectedGroup?selectedGroup.totals:costs.summary(accountingRows,state.bookCostRate);
+    const reportBookCount=selectedGroup?selectedGroup.bookCount:accountingRows.length;
     renderCostBatchCards(groups);
     $('costSummaryTotal').textContent=totals.ready?formatMoney(totals.total,'KRW'):'—';
     $('costSummaryTotalSom').textContent=totals.ready?costSom(totals.total):'—';
@@ -3424,6 +3425,32 @@
       invalid?'Xarid narxi va grammni to‘g‘ri raqamda kiriting.':
       saleInvalid?'Sotuv narxini to‘g‘ri kiriting.':'';
     if(error){$('costSimpleError').textContent=error;$('costSimpleError').hidden=false;return;}
+    // Adding an existing title creates another arrival in the same catalog row.
+    if(!original){
+      const existing=state.bookCosts.find(r=>costs.key(r.title)===costs.key(title));
+      if(existing){
+        if((costs.quantity(existing.quantity)??1)+fields.quantity>100000){
+          $('costSimpleError').textContent='Bu kitob jami 100 000 nusxadan oshmasin.';
+          $('costSimpleError').hidden=false;return;
+        }
+        const before={...existing,batches:existing.batches?.map(b=>({...b}))};
+        const batch={id:makeId(),groupId:makeId(),date:today(),quantity:fields.quantity,price:fields.price,grams:fields.grams,rate:state.bookCostRate};
+        existing.batches=[...(existing.batches||[]),batch];
+        existing.quantity+=fields.quantity;
+        if(!existing.muhajeerId&&costs.amount(existing.salePrice)===null)existing.salePrice=fields.salePrice;
+        if(!persistBookCosts('Kitob yangi partiyaga qo‘shildi.')){
+          Object.assign(existing,before);
+          $('costSimpleError').textContent='Saqlash amalga oshmadi. Qurilma xotirasini tekshiring.';
+          $('costSimpleError').hidden=false;return;
+        }
+        $('costSearch').value='';
+        costEditingId='';costEditingAll=false;costEditingIds.clear();costView='list';
+        renderBookCosts();syncWorkspaceUI();
+        toast('Mavjud kitobga +'+fields.quantity+' ta yangi partiya qo‘shildi: '+existing.title);
+        $('costListPanel').scrollIntoView({block:'start',behavior:'smooth'});
+        return;
+      }
+    }
     const oldRow=original?{...original}:null;
     const row=original||{id:makeId(),saved:true,originBatchId:makeId(),originBatchDate:today()};
     row.title=title;row.quantity=fields.quantity;row.price=fields.price;row.grams=fields.grams;

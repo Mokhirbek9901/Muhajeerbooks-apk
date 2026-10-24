@@ -22,5 +22,25 @@
     else values.sort((a,b)=>b.latest-a.latest);
     return values.map(item=>item.row);
   }
-  return {filterBooks,missingPrice,missingWeight};
+  function parsePastedTitles(raw,existingTitles=[],normalize=value=>String(value||'').toLowerCase()){
+    const old=new Set(existingTitles.map(item=>normalize(typeof item==='string'?item:item?.title)).filter(Boolean));
+    const used=new Set(),titles=[],invalid=[];
+    let duplicates=0,sourceCount=0;
+    const lines=String(raw||'').replace(/\r\n?/g,'\n').split('\n');
+    for(const original of lines){
+      // Remove list prefixes, never treat prices, quantities or commas as separators.
+      const title=original.trim()
+        .replace(/^(?:(?:\d{1,4}[.)]\s+)|(?:[-•●◦*]\s+)|(?:☐\s+))/, '')
+        .trim();
+      if(!title)continue;
+      sourceCount++;
+      if(title.length>300){invalid.push('Kitob nomi 300 belgidan uzun: '+title.slice(0,50));continue;}
+      const key=normalize(title);
+      if(!key){invalid.push('Kitob nomi noto‘g‘ri: '+title);continue;}
+      if(old.has(key)||used.has(key)){duplicates++;continue;}
+      used.add(key);titles.push(title);
+    }
+    return {titles,duplicates,invalid,sourceCount};
+  }
+  return {filterBooks,missingPrice,missingWeight,parsePastedTitles};
 });

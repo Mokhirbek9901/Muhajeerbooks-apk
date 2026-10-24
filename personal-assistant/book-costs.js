@@ -30,6 +30,18 @@
     return (Array.isArray(row.batches)?row.batches:[]).reduce((sum,b)=>sum+(quantity(b.quantity)??0),0);
   }
   function baseQuantity(row){const total=quantity(row.quantity);return total===null?null:total-extraQuantity(row);}
+  // Sum of all arrivals stays on a single catalog record.
+  // Individual parts retain the quantity from each delivery.
+  function arrivalParts(row){
+    const first=baseQuantity(row);
+    const parts=[];
+    if(first!==null&&first>0)parts.push({id:row.originBatchId||'legacy-original',date:row.originBatchDate||'',quantity:first,price:row.price,grams:row.grams,rate:row.originRate??null});
+    for(const batch of Array.isArray(row.batches)?row.batches:[]){
+      const n=quantity(batch.quantity);
+      if(n!==null&&n>0)parts.push({id:batch.groupId||batch.id,date:batch.date||'',quantity:n,price:batch.price,grams:batch.grams,rate:batch.rate??null});
+    }
+    return parts;
+  }
   function inventory(row,wonPerKg=DEFAULT_WON_PER_KG){
     const qty=quantity(row.quantity),original=baseQuantity(row),sale=amount(row.salePrice),unit=calculate(row,wonPerKg);
     const parts=[{...row,quantity:original,rate:rate(row.originRate??row.rate??wonPerKg)},
@@ -212,7 +224,7 @@
     }
     return items;
   }
-  const api={DEFAULT_WON_PER_KG,WON_PER_GRAM,rate,amount,quantity,calculate,profit,inventory,summary,key,parseTitles,parseTitleEntries,extraQuantity,baseQuantity,groupByBatch,normalize,restoreLastImportGroups,normalizeRates,tariffs,compare};
+  const api={DEFAULT_WON_PER_KG,WON_PER_GRAM,rate,amount,quantity,calculate,profit,inventory,summary,key,parseTitles,parseTitleEntries,extraQuantity,baseQuantity,arrivalParts,groupByBatch,normalize,restoreLastImportGroups,normalizeRates,tariffs,compare};
   if(typeof module==='object' && module.exports)module.exports=api;
   else root.BookCosts=api;
 })(typeof globalThis==='object'?globalThis:this);

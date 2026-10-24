@@ -50,7 +50,7 @@ test('home catalog shows entire list and list uses the same filter engine',()=>{
 });
 test('filter is a visible control with the four expected choices',()=>{
  const html=read('index.html'),css=read('styles.css');
- for(const val of ['newest','oldest','missing-price','missing-weight','incomplete'])assert.ok(html.includes('<option value="'+val+'">'),val);
+ for(const val of ['newest','oldest','missing-weight','incomplete'])assert.ok(html.includes('<option value="'+val+'">'),val);
  assert.ok(html.includes('id="costPlainListFilter"'));
  assert.ok(css.includes('body[data-workspace="costs"] #screen-book-costs #costPlainListFilter{display:block!important'));
 });

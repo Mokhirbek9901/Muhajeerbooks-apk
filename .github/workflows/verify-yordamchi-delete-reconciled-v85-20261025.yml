@@ -1,0 +1,21 @@
+name: Verify Yordamchi reconciled delete v85
+on:
+  push:
+    branches:
+      - feature/yordamchi-delete-reconciled-v85-20261025
+  workflow_dispatch:
+jobs:
+  regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax
+        run: |
+          node --check personal-assistant/app.js
+          node --check personal-assistant/book-cost-list-ui.js
+      - name: Focused regression
+        run: |
+          node --test personal-assistant-tests/book-cost-safe-delete-v85.test.cjs personal-assistant-tests/book-cost-paste-v84.test.cjs personal-assistant-tests/book-cost-filter-bulk-v83.test.cjs personal-assistant-tests/book-cost-som-kg-v82.test.cjs personal-assistant-tests/book-cost-simple-v81.test.cjs personal-assistant-tests/book-cost-actual-kg-v80.test.cjs personal-assistant-tests/book-cost-separation-v78.test.cjs

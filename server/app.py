@@ -25,7 +25,7 @@ def _limited(ip):
 
 @app.get("/health")
 def health():
-    return jsonify(ok=True, ai=bool(os.getenv("OPENAI_API_KEY")))
+    return jsonify(ok=True, ai=bool(os.getenv("OPENAI_API_KEY")), ai_research_revision="20261025b")
 
 @app.post("/api/ai-story-background")
 def ai_story_background():
@@ -76,69 +76,132 @@ STRICT: background/decor only. NO words, letters, numbers, logos, prices, UI, fa
     return Response(out,mimetype="image/png",headers={"Cache-Control":"private, max-age=86400"})
 
 
-def _chat_json(instructions, payload, max_tokens=1200, web_search=False, web_search_required=False, search_context_size="medium"):
-    """Call the Responses API with enough output budget for searched JSON."""
+def _chat_json(instructions, payload, max_tokens=1200, web_search=False,
+               web_search_required=False, search_context_size="medium",
+               diagnostics=None):
+    """Responses API, including safe diagnostics for authenticated admin routes.
+
+    Do not return fabricated book research when the provider cannot search.
+    """
+    def note(code):
+        if diagnostics is not None:
+            diagnostics["code"]=code
+
     key=os.getenv("OPENAI_API_KEY","").strip()
     if not key:
-        print("Admin AI unavailable: OPENAI_API_KEY is missing",flush=True)
+        note("missing_key")
+        print("Admin AI: OPENAI_API_KEY is missing",flush=True)
         return None
+
     configured=os.getenv("OPENAI_TEXT_MODEL","").strip()
-    # Prefer the low-cost supported API model; keep the configured override.
-    models=[x for x in (configured,"gpt-6-luna","gpt-5.6-luna","gpt-5.6-sol") if x]
-    seen=set()
+    # 4.1-mini is an API-compatible fallback when the newer models are
+    # unavailable to the particular API project (not ChatGPT subscription).
+    models=[]
+    for model in (configured,"gpt-6-luna","gpt-4.1-mini","gpt-4.1"):
+        if model and model not in models:
+            models.append(model)
     token_budget=max(max_tokens,3200) if web_search else max_tokens
+    deadline=time.monotonic()+185
     for model in models:
-      if model in seen: continue
-      seen.add(model)
-      budget=token_budget
-      for attempt in range(2):
-        data={"model":model,"instructions":instructions,
-              "input":payload,"max_output_tokens":budget,
-              "reasoning":{"effort":"low"}}
-        if web_search:
-            data["tools"]=[{"type":"web_search","search_context_size":search_context_size}]
-            data["tool_choice"]="required" if web_search_required else "auto"
-        try:
-            r=requests.post("https://api.openai.com/v1/responses",
-              headers={"Authorization":f"Bearer {key}","Content-Type":"application/json"},
-              json=data,timeout=(8,150))
-        except requests.RequestException as e:
-            print(f"Responses API network failure model={model} error={type(e).__name__}",flush=True)
-            break
-        if r.status_code >= 400:
-            detail=""
-            try:
-                error=r.json().get("error") or {}
-                detail=str(error.get("code") or error.get("message") or "")
-            except Exception:
-                detail=r.text[:150]
-            print(f"Responses API failed model={model} status={r.status_code} detail={detail[:180]}",flush=True)
-            # Bad/missing credentials or a hard project spend limit will not be
-            # solved by attempting additional models.
-            if r.status_code in (401,403) or (r.status_code==429 and
-                any(x in detail.lower() for x in ("quota","billing","budget","spend_limit"))):
+        budget=token_budget
+        for attempt in range(2):
+            remaining=deadline-time.monotonic()
+            if remaining<7:
+                note("timeout")
                 return None
+            data={
+                "model":model,"instructions":instructions,
+                "input":payload,"max_output_tokens":budget,
+            }
+            if model.startswith(("gpt-5","gpt-6","o")):
+                data["reasoning"]={"effort":"low"}
+            if web_search:
+                data["tools"]=[{"type":"web_search","search_context_size":search_context_size}]
+                data["tool_choice"]="required" if web_search_required else "auto"
+            try:
+                r=requests.post(
+                    "https://api.openai.com/v1/responses",
+                    headers={"Authorization":f"Bearer {key}",
+                             "Content-Type":"application/json"},
+                    json=data,timeout=(8,min(70,max(5,remaining-3))),
+                )
+            except requests.RequestException as exc:
+                note("network")
+                print(f"Admin AI network error model={model} type={type(exc).__name__}",flush=True)
+                break
+            if r.status_code>=400:
+                code=""
+                try:
+                    upstream=r.json().get("error") or {}
+                    code=str(upstream.get("code") or upstream.get("type") or "").lower()
+                    message=str(upstream.get("message") or "").lower()
+                except (ValueError,AttributeError):
+                    message=""
+                print(f"Admin AI provider rejected model={model} status={r.status_code} code={code[:60]}",flush=True)
+                if r.status_code==401:
+                    note("invalid_key")
+                    return None
+                if r.status_code==403:
+                    note("permission")
+                    return None
+                if r.status_code==429:
+                    if any(x in (code+" "+message) for x in ("quota","billing","budget","spend_limit","insufficient")):
+                        note("quota")
+                    else:
+                        note("rate_limit")
+                    return None
+                if r.status_code in (400,404):
+                    note("model_or_request")
+                    break
+                note("provider_error")
+                break
+            try:
+                result=r.json()
+            except ValueError:
+                note("invalid_response")
+                break
+            chunks=[]
+            for item in result.get("output",[]):
+                if not isinstance(item,dict):
+                    continue
+                for part in item.get("content",[]):
+                    if isinstance(part,dict) and part.get("type")=="output_text":
+                        chunks.append(str(part.get("text") or ""))
+            out="".join(chunks).strip() or str(result.get("output_text") or "").strip()
+            if out:
+                if diagnostics is not None:
+                    diagnostics.clear()
+                return out
+            incomplete=result.get("incomplete_details") or {}
+            reason=str(incomplete.get("reason") or "")
+            note("empty_response")
+            print(f"Admin AI empty output model={model} status={result.get('status')} reason={reason} budget={budget}",flush=True)
+            if result.get("status")=="incomplete" and reason=="max_output_tokens" and attempt==0:
+                budget=min(budget*2,14000)
+                continue
             break
-        try:
-            j=r.json()
-        except ValueError:
-            print(f"Responses API returned malformed JSON model={model}",flush=True)
-            break
-        pieces=[]
-        for item in j.get("output",[]):
-            if not isinstance(item,dict): continue
-            for part in item.get("content",[]):
-                if isinstance(part,dict) and part.get("type")=="output_text":
-                    pieces.append(str(part.get("text") or ""))
-        out="".join(pieces).strip() or str(j.get("output_text") or "").strip()
-        if out: return out
-        reason=(j.get("incomplete_details") or {}).get("reason","")
-        print(f"Responses API empty text model={model} status={j.get('status')} reason={reason} output_budget={budget}",flush=True)
-        if j.get("status")=="incomplete" and reason=="max_output_tokens" and attempt==0:
-            budget=min(budget*2,16000)
-            continue
-        break
     return None
+
+
+def _admin_ai_failure(diagnostics):
+    """Give the authenticated administrator an actionable, non-secret error."""
+    code=diagnostics.get("code","unknown")
+    messages={
+        "missing_key":"OpenAI API kaliti serverda yo‘q. Railway Variables ichidagi OPENAI_API_KEY ni tekshiring.",
+        "invalid_key":"OpenAI API kaliti yaroqsiz (401). Railway OPENAI_API_KEY ni tekshiring.",
+        "permission":"OpenAI API loyihasiga model yoki internet qidiruv uchun ruxsat berilmagan (403). Project va API key ruxsatlarini tekshiring.",
+        "quota":"OpenAI API loyihasida kvota yoki xarajat limiti tugagan (429). Aynan API kaliti tegishli loyihaning Billing va Limits sozlamalarini tekshiring.",
+        "rate_limit":"OpenAI API tezlik limitiga yetdi (429). Birozdan so‘ng qayta urinib ko‘ring.",
+        "model_or_request":"AI modeli yoki API so‘rovi qabul qilinmadi. Railway OPENAI_TEXT_MODEL sozlamasini va API loyiha ruxsatlarini tekshiring.",
+        "network":"Server OpenAI API bilan bog‘lana olmadi. Railway tarmoq va deploy loglarini tekshiring.",
+        "timeout":"OpenAI qidiruvi vaqt chegarasidan oshdi. Kamroq kitob bilan qayta urinib ko‘ring.",
+        "empty_response":"OpenAI javobidan matn olinmadi. So‘rovni qayta yuboring yoki API loglarini tekshiring.",
+        "provider_error":"OpenAI xizmatida vaqtinchalik xatolik. Qayta urinib ko‘ring.",
+        "invalid_response":"OpenAI kutilmagan formatda javob qaytardi.",
+    }
+    return jsonify(error=messages.get(code,"AI internet qidiruvi serverda ishlamadi. Railway loglarini tekshiring."),
+                   code=code),503
+
 
 def _free_norm(value):
     import re, unicodedata
@@ -851,8 +914,9 @@ def admin_ai_book_research():
     if not title: return jsonify(error="Kitob nomi kerak"),400
     instructions="""Research the exact book on the web. Verify bibliographic facts using reliable sources. Return ONLY valid compact JSON with keys: title, author, publisher, category, description, page_count, cover, confidence, notes. PAGE COUNT IS A REQUIRED RESEARCH TARGET: explicitly search the web for the exact edition page count using the title plus author and publisher, including publisher/catalog/library/bookseller/Google Books records. Check multiple likely sources when necessary. page_count must be a plain integer greater than 0 when any reliable source gives the exact edition page count; use 0 only after an explicit page-count search fails. Never omit page_count. First use web search to find several existing public descriptions, publisher/bookstore summaries, reviews, or Google Books information for the exact book. Compare those sources to understand the book's real content and recurring themes; do not copy their wording. Then write ONE Uzbek bookstore description, about 45-70 words, in 3-4 compact sentences. It must accurately reflect the book's content while making a potential buyer curious to read it. Mention the central subject, idea, or conflict that makes the book interesting, without spoilers or invented details. Use natural sales-friendly Uzbek, not exaggerated advertising. Do not include prices, URLs, citations, copied jacket text, generic filler, or invented claims. A later request may intentionally produce a differently worded description, so do not return multiple variants. Do not guess uncertain fields; use empty strings. category must be exactly one of: Badiiy adabiyot; Biznes va moliya; Bolalar adabiyoti; Diniy-ma’rifiy; Islom tarixi; Jahon adabiyoti; Jamiyat va kommunikatsiya; O‘zbek adabiyoti; Oila va nikoh; Psixologiya va shaxsiy rivojlanish; Qur’on va islom ilmlari; Ta’lim va tillar; Tarix va biografiya; Texnologiya; Tibbiyot va jamiyat. cover must be Yumshoq muqova, Qattiq muqova, or empty. confidence is high/medium/low. notes briefly states uncertainty."""
     payload=f"Find this exact book. Title: {title}\nCurrent author: {author}\nCurrent publisher: {publisher}"
-    out=_chat_json(instructions,[{"role":"user","content":[{"type":"input_text","text":payload}]}],3200,web_search=True,web_search_required=True,search_context_size="high")
-    if not out: return jsonify(error="AI research unavailable"),502
+    diagnostics={}
+    out=_chat_json(instructions,[{"role":"user","content":[{"type":"input_text","text":payload}]}],3200,web_search=True,web_search_required=True,search_context_size="high",diagnostics=diagnostics)
+    if not out: return _admin_ai_failure(diagnostics)
     try:
       import json, re
       cleaned=out.strip()
@@ -904,6 +968,7 @@ Do not calculate shipping or final Korean price yourself; the server will calcul
 Author hint: {author}
 Publisher hint: {publisher}
 Shipping rule after research: Korea delivery/import transport costs 10,000 KRW per kilogram."""
+    diagnostics={}
     out=_chat_json(
         instructions,
         [{"role":"user","content":[{"type":"input_text","text":payload}]}],
@@ -911,9 +976,10 @@ Shipping rule after research: Korea delivery/import transport costs 10,000 KRW p
         web_search=True,
         web_search_required=True,
         search_context_size="high",
+        diagnostics=diagnostics,
     )
     if not out:
-        return jsonify(error="AI narx tadqiqoti ishlamadi"),502
+        return _admin_ai_failure(diagnostics)
 
     try:
         import json, math
@@ -1003,8 +1069,9 @@ def admin_ai_books_bulk_research():
     instructions="""Research each exact book in the supplied list on the web. Independently verify every requested bibliographic field. Existing author, publisher, title, category, or description values are hints only and may be wrong; NEVER preserve them merely because they were manually entered. When reliable web sources show a different value, return the verified value so the app can REPLACE the old one. Prefer publisher, author, library/catalog and reliable bookseller bibliographic sources. Return ONLY a valid JSON object with key "books", whose value is an array. Preserve each input id exactly. Every item must contain: id, title, author, publisher, category, description, page_count, confidence, notes. PAGE COUNT IS A REQUIRED RESEARCH TARGET for every book: explicitly search title + author + publisher with page count/bet/sahifa/pages and check publisher, catalog/library, Google Books, and reliable bookseller records as available. page_count must be a plain integer greater than 0 whenever a reliable source gives the exact edition page count; use 0 only after an explicit page-count search fails. Never omit page_count. Do not guess uncertain fields: use empty strings. description must be a detailed, sales-ready Uzbek bookstore description grounded in verified web sources and faithful to the actual book. Aim for about 90-160 words when sources provide enough information. Explain the core subject or story, central themes/problems, what the reader will encounter or learn, and who may especially enjoy or benefit from it. Write naturally and persuasively without hype, invented claims, spoilers, prices, or unsupported facts. Synthesize facts in original wording; never copy jacket/store text verbatim. category must be exactly one of these store categories: Badiiy adabiyot; Biznes va moliya; Bolalar adabiyoti; Diniy-ma’rifiy; Islom tarixi; Jahon adabiyoti; Jamiyat va kommunikatsiya; O‘zbek adabiyoti; Oila va nikoh; Psixologiya va shaxsiy rivojlanish; Qur’on va islom ilmlari; Ta’lim va tillar; Tarix va biografiya; Texnologiya; Tibbiyot va jamiyat. Do not include price, stock, cost, URLs, markdown, citations, internal data, or books not requested."""
     import json
     payload=json.dumps(clean,ensure_ascii=False)
-    out=_chat_json(instructions,[{"role":"user","content":[{"type":"input_text","text":payload}]}],9000,web_search=True,web_search_required=True,search_context_size="high")
-    if not out: return jsonify(error="AI research unavailable"),502
+    diagnostics={}
+    out=_chat_json(instructions,[{"role":"user","content":[{"type":"input_text","text":payload}]}],9000,web_search=True,web_search_required=True,search_context_size="high",diagnostics=diagnostics)
+    if not out: return _admin_ai_failure(diagnostics)
     try:
       start=out.find("{"); end=out.rfind("}")
       data=json.loads(out[start:end+1])

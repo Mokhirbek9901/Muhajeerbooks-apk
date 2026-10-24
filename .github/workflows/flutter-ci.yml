@@ -12,6 +12,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check Python API syntax
         run: python3 -m py_compile server/app.py server/preorder_delivery.py
+      - name: Test admin OpenAI failure handling (mocked, no API charge)
+        run: python3 -m unittest discover -s server/tests -p 'test_admin_research_api.py' -v
       - uses: subosito/flutter-action@v2
         with:
           channel: stable

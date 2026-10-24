@@ -1,0 +1,45 @@
+name: Verify live admin AI backend revision
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/app.py'
+      - '.github/workflows/admin_ai_live_health.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - name: Wait for Railway backend deploy and check AI configuration (no paid API call)
+        env:
+          HEALTH_URL: https://muhajeer-books-live-production.up.railway.app/api/health
+        run: |
+          python3 - <<'PY'
+          import json, os, time, urllib.request, urllib.error
+          url=os.environ["HEALTH_URL"]
+          for attempt in range(1,17):
+              try:
+                  with urllib.request.urlopen(
+                      urllib.request.Request(url, headers={"Cache-Control":"no-cache", "User-Agent":"MuhajeerAIHealth/1.0"}),
+                      timeout=10,
+                  ) as result:
+                      data=json.load(result)
+                  revision=str(data.get("ai_research_revision") or "")
+                  key_present=(data.get("ai") is True)
+                  print(f"attempt={attempt} http=200 ai_key_configured={key_present} revision={revision or 'old'}",flush=True)
+                  if revision=="20261025b":
+                      if not key_present:
+                          raise SystemExit("BLOCKER: Live Railway OPENAI_API_KEY is missing. Configure the project's API key; ChatGPT balance alone does not fix it.")
+                      print("PASS: Current Railway backend deployed with OPENAI_API_KEY present (key not validated).")
+                      break
+              except (TimeoutError, urllib.error.URLError, ValueError) as e:
+                  print(f"attempt={attempt} health probe unavailable: {type(e).__name__}",flush=True)
+              if attempt==16:
+                  raise SystemExit("BLOCKER: Latest admin AI code was not observed live. Check Railway auto-deploy, service and branch.")
+              time.sleep(15)
+          PY

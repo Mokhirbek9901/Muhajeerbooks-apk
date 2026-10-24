@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -29,34 +27,6 @@ class _BookStoryPageState extends State<BookStoryPage> {
   BookStoryTemplate _template = BookStoryTemplate.current;
   late final List<String> _descriptionPages;
   int _descriptionPage = 0;
-
-  // True full-frame PNG thumbnails. Render one at a time at quarter
-  // resolution so several thumbnails cannot exhaust mobile GPU memory.
-  final Map<BookStoryTemplate, Future<Uint8List>> _previewImages = {};
-  Future<void> _previewRenderQueue = Future<void>.value();
-  late final Future<Uint8List?> _previewCover;
-
-  Future<Uint8List> _previewImageFor(BookStoryTemplate design) {
-    return _previewImages.putIfAbsent(design, () {
-      final result = Completer<Uint8List>();
-      _previewRenderQueue = _previewRenderQueue.then((_) async {
-        if (!mounted) {
-          result.complete(Uint8List(0));
-          return;
-        }
-        try {
-          final cover = await _previewCover;
-          final bytes = await renderBookStory(widget.book,
-              coverBytes: cover, template: design,
-              renderScale: 0.25, previewOnly: true);
-          result.complete(bytes);
-        } catch (error, stack) {
-          result.completeError(error, stack);
-        }
-      });
-      return result.future;
-    });
-  }
 
   int get _pageCount => bookStorySupportsDescriptionPages(_template)
       ? _descriptionPages.length : 1;
@@ -147,7 +117,6 @@ class _BookStoryPageState extends State<BookStoryPage> {
     // Instagram share sheet is open, including long background sessions.
     CatalogResume.instance.beginStoryFlow();
     _descriptionPages = bookStoryDescriptionPages(widget.book);
-    _previewCover = loadBookStoryCover(widget.book);
     _image = _renderStoryWithRecovery(_template);
     _restoreTemplate();
   }
@@ -317,25 +286,15 @@ class _BookStoryPageState extends State<BookStoryPage> {
     }
     return Scaffold(
     appBar: AppBar(title: const Text('Instagram story')),
-    body: SafeArea(child: FutureBuilder<Uint8List>(
-      future: _image,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) return Center(child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Text('Story rasmini tayyorlashda xatolik bo‘ldi. Qayta urinib ko‘ring.'),
-            const SizedBox(height: 16),
-            FilledButton(onPressed: () => setState(() {
-              _image = _renderStoryWithRecovery(_template);
-            }), child: const Text('Qayta urinish')),
-          ]),
-        ));
-        final bytes = snapshot.data;
-        if (bytes == null) return const Center(child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [CircularProgressIndicator(), SizedBox(height: 16), Text('Story rasmi tayyorlanmoqda…')],
-        ));
-        return ListView(padding: const EdgeInsets.all(20), children: [
+    // Keep the name-only controls mounted while any chosen design renders.
+    // Scrolling the compact chooser never pushes the full Story out of view.
+    body: SafeArea(child: LayoutBuilder(
+      builder: (context, viewport) {
+        final previewHeight =
+            (viewport.maxHeight * 0.63).clamp(260.0, 560.0).toDouble();
+        return ListView(
+          padding: const EdgeInsets.all(14),
+          children: [
           Row(children: [
             const Expanded(child: Text('Dizaynni tanlang',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900))),
@@ -343,108 +302,109 @@ class _BookStoryPageState extends State<BookStoryPage> {
                 style: const TextStyle(fontSize: 11, color: Colors.black54)),
           ]),
           const SizedBox(height: 6),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              // The frame keeps the 9:16 story *uncropped* even in tiny
-              // thumbnails; more options fit without endless scrolling.
-              const gap = 3.0;
-              final columns = constraints.maxWidth >= 840 ? 12
-                  : constraints.maxWidth >= 520 ? 10
-                  : constraints.maxWidth >= 350 ? 8 : 7;
-              final itemWidth =
-                  (constraints.maxWidth - gap * (columns - 1)) / columns;
-              final itemHeight = itemWidth * 16 / 9 + 17;
-              return Wrap(
-                spacing: gap,
-                runSpacing: 4,
-                children: _templateOrder.map((item) {
-                  final selected = item == _template;
-                  return Semantics(
-                    button: true,
-                    label: '${bookStoryTemplateName(item)} dizaynini tanlash',
-                    selected: selected,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(5),
-                      onTap: () => _selectTemplate(item),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 170),
-                        width: itemWidth,
-                        height: itemHeight,
-                        padding: const EdgeInsets.all(1.5),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).cardColor,
-                          borderRadius: BorderRadius.circular(5),
-                          border: Border.all(
-                            color: selected
-                                ? const Color(0xFF08786E)
-                                : const Color(0x33000000),
-                            width: selected ? 2 : .6,
-                          ),
-                        ),
-                        child: Column(children: [
-                          Expanded(child: ClipRRect(
-                            borderRadius: BorderRadius.circular(3),
-                            child: Stack(fit: StackFit.expand, children: [
-                              ColoredBox(color: bookStoryTemplateColor(item)),
-                              if (selected)
-                                Image.memory(bytes,
-                                  fit: BoxFit.contain,
-                                  gaplessPlayback: true,
-                                  filterQuality: FilterQuality.low,
-                                  semanticLabel:
-                                      '${bookStoryTemplateName(item)} tanlangan Story rasmi')
-                              else FutureBuilder<Uint8List>(
-                                future: _previewImageFor(item),
-                                builder: (context, preview) {
-                                  final previewBytes = preview.data;
-                                  if (previewBytes != null &&
-                                      previewBytes.isNotEmpty) {
-                                    return Image.memory(previewBytes,
-                                      fit: BoxFit.contain,
-                                      gaplessPlayback: true,
-                                      filterQuality: FilterQuality.low,
-                                      semanticLabel:
-                                          '${bookStoryTemplateName(item)} to‘liq Story ko‘rinishi');
-                                  }
-                                  if (preview.hasError) {
-                                    return const Icon(Icons.image_not_supported_outlined,
-                                        size: 12);
-                                  }
-                                  return const Center(child: SizedBox(
-                                    width: 9, height: 9,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 1.1),
-                                  ));
-                                },
+          // Four tiny, text-only chips per phone row; just a few rows occupy
+          // the screen, with independent scrolling for the remaining styles.
+          SizedBox(
+            height: 96,
+            child: Scrollbar(
+              thumbVisibility: true,
+              child: SingleChildScrollView(
+                primary: false,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    const gap = 4.0;
+                    final columns = constraints.maxWidth >= 650 ? 8
+                        : constraints.maxWidth >= 460 ? 6 : 4;
+                    final itemWidth =
+                        (constraints.maxWidth - (columns - 1) * gap) / columns;
+                    return Wrap(
+                      spacing: gap,
+                      runSpacing: 4,
+                      children: _templateOrder.map((item) {
+                        final selected = item == _template;
+                        final name = bookStoryTemplateName(item);
+                        return Semantics(
+                          button: true,
+                          selected: selected,
+                          label: '$'+'{name} dizaynini tanlash',
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(6),
+                            onTap: () => _selectTemplate(item),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              width: itemWidth,
+                              height: 28,
+                              padding: const EdgeInsets.symmetric(horizontal: 3),
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? const Color(0xFF08786E)
+                                    : Theme.of(context).colorScheme.surfaceContainerLow,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: selected
+                                      ? const Color(0xFF08786E)
+                                      : const Color(0x33000000),
+                                  width: selected ? 1.5 : .7,
+                                ),
                               ),
-                              if (selected)
-                                const Positioned(top: 0, right: 0,
-                                  child: Icon(Icons.check_circle,
-                                    size: 12, color: Color(0xFF08786E))),
-                            ]),
-                          )),
-                          SizedBox(height: 15, child: Center(child: Text(
-                            bookStoryTemplateName(item),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 7.5,
-                              fontWeight: FontWeight.w700,
-                              height: 1.0,
+                              child: Text(
+                                name,
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  height: 1.02,
+                                  fontWeight: selected
+                                      ? FontWeight.w800 : FontWeight.w600,
+                                  color: selected
+                                      ? Colors.white
+                                      : Theme.of(context).colorScheme.onSurface,
+                                ),
+                              ),
                             ),
-                          ))),
-                        ]),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              );
-            },
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
+              ),
+            ),
           ),
+          const SizedBox(height: 9),
+          const Center(child: Text('Tanlangan Story — to‘liq ko‘rinish',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11))),
+          // Rendering/error states are local to the preview. Do not replace
+          // the entire selector with a spinner when another chip is tapped.
+          FutureBuilder<Uint8List>(
+            future: _image,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return SizedBox(height: previewHeight,
+                  child: const Center(child: CircularProgressIndicator()));
+              }
+              if (snapshot.hasError || snapshot.data == null) {
+                return SizedBox(height: previewHeight,
+                  child: Center(child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('Story rasmini ko‘rsatib bo‘lmadi.'),
+                      const SizedBox(height: 8),
+                      TextButton(onPressed: () => setState(() {
+                        _image = _renderStoryWithRecovery(_template);
+                      }), child: const Text('Qayta urinish')),
+                    ],
+                  )));
+              }
+              final bytes = snapshot.data!;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
           const SizedBox(height: 12),
           Center(child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 360),
+            constraints: BoxConstraints(maxWidth: previewHeight * 9 / 16, maxHeight: previewHeight),
             child: ClipRRect(borderRadius: BorderRadius.circular(16),
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 240),
@@ -539,6 +499,10 @@ class _BookStoryPageState extends State<BookStoryPage> {
           const SizedBox(height: 8),
           const Text('Instagram ulashish ro‘yxatida chiqmasa, rasmni saqlab, Instagram’da story sifatida tanlang. Rasmdagi yozuvning o‘zi bosiladigan havola emas — Link stikeri kerak.',
               style: TextStyle(fontSize: 12)),
+                ],
+              );
+            },
+          ),
         ]);
       },
     )),

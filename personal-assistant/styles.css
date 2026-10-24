@@ -3025,3 +3025,15 @@ body[data-workspace="costs"] #costSettingsPanel .book-simple-fx{border-radius:16
  body[data-workspace="costs"] .cost-plain-home-actions{grid-template-columns:1fr}
  body[data-workspace="costs"] .cost-plain-book-total strong{font-size:1.05rem}
 }
+
+/* v82: single shared kg tariff and tidy cards for incomplete books */
+body[data-workspace="costs"] #screen-book-costs .cost-plain-global-kg{display:grid;gap:9px;background:var(--surface);padding:16px;border:1px solid var(--line);border-radius:16px;margin:0 0 17px}
+body[data-workspace="costs"] .cost-plain-global-kg label{display:block;font-size:.9rem;font-weight:800;color:var(--ink)}
+body[data-workspace="costs"] .cost-plain-global-kg small{display:block;color:var(--muted);font-size:.73rem;line-height:1.4;margin-top:5px}
+body[data-workspace="costs"] .cost-plain-kg-controls{display:flex;gap:9px}
+body[data-workspace="costs"] .cost-plain-kg-controls input{flex:1;min-width:0;border:1px solid var(--line);border-radius:11px;padding:10px 12px;background:var(--surface);color:var(--ink);font:inherit;font-weight:750;font-variant-numeric:tabular-nums}
+body[data-workspace="costs"] .cost-plain-kg-controls button{min-height:43px;padding:7px 14px;border-radius:11px}
+body[data-workspace="costs"] #screen-book-costs label[for="costSimplePricingKg"]{display:none!important}
+body[data-workspace="costs"] .cost-plain-incomplete{padding:12px 15px;background:var(--surface2)}
+body[data-workspace="costs"] .cost-plain-incomplete .cost-plain-book-top h3{font-size:.86rem}
+body[data-workspace="costs"] .cost-plain-incomplete .cost-plain-edit{white-space:nowrap}

@@ -49,8 +49,8 @@ test('no quantity or batch fields on the visible book calculator',()=>{
 test('no conversion of currency display string back to number',()=>{
  const app=read('app.js');
  const slice=app.slice(app.indexOf('  function costSomCompact(won){'),app.indexOf('  function costUzsClean(value){'));
- assert.ok(slice.includes('precise.convert(String(won)'));
- assert.ok(slice.includes("toLocaleString('en-US'"));
+ assert.ok(slice.includes('window.BookCostSimple.uzsFromWon(state,String(won))'));
+ assert.ok(slice.includes('window.BookCostSimple.formatUzs(quote)'));
  assert.ok(!slice.includes("exact.replace("));
 });
 test('legacy records remain untouched by new UI and the catalog is unique by normalized title',()=>{
@@ -62,10 +62,10 @@ test('legacy records remain untouched by new UI and the catalog is unique by nor
  assert.ok(render.includes("if(!byTitle.has(normalized))"));
  assert.ok(!render.includes('state.bookCosts='));
 });
-test('cache and navigation show the minimal v81 variant',()=>{
+test('cache and navigation show the minimal v82 variant',()=>{
  const html=read('index.html'),sw=read('sw.js');
- for(const f of ['app.js','styles.css','book-costs.js'])assert.ok(html.includes(f+'?v=81') && sw.includes(f+'?v=81'));
- assert.ok(sw.includes('bek-yordamchi-v81'));
+ for(const f of ['app.js','styles.css','book-costs.js'])assert.ok(html.includes(f+'?v=82') && sw.includes(f+'?v=82'));
+ assert.ok(sw.includes('bek-yordamchi-v82'));
  assert.ok(html.includes('data-mode-tab="settings"'));
  assert.ok(html.includes('<small>Kurs</small>'));
 });

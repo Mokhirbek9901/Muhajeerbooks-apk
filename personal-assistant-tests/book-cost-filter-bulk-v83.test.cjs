@@ -88,12 +88,12 @@ test('pasted books are saved title-only and duplicate names are skipped',()=>{
  assert.ok(text.includes('state.bookCosts=before'));
  assert.ok(!text.includes('pushCostCloud('));
 });
-test('v85 code and assets are version matched and loaded before app',()=>{
+test('v86 code and assets are version matched and loaded before app',()=>{
  const html=read('index.html'),sw=read('sw.js');
- assert.ok(sw.includes('bek-yordamchi-v85'));
+ assert.ok(sw.includes('bek-yordamchi-v86'));
  for(const file of ['app.js','styles.css','book-cost-simple.js','book-cost-list-ui.js']){
- assert.ok(html.includes(file+'?v=85'),file+' html');
- assert.ok(sw.includes(file+'?v=85'),file+' sw');
+ assert.ok(html.includes(file+'?v=86'),file+' html');
+ assert.ok(sw.includes(file+'?v=86'),file+' sw');
  }
  assert.ok(html.indexOf('book-cost-list-ui.js')<html.indexOf('app.js'));
 });

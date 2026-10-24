@@ -3740,6 +3740,7 @@
     $('costSimpleError').hidden=true;
     $('costSimpleError').textContent='';
     $('costSimpleSave').textContent=row?'✓ O‘zgarishlarni saqlash':'✓ Kitobni saqlash';
+    $('costSimpleDelete').hidden=!row;
     refreshSimpleCostPreview();
   }
 
@@ -4155,6 +4156,16 @@
       }
     });
     $('costSimpleForm').addEventListener('submit',saveSimpleCostForm);
+    $('costSimpleDelete').addEventListener('click',()=>{
+      const id=costEditingId;
+      if(!id)return;
+      // The same double-confirmed deletion works from the editor as on cards.
+      deleteCostPlainBook(id);
+      if(!state.bookCosts.some(row=>row.id===id)){
+        costEditingId='';
+        setCostView('list');
+      }
+    });
     qsa('[data-cost-add-mode]').forEach(button=>button.addEventListener('click',()=>setCostAddMode(button.dataset.costAddMode)));
     qsa('[data-cost-add-choice]').forEach(button=>button.addEventListener('click',()=>setCostAddMode('choose')));
     $('costBulkPasteNames').addEventListener('input',()=>{

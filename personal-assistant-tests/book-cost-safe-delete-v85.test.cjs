@@ -87,12 +87,12 @@ test('both home and list use the same confirmed delete handler',()=>{
  assert.ok(app.slice(i,j).includes("deleteCostPlainBook(remove.dataset.costRemove)"));
  assert.ok(app.slice(j,j+390).includes("deleteCostPlainBook(removeBook.dataset.costRemove)"));
 });
-test('v85 assets and styles are aligned',()=>{
+test('v86 assets and styles are aligned',()=>{
  const html=read('index.html'),sw=read('sw.js'),css=read('styles.css');
- assert.ok(sw.includes('bek-yordamchi-v85'));
+ assert.ok(sw.includes('bek-yordamchi-v86'));
  for(const f of ['app.js','styles.css','book-cost-list-ui.js']){
- assert.ok(html.includes(f+'?v=85'),f+' html');
- assert.ok(sw.includes(f+'?v=85'),f+' sw');
+ assert.ok(html.includes(f+'?v=86'),f+' html');
+ assert.ok(sw.includes(f+'?v=86'),f+' sw');
  }
  assert.ok(css.includes('.cost-plain-card-actions .cost-plain-remove'));
 });

@@ -3179,15 +3179,10 @@
   }
   function costSomCompact(won){
     if(won===null||!Number.isFinite(Number(won)))return '—';
-    const quote=window.YordamchiCurrency.precise.convert(String(won),'KRW','UZS',state);
-    if(!quote)return 'Kurs kiritilmagan';
-    const amount=Number(window.YordamchiCurrency.precise.text(quote));
-    return Number.isFinite(amount)?amount.toLocaleString('en-US',{maximumFractionDigits:2})+' so‘m':'—';
+    const quote=window.BookCostSimple.uzsFromWon(state,String(won));
+    return quote?window.BookCostSimple.formatUzs(quote):'Kurs kiritilmagan';
   }
-  function costUzsClean(value){
-    if(value===null||value===undefined||!Number.isFinite(Number(value)))return '—';
-    return Number(value).toLocaleString('en-US',{maximumFractionDigits:2})+' so‘m';
-  }
+  function costUzsClean(value){return window.BookCostSimple.formatUzs(value);}
   function costBatchHistoricSom(groups,field){
     if(!groups.length)return '—';
     if(groups.some(group=>!group.som))return 'Kurs kiritilmagan';
@@ -3356,16 +3351,23 @@
   }
   // One book = one visible card. Old batch accounting remains intact in storage.
   function costPlainCard(row){
-    const uzs=costs.uzsText(row.priceUzs);
-    const latest=uzs!==null?costUnitWon(uzs,'UZS',null,null).price:null;
+    const rawUzs=costs.uzsText(row.priceUzs);
+    const normalizedUzs=rawUzs!==null?window.BookCostSimple.normalizedPrice(rawUzs,row.price):null;
+    const uzs=normalizedUzs?window.YordamchiCurrency.precise.text(normalizedUzs):null;
+    const quote=normalizedUzs?window.BookCostSimple.wonFromUzs(state,normalizedUzs):null;
+    const latest=quote?costs.amount(window.YordamchiCurrency.precise.number(quote)):null;
     const unitPurchase=latest??row.price;
-    const result=costs.calculate({...row,price:unitPurchase},row.originRate??state.bookCostRate);
+    const result=costs.calculate({...row,price:unitPurchase},state.bookCostRate);
     const purchase=uzs!==null?costUzsClean(uzs):row.price===null?'—':costSomCompact(row.price);
     const won=value=>costPlainWon(value);
+    if(row.price===null||row.grams===null)return '<article class="cost-plain-book cost-plain-incomplete">'+
+      '<div class="cost-plain-book-top"><div><h3>'+escapeHtml(row.title||'Kitob')+'</h3>'+
+      '<span>'+(row.price===null&&row.grams===null?'Narx va vazn kiritilmagan':row.price===null?'Narx kiritilmagan':'Vazn kiritilmagan')+'</span></div>'+
+      '<button type="button" class="cost-plain-edit" data-cost-edit="'+escapeHtml(row.id)+'">To‘ldirish</button></div></article>';
     return '<article class="cost-plain-book">'+
       '<div class="cost-plain-book-top"><div><h3>'+escapeHtml(row.title||'Kitob')+'</h3>'+
       '<span>'+(row.grams===null?'Vazni kiritilmagan':row.grams+' g')+
-      ' · 1 kg: '+won(row.originRate??state.bookCostRate)+'</span></div>'+
+      ' · 1 kg: '+won(state.bookCostRate)+'</span></div>'+
       '<button type="button" class="cost-plain-edit" data-cost-edit="'+escapeHtml(row.id)+'">Tahrirlash</button></div>'+
       '<div class="cost-plain-book-grid">'+
       '<div><small>O‘zbekistonda</small><strong>'+purchase+'</strong><span>'+won(unitPurchase)+'</span></div>'+
@@ -3382,8 +3384,10 @@
       const normalized=costs.key(row.title);
       if(!byTitle.has(normalized))byTitle.set(normalized,row);
     }
-    const all=[...byTitle.values()],quote=costFxSnapshot();
-    $('costPlainRate').textContent=quote?'1 000 ₩ = '+costUzsClean(quote):'Kursni kiriting';
+    const all=[...byTitle.values()].sort((a,b)=>(a.price===null||a.grams===null?1:0)-(b.price===null||b.grams===null?1:0));
+    const fx=window.BookCostSimple.bookFx(state);
+    $('costPlainRate').textContent=fx?'1 000 ₩ = '+costUzsClean(window.YordamchiCurrency.precise.number(fx)):'Kursni kiriting';
+    if(document.activeElement!==$('costPlainKgInput'))$('costPlainKgInput').value=state.bookCostRate;
     $('costPlainCount').textContent=all.length+' ta kitob';
     $('costPlainHomeList').innerHTML=all.length?all.slice(0,5).map(costPlainCard).join(''):
       '<div class="cost-plain-empty">Hali kitob yo‘q. «+ Bitta kitob qo‘shish» tugmasini bosing.</div>';

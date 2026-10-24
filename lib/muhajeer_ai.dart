@@ -16,17 +16,97 @@ class MuhajeerAi {
     required String mode,
     required String query,
     required List<Book> books,
-    List<Map<String,String>> history=const [],
+    List<Map<String, String>> history = const [],
   }) async {
-    final r=await http.post(_uri('/api/ai-assistant'),
-      headers:{'Content-Type':'application/json'},
-      body:jsonEncode({'mode':mode,'query':query,'books':catalog(books),'history':history.take(10).toList()}),
-    ).timeout(const Duration(seconds:90));
-    if(r.statusCode!=200) throw StateError('AI vaqtincha ishlamayapti');
-    return (jsonDecode(r.body)['text']??'').toString();
+    // Customer AI uses free catalogue search, not paid OpenAI text calls.
+    // A temporary Railway outage must not disable the customer assistant.
+    try {
+      final r = await http.post(
+        _uri('/api/ai-assistant'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'mode': mode,
+          'query': query,
+          'books': catalog(books),
+          'history': history.take(10).toList(),
+        }),
+      ).timeout(const Duration(seconds: 12));
+      if (r.statusCode == 200) {
+        final data = jsonDecode(r.body);
+        if (data is Map && data['text'] is String &&
+            (data['text'] as String).trim().isNotEmpty) {
+          return (data['text'] as String).trim();
+        }
+      }
+    } catch (_) {
+      // The local fallback is safe for web, Android and iOS.
+    }
+    return _offlineAnswer(mode, query, books);
   }
 
-// Search is catalog-only: doing it on the device/web client avoids waiting
+  static String _offlineAnswer(String mode, String query, List<Book> books) {
+    final clean = _normalized(query);
+    if (clean.isEmpty) return 'Qaysi kitobni qidiryapsiz? Nomini yoki mavzusini yozing.';
+    if (clean == 'salom' || clean.startsWith('assalomu')) {
+      return 'Assalomu alaykum! Kitob nomi yoki mavzusini yozsangiz, katalogdan topib beraman.';
+    }
+    if (clean.contains('rahmat')) return 'Arzimaydi! Yana kitob qidirishda yordam beraman.';
+    if (clean.contains('pochta') || clean.contains('yetkazib') ||
+        clean.contains('dostavka')) {
+      return 'Koreya bo‘ylab pochta ₩4,000. 4 ta yoki undan ko‘p kitob olsangiz, odatda yetkazish bepul.';
+    }
+
+    final byId = {for (final book in books) book.id: book};
+    var matches = localSearch(query, books)
+        .map((id) => byId[id])
+        .whereType<Book>()
+        .toList();
+
+    final isRecommendation = clean.contains('tavsiya') ||
+        clean.contains('maslahat') || clean.contains('tanlab ber') ||
+        clean.contains('qanday kitob') || clean.contains('qiziqarli');
+
+    if (isRecommendation) {
+      matches = matches.where((b) => b.stock > 0).toList();
+      final budgetMatch = RegExp(r'(\d{1,3})\s*(ming|k)').firstMatch(clean);
+      final maxPrice = budgetMatch == null
+          ? null
+          : (int.tryParse(budgetMatch.group(1) ?? '') ?? 0) * 1000;
+      if (maxPrice != null) {
+        matches = matches.where((b) => b.currentPrice <= maxPrice).toList();
+      }
+      if (matches.isEmpty) {
+        matches = books.where((b) => b.isActive && b.stock > 0 &&
+            (maxPrice == null || b.currentPrice <= maxPrice)).take(5).toList();
+      }
+    }
+
+    if (matches.isEmpty) {
+      return 'Hozir shu so‘rov bo‘yicha katalogdan kitob topilmadi. '
+          'Kitob nomi, muallifi yoki mavzusini boshqacharoq yozib ko‘ring.';
+    }
+
+    if (mode == 'marketing') {
+      final book = matches.first;
+      final description = book.description.trim();
+      final preview = description.length > 180
+          ? description.substring(0, 180) : description;
+      return '📚 ' + book.title + '\n'
+          + (preview.isEmpty ? '' : preview + '\n')
+          + '💰 ₩' + book.currentPrice.toString() + '\n'
+          + '📦 Omborda ' + book.stock.toString() + ' dona\n\n'
+          + 'Buyurtma uchun Muhajeer Books ilovasidan foydalaning.';
+    }
+    final intro = isRecommendation ? 'Tavsiya qiladigan kitoblar:\n' : '';
+    final lines = matches.take(6).map((book) =>
+        '• ' + book.title + ' — ₩' + book.currentPrice.toString() + ' — '
+        + (book.stock > 0
+            ? 'omborda ' + book.stock.toString() + ' dona'
+            : 'hozircha mavjud emas'));
+    return intro + lines.join('\n');
+  }
+
+  // Search is catalog-only: doing it on the device/web client avoids waiting
   // for Railway and avoids silently dropping books after the first 500.
   static String _normalized(String value) => value
       .toLowerCase()

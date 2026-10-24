@@ -360,6 +360,13 @@
         <button type="button" class="secondary-button" data-cost-view="list">Kitoblar ro‘yxati</button>
         <button type="button" class="secondary-button" data-cost-view="report">Statistikani ochish</button>
       </div>
+      <section class="cost-batch-picker" aria-labelledby="costBatchPickerLabel">
+        <label id="costBatchPickerLabel" for="costBatchSelect">Partiya bo‘yicha hisobot</label>
+        <select id="costBatchSelect" aria-describedby="costBatchFilterHint">
+          <option value="all">Barcha partiyalar · umumiy</option>
+        </select>
+        <small id="costBatchFilterHint">Istalgan partiyani tanlang. Kitoblar ro‘yxatidagi jami son o‘zgarmaydi.</small>
+      </section>
       <div class="cost-dashboard">
         <article class="cost-total-primary"><small>Jami tan narxi</small><strong id="costSummaryTotal">—</strong><span id="costSummaryNote"></span></article>
         <article><small>Jami nusxalar</small><strong id="costSummaryQuantity">0 ta</strong><span id="costSummaryReady">0 ta turdagi kitob</span></article>
@@ -493,6 +500,9 @@
         <h2>Tan narxi hisoboti</h2>
         <p>Har kitobning <b>kelgan nusxalar soni</b> bo‘yicha jami xarid, yetkazish va kutiladigan foyda. Bu haqiqiy sotilgan buyurtmalar statistikasi emas.</p>
         <div id="costReportValues"></div>
+        <h3 class="cost-batch-heading">Har bir partiya alohida</h3>
+        <p class="cost-batch-description">Bir xil kitob boshqa partiyada ham bo‘lsa, xarid, yetkazish va foyda o‘sha partiya narxida hisoblanadi.</p>
+        <div id="costBatchReportList" class="cost-batch-report-list"></div>
         <div id="costReportComparisons"></div>
         <button type="button" class="primary-button" id="costReportSheetsBtn">Sheets uchun nusxalash</button>
         <button type="button" class="secondary-button" id="costReportExportBtn">Barcha kitoblarni Excelga chiqarish</button>

@@ -190,7 +190,28 @@
     };
     });
   }
-  const api={DEFAULT_WON_PER_KG,WON_PER_GRAM,rate,amount,quantity,calculate,profit,inventory,summary,key,parseTitles,parseTitleEntries,extraQuantity,baseQuantity,groupByBatch,normalize,normalizeRates,tariffs,compare};
+  // The previous data format only recorded the most recent import's list of book IDs.
+  // Recover exactly that known delivery without merging unrelated same-day imports.
+  function restoreLastImportGroups(rows,lastImport,makeId){
+    const items=normalize(rows,makeId);
+    if(!lastImport||typeof lastImport.id!=='string'||!Array.isArray(lastImport.items))return items;
+    const date=/^\d{4}-\d{2}-\d{2}$/.test(lastImport.date||'')?lastImport.date:'';
+    const lookup=new Map(items.map(row=>[row.id,row]));
+    for(const entry of lastImport.items){
+      const row=lookup.get(entry.id);
+      if(!row)continue;
+      if(entry.type==='new'&&!row.originBatchId){
+        row.originBatchId=lastImport.id;
+        row.originBatchDate=date;
+      }
+      if(entry.type==='batch'){
+        const batch=(row.batches||[]).find(b=>b.id===entry.batchId);
+        if(batch&&!batch.groupId)batch.groupId=lastImport.id;
+      }
+    }
+    return items;
+  }
+  const api={DEFAULT_WON_PER_KG,WON_PER_GRAM,rate,amount,quantity,calculate,profit,inventory,summary,key,parseTitles,parseTitleEntries,extraQuantity,baseQuantity,groupByBatch,normalize,restoreLastImportGroups,normalizeRates,tariffs,compare};
   if(typeof module==='object' && module.exports)module.exports=api;
   else root.BookCosts=api;
 })(typeof globalThis==='object'?globalThis:this);

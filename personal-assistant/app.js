@@ -3389,18 +3389,26 @@
         (costSelecting?'<input type="checkbox" data-cost-select="'+escapeHtml(row.id)+'" aria-label="'+escapeHtml(row.title||'Nomsiz kitob')+'ni tanlash" '+(costSelectedIds.has(row.id)?'checked':'')+'>':'')+
         cover+'<div class="cost-heading-copy"><h3>'+escapeHtml(row.title||'Nomsiz kitob')+'</h3><small>'+label+'</small></div>'+
         '<span class="cost-clean-qty">'+(costs.quantity(row.quantity)??0)+' ta</span></div>'+
+        (pending?'<p class="cost-pending-badge">'+pending+'</p>':'')+
         '<div class="cost-clean-actions">'+
         '<button type="button" class="soft-button" data-cost-edit="'+escapeHtml(row.id)+'">Tahrirlash</button>'+
         '<span>Shu paytgacha jami kelgan</span></div>'+
         renderCostBatchDetails(row)+
         '<details class="cost-row-details cost-clean-details"><summary>Qo‘shimcha hisob va ulanish</summary>'+
         '<div class="cost-clean-finance">'+
+        '<span>'+(row.muhajeerId?'Muhajeer sotuv narxi':'Sotuv narxi')+' <b>'+(costs.amount(row.salePrice)===null?'—':formatMoney(row.salePrice,'KRW'))+'</b></span>'+
         '<span>Jami xarid <b>'+(inv.readyQuantity?formatMoney(inv.knownPurchase,'KRW'):'—')+'</b></span>'+
         '<span>Jami yetkazish <b>'+(inv.readyQuantity?formatMoney(inv.knownShipping,'KRW'):'—')+'</b></span>'+
         '<span>Jami tan narxi <b>'+(inv.readyQuantity?formatMoney(inv.knownTotal,'KRW'):'—')+'</b></span>'+
         '<span>Kutiladigan foyda <b>'+(inv.profitUnits?formatMoney(inv.knownProfit,'KRW'):'—')+'</b></span></div>'+
         costCloudRow(row)+
         (costs.tariffs(state.bookCostRate,state.bookCostComparisons).length>1?costTariffTable(row):'')+
+        '<details class="cost-quick-editor"><summary>Tez tahrirlash</summary><div class="cost-quick-fields">'+
+          ['price','grams','quantity','salePrice'].map(key=>'<label>'+({price:'Xarid (₩)',grams:'Vazn (g)',quantity:'Kelgan jami',salePrice:'Sotuv (₩)'})[key]+
+            '<input data-cost-quick="'+key+'" '+(key==='salePrice'&&row.muhajeerId?'readonly aria-readonly="true" ':'')+
+            'inputmode="'+(key==='quantity'?'numeric':'decimal')+'" value="'+
+            (key==='quantity'?costs.quantity(row.quantity):(row[key]??''))+'"></label>').join('')+
+        '</div><small data-cost-quick-error role="alert"></small><button type="button" class="primary-button" data-cost-quick-save>Saqlash</button></details>'+
         '</details></article>';
     }).join(''):'<div class="empty-state"><strong>'+(query || filter!=='all'?'Mos kitob topilmadi':'Saqlangan kitoblar hali yo‘q')+'</strong>'+(query || filter!=='all'?'Filtr yoki qidiruvni o‘zgartiring.':'Nomlarini yoki narxlarini kiritib saqlang. Vaznini keyin qo‘shishingiz mumkin.')+'</div>';
     window.KoreaProducts.renderBookList(displayRows);
@@ -3619,7 +3627,7 @@
         '<button type="button" class="soft-button" data-cost-batch-delete>Partiyani o‘chirish</button></div>'+
         '<small class="cost-batch-error" role="alert"></small></div>';
     }).join('');
-    return '<details class="cost-batches"><summary>Partiyalarni ko‘rish · '+parts.length+' ta</summary>'+
+    return '<details class="cost-batches" aria-label="Partiyalar tarixi"><summary>Partiyalarni ko‘rish · '+parts.length+' ta</summary>'+
       '<p class="cost-batch-explainer">Har bir partiyaning kelgan soni, xarid narxi va foydasi alohida. Birinchi partiyani asosiy tahrirlashdan, yangilarini shu yerdan o‘zgartiring.</p>'+
       detail+'</details>';
   }

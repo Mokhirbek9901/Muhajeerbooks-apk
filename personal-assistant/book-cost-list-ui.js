@@ -22,5 +22,21 @@
     else values.sort((a,b)=>b.latest-a.latest);
     return values.map(item=>item.row);
   }
-  return {filterBooks,missingPrice,missingWeight};
+  function parseNameList(value,normalize=text=>String(text||'').toLocaleLowerCase()){
+    const lines=String(value||'').split(/\r?\n/);
+    const seen=new Set(),names=[];
+    for(const raw of lines){
+      // Accept plain lines, "1. Title", "2) Title", "- Title" and "• Title".
+      const name=raw.trim().replace(/^(?:\d{1,4}[.)]\s+|[-•*]\s+)/,'').trim();
+      if(!name)continue;
+      if(name.length>300)return {names:[],error:'Kitob nomi 300 belgidan oshmasin.'};
+      const key=normalize(name);
+      if(!key||seen.has(key))continue;
+      seen.add(key);
+      if(names.length>=1000)return {names:[],error:'Bir martada 1 000 tagacha kitob nomini kiriting.'};
+      names.push(name);
+    }
+    return {names,error:''};
+  }
+  return {filterBooks,missingPrice,missingWeight,parseNameList};
 });

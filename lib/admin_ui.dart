@@ -4455,7 +4455,7 @@ class _BooksAdminState extends State<_BooksAdmin> {
   }
 
   // Exactly the rounded outlined pill style used in Sotilgan kitoblar.
-  // The fixed header is outside the independently scrolling book ListView.
+  // Filters, search and catalog entries share one scrolling viewport.
   Widget _booksFilterChip({
     required String label,
     required IconData icon,
@@ -4523,165 +4523,178 @@ class _BooksAdminState extends State<_BooksAdmin> {
         final unsoldBooks = salesLoaded ? all.where(_unsold).length : 0;
         final problemBooks = all.where(_hasProblem).length;
 
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Sticky, wrapped filters: always visible above the
-                  // independently scrolling catalog list.
-                  Wrap(
-                    spacing: 7,
-                    runSpacing: 7,
-                    children: [
-                      _booksFilterChip(
-                        label: 'Kitob ${all.length}',
-                        icon: Icons.auto_stories_rounded,
-                        foreground: AppColors.navy,
-                        selected: filter == 'all',
-                        onTap: () => setState(() => filter = 'all'),
-                      ),
-                      _booksFilterChip(
-                        label: 'Ombor ${totalStock} dona',
-                        icon: Icons.inventory_2_outlined,
-                        foreground: AppColors.success,
-                      ),
-                      _booksFilterChip(
-                        label: 'Rasm yuklanmagan ${missingImages}',
-                        icon: Icons.image_not_supported_outlined,
-                        foreground: AppColors.orange,
-                        selected: filter == 'missing_image',
-                        onTap: () => setState(() => filter = 'missing_image'),
-                      ),
-                      _booksFilterChip(
-                        label: 'Tarifsiz ${missingDescriptions}',
-                        icon: Icons.description_outlined,
-                        foreground: AppColors.navy,
-                        selected: filter == 'missing_description',
-                        onTap: () => setState(() => filter = 'missing_description'),
-                      ),
-                      _booksFilterChip(
-                        label: 'Sahifasi ko‘rsatilmagan ${missingPageCounts}',
-                        icon: Icons.menu_book_outlined,
-                        foreground: AppColors.navy,
-                        selected: filter == 'missing_page_count',
-                        onTap: () => setState(() => filter = 'missing_page_count'),
-                      ),
-                      _booksFilterChip(
-                        label: 'Tan narxi kiritilmagan ${missingCost}',
-                        icon: Icons.payments_outlined,
-                        foreground: AppColors.orange,
-                        selected: filter == 'missing_cost',
-                        onTap: () => setState(() => filter = 'missing_cost'),
-                      ),
-                      _booksFilterChip(
-                        label: 'Sotuvda ko‘rsatilgan ${activeBooks}',
-                        icon: Icons.visibility_rounded,
-                        foreground: AppColors.success,
-                        selected: filter == 'active',
-                        onTap: () => setState(() => filter = 'active'),
-                      ),
-                      _booksFilterChip(
-                        label: 'Sotuvda ko‘rsatilmagan ${hiddenBooks}',
-                        icon: Icons.visibility_off_outlined,
-                        foreground: AppColors.navy,
-                        selected: filter == 'hidden',
-                        onTap: () => setState(() => filter = 'hidden'),
-                      ),
-                      _booksFilterChip(
-                        label: 'Rejadagi kitoblar ${plannedBooks}',
-                        icon: Icons.event_note_outlined,
-                        foreground: AppColors.navy,
-                        selected: filter == 'planned',
-                        onTap: () => setState(() => filter = 'planned'),
-                      ),
-                      _booksFilterChip(
-                        label: 'Sotilmagan kitoblar ${salesLoaded ? unsoldBooks : '…'}',
-                        icon: Icons.sell_outlined,
-                        foreground: AppColors.navy,
-                        selected: filter == 'unsold',
-                        onTap: salesLoaded ? () => setState(() => filter = 'unsold') : null,
-                      ),
-                      _booksFilterChip(
-                        label: 'Muammoli ${problemBooks}',
-                        icon: Icons.warning_amber_rounded,
-                        foreground: AppColors.orange,
-                        selected: _problemFilterKeys.contains(filter),
-                        onTap: () => _openProblemFilters(all),
+        // One scrollable area for the filters, search bar, actions and
+        // lazily built book rows. No pinned or sticky slivers.
+        return CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child:
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Same sales-style wrapped pills. They scroll away with
+                    // the books just like the Sotilgan kitoblar page.
+                    Wrap(
+                      spacing: 7,
+                      runSpacing: 7,
+                      children: [
+                        _booksFilterChip(
+                          label: 'Kitob ${all.length}',
+                          icon: Icons.auto_stories_rounded,
+                          foreground: AppColors.navy,
+                          selected: filter == 'all',
+                          onTap: () => setState(() => filter = 'all'),
+                        ),
+                        _booksFilterChip(
+                          label: 'Ombor ${totalStock} dona',
+                          icon: Icons.inventory_2_outlined,
+                          foreground: AppColors.success,
+                        ),
+                        _booksFilterChip(
+                          label: 'Rasm yuklanmagan ${missingImages}',
+                          icon: Icons.image_not_supported_outlined,
+                          foreground: AppColors.orange,
+                          selected: filter == 'missing_image',
+                          onTap: () => setState(() => filter = 'missing_image'),
+                        ),
+                        _booksFilterChip(
+                          label: 'Tarifsiz ${missingDescriptions}',
+                          icon: Icons.description_outlined,
+                          foreground: AppColors.navy,
+                          selected: filter == 'missing_description',
+                          onTap: () => setState(() => filter = 'missing_description'),
+                        ),
+                        _booksFilterChip(
+                          label: 'Sahifasi ko‘rsatilmagan ${missingPageCounts}',
+                          icon: Icons.menu_book_outlined,
+                          foreground: AppColors.navy,
+                          selected: filter == 'missing_page_count',
+                          onTap: () => setState(() => filter = 'missing_page_count'),
+                        ),
+                        _booksFilterChip(
+                          label: 'Tan narxi kiritilmagan ${missingCost}',
+                          icon: Icons.payments_outlined,
+                          foreground: AppColors.orange,
+                          selected: filter == 'missing_cost',
+                          onTap: () => setState(() => filter = 'missing_cost'),
+                        ),
+                        _booksFilterChip(
+                          label: 'Sotuvda ko‘rsatilgan ${activeBooks}',
+                          icon: Icons.visibility_rounded,
+                          foreground: AppColors.success,
+                          selected: filter == 'active',
+                          onTap: () => setState(() => filter = 'active'),
+                        ),
+                        _booksFilterChip(
+                          label: 'Sotuvda ko‘rsatilmagan ${hiddenBooks}',
+                          icon: Icons.visibility_off_outlined,
+                          foreground: AppColors.navy,
+                          selected: filter == 'hidden',
+                          onTap: () => setState(() => filter = 'hidden'),
+                        ),
+                        _booksFilterChip(
+                          label: 'Rejadagi kitoblar ${plannedBooks}',
+                          icon: Icons.event_note_outlined,
+                          foreground: AppColors.navy,
+                          selected: filter == 'planned',
+                          onTap: () => setState(() => filter = 'planned'),
+                        ),
+                        _booksFilterChip(
+                          label: 'Sotilmagan kitoblar ${salesLoaded ? unsoldBooks : '…'}',
+                          icon: Icons.sell_outlined,
+                          foreground: AppColors.navy,
+                          selected: filter == 'unsold',
+                          onTap: salesLoaded ? () => setState(() => filter = 'unsold') : null,
+                        ),
+                        _booksFilterChip(
+                          label: 'Muammoli ${problemBooks}',
+                          icon: Icons.warning_amber_rounded,
+                          foreground: AppColors.orange,
+                          selected: _problemFilterKeys.contains(filter),
+                          onTap: () => _openProblemFilters(all),
+                        ),
+                      ],
+                    ),
+                    if (_problemFilterKeys.contains(filter)) ...[
+                      const SizedBox(height: 10),
+                      InputChip(
+                        avatar: const Icon(Icons.tune_rounded, size: 17),
+                        label: Text('Muammoli → ${_filterLabel(filter)}'),
+                        onDeleted: () => setState(() => filter = 'all'),
                       ),
                     ],
-                  ),
-                  if (_problemFilterKeys.contains(filter)) ...[
-                    const SizedBox(height: 10),
-                    InputChip(
-                      avatar: const Icon(Icons.tune_rounded, size: 17),
-                      label: Text('Muammoli → ${_filterLabel(filter)}'),
-                      onDeleted: () => setState(() => filter = 'all'),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            onChanged: (v) => setState(() => query = v),
+                            decoration: const InputDecoration(
+                              hintText: 'Kitob yoki muallif...',
+                              prefixIcon: Icon(Icons.search),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          onPressed: reload,
+                          icon: const Icon(Icons.refresh_rounded),
+                        ),
+                        const SizedBox(width: 4),
+                        FilledButton.icon(
+                          onPressed: () => openForm(),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Qo‘shish'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: all.isEmpty ? null : () => openBulkAi(all),
+                            icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                            label: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text('AI tahrir'),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: openCatalogGroups,
+                            icon: const Icon(Icons.account_tree_rounded, size: 18),
+                            label: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text('Kategoriya / Nashriyot'),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          onChanged: (v) => setState(() => query = v),
-                          decoration: const InputDecoration(
-                            hintText: 'Kitob yoki muallif...',
-                            prefixIcon: Icon(Icons.search),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        onPressed: reload,
-                        icon: const Icon(Icons.refresh_rounded),
-                      ),
-                      const SizedBox(width: 4),
-                      FilledButton.icon(
-                        onPressed: () => openForm(),
-                        icon: const Icon(Icons.add),
-                        label: const Text('Qo‘shish'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: all.isEmpty ? null : () => openBulkAi(all),
-                          icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                          label: const FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text('AI tahrir'),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: openCatalogGroups,
-                          icon: const Icon(Icons.account_tree_rounded, size: 18),
-                          label: const FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text('Kategoriya / Nashriyot'),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                ),
               ),
-            ),
+              ),
             if (snap.connectionState == ConnectionState.waiting &&
                 snap.data == null)
-              const Expanded(child: Center(child: CircularProgressIndicator()))
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: CircularProgressIndicator()),
+              )
             else if (snap.hasError)
-              Expanded(child: Center(child: Text('Xatolik: ${snap.error}')))
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: Text('Xatolik: ${snap.error}')),
+              )
             else if (books.isEmpty)
-              Expanded(
+              SliverFillRemaining(
+                hasScrollBody: false,
                 child: Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
@@ -4707,12 +4720,16 @@ class _BooksAdminState extends State<_BooksAdmin> {
                 ),
               )
             else
-              Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
-                  itemCount: books.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (_, i) {
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (_, index) {
+                      if (index.isOdd) {
+                        return const SizedBox(height: 8);
+                      }
+                      final i = index ~/ 2;
+
                     final b = books[i];
                     final profit = b.currentPrice - b.costPrice;
                     final showCostLine =
@@ -4757,6 +4774,8 @@ class _BooksAdminState extends State<_BooksAdmin> {
                       ),
                     );
                   },
+                    childCount: books.length * 2 - 1,
+                  ),
                 ),
               ),
           ],

@@ -3071,3 +3071,12 @@ body[data-workspace="costs"] #screen-book-costs .cost-bulk-add-row{display:block
 body[data-workspace="costs"] #screen-book-costs .cost-bulk-save{display:block;width:100%;min-height:49px;margin:12px 0 11px}
 body[data-workspace="costs"] #screen-book-costs .cost-bulk-simple-panel>[data-cost-add-choice]{display:inline-block;margin-top:4px}
 @media(max-width:390px){body[data-workspace="costs"] #screen-book-costs .cost-bulk-line-numbers{grid-template-columns:1fr}}
+
+/* v84: a single multiline paste area; purchase and grams are optional until arrival. */
+body[data-workspace="costs"] #screen-book-costs .cost-bulk-paste-label{display:grid;gap:9px;color:var(--ink);font-size:.86rem;font-weight:750}
+body[data-workspace="costs"] #screen-book-costs #costBulkPasteNames{display:block;width:100%;box-sizing:border-box;min-height:250px;max-height:58vh;resize:vertical;padding:14px;border:1px solid var(--line);border-radius:13px;background:var(--surface);color:var(--ink);font:inherit;font-size:.89rem;line-height:1.7;scroll-margin-top:20px}
+body[data-workspace="costs"] #screen-book-costs #costBulkPasteNames:focus{outline:2px solid var(--green);outline-offset:2px}
+body[data-workspace="costs"] #screen-book-costs .cost-bulk-paste-hint{font-size:.76rem;color:var(--muted);margin:10px 1px 14px}
+body[data-workspace="costs"] #screen-book-costs .cost-plain-partial{display:grid;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:.79rem;line-height:1.5;color:var(--muted)}
+body[data-workspace="costs"] #screen-book-costs .cost-plain-partial strong{color:var(--ink);font-weight:800}
+body[data-workspace="costs"] #screen-book-costs #costSimpleForm .cost-simple-grid>label>small{overflow-wrap:anywhere}

@@ -329,7 +329,7 @@ class _BookStoryPageState extends State<BookStoryPage> {
                         return Semantics(
                           button: true,
                           selected: selected,
-                          label: '$'+'{name} dizaynini tanlash',
+                          label: '${name} dizaynini tanlash',
                           child: InkWell(
                             borderRadius: BorderRadius.circular(6),
                             onTap: () => _selectTemplate(item),

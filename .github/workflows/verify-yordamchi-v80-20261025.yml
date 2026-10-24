@@ -1,0 +1,23 @@
+name: Yordamchi focused v80 checks
+on:
+  push:
+    branches:
+      - feature/yordamchi-actual-kg-v80-20261025
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Validate syntax
+        run: |
+          node --check personal-assistant/app.js
+          node --check personal-assistant/book-costs.js
+          node --check personal-assistant/book-cost-device-sync.js
+          node --check personal-assistant/sw.js
+      - name: Run price and batch regression tests
+        run: |
+          node --test personal-assistant-tests/book-cost-separation-v78.test.cjs personal-assistant-tests/book-cost-actual-kg-v80.test.cjs

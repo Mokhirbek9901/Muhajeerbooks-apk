@@ -49,8 +49,8 @@ test('no quantity or batch fields on the visible book calculator',()=>{
 test('no conversion of currency display string back to number',()=>{
  const app=read('app.js');
  const slice=app.slice(app.indexOf('  function costSomCompact(won){'),app.indexOf('  function costUzsClean(value){'));
- assert.ok(slice.includes('precise.convert(String(won)'));
- assert.ok(slice.includes("toLocaleString('en-US'"));
+ assert.ok(slice.includes('window.BookCostSimple.uzsFromWon(state,String(won))'));
+ assert.ok(slice.includes('window.BookCostSimple.formatUzs(quote)'));
  assert.ok(!slice.includes("exact.replace("));
 });
 test('legacy records remain untouched by new UI and the catalog is unique by normalized title',()=>{

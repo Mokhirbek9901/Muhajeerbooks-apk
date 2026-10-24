@@ -3396,9 +3396,9 @@
     if(!matching.length)return;
     const name=selected.title||'Kitob';
     const duplicateNote=matching.length>1?
-      '\\nBu nomdagi '+matching.length+' ta eski va yangi qayd ham birga o‘chiriladi.':'';
+      '\nBu nomdagi '+matching.length+' ta eski va yangi qayd ham birga o‘chiriladi.':'';
     // Confirmation precedes every mutation, including unpriced draft books.
-    if(!window.confirm('«'+name+'» kitobini rostdan ham o‘chirmoqchimisiz?'+duplicateNote+'\\nBu amalni bekor qilib bo‘lmaydi.'))return;
+    if(!window.confirm('«'+name+'» kitobini rostdan ham o‘chirmoqchimisiz?'+duplicateNote+'\nBu amalni bekor qilib bo‘lmaydi.'))return;
     const before=state.bookCosts;
     state.bookCosts=before.filter(row=>costs.key(row.title)!==titleKey);
     if(!persistBookCosts('Kitob ro‘yxatdan o‘chirildi.',false)){

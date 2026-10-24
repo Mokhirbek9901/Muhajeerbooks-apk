@@ -1,7 +1,6 @@
-2026-10-23 TestFlight ONLY: interactive admin KPI drill-downs from Boshqaruv markazi.
-Build latest main including f22fa3eb9b2ab7e549cb1a6aadb856f4aca3dfdc.
-Keep all six admin bottom destinations unchanged: Bosh, Buyurtmalar, Kitoblar, Sotilgan, Moliya, Bo‘limlar.
-Show SIX tappable dashboard cards: Bugungi savdo, Yangi buyurtmalar, Qabul qilingan (awaiting preparation),
-Jo‘natishga tayyor (prepared, not yet shipped), Tugagan kitoblar, and Oldindan zakazlar.
-Each opens its corresponding existing filtered order/book/preorder details. Daily revenue and drill-down matching use the same predicate.
-Do not change data, stock, orders, API/backend, or user-facing iOS App Store and Play Market releases.
+2026-10-25 TestFlight ONLY — Muhajeer Books iOS QA build.
+Source: latest main, including AI search fix PR #70 and admin paid AI research robustness.
+Upload signed IPA to App Store Connect TestFlight, validate build processing and internal tester access.
+Target iOS marketing version: 2.5.20 (configured in .github/ios-marketing-version).
+Do NOT submit for App Store review or release to public users.
+Do NOT trigger Play Market release. Keep existing live/store versions unchanged.

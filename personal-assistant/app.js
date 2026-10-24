@@ -132,6 +132,8 @@
   let productView='overview',financeView='overview';
   let currentView = 'home';
   let costView='main';
+  let costAddMode='choose';
+  let costBulkDrafts=[];
   let selectedCostBatchId='all';
   let costReportMode='batch';
   let costEditingId='';
@@ -3378,24 +3380,21 @@
       (result.total===null?'—':costSomCompact(result.total))+'</b></div></article>';
   }
   function renderCostPlainCatalog(){
-    const byTitle=new Map();
-    for(const row of state.bookCosts.slice().reverse()){
-      if(!String(row.title||'').trim())continue;
-      const normalized=costs.key(row.title);
-      if(!byTitle.has(normalized))byTitle.set(normalized,row);
-    }
-    const all=[...byTitle.values()].sort((a,b)=>(a.price===null||a.grams===null?1:0)-(b.price===null||b.grams===null?1:0));
+    const select=window.BookCostListUI.filterBooks;
+    const all=select(state.bookCosts,'newest','',costs.key);
     const fx=window.BookCostSimple.bookFx(state);
     $('costPlainRate').textContent=fx?'1 000 ₩ = '+costUzsClean(window.YordamchiCurrency.precise.number(fx)):'Kursni kiriting';
     if(document.activeElement!==$('costPlainKgInput'))$('costPlainKgInput').value=state.bookCostRate;
     $('costPlainCount').textContent=all.length+' ta kitob';
-    $('costPlainHomeList').innerHTML=all.length?all.slice(0,5).map(costPlainCard).join(''):
-      '<div class="cost-plain-empty">Hali kitob yo‘q. «+ Bitta kitob qo‘shish» tugmasini bosing.</div>';
-    const search=costs.key($('costSearch').value||'');
-    const visible=search?all.filter(row=>costs.key(row.title).includes(search)):all;
-    $('costFilteredCount').textContent=visible.length+' ta kitob';
-    $('costReadyList').innerHTML=visible.length?visible.map(costPlainCard).join(''):
-      '<div class="cost-plain-empty">'+(search?'Bu nomdagi kitob topilmadi.':'Hali kitob saqlanmagan.')+'</div>';
+    // Show the FULL catalog on the home tab. Nothing is silently capped at five.
+    $('costPlainHomeList').innerHTML=all.length?all.map(costPlainCard).join(''):
+      '<div class="cost-plain-empty">Hali kitob yo‘q. «Kitob qo‘shish» tugmasini bosing.</div>';
+    const choice=$('costPlainListFilter').value||'newest';
+    const search=$('costSearch').value||'';
+    const shown=select(state.bookCosts,choice,search,costs.key);
+    $('costFilteredCount').textContent=shown.length+' / '+all.length+' ta kitob';
+    $('costReadyList').innerHTML=shown.length?shown.map(costPlainCard).join(''):
+      '<div class="cost-plain-empty">'+(search||choice==='missing-weight'||choice==='incomplete'?'Mos kitob topilmadi. Boshqa filtrni tanlang.':'Hali kitob saqlanmagan.')+'</div>';
   }
   function renderCostReadyList(){
     $('costRateSummary').textContent='1 kg = '+formatMoney(state.bookCostRate,'KRW')+' · 100 g = '+formatMoney(window.YordamchiCurrency.ratio([state.bookCostRate],[10]),'KRW');
@@ -3702,9 +3701,91 @@
     $('costSimpleSave').textContent=row?'✓ O‘zgarishlarni saqlash':'✓ Kitobni saqlash';
     refreshSimpleCostPreview();
   }
+
+  function newCostBulkDraft(){return {id:makeId(),title:'',priceUzs:'',grams:''};}
+  function renderCostBulkSimpleRows(){
+    const node=$('costBulkSimpleRows');
+    node.innerHTML=costBulkDrafts.map((draft,index)=>
+      '<article class="cost-bulk-line" data-cost-bulk-row="'+escapeHtml(draft.id)+'">'+
+      '<div class="cost-bulk-line-heading"><strong>'+(index+1)+'-kitob</strong>'+
+      '<button type="button" data-cost-bulk-remove="'+escapeHtml(draft.id)+'" aria-label="Qatorni o‘chirish">O‘chirish</button></div>'+
+      '<label>Kitob nomi<input data-cost-bulk-field="title" maxlength="300" autocomplete="off" placeholder="Kitob nomi" value="'+escapeHtml(draft.title)+'"></label>'+
+      '<div class="cost-bulk-line-numbers">'+
+      '<label>O‘zbekistonda (so‘m)<input data-cost-bulk-field="priceUzs" inputmode="decimal" placeholder="Masalan: 85000" value="'+escapeHtml(draft.priceUzs)+'"></label>'+
+      '<label>Vazni (g)<input data-cost-bulk-field="grams" inputmode="decimal" placeholder="Masalan: 300" value="'+escapeHtml(draft.grams)+'"></label></div>'+
+      '<div class="cost-bulk-line-result" data-cost-bulk-result></div></article>'
+    ).join('');
+    costBulkDrafts.forEach(draft=>updateCostBulkPreview(draft.id));
+  }
+  function updateCostBulkPreview(id){
+    const draft=costBulkDrafts.find(item=>item.id===id);
+    const card=qsa('[data-cost-bulk-row]',$('costBulkSimpleRows')).find(node=>node.dataset.costBulkRow===id);
+    const target=card?.querySelector('[data-cost-bulk-result]');
+    if(!draft||!target)return;
+    if(!draft.priceUzs.trim()||!draft.grams.trim()){target.textContent='Narx va vaznni kiriting — hisob shu yerda chiqadi.';return;}
+    const p=window.YordamchiCurrency.precise;
+    const uzs=window.BookCostSimple.normalizedPrice(draft.priceUzs,null,true);
+    const quote=uzs?window.BookCostSimple.wonFromUzs(state,uzs):null;
+    const grams=costs.amount(draft.grams);
+    const price=quote?costs.amount(p.number(quote)):null;
+    if(price===null||grams===null){target.textContent='Narx, gramm yoki kursni tekshiring.';return;}
+    const calc=costs.calculate({price,grams},state.bookCostRate);
+    target.textContent='1 dona: '+costPlainWon(calc.total)+' · '+costSomCompact(calc.total);
+  }
+  function setCostAddMode(mode){
+    if(!['choose','single','bulk'].includes(mode))return;
+    // Returning from an existing book edit starts a fresh add flow.
+    if(mode==='choose'||mode==='bulk'){
+      costEditingId='';costEditingAll=false;costEditingIds.clear();
+    }
+    costAddMode=mode;
+    if(mode==='bulk'&&!costBulkDrafts.length)costBulkDrafts=Array.from({length:3},newCostBulkDraft);
+    if(mode==='bulk')renderCostBulkSimpleRows();
+    renderBookCosts();syncWorkspaceUI();
+    if(mode==='single')$('costSimpleTitle').focus({preventScroll:true});
+    if(mode==='bulk')$('costBulkSimpleRows').querySelector('input')?.focus({preventScroll:true});
+  }
+  function saveCostBulkSimple(event){
+    event.preventDefault();
+    const drafts=costBulkDrafts.filter(draft=>Object.values(draft).some((value,key)=>key!==0&&String(value||'').trim()));
+    const fail=msg=>{$('costBulkSimpleError').hidden=false;$('costBulkSimpleError').textContent=msg;};
+    if(!drafts.length){fail('Kamida bitta kitob nomini, narxini va vaznini kiriting.');return;}
+    const existing=new Set(state.bookCosts.map(row=>costs.key(row.title)).filter(Boolean));
+    const pending=new Set(),newRows=[];
+    const fx=window.BookCostSimple.bookFx(state);
+    if(!fx){fail('Valyuta kursi kiritilmagan. Avval Kurs bo‘limida kursni saqlang.');return;}
+    for(let i=0;i<drafts.length;i++){
+      const row=drafts[i],title=row.title.trim();
+      if(!title||!row.priceUzs.trim()||!row.grams.trim()){fail((i+1)+'-kitob: nom, so‘mdagi narx va gramm to‘liq kiritilsin.');return;}
+      const key=costs.key(title);
+      if(existing.has(key)||pending.has(key)){fail('«'+title+'» avval kiritilgan. Uni Kitoblar bo‘limidan tahrirlang.');return;}
+      const uzs=window.BookCostSimple.normalizedPrice(row.priceUzs,null,true);
+      const precise=window.YordamchiCurrency.precise;
+      const quote=uzs?window.BookCostSimple.wonFromUzs(state,uzs):null;
+      const price=quote?costs.amount(precise.number(quote)):null;
+      const grams=costs.amount(row.grams);
+      if(price===null||grams===null){fail('«'+title+'» kitobining narxi yoki vaznini tekshiring.');return;}
+      pending.add(key);
+      newRows.push({id:makeId(),title,quantity:1,price,priceUzs:precise.text(uzs),
+        grams,saved:true,originBatchId:makeId(),originBatchDate:today(),originRate:state.bookCostRate});
+    }
+    const previous=state.bookCosts;
+    state.bookCosts=[...previous,...newRows];
+    if(!persistBookCosts(newRows.length+' ta kitob saqlandi.',false)){
+      state.bookCosts=previous;fail('Saqlab bo‘lmadi. Qurilma xotirasini tekshiring.');return;
+    }
+    costBulkDrafts=[];
+    $('costBulkSimpleError').hidden=true;
+    costView='list';costEditingId='';costEditingAll=false;costEditingIds.clear();
+    $('costSearch').value='';
+    $('costPlainListFilter').value='newest';
+    renderBookCosts();syncWorkspaceUI();
+    toast(newRows.length+' ta kitob qo‘shildi.');
+    $('costListPanel').scrollIntoView({block:'start',behavior:'smooth'});
+  }
   function openSimpleCostEditor(id=''){
     costEditingIds.clear();costEditingAll=false;costEditingId=id;
-    costView='entry';
+    costAddMode='single';costView='entry';
     renderBookCosts();syncWorkspaceUI();
     if(!$('costAdvancedEditor').open){
       $('costSimpleForm').scrollIntoView({block:'start',behavior:'smooth'});
@@ -3760,6 +3841,7 @@
   }
   function setCostView(view){
     if(view==='report')view='list';
+    if(view==='entry')costAddMode='choose';
     costView=view;if(view!=='list'){costSelecting=false;costSelectedIds.clear();}costEditingId='';costEditingAll=false;costEditingIds.clear();renderBookCosts();syncWorkspaceUI();
   }
 
@@ -3793,6 +3875,11 @@
     $('costHomeBooksPanel').hidden=costView!=='main';
     $('costListActions').hidden=costView!=='list';
     $('costEntryPanel').hidden=costView!=='entry';
+    const choosing=costView==='entry'&&costAddMode==='choose';
+    $('costAddChoice').hidden=!choosing;
+    $('costBulkSimplePanel').hidden=!(costView==='entry'&&costAddMode==='bulk');
+    $('costSimpleForm').hidden=!(costView==='entry'&&costAddMode==='single');
+    $('costEntryPanel').querySelector('.cost-entry-welcome').hidden=!(costView==='entry'&&costAddMode==='single');
     $('costReportPanel').hidden=costView!=='report';
     initBookRateFields();
     if(document.activeElement!==$('bookRateValue')){
@@ -4039,6 +4126,31 @@
       }
     });
     $('costSimpleForm').addEventListener('submit',saveSimpleCostForm);
+    qsa('[data-cost-add-mode]').forEach(button=>button.addEventListener('click',()=>setCostAddMode(button.dataset.costAddMode)));
+    qsa('[data-cost-add-choice]').forEach(button=>button.addEventListener('click',()=>setCostAddMode('choose')));
+    $('costBulkSimpleAddRow').addEventListener('click',()=>{
+      if(costBulkDrafts.length>=200){toast('Bir safarda 200 tagacha kitob kiriting.');return;}
+      costBulkDrafts.push(newCostBulkDraft());
+      renderCostBulkSimpleRows();
+      $('costBulkSimpleRows').lastElementChild?.querySelector('input')?.focus({preventScroll:true});
+    });
+    $('costBulkSimpleRows').addEventListener('input',event=>{
+      const field=event.target.dataset.costBulkField;
+      if(!['title','priceUzs','grams'].includes(field))return;
+      const id=event.target.closest('[data-cost-bulk-row]')?.dataset.costBulkRow;
+      const draft=costBulkDrafts.find(item=>item.id===id);
+      if(!draft)return;
+      draft[field]=event.target.value;
+      $('costBulkSimpleError').hidden=true;
+      updateCostBulkPreview(id);
+    });
+    $('costBulkSimpleRows').addEventListener('click',event=>{
+      const button=event.target.closest('[data-cost-bulk-remove]');if(!button)return;
+      costBulkDrafts=costBulkDrafts.filter(draft=>draft.id!==button.dataset.costBulkRemove);
+      if(!costBulkDrafts.length)costBulkDrafts=[newCostBulkDraft()];
+      renderCostBulkSimpleRows();
+    });
+    $('costBulkSimpleForm').addEventListener('submit',saveCostBulkSimple);
     $('costSimpleBatch').addEventListener('change',()=>{fillCostBatchMoney();refreshSimpleCostPreview();});
     $('costSimpleBatchFx').addEventListener('input',refreshSimpleCostPreview);
     $('costSimpleBatchActualKg').addEventListener('input',refreshSimpleCostPreview);
@@ -4065,9 +4177,7 @@
         refreshSimpleCostPreview();
       });
     });
-    qsa('[data-cost-open-new]').forEach(button=>button.addEventListener('click',()=>{
-      openSimpleCostEditor();
-    }));
+    qsa('[data-cost-open-new]').forEach(button=>button.addEventListener('click',()=>setCostView('entry')));
     $('costKgQuickSave').addEventListener('click',()=>{
       const field=$('costKgRateQuick'),value=costs.amount(field.value);
       if(value===null){field.setAttribute('aria-invalid','true');toast('1 kg kitob yetkazish narxini vonda kiriting.');return;}
@@ -4218,6 +4328,7 @@
     $('costEditorFilter').addEventListener('change',filterCostEditor);
     $('costHomeSearch').addEventListener('input',renderCostHomeBooks);
     $('costSearch').addEventListener('input',renderCostReadyList);
+    $('costPlainListFilter').addEventListener('change',renderCostPlainCatalog);
     $('costSort').addEventListener('change',renderCostReadyList);
     $('costFilter').addEventListener('change',renderCostReadyList);
     $('costPlainKgForm').addEventListener('submit',event=>{

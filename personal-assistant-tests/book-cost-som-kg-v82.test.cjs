@@ -62,12 +62,12 @@ test('FX/price display conversion uses isolated correction and rounded whole UZS
  assert.ok(app.includes('window.BookCostSimple.uzsFromWon(state,String(won))'));
  assert.ok(!app.slice(app.indexOf('function costSomCompact(won)'),app.indexOf('function costUzsClean')).includes('maximumFractionDigits:2'));
 });
-test('new v82 helper loads before app and offline cache includes it',()=>{
+test('new v83 helper loads before app and offline cache includes it',()=>{
  const html=read('index.html'),sw=read('sw.js');
  for(const f of ['app.js','styles.css','book-costs.js','book-cost-simple.js']){
- assert.ok(html.includes(f+'?v=82'),f+' HTML');
- assert.ok(sw.includes(f+'?v=82'),f+' SW');
+ assert.ok(html.includes(f+'?v=83'),f+' HTML');
+ assert.ok(sw.includes(f+'?v=83'),f+' SW');
  }
  assert.ok(html.indexOf('book-cost-simple.js')<html.indexOf('app.js'));
- assert.ok(sw.includes('bek-yordamchi-v82'));
+ assert.ok(sw.includes('bek-yordamchi-v83'));
 });

@@ -71,9 +71,9 @@ test('device sync and UI store independently named real rate and pricing rate',(
 });
 test('cache versions and static syntax are aligned',()=>{
   const html=read('index.html'),sw=read('sw.js');
-  assert.ok(sw.includes('bek-yordamchi-v82'));
+  assert.ok(sw.includes('bek-yordamchi-v83'));
   for(const name of ['app.js','book-costs.js','styles.css','book-cost-device-sync.js']){
-    assert.ok(html.includes(name+'?v=82'),name+' html');
-    assert.ok(sw.includes(name+'?v=82'),name+' sw');
+    assert.ok(html.includes(name+'?v=83'),name+' html');
+    assert.ok(sw.includes(name+'?v=83'),name+' sw');
   }
 });

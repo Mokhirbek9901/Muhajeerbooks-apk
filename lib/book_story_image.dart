@@ -2947,7 +2947,7 @@ Future<Uint8List> _renderAlternativeBookStory(
   }
   textBox(storyPrice(book), Rect.fromLTWH(left + 10, infoTop + 32, cardW - 20, 80), 31, weight: FontWeight.w900, color: teal, maxLines: 1);
   textBox('Yetkazib berish:\n₩4,000', Rect.fromLTWH(left + cardW + gap + 10, infoTop + 28, cardW - 20, 88), 22, weight: FontWeight.w800, color: cardText);
-  textBox(book.preorderEnabled ? 'Oldindan\\nbuyurtma' : '4+ kitobda\\npochta bepul',
+  textBox(book.preorderEnabled ? 'Oldindan\nbuyurtma' : '4+ kitobda\npochta bepul',
       Rect.fromLTWH(left + (cardW + gap) * 2 + 10, infoTop + 28, cardW - 20, 88),
       22, weight: FontWeight.w800, color: teal);
 

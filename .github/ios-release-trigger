@@ -1,6 +1,7 @@
-2026-10-25 TestFlight ONLY: compact actual Story mini previews and 5 more removals — PR #76.
-Source main commit 8178538e3442f6b0a13c24de1ce828407e933fc5, Flutter CI passed.
-Remove Scrapbook, Sado, Tun Plus, Iliq and Obsidian from the Instagram Story chooser. Exactly 27 styles remain.
-Each compact selector tile must display the whole original 9:16 book Story in miniature with correct real cover, typography, price, postage, details and background; no icon-only placeholders after loading. Quarter-resolution asynchronous local render with sequential queue. Selected preview shows exactly current main Story (including AI if available). Main preview also uses BoxFit.contain.
-Center covers in Sotuv (Sale) and Gallery Line using x=540 center; preserve cover aspect ratio with no cropping. All Flutter tests including quarter-res PNG export and geometry pass.
-Use marketing version 2.5.20 and calculate a fresh unique TestFlight build number. Upload signed IPA to Apple TestFlight INTERNAL TESTERS ONLY; do not submit App Store public review and do not update Play Market.
+2026-10-25 TestFlight ONLY — NAME-ONLY tiny Story buttons and persistent full preview.
+Source main merge PR #77, commit 26cdbd774f637963303675e213430e65f4a3c033, Flutter CI passed.
+Keep 27 allowed Story designs. No preview images, graphics or icons inside selector buttons: only names. Four columns on narrow phones, six on medium widths, eight on tablets; very small 28px-tall chips.
+Keep design choice area only 96px tall with its own scroll bar, so the complete 9:16 Story (full selected art, cover, author, price, description, postage) appears directly below even when first/last style is chosen. Preview never cropped, scales to 63 percent of available viewport height. Keep chips visible during preview loading without stale wrong art.
+Retain previously excluded Story styles, correct cover centering in Sale and Gallery Line, and all Story share/PNG functions. Do not add category/publisher/stock/4+ promo.
+Marketing version 2.5.20 and a fresh numbered build selected by preflight.
+Upload signed IPA only to Apple TestFlight INTERNAL testers. Never submit public App Store review; never release Android Play Store.

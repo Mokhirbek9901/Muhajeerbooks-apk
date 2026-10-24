@@ -1152,7 +1152,7 @@ Future<Uint8List> _renderSevenStoryDesign(
             Paint()..shader = ui.Gradient.linear(
               const Offset(0, 180), const Offset(1000, 930),
               [const Color(0xFF132A52), const Color(0xFF295B64),
-               const Color(0xFF122139)]));
+               const Color(0xFF122139)], [0.0, 0.5, 1.0]));
         for (var i = 0; i < 26; i++) {
           final x = 35.0 + (i * 137) % 1020;
           final y = 80.0 + (i * 181) % 920;

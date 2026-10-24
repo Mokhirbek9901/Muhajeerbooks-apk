@@ -2724,3 +2724,44 @@ body[data-workspace="costs"] #screen-book-costs .cost-batch-picker small{
  .cost-finance-conversion-grid{gap:6px}
  .cost-partiya-primary-metrics strong{font-size:.95rem}
 }
+
+
+/* v76 - clean numbered partiya reports and book-entry quantity, fall 2026 */
+body[data-workspace="costs"][data-cost-view="main"] #screen-book-costs .cost-dashboard .cost-dashboard-quantity{
+ display:grid!important;background:var(--surface);border-color:var(--line)
+}
+.cost-report-mode{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:4px;background:var(--surface2);border:1px solid var(--line);border-radius:15px;margin:10px 0 16px}
+.cost-report-mode button{font:inherit;font-weight:750;font-size:.83rem;min-width:0;min-height:46px;padding:10px 9px;border:0;border-radius:11px;background:transparent;color:var(--muted);cursor:pointer}
+.cost-report-mode button.active{background:var(--green);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+body[data-workspace="costs"] #screen-book-costs .cost-report .cost-batch-picker[hidden]{display:none!important}
+.cost-report-dashboard{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:13px 0 21px}
+.cost-report-dashboard article{display:flex;flex-direction:column;justify-content:center;gap:7px;min-width:0;min-height:108px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:15px;box-sizing:border-box}
+.cost-report-dashboard small{font-size:.76rem;line-height:1.4;color:var(--muted);font-weight:600}
+.cost-report-dashboard strong{display:block;line-height:1.29;overflow-wrap:anywhere;color:var(--green);font-weight:830;font-size:1.3rem;font-variant-numeric:tabular-nums}
+.cost-report-dashboard span{font-size:.7rem;line-height:1.4;color:var(--muted)}
+.cost-report-dashboard .cost-report-total{grid-column:1/-1;background:var(--green);border-color:var(--green);min-height:175px;border-radius:22px;padding:26px 22px}
+.cost-report-dashboard .cost-report-total small,.cost-report-dashboard .cost-report-total span{color:#deedea}
+.cost-report-dashboard .cost-report-total strong{font-size:clamp(1.8rem,7vw,2.5rem);letter-spacing:-.02em;color:#fff;margin:3px 0}
+.cost-report-dashboard .cost-report-profit{background:var(--mint)}
+.cost-report-dashboard .cost-report-pending{grid-column:1/-1;background:var(--goldsoft);min-height:88px}
+.cost-report-dashboard .cost-report-pending[hidden]{display:none!important}
+.cost-report-dashboard article:not(.cost-report-total) strong{word-break:normal}
+.cost-report-breakdown{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:0 14px;margin:15px 0}
+.cost-report-breakdown>summary{cursor:pointer;color:var(--green);font-weight:750;font-size:.82rem;min-height:48px;padding:15px 0}
+.cost-report-breakdown .cost-batch-report-list{margin:9px 0 17px}
+.cost-simple-batch-choice{display:grid;gap:8px;margin:12px 0 17px;color:var(--ink);font-size:.87rem;font-weight:750}
+.cost-simple-batch-choice[hidden]{display:none!important}
+.cost-simple-batch-choice select{width:100%;box-sizing:border-box;min-height:48px;padding:11px;border:1px solid var(--line);border-radius:12px;background:var(--surface2);color:var(--ink);font:inherit}
+.cost-simple-batch-choice small{font-size:.74rem;font-weight:400;color:var(--muted);line-height:1.5}
+.cost-simple-quantity{display:grid;gap:8px;background:var(--mint);border:1px solid var(--line);border-radius:14px;padding:15px;margin:13px 0 16px}
+.cost-simple-quantity label{color:var(--green);font-weight:800}
+.cost-simple-quantity input{display:block;width:100%;box-sizing:border-box;min-height:48px;margin-top:8px;padding:11px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:17px;font-weight:750;color:var(--green)}
+.cost-simple-quantity small{font-size:.74rem;color:var(--muted);line-height:1.45}
+@media(max-width:410px){
+ .cost-report-dashboard{gap:9px}
+ .cost-report-dashboard article{padding:13px;min-height:103px}
+ .cost-report-dashboard strong{font-size:1.12rem}
+ .cost-report-dashboard .cost-report-total{padding:21px 19px;min-height:160px}
+ .cost-report-dashboard .cost-report-total strong{font-size:1.86rem}
+ .cost-report-mode button{font-size:.78rem}
+}

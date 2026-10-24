@@ -4454,6 +4454,48 @@ class _BooksAdminState extends State<_BooksAdmin> {
     }
   }
 
+  // Exactly the rounded outlined pill style used in Sotilgan kitoblar.
+  // The fixed header is outside the independently scrolling book ListView.
+  Widget _booksFilterChip({
+    required String label,
+    required IconData icon,
+    required Color foreground,
+    bool selected = false,
+    VoidCallback? onTap,
+  }) {
+    final radius = BorderRadius.circular(13);
+    return Material(
+      color: selected ? foreground.withValues(alpha: .10) : Colors.white,
+      borderRadius: radius,
+      child: InkWell(
+        borderRadius: radius,
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 34),
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            border: Border.all(
+              color: selected ? foreground : AppColors.border,
+            ),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 14, color: foreground),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                color: foreground,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Book>>(
@@ -4488,86 +4530,88 @@ class _BooksAdminState extends State<_BooksAdmin> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(
-                    height: 36,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      child: Row(
-                        children: [
-                      _MiniStat(
-                        label: 'Kitob',
-                        value: '${all.length}',
+                  // Sticky, wrapped filters: always visible above the
+                  // independently scrolling catalog list.
+                  Wrap(
+                    spacing: 7,
+                    runSpacing: 7,
+                    children: [
+                      _booksFilterChip(
+                        label: 'Kitob ${all.length}',
+                        icon: Icons.auto_stories_rounded,
+                        foreground: AppColors.navy,
                         selected: filter == 'all',
                         onTap: () => setState(() => filter = 'all'),
                       ),
-                      _MiniStat(label: 'Ombor', value: '$totalStock dona'),
-                      _MiniStat(
-                        label: 'Rasm yuklanmagan',
-                        value: '$missingImages',
+                      _booksFilterChip(
+                        label: 'Ombor ${totalStock} dona',
+                        icon: Icons.inventory_2_outlined,
+                        foreground: AppColors.success,
+                      ),
+                      _booksFilterChip(
+                        label: 'Rasm yuklanmagan ${missingImages}',
+                        icon: Icons.image_not_supported_outlined,
+                        foreground: AppColors.orange,
                         selected: filter == 'missing_image',
                         onTap: () => setState(() => filter = 'missing_image'),
                       ),
-                      _MiniStat(
-                        label: 'Tarifsiz',
-                        value: '$missingDescriptions',
+                      _booksFilterChip(
+                        label: 'Tarifsiz ${missingDescriptions}',
+                        icon: Icons.description_outlined,
+                        foreground: AppColors.navy,
                         selected: filter == 'missing_description',
-                        onTap: () =>
-                            setState(() => filter = 'missing_description'),
+                        onTap: () => setState(() => filter = 'missing_description'),
                       ),
-                      _MiniStat(
-                        label: 'Sahifasi ko‘rsatilmagan',
-                        value: '$missingPageCounts',
+                      _booksFilterChip(
+                        label: 'Sahifasi ko‘rsatilmagan ${missingPageCounts}',
+                        icon: Icons.menu_book_outlined,
+                        foreground: AppColors.navy,
                         selected: filter == 'missing_page_count',
                         onTap: () => setState(() => filter = 'missing_page_count'),
                       ),
-                      _MiniStat(
-                        label: 'Tan narxi kiritilmagan',
-                        value: '$missingCost',
+                      _booksFilterChip(
+                        label: 'Tan narxi kiritilmagan ${missingCost}',
+                        icon: Icons.payments_outlined,
+                        foreground: AppColors.orange,
                         selected: filter == 'missing_cost',
                         onTap: () => setState(() => filter = 'missing_cost'),
                       ),
-                      _MiniStat(
-                        label: 'Sotuvda ko‘rsatilgan',
-                        value: '$activeBooks',
+                      _booksFilterChip(
+                        label: 'Sotuvda ko‘rsatilgan ${activeBooks}',
+                        icon: Icons.visibility_rounded,
+                        foreground: AppColors.success,
                         selected: filter == 'active',
                         onTap: () => setState(() => filter = 'active'),
                       ),
-                      _MiniStat(
-                        label: 'Sotuvda ko‘rsatilmagan',
-                        value: '$hiddenBooks',
+                      _booksFilterChip(
+                        label: 'Sotuvda ko‘rsatilmagan ${hiddenBooks}',
+                        icon: Icons.visibility_off_outlined,
+                        foreground: AppColors.navy,
                         selected: filter == 'hidden',
                         onTap: () => setState(() => filter = 'hidden'),
                       ),
-                      _MiniStat(
-
-                        label: 'Rejadagi kitoblar',
-
-                        value: '$plannedBooks',
-
+                      _booksFilterChip(
+                        label: 'Rejadagi kitoblar ${plannedBooks}',
+                        icon: Icons.event_note_outlined,
+                        foreground: AppColors.navy,
                         selected: filter == 'planned',
-
                         onTap: () => setState(() => filter = 'planned'),
-
                       ),
-
-                      _MiniStat(
-                        label: 'Sotilmagan kitoblar',
-                        value: salesLoaded ? '$unsoldBooks' : '…',
+                      _booksFilterChip(
+                        label: 'Sotilmagan kitoblar ${salesLoaded ? unsoldBooks : '…'}',
+                        icon: Icons.sell_outlined,
+                        foreground: AppColors.navy,
                         selected: filter == 'unsold',
-                        onTap: salesLoaded
-                            ? () => setState(() => filter = 'unsold')
-                            : null,
+                        onTap: salesLoaded ? () => setState(() => filter = 'unsold') : null,
                       ),
-                      _MiniStat(
-                        label: 'Muammoli',
-                        value: '$problemBooks',
+                      _booksFilterChip(
+                        label: 'Muammoli ${problemBooks}',
+                        icon: Icons.warning_amber_rounded,
+                        foreground: AppColors.orange,
                         selected: _problemFilterKeys.contains(filter),
                         onTap: () => _openProblemFilters(all),
                       ),
-                        ],
-                      ),
-                    ),
+                    ],
                   ),
                   if (_problemFilterKeys.contains(filter)) ...[
                     const SizedBox(height: 10),

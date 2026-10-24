@@ -2471,3 +2471,37 @@ body[data-workspace="costs"][data-cost-view="report"] #costReportPanel{border-ra
 .cost-partiya-details li strong{font-size:.87rem;white-space:nowrap;color:var(--green,#0b5550)}
 .cost-partiya-disclaimer,.cost-batch-empty{color:#827568;font-size:.78rem;line-height:1.5;margin:14px 0 0}
 @media(max-width:460px){.cost-batch-picker{padding:13px}.cost-partiya-card{padding:13px}.cost-partiya-metrics{gap:8px}.cost-partiya-metrics>div{padding:10px}.cost-partiya-metrics strong{font-size:.92rem}.cost-partiya-details li{align-items:flex-start;flex-direction:column;gap:3px}.cost-partiya-details li strong{white-space:normal}}
+
+/* Book-cost v74: overview = money, library = arrivals; no duplicated stock badges. */
+.cost-home-book.cost-home-finance-only .cost-home-book-metrics{
+ grid-template-columns:repeat(2,minmax(0,1fr));gap:9px
+}
+.cost-home-finance-only .cost-home-book-metrics>div{
+ padding:10px 12px;background:var(--surface2);border-radius:12px;min-width:0
+}
+.cost-home-finance-only .cost-home-book-metrics b{font-size:.95rem;overflow-wrap:anywhere}
+.cost-home-finance-only .cost-home-book-som>div{min-width:0}
+.cost-home-finance-only .cost-home-book-som strong{
+ line-height:1.34;overflow-wrap:anywhere;word-break:normal
+}
+.cost-finance-warning{margin:12px 2px 0;color:var(--muted);font-size:.75rem;line-height:1.45}
+.cost-ready-row .cost-row-quantity{align-items:center;gap:10px}
+.cost-ready-row .cost-row-quantity>b{font-weight:850}
+.cost-ready-row .cost-arrivals-mini{
+ display:flex;gap:7px;align-items:center;flex-wrap:wrap;padding:10px 12px;margin-top:9px;
+ border:1px solid var(--line);border-radius:12px;background:var(--surface2)
+}
+.cost-arrivals-mini span{font-size:.76rem;color:var(--ink)}
+.cost-arrivals-mini span b{color:var(--green);font-variant-numeric:tabular-nums}
+.cost-arrivals-mini i{font-style:normal;color:var(--muted);font-size:.75rem}
+.cost-ready-row .cost-row-details>.cost-ready-values{margin-top:12px}
+.cost-batches .cost-batch-original small,.cost-batches .cost-batch-card>small{
+ display:block;overflow-wrap:anywhere;line-height:1.48
+}
+@media(max-width:410px){
+ .cost-home-book.cost-home-finance-only .cost-home-book-metrics{gap:7px}
+ .cost-home-finance-only .cost-home-book-metrics>div{padding:10px 9px}
+ .cost-home-finance-only .cost-home-book-metrics b{font-size:.87rem}
+ .cost-home-finance-only .cost-home-book-som{gap:7px}
+ .cost-home-finance-only .cost-home-book-som>div{padding:9px 8px}
+}

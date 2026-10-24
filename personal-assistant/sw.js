@@ -1,6 +1,6 @@
-/* Kitob tan narxi v84: bir donalik katalog va partiyalar tarixi. */
-const CACHE='bek-yordamchi-v84';
-const ASSETS=['./reading-timer.js?v=72','./reading-device-sync.js?v=72','./','./index.html','./styles.css?v=84','./app.js?v=84','./book-costs.js?v=84','./book-cost-simple.js?v=84','./book-cost-list-ui.js?v=84','./book-cost-device-sync.js?v=84','./book-cost-export.js?v=72','./book-cost-sync.js?v=72','./book-cost-sync-config.js?v=72','./backup-migration.js?v=72','./decimal-fx.js?v=72','./currency-converter.js?v=72','./currency-rate-editor.js?v=72','./workspaces.js?v=72','./korea-products.js?v=72','./manifest.webmanifest','./icon.svg'];
+/* Kitob tan narxi v85: bir donalik katalog va partiyalar tarixi. */
+const CACHE='bek-yordamchi-v85';
+const ASSETS=['./reading-timer.js?v=72','./reading-device-sync.js?v=72','./','./index.html','./styles.css?v=85','./app.js?v=85','./book-costs.js?v=85','./book-cost-simple.js?v=85','./book-cost-list-ui.js?v=85','./book-cost-device-sync.js?v=85','./book-cost-export.js?v=72','./book-cost-sync.js?v=72','./book-cost-sync-config.js?v=72','./backup-migration.js?v=72','./decimal-fx.js?v=72','./currency-converter.js?v=72','./currency-rate-editor.js?v=72','./workspaces.js?v=72','./korea-products.js?v=72','./manifest.webmanifest','./icon.svg'];
 
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)));

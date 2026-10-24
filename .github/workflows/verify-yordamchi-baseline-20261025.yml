@@ -1,0 +1,18 @@
+name: Baseline Yordamchi regression comparison
+on:
+  push:
+    branches:
+      - feature/book-cost-baseline-check-20261025
+    paths:
+      - '.github/workflows/verify-yordamchi-baseline-20261025.yml'
+permissions:
+  contents: read
+jobs:
+  node-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test personal-assistant-tests/*.test.cjs

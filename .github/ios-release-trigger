@@ -1,6 +1,6 @@
-2026-10-25 TestFlight ONLY — Admin Kitoblar sticky sales-style filter layout.
-Use latest main commit 91240cfecd8107228ee11055aac31f6a846cad39 (PR #78), Flutter CI passed.
-Kitoblar admin top filters: replace horizontal one-row mini stats with the same outlined colorful multi-row pills as Sotilgan kitoblar. Preserve filter behaviors for Kitob, Ombor, Rasm yuklanmagan, Tarifsiz, Sahifa kiritilmagan, Tan narxi kiritilmagan, Sotuvda ko‘rsatilgan / ko‘rsatilmagan, Rejadagi kitoblar, Sotilmagan, Muammoli. The filter/header area stays visible at the top when scrolling catalog entries, with existing search, refresh, add, AI edit and categories.
-Keep stored data, finance, stock, native customer order, Story functionality untouched.
-Use marketing version 2.5.20; select a fresh unique TestFlight build number with preflight.
-Upload signed IPA to Apple TestFlight INTERNAL TESTERS ONLY. Do not submit public App Store review and do not update Play Market.
+2026-10-25 TestFlight ONLY — Admin Kitoblar multirow filter pills scroll away with book list.
+Use main commit d0d29dfc679356b7b44bf53e8cb14278a2b74bc0 (merged PR #79). Flutter CI and iOS preview passed.
+Keep the colorful sales-style 11 filter chips, counts, active filter selections, search, refresh, add, AI editor, category buttons unchanged.
+Correct the owner-requested scrolling: ALL filters and search/actions are regular content in the SAME scrollable CustomScrollView as the lazily-rendered book cards. They should scroll off the top as the user scrolls down; no pinned/sticky filters and no nested independent book list. Same behavior as Sold Books page.
+Do not affect stock counts, sales history, finance, other admin pages, or data.
+Marketing version 2.5.20, unique build number chosen by App Store Connect preflight. Upload signed IPA to TestFlight INTERNAL TESTERS ONLY. No public App Store or Play Market release.

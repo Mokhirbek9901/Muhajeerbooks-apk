@@ -2505,3 +2505,222 @@ body[data-workspace="costs"][data-cost-view="report"] #costReportPanel{border-ra
  .cost-home-finance-only .cost-home-book-som{gap:7px}
  .cost-home-finance-only .cost-home-book-som>div{padding:9px 8px}
 }
+
+
+/* v75 - Calm, focused inventory UX. Data stays in the same store and batch ledgers. */
+body[data-workspace="costs"] #screen-book-costs .workspace-overview-head,
+body[data-workspace="costs"] #screen-book-costs .cost-main-actions,
+body[data-workspace="costs"] #screen-book-costs .cost-view-tabs{
+ display:none!important
+}
+body[data-workspace="costs"] #screen-book-costs .cost-page-head{
+ padding-bottom:10px;margin-bottom:8px
+}
+body[data-workspace="costs"] #screen-book-costs .cost-page-head h1{
+ font-size:1.35rem;font-weight:850;line-height:1.3
+}
+/* Main shows money only; navigation is exclusively the existing bottom menu. */
+body[data-workspace="costs"][data-cost-view]:not([data-cost-view="main"]) #screen-book-costs .cost-dashboard,
+body[data-workspace="costs"][data-cost-view]:not([data-cost-view="main"]) #screen-book-costs .cost-finance-conversion,
+body[data-workspace="costs"][data-cost-view]:not([data-cost-view="main"]) #screen-book-costs .cost-finance-books,
+body[data-workspace="costs"] #screen-book-costs .cost-overview,
+body[data-workspace="costs"] #screen-book-costs .cost-save-status{
+ display:none!important
+}
+body[data-workspace="costs"] #screen-book-costs .cost-dashboard{
+ grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0 16px
+}
+body[data-workspace="costs"] #screen-book-costs .cost-dashboard .cost-dashboard-quantity{
+ display:none!important
+}
+body[data-workspace="costs"] #screen-book-costs .cost-dashboard article[hidden]{
+ display:none!important
+}
+body[data-workspace="costs"] #screen-book-costs .cost-dashboard article{
+ padding:15px 13px;background:var(--surface);border-radius:16px;box-shadow:none
+}
+body[data-workspace="costs"] #screen-book-costs .cost-dashboard article strong{
+ font-size:1.17rem;line-height:1.28;margin:6px 0 2px;overflow-wrap:anywhere
+}
+body[data-workspace="costs"] #screen-book-costs .cost-dashboard article small{
+ font-size:.75rem;font-weight:700
+}
+body[data-workspace="costs"] #screen-book-costs .cost-dashboard article span{
+ font-size:.68rem;line-height:1.45
+}
+body[data-workspace="costs"] #screen-book-costs .cost-dashboard .cost-total-primary{
+ grid-column:1/-1;padding:25px 20px;background:var(--green);border:0;border-radius:21px
+}
+body[data-workspace="costs"] #screen-book-costs .cost-dashboard .cost-total-primary strong{
+ color:#fff;font-size:clamp(1.7rem,7vw,2.45rem);letter-spacing:-.024em
+}
+body[data-workspace="costs"] #screen-book-costs .cost-dashboard .cost-profit-main{
+ background:var(--mint)!important
+}
+body[data-workspace="costs"] #screen-book-costs .cost-dashboard .cost-summary-pending{
+ grid-column:1/-1
+}
+.cost-finance-conversion,.cost-finance-books{
+ margin:12px 0;border:1px solid var(--line);border-radius:15px;background:var(--surface)
+}
+.cost-finance-conversion>summary,.cost-finance-books>summary{
+ padding:16px;min-height:48px;box-sizing:border-box;color:var(--green);
+ font-size:.85rem;font-weight:750;cursor:pointer;list-style-position:inside
+}
+.cost-finance-conversion-grid{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:0 12px 14px
+}
+.cost-finance-conversion-grid article{
+ min-width:0;padding:12px;background:var(--surface2);border-radius:11px
+}
+.cost-finance-conversion-grid small{
+ display:block;color:var(--muted);font-size:.72rem;line-height:1.4
+}
+.cost-finance-conversion-grid strong{
+ display:block;margin-top:7px;color:var(--green);font-size:.86rem;
+ line-height:1.35;overflow-wrap:anywhere
+}
+.cost-finance-books .cost-home-books{margin:0;padding:4px 12px 14px}
+.cost-finance-books .cost-home-books-head{gap:9px}
+.cost-finance-books .cost-home-books-head h2{font-size:1.04rem}
+.cost-finance-books .cost-home-books-head p{font-size:.74rem}
+.cost-finance-books .cost-home-books-count{font-size:.73rem}
+body[data-workspace="costs"] #screen-book-costs .cost-list-intro{
+ margin:5px 0 15px;display:flex;align-items:center;justify-content:space-between;gap:10px
+}
+body[data-workspace="costs"] #screen-book-costs .cost-list-intro h2{font-size:1.04rem;margin:0 0 4px}
+body[data-workspace="costs"] #screen-book-costs .cost-list-intro p{font-size:.72rem;line-height:1.45}
+body[data-workspace="costs"] #screen-book-costs .cost-list-intro .primary-button{
+ font-size:.75rem;min-height:42px;padding:10px 12px;white-space:nowrap
+}
+body[data-workspace="costs"] #screen-book-costs .cost-filter-tools{display:none!important}
+body[data-workspace="costs"] #screen-book-costs .cost-quick-filters{
+ margin:0 0 6px;gap:7px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none
+}
+body[data-workspace="costs"] #screen-book-costs .cost-quick-filters::-webkit-scrollbar{display:none}
+body[data-workspace="costs"] #screen-book-costs .cost-quick-filters button{
+ white-space:nowrap;min-height:40px;padding:8px 12px;font-size:.75rem
+}
+body[data-workspace="costs"] #screen-book-costs .cost-more-actions{
+ margin:2px 0 15px;border-top:none;border-bottom:none
+}
+body[data-workspace="costs"] #screen-book-costs .cost-more-actions>summary{
+ color:var(--muted);font-size:.76rem;min-height:40px
+}
+.cost-ready-row.cost-clean-book{
+ display:block;background:var(--surface);border:1px solid var(--line);
+ border-radius:18px;padding:14px;box-shadow:none;margin-bottom:11px
+}
+.cost-clean-book .cost-ready-heading{
+ display:flex;align-items:center;gap:10px;min-width:0;margin:0
+}
+.cost-clean-book .cost-ready-heading .cost-cover{width:44px;height:54px;object-fit:cover}
+.cost-clean-book .cost-heading-copy h3{font-size:.98rem;line-height:1.25;margin:0}
+.cost-clean-book .cost-heading-copy small{
+ display:block;font-size:.74rem;color:var(--muted);margin-top:5px
+}
+.cost-clean-qty{
+ display:inline-flex;flex-shrink:0;align-items:center;justify-content:center;
+ min-width:55px;padding:9px;border-radius:12px;background:var(--mint);
+ color:var(--green);font-size:.96rem;font-weight:850;font-variant-numeric:tabular-nums
+}
+.cost-clean-actions{
+ display:flex;align-items:center;justify-content:space-between;gap:8px;
+ margin:12px 0 8px;flex-wrap:wrap
+}
+.cost-clean-actions button{min-height:37px;font-size:.77rem}
+.cost-clean-actions span{font-size:.72rem;color:var(--muted)}
+.cost-clean-book .cost-batches,.cost-clean-book .cost-row-details{
+ border-top:1px solid var(--line);padding:0;margin:8px 0 0
+}
+.cost-clean-book .cost-batches>summary,.cost-clean-book .cost-row-details>summary{
+ display:flex;align-items:center;min-height:44px;padding:9px 0;
+ font-size:.83rem;font-weight:750;color:var(--green);cursor:pointer
+}
+.cost-clean-book .cost-row-details>summary{color:var(--muted)}
+.cost-clean-book .cost-batch-original{
+ background:var(--surface2);border-radius:12px;padding:12px;margin:8px 0
+}
+.cost-clean-book .cost-batch-card{
+ border:1px solid var(--line);background:var(--surface2);
+ padding:12px;border-radius:12px;margin-top:9px
+}
+.cost-clean-finance{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+ gap:8px;margin:8px 0 12px
+}
+.cost-clean-finance span{
+ display:grid;gap:6px;background:var(--surface2);
+ border-radius:10px;padding:11px;font-size:.75rem;color:var(--muted);min-width:0
+}
+.cost-clean-finance b{color:var(--ink);font-size:.88rem;overflow-wrap:anywhere}
+body[data-workspace="costs"] #screen-book-costs .cost-report{
+ border:0;box-shadow:none;background:transparent;padding:2px 0 28px;margin:0
+}
+body[data-workspace="costs"] #screen-book-costs .cost-report>h2{display:none}
+body[data-workspace="costs"] #screen-book-costs .cost-report>p{
+ font-size:.79rem;margin:4px 0 13px
+}
+body[data-workspace="costs"] #screen-book-costs #costReportValues{display:none!important}
+body[data-workspace="costs"] #screen-book-costs .cost-batch-picker{
+ display:grid;gap:8px;background:var(--surface);border:1px solid var(--line);
+ border-radius:15px;padding:13px;margin:10px 0
+}
+body[data-workspace="costs"] #screen-book-costs .cost-batch-picker label{
+ font-size:.79rem;color:var(--ink)
+}
+body[data-workspace="costs"] #screen-book-costs .cost-batch-picker select{
+ font-size:.9rem;background:var(--surface2);border:1px solid var(--line);color:var(--ink)
+}
+body[data-workspace="costs"] #screen-book-costs .cost-batch-picker small{
+ font-size:.74rem;color:var(--muted)
+}
+.cost-report-spotlight{
+ display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
+ font-size:.78rem;color:var(--muted);padding:4px 2px
+}
+.cost-report-spotlight strong{font-size:.93rem;color:var(--ink)}
+.cost-batch-report-list{display:grid;gap:10px;margin:10px 0 20px}
+.cost-partiya-card{
+ border:1px solid var(--line);background:var(--surface);border-radius:18px;padding:16px
+}
+.cost-partiya-top h4{font-size:1.08rem;color:var(--ink);margin:4px 0 5px}
+.cost-partiya-top p{color:var(--muted)!important;font-size:.78rem}
+.cost-partiya-eyebrow{color:var(--muted);font-size:.66rem}
+.cost-partiya-primary-metrics{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:14px
+}
+.cost-partiya-primary-metrics>div{
+ display:grid;gap:7px;background:var(--surface2);
+ padding:13px;border-radius:12px;min-width:0
+}
+.cost-partiya-primary-metrics small{color:var(--muted);font-size:.75rem}
+.cost-partiya-primary-metrics strong{
+ font-size:1.08rem;color:var(--green);overflow-wrap:anywhere;line-height:1.27
+}
+.cost-partiya-cost-line{
+ display:flex;gap:8px 18px;align-items:center;justify-content:space-between;
+ flex-wrap:wrap;padding:11px 1px 5px;color:var(--muted);font-size:.76rem
+}
+.cost-partiya-cost-line b{color:var(--ink)}
+.cost-partiya-details li{background:var(--surface2)}
+.cost-partiya-line-totals{text-align:right}
+.cost-partiya-line-totals small{color:var(--muted);margin-top:3px}
+.cost-report-extras{
+ border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:15px
+}
+.cost-report-extras>summary{cursor:pointer;color:var(--green);font-size:.8rem;font-weight:750}
+.cost-report-extras .primary-button,.cost-report-extras .secondary-button{
+ margin:8px 6px 0 0;min-height:40px;font-size:.77rem
+}
+/* Do not change screens or navigation in other Yordamchi workspaces. */
+@media(max-width:410px){
+ body[data-workspace="costs"] #screen-book-costs .cost-dashboard article{padding:12px}
+ body[data-workspace="costs"] #screen-book-costs .cost-dashboard article strong{font-size:1.03rem}
+ body[data-workspace="costs"] #screen-book-costs .cost-dashboard .cost-total-primary strong{font-size:1.91rem}
+ body[data-workspace="costs"] #screen-book-costs .cost-list-intro p{display:none}
+ .cost-clean-book .cost-ready-heading .cost-cover{width:39px;height:50px}
+ .cost-clean-qty{min-width:46px;padding:8px;font-size:.86rem}
+ .cost-finance-conversion-grid{gap:6px}
+ .cost-partiya-primary-metrics strong{font-size:.95rem}
+}

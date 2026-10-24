@@ -346,38 +346,73 @@
     <section class="screen" id="screen-book-costs">
       <div class="subpage-head cost-page-head">
         <button class="back-button" data-back aria-label="Orqaga"><svg class="ui-icon" aria-hidden="true"><use href="#ico-back"></use></svg></button>
-        <h1>Kitob tan narxi</h1><button type="button" class="soft-button cost-settings-open" data-cost-view="settings" aria-label="Tan narxi sozlamalari"><svg class="ui-icon" aria-hidden="true"><use href="#ico-settings"></use></svg><span>Sozlash</span></button>
+        <h1 id="costScreenTitle">Umumiy hisob</h1><button type="button" class="soft-button cost-settings-open" data-cost-view="settings" aria-label="Tan narxi sozlamalari"><svg class="ui-icon" aria-hidden="true"><use href="#ico-settings"></use></svg><span>Sozlash</span></button>
       </div>
-      <div class="workspace-overview-head"><span class="workspace-eyebrow">KITOB TAN NARXI · HISOBOT</span><h2>Kitoblar bo‘yicha hisob</h2><p>1 dona kitob narxini kiriting, kelgan soni bilan jami xarajat va foyda avtomatik hisoblanadi.</p></div>
-      <section class="content-card cost-shipping-quick" aria-labelledby="costShippingQuickTitle">
-        <div class="cost-shipping-quick-head"><div><small>KITOBLAR UCHUN ALOHIDA TARIF</small><h2 id="costShippingQuickTitle">1 kg yetkazish narxi</h2><p>Bir kilogramm kitob Koreyaga necha vonga kelishini yozing. Mahsulot tarifidan alohida.</p></div><span aria-hidden="true">📚</span></div>
-        <label for="costKgRateQuick">1 kg kitob uchun yetkazish (₩)</label>
-        <div class="cost-shipping-quick-actions"><div class="cost-shipping-quick-input"><span>₩</span><input id="costKgRateQuick" type="text" inputmode="decimal" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Masalan: 10000" aria-describedby="costKgQuickInfo"></div><button type="button" class="primary-button" id="costKgQuickSave">Tarifni saqlash</button></div>
-        <p id="costKgQuickInfo" class="cost-shipping-quick-note" aria-live="polite">1 dona kitobning vazniga qarab yetkazish avtomatik hisoblanadi.</p>
-      </section>
+      <div class="workspace-overview-head"><span class="workspace-eyebrow">YORDAMCHI · KITOB HISOBI</span><h2>Bir kitob — bitta ro‘yxat</h2><p>Hisobotda partiyalar alohida, kitoblar bo‘limida esa jami nusxalar birga ko‘rsatiladi.</p></div>
+
       <div class="cost-main-actions" id="costMainActions" aria-label="Kitob tan narxi amallari">
         <button type="button" class="primary-button cost-primary-action" data-cost-open-new><svg class="ui-icon" aria-hidden="true"><use href="#ico-plus"></use></svg> Kitob qo‘shish</button>
         <button type="button" class="secondary-button" data-cost-view="list">Kitoblar ro‘yxati</button>
         <button type="button" class="secondary-button" data-cost-view="report">Statistikani ochish</button>
       </div>
-      <section class="cost-batch-picker" aria-labelledby="costBatchPickerLabel">
-        <label id="costBatchPickerLabel" for="costBatchSelect">Partiya bo‘yicha hisobot</label>
-        <select id="costBatchSelect" aria-describedby="costBatchFilterHint">
-          <option value="all">Barcha partiyalar · umumiy</option>
-        </select>
-        <small id="costBatchFilterHint">Istalgan partiyani tanlang. Kitoblar ro‘yxatidagi jami son o‘zgarmaydi.</small>
-      </section>
+
       <div class="cost-dashboard">
         <article class="cost-total-primary"><small>Jami tan narxi</small><strong id="costSummaryTotal">—</strong><span id="costSummaryNote"></span></article>
         <article><small>Jami nusxalar</small><strong id="costSummaryQuantity">0 ta</strong><span id="costSummaryReady">0 ta turdagi kitob</span></article>
         <article><small>Jami xarid</small><strong id="costPurchaseTotal">—</strong><span>Kelgan barcha nusxalar xaridi</span></article>
         <article><small>Jami yetkazish</small><strong id="costShippingTotal">—</strong><span id="costShippingNote"></span></article>
         <article class="cost-profit-main"><small>Kutiladigan jami foyda</small><strong id="costProfitTotal">—</strong><span id="costProfitNote"></span></article>
-        <article><small>Jami xarajat (so‘m)</small><strong id="costSummaryTotalSom">—</strong><span>Umumiy kurs asosida</span></article>
-        <article><small>Kutiladigan foyda (so‘m)</small><strong id="costProfitTotalSom">—</strong><span>Umumiy kurs asosida</span></article>
+
         <article class="cost-summary-pending"><small>To‘ldirish kerak</small><strong id="costSummaryPending">0 ta</strong><span>Narx yoki vazn kutilmoqda</span></article>
       </div>
+      <details class="cost-finance-conversion"><summary>So‘mdagi qiymatni ko‘rish</summary>
+        <div class="cost-finance-conversion-grid">
+          <article><small>Jami tan narxi (so‘m)</small><strong id="costSummaryTotalSom">—</strong></article>
+          <article><small>Kutiladigan foyda (so‘m)</small><strong id="costProfitTotalSom">—</strong></article>
+        </div>
+      </details>
       <div class="cost-overview" id="costOverviewNote"><span><b id="costReadyCount">0</b> ta kitob turi ro‘yxatda</span><small id="costRateSummary">1 kg = 10 000 ₩ · 100 g = 1 000 ₩</small></div>
+
+      <div class="cost-view-tabs" role="group" aria-label="Tan narxi bo‘limlari">
+        <button type="button" data-cost-view="main" class="active">Asosiy</button>
+        <button type="button" data-cost-view="list">Tahrirlash <span id="costListCount">0</span></button>
+        <button type="button" data-cost-view="entry">Kiritish <span id="costDraftCount">0</span></button>
+        <button type="button" data-cost-view="report">Hisobot</button>
+      </div>
+      <details class="cost-finance-books"><summary>Kitoblar kesimida xarajat va foyda</summary>
+      <section class="cost-home-books" id="costHomeBooksPanel" aria-labelledby="costHomeBooksTitle">
+        <div class="cost-home-books-head">
+          <div>
+            <span class="workspace-eyebrow">IXTIYORIY BATAFSIL HISOB</span>
+            <h2 id="costHomeBooksTitle">Barcha kitoblar</h2>
+            <p>Har bir kitobning barcha partiyalar bo‘yicha jami xarajatlari va kutiladigan foydasi. Kelgan soni «Kitoblar» bo‘limida ko‘rinadi.</p>
+          </div>
+          <span id="costHomeBooksCount" class="cost-home-books-count">0 ta</span>
+        </div>
+        <label class="cost-home-search" for="costHomeSearch">
+          <svg class="ui-icon" aria-hidden="true"><use href="#ico-search"></use></svg>
+          <input id="costHomeSearch" type="search" placeholder="Kitob nomini qidirish" autocomplete="off">
+        </label>
+        <div class="cost-home-books-list" id="costHomeBooksList" aria-live="polite"></div>
+        <p class="cost-home-books-hint">Jami narx va foyda har bir partiyaning alohida tan narxi bilan hisoblanadi. <b>Kitoblar</b> bo‘limida jami kelgan son, partiyalar va tahrirlash mavjud.</p>
+      </section>
+      </details>
+      <p class="cost-save-status" id="costSaveStatus" role="status" aria-live="polite">Ma’lumotlar shu qurilmada avtomatik saqlanadi.</p>
+      <section id="costSheetsCopyPanel" class="content-card cost-sheets-copy" hidden aria-labelledby="costSheetsCopyTitle">
+        <h2 id="costSheetsCopyTitle">Sheets’ga ko‘chirish</h2>
+        <p id="costSheetsCopyStatus" role="status" aria-live="polite"></p>
+        <p>Sheets’da jadvalni oching → A1 katagini bosing → Qo‘yish (Paste). Kitoblar alohida qator va ustunlarga tushadi.</p>
+        <label for="costSheetsText">Nusxalash uchun jadval matni</label>
+        <textarea id="costSheetsText" rows="5" readonly spellcheck="false"></textarea>
+        <div class="cost-actions"><button type="button" class="primary-button" id="costSheetsCopyAgainBtn">Yana nusxalash</button><button type="button" class="secondary-button" id="costSheetsCopyCloseBtn">Yopish</button></div>
+      </section>
+      <section id="costSettingsPanel" hidden><div class="section-title-row"><h2>Tarif va ulanish sozlamalari</h2><button type="button" class="soft-button" data-cost-view="list">Ro‘yxatga qaytish</button></div>
+      <section class="content-card cost-shipping-quick" aria-labelledby="costShippingQuickTitle">
+        <div class="cost-shipping-quick-head"><div><small>KITOBLAR UCHUN ALOHIDA TARIF</small><h2 id="costShippingQuickTitle">1 kg yetkazish narxi</h2><p>Bir kilogramm kitob Koreyaga necha vonga kelishini yozing. Mahsulot tarifidan alohida.</p></div><span aria-hidden="true">📚</span></div>
+        <label for="costKgRateQuick">1 kg kitob uchun yetkazish (₩)</label>
+        <div class="cost-shipping-quick-actions"><div class="cost-shipping-quick-input"><span>₩</span><input id="costKgRateQuick" type="text" inputmode="decimal" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Masalan: 10000" aria-describedby="costKgQuickInfo"></div><button type="button" class="primary-button" id="costKgQuickSave">Tarifni saqlash</button></div>
+        <p id="costKgQuickInfo" class="cost-shipping-quick-note" aria-live="polite">1 dona kitobning vazniga qarab yetkazish avtomatik hisoblanadi.</p>
+      </section>
       <section class="content-card book-simple-fx" id="bookSimpleFx" aria-labelledby="bookRateTitle">
         <div class="book-simple-fx-head"><span aria-hidden="true">⇄</span><div><h2 id="bookRateTitle">Von ⇄ so‘m kursi</h2><p>Faqat ikki valyuta. Dollar va murakkab kurs sozlamalari kitoblar bo‘limida yo‘q.</p></div></div>
         <div class="book-rate-editor">
@@ -407,38 +442,6 @@
         </div>
         <p class="book-som-result">Jami kitob xarajatlari so‘mda: <strong id="bookSomTotal">—</strong></p>
       </section>
-      <div class="cost-view-tabs" role="group" aria-label="Tan narxi bo‘limlari">
-        <button type="button" data-cost-view="main" class="active">Asosiy</button>
-        <button type="button" data-cost-view="list">Tahrirlash <span id="costListCount">0</span></button>
-        <button type="button" data-cost-view="entry">Kiritish <span id="costDraftCount">0</span></button>
-        <button type="button" data-cost-view="report">Hisobot</button>
-      </div>
-      <section class="cost-home-books" id="costHomeBooksPanel" aria-labelledby="costHomeBooksTitle">
-        <div class="cost-home-books-head">
-          <div>
-            <span class="workspace-eyebrow">KITOBLAR · QISQA KO‘RINISH</span>
-            <h2 id="costHomeBooksTitle">Barcha kitoblar</h2>
-            <p>Har bir kitobning barcha partiyalar bo‘yicha jami xarajatlari va kutiladigan foydasi. Kelgan soni «Kitoblar» bo‘limida ko‘rinadi.</p>
-          </div>
-          <span id="costHomeBooksCount" class="cost-home-books-count">0 ta</span>
-        </div>
-        <label class="cost-home-search" for="costHomeSearch">
-          <svg class="ui-icon" aria-hidden="true"><use href="#ico-search"></use></svg>
-          <input id="costHomeSearch" type="search" placeholder="Kitob nomini qidirish" autocomplete="off">
-        </label>
-        <div class="cost-home-books-list" id="costHomeBooksList" aria-live="polite"></div>
-        <p class="cost-home-books-hint">Jami narx va foyda har bir partiyaning alohida tan narxi bilan hisoblanadi. <b>Kitoblar</b> bo‘limida jami kelgan son, partiyalar va tahrirlash mavjud.</p>
-      </section>
-      <p class="cost-save-status" id="costSaveStatus" role="status" aria-live="polite">Ma’lumotlar shu qurilmada avtomatik saqlanadi.</p>
-      <section id="costSheetsCopyPanel" class="content-card cost-sheets-copy" hidden aria-labelledby="costSheetsCopyTitle">
-        <h2 id="costSheetsCopyTitle">Sheets’ga ko‘chirish</h2>
-        <p id="costSheetsCopyStatus" role="status" aria-live="polite"></p>
-        <p>Sheets’da jadvalni oching → A1 katagini bosing → Qo‘yish (Paste). Kitoblar alohida qator va ustunlarga tushadi.</p>
-        <label for="costSheetsText">Nusxalash uchun jadval matni</label>
-        <textarea id="costSheetsText" rows="5" readonly spellcheck="false"></textarea>
-        <div class="cost-actions"><button type="button" class="primary-button" id="costSheetsCopyAgainBtn">Yana nusxalash</button><button type="button" class="secondary-button" id="costSheetsCopyCloseBtn">Yopish</button></div>
-      </section>
-      <section id="costSettingsPanel" hidden><div class="section-title-row"><h2>Tarif va ulanish sozlamalari</h2><button type="button" class="soft-button" data-cost-view="list">Ro‘yxatga qaytish</button></div>
       <div class="cost-rate-settings">
         <label for="costKgRate">Asosiy 1 kg yetkazish narxi (₩)</label>
         <div><input id="costKgRate" inputmode="decimal" spellcheck="false" autocapitalize="off" value="10000" placeholder="Masalan: 10000" aria-describedby="costRateNote costRateError"><button type="button" class="primary-button" id="costRateSaveBtn">Narxni saqlash</button></div>
@@ -460,7 +463,7 @@
       </section>
       <div id="costListPanel">
         <div class="cost-list-intro" id="costListIntro">
-          <div><span class="workspace-eyebrow">KITOBLAR RO‘YXATI</span><h2>Kitobni tanlang va tahrirlang</h2><p>Qancha kelgani, xarid, vazn va sotuv narxini bitta oynada o‘zgartirasiz.</p></div>
+          <div><span class="workspace-eyebrow">BARCHA KITOBLAR</span><h2>Kitoblar ro‘yxati</h2><p>Har bir nom bir marta ko‘rinadi. Jami kelgan son va partiyalari ichida saqlanadi.</p></div>
           <button type="button" class="primary-button" data-cost-open-new>+ Yangi kitob</button>
         </div>
         <div class="cost-recent-heading" id="costRecentHeading"><h2>Oxirgi kitoblar</h2><button type="button" class="soft-button" data-cost-view="list">Barchasini ko‘rish →</button></div>
@@ -494,19 +497,27 @@
           <button type="button" class="primary-button" id="costEditSelectedBtn">Tanlanganlarni tahrirlash</button>
         </div>
         <div id="costReadyList" class="cost-ready-list"></div>
-        <button type="button" class="primary-button cost-new-button" data-cost-view="entry">+ Kitob kiritish</button>
+        
       </div>
       <div id="costReportPanel" hidden class="content-card cost-report">
-        <h2>Tan narxi hisoboti</h2>
-        <p>Har kitobning <b>kelgan nusxalar soni</b> bo‘yicha jami xarid, yetkazish va kutiladigan foyda. Bu haqiqiy sotilgan buyurtmalar statistikasi emas.</p>
+        <h2>Partiyalar hisoboti</h2>
+        <p>Har bir partiyaning xarajat va kutiladigan foydasi alohida. Kitoblar ro‘yxatidagi umumiy son o‘zgarmaydi.</p>
+      <section class="cost-batch-picker" aria-labelledby="costBatchPickerLabel">
+        <label id="costBatchPickerLabel" for="costBatchSelect">Partiya bo‘yicha hisobot</label>
+        <select id="costBatchSelect" aria-describedby="costBatchFilterHint">
+          <option value="all">Barcha partiyalar · umumiy</option>
+        </select>
+        <small id="costBatchFilterHint">Istalgan partiyani tanlang. Kitoblar ro‘yxatidagi jami son o‘zgarmaydi.</small>
+      </section>
+        <div id="costReportSpotlight" class="cost-report-spotlight" aria-live="polite"></div>
         <div id="costReportValues"></div>
-        <h3 class="cost-batch-heading">Har bir partiya alohida</h3>
-        <p class="cost-batch-description">Bir xil kitob boshqa partiyada ham bo‘lsa, xarid, yetkazish va foyda o‘sha partiya narxida hisoblanadi.</p>
         <div id="costBatchReportList" class="cost-batch-report-list"></div>
-        <div id="costReportComparisons"></div>
-        <button type="button" class="primary-button" id="costReportSheetsBtn">Sheets uchun nusxalash</button>
-        <button type="button" class="secondary-button" id="costReportExportBtn">Barcha kitoblarni Excelga chiqarish</button>
-        <p>Sheets uchun jadvalni nusxalang. Google Sheets’da bo‘sh jadval oching, A1 katakni tanlang va «Qo‘yish»ni bosing.</p>
+        <details class="cost-report-extras"><summary>Eksport va tariflarni solishtirish</summary>
+          <div id="costReportComparisons"></div>
+          <button type="button" class="primary-button" id="costReportSheetsBtn">Sheets uchun nusxalash</button>
+          <button type="button" class="secondary-button" id="costReportExportBtn">Excelga chiqarish</button>
+          <p>Jadvalni Sheets’ga nusxalashingiz yoki Excel faylini olishingiz mumkin.</p>
+        </details>
       </div>
       <div id="costEntryPanel" hidden>
         <div class="cost-entry-welcome"><span class="workspace-eyebrow">KITOB QO‘SHISH / TAHRIRLASH</span><h2 id="costSimpleHeading">Kitob ma’lumotlari</h2><p>Eng kerakli 5 ta maydon — bir ekran. Miqdor va jami hisob pastda darhol chiqadi.</p></div>

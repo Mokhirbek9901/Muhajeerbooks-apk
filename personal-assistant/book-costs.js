@@ -32,7 +32,7 @@
   function baseQuantity(row){const total=quantity(row.quantity);return total===null?null:total-extraQuantity(row);}
   function inventory(row,wonPerKg=DEFAULT_WON_PER_KG){
     const qty=quantity(row.quantity),original=baseQuantity(row),sale=amount(row.salePrice),unit=calculate(row,wonPerKg);
-    const parts=[{...row,quantity:original,rate:wonPerKg},
+    const parts=[{...row,quantity:original,rate:rate(row.rate??wonPerKg)},
       ...(Array.isArray(row.batches)?row.batches:[]).map(batch=>({...batch,salePrice:row.salePrice,rate:rate(batch.rate??wonPerKg)}))];
     let readyQuantity=0,pendingQuantity=0,knownPurchase=0,knownShipping=0,knownTotal=0,knownRevenue=0,knownProfit=0,profitUnits=0;
     let allPurchase=true,allShipping=true,allTotal=true,allProfit=true;
@@ -83,6 +83,50 @@
     }
     return result;
   }
+  // Each import has one groupId shared across every book in that delivery.
+  // Older records have no group identifier: keep them in an explicitly unassigned archive,
+  // rather than guessing a grouping from dates that may contain multiple imports.
+  function groupByBatch(rows,wonPerKg=DEFAULT_WON_PER_KG){
+    const groups=new Map();
+    function push(id,date,legacy,row,quantityValue,price,grams,shippingRate){
+      const n=quantity(quantityValue);
+      if(n===null||n<1)return;
+      let group=groups.get(id);
+      if(!group){
+        group={id,date:date||'',legacy,rows:[],titles:new Set()};
+        groups.set(id,group);
+      }
+      group.titles.add(key(row.title));
+      group.rows.push({
+        id:row.id,title:row.title,quantity:n,price,grams,
+        salePrice:row.salePrice,
+        ...(shippingRate!==null&&shippingRate!==undefined?{rate:shippingRate}:{})
+      });
+    }
+    for(const row of Array.isArray(rows)?rows:[]){
+      if(!row||!String(row.title||'').trim())continue;
+      const original=baseQuantity(row);
+      if(original!==null&&original>0){
+        const known=typeof row.originBatchId==='string'&&row.originBatchId.trim();
+        push(known?'partiya:'+row.originBatchId:'legacy',row.originBatchDate||'',!known,
+          row,original,row.price,row.grams,null);
+      }
+      for(const batch of Array.isArray(row.batches)?row.batches:[]){
+        const known=typeof batch.groupId==='string'&&batch.groupId.trim();
+        push(known?'partiya:'+batch.groupId:'legacy',batch.date||'',!known,
+          row,batch.quantity,batch.price,batch.grams,batch.rate);
+      }
+    }
+    return [...groups.values()]
+      .sort((a,b)=>a.legacy-b.legacy || b.date.localeCompare(a.date) || a.id.localeCompare(b.id))
+      .map((g,index)=>{
+        const totals=summary(g.rows,wonPerKg);
+        return {id:g.id,date:g.date,legacy:g.legacy,
+          label:g.legacy?'Eski qaydlar · partiyasi belgilanmagan':
+            'Partiya · '+(g.date||'Sana yo‘q')+' · '+g.id.slice(-6),
+          rows:g.rows,bookCount:g.titles.size,totals};
+      });
+  }
   function normalizeRates(rows,makeId){
     return (Array.isArray(rows)?rows:[]).filter(row=>row && typeof row==='object').map((row,index)=>({id:String(row.id||makeId()),label:String(row.label||'Variant '+(index+2)).slice(0,80),rate:amount(row.rate)}));
   }
@@ -132,19 +176,21 @@
       const total=quantity(row.quantity)??1;
       const batches=(Array.isArray(row.batches)?row.batches:[]).filter(b=>b&&typeof b==='object')
         .map(b=>({id:String(b.id||makeId()),date:/^\d{4}-\d{2}-\d{2}$/.test(b.date||'')?b.date:'',
-          quantity:quantity(b.quantity),price:amount(b.price),grams:amount(b.grams),rate:amount(b.rate)}))
+          quantity:quantity(b.quantity),price:amount(b.price),grams:amount(b.grams),rate:amount(b.rate),
+           ...(typeof b.groupId==='string'&&b.groupId.trim()?{groupId:b.groupId.slice(0,120)}:{})}))
         .filter(b=>b.quantity!==null);
       let sum=0;const safeBatches=batches.filter(b=>{if(sum+b.quantity>=total)return false;sum+=b.quantity;return true;});
       return {
       id:String(row.id||makeId()),title:String(row.title||'').slice(0,300),
       price:amount(row.price),grams:amount(row.grams),salePrice:amount(row.salePrice),quantity:total,
+       ...(typeof row.originBatchId==='string'&&row.originBatchId.trim()?{originBatchId:row.originBatchId.slice(0,120),originBatchDate:/^\d{4}-\d{2}-\d{2}$/.test(row.originBatchDate||'')?row.originBatchDate:''}:{}),
       ...(safeBatches.length?{batches:safeBatches}:{}),
       ...(typeof row.muhajeerId==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(row.muhajeerId)?{muhajeerId:row.muhajeerId,muhajeerTitle:String(row.muhajeerTitle||'').slice(0,300),muhajeerCost:amount(row.muhajeerCost)}:{}),
       saved:typeof row.saved==='boolean'?row.saved:Boolean(String(row.title||'').trim() && calculate(row).total!==null)
     };
     });
   }
-  const api={DEFAULT_WON_PER_KG,WON_PER_GRAM,rate,amount,quantity,calculate,profit,inventory,summary,key,parseTitles,parseTitleEntries,extraQuantity,baseQuantity,normalize,normalizeRates,tariffs,compare};
+  const api={DEFAULT_WON_PER_KG,WON_PER_GRAM,rate,amount,quantity,calculate,profit,inventory,summary,key,parseTitles,parseTitleEntries,extraQuantity,baseQuantity,groupByBatch,normalize,normalizeRates,tariffs,compare};
   if(typeof module==='object' && module.exports)module.exports=api;
   else root.BookCosts=api;
 })(typeof globalThis==='object'?globalThis:this);

@@ -1,0 +1,24 @@
+name: Verify Yordamchi historic batch FX v79
+on:
+  push:
+    branches:
+      - feature/yordamchi-batch-fx-report-v79-20261025
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JS syntax
+        run: |
+          node --check personal-assistant/app.js
+          node --check personal-assistant/book-costs.js
+          node --check personal-assistant/book-cost-device-sync.js
+      - name: Historical batch regression
+        run: node --test personal-assistant-tests/book-cost-batch-fx-v79.test.cjs

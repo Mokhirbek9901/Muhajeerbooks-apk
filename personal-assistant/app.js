@@ -3669,10 +3669,11 @@
       const total=unit===null?null:window.YordamchiCurrency.ratio([unit,n]);
       const gain=unit===null||sale===null?null:window.YordamchiCurrency.ratio([window.YordamchiCurrency.add(sale,-unit),n]);
       const heading=(index+1)+'-partiya · '+escapeHtml(batch.date||'Sana ko‘rsatilmagan');
+      const uzs=batch.priceUzs?window.YordamchiCurrency.precise.display(batch.priceUzs,'UZS'):'';
       const figures='<small>1 dona tan narxi: '+money(unit)+' · Jami tan narxi: '+money(total)+
         ' · Kutiladigan foyda: '+money(gain)+'</small>';
       if(index===0)return '<div class="cost-batch-original"><b>'+heading+' · '+n+' ta</b>'+
-        '<small>Xarid: '+money(batch.price)+' / dona · Vazn: '+(batch.grams===null?'—':batch.grams+' g')+'</small>'+
+        '<small>Xarid: '+(uzs?uzs+' · ':'')+money(batch.price)+' / dona · Vazn: '+(batch.grams===null?'—':batch.grams+' g')+'</small>'+
         figures+'</div>';
       const originalBatch=(Array.isArray(row.batches)?row.batches:[])[index-1];
       if(!originalBatch)return '';
@@ -3680,7 +3681,8 @@
         '<b>'+heading+' · '+n+' ta</b>'+
         '<div class="cost-batch-fields">'+
         '<label>Kelgan soni<input type="number" min="1" max="100000" step="1" inputmode="numeric" data-cost-batch-input="quantity" value="'+n+'"></label>'+
-        '<label>Xarid ₩ / dona<input inputmode="decimal" data-cost-batch-input="price" value="'+(batch.price??'')+'" placeholder="Narx"></label>'+
+        '<label>Xarid ₩ / dona<input inputmode="decimal" data-cost-batch-input="price" value="'+(batch.price??'')+'" placeholder="Vonda narx"></label>'+
+        '<label>O‘zbekistonda so‘m / dona<input inputmode="decimal" data-cost-batch-uzs value="'+escapeHtml(batch.priceUzs??'')+'" placeholder="Masalan: 60000"></label>'+
         '<label>Vazn g / dona<input inputmode="decimal" data-cost-batch-input="grams" value="'+(batch.grams??'')+'" placeholder="Gramm"></label></div>'+
         figures+
         '<div class="cost-batch-actions"><button type="button" class="soft-button" data-cost-batch-save>✓ Partiyani saqlash</button>'+
@@ -3707,11 +3709,19 @@
         const bad=input.dataset.costBatchInput==='quantity'?v===null:(input.value.trim()!==''&&v===null);
         invalid=invalid||bad;input.setAttribute('aria-invalid',String(bad));values[input.dataset.costBatchInput]=v;
       });
+      const uzsField=node.querySelector('[data-cost-batch-uzs]');
+      const uzsText=uzsField?.value?.trim()||'';
+      if(uzsText){
+        const result=costUnitWon(uzsText,'UZS',batch);
+        if(result.error){node.querySelector('.cost-batch-error').textContent=result.error;return true;}
+        values.price=result.price;values.priceUzs=result.priceUzs;
+      }else if(batch.priceUzs){values.priceUzs=null;}
       const next=row.quantity-batch.quantity+(values.quantity??0);
       if(invalid||next>100000||next<1){
         node.querySelector('.cost-batch-error').textContent='Miqdor 1–100 000 bo‘lsin, narx va vazn to‘g‘ri yozilsin.';return true;
       }
       row.quantity=next;Object.assign(batch,values);
+      if(batch.priceUzs===null)delete batch.priceUzs;
     }
     if(!persistBookCosts(remove?'Yangi partiya o‘chirildi.':'Partiya narxi va miqdori saqlandi.')){
       Object.assign(row,before);return true;

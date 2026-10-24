@@ -2765,3 +2765,91 @@ body[data-workspace="costs"] #screen-book-costs .cost-report .cost-batch-picker[
  .cost-report-dashboard .cost-report-total strong{font-size:1.86rem}
  .cost-report-mode button{font-size:.78rem}
 }
+
+/* v77 - arrivals and per-book unit ledger */
+body[data-workspace="costs"] #screen-book-costs .cost-arrival-overview{
+ margin:14px 0 17px;padding:16px;background:var(--surface);
+ border:1px solid var(--line);border-radius:20px;
+}
+.cost-arrival-head{display:flex;justify-content:space-between;align-items:center;gap:11px;margin-bottom:12px}
+.cost-arrival-head>div{min-width:0}
+.cost-arrival-head h2{margin:0 0 5px;font-size:1.1rem;color:var(--ink)}
+.cost-arrival-head p{margin:0;font-size:.75rem;color:var(--muted)}
+.cost-arrival-head button{flex-shrink:0;font-size:.75rem;min-height:38px}
+.cost-arrival-batch-list{display:grid;gap:9px}
+.cost-arrival-batch{
+ display:flex;align-items:center;gap:10px;width:100%;min-width:0;
+ padding:13px 12px;border:1px solid var(--line);border-radius:13px;
+ background:var(--surface2);color:var(--ink);font:inherit;text-align:left;cursor:pointer
+}
+.cost-arrival-batch>span:first-child{display:grid;gap:4px;min-width:0;flex:1}
+.cost-arrival-batch strong{font-size:.87rem;line-height:1.3}
+.cost-arrival-batch small{font-size:.71rem;color:var(--muted)}
+.cost-arrival-batch>b{
+ font-size:1rem;color:var(--green);font-weight:850;white-space:nowrap
+}
+.cost-arrival-batch>span:last-child{font-size:1.35rem;color:var(--muted)}
+.cost-arrival-all-books{border-top:1px solid var(--line);margin-top:15px;padding-top:5px}
+.cost-arrival-all-books>summary{
+ padding:10px 1px;color:var(--green);font-size:.83rem;font-weight:760;cursor:pointer
+}
+.cost-arrival-search{display:grid;gap:7px;color:var(--muted);font-size:.76rem;margin:5px 0 12px}
+.cost-arrival-search input{
+ width:100%;box-sizing:border-box;padding:12px;min-height:44px;background:var(--surface2);
+ border:1px solid var(--line);border-radius:12px;color:var(--ink);font-size:16px
+}
+.cost-arrival-title-list{display:grid;gap:8px}
+.cost-arrival-book{border:1px solid var(--line);border-radius:12px;padding:0 12px}
+.cost-arrival-book>summary{
+ display:flex;justify-content:space-between;gap:9px;min-width:0;align-items:center;
+ padding:12px 0;cursor:pointer;font-size:.84rem;color:var(--ink)
+}
+.cost-arrival-book>summary span{min-width:0;overflow-wrap:anywhere}
+.cost-arrival-book>summary strong{white-space:nowrap;color:var(--green);font-size:.9rem}
+.cost-arrival-book-parts{display:flex;gap:8px;flex-wrap:wrap;padding:0 0 10px}
+.cost-arrival-book-parts span{padding:7px 9px;border-radius:10px;background:var(--mint);font-size:.76rem}
+.cost-arrival-book-parts b{color:var(--green)}
+/* Kitoblar displays one-unit purchase/weight/shipping, never counts or multiplied totals. */
+.cost-ready-row.cost-unit-book{padding:15px;margin-bottom:12px}
+.cost-unit-book .cost-ready-heading{align-items:center}
+.cost-unit-book .cost-ready-heading .soft-button{min-height:38px;font-size:.76rem}
+.cost-unit-book .cost-heading-copy small{font-size:.73rem;color:var(--muted);margin-top:5px}
+.cost-unit-metrics{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;
+ margin:14px 0 11px
+}
+.cost-unit-metrics>div{
+ display:grid;gap:6px;min-width:0;padding:12px 10px;
+ background:var(--surface2);border-radius:12px
+}
+.cost-unit-metrics small{color:var(--muted);font-size:.72rem;line-height:1.4}
+.cost-unit-metrics strong{
+ color:var(--ink);font-size:.94rem;font-weight:790;line-height:1.35;overflow-wrap:anywhere
+}
+.cost-unit-result{display:grid;gap:7px;border:1px solid var(--line);
+ background:var(--mint);border-radius:14px;padding:15px;margin-top:6px
+}
+.cost-unit-result small{color:var(--green);font-size:.79rem}
+.cost-unit-result strong{color:var(--green);font-weight:900;font-size:1.4rem}
+.cost-unit-result span{color:var(--green);font-size:.76rem;overflow-wrap:anywhere}
+.cost-unit-profit{display:flex;justify-content:space-between;flex-wrap:wrap;gap:7px;
+ font-size:.78rem;color:var(--muted);padding:13px 0 8px
+}
+.cost-unit-profit strong{color:var(--green);font-size:.96rem}
+.cost-unit-hint{font-size:.74rem;color:var(--muted);line-height:1.48}
+/* Keep visible cost-source selection ergonomic on iPhone. */
+.cost-simple-grid #costSimpleCurrency{display:block;width:100%;min-width:0;
+ min-height:42px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;
+ margin:7px 0;background:var(--surface2);color:var(--ink);font-size:.89rem
+}
+#costSimplePriceHint{display:block;font-size:.72rem;line-height:1.45;color:var(--muted);margin-top:7px}
+#costSimplePriceHint.cost-price-warning{color:var(--red)}
+#costSimpleBatchWrap[hidden]{display:none!important}
+@media(max-width:410px){
+ .cost-unit-metrics{gap:7px}
+ .cost-unit-metrics>div{padding:10px 9px}
+ .cost-unit-metrics strong{font-size:.85rem}
+ .cost-unit-result strong{font-size:1.22rem}
+ .cost-arrival-head button{padding:7px 8px}
+ .cost-arrival-overview{padding:13px!important}
+}

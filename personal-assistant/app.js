@@ -3517,6 +3517,15 @@
     $('costSimpleHeading').textContent=row?'1 dona tan narxini tahrirlash':'Yangi kitob · 1 dona hisob';
     $('costSimpleTitle').value=row?.title||'';
     $('costSimpleQuantity').value=row?(costs.baseQuantity(row)??1):1;
+    $('costSimpleQtyLabel').textContent=row?'Birinchi partiyada nechta kelgan?':'Bu partiyada nechta keldi?';
+    $('costSimpleBatchWrap').hidden=Boolean(row);
+    const batchChoice=$('costSimpleBatch');
+    const previousBatchChoice=batchChoice.value;
+    const existingGroups=costs.groupByBatch(state.bookCosts,state.bookCostRate).filter(group=>!group.legacy);
+    const numbered=existingGroups.slice().sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
+    batchChoice.innerHTML='<option value="new">+ Yangi partiya yaratish</option>'+
+      numbered.map((group,index)=>'<option value="'+escapeHtml(group.id.slice(8))+'">'+(index+1)+'-partiya'+(group.date?' · '+escapeHtml(group.date):'')+'</option>').join('');
+    batchChoice.value=previousBatchChoice&&Array.from(batchChoice.options).some(o=>o.value===previousBatchChoice)?previousBatchChoice:'new';
     $('costSimpleCurrency').value=row?(row.priceUzs?'UZS':'KRW'):'UZS';
     $('costSimplePrice').value=row?.priceUzs??row?.price??'';
     $('costSimplePrice').placeholder=$('costSimpleCurrency').value==='UZS'?'Masalan: 60000':'Masalan: 8000';
@@ -3562,7 +3571,9 @@
           $('costSimpleError').hidden=false;return;
         }
         const before={...existing,batches:existing.batches?.map(b=>({...b}))};
-        const batch={id:makeId(),groupId:makeId(),date:today(),quantity:fields.quantity,price:fields.price,priceUzs:fields.priceUzs,grams:fields.grams,rate:state.bookCostRate};
+        const selectedId=$('costSimpleBatch').value;
+        const selectedGroup=selectedId==='new'?null:costs.groupByBatch(state.bookCosts,state.bookCostRate).find(g=>g.id==='partiya:'+selectedId&&!g.legacy);
+        const batch={id:makeId(),groupId:selectedGroup?selectedId:makeId(),date:selectedGroup?.date||today(),quantity:fields.quantity,price:fields.price,priceUzs:fields.priceUzs,grams:fields.grams,rate:state.bookCostRate};
         existing.batches=[...(existing.batches||[]),batch];
         existing.quantity+=fields.quantity;
         if(!existing.muhajeerId&&costs.amount(existing.salePrice)===null)existing.salePrice=fields.salePrice;
@@ -3580,7 +3591,11 @@
       }
     }
     const oldRow=original?{...original}:null;
-    const row=original||{id:makeId(),saved:true,originBatchId:makeId(),originBatchDate:today(),originRate:state.bookCostRate};
+    const chosenId=$('costSimpleBatch').value;
+    const group=(!original && chosenId!=='new')?
+      costs.groupByBatch(state.bookCosts,state.bookCostRate).find(g=>g.id==='partiya:'+chosenId&&!g.legacy):null;
+    const row=original||{id:makeId(),saved:true,originBatchId:group?chosenId:makeId(),
+      originBatchDate:group?.date||today(),originRate:state.bookCostRate};
     row.title=title;row.quantity=fields.quantity+(original?costs.extraQuantity(original):0);row.price=fields.price;row.grams=fields.grams;
     if(fields.priceUzs!==null)row.priceUzs=fields.priceUzs;else delete row.priceUzs;
     if(!original?.muhajeerId)row.salePrice=fields.salePrice;

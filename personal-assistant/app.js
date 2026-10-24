@@ -3415,30 +3415,61 @@
   }
 
 
+  // Convert Uzbek purchase prices with the full saved FX fraction.
+  // Historical KRW unit prices are not recalculated unless their original UZS price changes.
+  function costUnitWon(value,currency,original=null){
+    const raw=String(value??'').trim();
+    if(!raw)return {price:null,priceUzs:null,error:''};
+    if(currency==='KRW'){
+      const price=costs.amount(raw);
+      return {price,priceUzs:null,error:price===null?'Von narxini to‘g‘ri kiriting.':''};
+    }
+    const precise=window.YordamchiCurrency.precise;
+    const uzs=costs.uzsText(raw);
+    if(uzs===null)return {price:null,priceUzs:null,error:'So‘m narxini to‘g‘ri kiriting.'};
+    if(original?.priceUzs && costs.uzsText(original.priceUzs)===uzs && costs.amount(original.price)!==null){
+      return {price:original.price,priceUzs:uzs,error:''};
+    }
+    const result=precise.convert(raw,'UZS','KRW',state);
+    if(!result)return {price:null,priceUzs:uzs,error:'So‘mdan vonga o‘tkazish uchun avval Sozlash bo‘limida kursni kiriting.'};
+    const price=costs.amount(precise.number(result));
+    return {price,priceUzs:uzs,error:price===null?'Hisoblangan von miqdori juda katta yoki noto‘g‘ri.':''};
+  }
   function costSimpleValues(){
     const original=state.bookCosts.find(row=>row.id===costEditingId);
+    const converted=costUnitWon($('costSimplePrice').value,$('costSimpleCurrency').value,original);
     const fields={title:$('costSimpleTitle').value.trim(),
       quantity:$('costSimpleQuantity').value.trim()?costs.quantity($('costSimpleQuantity').value):null,
-      price:costs.amount($('costSimplePrice').value),
+      price:converted.price,priceUzs:converted.priceUzs,
       grams:costs.amount($('costSimpleGrams').value),
       salePrice:original?.muhajeerId?original.salePrice:costs.amount($('costSimpleSale').value)};
-    return {original,fields};
+    return {original,fields,priceError:converted.error};
   }
   function refreshSimpleCostPreview(){
-    const {fields}=costSimpleValues(),inventory=fields.quantity===null?null:costs.inventory(fields,state.bookCostRate);
-    const show=n=>n===null?'—':formatMoney(n,'KRW');
-    $('costSimpleUnit').textContent=show(inventory?.unitCost??null);
-    $('costSimpleTotal').textContent=show(inventory?.total??null);
-    $('costSimpleTotalSom').textContent=inventory?.total===undefined||inventory?.total===null?'—':costSom(inventory.total);
-    $('costSimpleProfit').textContent=show(inventory?.profit??null);
-    $('costSimpleProfitSom').textContent=inventory?.profit===undefined||inventory?.profit===null?'—':costSom(inventory.profit);
+    const {fields,priceError}=costSimpleValues();
+    const unit=costs.calculate(fields,state.bookCostRate);
+    const perProfit=costs.profit(fields,state.bookCostRate);
+    const show=value=>value===null?'—':formatMoney(value,'KRW');
+    $('costSimplePurchaseWon').textContent=show(fields.price);
+    $('costSimpleShipping').textContent=show(unit.shipping);
+    $('costSimpleUnit').textContent=show(unit.total);
+    $('costSimpleTotal').textContent=show(unit.total);
+    $('costSimpleTotalSom').textContent=unit.total===null?'—':costSomCompact(unit.total);
+    $('costSimpleProfit').textContent=show(perProfit);
+    $('costSimpleProfitSom').textContent=perProfit===null?'—':costSomCompact(perProfit);
+    $('costSimplePriceHint').textContent=priceError || ($('costSimpleCurrency').value==='UZS'?
+      'So‘mdagi asl narx saqlanadi, von hisob esa shu paytdagi kursda saqlab qo‘yiladi.':
+      'Narx vonda kiritilmoqda; eski kitoblardagi hisob o‘zgarishsiz qoladi.');
+    $('costSimplePriceHint').classList.toggle('cost-price-warning',Boolean(priceError));
   }
   function fillSimpleCostForm(){
     const row=state.bookCosts.find(item=>item.id===costEditingId);
-    $('costSimpleHeading').textContent=row?'Kitobni tahrirlash':'Yangi kitob qo‘shish';
+    $('costSimpleHeading').textContent=row?'1 dona tan narxini tahrirlash':'Yangi kitob · 1 dona hisob';
     $('costSimpleTitle').value=row?.title||'';
     $('costSimpleQuantity').value=costs.quantity(row?.quantity)??1;
-    $('costSimplePrice').value=row?.price??'';
+    $('costSimpleCurrency').value=row?(row.priceUzs?'UZS':'KRW'):'UZS';
+    $('costSimplePrice').value=row?.priceUzs??row?.price??'';
+    $('costSimplePrice').placeholder=$('costSimpleCurrency').value==='UZS'?'Masalan: 60000':'Masalan: 8000';
     $('costSimpleGrams').value=row?.grams??'';
     $('costSimpleSale').value=row?.salePrice??'';
     $('costSimpleSale').readOnly=Boolean(row?.muhajeerId);
@@ -3461,14 +3492,14 @@
   }
   function saveSimpleCostForm(event){
     event.preventDefault();
-    const {original,fields}=costSimpleValues();
+    const {original,fields,priceError}=costSimpleValues();
     const title=fields.title;
     const required=[['costSimplePrice','price'],['costSimpleGrams','grams']];
     const invalid=required.find(([id,key])=>$(id).value.trim()!=='' && fields[key]===null);
     const saleInvalid=!original?.muhajeerId&&$('costSimpleSale').value.trim()!==''&&fields.salePrice===null;
-    const error=!title?'Kitob nomini kiriting.':original&&fields.quantity!==null&&fields.quantity<=costs.extraQuantity(original)?'Jami nusxa yangi partiyalardan ko‘p bo‘lishi kerak.':fields.quantity===null?'Kelgan kitoblar soni 1 yoki undan katta butun son bo‘lsin.':
+    const error=priceError||(!title?'Kitob nomini kiriting.':original&&fields.quantity!==null&&fields.quantity<=costs.extraQuantity(original)?'Jami nusxa yangi partiyalardan ko‘p bo‘lishi kerak.':fields.quantity===null?'Kelgan kitoblar soni 1 yoki undan katta butun son bo‘lsin.':
       invalid?'Xarid narxi va grammni to‘g‘ri raqamda kiriting.':
-      saleInvalid?'Sotuv narxini to‘g‘ri kiriting.':'';
+      saleInvalid?'Sotuv narxini to‘g‘ri kiriting.':'');
     if(error){$('costSimpleError').textContent=error;$('costSimpleError').hidden=false;return;}
     // Adding an existing title creates another arrival in the same catalog row.
     if(!original){
@@ -3479,7 +3510,7 @@
           $('costSimpleError').hidden=false;return;
         }
         const before={...existing,batches:existing.batches?.map(b=>({...b}))};
-        const batch={id:makeId(),groupId:makeId(),date:today(),quantity:fields.quantity,price:fields.price,grams:fields.grams,rate:state.bookCostRate};
+        const batch={id:makeId(),groupId:makeId(),date:today(),quantity:fields.quantity,price:fields.price,priceUzs:fields.priceUzs,grams:fields.grams,rate:state.bookCostRate};
         existing.batches=[...(existing.batches||[]),batch];
         existing.quantity+=fields.quantity;
         if(!existing.muhajeerId&&costs.amount(existing.salePrice)===null)existing.salePrice=fields.salePrice;
@@ -3499,6 +3530,7 @@
     const oldRow=original?{...original}:null;
     const row=original||{id:makeId(),saved:true,originBatchId:makeId(),originBatchDate:today(),originRate:state.bookCostRate};
     row.title=title;row.quantity=fields.quantity;row.price=fields.price;row.grams=fields.grams;
+    if(fields.priceUzs!==null)row.priceUzs=fields.priceUzs;else delete row.priceUzs;
     if(!original?.muhajeerId)row.salePrice=fields.salePrice;
     row.saved=true;
     if(!original)state.bookCosts.push(row);
@@ -3784,6 +3816,19 @@
       }
     });
     $('costSimpleForm').addEventListener('submit',saveSimpleCostForm);
+    $('costSimpleCurrency').addEventListener('change',()=>{
+      const field=$('costSimplePrice'),next=$('costSimpleCurrency').value;
+      const previous=next==='UZS'?'KRW':'UZS';
+      const raw=field.value.trim();
+      if(raw){
+        const quote=window.YordamchiCurrency.precise.convert(raw,previous,next,state);
+        // No valid quote: clear the old-currency number rather than silently reinterpret it.
+        field.value=quote?window.YordamchiCurrency.precise.text(quote):'';
+      }
+      field.placeholder=next==='UZS'?'Masalan: 60000':'Masalan: 8000';
+      $('costSimpleError').hidden=true;
+      refreshSimpleCostPreview();
+    });
     ['costSimpleTitle','costSimpleQuantity','costSimplePrice','costSimpleGrams','costSimpleSale'].forEach(id=>{
       $(id).addEventListener('input',()=>{
         $('costSimpleError').hidden=true;

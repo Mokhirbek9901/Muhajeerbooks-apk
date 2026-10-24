@@ -348,7 +348,7 @@
         <button class="back-button" data-back aria-label="Orqaga"><svg class="ui-icon" aria-hidden="true"><use href="#ico-back"></use></svg></button>
         <h1 id="costScreenTitle">Umumiy hisob</h1><button type="button" class="soft-button cost-settings-open" data-cost-view="settings" aria-label="Tan narxi sozlamalari"><svg class="ui-icon" aria-hidden="true"><use href="#ico-settings"></use></svg><span>Sozlash</span></button>
       </div>
-      <div class="workspace-overview-head"><span class="workspace-eyebrow">YORDAMCHI · KITOB HISOBI</span><h2>Bir kitob — bitta ro‘yxat</h2><p>Hisobotda partiyalar alohida, kitoblar bo‘limida esa jami nusxalar birga ko‘rsatiladi.</p></div>
+      <div class="workspace-overview-head"><span class="workspace-eyebrow">YORDAMCHI · KITOB HISOBI</span><h2>Bir kitob — bitta ro‘yxat</h2><p>Kitoblar bo‘limida 1 dona tan narxi, Hisobotda esa partiyalar bo‘yicha umumiy natijalar.</p></div>
 
       <div class="cost-main-actions" id="costMainActions" aria-label="Kitob tan narxi amallari">
         <button type="button" class="primary-button cost-primary-action" data-cost-open-new><svg class="ui-icon" aria-hidden="true"><use href="#ico-plus"></use></svg> Kitob qo‘shish</button>
@@ -357,7 +357,7 @@
       </div>
 
       <div class="cost-dashboard">
-        <article class="cost-dashboard-quantity"><small>Shu paytgacha jami kelgan</small><strong id="costSummaryQuantity">0 ta</strong><span id="costSummaryReady">0 xil kitob</span></article>
+        <article class="cost-dashboard-quantity" aria-hidden="true"><small>Shu paytgacha jami kelgan</small><strong id="costSummaryQuantity">0 ta</strong><span id="costSummaryReady">0 xil kitob</span></article>
         <article class="cost-total-primary"><small>Jami tan narxi</small><strong id="costSummaryTotal">—</strong><span id="costSummaryNote"></span></article>
         <article><small>Jami xarid</small><strong id="costPurchaseTotal">—</strong><span>Kelgan barcha nusxalar xaridi</span></article>
         <article><small>Jami yetkazish</small><strong id="costShippingTotal">—</strong><span id="costShippingNote"></span></article>
@@ -509,7 +509,11 @@
       </div>
       <div id="costReportPanel" hidden class="content-card cost-report">
         <h2>Partiyalar hisoboti</h2>
-        <p>Har bir partiyaning xarajat va kutiladigan foydasi alohida. Kitoblar ro‘yxatidagi umumiy son o‘zgarmaydi.</p>
+        <p>Bu hali amalga oshgan sotuv foydasi emas. Barcha kelgan nusxalar belgilangan narxda sotilsa olinadigan kutilayotgan foyda.</p>
+        <div class="cost-report-mode" role="group" aria-label="Hisobot turi">
+          <button type="button" id="costReportModeBatch" class="active" aria-pressed="true">Partiya bo‘yicha</button>
+          <button type="button" id="costReportModeAll" aria-pressed="false">Umumiy hisob</button>
+        </div>
       <section class="cost-batch-picker" aria-labelledby="costBatchPickerLabel">
         <label id="costBatchPickerLabel" for="costBatchSelect">Partiyani tanlang</label>
         <select id="costBatchSelect" aria-describedby="costBatchFilterHint">
@@ -517,10 +521,6 @@
         </select>
         <small id="costBatchFilterHint">Istalgan partiyani tanlang. Kitoblar ro‘yxatidagi jami son o‘zgarmaydi.</small>
       </section>
-        <div class="cost-report-mode" role="group" aria-label="Hisobot turi">
-          <button type="button" id="costReportModeBatch" class="active" aria-pressed="true">Partiya bo‘yicha</button>
-          <button type="button" id="costReportModeAll" aria-pressed="false">Umumiy hisob</button>
-        </div>
         <div id="costReportSpotlight" class="cost-report-spotlight" aria-live="polite"></div>
         <div class="cost-report-dashboard" id="costReportDashboard" aria-live="polite">
           <article class="cost-report-total"><small>Jami tan narxi</small><strong id="costReportTotal">—</strong><span id="costReportNote"></span></article>
@@ -572,7 +572,7 @@
             <small id="costSimpleSaleHint">Muhajeer Books bilan bog‘langan bo‘lsa, sotuv narxi u yerdan olinadi.</small>
           </label>
           <section class="cost-simple-live" aria-label="1 dona uchun avtomatik hisob">
-            <div><small>O‘zbekiston xaridi (₩)</small><b id="costSimplePurchaseWon">—</b></div>
+            <div><small>1 dona xarid (₩)</small><b id="costSimplePurchaseWon">—</b><span id="costSimplePurchaseSom">—</span></div>
             <div><small>1 dona yetkazish (₩)</small><b id="costSimpleShipping">—</b></div>
             <div class="cost-unit-highlight"><small>Koreyadagi 1 dona tan narxi</small><b id="costSimpleUnit">—</b><span id="costSimpleTotalSom">—</span></div>
             <div class="cost-simple-profit"><small>1 donadan kutiladigan foyda</small><b id="costSimpleProfit">—</b><span id="costSimpleProfitSom">—</span></div>

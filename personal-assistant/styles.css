@@ -2853,3 +2853,54 @@ body[data-workspace="costs"] #screen-book-costs .cost-arrival-overview{
  .cost-arrival-head button{padding:7px 8px}
  .cost-arrival-overview{padding:13px!important}
 }
+
+/* Book cost workspace v78 — one-unit catalog and independent arrival accounting. */
+body[data-workspace="costs"] #costMainActions,
+body[data-workspace="costs"] #screen-book-costs>.cost-view-tabs,
+body[data-workspace="costs"] #costArrivalOverview,
+body[data-workspace="costs"] #costOverviewNote,
+body[data-workspace="costs"] #screen-book-costs>.cost-finance-books,
+body[data-workspace="costs"] #screen-book-costs>.cost-save-status,
+body[data-workspace="costs"] .cost-dashboard-quantity,
+body[data-workspace="costs"] .cost-summary-pending {display:none!important}
+body[data-workspace="costs"][data-cost-view]:not([data-cost-view="main"]) #screen-book-costs>.cost-finance-conversion{display:none!important}
+body[data-workspace="costs"] #screen-book-costs>.workspace-overview-head{padding:4px 1px 12px;margin:0}
+body[data-workspace="costs"] #screen-book-costs>.workspace-overview-head h2{font-size:1.14rem}
+body[data-workspace="costs"] .cost-dashboard{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
+body[data-workspace="costs"] .cost-dashboard>.cost-total-primary{grid-column:1/-1;padding:20px 18px;border-radius:20px}
+body[data-workspace="costs"] .cost-dashboard>.cost-total-primary strong{font-size:clamp(1.6rem,5vw,2.15rem);overflow-wrap:anywhere}
+body[data-workspace="costs"] .cost-dashboard>article:not(.cost-total-primary){min-width:0;padding:15px 13px}
+body[data-workspace="costs"] .cost-dashboard>article small{font-size:.72rem;line-height:1.35}
+body[data-workspace="costs"] .cost-dashboard>article strong{font-size:clamp(1rem,3.2vw,1.25rem);overflow-wrap:anywhere;letter-spacing:-.03em}
+body[data-workspace="costs"] .cost-dashboard>.cost-total-primary strong{font-size:clamp(1.6rem,5vw,2.15rem)}
+body[data-workspace="costs"] .cost-finance-conversion{margin-top:12px;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+body[data-workspace="costs"] .cost-finance-conversion summary{font-size:.8rem}
+body[data-workspace="costs"] .cost-unit-book{border-radius:18px}
+body[data-workspace="costs"] .cost-unit-book .cost-unit-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+body[data-workspace="costs"] .cost-unit-book .cost-unit-metrics>div{min-width:0}
+body[data-workspace="costs"] .cost-unit-book .cost-unit-metrics strong{overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+body[data-workspace="costs"] .cost-unit-book .cost-unit-result{margin-top:10px;border-radius:14px}
+body[data-workspace="costs"] .cost-unit-book .cost-unit-profit{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 13px;border-radius:12px;background:var(--mint);color:var(--green)}
+body[data-workspace="costs"] .cost-unit-book .cost-unit-profit small{font-size:.74rem;line-height:1.35}
+body[data-workspace="costs"] .cost-unit-book .cost-unit-profit strong{font-size:1rem;overflow-wrap:anywhere}
+body[data-workspace="costs"] #costReportValues{display:none!important}
+body[data-workspace="costs"] #costReportPanel .cost-report-mode{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:12px 0 14px}
+body[data-workspace="costs"] #costReportPanel .cost-report-mode button{min-width:0;border-radius:12px;min-height:43px}
+body[data-workspace="costs"] #costReportPanel .cost-report-dashboard{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+body[data-workspace="costs"] #costReportPanel .cost-report-dashboard>.cost-report-total{grid-column:1/-1;border-radius:20px;padding:19px 17px}
+body[data-workspace="costs"] #costReportPanel .cost-report-dashboard>article{min-width:0;border-radius:15px}
+body[data-workspace="costs"] #costReportPanel .cost-report-dashboard strong{overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+body[data-workspace="costs"] #costReportPanel .cost-report-dashboard>.cost-report-total strong{font-size:clamp(1.45rem,5vw,2rem)}
+body[data-workspace="costs"] #costReportPanel .cost-report-extras,
+body[data-workspace="costs"] #costReportPanel .cost-report-breakdown{margin-top:11px}
+@media (min-width:740px){
+  body[data-workspace="costs"] .cost-dashboard{grid-template-columns:repeat(3,minmax(0,1fr))}
+  body[data-workspace="costs"] .cost-dashboard>.cost-total-primary{grid-column:1/-1}
+  body[data-workspace="costs"] #costReportPanel .cost-report-dashboard{grid-template-columns:repeat(3,minmax(0,1fr))}
+  body[data-workspace="costs"] #costReportPanel .cost-report-dashboard>.cost-report-total{grid-column:1/-1}
+  body[data-workspace="costs"] .cost-unit-book .cost-unit-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:390px){
+  body[data-workspace="costs"] #costReportPanel{padding:12px}
+  body[data-workspace="costs"] .cost-unit-book .cost-unit-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+}

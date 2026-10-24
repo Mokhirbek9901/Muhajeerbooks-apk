@@ -142,6 +142,21 @@
           rows:g.rows,bookCount:g.titles.size,totals};
       });
   }
+  // Lock the currently stored tariff onto historical arrivals that lack snapshots.
+  // Never infer a batch ID from title/date: unassigned history remains unassigned.
+  function freezeHistoricalRates(rows,storedRate=DEFAULT_WON_PER_KG){
+    const snapshot=rate(storedRate);
+    return (Array.isArray(rows)?rows:[]).map(row=>({
+      ...row,
+      ...(amount(row.originRate??row.rate)===null?{originRate:snapshot}:{}),
+      ...(Array.isArray(row.batches)?{
+        batches:row.batches.map(batch=>({
+          ...batch,
+          ...(amount(batch.rate)===null?{rate:snapshot}:{})
+        }))
+      }:{})
+    }));
+  }
   function normalizeRates(rows,makeId){
     return (Array.isArray(rows)?rows:[]).filter(row=>row && typeof row==='object').map((row,index)=>({id:String(row.id||makeId()),label:String(row.label||'Variant '+(index+2)).slice(0,80),rate:amount(row.rate)}));
   }
@@ -229,7 +244,7 @@
     }
     return items;
   }
-  const api={DEFAULT_WON_PER_KG,WON_PER_GRAM,rate,amount,uzsText,quantity,calculate,profit,inventory,summary,key,parseTitles,parseTitleEntries,extraQuantity,baseQuantity,arrivalParts,groupByBatch,normalize,restoreLastImportGroups,normalizeRates,tariffs,compare};
+  const api={DEFAULT_WON_PER_KG,WON_PER_GRAM,rate,amount,uzsText,quantity,calculate,profit,inventory,summary,key,parseTitles,parseTitleEntries,extraQuantity,baseQuantity,arrivalParts,groupByBatch,normalize,restoreLastImportGroups,freezeHistoricalRates,normalizeRates,tariffs,compare};
   if(typeof module==='object' && module.exports)module.exports=api;
   else root.BookCosts=api;
 })(typeof globalThis==='object'?globalThis:this);

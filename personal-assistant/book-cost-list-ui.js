@@ -16,6 +16,7 @@
     });
     let values=[...unique.values()];
     if(search){const q=normalize(search);values=values.filter(item=>normalize(item.row.title).includes(q));}
+    if(choice==='missing-price')values=values.filter(item=>missingPrice(item.row));
     if(choice==='missing-weight')values=values.filter(item=>missingWeight(item.row));
     if(choice==='incomplete')values=values.filter(item=>missingPrice(item.row)||missingWeight(item.row));
     if(choice==='oldest')values.sort((a,b)=>a.index-b.index);

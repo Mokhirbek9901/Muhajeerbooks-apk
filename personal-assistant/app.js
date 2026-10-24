@@ -3330,7 +3330,8 @@
     $('costEditSelectedBtn').disabled=costSelectedIds.size===0;
     const displayRows=costView==='main'?rows.slice(0,3):rows;
     $('costReadyList').innerHTML=displayRows.length?displayRows.map(row=>{
-      const result=costs.calculate(row,state.bookCostRate),profit=costs.profit(row,state.bookCostRate);
+      const originalRate=row.originRate??state.bookCostRate;
+      const result=costs.calculate(row,originalRate),profit=costs.profit(row,originalRate);
       const pending=row.price===null && row.grams===null?'Narx va vazn kutilmoqda':row.grams===null?'Vazn kutilmoqda':row.price===null?'Narx kutilmoqda':'';
       const book=state.books.find(b=>costs.key(b.title)===costs.key(row.title));
       const aiMetadata=state.bookCostMetadata?.[costs.key(row.title)];
@@ -3338,7 +3339,7 @@
       if(costView==='main'){
         const v=costs.inventory(row,state.bookCostRate),num=v.quantity??1;
         const sale=v.unitSale===null?'—':formatMoney(v.unitSale,'KRW');
-        const perProfit=costs.profit(row,state.bookCostRate);
+        const perProfit=costs.profit(row,originalRate);
         return '<article class="cost-main-row"><div class="cost-main-heading">'+cover+
           '<div class="cost-main-copy"><h3>'+escapeHtml(row.title||'Nomsiz kitob')+'</h3>'+
           '<small class="cost-main-weight">1 dona: '+(row.grams===null?'vazn kiritilmagan':row.grams+' g')+

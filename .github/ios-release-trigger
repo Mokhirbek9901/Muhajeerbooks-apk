@@ -1,6 +1,7 @@
-2026-10-25 TestFlight ONLY — Muhajeer Books iOS Story layouts update.
-Build latest main including PR #72, commit c88b7c5774faaaff60f22c7da89c1f3cf2df1196.
-Remove visible book stock quantity and publisher name from every Story design, including Avto, Premium, Classic and Smart Match.
-Present book cover, title, author when available, current price, delivery benefits and book description with spacious layouts.
-Keep iOS marketing version 2.5.20; choose a NEW build number automatically.
-Do NOT submit App Store release or deploy Play Market. This is TestFlight internal testing only.
+2026-10-25 TestFlight ONLY — Remove 4+ free postage text from all Muhajeer Books Instagram Stories.
+Build latest main with merged PR #73 (commit b238d38d1f09110deab1349a4ae5cfeeeeb89096).
+No "4+ kitobda pochta bepul" or "4 ta kitobdan boshlab pochta bepul" anywhere in the Story image.
+Retain cover, title, author where available, price, ordinary 4000 KRW delivery, and book description; expand visual space instead of promotion.
+Stock quantity and publisher remain hidden from every Story design.
+Marketing version 2.5.20; new TestFlight build number assigned automatically.
+Upload for TestFlight internal testing ONLY. Do not submit to public App Store review or release to Play Market.

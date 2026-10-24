@@ -27,6 +27,7 @@ class _BookStoryPageState extends State<BookStoryPage> {
   BookStoryTemplate _template = BookStoryTemplate.current;
   late final List<String> _descriptionPages;
   int _descriptionPage = 0;
+  final ScrollController _designScrollController = ScrollController();
 
   int get _pageCount => bookStorySupportsDescriptionPages(_template)
       ? _descriptionPages.length : 1;
@@ -123,6 +124,7 @@ class _BookStoryPageState extends State<BookStoryPage> {
 
   @override
   void dispose() {
+    _designScrollController.dispose();
     CatalogResume.instance.endStoryFlow();
     super.dispose();
   }
@@ -307,9 +309,10 @@ class _BookStoryPageState extends State<BookStoryPage> {
           SizedBox(
             height: 96,
             child: Scrollbar(
+              controller: _designScrollController,
               thumbVisibility: true,
               child: SingleChildScrollView(
-                primary: false,
+                controller: _designScrollController,
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     const gap = 4.0;

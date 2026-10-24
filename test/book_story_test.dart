@@ -55,7 +55,7 @@ void main() {
       expect(choices.contains('BookStoryTemplate.${hidden.name}'), isFalse,
           reason: '${hidden.name} should not reappear in picker');
     }
-    expect(RegExp(r'BookStoryTemplate\\.\\w+').allMatches(choices).length, 27);
+    expect(RegExp(r'BookStoryTemplate\.\w+').allMatches(choices).length, 27);
     expect(picker.contains('FutureBuilder<Uint8List>'), isTrue);
     expect(picker.contains('_previewImageFor(item)'), isTrue);
     expect(picker.contains('fit: BoxFit.contain'), isTrue);

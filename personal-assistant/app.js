@@ -3407,26 +3407,28 @@
             '<p class="cost-main-shipping">1 kg yetkazish: <b>'+formatMoney(state.bookCostRate,'KRW')+'</b> · '+num+' nusxa uchun</p>':'')+
           '</article>';
       }
-      const inv=costs.inventory(row,state.bookCostRate);
-      const parts=costs.arrivalParts(row);
-      const label=parts.length>1?parts.length+' ta partiya':'1 ta partiya';
-      return '<article class="cost-ready-row cost-clean-book" data-cost-quick-id="'+escapeHtml(row.id)+'">'+
+      const unit=costs.calculate(row,row.originRate??state.bookCostRate);
+      const margin=costs.profit(row,row.originRate??state.bookCostRate);
+      const uzs=costs.uzsText(row.priceUzs);
+      const uzsDisplay=uzs!==null?window.YordamchiCurrency.precise.display(uzs,'UZS'):'Kiritilmagan';
+      const won=value=>value===null?'—':formatMoney(value,'KRW');
+      return '<article class="cost-ready-row cost-clean-book cost-unit-book" data-cost-quick-id="'+escapeHtml(row.id)+'">'+
         '<div class="cost-ready-heading">'+
         (costSelecting?'<input type="checkbox" data-cost-select="'+escapeHtml(row.id)+'" aria-label="'+escapeHtml(row.title||'Nomsiz kitob')+'ni tanlash" '+(costSelectedIds.has(row.id)?'checked':'')+'>':'')+
-        cover+'<div class="cost-heading-copy"><h3>'+escapeHtml(row.title||'Nomsiz kitob')+'</h3><small>'+label+'</small></div>'+
-        '<span class="cost-clean-qty">'+(costs.quantity(row.quantity)??0)+' ta</span></div>'+
+        cover+'<div class="cost-heading-copy"><h3>'+escapeHtml(row.title||'Nomsiz kitob')+'</h3><small>Bir dona uchun hisob</small></div>'+
+        '<button type="button" class="soft-button" data-cost-edit="'+escapeHtml(row.id)+'">Tahrirlash</button></div>'+
         (pending?'<p class="cost-pending-badge">'+pending+'</p>':'')+
-        '<div class="cost-clean-actions">'+
-        '<button type="button" class="soft-button" data-cost-edit="'+escapeHtml(row.id)+'">Tahrirlash</button>'+
-        '<span>Shu paytgacha jami kelgan</span></div>'+
-        renderCostBatchDetails(row)+
-        '<details class="cost-row-details cost-clean-details"><summary>Qo‘shimcha hisob va ulanish</summary>'+
-        '<div class="cost-clean-finance">'+
-        '<span>'+(row.muhajeerId?'Muhajeer sotuv narxi':'Sotuv narxi')+' <b>'+(costs.amount(row.salePrice)===null?'—':formatMoney(row.salePrice,'KRW'))+'</b></span>'+
-        '<span>Jami xarid <b>'+(inv.readyQuantity?formatMoney(inv.knownPurchase,'KRW'):'—')+'</b></span>'+
-        '<span>Jami yetkazish <b>'+(inv.readyQuantity?formatMoney(inv.knownShipping,'KRW'):'—')+'</b></span>'+
-        '<span>Jami tan narxi <b>'+(inv.readyQuantity?formatMoney(inv.knownTotal,'KRW'):'—')+'</b></span>'+
-        '<span>Kutiladigan foyda <b>'+(inv.profitUnits?formatMoney(inv.knownProfit,'KRW'):'—')+'</b></span></div>'+
+        '<div class="cost-unit-metrics">'+
+          '<div><small>O‘zbekistondagi narx</small><strong>'+uzsDisplay+'</strong></div>'+
+          '<div><small>Xaridning von qiymati</small><strong>'+won(row.price)+'</strong></div>'+
+          '<div><small>Kitob vazni</small><strong>'+(row.grams===null?'—':row.grams+' g')+'</strong></div>'+
+          '<div><small>Koreyaga yetkazish · 1 dona</small><strong>'+won(unit.shipping)+'</strong></div>'+
+        '</div>'+
+        '<div class="cost-unit-result"><small>1 dona Koreyadagi tan narxi</small><strong>'+won(unit.total)+'</strong>'+
+          '<span>'+(unit.total===null?'—':costSomCompact(unit.total))+'</span></div>'+
+        '<div class="cost-unit-profit">1 dona kutiladigan foyda <strong>'+won(margin)+'</strong></div>'+
+        '<details class="cost-row-details cost-clean-details"><summary>Qo‘shimcha tahrirlash va ulanish</summary>'+
+        '<p class="cost-unit-hint">Bu asosiy bir donalik hisob. Har bir partiyaning alohida narxi «Umumiy» va «Hisobot»da saqlanadi.</p>'+
         costCloudRow(row)+
         (costs.tariffs(state.bookCostRate,state.bookCostComparisons).length>1?costTariffTable(row):'')+
         '<details class="cost-quick-editor"><summary>Tez tahrirlash</summary><div class="cost-quick-fields">'+
@@ -3978,6 +3980,7 @@
         if(updates.quantity!==undefined&&updates.quantity<=costs.extraQuantity(row))invalid=true;
         if(invalid){card.querySelector('[data-cost-quick-error]').textContent='Nusxalar soni va raqamlarni tekshiring.';return;}
         const previous={...row};Object.assign(row,updates);
+        if(updates.price!==undefined && updates.price!==previous.price)delete row.priceUzs;
         if(!costHasData(row)){Object.assign(row,previous);card.querySelector('[data-cost-quick-error]').textContent='Kamida nomi yoki narxi bo‘lsin.';return;}
         if(!persistBookCosts('Kitob yangilandi.')){Object.assign(row,previous);return;}
         renderBookCosts();return;
@@ -4044,6 +4047,7 @@
       if(!row)return;
       if(field==='salePrice' && row.muhajeerId)return;
       row[field]=field==='title'?event.target.value:field==='quantity'?costs.quantity(event.target.value):costs.amount(event.target.value);
+      if(field==='price')delete row.priceUzs;
       const invalid=field==='quantity'?(!event.target.value.trim()||row[field]===null):(field!=='title' && event.target.value.trim()!=='' && row[field]===null);
       event.target.setAttribute('aria-invalid',String(invalid));
       const result=costs.calculate(row,state.bookCostRate);

@@ -14,31 +14,29 @@ const book = Book(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  test('all Story layouts hide internal stock counts and publisher labels', () {
+  test('all Story layouts keep only relevant book data, without free postage ads', () {
     const product = Book(
       id: 'sample', title: 'Oq nilufarlar', author: 'Muallif',
       publisher: 'Ichki nashriyot', category: 'Jahon adabiyoti',
       description: 'Kitob haqida ma’lumot', price: 12000, stock: 7,
       discountPercent: 0, imageUrl: '', isActive: true,
     );
-    expect(storyShippingHighlight(product), '4 ta kitobdan boshlab pochta bepul');
     expect(storyCategoryHighlight(product), 'Jahon adabiyoti');
-    expect(storyShippingHighlight(product.copyWith(stock: 0)),
-        storyShippingHighlight(product));
-    expect(storyShippingHighlight(product.copyWith(stock: 90)),
-        storyShippingHighlight(product));
-    expect(storyShippingHighlight(product.copyWith(preorderEnabled: true)),
-        'Oldindan buyurtma qabul qilinadi');
+    expect(storyPrice(product), '₩12,000');
 
     final painter = File('lib/book_story_image.dart').readAsStringSync();
     expect(painter.contains('book.publisher'), isFalse,
-        reason: 'No Story renderer may paint publisher metadata');
+        reason: 'Story image must not show publisher');
     expect(painter.contains('book.stock'), isFalse,
-        reason: 'No Story renderer may paint warehouse counts');
+        reason: 'Story image must not show stock quantities');
     expect(painter.contains('Omborda:'), isFalse);
+    expect(painter.contains('storyShippingHighlight'), isFalse,
+        reason: 'No unnecessary marketing highlights in Story images');
+    expect(painter.contains('4 ta kitobdan boshlab pochta bepul'), isFalse);
+    expect(painter.contains('4+ kitobda'), isFalse);
   });
 
-  test('Story design families export with the updated benefit copy', () async {
+  test('Story design families export without free postage banners', () async {
     final cover = (await rootBundle.load('assets/images/muhajeer_logo.jpg'))
         .buffer.asUint8List();
     for (final template in [

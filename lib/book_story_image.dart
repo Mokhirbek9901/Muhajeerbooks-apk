@@ -763,6 +763,42 @@ Size _paintText(
 }
 
 
+/// Distinct cover placements, not merely recolored versions of one layout.
+@visibleForTesting
+Rect storyCoverLayoutBounds(BookStoryTemplate template) => switch (template) {
+  BookStoryTemplate.novaEditorial =>
+    const Rect.fromLTWH(242, 165, 748, 880),
+  BookStoryTemplate.velvetRose =>
+    const Rect.fromLTWH(93, 165, 894, 874),
+  BookStoryTemplate.auroraInk =>
+    const Rect.fromLTWH(60, 195, 790, 855),
+  BookStoryTemplate.hanokPaper =>
+    const Rect.fromLTWH(213, 192, 792, 840),
+  BookStoryTemplate.serifLuxe =>
+    const Rect.fromLTWH(175, 170, 730, 880),
+  BookStoryTemplate.neonNight =>
+    const Rect.fromLTWH(62, 180, 820, 865),
+  BookStoryTemplate.galleryLine =>
+    const Rect.fromLTWH(272, 220, 708, 810),
+  BookStoryTemplate.goldenOrbit =>
+    const Rect.fromLTWH(138, 178, 802, 866),
+  BookStoryTemplate.obsidianEdition =>
+    const Rect.fromLTWH(172, 180, 736, 856),
+  BookStoryTemplate.pearlEdition =>
+    const Rect.fromLTWH(110, 185, 860, 870),
+  BookStoryTemplate.cleanEdition =>
+    const Rect.fromLTWH(183, 180, 760, 866),
+  BookStoryTemplate.premiumEdition =>
+    const Rect.fromLTWH(138, 190, 806, 852),
+  BookStoryTemplate.nightEdition =>
+    const Rect.fromLTWH(225, 190, 750, 830),
+  BookStoryTemplate.warmEdition =>
+    const Rect.fromLTWH(105, 180, 866, 870),
+  BookStoryTemplate.saleEdition =>
+    const Rect.fromLTWH(225, 175, 758, 870),
+  _ => const Rect.fromLTWH(90, 142, 900, 950),
+};
+
 const _signatureStoryDesigns = <BookStoryTemplate>[
   BookStoryTemplate.novaEditorial,
   BookStoryTemplate.velvetRose,
@@ -1284,7 +1320,7 @@ Future<Uint8List> _renderSevenStoryDesign(
 
   final bounds = simple
       ? const Rect.fromLTWH(102, 85, 876, 1330)
-      : const Rect.fromLTWH(90, 142, 900, 950);
+      : storyCoverLayoutBounds(template);
   final photoRect = fittedStoryCoverRect(bounds,
       Size(cover.width.toDouble(), cover.height.toDouble()));
   final frameRect = photoRect.inflate(simple ? 15 : 20);
@@ -1323,8 +1359,32 @@ Future<Uint8List> _renderSevenStoryDesign(
     // book cover more height while keeping the text card comfortably legible.
     canvas.save();
     canvas.translate(0, 67);
+    // Distinct content compositions rather than one repeated card template.
+    final composition = switch (template) {
+      BookStoryTemplate.novaEditorial ||
+      BookStoryTemplate.galleryLine ||
+      BookStoryTemplate.cleanEdition => 0, // asymmetrical magazine
+      BookStoryTemplate.velvetRose ||
+      BookStoryTemplate.pearlEdition ||
+      BookStoryTemplate.warmEdition => 1, // airy, curved editorial
+      BookStoryTemplate.auroraInk ||
+      BookStoryTemplate.neonNight ||
+      BookStoryTemplate.nightEdition ||
+      BookStoryTemplate.obsidianEdition => 2, // angular cinematic
+      BookStoryTemplate.hanokPaper ||
+      BookStoryTemplate.serifLuxe ||
+      BookStoryTemplate.goldenOrbit ||
+      BookStoryTemplate.premiumEdition => 3, // classical bookplate
+      _ => 4, // vivid product spotlight
+    };
+    final panelRect = composition == 0
+        ? const Rect.fromLTWH(72, 1080, 936, 738)
+        : composition == 2
+            ? const Rect.fromLTWH(42, 1052, 996, 766)
+            : const Rect.fromLTWH(56, 1080, 968, 738);
     final panel = RRect.fromRectAndRadius(
-      const Rect.fromLTWH(56, 1080, 968, 738), const Radius.circular(36));
+      panelRect, Radius.circular(composition == 0 ? 10
+          : composition == 1 ? 64 : composition == 2 ? 18 : 36));
     final panelColor = darkTheme
         ? const Color(0xFF253C45)
         : signatureIndex >= 0
@@ -1335,39 +1395,98 @@ Future<Uint8List> _renderSevenStoryDesign(
     final textColor = darkTheme ? const Color(0xFFF9F4E8)
         : (signatureIndex >= 0 && background.computeLuminance() < 0.35)
             ? const Color(0xFF23332F) : foreground;
+    canvas.drawShadow(Path()..addRRect(panel),
+        const Color(0x33000000), 12, false);
     canvas.drawRRect(panel, Paint()..color = panelColor);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(const Rect.fromLTWH(108, 1104, 864, 9),
-          const Radius.circular(5)),
-      Paint()..color = accent,
-    );
-    fittedText(book.title, const Rect.fromLTWH(106, 1127, 868, 112),
+    if (composition == 0) {
+      canvas.drawRect(const Rect.fromLTWH(90, 1102, 8, 650),
+          Paint()..color = accent);
+      canvas.drawRect(const Rect.fromLTWH(115, 1104, 827, 4),
+          Paint()..color = accent.withAlpha(130));
+    } else if (composition == 1) {
+      for (var i = 0; i < 11; i++) {
+        canvas.drawCircle(Offset(240 + i * 60.0, 1110), 3,
+            Paint()..color = accent.withAlpha(185));
+      }
+      canvas.drawArc(const Rect.fromLTWH(83, 1104, 130, 100),
+          Math.pi, Math.pi / 2, false,
+          Paint()..color = accent.withAlpha(125)
+            ..style = PaintingStyle.stroke..strokeWidth = 5);
+    } else if (composition == 2) {
+      canvas.drawRect(const Rect.fromLTWH(64, 1072, 950, 8),
+          Paint()..color = accent);
+      canvas.drawRect(const Rect.fromLTWH(992, 1096, 6, 670),
+          Paint()..color = accent.withAlpha(110));
+    } else if (composition == 3) {
+      canvas.drawRect(const Rect.fromLTWH(96, 1102, 888, 3),
+          Paint()..color = accent);
+      canvas.drawRect(const Rect.fromLTWH(120, 1113, 840, 2),
+          Paint()..color = accent.withAlpha(110));
+      canvas.drawCircle(const Offset(540, 1107), 13,
+          Paint()..color = accent);
+    } else {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(const Rect.fromLTWH(108, 1104, 864, 9),
+            const Radius.circular(5)), Paint()..color = accent);
+    }
+    final titleTop = composition == 2 ? 1104.0
+        : composition == 1 ? 1138.0 : composition == 3 ? 1150.0
+        : composition == 0 ? 1130.0 : 1127.0;
+    final authorTop = composition == 2 ? 1223.0
+        : composition == 1 ? 1250.0 : composition == 3 ? 1267.0
+        : 1238.0;
+    final priceTop = composition == 2 ? 1293.0
+        : composition == 1 ? 1310.0 : composition == 3 ? 1325.0
+        : 1290.0;
+    final deliveryTop = composition == 2 ? 1398.0
+        : composition == 1 ? 1420.0 : composition == 3 ? 1432.0
+        : 1396.0;
+    final descriptionTop = composition == 2 ? 1465.0
+        : composition == 1 ? 1490.0 : composition == 3 ? 1503.0
+        : 1463.0;
+    final editorialAlignment =
+        composition == 0 ? TextAlign.left : TextAlign.center;
+    // Price formats differ too: rule-based print, pale luxury plaque,
+    // neon panel or classic framed cartouche.
+    if (composition == 1 || composition == 2 || composition == 3) {
+      final priceBackdrop = RRect.fromRectAndRadius(
+        Rect.fromLTWH(composition == 2 ? 116 : 164,
+            priceTop + 2, composition == 2 ? 848 : 752, 88),
+        Radius.circular(composition == 2 ? 14 : composition == 3 ? 8 : 44));
+      canvas.drawRRect(priceBackdrop,
+          Paint()..color = accent.withAlpha(
+              composition == 2 ? 45 : composition == 3 ? 25 : 32));
+    }
+    fittedText(book.title, Rect.fromLTWH(106, titleTop, 868, 112),
         signatureIndex >= 0 ? 54 : 48,
         color: textColor, weight: FontWeight.w900, maxLines: 2,
+        align: editorialAlignment,
         family: signatureIndex >= 0 ? _signatureFont(template) : null);
     final author = book.author.trim();
     if (author.isNotEmpty && author != 'Ko‘rsatilmagan') {
-      fittedText(author, const Rect.fromLTWH(124, 1238, 832, 44), 29,
-          color: textColor, maxLines: 1,
+      fittedText(author, Rect.fromLTWH(124, authorTop, 832, 44), 29,
+          color: textColor, maxLines: 1, align: editorialAlignment,
           family: signatureIndex >= 0 ? _signatureFont(template) : null);
     }
     final headlineFamily = signatureIndex >= 0
         ? _signatureFont(template) : 'Roboto';
-    fittedText(storyPrice(book), const Rect.fromLTWH(100, 1290, 880, 95),
+    fittedText(storyPrice(book), Rect.fromLTWH(100, priceTop, 880, 95),
         signatureIndex >= 0 ? 68 : 63,
         color: darkTheme ? accent : signatureIndex >= 0
           ? (background.computeLuminance() < 0.35
               ? const Color(0xFF9F6935) : accent)
           : const Color(0xFF08786E),
-        weight: FontWeight.w900, maxLines: 2, family: headlineFamily);
-    fittedText(delivery, const Rect.fromLTWH(100, 1396, 880, 48), 28,
-        color: textColor, maxLines: 1);
+        weight: FontWeight.w900, maxLines: 2,
+        align: editorialAlignment, family: headlineFamily);
+    fittedText(delivery, Rect.fromLTWH(100, deliveryTop, 880, 48), 28,
+        color: textColor, maxLines: 1, align: editorialAlignment);
     // Only the book's actual description; no category, stock or promos.
     fittedText(bookStoryDescriptionPages(book).first,
-        const Rect.fromLTWH(115, 1463, 850, 322),
+        Rect.fromLTWH(115, descriptionTop, 850,
+            1807 - descriptionTop),
         signatureIndex >= 0 ? 30 : 28,
         color: textColor, weight: FontWeight.w500, maxLines: 12,
-        family: headlineFamily);
+        align: editorialAlignment, family: headlineFamily);
     canvas.restore();
   }
   final picture = recorder.endRecording();

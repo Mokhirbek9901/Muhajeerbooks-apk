@@ -915,7 +915,7 @@ Future<Uint8List> _renderStoryDescriptionContinuation(
 
 /// Reliable local layouts. No paid AI or network-generated background.
 /// The simplified version intentionally contains only cover, price, delivery
-/// and a shipping benefit; full versions contain the product essentials.
+/// and the normal delivery fee; full versions contain book-specific details.
 Future<Uint8List> _renderSevenStoryDesign(
   Book book,
   BookStoryTemplate template, {

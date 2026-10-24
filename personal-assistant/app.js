@@ -3348,19 +3348,27 @@
         '<div class="cost-arrival-book-parts">'+grouped+'</div>'+renderCostBatchDetails(row)+'</details>';
     }).join(''):'<p class="cost-batch-empty">'+(search?'Bu nomdagi kitob yo‘q.':'Hali kitob yo‘q.')+'</p>';
   }
+  // Round only visible numbers; retain the original precision for calculations.
+  function costPlainWon(value){
+    if(value===null||!Number.isFinite(Number(value)))return '—';
+    const n=Number(value);
+    return (n<0?'−':'')+'₩'+Math.abs(n).toLocaleString('en-US',{maximumFractionDigits:2});
+  }
   // One book = one visible card. Old batch accounting remains intact in storage.
   function costPlainCard(row){
-    const result=costs.calculate(row,row.originRate??state.bookCostRate);
     const uzs=costs.uzsText(row.priceUzs);
+    const latest=uzs!==null?costUnitWon(uzs,'UZS',null,null).price:null;
+    const unitPurchase=latest??row.price;
+    const result=costs.calculate({...row,price:unitPurchase},row.originRate??state.bookCostRate);
     const purchase=uzs!==null?costUzsClean(uzs):row.price===null?'—':costSomCompact(row.price);
-    const won=value=>value===null?'—':formatMoney(value,'KRW');
+    const won=value=>costPlainWon(value);
     return '<article class="cost-plain-book">'+
       '<div class="cost-plain-book-top"><div><h3>'+escapeHtml(row.title||'Kitob')+'</h3>'+
       '<span>'+(row.grams===null?'Vazni kiritilmagan':row.grams+' g')+
       ' · 1 kg: '+won(row.originRate??state.bookCostRate)+'</span></div>'+
       '<button type="button" class="cost-plain-edit" data-cost-edit="'+escapeHtml(row.id)+'">Tahrirlash</button></div>'+
       '<div class="cost-plain-book-grid">'+
-      '<div><small>O‘zbekistonda</small><strong>'+purchase+'</strong><span>'+won(row.price)+'</span></div>'+
+      '<div><small>O‘zbekistonda</small><strong>'+purchase+'</strong><span>'+won(unitPurchase)+'</span></div>'+
       '<div><small>Yetkazish</small><strong>'+won(result.shipping)+'</strong>'+
       '<span>'+(result.shipping===null?'—':costSomCompact(result.shipping))+'</span></div></div>'+
       '<div class="cost-plain-book-total"><div><small>1 dona jami tan narxi</small>'+
@@ -3630,7 +3638,7 @@
     const tariff=chosenRate??original?.originRate??state.bookCostRate;
     const unit=costs.calculate(fields,tariff);
     const perProfit=costs.profit(fields,tariff);
-    const show=value=>value===null?'—':formatMoney(value,'KRW');
+    const show=value=>costPlainWon(value);
     $('costSimplePurchaseWon').textContent=show(fields.price);
     $('costSimpleShipping').textContent=show(unit.shipping);
     $('costSimpleShippingSom').textContent=unit.shipping===null?'—':costSomCompact(unit.shipping);

@@ -133,6 +133,7 @@
   let currentView = 'home';
   let costView='main';
   let selectedCostBatchId='all';
+  let costReportMode='batch';
   let costEditingId='';
   let costEditingAll=false;
   let costEditingIds=new Set();
@@ -3290,6 +3291,14 @@
     const accountingRows=state.bookCosts.filter(row=>String(row.title||'').trim());
     const groups=costs.groupByBatch(accountingRows,state.bookCostRate);
     if(selectedCostBatchId!=='all'&&!groups.some(g=>g.id===selectedCostBatchId))selectedCostBatchId='all';
+    if(costReportMode==='batch' && selectedCostBatchId==='all' && groups.length)selectedCostBatchId=groups[0].id;
+    if(costReportMode==='all')selectedCostBatchId='all';
+    $('costReportModeBatch').classList.toggle('active',costReportMode==='batch');
+    $('costReportModeAll').classList.toggle('active',costReportMode==='all');
+    $('costReportModeBatch').setAttribute('aria-pressed',String(costReportMode==='batch'));
+    $('costReportModeAll').setAttribute('aria-pressed',String(costReportMode==='all'));
+    $('costReportDashboard').dataset.mode=costReportMode;
+    $('costBatchSelect').closest('.cost-batch-picker').hidden=costReportMode==='all';
     const select=$('costBatchSelect');
     const numbered=groups.filter(g=>!g.legacy).slice().sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
     const batchNumber=new Map(numbered.map((g,i)=>[g.id,i+1]));
@@ -3306,8 +3315,21 @@
     const reportBookCount=selectedGroup?selectedGroup.bookCount:accountingRows.length;
     const known=groups.filter(group=>!group.legacy).sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
     const partNo=selectedGroup&&!selectedGroup.legacy?known.findIndex(group=>group.id===selectedGroup.id)+1:0;
-    $('costReportSpotlight').innerHTML='<strong>'+(selectedGroup?(selectedGroup.legacy?'Eski yozuvlar':partNo+'-partiya'):'Jami '+groups.length+' ta partiya')+'</strong>'+
-      '<span>'+(selectedGroup?selectedGroup.bookCount:accountingRows.length)+' xil kitob · '+reportTotals.quantityTotal+' ta nusxa</span>';
+    const reportLabel=selectedGroup?(selectedGroup.legacy?'Eski yozuvlar':partNo+'-partiya'):'Barcha partiyalar';
+    $('costReportSpotlight').innerHTML='<strong>'+reportLabel+'</strong>'+
+      '<span>'+reportBookCount+' xil kitob · '+reportTotals.quantityTotal+' ta nusxa</span>';
+    const reportShow=n=>n?formatMoney(n,'KRW'):'—';
+    $('costReportTotal').textContent=reportTotals.ready?reportShow(reportTotals.total):'—';
+    $('costReportQuantity').textContent=reportTotals.quantityTotal+' ta';
+    $('costReportKinds').textContent=reportBookCount+' xil kitob';
+    $('costReportNote').textContent=reportLabel+' bo‘yicha';
+    $('costReportPurchase').textContent=reportTotals.ready?reportShow(reportTotals.purchaseTotal):'—';
+    $('costReportShipping').textContent=reportTotals.ready?reportShow(reportTotals.shippingTotal):'—';
+    $('costReportProfit').textContent=reportTotals.profitCount?reportShow(reportTotals.profitTotal):'—';
+    $('costReportTotalSom').textContent=reportTotals.ready?costSomCompact(reportTotals.total):'—';
+    $('costReportProfitSom').textContent=reportTotals.profitCount?costSomCompact(reportTotals.profitTotal):'—';
+    $('costReportPending').textContent=reportTotals.pending+' ta';
+    $('costReportPending').closest('article').hidden=reportTotals.pending===0;
     renderCostBatchCards(groups);
     renderCostArrivals(groups,accountingRows);
     $('costSummaryTotal').textContent=totals.ready?formatMoney(totals.total,'KRW'):'—';
@@ -3494,7 +3516,7 @@
     const row=state.bookCosts.find(item=>item.id===costEditingId);
     $('costSimpleHeading').textContent=row?'1 dona tan narxini tahrirlash':'Yangi kitob · 1 dona hisob';
     $('costSimpleTitle').value=row?.title||'';
-    $('costSimpleQuantity').value=costs.quantity(row?.quantity)??1;
+    $('costSimpleQuantity').value=row?(costs.baseQuantity(row)??1):1;
     $('costSimpleCurrency').value=row?(row.priceUzs?'UZS':'KRW'):'UZS';
     $('costSimplePrice').value=row?.priceUzs??row?.price??'';
     $('costSimplePrice').placeholder=$('costSimpleCurrency').value==='UZS'?'Masalan: 60000':'Masalan: 8000';
@@ -3525,10 +3547,12 @@
     const required=[['costSimplePrice','price'],['costSimpleGrams','grams']];
     const invalid=required.find(([id,key])=>$(id).value.trim()!=='' && fields[key]===null);
     const saleInvalid=!original?.muhajeerId&&$('costSimpleSale').value.trim()!==''&&fields.salePrice===null;
-    const error=priceError||(!title?'Kitob nomini kiriting.':original&&fields.quantity!==null&&fields.quantity<=costs.extraQuantity(original)?'Jami nusxa yangi partiyalardan ko‘p bo‘lishi kerak.':fields.quantity===null?'Kelgan kitoblar soni 1 yoki undan katta butun son bo‘lsin.':
+    const error=priceError||(!title?'Kitob nomini kiriting.':fields.quantity===null?'Partiyada kelgan kitoblar soni 1 yoki undan katta butun son bo‘lsin.':
       invalid?'Xarid narxi va grammni to‘g‘ri raqamda kiriting.':
       saleInvalid?'Sotuv narxini to‘g‘ri kiriting.':'');
-    if(error){$('costSimpleError').textContent=error;$('costSimpleError').hidden=false;return;}
+    if(error || (original&&fields.quantity!==null && fields.quantity+costs.extraQuantity(original)>100000)){
+      $('costSimpleError').textContent=error||'Barcha partiyalar jami 100 000 tadan oshmasin.';
+      $('costSimpleError').hidden=false;return;}
     // Adding an existing title creates another arrival in the same catalog row.
     if(!original){
       const existing=state.bookCosts.find(r=>costs.key(r.title)===costs.key(title));
@@ -3557,7 +3581,7 @@
     }
     const oldRow=original?{...original}:null;
     const row=original||{id:makeId(),saved:true,originBatchId:makeId(),originBatchDate:today(),originRate:state.bookCostRate};
-    row.title=title;row.quantity=fields.quantity;row.price=fields.price;row.grams=fields.grams;
+    row.title=title;row.quantity=fields.quantity+(original?costs.extraQuantity(original):0);row.price=fields.price;row.grams=fields.grams;
     if(fields.priceUzs!==null)row.priceUzs=fields.priceUzs;else delete row.priceUzs;
     if(!original?.muhajeerId)row.salePrice=fields.salePrice;
     row.saved=true;
@@ -3943,12 +3967,24 @@
     });
     $('costBatchSelect').addEventListener('change',event=>{
       selectedCostBatchId=event.target.value||'all';
+      costReportMode=selectedCostBatchId==='all'?'all':'batch';
+      renderCostReadyList();
+    });
+    $('costReportModeAll').addEventListener('click',()=>{
+      costReportMode='all';
+      selectedCostBatchId='all';
+      renderCostReadyList();
+    });
+    $('costReportModeBatch').addEventListener('click',()=>{
+      costReportMode='batch';
+      selectedCostBatchId='all';
       renderCostReadyList();
     });
     $('costBatchReportList').addEventListener('click',event=>{
       const button=event.target.closest('[data-cost-batch-jump]');
       if(!button)return;
       selectedCostBatchId=button.dataset.costBatchJump;
+      costReportMode='batch';
       renderCostReadyList();
       $('costBatchSelect').scrollIntoView({block:'center',behavior:'smooth'});
     });

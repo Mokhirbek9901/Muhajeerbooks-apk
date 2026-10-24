@@ -3627,7 +3627,16 @@
   function costSimpleValues(){
     const original=state.bookCosts.find(row=>row.id===costEditingId);
     // Always price a single book using the currently selected exchange rate.
-    const converted=costUnitWon($('costSimplePrice').value,$('costSimpleCurrency').value,null,null);
+    const rawPrice=$('costSimplePrice').value.trim();
+    const currency=$('costSimpleCurrency').value;
+    const normalized=currency==='UZS'?window.BookCostSimple.normalizedPrice(rawPrice,null,true):null;
+    const precise=window.YordamchiCurrency.precise;
+    const quoted=normalized?window.BookCostSimple.wonFromUzs(state,normalized):null;
+    const converted=currency==='UZS'?{
+      price:quoted?costs.amount(precise.number(quoted)):null,
+      priceUzs:normalized?precise.text(normalized):null,
+      error:!rawPrice?'':!normalized?'So‘m narxini to‘g‘ri kiriting.':!quoted?'Avval kursni kiriting.':''
+    }:costUnitWon(rawPrice,'KRW',null,null);
     const fields={title:$('costSimpleTitle').value.trim(),
       quantity:original?(costs.baseQuantity(original)??1):1,
       price:converted.price,priceUzs:converted.priceUzs,
@@ -3638,8 +3647,7 @@
   function refreshSimpleCostPreview(){
     const {fields,priceError}=costSimpleValues();
     const original=state.bookCosts.find(row=>row.id===costEditingId);
-    const chosenRate=costs.amount($('costSimplePricingKg').value);
-    const tariff=chosenRate??original?.originRate??state.bookCostRate;
+    const tariff=state.bookCostRate;
     const unit=costs.calculate(fields,tariff);
     const perProfit=costs.profit(fields,tariff);
     const show=value=>costPlainWon(value);
@@ -3653,7 +3661,8 @@
     $('costSimplePurchaseSom').textContent=fields.price===null?'—':
       (fields.priceUzs!==null?costUzsClean(fields.priceUzs):costSomCompact(fields.price));
     $('costSimpleProfitSom').textContent=perProfit===null?'—':costSomCompact(perProfit);
-    $('costSimpleFxHint').textContent='Amaldagi kurs: 1 000 ₩ = '+(costFxSnapshot()?costUzsClean(costFxSnapshot()):'kiritilmagan');
+    const effectiveFx=window.BookCostSimple.bookFx(state);
+    $('costSimpleFxHint').textContent='Amaldagi kurs: 1 000 ₩ = '+(effectiveFx?costUzsClean(window.YordamchiCurrency.precise.number(effectiveFx)):'kiritilmagan');
     $('costSimplePriceHint').textContent=priceError || ($('costSimpleCurrency').value==='UZS'?
       'So‘mni yozing — amaldagi kursda vonga avtomatik aylanadi.':
       'Vonni yozing — so‘mdagi qiymati avtomatik hisoblanadi.');
@@ -3677,11 +3686,12 @@
     fillCostBatchMoney();
     if(!row)$('costSimplePurchaseUzsTotal').value='';
     $('costSimpleCurrency').value=row?(row.priceUzs?'UZS':'KRW'):'UZS';
-    $('costSimplePrice').value=row?.priceUzs??row?.price??'';
+    const existingUzs=row?.priceUzs!==undefined?window.BookCostSimple.normalizedPrice(row.priceUzs,row.price):null;
+    $('costSimplePrice').value=existingUzs?window.YordamchiCurrency.precise.text(existingUzs):row?.price??'';
     $('costSimplePrice').placeholder=$('costSimpleCurrency').value==='UZS'?'Masalan: 60000':'Masalan: 8000';
     $('costSimpleGrams').value=row?.grams??'';
     $('costSimpleSale').value=row?.salePrice??'';
-    $('costSimplePricingKg').value=row?.originRate??state.bookCostRate;
+    $('costSimplePricingKg').value=state.bookCostRate;
     $('costSimpleSale').readOnly=Boolean(row?.muhajeerId);
     $('costSimpleSale').setAttribute('aria-readonly',String(Boolean(row?.muhajeerId)));
     $('costSimpleSaleHint').textContent=row?.muhajeerId?
@@ -3703,8 +3713,7 @@
   function saveSimpleCostForm(event){
     event.preventDefault();
     const {original,fields,priceError}=costSimpleValues();
-    const kgRaw=$('costSimplePricingKg').value.trim();
-    const kg=kgRaw?costs.amount(kgRaw):state.bookCostRate;
+    const kg=state.bookCostRate;
     const title=fields.title;
     let error='';
     if(!title)error='Kitob nomini kiriting.';
@@ -3729,7 +3738,7 @@
     row.title=title;
     row.price=fields.price;
     row.grams=fields.grams;
-    row.originRate=kg;
+    if(!original)row.originRate=kg;
     if(fields.priceUzs!==null)row.priceUzs=fields.priceUzs;
     else delete row.priceUzs;
     row.saved=true;
@@ -4208,6 +4217,20 @@
     $('costSearch').addEventListener('input',renderCostReadyList);
     $('costSort').addEventListener('change',renderCostReadyList);
     $('costFilter').addEventListener('change',renderCostReadyList);
+    $('costPlainKgForm').addEventListener('submit',event=>{
+      event.preventDefault();
+      const input=$('costPlainKgInput'),next=costs.amount(input.value);
+      if(next===null||next<=0){
+        $('costPlainKgMessage').textContent='1 kg narxini musbat son bilan kiriting.';return;
+      }
+      const before=state.bookCostRate;
+      state.bookCostRate=next;
+      if(!persistBookCosts('Barcha kitoblar uchun kg tarifi saqlandi.',false)){
+        state.bookCostRate=before;return;
+      }
+      $('costPlainKgMessage').textContent='Saqlangan: 1 kg = '+costPlainWon(next)+'. Barcha kitoblar qayta hisoblandi.';
+      renderBookCosts();syncWorkspaceUI();
+    });
     $('costPlainHomeList').addEventListener('click',event=>{
       const button=event.target.closest('[data-cost-edit]');
       if(button)openSimpleCostEditor(button.dataset.costEdit);

@@ -382,26 +382,26 @@ BookStoryTemplate _bestExistingTemplate(Book book, Uint8List encoded) {
     case 1: // diniy
       return p.brightness < 0.48 ? BookStoryTemplate.goldArch : BookStoryTemplate.arch;
     case 2: // detektiv / jinoyat
-      return p.brightness < 0.58 ? BookStoryTemplate.cinema : BookStoryTemplate.noir;
+      return p.brightness < 0.58 ? BookStoryTemplate.neonNight : BookStoryTemplate.noir;
     case 3: // sevgi / oila
       return p.saturation > 0.38 ? BookStoryTemplate.terracotta : BookStoryTemplate.botanical;
     case 4: // biznes / pul
       return p.brightness < 0.45 ? BookStoryTemplate.goldArch : BookStoryTemplate.cleanStudio;
     case 5: // bolalar / sarguzasht
-      return p.saturation > 0.42 ? BookStoryTemplate.lifestyle : BookStoryTemplate.polaroid;
+      return p.saturation > 0.42 ? BookStoryTemplate.velvetRose : BookStoryTemplate.polaroid;
     case 6: // tarix
-      return p.warmth > 0 ? BookStoryTemplate.adras : BookStoryTemplate.marble;
+      return p.warmth > 0 ? BookStoryTemplate.hanokPaper : BookStoryTemplate.galleryLine;
     case 7: // psixologiya / self-help
-      return p.saturation > 0.35 ? BookStoryTemplate.royal : BookStoryTemplate.cleanStudio;
+      return p.saturation > 0.35 ? BookStoryTemplate.auroraInk : BookStoryTemplate.cleanStudio;
     case 8: // badiiy
       return p.warmth > 0.08 ? BookStoryTemplate.scrapbook : BookStoryTemplate.ornament;
   }
 
   // Mavzu aniq topilmasa, muqova vizual xarakteri bo‘yicha.
-  if (p.brightness < 0.30) return p.saturation > 0.40 ? BookStoryTemplate.cinema : BookStoryTemplate.goldArch;
-  if (p.saturation > 0.62) return p.warmth > 0.08 ? BookStoryTemplate.lifestyle : BookStoryTemplate.royal;
-  if (p.warmth > 0.20) return p.saturation > 0.32 ? BookStoryTemplate.adras : BookStoryTemplate.scrapbook;
-  if (p.warmth < -0.14) return p.saturation > 0.30 ? BookStoryTemplate.royal : BookStoryTemplate.marble;
+  if (p.brightness < 0.30) return p.saturation > 0.40 ? BookStoryTemplate.neonNight : BookStoryTemplate.goldArch;
+  if (p.saturation > 0.62) return p.warmth > 0.08 ? BookStoryTemplate.velvetRose : BookStoryTemplate.auroraInk;
+  if (p.warmth > 0.20) return p.saturation > 0.32 ? BookStoryTemplate.hanokPaper : BookStoryTemplate.scrapbook;
+  if (p.warmth < -0.14) return p.saturation > 0.30 ? BookStoryTemplate.auroraInk : BookStoryTemplate.galleryLine;
   if (p.brightness > 0.80 && p.saturation < 0.22) return BookStoryTemplate.cleanStudio;
   if (p.brightness > 0.66) return p.saturation > 0.30 ? BookStoryTemplate.botanical : BookStoryTemplate.ornament;
   return p.saturation > 0.32 ? BookStoryTemplate.terracotta : BookStoryTemplate.noir;

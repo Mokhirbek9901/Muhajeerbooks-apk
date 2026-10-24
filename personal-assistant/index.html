@@ -514,7 +514,7 @@
           <button type="button" id="costReportModeBatch" class="active" aria-pressed="true">Partiya bo‘yicha</button>
           <button type="button" id="costReportModeAll" aria-pressed="false">Umumiy hisob</button>
         </div>
-      <section class="cost-batch-picker" aria-labelledby="costBatchPickerLabel">
+      <section class="cost-batch-picker" id="costBatchPicker" aria-labelledby="costBatchPickerLabel">
         <label id="costBatchPickerLabel" for="costBatchSelect">Partiyani tanlang</label>
         <select id="costBatchSelect" aria-describedby="costBatchFilterHint">
           <option value="all">Barcha partiyalar · umumiy</option>
@@ -549,7 +549,7 @@
           <label class="cost-simple-label cost-simple-name">Kitob nomi
             <input id="costSimpleTitle" maxlength="300" placeholder="Masalan: Arosat" required>
           </label>
-          <div class="cost-simple-quantity">
+          <div class="cost-simple-quantity" id="costSimpleQuantityWrap">
             <label class="cost-simple-label" for="costSimpleQuantity"><span id="costSimpleQtyLabel">Bu partiyada nechta keldi?</span>
               <input id="costSimpleQuantity" type="number" inputmode="numeric" min="1" max="100000" step="1" value="1" required>
             </label>

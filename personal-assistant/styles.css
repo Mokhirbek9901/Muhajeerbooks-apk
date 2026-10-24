@@ -2942,3 +2942,12 @@ body[data-workspace="costs"] .cost-unified-book span{font-size:.75rem;color:var(
 body[data-workspace="costs"] .cost-simple-batch-money{grid-template-columns:1fr}
 body[data-workspace="costs"] .cost-batch-history-editor,
 body[data-workspace="costs"] .cost-simple-batch-money{padding:13px}}
+
+/* v80: actual incoming kg tariff is separate from book-pricing kg tariff. */
+body[data-workspace="costs"] #costReportShippingHint{display:block;font-size:.67rem;line-height:1.4;color:var(--muted)}
+body[data-workspace="costs"] .cost-actual-rate-label{display:grid;gap:7px;background:var(--surface2);border:1px solid var(--line);border-radius:14px;padding:13px;font-weight:750}
+body[data-workspace="costs"] .cost-actual-rate-label small{font-size:.73rem;font-weight:400;color:var(--muted);line-height:1.5}
+body[data-workspace="costs"] .cost-price-kg-label{display:grid;gap:8px;background:var(--mint);padding:13px;border-radius:14px;margin:10px 0}
+body[data-workspace="costs"] .cost-price-kg-label input{background:var(--surface);min-height:45px}
+body[data-workspace="costs"] .cost-price-kg-label small{color:var(--muted);font-weight:400;font-size:.73rem;line-height:1.5}
+body[data-workspace="costs"] #costReportPanel .cost-partiya-history{font-size:.78rem;line-height:1.55}

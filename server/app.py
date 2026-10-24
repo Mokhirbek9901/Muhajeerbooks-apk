@@ -136,7 +136,7 @@ def _free_similarity(a,b):
 def _free_catalog(body):
     rows=body.get("books") if isinstance(body.get("books"),list) else []
     out=[]
-    for b in rows[:500]:
+    for b in rows[:5000]:
       if not isinstance(b,dict): continue
       try: price=max(0,int(float(b.get("price") or 0)))
       except Exception: price=0

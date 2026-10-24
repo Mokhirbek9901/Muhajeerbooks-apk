@@ -357,14 +357,22 @@
       </div>
 
       <div class="cost-dashboard">
+        <article class="cost-dashboard-quantity"><small>Shu paytgacha jami kelgan</small><strong id="costSummaryQuantity">0 ta</strong><span id="costSummaryReady">0 xil kitob</span></article>
         <article class="cost-total-primary"><small>Jami tan narxi</small><strong id="costSummaryTotal">—</strong><span id="costSummaryNote"></span></article>
-        <article class="cost-dashboard-quantity"><small>Jami nusxalar</small><strong id="costSummaryQuantity">0 ta</strong><span id="costSummaryReady">0 ta turdagi kitob</span></article>
         <article><small>Jami xarid</small><strong id="costPurchaseTotal">—</strong><span>Kelgan barcha nusxalar xaridi</span></article>
         <article><small>Jami yetkazish</small><strong id="costShippingTotal">—</strong><span id="costShippingNote"></span></article>
         <article class="cost-profit-main"><small>Kutiladigan jami foyda</small><strong id="costProfitTotal">—</strong><span id="costProfitNote"></span></article>
 
         <article class="cost-summary-pending"><small>To‘ldirish kerak</small><strong id="costSummaryPending">0 ta</strong><span>Narx yoki vazn kutilmoqda</span></article>
       </div>
+      <section class="cost-arrival-overview" id="costArrivalOverview" aria-labelledby="costArrivalHeading">
+        <div class="cost-arrival-head"><div><h2 id="costArrivalHeading">Partiyalar bo‘yicha</h2><p>Qaysi partiyada qancha kitob kelgani</p></div><button type="button" class="soft-button" data-cost-view="report">Batafsil →</button></div>
+        <div id="costArrivalBatchList" class="cost-arrival-batch-list"></div>
+        <details class="cost-arrival-all-books"><summary>Kitoblar bo‘yicha jami kelgan son</summary>
+          <label class="cost-arrival-search" for="costArrivalSearch">Kitobni qidirish<input id="costArrivalSearch" type="search" placeholder="Kitob nomini yozing" autocomplete="off"></label>
+          <div id="costArrivalTitleList" class="cost-arrival-title-list"></div>
+        </details>
+      </section>
       <details class="cost-finance-conversion"><summary>So‘mdagi qiymatni ko‘rish</summary>
         <div class="cost-finance-conversion-grid">
           <article><small>Jami tan narxi (so‘m)</small><strong id="costSummaryTotalSom">—</strong></article>
@@ -463,7 +471,7 @@
       </section>
       <div id="costListPanel">
         <div class="cost-list-intro" id="costListIntro">
-          <div><span class="workspace-eyebrow">BARCHA KITOBLAR</span><h2>Kitoblar ro‘yxati</h2><p>Har bir nom bir marta ko‘rinadi. Jami kelgan son va partiyalari ichida saqlanadi.</p></div>
+          <div><span class="workspace-eyebrow">BIR DONALIK HISOB</span><h2>Kitob tan narxlari</h2><p>1 dona: O‘zbekiston narxi, gramm, yetkazish va Koreyadagi tan narxi.</p></div>
           <button type="button" class="primary-button" data-cost-open-new>+ Kitob qo‘shish</button>
         </div>
         <div class="cost-recent-heading" id="costRecentHeading"><h2>Oxirgi kitoblar</h2><button type="button" class="soft-button" data-cost-view="list">Barchasini ko‘rish →</button></div>
@@ -520,29 +528,35 @@
         </details>
       </div>
       <div id="costEntryPanel" hidden>
-        <div class="cost-entry-welcome"><span class="workspace-eyebrow">KITOB QO‘SHISH / TAHRIRLASH</span><h2 id="costSimpleHeading">Kitob ma’lumotlari</h2><p>Eng kerakli 5 ta maydon — bir ekran. Miqdor va jami hisob pastda darhol chiqadi.</p></div>
+        <div class="cost-entry-welcome"><span class="workspace-eyebrow">KITOB · 1 DONALIK TAN NARXI</span><h2 id="costSimpleHeading">Kitob ma’lumotlari</h2><p>O‘zbekiston narxini so‘mda yozing. Kurs, gramm va kg tarifi bilan Koreyadagi 1 dona tan narxi avtomatik chiqadi.</p></div>
         <form id="costSimpleForm" class="content-card cost-simple-form" autocomplete="off">
           <label class="cost-simple-label cost-simple-name">Kitob nomi
             <input id="costSimpleTitle" maxlength="300" placeholder="Masalan: Arosat" required>
           </label>
-          <div class="cost-simple-highlight">
-            <label class="cost-simple-label" for="costSimpleQuantity">Nechta kitob keldi?
+          <details class="cost-simple-quantity"><summary>Partiyaga nechta kitob keldi?</summary>
+            <label class="cost-simple-label" for="costSimpleQuantity">Shu partiyadagi soni
               <input id="costSimpleQuantity" type="number" inputmode="numeric" min="1" max="100000" step="1" value="1" required>
             </label>
-            <span>Kelgan kitoblar sonini shu yerga yozing. Masalan: 10 ta.</span>
-          </div>
+            <small>Bu son «Umumiy»da va partiyalar tarixida ko‘rinadi.</small>
+          </details>
           <div class="cost-simple-grid">
-            <label class="cost-simple-label" for="costSimplePrice">1 dona xarid narxi (₩)<input id="costSimplePrice" inputmode="decimal" spellcheck="false" autocapitalize="off" placeholder="Masalan: 15000"></label>
+            <label class="cost-simple-label" for="costSimplePrice">O‘zbekistonda 1 dona narxi
+              <select id="costSimpleCurrency" aria-label="Xarid narxi valyutasi"><option value="UZS">so‘m (UZS)</option><option value="KRW">von (₩)</option></select>
+              <input id="costSimplePrice" inputmode="decimal" spellcheck="false" autocapitalize="off" placeholder="Masalan: 60000">
+              <small id="costSimplePriceHint">So‘mni kiritganingizda ₩ avtomatik hisoblanadi.</small>
+            </label>
             <label class="cost-simple-label" for="costSimpleGrams">1 dona vazni (gramm)<input id="costSimpleGrams" inputmode="decimal" spellcheck="false" autocapitalize="off" placeholder="Masalan: 200"></label>
           </div>
           <label class="cost-simple-label" for="costSimpleSale">1 dona sotuv narxi (₩)
             <input id="costSimpleSale" inputmode="decimal" spellcheck="false" autocapitalize="off" placeholder="Masalan: 24000">
             <small id="costSimpleSaleHint">Muhajeer Books bilan bog‘langan bo‘lsa, sotuv narxi u yerdan olinadi.</small>
           </label>
-          <section class="cost-simple-live" aria-label="Avtomatik hisob natijasi">
-            <div><small>1 dona tan narxi</small><b id="costSimpleUnit">—</b></div>
-            <div><small>Jami xarajat</small><b id="costSimpleTotal">—</b><span id="costSimpleTotalSom">—</span></div>
-            <div class="cost-simple-profit"><small>Kutiladigan jami foyda</small><b id="costSimpleProfit">—</b><span id="costSimpleProfitSom">—</span></div>
+          <section class="cost-simple-live" aria-label="1 dona uchun avtomatik hisob">
+            <div><small>O‘zbekiston xaridi (₩)</small><b id="costSimplePurchaseWon">—</b></div>
+            <div><small>1 dona yetkazish (₩)</small><b id="costSimpleShipping">—</b></div>
+            <div class="cost-unit-highlight"><small>Koreyadagi 1 dona tan narxi</small><b id="costSimpleUnit">—</b><span id="costSimpleTotalSom">—</span></div>
+            <div class="cost-simple-profit"><small>1 donadan kutiladigan foyda</small><b id="costSimpleProfit">—</b><span id="costSimpleProfitSom">—</span></div>
+            <span id="costSimpleTotal" hidden>—</span>
           </section>
           <p id="costSimpleError" role="alert" class="cost-simple-error" hidden></p>
           <button type="submit" class="primary-button cost-simple-submit" id="costSimpleSave">✓ Kitobni saqlash</button>

@@ -38,7 +38,7 @@ void main() {
     expect(painter.contains('4+ kitobda'), isFalse);
   });
 
-  test('newly rejected designs disappear from compact real-story chooser', () {
+  test('Story design chips show only names, four across, with full Story below', () {
     final picker = File('lib/book_story_page.dart').readAsStringSync();
     final start = picker.indexOf(
         'static const List<BookStoryTemplate> _templateOrder = [');
@@ -56,10 +56,26 @@ void main() {
           reason: '${hidden.name} should not reappear in picker');
     }
     expect(RegExp(r'BookStoryTemplate\.\w+').allMatches(choices).length, 27);
-    expect(picker.contains('FutureBuilder<Uint8List>'), isTrue);
-    expect(picker.contains('_previewImageFor(item)'), isTrue);
+
+    // No image artwork or AI work is generated for the tiny name-only chips.
+    expect(picker.contains('_previewImageFor('), isFalse);
+    expect(picker.contains('_previewCover'), isFalse);
+    expect(picker.contains('renderScale: 0.25, previewOnly: true'), isFalse);
+    expect(picker.contains('final columns = constraints.maxWidth >= 650 ? 8'), isTrue);
+    expect(picker.contains(': constraints.maxWidth >= 460 ? 6 : 4;'), isTrue);
+    expect(picker.contains('height: 28,'), isTrue);
+    expect(picker.contains('child: Text(\n                                name,'), isTrue);
+
+    // The design options remain present while the selected Story reloads;
+    // the independent inner scroller keeps the full preview just beneath.
+    expect(picker.contains('height: 96,'), isTrue);
+    expect(picker.contains('controller: _designScrollController'), isTrue);
+    expect(picker.contains('Tanlangan Story — to‘liq ko‘rinish'), isTrue);
+    expect(picker.contains('FutureBuilder<Uint8List>(\n            future: _image,'), isTrue);
+    expect(picker.contains('previewHeight * 9 / 16'), isTrue);
+    expect(picker.contains('aspectRatio: 9 / 16'), isTrue);
     expect(picker.contains('fit: BoxFit.contain'), isTrue);
-    expect(picker.contains('renderScale: 0.25, previewOnly: true'), isTrue);
+    expect(picker.contains('if (snapshot.connectionState != ConnectionState.done)'), isTrue);
   });
 
   test('Sale and Gallery Line book covers are perfectly horizontally centered', () {

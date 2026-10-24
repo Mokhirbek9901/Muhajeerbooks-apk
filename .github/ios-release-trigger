@@ -1,7 +1,8 @@
-2026-10-25 TestFlight ONLY: ten new signature Story designs and compact chooser (PR #74).
-Source: latest main commit 6fc061daa988d87da3ebd69e710d6f3b3d748f78, after Flutter CI passed all 74 tests.
-New native iPhone/iPad Story artwork: Nova Editorial, Velvet Rose, Aurora Ink, Hanok Paper, Kinetic Pop, Serif Luxe, Mocha Studio, Neon Night, Gallery Line, Golden Orbit.
-Do not paint stock quantity, publisher name, book category or unwanted 4+ free postage. Keep cover, title, author, price, ₩4,000 delivery and book description; render more elegantly.
-Compact Story picker with five phone columns, eight tablet columns, smooth animated preview. PNG image artwork is static, not MP4.
-Use marketing version 2.5.20 with a new unique build number chosen by App Store preflight.
-Upload signed IPA to Apple TestFlight internal testers ONLY. Do NOT submit to public App Store review or publish Android/Play Market updates.
+2026-10-25 TestFlight ONLY — curated, differentiated Muhajeer Books Instagram Stories.
+Source latest main (merged PR #75, commit fac3fe994c9d798e17a9f0796094900cc4f51927).
+Remove these 15 rejected designs from the Story chooser and Smart Match: Muqova, Lifestyle, Koshin, Registon, Tun va shahar, Naqqosh, Klassik, Hozir, Atlas Luxe, Velvet, Sapphire, Editorial, Mocha Studio, Kinetic Pop (including both legacy classic IDs).
+Exactly 32 selectable Story designs remain; existing selection is reset to Avto if a hidden style was previously saved.
+Surviving designs now use significantly distinct cover geometry, premium card shapes, typographic hierarchy, price plaques, magazine/cinematic/bookplate compositions, and alternative product price row styles.
+Keep only book cover, name, author where known, current price, normal ₩4,000 postage, and book description. No stock, publisher, category or 4+ free postage promotion.
+All Flutter CI / Story PNG export tests passed. Marketing version 2.5.20; calculate a new build number with preflight.
+Upload signed IPA to Apple TestFlight INTERNAL TESTERS ONLY. Do NOT release public App Store or Android Play Market.

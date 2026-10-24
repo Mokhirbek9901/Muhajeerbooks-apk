@@ -177,6 +177,18 @@ String _storyActionLabel(Book book) =>
         ? 'Oldindan buyurtma uchun bosing'
         : (book.inStock ? storyOrderLabel : 'Kitob haqida batafsil');
 
+/// Public Story artwork contains no inventory counts or publisher names.
+String storyShippingHighlight(Book book) => book.preorderEnabled
+    ? 'Oldindan buyurtma qabul qilinadi'
+    : '4 ta kitobdan boshlab pochta bepul';
+
+String storyCategoryHighlight(Book book) {
+  final category = book.category.trim();
+  if (category.isEmpty || category == 'Boshqalar' ||
+      category == 'Ko‘rsatilmagan') return 'Yoqimli mutolaa';
+  return category;
+}
+
 String _storyDescription(Book book) {
   final value = book.description.replaceAll(RegExp(r'\s+'), ' ').trim();
   if (book.preorderEnabled) {
@@ -323,7 +335,6 @@ String _storySemanticText(Book book) {
   return [
     book.title,
     book.author,
-    book.publisher,
     book.description,
   ].join(' ').toLowerCase();
 }
@@ -548,9 +559,10 @@ Future<Uint8List> _renderAiStory(
   center(book.title, 1035, 48, ink, FontWeight.w900);
   center(storyPrice(book), 1155, 66, teal, FontWeight.w900, lines:1);
   center('🚚  Yetkazib berish: ₩4,000', 1250, 22, const Color(0xFF49666E), FontWeight.w700, lines:1);
-  center(book.preorderEnabled ? 'Oldindan sotuvda' : (book.stock > 0 ? 'Omborda: ${book.stock} dona' : 'Hozircha mavjud emas'), 1300, 28,
-      book.stock > 0 ? const Color(0xFF187A55) : const Color(0xFFB53B3B), FontWeight.w800, lines:1);
-  center(_storyDescription(book), 1365, 22, ink, FontWeight.w500, width:840, lines:3);
+  center(storyShippingHighlight(book), 1300, 27, teal,
+      FontWeight.w800, lines: 1);
+  center(_storyDescription(book), 1355, 25, ink, FontWeight.w500,
+      width: 850, lines: 5);
 
   final picture=recorder.endRecording();
   final image=await picture.toImage((1080*safeScale).round(),(1920*safeScale).round());
@@ -908,7 +920,7 @@ Future<Uint8List> _renderStoryDescriptionContinuation(
 
 /// Reliable local layouts. No paid AI or network-generated background.
 /// The simplified version intentionally contains only cover, price, delivery
-/// and stock availability; full versions contain the product essentials.
+/// and a shipping benefit; full versions contain the product essentials.
 Future<Uint8List> _renderSevenStoryDesign(
   Book book,
   BookStoryTemplate template, {
@@ -1070,9 +1082,7 @@ Future<Uint8List> _renderSevenStoryDesign(
   paintImage(canvas: canvas, rect: photoRect, image: cover,
       fit: BoxFit.contain, filterQuality: FilterQuality.high);
 
-  final availability = book.preorderEnabled
-      ? 'Oldindan buyurtma'
-      : book.inStock ? 'Omborda: ${book.stock} dona' : 'Hozircha mavjud emas';
+  final benefit = storyShippingHighlight(book);
   const delivery = 'Yetkazib berish: ₩4,000';
 
   if (simple) {
@@ -1088,8 +1098,8 @@ Future<Uint8List> _renderSevenStoryDesign(
         Paint()..color = background..strokeWidth = 4);
     fittedText(delivery, const Rect.fromLTWH(115, 1610, 850, 74), 38,
         maxLines: 1);
-    fittedText(availability, const Rect.fromLTWH(115, 1700, 850, 76), 39,
-        color: accent, weight: FontWeight.w800, maxLines: 1);
+    fittedText(benefit, const Rect.fromLTWH(115, 1690, 850, 90), 34,
+        color: accent, weight: FontWeight.w800, maxLines: 2);
   } else {
     final darkTheme = template == BookStoryTemplate.premiumEdition ||
         template == BookStoryTemplate.nightEdition ||
@@ -1121,18 +1131,18 @@ Future<Uint8List> _renderSevenStoryDesign(
       fittedText(author, const Rect.fromLTWH(124, 1238, 832, 44), 27,
           color: textColor, maxLines: 1);
     }
-    if (book.publisher.trim().isNotEmpty) {
-      fittedText(book.publisher.trim(), const Rect.fromLTWH(124, 1276, 832, 36), 23,
-          color: textColor.withAlpha(210), maxLines: 1);
-    }
+    // Category is more useful to readers than publisher metadata.
+    fittedText(storyCategoryHighlight(book),
+        const Rect.fromLTWH(124, 1276, 832, 40), 24,
+        color: textColor.withAlpha(210), maxLines: 1);
     fittedText(storyPrice(book), const Rect.fromLTWH(100, 1310, 880, 95), 61,
         color: darkTheme ? accent : const Color(0xFF08786E),
         weight: FontWeight.w900, maxLines: 2);
     fittedText(delivery, const Rect.fromLTWH(100, 1408, 880, 45), 28,
         color: textColor, maxLines: 1);
-    fittedText(availability, const Rect.fromLTWH(100, 1460, 880, 51), 31,
+    fittedText(benefit, const Rect.fromLTWH(100, 1458, 880, 58), 28,
         color: darkTheme ? accent : const Color(0xFF13725E),
-        weight: FontWeight.w800, maxLines: 1);
+        weight: FontWeight.w800, maxLines: 2);
     // Use the previously empty lower half of the SAME card. If the copy is
     // still longer, the rest appears on separate readable story slides.
     fittedText(bookStoryDescriptionPages(book).first,
@@ -1250,11 +1260,6 @@ Future<Uint8List> renderBookStory(
   final ink = palette.ink;
   final teal = palette.accent;
   final cream = palette.background;
-  const green = Color(0xFF187A55);
-  const greenSoft = Color(0xFFE4F4EC);
-  const red = Color(0xFFB53B3B);
-  const redSoft = Color(0xFFFBE8E8);
-  const muted = Color(0xFF66787D);
   const deliveryText = Color(0xFF49666E);
   const deliverySoft = Color(0xFFEAF1F0);
 
@@ -1564,29 +1569,13 @@ Future<Uint8List> renderBookStory(
     weight: FontWeight.w900,
   );
 
-  final publisher = book.publisher.trim();
-  final hasPublisher = publisher.isNotEmpty && publisher != 'Ko‘rsatilmagan';
-  final publisherMetrics = hasPublisher
-      ? _fitText(
-          value: publisher,
-          maxWidth: 850,
-          maxHeight: 40,
-          maxFontSize: 23,
-          minFontSize: 17,
-          lineHeight: 1.06,
-          maxLines: 1,
-        )
-      : const _TextMetrics(0, Size.zero);
-
   const deliveryHeight = 44.0;
-  const stockHeight = 58.0;
+  const benefitHeight = 58.0;
   const gapTitleAuthor = 13.0;
   const gapAuthorPrice = 13.0;
   const gapPriceDelivery = 6.0;
-  const gapDeliveryStock = 10.0;
-  const gapStockPublisher = 11.0;
-  const gapPublisherDescription = 16.0;
-  const gapStockDescription = 18.0;
+  const gapDeliveryBenefit = 12.0;
+  const gapBenefitDescription = 25.0;
 
   final minBlockTop = contentStart;
   final maxBlockTop = contentStart + 38;
@@ -1598,11 +1587,9 @@ Future<Uint8List> renderBookStory(
       price.size.height +
       gapPriceDelivery +
       deliveryHeight +
-      gapDeliveryStock +
-      stockHeight +
-      (hasPublisher
-          ? gapStockPublisher + publisherMetrics.size.height + gapPublisherDescription
-          : gapStockDescription) +
+      gapDeliveryBenefit +
+      benefitHeight +
+      gapBenefitDescription +
       22.0;
 
   final descriptionMaxHeight =
@@ -1736,60 +1723,41 @@ Future<Uint8List> renderBookStory(
     ),
   );
   deliveryPainter.dispose();
-  y += deliveryHeight + gapDeliveryStock;
-
-  final stockLabel =
-      book.stock > 0 ? 'Omborda: ${book.stock} dona' : 'Hozircha mavjud emas';
-  final stockForeground = book.stock > 0 ? green : red;
-  final stockBackground = book.stock > 0 ? greenSoft : redSoft;
-  final stockPainter = TextPainter(
+  y += deliveryHeight + gapDeliveryBenefit;
+  final benefitPainter = TextPainter(
     text: TextSpan(
-      text: stockLabel,
+      text: storyShippingHighlight(book),
       style: TextStyle(
         fontFamily: 'Roboto',
-        fontSize: 28,
+        fontSize: 26,
         fontWeight: FontWeight.w800,
-        color: stockForeground,
+        color: teal,
       ),
     ),
     textDirection: ui.TextDirection.ltr,
     textAlign: TextAlign.center,
-    maxLines: 1,
-  )..layout(maxWidth: 700);
-  final pillWidth = (stockPainter.width + 58).clamp(290.0, 720.0).toDouble();
-  final pillCenterY = y + stockHeight / 2;
-  final pillRect = RRect.fromRectAndRadius(
+    maxLines: 2,
+    ellipsis: '…',
+  )..layout(maxWidth: 810);
+  final benefitWidth = (benefitPainter.width + 56)
+      .clamp(390.0, 900.0).toDouble();
+  final benefitCenterY = y + benefitHeight / 2;
+  final benefitPill = RRect.fromRectAndRadius(
     Rect.fromCenter(
-      center: Offset(540, pillCenterY),
-      width: pillWidth,
-      height: stockHeight,
+      center: Offset(540, benefitCenterY),
+      width: benefitWidth,
+      height: benefitHeight,
     ),
     const Radius.circular(30),
   );
-  canvas.drawRRect(pillRect, Paint()..color = stockBackground);
-  stockPainter.paint(
+  canvas.drawRRect(benefitPill, Paint()..color = deliverySoft);
+  benefitPainter.paint(
     canvas,
-    Offset((1080 - stockPainter.width) / 2, pillCenterY - stockPainter.height / 2),
+    Offset((1080 - benefitPainter.width) / 2,
+        benefitCenterY - benefitPainter.height / 2),
   );
-  stockPainter.dispose();
-  y += stockHeight;
-
-  if (hasPublisher) {
-    y += gapStockPublisher;
-    final publisherSize = _paintText(
-      canvas,
-      publisher,
-      y,
-      publisherMetrics,
-      width: 850,
-      color: muted,
-      lineHeight: 1.06,
-      maxLines: 1,
-    );
-    y += publisherSize.height + gapPublisherDescription;
-  } else {
-    y += gapStockDescription;
-  }
+  benefitPainter.dispose();
+  y += benefitHeight + gapBenefitDescription;
 
   final descriptionSize = _paintText(
     canvas,
@@ -1872,7 +1840,7 @@ Future<Uint8List> _renderOldCurrentStory(
   _paintText(canvas,storyPrice(book),1020,price,width:760,color:teal,weight:FontWeight.w900,lineHeight:1,maxLines:1);
 
   centerText('🚚  Yetkazib berish: ₩4,000', 1100, 20, const Color(0xFF49666E), FontWeight.w700);
-  centerText(book.preorderEnabled?'Oldindan sotuvda':(book.stock>0?'Omborda: ${book.stock} dona':'Hozircha mavjud emas'), 1152, 27, book.stock>0?const Color(0xFF187A55):const Color(0xFFB53B3B), FontWeight.w800);
+  centerText(storyShippingHighlight(book), 1152, 27, teal, FontWeight.w800);
   centerText(_storyDescription(book), 1220, 24, ink, FontWeight.w500, width:900);
 
   final picture=recorder.endRecording();
@@ -2979,9 +2947,9 @@ Future<Uint8List> _renderAlternativeBookStory(
   }
   textBox(storyPrice(book), Rect.fromLTWH(left + 10, infoTop + 32, cardW - 20, 80), 31, weight: FontWeight.w900, color: teal, maxLines: 1);
   textBox('Yetkazib berish:\n₩4,000', Rect.fromLTWH(left + cardW + gap + 10, infoTop + 28, cardW - 20, 88), 22, weight: FontWeight.w800, color: cardText);
-  textBox(book.stock > 0 ? 'Omborda:\n${book.stock} dona' : 'Hozircha\nmavjud emas',
-      Rect.fromLTWH(left + (cardW + gap) * 2 + 10, infoTop + 28, cardW - 20, 88), 22, weight: FontWeight.w800,
-      color: book.stock > 0 ? const Color(0xFF187A55) : const Color(0xFFB53B3B));
+  textBox(book.preorderEnabled ? 'Oldindan\\nbuyurtma' : '4+ kitobda\\npochta bepul',
+      Rect.fromLTWH(left + (cardW + gap) * 2 + 10, infoTop + 28, cardW - 20, 88),
+      22, weight: FontWeight.w800, color: teal);
 
   final description = _storyDescription(book);
   final descriptionOnDark = dark ||

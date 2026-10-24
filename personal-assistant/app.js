@@ -3452,7 +3452,7 @@
       }
     }
     const oldRow=original?{...original}:null;
-    const row=original||{id:makeId(),saved:true,originBatchId:makeId(),originBatchDate:today()};
+    const row=original||{id:makeId(),saved:true,originBatchId:makeId(),originBatchDate:today(),originRate:state.bookCostRate};
     row.title=title;row.quantity=fields.quantity;row.price=fields.price;row.grams=fields.grams;
     if(!original?.muhajeerId)row.salePrice=fields.salePrice;
     row.saved=true;
@@ -3653,7 +3653,7 @@
         row.batches=[...(row.batches||[]),batch];row.quantity+=entry.quantity;
         items.push({type:'batch',id:row.id,batchId:batch.id,quantity:entry.quantity});updated++;
       }else{
-        const id=makeId();state.bookCosts.push({id,title,quantity:entry.quantity,price:null,grams:null,saved:false,originBatchId:groupId,originBatchDate:groupDate});
+        const id=makeId();state.bookCosts.push({id,title,quantity:entry.quantity,price:null,grams:null,saved:false,originBatchId:groupId,originBatchDate:groupDate,originRate:state.bookCostRate});
         items.push({type:'new',id,quantity:entry.quantity});added++;
       }
       units+=entry.quantity;
@@ -3890,7 +3890,7 @@
     });
     $('costImportBtn').addEventListener('click',()=>addCostTitles($('costBulkNames').value));
     $('costAddBtn').addEventListener('click',()=>{
-      const row={id:makeId(),title:'',price:null,grams:null,saved:false};
+      const row={id:makeId(),title:'',price:null,grams:null,saved:false,originBatchId:makeId(),originBatchDate:today(),originRate:state.bookCostRate};
       state.bookCosts.push(row);costView='entry';costEditingId='';costEditingAll=false;costEditingIds.clear();renderBookCosts();persistBookCosts();
       const last=$('costBooksList').lastElementChild;
       last.querySelector('input').focus();last.scrollIntoView({block:'nearest',behavior:'smooth'});

@@ -58,8 +58,9 @@ test('legacy records remain untouched by new UI and the catalog is unique by nor
  const first=app.indexOf('  function renderCostPlainCatalog(){');
  const last=app.indexOf('  function renderCostReadyList(){',first);
  const render=app.slice(first,last);
- assert.ok(render.includes("state.bookCosts.slice().reverse()"));
- assert.ok(render.includes("if(!byTitle.has(normalized))"));
+ assert.ok(render.includes("window.BookCostListUI.filterBooks"));
+ const ui=read('book-cost-list-ui.js');
+ assert.ok(ui.includes("if(!unique.has(key))"));
  assert.ok(!render.includes('state.bookCosts='));
 });
 test('cache and navigation show the minimal v83 variant',()=>{

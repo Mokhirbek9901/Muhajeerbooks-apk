@@ -80,13 +80,13 @@ test('price-only book still shows purchase price and KRW; weight-only shows ship
  assert.equal(costs.calculate(costsRow,8400).total,null);
  assert.equal(costs.calculate({price:10000,grams:250},8400).total,12100);
 });
-test('v86 html and SW load correct scripts and there is a multiline textarea',()=>{
+test('v87 html and SW load correct scripts and there is a multiline textarea',()=>{
  const html=read('index.html'),sw=read('sw.js');
  for(const f of ['app.js','styles.css','book-cost-simple.js','book-cost-list-ui.js']){
- assert.ok(html.includes(f+'?v=86'),f);
- assert.ok(sw.includes(f+'?v=86'),f);
+ assert.ok(html.includes(f+'?v=87'),f);
+ assert.ok(sw.includes(f+'?v=87'),f);
  }
- assert.ok(sw.includes('bek-yordamchi-v86'));
+ assert.ok(sw.includes('bek-yordamchi-v87'));
  assert.ok(html.indexOf('book-cost-list-ui.js')<html.indexOf('app.js'));
  assert.ok(html.includes('id="costBulkPasteNames" rows="10"'));
  assert.ok(html.includes('id="costBulkPasteCount"'));

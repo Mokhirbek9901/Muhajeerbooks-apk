@@ -28,12 +28,12 @@ test('old filter options preserved, new option visible in real select',()=>{
     assert.ok(section.includes(label),label);
   }
 });
-test('v85 cache bust and search still use visible selection',()=>{
+test('v87 cache bust and search still use visible selection',()=>{
   const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
   const app=fs.readFileSync(path.join(root,'app.js'),'utf8');
-  assert.ok(sw.includes('bek-yordamchi-v85'));
-  assert.ok(html.includes('book-cost-list-ui.js?v=85'));
-  assert.ok(sw.includes('book-cost-list-ui.js?v=85'));
+  assert.ok(sw.includes('bek-yordamchi-v87'));
+  assert.ok(html.includes('book-cost-list-ui.js?v=87'));
+  assert.ok(sw.includes('book-cost-list-ui.js?v=87'));
   assert.ok(app.includes("const choice=$('costPlainListFilter').value||'newest'"));
   assert.ok(app.includes("choice==='missing-price'"));
 });

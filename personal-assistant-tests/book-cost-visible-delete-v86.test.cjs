@@ -26,19 +26,19 @@ test('editor delete triggers the existing double-confirmed removal, not an immed
  assert.ok(deleter.includes('window.confirm('));
  assert.ok(deleter.indexOf('window.confirm(')<deleter.indexOf('state.bookCosts=before.filter('));
 });
-test('home and list show visible action, including incomplete book cards',()=>{
+test('home and list show edit only, while editor keeps one confirmed delete',()=>{
  const app=read('app.js');
  const card=app.slice(app.indexOf('  function costPlainCard(row){'),app.indexOf('  function deleteCostPlainBook(id){'));
- assert.equal(card.split('data-cost-remove').length-1,2);
- assert.ok(card.includes('cost-plain-remove'));
- assert.ok(app.includes("deleteCostPlainBook(remove.dataset.costRemove)"));
- assert.ok(app.includes("deleteCostPlainBook(removeBook.dataset.costRemove)"));
+ assert.equal(card.split('data-cost-remove').length-1,0);
+ assert.ok(card.includes('data-cost-edit'));
+ assert.ok(!app.includes('data-cost-delete'));
+ assert.ok(app.includes("deleteCostPlainBook(id)"));
 });
 test('versioned HTML and offline assets are consistent',()=>{
  const html=read('index.html'),sw=read('sw.js');
- assert.ok(sw.includes('bek-yordamchi-v86'));
+ assert.ok(sw.includes('bek-yordamchi-v87'));
  for(const file of ['app.js','styles.css','book-cost-list-ui.js']){
- assert.ok(html.includes(file+'?v=86'));
- assert.ok(sw.includes(file+'?v=86'));
+ assert.ok(html.includes(file+'?v=87'));
+ assert.ok(sw.includes(file+'?v=87'));
  }
 });

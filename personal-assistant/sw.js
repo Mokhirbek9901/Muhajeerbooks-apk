@@ -1,3 +1,4 @@
+/* Kitob tan narxi v78: bir donalik katalog va partiyalar tarixi. */
 const CACHE='bek-yordamchi-v78';
 const ASSETS=['./reading-timer.js?v=72','./reading-device-sync.js?v=72','./','./index.html','./styles.css?v=78','./app.js?v=78','./book-costs.js?v=78','./book-cost-device-sync.js?v=72','./book-cost-export.js?v=72','./book-cost-sync.js?v=72','./book-cost-sync-config.js?v=72','./backup-migration.js?v=72','./decimal-fx.js?v=72','./currency-converter.js?v=72','./currency-rate-editor.js?v=72','./workspaces.js?v=72','./korea-products.js?v=72','./manifest.webmanifest','./icon.svg'];
 

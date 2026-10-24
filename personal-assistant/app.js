@@ -3269,16 +3269,28 @@
       const t=group.totals;
       const name=group.legacy?'Eski yozuvlar':(order.get(group.id)||'')+'-partiya';
       const heading=escapeHtml(name);
-      const rows=group.rows.map(row=>{
-        const calc=costs.calculate(row,row.rate??state.bookCostRate);
-        const qty=costs.quantity(row.quantity)??0;
-        const total=calc.total===null?null:window.YordamchiCurrency.ratio([calc.total,qty]);
-        const profit=total===null||costs.amount(row.salePrice)===null?null:
-          window.YordamchiCurrency.ratio([window.YordamchiCurrency.add(row.salePrice,-calc.total),qty]);
-        return '<li><div><b>'+escapeHtml(row.title)+'</b><small>'+qty+' ta · 1 dona: '+money(calc.total)+'</small></div>'+
-          '<div class="cost-partiya-line-totals"><strong>'+money(total)+'</strong>'+
-          '<small>Foyda: '+money(profit)+'</small></div></li>';
-      }).join('');
+      // Same title can arrive twice into the same batch. Present one title
+      // with its summed count and finances instead of duplicate rows/cards.
+      const consolidated=new Map();
+      for(const part of group.rows){
+        const key=costs.key(part.title),qty=costs.quantity(part.quantity)??0;
+        const value=costs.calculate(part,part.rate??state.bookCostRate).total;
+        const sale=costs.amount(part.salePrice);
+        const prev=consolidated.get(key)||{title:part.title,qty:0,total:0,profit:0,complete:true,saleReady:true};
+        prev.qty+=qty;
+        if(value===null){prev.complete=false;prev.saleReady=false;}
+        else{
+          prev.total=window.YordamchiCurrency.add(prev.total,window.YordamchiCurrency.ratio([value,qty]));
+          if(sale===null)prev.saleReady=false;
+          else prev.profit=window.YordamchiCurrency.add(prev.profit,
+            window.YordamchiCurrency.ratio([window.YordamchiCurrency.add(sale,-value),qty]));
+        }
+        consolidated.set(key,prev);
+      }
+      const rows=[...consolidated.values()].map(part=>
+        '<li><div><b>'+escapeHtml(part.title)+'</b><small>'+part.qty+' ta</small></div>'+
+        '<div class="cost-partiya-line-totals"><strong>'+(part.complete?money(part.total):'—')+'</strong>'+
+        '<small>Foyda: '+(part.saleReady?money(part.profit):'—')+'</small></div></li>').join('');
       return '<article class="cost-partiya-card">'+
         '<div class="cost-partiya-top"><div><span class="cost-partiya-eyebrow">'+(group.legacy?'PARTIYASI NOMA’LUM':'PARTIYA HISOBI')+'</span>'+
         '<h4>'+heading+'</h4><p>'+(group.date?escapeHtml(group.date)+' · ':'')+group.bookCount+' xil kitob · '+t.quantityTotal+' ta kelgan</p></div></div>'+

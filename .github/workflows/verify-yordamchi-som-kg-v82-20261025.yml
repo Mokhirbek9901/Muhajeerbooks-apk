@@ -1,0 +1,22 @@
+name: Verify Yordamchi som and kg v82
+on:
+  push:
+    branches:
+      - feature/yordamchi-global-kg-and-uzs-v82-20261025
+  workflow_dispatch:
+jobs:
+  focused-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax checks
+        run: |
+          node --check personal-assistant/app.js
+          node --check personal-assistant/book-cost-simple.js
+          node --check personal-assistant/sw.js
+      - name: Focused regressions
+        run: |
+          node --test personal-assistant-tests/book-cost-som-kg-v82.test.cjs personal-assistant-tests/book-cost-simple-v81.test.cjs personal-assistant-tests/book-cost-actual-kg-v80.test.cjs personal-assistant-tests/book-cost-separation-v78.test.cjs

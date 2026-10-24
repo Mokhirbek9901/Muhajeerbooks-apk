@@ -1,0 +1,26 @@
+name: Verify Yordamchi book costs (staging)
+on:
+  push:
+    branches:
+      - feature/book-cost-clean-batches-20261025
+    paths:
+      - 'personal-assistant/**'
+      - 'personal-assistant-tests/**'
+      - '.github/workflows/verify-yordamchi-stage-20261025.yml'
+permissions:
+  contents: read
+jobs:
+  node-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate JavaScript syntax
+        run: |
+          node --check personal-assistant/app.js
+          node --check personal-assistant/book-costs.js
+          node --check personal-assistant/sw.js
+      - name: Run complete Yordamchi regression tests
+        run: node --test personal-assistant-tests/*.test.cjs

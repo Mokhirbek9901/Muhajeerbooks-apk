@@ -525,7 +525,7 @@ Future<Uint8List> _renderAiStory(
   required Uint8List backgroundBytes,
   double renderScale = 1.0,
 }) async {
-  final safeScale = renderScale.clamp(0.5, 1.0).toDouble();
+  final safeScale = renderScale.clamp(0.25, 1.0).toDouble();
   final cover = await _decodeStoryCover(coverBytes);
   final background = await _decodeStoryCover(backgroundBytes);
   final recorder = ui.PictureRecorder();
@@ -779,7 +779,7 @@ Rect storyCoverLayoutBounds(BookStoryTemplate template) => switch (template) {
   BookStoryTemplate.neonNight =>
     const Rect.fromLTWH(62, 180, 820, 865),
   BookStoryTemplate.galleryLine =>
-    const Rect.fromLTWH(272, 220, 708, 810),
+    const Rect.fromLTWH(186, 220, 708, 810),
   BookStoryTemplate.goldenOrbit =>
     const Rect.fromLTWH(138, 178, 802, 866),
   BookStoryTemplate.obsidianEdition =>
@@ -795,7 +795,7 @@ Rect storyCoverLayoutBounds(BookStoryTemplate template) => switch (template) {
   BookStoryTemplate.warmEdition =>
     const Rect.fromLTWH(105, 180, 866, 870),
   BookStoryTemplate.saleEdition =>
-    const Rect.fromLTWH(225, 175, 758, 870),
+    const Rect.fromLTWH(161, 175, 758, 870),
   _ => const Rect.fromLTWH(90, 142, 900, 950),
 };
 
@@ -1013,7 +1013,7 @@ Future<Uint8List> _renderSevenStoryDesign(
   double renderScale = 1,
   int descriptionPage = 0,
 }) async {
-  final scale = renderScale.clamp(0.5, 1.0).toDouble();
+  final scale = renderScale.clamp(0.25, 1.0).toDouble();
   if (descriptionPage > 0) {
     return _renderStoryDescriptionContinuation(book, template,
         page: descriptionPage, coverBytes: coverBytes, renderScale: scale);
@@ -1507,8 +1507,9 @@ Future<Uint8List> renderBookStory(
   double renderScale = 1.0,
   String? adminCode,
   int descriptionPage = 0,
+  bool previewOnly = false,
 }) async {
-  final safeScale = renderScale.clamp(0.5, 1.0).toDouble();
+  final safeScale = renderScale.clamp(0.25, 1.0).toDouble();
 
   if (const {
     BookStoryTemplate.quickPrice,
@@ -1578,7 +1579,9 @@ Future<Uint8List> renderBookStory(
 
   // Avto dizayn avval muqovani AI bilan ko‘rib, aynan shu kitobga mos
   // yangi fon yaratadi. API/billing/tarmoq xatosida eski lokal Avto davom etadi.
-  final aiBackground = await _generateAiStoryBackground(book, bytes, adminCode: adminCode);
+  // Grid thumbnails are real local Story previews, not AI/network requests.
+  final aiBackground = previewOnly ? null
+      : await _generateAiStoryBackground(book, bytes, adminCode: adminCode);
   if (aiBackground != null) {
     try {
       return await _renderAiStory(
@@ -2102,7 +2105,7 @@ Future<Uint8List> _renderOldCurrentStory(
   required Uint8List coverBytes,
   double renderScale = 1.0,
 }) async {
-  final safeScale = renderScale.clamp(0.5, 1.0).toDouble();
+  final safeScale = renderScale.clamp(0.25, 1.0).toDouble();
   ui.Image cover;
   try {
     cover = await _decodeStoryCover(coverBytes);
@@ -2168,7 +2171,7 @@ Future<Uint8List> _renderAlternativeBookStory(
   Uint8List? coverBytes,
   double renderScale = 1.0,
 }) async {
-  final safeScale = renderScale.clamp(0.5, 1.0).toDouble();
+  final safeScale = renderScale.clamp(0.25, 1.0).toDouble();
   Uint8List? bytes = coverBytes ?? await _downloadStoryCover(book);
   bytes ??= (await rootBundle.load('assets/images/muhajeer_logo.jpg')).buffer.asUint8List();
   ui.Image cover;

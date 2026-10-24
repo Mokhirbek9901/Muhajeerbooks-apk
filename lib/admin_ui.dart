@@ -482,7 +482,7 @@ class _AdminApi {
   }
 
   Future<Map<String,dynamic>> researchBook({required String title, String author='', String publisher=''}) async {
-    final r=await http.post(_serverUri('/api/admin-ai/book-research'),headers:{'Content-Type':'application/json'},body:jsonEncode({'admin_code':secret,'title':title,'author':author,'publisher':publisher})).timeout(const Duration(seconds:120));
+    final r=await http.post(_serverUri('/api/admin-ai/book-research'),headers:{'Content-Type':'application/json'},body:jsonEncode({'admin_code':secret,'title':title,'author':author,'publisher':publisher})).timeout(const Duration(seconds:210));
     final data=jsonDecode(r.body);
     if(r.statusCode!=200 || data is! Map) throw StateError(data is Map ? (data['error']??'Kitob topilmadi').toString() : 'Kitob topilmadi');
     final result=Map<String,dynamic>.from(data);
@@ -495,7 +495,7 @@ class _AdminApi {
       _serverUri('/api/admin-ai/book-price-research'),
       headers:{'Content-Type':'application/json'},
       body:jsonEncode({'admin_code':secret,'title':title}),
-    ).timeout(const Duration(seconds:180));
+    ).timeout(const Duration(seconds:210));
     final raw=jsonDecode(r.body);
     if(r.statusCode!=200 || raw is! Map) {
       throw StateError(raw is Map ? (raw['error']??'Narx tadqiqoti ishlamadi').toString() : 'Narx tadqiqoti ishlamadi');
@@ -509,7 +509,7 @@ class _AdminApi {
       _serverUri('/api/admin-ai/books-bulk-research'),
       headers:{'Content-Type':'application/json'},
       body:jsonEncode({'admin_code':secret,'books':payload}),
-    ).timeout(const Duration(seconds:180));
+    ).timeout(const Duration(seconds:210));
     final raw=jsonDecode(r.body);
     if(r.statusCode!=200 || raw is! Map) {
       throw StateError(raw is Map ? (raw['error']??'Ommaviy AI qidiruv ishlamadi').toString() : 'Ommaviy AI qidiruv ishlamadi');

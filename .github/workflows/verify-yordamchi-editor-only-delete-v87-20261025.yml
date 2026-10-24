@@ -1,0 +1,21 @@
+name: Verify Yordamchi editor-only delete v87
+on:
+  push:
+    branches:
+      - feature/yordamchi-editor-only-delete-v87-20261025
+  workflow_dispatch:
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check syntax
+        run: |
+          node --check personal-assistant/app.js
+          node --check personal-assistant/sw.js
+      - name: Check editor only delete plus price filtering and imports
+        run: |
+          node --test personal-assistant-tests/book-cost-editor-only-delete-v87.test.cjs personal-assistant-tests/book-cost-visible-delete-v86.test.cjs personal-assistant-tests/book-cost-safe-delete-v85.test.cjs personal-assistant-tests/book-cost-missing-price-v85.test.cjs personal-assistant-tests/book-cost-paste-v84.test.cjs personal-assistant-tests/book-cost-filter-bulk-v83.test.cjs personal-assistant-tests/book-cost-som-kg-v82.test.cjs personal-assistant-tests/book-cost-simple-v81.test.cjs personal-assistant-tests/book-cost-actual-kg-v80.test.cjs personal-assistant-tests/book-cost-separation-v78.test.cjs

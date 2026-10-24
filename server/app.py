@@ -25,7 +25,7 @@ def _limited(ip):
 
 @app.get("/health")
 def health():
-    return jsonify(ok=True, ai=bool(os.getenv("OPENAI_API_KEY")))
+    return jsonify(ok=True, ai=bool(os.getenv("OPENAI_API_KEY")), ai_research_revision="20261025b")
 
 @app.post("/api/ai-story-background")
 def ai_story_background():

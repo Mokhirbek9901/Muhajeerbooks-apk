@@ -2904,3 +2904,5 @@ body[data-workspace="costs"] #costReportPanel .cost-report-breakdown{margin-top:
   body[data-workspace="costs"] #costReportPanel{padding:12px}
   body[data-workspace="costs"] .cost-unit-book .cost-unit-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+body[data-workspace="costs"] #costSimpleQuantityWrap[hidden],body[data-workspace="costs"] #costBatchPicker[hidden]{display:none!important}

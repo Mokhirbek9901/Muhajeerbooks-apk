@@ -50,7 +50,7 @@ test('home catalog shows entire list and list uses the same filter engine',()=>{
 });
 test('filter is a visible control with the four expected choices',()=>{
  const html=read('index.html'),css=read('styles.css');
- for(const val of ['newest','oldest','missing-weight','incomplete'])assert.ok(html.includes('<option value="'+val+'">'),val);
+ for(const val of ['newest','oldest','missing-price','missing-weight','incomplete'])assert.ok(html.includes('<option value="'+val+'">'),val);
  assert.ok(html.includes('id="costPlainListFilter"'));
  assert.ok(css.includes('body[data-workspace="costs"] #screen-book-costs #costPlainListFilter{display:block!important'));
 });
@@ -88,12 +88,12 @@ test('pasted books are saved title-only and duplicate names are skipped',()=>{
  assert.ok(text.includes('state.bookCosts=before'));
  assert.ok(!text.includes('pushCostCloud('));
 });
-test('v84 code and assets are version matched and loaded before app',()=>{
+test('v85 code and assets are version matched and loaded before app',()=>{
  const html=read('index.html'),sw=read('sw.js');
- assert.ok(sw.includes('bek-yordamchi-v84'));
+ assert.ok(sw.includes('bek-yordamchi-v85'));
  for(const file of ['app.js','styles.css','book-cost-simple.js','book-cost-list-ui.js']){
- assert.ok(html.includes(file+'?v=84'),file+' html');
- assert.ok(sw.includes(file+'?v=84'),file+' sw');
+ assert.ok(html.includes(file+'?v=85'),file+' html');
+ assert.ok(sw.includes(file+'?v=85'),file+' sw');
  }
  assert.ok(html.indexOf('book-cost-list-ui.js')<html.indexOf('app.js'));
 });

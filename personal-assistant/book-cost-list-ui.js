@@ -4,7 +4,7 @@
   if(typeof module==='object'&&module.exports)module.exports=api;else root.BookCostListUI=api;
 })(typeof globalThis==='object'?globalThis:this,function(){
   'use strict';
-  function missingPrice(row){return row.price===null||row.price===undefined;}
+  function missingPrice(row){return (row.price===null||row.price===undefined)&&(row.priceUzs===null||row.priceUzs===undefined||String(row.priceUzs).trim()==='');}
   function missingWeight(row){return row.grams===null||row.grams===undefined;}
   function filterBooks(rows,choice='newest',search='',normalize=value=>String(value||'').toLowerCase()){
     const unique=new Map();
@@ -16,6 +16,7 @@
     });
     let values=[...unique.values()];
     if(search){const q=normalize(search);values=values.filter(item=>normalize(item.row.title).includes(q));}
+    if(choice==='missing-price')values=values.filter(item=>missingPrice(item.row));
     if(choice==='missing-weight')values=values.filter(item=>missingWeight(item.row));
     if(choice==='incomplete')values=values.filter(item=>missingPrice(item.row)||missingWeight(item.row));
     if(choice==='oldest')values.sort((a,b)=>a.index-b.index);

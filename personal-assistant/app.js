@@ -3401,7 +3401,7 @@
     const shown=select(state.bookCosts,choice,search,costs.key);
     $('costFilteredCount').textContent=shown.length+' / '+all.length+' ta kitob';
     $('costReadyList').innerHTML=shown.length?shown.map(costPlainCard).join(''):
-      '<div class="cost-plain-empty">'+(search||choice==='missing-weight'||choice==='incomplete'?'Mos kitob topilmadi. Boshqa filtrni tanlang.':'Hali kitob saqlanmagan.')+'</div>';
+      '<div class="cost-plain-empty">'+(search||choice==='missing-price'||choice==='missing-weight'||choice==='incomplete'?'Mos kitob topilmadi. Boshqa filtrni tanlang.':'Hali kitob saqlanmagan.')+'</div>';
   }
   function renderCostReadyList(){
     $('costRateSummary').textContent='1 kg = '+formatMoney(state.bookCostRate,'KRW')+' · 100 g = '+formatMoney(window.YordamchiCurrency.ratio([state.bookCostRate],[10]),'KRW');

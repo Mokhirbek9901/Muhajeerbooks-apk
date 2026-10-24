@@ -1,0 +1,26 @@
+name: Verify focused Yordamchi batch accounting
+on:
+  push:
+    branches:
+      - feature/book-cost-clean-batches-20261025
+    paths:
+      - 'personal-assistant/**'
+      - 'personal-assistant-tests/**'
+      - '.github/workflows/verify-yordamchi-focused-20261025.yml'
+permissions:
+  contents: read
+jobs:
+  cost-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate changed JavaScript files
+        run: |
+          node --check personal-assistant/app.js
+          node --check personal-assistant/book-costs.js
+          node --check personal-assistant/sw.js
+      - name: Verify all newly introduced book-cost invariants
+        run: node --test personal-assistant-tests/book-cost-separation-v78.test.cjs

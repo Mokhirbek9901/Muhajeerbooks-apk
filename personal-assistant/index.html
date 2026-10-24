@@ -533,7 +533,9 @@
           <article class="cost-report-pending"><small>To‘ldirish kerak</small><strong id="costReportPending">—</strong></article>
         </div>
         <div id="costReportValues"></div>
-        <div id="costBatchReportList" class="cost-batch-report-list"></div>
+        <details class="cost-report-breakdown"><summary>Partiya tarkibi va kitoblar bo‘yicha hisob</summary>
+          <div id="costBatchReportList" class="cost-batch-report-list"></div>
+        </details>
         <details class="cost-report-extras"><summary>Eksport va tariflarni solishtirish</summary>
           <div id="costReportComparisons"></div>
           <button type="button" class="primary-button" id="costReportSheetsBtn">Sheets uchun nusxalash</button>
@@ -548,11 +550,15 @@
             <input id="costSimpleTitle" maxlength="300" placeholder="Masalan: Arosat" required>
           </label>
           <div class="cost-simple-quantity">
-            <label class="cost-simple-label" for="costSimpleQuantity">Bu partiyada nechta keldi?
+            <label class="cost-simple-label" for="costSimpleQuantity"><span id="costSimpleQtyLabel">Bu partiyada nechta keldi?</span>
               <input id="costSimpleQuantity" type="number" inputmode="numeric" min="1" max="100000" step="1" value="1" required>
             </label>
             <small>Bu partiya soni «Umumiy»da jamlanadi. Kitoblar bo‘limida son ko‘rsatilmaydi.</small>
           </div>
+          <label class="cost-simple-batch-choice" id="costSimpleBatchWrap" for="costSimpleBatch">Qaysi partiyaga qo‘shilsin?
+            <select id="costSimpleBatch"><option value="new">+ Yangi partiya yaratish</option></select>
+            <small>Bir partiyada bir nechta nomdagi kitob bo‘lsa, o‘sha partiyani tanlang.</small>
+          </label>
           <div class="cost-simple-grid">
             <label class="cost-simple-label" for="costSimplePrice">O‘zbekistonda 1 dona narxi
               <select id="costSimpleCurrency" aria-label="Xarid narxi valyutasi"><option value="UZS">so‘m (UZS)</option><option value="KRW">von (₩)</option></select>

@@ -178,10 +178,6 @@ String _storyActionLabel(Book book) =>
         : (book.inStock ? storyOrderLabel : 'Kitob haqida batafsil');
 
 /// Public Story artwork contains no inventory counts or publisher names.
-String storyShippingHighlight(Book book) => book.preorderEnabled
-    ? 'Oldindan buyurtma qabul qilinadi'
-    : '4 ta kitobdan boshlab pochta bepul';
-
 String storyCategoryHighlight(Book book) {
   final category = book.category.trim();
   if (category.isEmpty || category == 'Boshqalar' ||
@@ -559,10 +555,9 @@ Future<Uint8List> _renderAiStory(
   center(book.title, 1035, 48, ink, FontWeight.w900);
   center(storyPrice(book), 1155, 66, teal, FontWeight.w900, lines:1);
   center('🚚  Yetkazib berish: ₩4,000', 1250, 22, const Color(0xFF49666E), FontWeight.w700, lines:1);
-  center(storyShippingHighlight(book), 1300, 27, teal,
-      FontWeight.w800, lines: 1);
-  center(_storyDescription(book), 1355, 25, ink, FontWeight.w500,
-      width: 850, lines: 5);
+  // More breathing room for the actual book synopsis; no promo banner.
+  center(_storyDescription(book), 1305, 27, ink, FontWeight.w500,
+      width: 850, lines: 7);
 
   final picture=recorder.endRecording();
   final image=await picture.toImage((1080*safeScale).round(),(1920*safeScale).round());
@@ -1082,24 +1077,23 @@ Future<Uint8List> _renderSevenStoryDesign(
   paintImage(canvas: canvas, rect: photoRect, image: cover,
       fit: BoxFit.contain, filterQuality: FilterQuality.high);
 
-  final benefit = storyShippingHighlight(book);
   const delivery = 'Yetkazib berish: ₩4,000';
 
   if (simple) {
     // No logo, title, author, description, CTA or other metadata.
+    // Simple layout: price and ordinary delivery only, without stock,
+    // publisher or unsolicited free-postage advertising.
     canvas.drawRRect(
-      RRect.fromRectAndRadius(const Rect.fromLTWH(78, 1440, 924, 366),
+      RRect.fromRectAndRadius(const Rect.fromLTWH(78, 1450, 924, 332),
           const Radius.circular(36)),
       Paint()..color = Colors.white,
     );
-    fittedText(storyPrice(book), const Rect.fromLTWH(110, 1460, 860, 110), 74,
+    fittedText(storyPrice(book), const Rect.fromLTWH(110, 1480, 860, 120), 78,
         color: accent, weight: FontWeight.w900, maxLines: 2);
-    canvas.drawLine(const Offset(195, 1595), const Offset(885, 1595),
+    canvas.drawLine(const Offset(195, 1615), const Offset(885, 1615),
         Paint()..color = background..strokeWidth = 4);
-    fittedText(delivery, const Rect.fromLTWH(115, 1610, 850, 74), 38,
+    fittedText(delivery, const Rect.fromLTWH(115, 1640, 850, 95), 39,
         maxLines: 1);
-    fittedText(benefit, const Rect.fromLTWH(115, 1690, 850, 90), 34,
-        color: accent, weight: FontWeight.w800, maxLines: 2);
   } else {
     final darkTheme = template == BookStoryTemplate.premiumEdition ||
         template == BookStoryTemplate.nightEdition ||
@@ -1140,13 +1134,10 @@ Future<Uint8List> _renderSevenStoryDesign(
         weight: FontWeight.w900, maxLines: 2);
     fittedText(delivery, const Rect.fromLTWH(100, 1408, 880, 45), 28,
         color: textColor, maxLines: 1);
-    fittedText(benefit, const Rect.fromLTWH(100, 1458, 880, 58), 28,
-        color: darkTheme ? accent : const Color(0xFF13725E),
-        weight: FontWeight.w800, maxLines: 2);
-    // Use the previously empty lower half of the SAME card. If the copy is
-    // still longer, the rest appears on separate readable story slides.
+    // More room for book details where the shipping promo used to appear.
+    // Longer descriptions continue on separate Story pages.
     fittedText(bookStoryDescriptionPages(book).first,
-        const Rect.fromLTWH(115, 1518, 850, 255), 27,
+        const Rect.fromLTWH(115, 1472, 850, 305), 28,
         color: textColor, weight: FontWeight.w500, maxLines: 12);
     canvas.restore();
   }
@@ -1570,12 +1561,10 @@ Future<Uint8List> renderBookStory(
   );
 
   const deliveryHeight = 44.0;
-  const benefitHeight = 58.0;
   const gapTitleAuthor = 13.0;
   const gapAuthorPrice = 13.0;
   const gapPriceDelivery = 6.0;
-  const gapDeliveryBenefit = 12.0;
-  const gapBenefitDescription = 25.0;
+  const gapDeliveryDescription = 25.0;
 
   final minBlockTop = contentStart;
   final maxBlockTop = contentStart + 38;
@@ -1587,13 +1576,11 @@ Future<Uint8List> renderBookStory(
       price.size.height +
       gapPriceDelivery +
       deliveryHeight +
-      gapDeliveryBenefit +
-      benefitHeight +
-      gapBenefitDescription +
+      gapDeliveryDescription +
       22.0;
 
   final descriptionMaxHeight =
-      (blockBottom - minBlockTop - fixedHeight).clamp(130.0, 390.0).toDouble();
+      (blockBottom - minBlockTop - fixedHeight).clamp(130.0, 460.0).toDouble();
   final description = _storyDescription(book);
   final descriptionMetrics = _fitText(
     value: description,
@@ -1723,41 +1710,7 @@ Future<Uint8List> renderBookStory(
     ),
   );
   deliveryPainter.dispose();
-  y += deliveryHeight + gapDeliveryBenefit;
-  final benefitPainter = TextPainter(
-    text: TextSpan(
-      text: storyShippingHighlight(book),
-      style: TextStyle(
-        fontFamily: 'Roboto',
-        fontSize: 26,
-        fontWeight: FontWeight.w800,
-        color: teal,
-      ),
-    ),
-    textDirection: ui.TextDirection.ltr,
-    textAlign: TextAlign.center,
-    maxLines: 2,
-    ellipsis: '…',
-  )..layout(maxWidth: 810);
-  final benefitWidth = (benefitPainter.width + 56)
-      .clamp(390.0, 900.0).toDouble();
-  final benefitCenterY = y + benefitHeight / 2;
-  final benefitPill = RRect.fromRectAndRadius(
-    Rect.fromCenter(
-      center: Offset(540, benefitCenterY),
-      width: benefitWidth,
-      height: benefitHeight,
-    ),
-    const Radius.circular(30),
-  );
-  canvas.drawRRect(benefitPill, Paint()..color = deliverySoft);
-  benefitPainter.paint(
-    canvas,
-    Offset((1080 - benefitPainter.width) / 2,
-        benefitCenterY - benefitPainter.height / 2),
-  );
-  benefitPainter.dispose();
-  y += benefitHeight + gapBenefitDescription;
+  y += deliveryHeight + gapDeliveryDescription;
 
   final descriptionSize = _paintText(
     canvas,
@@ -1840,8 +1793,7 @@ Future<Uint8List> _renderOldCurrentStory(
   _paintText(canvas,storyPrice(book),1020,price,width:760,color:teal,weight:FontWeight.w900,lineHeight:1,maxLines:1);
 
   centerText('🚚  Yetkazib berish: ₩4,000', 1100, 20, const Color(0xFF49666E), FontWeight.w700);
-  centerText(storyShippingHighlight(book), 1152, 27, teal, FontWeight.w800);
-  centerText(_storyDescription(book), 1220, 24, ink, FontWeight.w500, width:900);
+  centerText(_storyDescription(book), 1170, 27, ink, FontWeight.w500, width:900);
 
   final picture=recorder.endRecording();
   final image=await picture.toImage((1080*safeScale).round(),(1920*safeScale).round());
@@ -2939,17 +2891,21 @@ Future<Uint8List> _renderAlternativeBookStory(
   const cardBg = Color(0xFFFDFBF6);
   const cardStroke = Color(0xFFD8D0C2);
   const cardText = Color(0xFF123F49);
-  const gap = 18.0;
-  const cardW = 275.0;
-  final left = (1080 - (cardW * 3 + gap * 2)) / 2;
-  for (var i = 0; i < 3; i++) {
-    rounded(Rect.fromLTWH(left + i * (cardW + gap), infoTop + 18, cardW, 112), cardBg, radius: 22, stroke: cardStroke);
+  // Two balanced cards give more prominence to the price and basic postage.
+  const gap = 24.0;
+  const cardW = 402.0;
+  final left = (1080 - (cardW * 2 + gap)) / 2;
+  for (var i = 0; i < 2; i++) {
+    rounded(Rect.fromLTWH(left + i * (cardW + gap), infoTop + 18,
+        cardW, 112), cardBg, radius: 22, stroke: cardStroke);
   }
-  textBox(storyPrice(book), Rect.fromLTWH(left + 10, infoTop + 32, cardW - 20, 80), 31, weight: FontWeight.w900, color: teal, maxLines: 1);
-  textBox('Yetkazib berish:\n₩4,000', Rect.fromLTWH(left + cardW + gap + 10, infoTop + 28, cardW - 20, 88), 22, weight: FontWeight.w800, color: cardText);
-  textBox(book.preorderEnabled ? 'Oldindan\nbuyurtma' : '4+ kitobda\npochta bepul',
-      Rect.fromLTWH(left + (cardW + gap) * 2 + 10, infoTop + 28, cardW - 20, 88),
-      22, weight: FontWeight.w800, color: teal);
+  textBox(storyPrice(book),
+      Rect.fromLTWH(left + 14, infoTop + 32, cardW - 28, 80), 36,
+      weight: FontWeight.w900, color: teal, maxLines: 1);
+  textBox('Yetkazib berish:\n₩4,000',
+      Rect.fromLTWH(left + cardW + gap + 14, infoTop + 28,
+          cardW - 28, 88), 26,
+      weight: FontWeight.w800, color: cardText);
 
   final description = _storyDescription(book);
   final descriptionOnDark = dark ||

@@ -43,7 +43,7 @@
     return parts;
   }
   function inventory(row,wonPerKg=DEFAULT_WON_PER_KG){
-    const qty=quantity(row.quantity),original=baseQuantity(row),sale=amount(row.salePrice),unit=calculate(row,wonPerKg);
+    const qty=quantity(row.quantity),original=baseQuantity(row),sale=amount(row.salePrice),unit=calculate(row,rate(row.originRate??row.rate??wonPerKg));
     const parts=[{...row,quantity:original,rate:rate(row.originRate??row.rate??wonPerKg)},
       ...(Array.isArray(row.batches)?row.batches:[]).map(batch=>({...batch,salePrice:row.salePrice,rate:rate(batch.rate??wonPerKg)}))];
     let readyQuantity=0,pendingQuantity=0,knownPurchase=0,knownShipping=0,knownTotal=0,knownRevenue=0,knownProfit=0,profitUnits=0;

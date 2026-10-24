@@ -21,4 +21,4 @@ jobs:
           node --check personal-assistant/book-costs.js
           node --check personal-assistant/book-cost-device-sync.js
       - name: Historical batch regression
-        run: node --test personal-assistant-tests/book-cost-batch-fx-v79.test.cjs
+        run: node --test personal-assistant-tests/book-cost-batch-fx-v79.test.cjs personal-assistant-tests/book-cost-separation-v78.test.cjs

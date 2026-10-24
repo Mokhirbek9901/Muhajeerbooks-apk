@@ -1,8 +1,6 @@
-2026-10-25 TestFlight ONLY — curated, differentiated Muhajeer Books Instagram Stories.
-Source latest main (merged PR #75, commit fac3fe994c9d798e17a9f0796094900cc4f51927).
-Remove these 15 rejected designs from the Story chooser and Smart Match: Muqova, Lifestyle, Koshin, Registon, Tun va shahar, Naqqosh, Klassik, Hozir, Atlas Luxe, Velvet, Sapphire, Editorial, Mocha Studio, Kinetic Pop (including both legacy classic IDs).
-Exactly 32 selectable Story designs remain; existing selection is reset to Avto if a hidden style was previously saved.
-Surviving designs now use significantly distinct cover geometry, premium card shapes, typographic hierarchy, price plaques, magazine/cinematic/bookplate compositions, and alternative product price row styles.
-Keep only book cover, name, author where known, current price, normal ₩4,000 postage, and book description. No stock, publisher, category or 4+ free postage promotion.
-All Flutter CI / Story PNG export tests passed. Marketing version 2.5.20; calculate a new build number with preflight.
-Upload signed IPA to Apple TestFlight INTERNAL TESTERS ONLY. Do NOT release public App Store or Android Play Market.
+2026-10-25 TestFlight ONLY: compact actual Story mini previews and 5 more removals — PR #76.
+Source main commit 8178538e3442f6b0a13c24de1ce828407e933fc5, Flutter CI passed.
+Remove Scrapbook, Sado, Tun Plus, Iliq and Obsidian from the Instagram Story chooser. Exactly 27 styles remain.
+Each compact selector tile must display the whole original 9:16 book Story in miniature with correct real cover, typography, price, postage, details and background; no icon-only placeholders after loading. Quarter-resolution asynchronous local render with sequential queue. Selected preview shows exactly current main Story (including AI if available). Main preview also uses BoxFit.contain.
+Center covers in Sotuv (Sale) and Gallery Line using x=540 center; preserve cover aspect ratio with no cropping. All Flutter tests including quarter-res PNG export and geometry pass.
+Use marketing version 2.5.20 and calculate a fresh unique TestFlight build number. Upload signed IPA to Apple TestFlight INTERNAL TESTERS ONLY; do not submit App Store public review and do not update Play Market.

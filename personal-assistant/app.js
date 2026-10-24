@@ -3390,7 +3390,7 @@
     $('costSummaryTotal').textContent=totals.ready?formatMoney(totals.total,'KRW'):'—';
     $('costSummaryTotalSom').textContent=totals.ready?costBatchHistoricSom(groups,'total'):'—';
     $('costSummaryNote').textContent='Barcha partiyalar bo‘yicha umumiy tan narxi';
-    $('costSummaryReady').textContent=totals.ready+' ta turdagi kitob hisoblandi';
+    $('costSummaryReady').textContent=new Set(accountingRows.map(row=>costs.key(row.title))).size+' xil kitobning partiyalari hisoblandi';
     $('costSummaryQuantity').textContent=totals.quantityTotal+' ta';
     $('costSummaryPending').textContent=totals.pending+' ta';
     $('costSummaryPending').closest('article').hidden=totals.pending===0;
@@ -3487,7 +3487,7 @@
       const unit=costs.calculate(row,row.originRate??state.bookCostRate);
       const margin=costs.profit(row,row.originRate??state.bookCostRate);
       const uzs=costs.uzsText(row.priceUzs);
-      const uzsDisplay=uzs!==null?window.YordamchiCurrency.precise.display(uzs,'UZS'):(row.price===null?'—':costSomCompact(row.price));
+      const uzsDisplay=uzs!==null?costUzsClean(uzs):(row.price===null?'—':costSomCompact(row.price));
       const won=value=>value===null?'—':formatMoney(value,'KRW');
       return '<article class="cost-ready-row cost-clean-book cost-unit-book" data-cost-quick-id="'+escapeHtml(row.id)+'">'+
         '<div class="cost-ready-heading">'+
@@ -3547,7 +3547,7 @@
   function costSimpleValues(){
     const original=state.bookCosts.find(row=>row.id===costEditingId);
     const group=original?null:costBatchByChoice();
-    const historicFx=original?null:(group?.fxPer1000??$('costSimpleBatchFx').value);
+    const historicFx=original?original.originFxPer1000:(group?.fxPer1000??$('costSimpleBatchFx').value);
     const converted=costUnitWon($('costSimplePrice').value,$('costSimpleCurrency').value,original,historicFx);
     const fields={title:$('costSimpleTitle').value.trim(),
       quantity:$('costSimpleQuantity').value.trim()?costs.quantity($('costSimpleQuantity').value):null,
@@ -3558,8 +3558,10 @@
   }
   function refreshSimpleCostPreview(){
     const {fields,priceError}=costSimpleValues();
-    const unit=costs.calculate(fields,state.bookCostRate);
-    const perProfit=costs.profit(fields,state.bookCostRate);
+    const original=state.bookCosts.find(row=>row.id===costEditingId);
+    const tariff=original?.originRate??state.bookCostRate;
+    const unit=costs.calculate(fields,tariff);
+    const perProfit=costs.profit(fields,tariff);
     const show=value=>value===null?'—':formatMoney(value,'KRW');
     $('costSimplePurchaseWon').textContent=show(fields.price);
     $('costSimpleShipping').textContent=show(unit.shipping);
@@ -3782,7 +3784,7 @@
       const total=unit===null?null:window.YordamchiCurrency.ratio([unit,n]);
       const gain=unit===null||sale===null?null:window.YordamchiCurrency.ratio([window.YordamchiCurrency.add(sale,-unit),n]);
       const heading=(index+1)+'-partiya · '+escapeHtml(batch.date||'Sana ko‘rsatilmagan');
-      const uzs=batch.priceUzs?window.YordamchiCurrency.precise.display(batch.priceUzs,'UZS'):'';
+      const uzs=batch.priceUzs?costUzsClean(batch.priceUzs):'';
       const figures='<small>1 dona tan narxi: '+money(unit)+' · Jami tan narxi: '+money(total)+
         ' · Kutiladigan foyda: '+money(gain)+'</small>';
       if(index===0)return '<div class="cost-batch-original"><b>'+heading+' · '+n+' ta</b>'+

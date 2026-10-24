@@ -3258,6 +3258,31 @@
         '</article>';
     }).join('');
   }
+  function renderCostArrivals(groups,rows){
+    const batchList=$('costArrivalBatchList'),titles=$('costArrivalTitleList');
+    if(!batchList||!titles)return;
+    const known=groups.filter(g=>!g.legacy).slice().sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
+    const numbers=new Map(known.map((g,i)=>[g.id,i+1]));
+    batchList.innerHTML=groups.length?groups.map(group=>{
+      const label=group.legacy?'Eski qaydlar':numbers.get(group.id)+'-partiya';
+      return '<button type="button" class="cost-arrival-batch" data-cost-arrival-jump="'+escapeHtml(group.id)+'">'+
+        '<span><strong>'+escapeHtml(label)+'</strong><small>'+(group.date?escapeHtml(group.date)+' · ':'')+group.bookCount+' xil kitob</small></span>'+
+        '<b>'+group.totals.quantityTotal+' ta</b><span aria-hidden="true">›</span></button>';
+    }).join(''):'<p class="cost-batch-empty">Hali partiyalar kiritilmagan.</p>';
+    const search=costs.key($('costArrivalSearch')?.value||'');
+    const filtered=rows.filter(row=>!search||costs.key(row.title).includes(search)).slice().sort((a,b)=>a.title.localeCompare(b.title,'uz'));
+    titles.innerHTML=filtered.length?filtered.map(row=>{
+      const parts=costs.arrivalParts(row);
+      const grouped=parts.map((part,index)=>{
+        const matching=groups.find(g=>g.id==='partiya:'+part.id || g.id==='partiya:'+((row.batches||[])[index-1]?.groupId||''));
+        const short=matching&&!matching.legacy?numbers.get(matching.id)+'-partiya':
+          ((part.id==='legacy-original'||!matching)?'Eski qayd':index+1+'-partiya');
+        return '<span>'+escapeHtml(String(short))+' <b>'+part.quantity+' ta</b></span>';
+      }).join('');
+      return '<details class="cost-arrival-book"><summary><span>'+escapeHtml(row.title)+'</span><strong>'+row.quantity+' ta</strong></summary>'+
+        '<div class="cost-arrival-book-parts">'+grouped+'</div>'+renderCostBatchDetails(row)+'</details>';
+    }).join(''):'<p class="cost-batch-empty">'+(search?'Bu nomdagi kitob yo‘q.':'Hali kitob yo‘q.')+'</p>';
+  }
   function renderCostReadyList(){
     $('costRateSummary').textContent='1 kg = '+formatMoney(state.bookCostRate,'KRW')+' · 100 g = '+formatMoney(window.YordamchiCurrency.ratio([state.bookCostRate],[10]),'KRW');
     const ready=state.bookCosts.filter(costIsReady);
@@ -3284,6 +3309,7 @@
     $('costReportSpotlight').innerHTML='<strong>'+(selectedGroup?(selectedGroup.legacy?'Eski yozuvlar':partNo+'-partiya'):'Jami '+groups.length+' ta partiya')+'</strong>'+
       '<span>'+(selectedGroup?selectedGroup.bookCount:accountingRows.length)+' xil kitob · '+reportTotals.quantityTotal+' ta nusxa</span>';
     renderCostBatchCards(groups);
+    renderCostArrivals(groups,accountingRows);
     $('costSummaryTotal').textContent=totals.ready?formatMoney(totals.total,'KRW'):'—';
     $('costSummaryTotalSom').textContent=totals.ready?costSomCompact(totals.total):'—';
     $('costSummaryNote').textContent='Barcha partiyalar bo‘yicha umumiy tan narxi';
@@ -3887,6 +3913,22 @@
       toast('1 kg narxi yangilandi.');
     });
     qsa('[data-cost-view]').forEach(button=>button.addEventListener('click',()=>setCostView(button.dataset.costView)));
+    $('costArrivalSearch').addEventListener('input',()=>{
+      const groups=costs.groupByBatch(state.bookCosts.filter(row=>String(row.title||'').trim()),state.bookCostRate);
+      renderCostArrivals(groups,state.bookCosts.filter(row=>String(row.title||'').trim()));
+    });
+    $('costArrivalBatchList').addEventListener('click',event=>{
+      const choice=event.target.closest('[data-cost-arrival-jump]');
+      if(!choice)return;
+      selectedCostBatchId=choice.dataset.costArrivalJump;
+      setCostView('report');syncWorkspaceUI();
+      window.scrollTo({top:0,behavior:'instant'});
+    });
+    $('costArrivalTitleList').addEventListener('click',event=>{
+      const save=event.target.closest('[data-cost-batch-save]');
+      const remove=event.target.closest('[data-cost-batch-delete]');
+      if(save||remove)changeCostBatch(save||remove,Boolean(remove));
+    });
     $('costBatchSelect').addEventListener('change',event=>{
       selectedCostBatchId=event.target.value||'all';
       renderCostReadyList();

@@ -65,7 +65,7 @@ test('legacy data with unknown partiya is never assigned a guessed identifier',(
 test('single-unit catalog and bidirectional currency display use separate fields',()=>{
   const app=read('app.js'),html=read('index.html');
   assert.ok(app.includes('const seenCatalogNames=new Set()'));
-  assert.ok(app.includes('const conflictingTitle=Boolean(original'));
+  assert.ok(app.includes('state.bookCosts.some(row=>row.id!==original?.id'));
   assert.match(app,/row\.price===null\?'—':costSomCompact\(row\.price\)/);
   assert.ok(app.includes("costSimplePurchaseSom"));
   assert.ok(html.includes('id="costSimplePurchaseSom"'));

@@ -3734,6 +3734,10 @@
   }
   function setCostAddMode(mode){
     if(!['choose','single','bulk'].includes(mode))return;
+    // Returning from an existing book edit starts a fresh add flow.
+    if(mode==='choose'||mode==='bulk'){
+      costEditingId='';costEditingAll=false;costEditingIds.clear();
+    }
     costAddMode=mode;
     if(mode==='bulk'&&!costBulkDrafts.length)costBulkDrafts=Array.from({length:3},newCostBulkDraft);
     if(mode==='bulk')renderCostBulkSimpleRows();

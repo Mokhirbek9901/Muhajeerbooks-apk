@@ -47,7 +47,7 @@ class _BookStoryPageState extends State<BookStoryPage> {
     BookStoryTemplate.sapphireEdition, // Ko‘k kristall
     BookStoryTemplate.velvetEdition,   // Bordo velvet
     BookStoryTemplate.atlasLuxeEdition,// Atlas naqshi
-    BookStoryTemplate.quickPrice,       // Faqat muqova, narx va yetkazib berish afzalligi
+    BookStoryTemplate.quickPrice,       // Faqat muqova, narx va odatiy pochta narxi
     BookStoryTemplate.cleanEdition,    // Oq va toza
     BookStoryTemplate.premiumEdition,  // To‘q yashil va oltin
     BookStoryTemplate.nightEdition,    // Tun ranglari

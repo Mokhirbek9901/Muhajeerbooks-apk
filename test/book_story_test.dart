@@ -38,6 +38,94 @@ void main() {
     expect(painter.contains('4+ kitobda'), isFalse);
   });
 
+  test('rejected Story designs stay hidden, including saved-picker restores', () {
+    final picker = File('lib/book_story_page.dart').readAsStringSync();
+    final start = picker.indexOf('static const List<BookStoryTemplate> _templateOrder = [');
+    final end = picker.indexOf('];', start);
+    expect(start, greaterThanOrEqualTo(0));
+    expect(end, greaterThan(start));
+    final choices = picker.substring(start, end);
+    for (final name in <String>[
+      'coverFocus',
+      'lifestyle',
+      'royal',
+      'marble',
+      'cinema',
+      'adras',
+      'decorative',
+      'classic',
+      'oldCurrent',
+      'atlasLuxeEdition',
+      'velvetEdition',
+      'sapphireEdition',
+      'editorialEdition',
+      'mochaStudio',
+      'kineticPop',
+    ]) {
+      expect(choices.contains('BookStoryTemplate.$name'), isFalse,
+          reason: '$name should not be selectable in Instagram Story');
+    }
+    for (final name in <String>[
+      'novaEditorial',
+      'velvetRose',
+      'auroraInk',
+      'hanokPaper',
+      'serifLuxe',
+      'neonNight',
+      'galleryLine',
+      'goldenOrbit',
+    ]) {
+      expect(choices.contains('BookStoryTemplate.$name'), isTrue);
+    }
+    expect(picker.contains('!_templateOrder.contains(restored)'), isTrue,
+        reason: 'Previously saved removed templates must not come back');
+  });
+
+  test('remaining Story covers have distinctly different compositions', () {
+    const designs = <BookStoryTemplate>[
+      BookStoryTemplate.novaEditorial,
+      BookStoryTemplate.velvetRose,
+      BookStoryTemplate.auroraInk,
+      BookStoryTemplate.hanokPaper,
+      BookStoryTemplate.serifLuxe,
+      BookStoryTemplate.neonNight,
+      BookStoryTemplate.galleryLine,
+      BookStoryTemplate.goldenOrbit,
+    ];
+    final rectangles = designs.map(storyCoverLayoutBounds).toList();
+    expect(rectangles.toSet().length, designs.length,
+        reason: 'Surviving signature designs must not reuse one cover position');
+    for (final area in rectangles) {
+      expect(area.left, greaterThanOrEqualTo(0));
+      expect(area.top, greaterThanOrEqualTo(0));
+      expect(area.right, lessThanOrEqualTo(1080));
+      expect(area.bottom, lessThanOrEqualTo(1100));
+    }
+    expect(storyCoverLayoutBounds(BookStoryTemplate.obsidianEdition),
+        isNot(storyCoverLayoutBounds(BookStoryTemplate.pearlEdition)));
+  });
+
+  test('three legacy price-row arrangements still export valid Stories', () async {
+    final cover = (await rootBundle.load('assets/images/muhajeer_logo.jpg'))
+        .buffer.asUint8List();
+    for (final design in <BookStoryTemplate>[
+      BookStoryTemplate.botanical,
+      BookStoryTemplate.goldArch,
+      BookStoryTemplate.arch,
+    ]) {
+      final imageBytes = await renderBookStory(
+          book, coverBytes: cover, template: design, renderScale: 0.5);
+      expect(imageBytes.take(8), [137, 80, 78, 71, 13, 10, 26, 10],
+          reason: design.name);
+      final codec = await ui.instantiateImageCodec(imageBytes);
+      final decoded = (await codec.getNextFrame()).image;
+      expect(decoded.width, 540);
+      expect(decoded.height, 960);
+      decoded.dispose();
+      codec.dispose();
+    }
+  });
+
   test('ten unique signature Story designs have named colour themes and full copy', () {
     const signatures = <BookStoryTemplate>[
       BookStoryTemplate.novaEditorial,

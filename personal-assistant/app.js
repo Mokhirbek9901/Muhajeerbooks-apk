@@ -4048,9 +4048,12 @@
       const previous=next==='UZS'?'KRW':'UZS';
       const raw=field.value.trim();
       if(raw){
-        const quote=window.YordamchiCurrency.precise.convert(raw,previous,next,state);
-        // No valid quote: clear the old-currency number rather than silently reinterpret it.
-        field.value=quote?window.YordamchiCurrency.precise.text(quote):'';
+        const precise=window.YordamchiCurrency.precise;
+        const quote=previous==='UZS'?
+          window.BookCostSimple.wonFromUzs(state,window.BookCostSimple.normalizedPrice(raw,null,true)):
+          window.BookCostSimple.uzsFromWon(state,raw);
+        // Only interpret the number in its original currency. No silent reinterpretation.
+        field.value=quote?precise.text(quote):'';
       }
       field.placeholder=next==='UZS'?'Masalan: 60000':'Masalan: 8000';
       $('costSimpleError').hidden=true;

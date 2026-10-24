@@ -12,8 +12,8 @@ const cost=require('../personal-assistant/book-costs.js');
 test('cost overview contains a distinct compact book collection and search',()=>{
  const ids=['costHomeBooksPanel','costHomeBooksTitle','costHomeBooksCount','costHomeSearch','costHomeBooksList'];
  for(const id of ids)assert.ok(html.includes('id="'+id+'"'),id+' exists');
- assert.ok(html.includes('Barcha kitoblar'));
- assert.ok(html.includes('Bu yerda faqat ma’lumotlar ko‘rinadi.'));
+ assert.ok(html.includes('Kitoblar bo‘yicha'));
+ assert.ok(html.includes('Jami narx va foyda har bir partiyaning alohida tan narxi bilan hisoblanadi.'));
 });
 
 test('homepage book summaries are read-only and include all named books',()=>{
@@ -24,8 +24,8 @@ test('homepage book summaries are read-only and include all named books',()=>{
  assert.ok(fn.includes("state.bookCosts.filter(row=>String(row.title||'').trim()).slice().reverse()"),
    'home derives list from all named saved or draft books, not 3 recent ones');
  assert.ok(fn.includes('costs.inventory(row,state.bookCostRate)'),'shows batch value');
- assert.ok(fn.includes("costSom(inv.total)"),'displays converted total');
- assert.ok(fn.includes('cost-home-book-qty'),'arrival count visible');
+ assert.ok(fn.includes("costSom(inv.knownTotal)"),'displays converted grouped cost');
+ assert.ok(!fn.includes('cost-home-book-qty'),'overview is money-only; quantity stays in catalog');
  assert.ok(fn.includes('cost-home-book-profit'),'expected profit visible');
  assert.ok(!fn.includes('data-cost-edit'),'no edit buttons on homepage cards');
  assert.ok(!fn.includes('data-cost-quick'),'no inline editable fields');

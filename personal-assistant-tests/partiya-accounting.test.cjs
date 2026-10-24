@@ -58,3 +58,39 @@ test('last import recoverable from exact imported IDs with no guessed grouping',
  assert.equal(groups.find(g=>g.id==='partiya:known').totals.quantityTotal,2);
  assert.equal(groups.find(g=>g.id==='legacy').totals.quantityTotal,1);
 });
+
+test('arrivalParts counts only new arrivals, while the catalog keeps one title',()=>{
+ const rows=costs.normalize(sample,()=>'_id');
+ const parts=costs.arrivalParts(rows[0]);
+ assert.deepEqual(parts.map(x=>x.quantity),[4,3]);
+ assert.equal(rows[0].quantity,7);
+ assert.equal(rows.filter(x=>x.title==='Arosat').length,1);
+ assert.equal(costs.inventory(rows[0],10000).knownProfit,33000);
+});
+
+test('old and new batch historical costs survive newer global shipping rates',()=>{
+ const rows=costs.normalize(sample,()=>'_id');
+ rows[0].originRate=10000;
+ const initial=costs.inventory(rows[0],10000);
+ const changed=costs.inventory(rows[0],18000);
+ assert.equal(initial.knownTotal,79000);
+ assert.equal(changed.knownTotal,initial.knownTotal);
+});
+
+test('separate finance-only overview and single lifetime arrival display',()=>{
+ const fs=require('node:fs');
+ const path=require('node:path');
+ const source=fs.readFileSync(path.join(__dirname,'../personal-assistant/app.js'),'utf8');
+ const begin=source.indexOf('function renderCostHomeBooks(){');
+ const end=source.indexOf('function renderCostBatchCards(groups){',begin);
+ const overview=source.slice(begin,end);
+ assert.ok(overview.includes('Jami xarid'));
+ assert.ok(overview.includes('Jami yetkazish'));
+ assert.ok(overview.includes('Jami tan narxi'));
+ assert.ok(overview.includes('Kutiladigan jami foyda'));
+ assert.ok(!overview.includes('cost-home-book-qty'));
+ assert.ok(!overview.includes('1 dona tan narxi'));
+ assert.ok(source.includes('Jami kelgan: '));
+ assert.ok(source.includes('Narx va partiyalar tafsilotlari'));
+ assert.ok(source.includes('costs.arrivalParts(row)'));
+});

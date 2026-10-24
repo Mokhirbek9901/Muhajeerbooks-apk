@@ -23,11 +23,12 @@ test('missing price and search can be combined',()=>{
  assert.deepEqual(filter.filterBooks(rows,'missing-price','Laylo',costs.key).map(x=>x.id),['b']);
  assert.deepEqual(filter.filterBooks(rows,'missing-price','Arosat',costs.key),[]);
 });
-test('deletion buttons appear on complete and incomplete catalog cards',()=>{
+test('complete and incomplete catalog cards show only edit/fill actions',()=>{
  const app=read('app.js');const a=app.indexOf('  function costPlainCard(row){'),b=app.indexOf('  function deleteCostPlainBook(id){',a);
  const view=app.slice(a,b);
- assert.equal(view.split('data-cost-remove').length-1,2);
- assert.ok(view.includes('cost-plain-card-actions'));
+ assert.equal(view.split('data-cost-remove').length-1,0);
+ assert.ok(view.includes('data-cost-edit'));
+ assert.ok(!view.includes('cost-plain-remove'));
  const html=read('index.html');
  assert.ok(html.includes('<option value="missing-price">Narxi kiritilmagan</option>'));
 });
@@ -80,19 +81,19 @@ test('storage write failure rolls back deletion with no screen refresh',()=>{
  assert.equal(refreshed,0);
  assert.ok(context.costSelectedIds.has('d'));
 });
-test('both home and list use the same confirmed delete handler',()=>{
+test('home and list have no deletion handlers; editor is the only delete entry',()=>{
  const app=read('app.js');const i=app.indexOf("    $('costPlainHomeList').addEventListener('click'");
  const j=app.indexOf("    $('costReadyList').addEventListener('click'",i);
  assert.ok(i>=0&&j>i);
- assert.ok(app.slice(i,j).includes("deleteCostPlainBook(remove.dataset.costRemove)"));
- assert.ok(app.slice(j,j+390).includes("deleteCostPlainBook(removeBook.dataset.costRemove)"));
+ assert.ok(!app.slice(i,j+400).includes("deleteCostPlainBook("));
+ assert.ok(app.includes("    $('costSimpleDelete').addEventListener('click',()=>{"));
 });
-test('v86 assets and styles are aligned',()=>{
+test('v87 assets and styles are aligned',()=>{
  const html=read('index.html'),sw=read('sw.js'),css=read('styles.css');
- assert.ok(sw.includes('bek-yordamchi-v86'));
+ assert.ok(sw.includes('bek-yordamchi-v87'));
  for(const f of ['app.js','styles.css','book-cost-list-ui.js']){
- assert.ok(html.includes(f+'?v=86'),f+' html');
- assert.ok(sw.includes(f+'?v=86'),f+' sw');
+ assert.ok(html.includes(f+'?v=87'),f+' html');
+ assert.ok(sw.includes(f+'?v=87'),f+' sw');
  }
- assert.ok(css.includes('.cost-plain-card-actions .cost-plain-remove'));
+ assert.ok(css.includes('#costSimpleDelete:not([hidden]){display:block'));
 });

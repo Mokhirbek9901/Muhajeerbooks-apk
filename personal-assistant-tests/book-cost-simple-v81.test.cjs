@@ -63,10 +63,10 @@ test('legacy records remain untouched by new UI and the catalog is unique by nor
  assert.ok(ui.includes("if(!unique.has(key))"));
  assert.ok(!render.includes('state.bookCosts='));
 });
-test('cache and navigation show the minimal v86 variant',()=>{
+test('cache and navigation show the minimal v87 variant',()=>{
  const html=read('index.html'),sw=read('sw.js');
- for(const f of ['app.js','styles.css','book-costs.js'])assert.ok(html.includes(f+'?v=86') && sw.includes(f+'?v=86'));
- assert.ok(sw.includes('bek-yordamchi-v86'));
+ for(const f of ['app.js','styles.css','book-costs.js'])assert.ok(html.includes(f+'?v=87') && sw.includes(f+'?v=87'));
+ assert.ok(sw.includes('bek-yordamchi-v87'));
  assert.ok(html.includes('data-mode-tab="settings"'));
  assert.ok(html.includes('<small>Kurs</small>'));
 });

@@ -3081,18 +3081,10 @@ body[data-workspace="costs"] #screen-book-costs .cost-plain-partial{display:grid
 body[data-workspace="costs"] #screen-book-costs .cost-plain-partial strong{color:var(--ink);font-weight:800}
 body[data-workspace="costs"] #screen-book-costs #costSimpleForm .cost-simple-grid>label>small{overflow-wrap:anywhere}
 
-/* v85: explicit, subtle delete control on every book card. */
-body[data-workspace="costs"] #screen-book-costs .cost-plain-card-actions{display:flex;flex-shrink:0;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
-body[data-workspace="costs"] #screen-book-costs .cost-plain-card-actions button{min-height:36px;padding:7px 9px;border-radius:9px;line-height:1.2;font:inherit;font-size:.73rem;white-space:nowrap}
-body[data-workspace="costs"] #screen-book-costs .cost-plain-card-actions .cost-plain-remove{border:1px solid var(--line);background:var(--surface);color:#a83a3a;font-weight:700}
-body[data-workspace="costs"] #screen-book-costs .cost-plain-card-actions .cost-plain-remove:focus-visible{outline:2px solid #a83a3a;outline-offset:2px}
-@media(max-width:410px){
- body[data-workspace="costs"] #screen-book-costs .cost-plain-card-actions{flex-direction:column;align-items:stretch}
- body[data-workspace="costs"] #screen-book-costs .cost-plain-card-actions button{min-height:30px;padding:5px 7px;font-size:.71rem}
-}
-
 /* v86: make deletion discoverable in every book editor and on small-screen cards. */
 body[data-workspace="costs"] #screen-book-costs #costSimpleDelete[hidden]{display:none!important}
 body[data-workspace="costs"] #screen-book-costs #costSimpleDelete:not([hidden]){display:block;width:100%;min-height:44px;margin:11px 0 7px;border:1px solid #bf7777;border-radius:12px;background:var(--surface);color:#aa3333;font-size:.87rem;font-weight:800;cursor:pointer}
-body[data-workspace="costs"] #screen-book-costs .cost-plain-card-actions .cost-plain-remove{color:#ab3030;background:var(--surface);border-color:#cfa9a9;font-weight:800;min-height:38px}
-body[data-workspace="costs"] #screen-book-costs .cost-plain-card-actions .cost-plain-remove:focus-visible{outline:2px solid #b33;outline-offset:2px}
+
+
+
+/* v87: book cards show edit/fill only; delete stays in the single editor. */

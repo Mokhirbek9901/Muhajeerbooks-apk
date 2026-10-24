@@ -3730,7 +3730,8 @@
     else delete row.priceUzs;
     row.saved=true;
     if(!original)state.bookCosts.push(row);
-    if(!persistBookCosts('Kitob narxi saqlandi.')){
+    // Calculator save never auto-pushes costs into the separate Muhajeer Books sales app.
+    if(!persistBookCosts('Kitob narxi saqlandi.',false)){
       if(original)Object.assign(original,before);
       else state.bookCosts=state.bookCosts.filter(item=>item.id!==row.id);
       $('costSimpleError').textContent='Saqlab bo‘lmadi. Qurilma xotirasini tekshiring.';

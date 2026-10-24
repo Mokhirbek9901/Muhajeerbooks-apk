@@ -66,8 +66,8 @@ test('device sync and UI store independently named real rate and pricing rate',(
   const app=read('app.js'),html=read('index.html');
   for(const id of ['costSimpleBatchActualKg','costSimplePricingKg','costBatchActualKg'])
     assert.ok(html.includes('id="'+id+'"')&&app.includes(id),id);
-  assert.ok(app.includes('originRate:pricingKg'));
-  assert.ok(app.includes('rate:pricingKg'));
+  assert.ok(app.includes('originRate:kg'));
+  assert.ok(app.includes('row.originRate=kg'));
 });
 test('cache versions and static syntax are aligned',()=>{
   const html=read('index.html'),sw=read('sw.js');

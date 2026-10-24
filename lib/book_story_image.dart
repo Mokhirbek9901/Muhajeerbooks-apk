@@ -2175,6 +2175,16 @@ Future<Uint8List> _renderAlternativeBookStory(
     case BookStoryTemplate.sapphireEdition:
     case BookStoryTemplate.velvetEdition:
     case BookStoryTemplate.atlasLuxeEdition:
+    case BookStoryTemplate.novaEditorial:
+    case BookStoryTemplate.velvetRose:
+    case BookStoryTemplate.auroraInk:
+    case BookStoryTemplate.hanokPaper:
+    case BookStoryTemplate.kineticPop:
+    case BookStoryTemplate.serifLuxe:
+    case BookStoryTemplate.mochaStudio:
+    case BookStoryTemplate.neonNight:
+    case BookStoryTemplate.galleryLine:
+    case BookStoryTemplate.goldenOrbit:
       canvas.drawColor(cream, BlendMode.src);
       break;
     case BookStoryTemplate.oldCurrent:

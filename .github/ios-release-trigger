@@ -1,7 +1,6 @@
-2026-10-25 TestFlight ONLY — NAME-ONLY tiny Story buttons and persistent full preview.
-Source main merge PR #77, commit 26cdbd774f637963303675e213430e65f4a3c033, Flutter CI passed.
-Keep 27 allowed Story designs. No preview images, graphics or icons inside selector buttons: only names. Four columns on narrow phones, six on medium widths, eight on tablets; very small 28px-tall chips.
-Keep design choice area only 96px tall with its own scroll bar, so the complete 9:16 Story (full selected art, cover, author, price, description, postage) appears directly below even when first/last style is chosen. Preview never cropped, scales to 63 percent of available viewport height. Keep chips visible during preview loading without stale wrong art.
-Retain previously excluded Story styles, correct cover centering in Sale and Gallery Line, and all Story share/PNG functions. Do not add category/publisher/stock/4+ promo.
-Marketing version 2.5.20 and a fresh numbered build selected by preflight.
-Upload signed IPA only to Apple TestFlight INTERNAL testers. Never submit public App Store review; never release Android Play Store.
+2026-10-25 TestFlight ONLY — Admin Kitoblar sticky sales-style filter layout.
+Use latest main commit 91240cfecd8107228ee11055aac31f6a846cad39 (PR #78), Flutter CI passed.
+Kitoblar admin top filters: replace horizontal one-row mini stats with the same outlined colorful multi-row pills as Sotilgan kitoblar. Preserve filter behaviors for Kitob, Ombor, Rasm yuklanmagan, Tarifsiz, Sahifa kiritilmagan, Tan narxi kiritilmagan, Sotuvda ko‘rsatilgan / ko‘rsatilmagan, Rejadagi kitoblar, Sotilmagan, Muammoli. The filter/header area stays visible at the top when scrolling catalog entries, with existing search, refresh, add, AI edit and categories.
+Keep stored data, finance, stock, native customer order, Story functionality untouched.
+Use marketing version 2.5.20; select a fresh unique TestFlight build number with preflight.
+Upload signed IPA to Apple TestFlight INTERNAL TESTERS ONLY. Do not submit public App Store review and do not update Play Market.

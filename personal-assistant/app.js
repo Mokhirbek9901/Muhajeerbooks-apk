@@ -3304,7 +3304,7 @@
     $('costReportModeBatch').setAttribute('aria-pressed',String(costReportMode==='batch'));
     $('costReportModeAll').setAttribute('aria-pressed',String(costReportMode==='all'));
     $('costReportDashboard').dataset.mode=costReportMode;
-    $('costBatchSelect').closest('.cost-batch-picker').hidden=costReportMode==='all';
+    $('costBatchPicker').hidden=costReportMode==='all';
     const select=$('costBatchSelect');
     const numbered=groups.filter(g=>!g.legacy).slice().sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
     const batchNumber=new Map(numbered.map((g,i)=>[g.id,i+1]));
@@ -3527,7 +3527,7 @@
     $('costSimpleQuantity').value=row?(costs.baseQuantity(row)??1):1;
     $('costSimpleQtyLabel').textContent=row?'Birinchi partiyada nechta kelgan?':'Bu partiyada nechta keldi?';
     $('costSimpleBatchWrap').hidden=Boolean(row);
-    $('costSimpleQuantity').closest('.cost-simple-quantity').hidden=Boolean(row);
+    $('costSimpleQuantityWrap').hidden=Boolean(row);
     const batchChoice=$('costSimpleBatch');
     const previousBatchChoice=batchChoice.value;
     const existingGroups=costs.groupByBatch(state.bookCosts,state.bookCostRate).filter(group=>!group.legacy);

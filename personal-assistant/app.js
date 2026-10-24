@@ -3454,7 +3454,7 @@
         costCloudRow(row)+
         (costs.tariffs(state.bookCostRate,state.bookCostComparisons).length>1?costTariffTable(row):'')+
         '<details class="cost-quick-editor"><summary>Tez tahrirlash</summary><div class="cost-quick-fields">'+
-          ['price','grams','quantity','salePrice'].map(key=>'<label>'+({price:'Xarid (₩)',grams:'Vazn (g)',quantity:'Kelgan jami',salePrice:'Sotuv (₩)'})[key]+
+          ['price','grams','salePrice'].map(key=>'<label>'+({price:'Xarid (₩)',grams:'Vazn (g)',salePrice:'Sotuv (₩)'})[key]+
             '<input '+(key==='salePrice'&&row.muhajeerId?'readonly aria-readonly="true" ':'')+'data-cost-quick="'+key+'" '+
             'inputmode="'+(key==='quantity'?'numeric':'decimal')+'" value="'+
             (key==='quantity'?costs.quantity(row.quantity):(row[key]??''))+'"></label>').join('')+

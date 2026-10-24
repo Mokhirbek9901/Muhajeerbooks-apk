@@ -38,6 +38,65 @@ void main() {
     expect(painter.contains('4+ kitobda'), isFalse);
   });
 
+  test('newly rejected designs disappear from compact real-story chooser', () {
+    final picker = File('lib/book_story_page.dart').readAsStringSync();
+    final start = picker.indexOf(
+        'static const List<BookStoryTemplate> _templateOrder = [');
+    final end = picker.indexOf('];', start);
+    expect(start, greaterThanOrEqualTo(0));
+    final choices = picker.substring(start, end);
+    for (final hidden in <BookStoryTemplate>[
+      BookStoryTemplate.scrapbook,
+      BookStoryTemplate.ornament,
+      BookStoryTemplate.nightEdition,
+      BookStoryTemplate.warmEdition,
+      BookStoryTemplate.obsidianEdition,
+    ]) {
+      expect(choices.contains('BookStoryTemplate.${hidden.name}'), isFalse,
+          reason: '${hidden.name} should not reappear in picker');
+    }
+    expect(RegExp(r'BookStoryTemplate\.\w+').allMatches(choices).length, 27);
+    expect(picker.contains('FutureBuilder<Uint8List>'), isTrue);
+    expect(picker.contains('_previewImageFor(item)'), isTrue);
+    expect(picker.contains('fit: BoxFit.contain'), isTrue);
+    expect(picker.contains('renderScale: 0.25, previewOnly: true'), isTrue);
+  });
+
+  test('Sale and Gallery Line book covers are perfectly horizontally centered', () {
+    for (final style in [
+      BookStoryTemplate.saleEdition,
+      BookStoryTemplate.galleryLine,
+    ]) {
+      final bounds = storyCoverLayoutBounds(style);
+      expect(bounds.center.dx, 540, reason: style.name);
+      expect(bounds.left, greaterThan(0));
+      expect(bounds.right, lessThan(1080));
+    }
+  });
+
+  test('small actual story preview exports complete 9:16 frames', () async {
+    final cover = (await rootBundle.load('assets/images/muhajeer_logo.jpg'))
+        .buffer.asUint8List();
+    for (final style in [
+      BookStoryTemplate.saleEdition,
+      BookStoryTemplate.galleryLine,
+      BookStoryTemplate.current,
+    ]) {
+      final png = await renderBookStory(
+        book, coverBytes: cover, template: style,
+        renderScale: 0.25, previewOnly: true,
+      );
+      expect(png.take(8), [137, 80, 78, 71, 13, 10, 26, 10],
+          reason: style.name);
+      final codec = await ui.instantiateImageCodec(png);
+      final image = (await codec.getNextFrame()).image;
+      expect(image.width, 270, reason: style.name);
+      expect(image.height, 480, reason: style.name);
+      image.dispose();
+      codec.dispose();
+    }
+  });
+
   test('rejected Story designs stay hidden, including saved-picker restores', () {
     final picker = File('lib/book_story_page.dart').readAsStringSync();
     final start = picker.indexOf('static const List<BookStoryTemplate> _templateOrder = [');

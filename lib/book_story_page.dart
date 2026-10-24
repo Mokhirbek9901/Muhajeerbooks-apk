@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -28,6 +30,34 @@ class _BookStoryPageState extends State<BookStoryPage> {
   late final List<String> _descriptionPages;
   int _descriptionPage = 0;
 
+  // True full-frame PNG thumbnails. Render one at a time at quarter
+  // resolution so several thumbnails cannot exhaust mobile GPU memory.
+  final Map<BookStoryTemplate, Future<Uint8List>> _previewImages = {};
+  Future<void> _previewRenderQueue = Future<void>.value();
+  late final Future<Uint8List?> _previewCover;
+
+  Future<Uint8List> _previewImageFor(BookStoryTemplate design) {
+    return _previewImages.putIfAbsent(design, () {
+      final result = Completer<Uint8List>();
+      _previewRenderQueue = _previewRenderQueue.then((_) async {
+        if (!mounted) {
+          result.complete(Uint8List(0));
+          return;
+        }
+        try {
+          final cover = await _previewCover;
+          final bytes = await renderBookStory(widget.book,
+              coverBytes: cover, template: design,
+              renderScale: 0.25, previewOnly: true);
+          result.complete(bytes);
+        } catch (error, stack) {
+          result.completeError(error, stack);
+        }
+      });
+      return result.future;
+    });
+  }
+
   int get _pageCount => bookStorySupportsDescriptionPages(_template)
       ? _descriptionPages.length : 1;
 
@@ -51,13 +81,10 @@ class _BookStoryPageState extends State<BookStoryPage> {
     BookStoryTemplate.neonNight,
     BookStoryTemplate.galleryLine,
     BookStoryTemplate.goldenOrbit,
-    BookStoryTemplate.obsidianEdition, // Grafit va oltin
     BookStoryTemplate.pearlEdition,    // Marvarid, ipak va nozik chiziqlar
     BookStoryTemplate.quickPrice,       // Faqat muqova, narx va odatiy pochta narxi
     BookStoryTemplate.cleanEdition,    // Oq va toza
     BookStoryTemplate.premiumEdition,  // To‘q yashil va oltin
-    BookStoryTemplate.nightEdition,    // Tun ranglari
-    BookStoryTemplate.warmEdition,     // Iliq va yumshoq
     BookStoryTemplate.saleEdition,     // Sotuv uchun yorqin
     // Muqova ranglarini o‘zi tahlil qilib, fon/yozuv/aksentlarni moslaydi.
     BookStoryTemplate.current,    // Avto dizayn — yangi kompozitsiyani o‘zi yaratadi
@@ -66,13 +93,11 @@ class _BookStoryPageState extends State<BookStoryPage> {
     BookStoryTemplate.summer,
     BookStoryTemplate.autumn,
     BookStoryTemplate.winter,
-    BookStoryTemplate.ornament,   // Sado
     BookStoryTemplate.noir,       // Zamonaviy
     BookStoryTemplate.terracotta,
     BookStoryTemplate.botanical,
     BookStoryTemplate.cleanStudio,
     BookStoryTemplate.goldArch,
-    BookStoryTemplate.scrapbook,
     BookStoryTemplate.arch,
     BookStoryTemplate.split,
     BookStoryTemplate.polaroid,
@@ -122,6 +147,7 @@ class _BookStoryPageState extends State<BookStoryPage> {
     // Instagram share sheet is open, including long background sessions.
     CatalogResume.instance.beginStoryFlow();
     _descriptionPages = bookStoryDescriptionPages(widget.book);
+    _previewCover = loadBookStoryCover(widget.book);
     _image = _renderStoryWithRecovery(_template);
     _restoreTemplate();
   }
@@ -319,92 +345,96 @@ class _BookStoryPageState extends State<BookStoryPage> {
           const SizedBox(height: 6),
           LayoutBuilder(
             builder: (context, constraints) {
-              const gap = 5.0;
-              final columns = constraints.maxWidth >= 520 ? 8 : 5;
+              // The frame keeps the 9:16 story *uncropped* even in tiny
+              // thumbnails; more options fit without endless scrolling.
+              const gap = 3.0;
+              final columns = constraints.maxWidth >= 840 ? 12
+                  : constraints.maxWidth >= 520 ? 10
+                  : constraints.maxWidth >= 350 ? 8 : 7;
               final itemWidth =
                   (constraints.maxWidth - gap * (columns - 1)) / columns;
+              final itemHeight = itemWidth * 16 / 9 + 17;
               return Wrap(
                 spacing: gap,
-                runSpacing: gap,
+                runSpacing: 4,
                 children: _templateOrder.map((item) {
                   final selected = item == _template;
-                  final darkItem =
-                      item == BookStoryTemplate.obsidianEdition ||
-                      item == BookStoryTemplate.sapphireEdition ||
-                      item == BookStoryTemplate.velvetEdition ||
-                      item == BookStoryTemplate.premiumEdition ||
-                      item == BookStoryTemplate.nightEdition ||
-                      item == BookStoryTemplate.library ||
-                      item == BookStoryTemplate.emerald ||
-                      item == BookStoryTemplate.geometric ||
-                      item == BookStoryTemplate.coverFocus ||
-                      item == BookStoryTemplate.lifestyle ||
-                      item == BookStoryTemplate.goldArch ||
-                      item == BookStoryTemplate.midnight ||
-                      item == BookStoryTemplate.cinema ||
-                      item == BookStoryTemplate.royal ||
-                      item == BookStoryTemplate.adras ||
-                      item == BookStoryTemplate.khiva ||
-                      item == BookStoryTemplate.turon ||
-                      item == BookStoryTemplate.auroraInk ||
-                      item == BookStoryTemplate.kineticPop ||
-                      item == BookStoryTemplate.serifLuxe ||
-                      item == BookStoryTemplate.neonNight ||
-                      item == BookStoryTemplate.goldenOrbit;
-                  return InkWell(
-                    borderRadius: BorderRadius.circular(9),
-                    onTap: () => _selectTemplate(item),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: itemWidth,
-                      height: 61,
-                      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: bookStoryTemplateColor(item),
-                        borderRadius: BorderRadius.circular(9),
-                        border: Border.all(
-                          color: selected
-                              ? const Color(0xFF08786E)
-                              : const Color(0x22000000),
-                          width: selected ? 3 : 1,
-                        ),
-                        boxShadow: selected
-                            ? const [
-                                BoxShadow(
-                                  blurRadius: 8,
-                                  offset: Offset(0, 2),
-                                  color: Color(0x2208786E),
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            selected
-                                ? Icons.check_circle_rounded
-                                : Icons.auto_awesome_rounded,
-                            size: 16,
-                            color: darkItem
-                                ? Colors.white
-                                : const Color(0xFF174652),
+                  return Semantics(
+                    button: true,
+                    label: '${bookStoryTemplateName(item)} dizaynini tanlash',
+                    selected: selected,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(5),
+                      onTap: () => _selectTemplate(item),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 170),
+                        width: itemWidth,
+                        height: itemHeight,
+                        padding: const EdgeInsets.all(1.5),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).cardColor,
+                          borderRadius: BorderRadius.circular(5),
+                          border: Border.all(
+                            color: selected
+                                ? const Color(0xFF08786E)
+                                : const Color(0x33000000),
+                            width: selected ? 2 : .6,
                           ),
-                          const SizedBox(height: 2),
-                          Text(
+                        ),
+                        child: Column(children: [
+                          Expanded(child: ClipRRect(
+                            borderRadius: BorderRadius.circular(3),
+                            child: Stack(fit: StackFit.expand, children: [
+                              ColoredBox(color: bookStoryTemplateColor(item)),
+                              if (selected)
+                                Image.memory(bytes,
+                                  fit: BoxFit.contain,
+                                  gaplessPlayback: true,
+                                  filterQuality: FilterQuality.low,
+                                  semanticLabel:
+                                      '${bookStoryTemplateName(item)} tanlangan Story rasmi')
+                              else FutureBuilder<Uint8List>(
+                                future: _previewImageFor(item),
+                                builder: (context, preview) {
+                                  final previewBytes = preview.data;
+                                  if (previewBytes != null &&
+                                      previewBytes.isNotEmpty) {
+                                    return Image.memory(previewBytes,
+                                      fit: BoxFit.contain,
+                                      gaplessPlayback: true,
+                                      filterQuality: FilterQuality.low,
+                                      semanticLabel:
+                                          '${bookStoryTemplateName(item)} to‘liq Story ko‘rinishi');
+                                  }
+                                  if (preview.hasError) {
+                                    return const Icon(Icons.image_not_supported_outlined,
+                                        size: 12);
+                                  }
+                                  return const Center(child: SizedBox(
+                                    width: 9, height: 9,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 1.1),
+                                  ));
+                                },
+                              ),
+                              if (selected)
+                                const Positioned(top: 0, right: 0,
+                                  child: Icon(Icons.check_circle,
+                                    size: 12, color: Color(0xFF08786E))),
+                            ]),
+                          )),
+                          SizedBox(height: 15, child: Center(child: Text(
                             bookStoryTemplateName(item),
-                            maxLines: 2,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w900,
-                              color: darkItem
-                                  ? Colors.white
-                                  : const Color(0xFF174652),
+                            style: const TextStyle(
+                              fontSize: 7.5,
+                              fontWeight: FontWeight.w700,
+                              height: 1.0,
                             ),
-                          ),
-                        ],
+                          ))),
+                        ]),
                       ),
                     ),
                   );
@@ -419,10 +449,14 @@ class _BookStoryPageState extends State<BookStoryPage> {
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 240),
                 switchInCurve: Curves.easeOut,
-                child: Image.memory(bytes,
+                child: AspectRatio(
                   key: ValueKey('${_template.name}-$_descriptionPage'),
-                  gaplessPlayback: true,
-                  semanticLabel: '${widget.book.title}, ${storyPrice(widget.book)} — story rasmi'),
+                  aspectRatio: 9 / 16,
+                  child: Image.memory(bytes,
+                    fit: BoxFit.contain,
+                    gaplessPlayback: true,
+                    semanticLabel: '${widget.book.title}, ${storyPrice(widget.book)} — story rasmi'),
+                ),
               )),
           )),
           if (_pageCount > 1) ...[

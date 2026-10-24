@@ -54,41 +54,46 @@ test('filter is a visible control with the four expected choices',()=>{
  assert.ok(html.includes('id="costPlainListFilter"'));
  assert.ok(css.includes('body[data-workspace="costs"] #screen-book-costs #costPlainListFilter{display:block!important'));
 });
-test('add entry explicitly offers one or many full books',()=>{
+test('one-or-many picker uses a single large textarea for pasted titles',()=>{
  const html=read('index.html');
- for(const id of ['costAddChoice','costBulkSimplePanel','costBulkSimpleForm','costBulkSimpleRows','costBulkSimpleAddRow','costBulkSimpleSave']){
- assert.ok(html.includes('id="'+id+'"'),id);}
- for(const mode of ['single','bulk'])assert.ok(html.includes('data-cost-add-mode="'+mode+'"'));
+ for(const id of ['costAddChoice','costBulkSimplePanel','costBulkSimpleForm','costBulkPasteNames','costBulkPasteCount','costBulkSimpleSave'])assert.ok(html.includes('id="'+id+'"'),id);
+ assert.ok(!html.includes('id="costBulkSimpleRows"'));
+ assert.ok(html.includes('data-cost-add-mode="single"'));
+ assert.ok(html.includes('data-cost-add-mode="bulk"'));
+ assert.ok(html.includes('rows="10"'));
  const app=read('app.js');
- assert.ok(app.includes("if(view==='entry')costAddMode='choose'"));
- assert.ok(app.includes("costAddMode='single';costView='entry'"));
+ assert.ok(app.includes("costView='entry'"));
  assert.ok(app.includes("    $('costSimpleForm').hidden="));
  assert.ok(app.includes("    $('costBulkSimplePanel').hidden="));
 });
-test('bulk row editor includes individual full price and grams and live result',()=>{
- const app=read('app.js');const a=app.indexOf('  function renderCostBulkSimpleRows(){'),b=app.indexOf('  function saveCostBulkSimple(event){',a);
- const text=app.slice(a,b);
- for(const f of ['title','priceUzs','grams'])assert.ok(text.includes('data-cost-bulk-field="'+f+'"'));
- assert.ok(text.includes("costs.calculate({price,grams},state.bookCostRate)"));
- assert.ok(text.includes('costSomCompact(calc.total)'));
+test('bulk parser accepts a 100-book paste and removes numbered-list prefixes',()=>{
+ const names=Array.from({length:100},(_,i)=>(i+1)+'. Kitob '+(i+1)).join('\n');
+ const parsed=ui.parseNameList(names,costs.key);
+ assert.equal(parsed.error,'');
+ assert.equal(parsed.names.length,100);
+ assert.equal(parsed.names[0],'Kitob 1');
+ assert.equal(parsed.names[99],'Kitob 100');
+ const bullet=ui.parseNameList('- Arosat\n• Ko‘rlik\n2) Oq nilufarlar\nArosat',costs.key);
+ assert.deepEqual(bullet.names,['Arosat','Ko‘rlik','Oq nilufarlar']);
 });
-test('bulk save validates all, prevents duplicates and commits atomically without shop sync',()=>{
- const app=read('app.js');const a=app.indexOf('  function saveCostBulkSimple(event){'),b=app.indexOf('  function openSimpleCostEditor(',a);
+test('pasted books are saved title-only and duplicate names are skipped',()=>{
+ const app=read('app.js');
+ const a=app.indexOf('  function saveCostBulkSimple(event){'),b=app.indexOf('  function openSimpleCostEditor(',a);
  const text=app.slice(a,b);
- assert.ok(text.includes('pending.has(key)'));
+ assert.ok(text.includes('parseNameList('));
  assert.ok(text.includes('existing.has(key)'));
- assert.ok(text.includes('newRows.push({id:makeId()'));
- assert.ok(text.includes('state.bookCosts=[...previous,...newRows]'));
- assert.ok(text.includes("persistBookCosts(newRows.length+' ta kitob saqlandi.',false)"));
- assert.ok(text.includes('state.bookCosts=previous'));
+ assert.ok(text.includes('price:null,grams:null,saved:true'));
+ assert.ok(text.includes('state.bookCosts=[...before,...newRows]'));
+ assert.ok(text.includes("persistBookCosts(newRows.length+' ta kitob nomi saqlandi.',false)"));
+ assert.ok(text.includes('state.bookCosts=before'));
  assert.ok(!text.includes('pushCostCloud('));
 });
-test('v83 code and assets are version matched and loaded before app',()=>{
+test('v84 code and assets are version matched and loaded before app',()=>{
  const html=read('index.html'),sw=read('sw.js');
- assert.ok(sw.includes('bek-yordamchi-v83'));
+ assert.ok(sw.includes('bek-yordamchi-v84'));
  for(const file of ['app.js','styles.css','book-cost-simple.js','book-cost-list-ui.js']){
- assert.ok(html.includes(file+'?v=83'),file+' html');
- assert.ok(sw.includes(file+'?v=83'),file+' sw');
+ assert.ok(html.includes(file+'?v=84'),file+' html');
+ assert.ok(sw.includes(file+'?v=84'),file+' sw');
  }
  assert.ok(html.indexOf('book-cost-list-ui.js')<html.indexOf('app.js'));
 });

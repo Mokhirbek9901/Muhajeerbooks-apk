@@ -3228,7 +3228,7 @@
           '<strong>'+(calc.total===null?'To‘ldirilmagan':money(window.YordamchiCurrency.ratio([calc.total,quantity])))+'</strong></li>';
       }).join('');
       return '<article class="cost-partiya-card'+(selection?' is-selected':'')+'">'+
-        '<div class="cost-partiya-top"><div><span class="cost-partiya-eyebrow">'+(group.legacy?'OLDINGI MA’LUMOTLAR':'ALO HIDA PARTIYA')+'</span>'+
+        '<div class="cost-partiya-top"><div><span class="cost-partiya-eyebrow">'+(group.legacy?'OLDINGI MA’LUMOTLAR':'ALOHIDA PARTIYA')+'</span>'+
         '<h4>'+title+'</h4><p>'+group.bookCount+' xil kitob · '+t.quantityTotal+' nusxa</p></div>'+
         '<button type="button" class="soft-button" data-cost-batch-jump="'+escapeHtml(group.id)+'">'+(selection?'Tanlangan ✓':'Hisobini ko‘rish')+'</button></div>'+
         '<div class="cost-partiya-metrics">'+

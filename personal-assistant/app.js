@@ -3290,7 +3290,7 @@
       const consolidated=new Map();
       for(const part of group.rows){
         const key=costs.key(part.title),qty=costs.quantity(part.quantity)??0;
-        const value=costs.calculate(part,part.rate??state.bookCostRate).total;
+        const value=costs.calculate(part,group.actualKgRate??part.rate??state.bookCostRate).total;
         const sale=costs.amount(part.salePrice);
         const prev=consolidated.get(key)||{title:part.title,qty:0,total:0,profit:0,complete:true,saleReady:true};
         prev.qty+=qty;

@@ -511,13 +511,27 @@
         <h2>Partiyalar hisoboti</h2>
         <p>Har bir partiyaning xarajat va kutiladigan foydasi alohida. Kitoblar ro‘yxatidagi umumiy son o‘zgarmaydi.</p>
       <section class="cost-batch-picker" aria-labelledby="costBatchPickerLabel">
-        <label id="costBatchPickerLabel" for="costBatchSelect">Partiya bo‘yicha hisobot</label>
+        <label id="costBatchPickerLabel" for="costBatchSelect">Partiyani tanlang</label>
         <select id="costBatchSelect" aria-describedby="costBatchFilterHint">
           <option value="all">Barcha partiyalar · umumiy</option>
         </select>
         <small id="costBatchFilterHint">Istalgan partiyani tanlang. Kitoblar ro‘yxatidagi jami son o‘zgarmaydi.</small>
       </section>
+        <div class="cost-report-mode" role="group" aria-label="Hisobot turi">
+          <button type="button" id="costReportModeBatch" class="active" aria-pressed="true">Partiya bo‘yicha</button>
+          <button type="button" id="costReportModeAll" aria-pressed="false">Umumiy hisob</button>
+        </div>
         <div id="costReportSpotlight" class="cost-report-spotlight" aria-live="polite"></div>
+        <div class="cost-report-dashboard" id="costReportDashboard" aria-live="polite">
+          <article class="cost-report-total"><small>Jami tan narxi</small><strong id="costReportTotal">—</strong><span id="costReportNote"></span></article>
+          <article><small>Jami nusxalar</small><strong id="costReportQuantity">—</strong><span id="costReportKinds"></span></article>
+          <article><small>Jami xarid</small><strong id="costReportPurchase">—</strong></article>
+          <article><small>Jami yetkazish</small><strong id="costReportShipping">—</strong></article>
+          <article class="cost-report-profit"><small>Kutiladigan jami foyda</small><strong id="costReportProfit">—</strong></article>
+          <article><small>Jami tan narxi (so‘m)</small><strong id="costReportTotalSom">—</strong></article>
+          <article><small>Jami foyda (so‘m)</small><strong id="costReportProfitSom">—</strong></article>
+          <article class="cost-report-pending"><small>To‘ldirish kerak</small><strong id="costReportPending">—</strong></article>
+        </div>
         <div id="costReportValues"></div>
         <div id="costBatchReportList" class="cost-batch-report-list"></div>
         <details class="cost-report-extras"><summary>Eksport va tariflarni solishtirish</summary>
@@ -533,12 +547,12 @@
           <label class="cost-simple-label cost-simple-name">Kitob nomi
             <input id="costSimpleTitle" maxlength="300" placeholder="Masalan: Arosat" required>
           </label>
-          <details class="cost-simple-quantity"><summary>Partiyaga nechta kitob keldi?</summary>
-            <label class="cost-simple-label" for="costSimpleQuantity">Shu partiyadagi soni
+          <div class="cost-simple-quantity">
+            <label class="cost-simple-label" for="costSimpleQuantity">Bu partiyada nechta keldi?
               <input id="costSimpleQuantity" type="number" inputmode="numeric" min="1" max="100000" step="1" value="1" required>
             </label>
-            <small>Bu son «Umumiy»da va partiyalar tarixida ko‘rinadi.</small>
-          </details>
+            <small>Bu partiya soni «Umumiy»da jamlanadi. Kitoblar bo‘limida son ko‘rsatilmaydi.</small>
+          </div>
           <div class="cost-simple-grid">
             <label class="cost-simple-label" for="costSimplePrice">O‘zbekistonda 1 dona narxi
               <select id="costSimpleCurrency" aria-label="Xarid narxi valyutasi"><option value="UZS">so‘m (UZS)</option><option value="KRW">von (₩)</option></select>

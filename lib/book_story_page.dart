@@ -42,6 +42,17 @@ class _BookStoryPageState extends State<BookStoryPage> {
   // Eng yangi dizaynlar tepada ko‘rinsin — foydalanuvchi ularni qidirib
   // pastga tushmasin. Qolganlari avvalgi tartibda saqlanadi.
   static const List<BookStoryTemplate> _templateOrder = [
+    // Yangi o‘nta uslubni birinchi ko‘rsatamiz.
+    BookStoryTemplate.novaEditorial,
+    BookStoryTemplate.velvetRose,
+    BookStoryTemplate.auroraInk,
+    BookStoryTemplate.hanokPaper,
+    BookStoryTemplate.kineticPop,
+    BookStoryTemplate.serifLuxe,
+    BookStoryTemplate.mochaStudio,
+    BookStoryTemplate.neonNight,
+    BookStoryTemplate.galleryLine,
+    BookStoryTemplate.goldenOrbit,
     BookStoryTemplate.obsidianEdition, // Grafit va oltin
     BookStoryTemplate.pearlEdition,    // Marvarid, ipak va nozik chiziqlar
     BookStoryTemplate.sapphireEdition, // Ko‘k kristall
@@ -313,12 +324,17 @@ class _BookStoryPageState extends State<BookStoryPage> {
           children: [CircularProgressIndicator(), SizedBox(height: 16), Text('Story rasmi tayyorlanmoqda…')],
         ));
         return ListView(padding: const EdgeInsets.all(20), children: [
-          const Text('Dizaynni tanlang', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 10),
+          Row(children: [
+            const Expanded(child: Text('Dizaynni tanlang',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900))),
+            Text('${_templateOrder.length} ta uslub',
+                style: const TextStyle(fontSize: 11, color: Colors.black54)),
+          ]),
+          const SizedBox(height: 6),
           LayoutBuilder(
             builder: (context, constraints) {
-              const gap = 8.0;
-              final columns = constraints.maxWidth >= 520 ? 5 : 4;
+              const gap = 5.0;
+              final columns = constraints.maxWidth >= 520 ? 8 : 5;
               final itemWidth =
                   (constraints.maxWidth - gap * (columns - 1)) / columns;
               return Wrap(
@@ -343,18 +359,23 @@ class _BookStoryPageState extends State<BookStoryPage> {
                       item == BookStoryTemplate.royal ||
                       item == BookStoryTemplate.adras ||
                       item == BookStoryTemplate.khiva ||
-                      item == BookStoryTemplate.turon;
+                      item == BookStoryTemplate.turon ||
+                      item == BookStoryTemplate.auroraInk ||
+                      item == BookStoryTemplate.kineticPop ||
+                      item == BookStoryTemplate.serifLuxe ||
+                      item == BookStoryTemplate.neonNight ||
+                      item == BookStoryTemplate.goldenOrbit;
                   return InkWell(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(9),
                     onTap: () => _selectTemplate(item),
                     child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 160),
+                      duration: const Duration(milliseconds: 200),
                       width: itemWidth,
-                      height: 72,
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
+                      height: 61,
+                      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 3),
                       decoration: BoxDecoration(
                         color: bookStoryTemplateColor(item),
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(9),
                         border: Border.all(
                           color: selected
                               ? const Color(0xFF08786E)
@@ -378,19 +399,19 @@ class _BookStoryPageState extends State<BookStoryPage> {
                             selected
                                 ? Icons.check_circle_rounded
                                 : Icons.auto_awesome_rounded,
-                            size: 20,
+                            size: 16,
                             color: darkItem
                                 ? Colors.white
                                 : const Color(0xFF174652),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 2),
                           Text(
                             bookStoryTemplateName(item),
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 10.5,
+                              fontSize: 9,
                               fontWeight: FontWeight.w900,
                               color: darkItem
                                   ? Colors.white
@@ -405,12 +426,18 @@ class _BookStoryPageState extends State<BookStoryPage> {
               );
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Center(child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 360),
-            child: ClipRRect(borderRadius: BorderRadius.circular(18),
-              child: Image.memory(bytes, gaplessPlayback: true,
-                semanticLabel: '${widget.book.title}, ${storyPrice(widget.book)} — story rasmi')),
+            child: ClipRRect(borderRadius: BorderRadius.circular(16),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 240),
+                switchInCurve: Curves.easeOut,
+                child: Image.memory(bytes,
+                  key: ValueKey('${_template.name}-$_descriptionPage'),
+                  gaplessPlayback: true,
+                  semanticLabel: '${widget.book.title}, ${storyPrice(widget.book)} — story rasmi'),
+              )),
           )),
           if (_pageCount > 1) ...[
             const SizedBox(height: 10),

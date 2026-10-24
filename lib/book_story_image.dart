@@ -32,9 +32,19 @@ Rect fittedStoryCoverRect(Rect bounds, Size coverSize) {
   );
 }
 
-enum BookStoryTemplate { current, oldCurrent, smartMatch, decorative, spring, summer, autumn, winter, editorial, library, arch, emerald, minimal, sunset, magazine, classic, poster, noir, geometric, paper, split, polaroid, collage, coverFocus, editorialPage, lifestyle, cleanStudio, goldArch, scrapbook, silk, botanical, mosaic, midnight, gallery, atlas, marble, cinema, terracotta, royal, ornament, adras, kokand, khiva, turon, yurt, heritage, quickPrice, cleanEdition, premiumEdition, nightEdition, warmEdition, saleEdition, editorialEdition, obsidianEdition, pearlEdition, sapphireEdition, velvetEdition, atlasLuxeEdition }
+enum BookStoryTemplate { current, oldCurrent, smartMatch, decorative, spring, summer, autumn, winter, editorial, library, arch, emerald, minimal, sunset, magazine, classic, poster, noir, geometric, paper, split, polaroid, collage, coverFocus, editorialPage, lifestyle, cleanStudio, goldArch, scrapbook, silk, botanical, mosaic, midnight, gallery, atlas, marble, cinema, terracotta, royal, ornament, adras, kokand, khiva, turon, yurt, heritage, quickPrice, cleanEdition, premiumEdition, nightEdition, warmEdition, saleEdition, editorialEdition, obsidianEdition, pearlEdition, sapphireEdition, velvetEdition, atlasLuxeEdition, novaEditorial, velvetRose, auroraInk, hanokPaper, kineticPop, serifLuxe, mochaStudio, neonNight, galleryLine, goldenOrbit }
 
 String bookStoryTemplateName(BookStoryTemplate value) => switch (value) {
+  BookStoryTemplate.novaEditorial => 'Nova Editorial',
+  BookStoryTemplate.velvetRose => 'Velvet Rose',
+  BookStoryTemplate.auroraInk => 'Aurora Ink',
+  BookStoryTemplate.hanokPaper => 'Hanok Paper',
+  BookStoryTemplate.kineticPop => 'Kinetic Pop',
+  BookStoryTemplate.serifLuxe => 'Serif Luxe',
+  BookStoryTemplate.mochaStudio => 'Mocha Studio',
+  BookStoryTemplate.neonNight => 'Neon Night',
+  BookStoryTemplate.galleryLine => 'Gallery Line',
+  BookStoryTemplate.goldenOrbit => 'Golden Orbit',
   BookStoryTemplate.quickPrice => 'Faqat narx',
   BookStoryTemplate.cleanEdition => 'Clean Plus',
   BookStoryTemplate.premiumEdition => 'Premium Plus',
@@ -96,6 +106,16 @@ String bookStoryTemplateName(BookStoryTemplate value) => switch (value) {
 };
 
 Color bookStoryTemplateColor(BookStoryTemplate value) => switch (value) {
+  BookStoryTemplate.novaEditorial => const Color(0xFFF7F1E5),
+  BookStoryTemplate.velvetRose => const Color(0xFFF3DFE3),
+  BookStoryTemplate.auroraInk => const Color(0xFF172B46),
+  BookStoryTemplate.hanokPaper => const Color(0xFFECE9E0),
+  BookStoryTemplate.kineticPop => const Color(0xFF1F4EC3),
+  BookStoryTemplate.serifLuxe => const Color(0xFF171D1C),
+  BookStoryTemplate.mochaStudio => const Color(0xFFE9D9C4),
+  BookStoryTemplate.neonNight => const Color(0xFF151322),
+  BookStoryTemplate.galleryLine => const Color(0xFFF5F2EA),
+  BookStoryTemplate.goldenOrbit => const Color(0xFF123D37),
   BookStoryTemplate.quickPrice => const Color(0xFFF4F0E7),
   BookStoryTemplate.cleanEdition => const Color(0xFFE9F4F1),
   BookStoryTemplate.premiumEdition => const Color(0xFF153C32),
@@ -176,14 +196,6 @@ String _storyActionLabel(Book book) =>
     book.preorderEnabled
         ? 'Oldindan buyurtma uchun bosing'
         : (book.inStock ? storyOrderLabel : 'Kitob haqida batafsil');
-
-/// Public Story artwork contains no inventory counts or publisher names.
-String storyCategoryHighlight(Book book) {
-  final category = book.category.trim();
-  if (category.isEmpty || category == 'Boshqalar' ||
-      category == 'Ko‘rsatilmagan') return 'Yoqimli mutolaa';
-  return category;
-}
 
 String _storyDescription(Book book) {
   final value = book.description.replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -751,7 +763,49 @@ Size _paintText(
 }
 
 
+const _signatureStoryDesigns = <BookStoryTemplate>[
+  BookStoryTemplate.novaEditorial,
+  BookStoryTemplate.velvetRose,
+  BookStoryTemplate.auroraInk,
+  BookStoryTemplate.hanokPaper,
+  BookStoryTemplate.kineticPop,
+  BookStoryTemplate.serifLuxe,
+  BookStoryTemplate.mochaStudio,
+  BookStoryTemplate.neonNight,
+  BookStoryTemplate.galleryLine,
+  BookStoryTemplate.goldenOrbit,
+];
+
+/// Ten high-contrast editorial layouts with individually composed vector
+/// backgrounds. They export static PNGs; animation is preview-only.
+String _signatureFont(BookStoryTemplate template) {
+  const families = <String>[
+    'Georgia',
+    'Baskerville',
+    'Avenir Next',
+    'Palatino',
+    'Futura',
+    'Didot',
+    'Optima',
+    'Helvetica Neue',
+    'Gill Sans',
+    'Georgia',
+  ];
+  final index = _signatureStoryDesigns.indexOf(template);
+  return index < 0 ? 'Roboto' : families[index];
+}
+
 const _fullStoryDesigns = <BookStoryTemplate>{
+  BookStoryTemplate.novaEditorial,
+  BookStoryTemplate.velvetRose,
+  BookStoryTemplate.auroraInk,
+  BookStoryTemplate.hanokPaper,
+  BookStoryTemplate.kineticPop,
+  BookStoryTemplate.serifLuxe,
+  BookStoryTemplate.mochaStudio,
+  BookStoryTemplate.neonNight,
+  BookStoryTemplate.galleryLine,
+  BookStoryTemplate.goldenOrbit,
   BookStoryTemplate.cleanEdition,
   BookStoryTemplate.premiumEdition,
   BookStoryTemplate.nightEdition,
@@ -944,6 +998,26 @@ Future<Uint8List> _renderSevenStoryDesign(
   final canvas = Canvas(recorder)..scale(scale);
   final simple = template == BookStoryTemplate.quickPrice;
   final (background, foreground, accent) = switch (template) {
+    BookStoryTemplate.novaEditorial => (
+      const Color(0xFFF7F1E5), const Color(0xFF252A2C), const Color(0xFFB85444)),
+    BookStoryTemplate.velvetRose => (
+      const Color(0xFFF3DFE3), const Color(0xFF552F40), const Color(0xFFAC5871)),
+    BookStoryTemplate.auroraInk => (
+      const Color(0xFF172B46), const Color(0xFFF4E9D7), const Color(0xFF8DE3C7)),
+    BookStoryTemplate.hanokPaper => (
+      const Color(0xFFECE9E0), const Color(0xFF243F3D), const Color(0xFF9D694B)),
+    BookStoryTemplate.kineticPop => (
+      const Color(0xFF1F4EC3), const Color(0xFFF7F2DD), const Color(0xFFFFD15B)),
+    BookStoryTemplate.serifLuxe => (
+      const Color(0xFF171D1C), const Color(0xFFF5EEDB), const Color(0xFFE0B66A)),
+    BookStoryTemplate.mochaStudio => (
+      const Color(0xFFE9D9C4), const Color(0xFF573B31), const Color(0xFFB66E50)),
+    BookStoryTemplate.neonNight => (
+      const Color(0xFF151322), const Color(0xFFF5EFFA), const Color(0xFF72F6E8)),
+    BookStoryTemplate.galleryLine => (
+      const Color(0xFFF5F2EA), const Color(0xFF242B29), const Color(0xFF6D827B)),
+    BookStoryTemplate.goldenOrbit => (
+      const Color(0xFF123D37), const Color(0xFFF5E5C5), const Color(0xFFE1BA70)),
     BookStoryTemplate.quickPrice => (
       const Color(0xFFF5F0E7), const Color(0xFF123C42), const Color(0xFF0B766B)),
     BookStoryTemplate.cleanEdition => (
@@ -1039,9 +1113,150 @@ Future<Uint8List> _renderSevenStoryDesign(
     canvas.drawRect(const Rect.fromLTWH(37, 36, 1006, 1029), edge);
   }
 
+
+  // Ten separate art directions; vector geometry stays behind the cover and
+  // the text card, preserving book-cover legibility and export sharpness.
+  final signatureIndex = _signatureStoryDesigns.indexOf(template);
+  if (signatureIndex >= 0) {
+    final line = Paint()
+      ..color = accent.withAlpha(140)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4;
+    switch (signatureIndex) {
+      case 0: // Nova: oversized editorial grid and asymmetric red rules
+        canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 23),
+            Paint()..color = foreground);
+        for (var i = 0; i < 7; i++) {
+          canvas.drawLine(Offset(70 + i * 155.0, 145),
+              Offset(70 + i * 155.0, 1010), line..strokeWidth = 1.4);
+        }
+        canvas.drawRect(const Rect.fromLTWH(72, 150, 17, 810),
+            Paint()..color = accent);
+        canvas.drawLine(const Offset(78, 985), const Offset(1002, 985),
+            line..strokeWidth = 7);
+        break;
+      case 1: // Rose: soft petal-like, concentric silk shapes
+        for (var i = 0; i < 6; i++) {
+          canvas.drawOval(Rect.fromCenter(
+            center: Offset(540, 450), width: 420 + i * 130.0,
+            height: 710 + i * 85.0),
+            Paint()..style = PaintingStyle.stroke
+              ..strokeWidth = i.isEven ? 4 : 1.8
+              ..color = accent.withAlpha(95 - i * 9));
+        }
+        canvas.drawCircle(const Offset(1030, 180), 210,
+            Paint()..color = const Color(0x55FFFFFF));
+        break;
+      case 2: // Aurora: translucent gradient sweeps and stardust
+        canvas.drawRect(const Rect.fromLTWH(0, 0, 1080, 1050),
+            Paint()..shader = ui.Gradient.linear(
+              const Offset(0, 180), const Offset(1000, 930),
+              [const Color(0xFF132A52), const Color(0xFF295B64),
+               const Color(0xFF122139)], [0.0, 0.5, 1.0]));
+        for (var i = 0; i < 26; i++) {
+          final x = 35.0 + (i * 137) % 1020;
+          final y = 80.0 + (i * 181) % 920;
+          canvas.drawCircle(Offset(x, y), i % 4 == 0 ? 4 : 2,
+              Paint()..color = accent.withAlpha(150));
+        }
+        canvas.drawArc(const Rect.fromLTWH(-80, 120, 1240, 900),
+            -0.5, 2.0, false, line..strokeWidth = 11);
+        break;
+      case 3: // Hanok: ink strokes and Korean-paper inspired arches
+        canvas.drawRRect(RRect.fromRectAndRadius(
+          const Rect.fromLTWH(76, 120, 928, 850),
+          const Radius.circular(410)),
+          Paint()..color = const Color(0xFFD8D7C9));
+        canvas.drawRRect(RRect.fromRectAndRadius(
+          const Rect.fromLTWH(100, 145, 880, 795),
+          const Radius.circular(380)), line..strokeWidth = 3);
+        for (var i = 0; i < 9; i++) {
+          canvas.drawLine(Offset(80 + i * 116.0, 90),
+              Offset(80 + i * 116.0, 175), line..strokeWidth = 2);
+        }
+        break;
+      case 4: // Kinetic: Bauhaus diagonal blocks and vivid geometry
+        canvas.drawPath(Path()..moveTo(0, 0)..lineTo(640, 0)
+          ..lineTo(0, 720)..close(),
+          Paint()..color = const Color(0xFFFFD15B));
+        canvas.drawPath(Path()..moveTo(1080, 145)
+          ..lineTo(1080, 950)..lineTo(570, 950)..close(),
+          Paint()..color = const Color(0xFFE95A4B));
+        canvas.drawCircle(const Offset(980, 150), 125,
+            Paint()..color = const Color(0xFFF3E8D6));
+        canvas.drawRect(const Rect.fromLTWH(55, 885, 970, 22),
+            Paint()..color = foreground);
+        break;
+      case 5: // Serif Luxe: classical gold-lined bookplate
+        canvas.drawRRect(RRect.fromRectAndRadius(
+            const Rect.fromLTWH(60, 95, 960, 905),
+            const Radius.circular(32)), line..strokeWidth = 6);
+        canvas.drawRRect(RRect.fromRectAndRadius(
+            const Rect.fromLTWH(87, 122, 906, 851),
+            const Radius.circular(22)), line..strokeWidth = 1.8);
+        for (var i = 0; i < 8; i++) {
+          canvas.drawCircle(Offset(540 + Math.cos(i * Math.pi / 4) * 410,
+              525 + Math.sin(i * Math.pi / 4) * 410), 8,
+              Paint()..color = accent);
+        }
+        break;
+      case 6: // Mocha: soft studio lighting and rounded terracotta shapes
+        canvas.drawCircle(const Offset(110, 240), 320,
+            Paint()..color = const Color(0x99C9977F));
+        canvas.drawCircle(const Offset(1040, 820), 355,
+            Paint()..color = const Color(0x77F7EDE0));
+        for (var i = 0; i < 5; i++) {
+          canvas.drawArc(Rect.fromLTWH(100 + i * 24.0, 118 + i * 24.0,
+              800 - i * 48.0, 800 - i * 48.0),
+              0.2, 2.5, false, line..strokeWidth = 2.2);
+        }
+        break;
+      case 7: // Neon Night: cyan-violet light rings on dark
+        final glow = Paint()..style = PaintingStyle.stroke
+            ..strokeWidth = 20
+            ..color = const Color(0xAA9660E5);
+        canvas.drawArc(const Rect.fromLTWH(28, 75, 1030, 1000),
+            -1.3, 4.1, false, glow);
+        canvas.drawArc(const Rect.fromLTWH(100, 150, 890, 860),
+            -0.8, 3.6, false, line..strokeWidth = 8);
+        for (var i = 0; i < 5; i++) {
+          canvas.drawLine(Offset(0, 210 + 172.0 * i),
+              Offset(1080, 125 + 172.0 * i),
+              Paint()..color = const Color(0x446FFFEA)..strokeWidth = 3);
+        }
+        break;
+      case 8: // Gallery: museum matboard with typographic rules
+        canvas.drawRect(const Rect.fromLTWH(46, 58, 988, 978),
+            Paint()..color = const Color(0xFFEBE6DC));
+        canvas.drawRect(const Rect.fromLTWH(64, 76, 952, 942),
+            Paint()..style = PaintingStyle.stroke
+              ..strokeWidth = 3..color = foreground);
+        canvas.drawRect(const Rect.fromLTWH(84, 96, 912, 900),
+            Paint()..style = PaintingStyle.stroke
+              ..strokeWidth = 1..color = accent);
+        for (var i = 0; i < 10; i++) {
+          canvas.drawRect(Rect.fromLTWH(130 + i * 82.0, 932, 32, 4),
+              Paint()..color = accent);
+        }
+        break;
+      case 9: // Golden Orbit: jewel-tone orbital filigree
+        for (var i = 0; i < 6; i++) {
+          final radius = 135.0 + i * 71;
+          canvas.drawCircle(const Offset(540, 535), radius,
+              Paint()..style = PaintingStyle.stroke
+                ..strokeWidth = i.isEven ? 5 : 2
+                ..color = accent.withAlpha(155 - i * 19));
+        }
+        canvas.drawRect(const Rect.fromLTWH(0, 1000, 1080, 9),
+            Paint()..color = accent);
+        break;
+    }
+  }
+
   void fittedText(String value, Rect box, double preferredSize,
       {Color? color, FontWeight weight = FontWeight.w600,
-       int maxLines = 2, TextAlign align = TextAlign.center}) {
+       int maxLines = 2, TextAlign align = TextAlign.center,
+       String? family}) {
     if (value.trim().isEmpty) return;
     final safe = value.trim();
     var fontSize = preferredSize;
@@ -1049,8 +1264,10 @@ Future<Uint8List> _renderSevenStoryDesign(
     while (true) {
       painter = TextPainter(
         text: TextSpan(text: safe,
-          style: TextStyle(fontFamily: 'Roboto', fontSize: fontSize,
-            fontWeight: weight, height: 1.13, color: color ?? foreground)),
+          style: TextStyle(fontFamily: family ?? 'Roboto',
+            fontFamilyFallback: const ['Roboto'],
+            fontSize: fontSize, fontWeight: weight, height: 1.13,
+            color: color ?? foreground)),
         textDirection: ui.TextDirection.ltr,
         textAlign: align,
         maxLines: maxLines,
@@ -1110,35 +1327,47 @@ Future<Uint8List> _renderSevenStoryDesign(
       const Rect.fromLTWH(56, 1080, 968, 738), const Radius.circular(36));
     final panelColor = darkTheme
         ? const Color(0xFF253C45)
-        : const Color(0xFFFEFEFB);
-    final textColor = darkTheme ? const Color(0xFFF9F4E8) : foreground;
+        : signatureIndex >= 0
+          ? (background.computeLuminance() < 0.35
+              ? const Color(0xFFF8F2E7)
+              : const Color(0xFFFFFEF9))
+          : const Color(0xFFFEFEFB);
+    final textColor = darkTheme ? const Color(0xFFF9F4E8)
+        : (signatureIndex >= 0 && background.computeLuminance() < 0.35)
+            ? const Color(0xFF23332F) : foreground;
     canvas.drawRRect(panel, Paint()..color = panelColor);
     canvas.drawRRect(
       RRect.fromRectAndRadius(const Rect.fromLTWH(108, 1104, 864, 9),
           const Radius.circular(5)),
       Paint()..color = accent,
     );
-    fittedText(book.title, const Rect.fromLTWH(106, 1127, 868, 112), 48,
-        color: textColor, weight: FontWeight.w900, maxLines: 2);
+    fittedText(book.title, const Rect.fromLTWH(106, 1127, 868, 112),
+        signatureIndex >= 0 ? 54 : 48,
+        color: textColor, weight: FontWeight.w900, maxLines: 2,
+        family: signatureIndex >= 0 ? _signatureFont(template) : null);
     final author = book.author.trim();
     if (author.isNotEmpty && author != 'Ko‘rsatilmagan') {
-      fittedText(author, const Rect.fromLTWH(124, 1238, 832, 44), 27,
-          color: textColor, maxLines: 1);
+      fittedText(author, const Rect.fromLTWH(124, 1238, 832, 44), 29,
+          color: textColor, maxLines: 1,
+          family: signatureIndex >= 0 ? _signatureFont(template) : null);
     }
-    // Category is more useful to readers than publisher metadata.
-    fittedText(storyCategoryHighlight(book),
-        const Rect.fromLTWH(124, 1276, 832, 40), 24,
-        color: textColor.withAlpha(210), maxLines: 1);
-    fittedText(storyPrice(book), const Rect.fromLTWH(100, 1310, 880, 95), 61,
-        color: darkTheme ? accent : const Color(0xFF08786E),
-        weight: FontWeight.w900, maxLines: 2);
-    fittedText(delivery, const Rect.fromLTWH(100, 1408, 880, 45), 28,
+    final headlineFamily = signatureIndex >= 0
+        ? _signatureFont(template) : 'Roboto';
+    fittedText(storyPrice(book), const Rect.fromLTWH(100, 1290, 880, 95),
+        signatureIndex >= 0 ? 68 : 63,
+        color: darkTheme ? accent : signatureIndex >= 0
+          ? (background.computeLuminance() < 0.35
+              ? const Color(0xFF9F6935) : accent)
+          : const Color(0xFF08786E),
+        weight: FontWeight.w900, maxLines: 2, family: headlineFamily);
+    fittedText(delivery, const Rect.fromLTWH(100, 1396, 880, 48), 28,
         color: textColor, maxLines: 1);
-    // More room for book details where the shipping promo used to appear.
-    // Longer descriptions continue on separate Story pages.
+    // Only the book's actual description; no category, stock or promos.
     fittedText(bookStoryDescriptionPages(book).first,
-        const Rect.fromLTWH(115, 1472, 850, 305), 28,
-        color: textColor, weight: FontWeight.w500, maxLines: 12);
+        const Rect.fromLTWH(115, 1463, 850, 322),
+        signatureIndex >= 0 ? 30 : 28,
+        color: textColor, weight: FontWeight.w500, maxLines: 12,
+        family: headlineFamily);
     canvas.restore();
   }
   final picture = recorder.endRecording();
@@ -1175,6 +1404,16 @@ Future<Uint8List> renderBookStory(
     BookStoryTemplate.sapphireEdition,
     BookStoryTemplate.velvetEdition,
     BookStoryTemplate.atlasLuxeEdition,
+    BookStoryTemplate.novaEditorial,
+    BookStoryTemplate.velvetRose,
+    BookStoryTemplate.auroraInk,
+    BookStoryTemplate.hanokPaper,
+    BookStoryTemplate.kineticPop,
+    BookStoryTemplate.serifLuxe,
+    BookStoryTemplate.mochaStudio,
+    BookStoryTemplate.neonNight,
+    BookStoryTemplate.galleryLine,
+    BookStoryTemplate.goldenOrbit,
   }.contains(template)) {
     return _renderSevenStoryDesign(
       book, template, coverBytes: coverBytes, renderScale: safeScale,
@@ -1936,6 +2175,16 @@ Future<Uint8List> _renderAlternativeBookStory(
     case BookStoryTemplate.sapphireEdition:
     case BookStoryTemplate.velvetEdition:
     case BookStoryTemplate.atlasLuxeEdition:
+    case BookStoryTemplate.novaEditorial:
+    case BookStoryTemplate.velvetRose:
+    case BookStoryTemplate.auroraInk:
+    case BookStoryTemplate.hanokPaper:
+    case BookStoryTemplate.kineticPop:
+    case BookStoryTemplate.serifLuxe:
+    case BookStoryTemplate.mochaStudio:
+    case BookStoryTemplate.neonNight:
+    case BookStoryTemplate.galleryLine:
+    case BookStoryTemplate.goldenOrbit:
       canvas.drawColor(cream, BlendMode.src);
       break;
     case BookStoryTemplate.oldCurrent:

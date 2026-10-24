@@ -21,7 +21,6 @@ void main() {
       description: 'Kitob haqida ma’lumot', price: 12000, stock: 7,
       discountPercent: 0, imageUrl: '', isActive: true,
     );
-    expect(storyCategoryHighlight(product), 'Jahon adabiyoti');
     expect(storyPrice(product), '₩12,000');
 
     final painter = File('lib/book_story_image.dart').readAsStringSync();
@@ -30,10 +29,67 @@ void main() {
     expect(painter.contains('book.stock'), isFalse,
         reason: 'Story image must not show stock quantities');
     expect(painter.contains('Omborda:'), isFalse);
+    expect(painter.contains('storyCategoryHighlight'), isFalse);
+    expect(painter.contains('fittedText(book.category'), isFalse);
+    expect(painter.contains('textBox(book.category'), isFalse);
     expect(painter.contains('storyShippingHighlight'), isFalse,
         reason: 'No unnecessary marketing highlights in Story images');
     expect(painter.contains('4 ta kitobdan boshlab pochta bepul'), isFalse);
     expect(painter.contains('4+ kitobda'), isFalse);
+  });
+
+  test('ten unique signature Story designs have named colour themes and full copy', () {
+    const signatures = <BookStoryTemplate>[
+      BookStoryTemplate.novaEditorial,
+      BookStoryTemplate.velvetRose,
+      BookStoryTemplate.auroraInk,
+      BookStoryTemplate.hanokPaper,
+      BookStoryTemplate.kineticPop,
+      BookStoryTemplate.serifLuxe,
+      BookStoryTemplate.mochaStudio,
+      BookStoryTemplate.neonNight,
+      BookStoryTemplate.galleryLine,
+      BookStoryTemplate.goldenOrbit,
+    ];
+    expect(signatures.length, 10);
+    expect(signatures.map(bookStoryTemplateName).toSet().length, 10);
+    expect(signatures.map(bookStoryTemplateColor).toSet().length, 10);
+    for (final design in signatures) {
+      expect(bookStorySupportsDescriptionPages(design), isTrue,
+          reason: design.name);
+    }
+  });
+
+  test('ten signature designs export separate PNG artwork in portrait format', () async {
+    final cover = (await rootBundle.load('assets/images/muhajeer_logo.jpg'))
+        .buffer.asUint8List();
+    const signatures = <BookStoryTemplate>[
+      BookStoryTemplate.novaEditorial,
+      BookStoryTemplate.velvetRose,
+      BookStoryTemplate.auroraInk,
+      BookStoryTemplate.hanokPaper,
+      BookStoryTemplate.kineticPop,
+      BookStoryTemplate.serifLuxe,
+      BookStoryTemplate.mochaStudio,
+      BookStoryTemplate.neonNight,
+      BookStoryTemplate.galleryLine,
+      BookStoryTemplate.goldenOrbit,
+    ];
+    final artwork = <int>{};
+    for (final design in signatures) {
+      final bytes = await renderBookStory(book, coverBytes: cover,
+          template: design, renderScale: 0.5);
+      expect(bytes.take(8), [137, 80, 78, 71, 13, 10, 26, 10],
+          reason: design.name);
+      final codec = await ui.instantiateImageCodec(bytes);
+      final image = (await codec.getNextFrame()).image;
+      expect(image.width, 540, reason: design.name);
+      expect(image.height, 960, reason: design.name);
+      image.dispose();
+      codec.dispose();
+      artwork.add(Object.hash(bytes.length, bytes[250], bytes[500]));
+    }
+    expect(artwork.length, 10, reason: 'Each template needs distinct graphics');
   });
 
   test('Story design families export without free postage banners', () async {

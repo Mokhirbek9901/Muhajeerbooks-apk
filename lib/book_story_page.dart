@@ -359,14 +359,19 @@ class _BookStoryPageState extends State<BookStoryPage> {
                       item == BookStoryTemplate.royal ||
                       item == BookStoryTemplate.adras ||
                       item == BookStoryTemplate.khiva ||
-                      item == BookStoryTemplate.turon;
+                      item == BookStoryTemplate.turon ||
+                      item == BookStoryTemplate.auroraInk ||
+                      item == BookStoryTemplate.kineticPop ||
+                      item == BookStoryTemplate.serifLuxe ||
+                      item == BookStoryTemplate.neonNight ||
+                      item == BookStoryTemplate.goldenOrbit;
                   return InkWell(
                     borderRadius: BorderRadius.circular(9),
                     onTap: () => _selectTemplate(item),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       width: itemWidth,
-                      height: 57,
+                      height: 61,
                       padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 3),
                       decoration: BoxDecoration(
                         color: bookStoryTemplateColor(item),
@@ -402,7 +407,7 @@ class _BookStoryPageState extends State<BookStoryPage> {
                           const SizedBox(height: 2),
                           Text(
                             bookStoryTemplateName(item),
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.center,
                             style: TextStyle(

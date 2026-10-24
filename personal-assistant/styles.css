@@ -2442,3 +2442,32 @@ body[data-workspace="costs"][data-cost-view="report"] #costReportPanel{border-ra
 .cost-batch-error{color:var(--red)!important}
 .cost-import-undo{margin-top:10px;width:100%;min-height:42px;font-size:.75rem}
 @media(max-width:390px){.cost-batch-fields{grid-template-columns:1fr}}
+
+/* Batch accounting: same book stays one catalog row, but each delivery has its own ledger. */
+.cost-batch-picker{display:grid;gap:8px;padding:16px 18px;margin:16px 0 14px;border:1px solid #d7d1c5;border-radius:20px;background:#fffdf7}
+.cost-batch-picker label{font-weight:750;color:var(--green,#0b5550);font-size:.96rem}
+.cost-batch-picker select{width:100%;min-height:48px;max-width:100%;border:1px solid #cac9bc;border-radius:13px;padding:10px 12px;background:#fff;color:var(--green,#0b5550);font:inherit;font-weight:650}
+.cost-batch-picker small,.cost-batch-description{font-size:.83rem;color:#817b70;line-height:1.5}
+.cost-batch-heading{font-size:1.15rem;margin:24px 0 7px}
+.cost-batch-report-list{display:grid;gap:16px;margin:16px 0 22px}
+.cost-partiya-card{border:1px solid #ddd5c6;border-radius:20px;background:#fffdfa;padding:16px;min-width:0}
+.cost-partiya-card.is-selected{border-color:#0d5b55;box-shadow:0 0 0 1px #0d5b55}
+.cost-partiya-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.cost-partiya-top>div{min-width:0}
+.cost-partiya-eyebrow{color:#9a855b;font-weight:800;letter-spacing:.07em;font-size:.66rem}
+.cost-partiya-top h4{margin:5px 0;font-size:1.06rem;color:var(--green,#0b5550);overflow-wrap:anywhere}
+.cost-partiya-top p{margin:0;color:#817b70;font-size:.82rem}
+.cost-partiya-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:15px}
+.cost-partiya-metrics>div{padding:12px;border:1px solid #e5decf;border-radius:13px;min-width:0;background:#f8f5ee}
+.cost-partiya-metrics small{display:block;color:#827d71;font-size:.74rem;margin-bottom:8px}
+.cost-partiya-metrics strong{display:block;font-size:1.01rem;color:#125750;overflow-wrap:anywhere;line-height:1.3}
+.cost-partiya-details{border-top:1px solid #e4dfd4;margin-top:15px;padding-top:12px}
+.cost-partiya-details summary{cursor:pointer;color:var(--green,#0b5550);font-weight:700;font-size:.88rem}
+.cost-partiya-details ul{list-style:none;padding:0;margin:12px 0 0;display:grid;gap:6px}
+.cost-partiya-details li{display:flex;justify-content:space-between;gap:12px;padding:10px;border-radius:12px;background:#f5f2eb;align-items:center}
+.cost-partiya-details li div{min-width:0}
+.cost-partiya-details li b{display:block;font-size:.86rem;overflow-wrap:anywhere}
+.cost-partiya-details li small{display:block;color:#7c786f;font-size:.72rem;margin-top:3px}
+.cost-partiya-details li strong{font-size:.87rem;white-space:nowrap;color:var(--green,#0b5550)}
+.cost-partiya-disclaimer,.cost-batch-empty{color:#827568;font-size:.78rem;line-height:1.5;margin:14px 0 0}
+@media(max-width:460px){.cost-batch-picker{padding:13px}.cost-partiya-card{padding:13px}.cost-partiya-metrics{gap:8px}.cost-partiya-metrics>div{padding:10px}.cost-partiya-metrics strong{font-size:.92rem}.cost-partiya-details li{align-items:flex-start;flex-direction:column;gap:3px}.cost-partiya-details li strong{white-space:normal}}

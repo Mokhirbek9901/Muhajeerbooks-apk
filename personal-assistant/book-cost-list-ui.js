@@ -11,14 +11,15 @@
     (Array.isArray(rows)?rows:[]).forEach((row,index)=>{
       if(!String(row?.title||'').trim())return;
       const key=normalize(row.title);
-      if(!unique.has(key))unique.set(key,{row,index});
+      if(!unique.has(key))unique.set(key,{row,index,latest:index});
+      else{const found=unique.get(key);found.row=row;found.latest=index;}
     });
     let values=[...unique.values()];
     if(search){const q=normalize(search);values=values.filter(item=>normalize(item.row.title).includes(q));}
     if(choice==='missing-weight')values=values.filter(item=>missingWeight(item.row));
     if(choice==='incomplete')values=values.filter(item=>missingPrice(item.row)||missingWeight(item.row));
     if(choice==='oldest')values.sort((a,b)=>a.index-b.index);
-    else values.sort((a,b)=>b.index-a.index);
+    else values.sort((a,b)=>b.latest-a.latest);
     return values.map(item=>item.row);
   }
   return {filterBooks,missingPrice,missingWeight};

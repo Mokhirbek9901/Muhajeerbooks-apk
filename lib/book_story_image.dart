@@ -3259,21 +3259,59 @@ Future<Uint8List> _renderAlternativeBookStory(
   const cardBg = Color(0xFFFDFBF6);
   const cardStroke = Color(0xFFD8D0C2);
   const cardText = Color(0xFF123F49);
-  // Two balanced cards give more prominence to the price and basic postage.
-  const gap = 24.0;
-  const cardW = 402.0;
-  final left = (1080 - (cardW * 2 + gap)) / 2;
-  for (var i = 0; i < 2; i++) {
-    rounded(Rect.fromLTWH(left + i * (cardW + gap), infoTop + 18,
-        cardW, 112), cardBg, radius: 22, stroke: cardStroke);
+  // Three noticeably different arrangements for the surviving classic
+  // Story designs. The visual content stays the same: price and normal postage.
+  final printLayout = const <BookStoryTemplate>{
+    BookStoryTemplate.spring, BookStoryTemplate.winter,
+    BookStoryTemplate.botanical, BookStoryTemplate.polaroid,
+    BookStoryTemplate.scrapbook,
+  }.contains(template);
+  final cinematicLayout = const <BookStoryTemplate>{
+    BookStoryTemplate.autumn, BookStoryTemplate.noir,
+    BookStoryTemplate.goldArch, BookStoryTemplate.split,
+    BookStoryTemplate.ornament,
+  }.contains(template);
+  if (printLayout) {
+    // Calm bookstore label: one cream page, large price on the left,
+    // delivery as an unobtrusive line on the right.
+    rounded(Rect.fromLTWH(94, infoTop + 12, 892, 124),
+        cardBg, radius: 10, stroke: cardStroke);
+    canvas.drawRect(Rect.fromLTWH(118, infoTop + 28, 5, 92),
+        Paint()..color = teal);
+    textBox(storyPrice(book), Rect.fromLTWH(137, infoTop + 23, 450, 95),
+        46, weight: FontWeight.w900, color: teal, maxLines: 1);
+    textBox('Yetkazib berish:\n₩4,000',
+        Rect.fromLTWH(620, infoTop + 30, 330, 86),
+        24, weight: FontWeight.w700, color: cardText);
+  } else if (cinematicLayout) {
+    // Dramatic dark ribbon with asymmetrical price / delivery placement.
+    rounded(Rect.fromLTWH(80, infoTop + 8, 920, 130),
+        const Color(0xFF122F37), radius: 15, stroke: teal);
+    textBox(storyPrice(book), Rect.fromLTWH(108, infoTop + 26, 520, 96),
+        47, weight: FontWeight.w900, color: const Color(0xFFF4DBA4),
+        maxLines: 1);
+    canvas.drawRect(Rect.fromLTWH(655, infoTop + 32, 2, 80),
+        Paint()..color = const Color(0x55FFFFFF));
+    textBox('Yetkazib berish:\n₩4,000',
+        Rect.fromLTWH(680, infoTop + 32, 270, 88), 23,
+        weight: FontWeight.w800, color: Colors.white);
+  } else {
+    // Graphic pair of separate price and postage cards.
+    const gap = 24.0;
+    const cardW = 402.0;
+    final left = (1080 - (cardW * 2 + gap)) / 2;
+    for (var i = 0; i < 2; i++) {
+      rounded(Rect.fromLTWH(left + i * (cardW + gap), infoTop + 18,
+          cardW, 112), cardBg, radius: 22, stroke: cardStroke);
+    }
+    textBox(storyPrice(book),
+        Rect.fromLTWH(left + 14, infoTop + 32, cardW - 28, 80), 36,
+        weight: FontWeight.w900, color: teal, maxLines: 1);
+    textBox('Yetkazib berish:\n₩4,000',
+        Rect.fromLTWH(left + cardW + gap + 14, infoTop + 28,
+            cardW - 28, 88), 26,
+        weight: FontWeight.w800, color: cardText);
   }
-  textBox(storyPrice(book),
-      Rect.fromLTWH(left + 14, infoTop + 32, cardW - 28, 80), 36,
-      weight: FontWeight.w900, color: teal, maxLines: 1);
-  textBox('Yetkazib berish:\n₩4,000',
-      Rect.fromLTWH(left + cardW + gap + 14, infoTop + 28,
-          cardW - 28, 88), 26,
-      weight: FontWeight.w800, color: cardText);
 
   final description = _storyDescription(book);
   final descriptionOnDark = dark ||

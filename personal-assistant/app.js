@@ -3219,14 +3219,29 @@
   function renderCostHomeBooks(){
     const holder=$('costHomeBooksList');
     if(!holder)return;
-    const all=state.bookCosts.filter(row=>String(row.title||'').trim()).slice().reverse();
+    // Group old accidental duplicate records visually without deleting history.
+    // New arrivals already attach to the existing catalog row.
+    const byTitle=new Map();
+    for(const row of state.bookCosts.filter(r=>String(r.title||'').trim()).slice().reverse()){
+      const key=costs.key(row.title);
+      if(!byTitle.has(key))byTitle.set(key,[]);
+      byTitle.get(key).push(row);
+    }
+    const all=[...byTitle.values()];
     const search=costs.key($('costHomeSearch').value.trim());
-    const rows=search?all.filter(row=>costs.key(row.title).includes(search)):all;
+    const rows=search?all.filter(list=>costs.key(list[0].title).includes(search)):all;
     $('costHomeBooksCount').textContent=search?rows.length+' / '+all.length+' xil':all.length+' xil';
     const won=value=>value===null?'—':formatMoney(value,'KRW');
-    holder.innerHTML=rows.length?rows.map(row=>{
-      const inv=costs.inventory(row,state.bookCostRate);
-      const stateText=row.saved?'':' · Hali saqlanmagan';
+    holder.innerHTML=rows.length?rows.map(list=>{
+      const row=list[0];
+      const inventories=list.map(item=>costs.inventory(item,state.bookCostRate));
+      const financial=['knownPurchase','knownShipping','knownTotal','knownProfit'];
+      const inv={readyQuantity:0,pendingQuantity:0,profitUnits:0,knownPurchase:0,knownShipping:0,knownTotal:0,knownProfit:0};
+      for(const item of inventories){
+        inv.readyQuantity+=item.readyQuantity;inv.pendingQuantity+=item.pendingQuantity;inv.profitUnits+=item.profitUnits;
+        for(const key of financial)inv[key]=window.YordamchiCurrency.add(inv[key],item[key]);
+      }
+      const stateText=list.some(item=>!item.saved)?' · Hali saqlanmagan':'';
       const incomplete=inv.pendingQuantity>0;
       const profitClass=inv.knownProfit<0&&inv.profitUnits>0?' cost-home-book-negative':'';
       return '<article class="cost-home-book cost-home-finance-only">'+

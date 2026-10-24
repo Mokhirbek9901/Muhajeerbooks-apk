@@ -14,6 +14,55 @@ const book = Book(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('all Story layouts hide internal stock counts and publisher labels', () {
+    const product = Book(
+      id: 'sample', title: 'Oq nilufarlar', author: 'Muallif',
+      publisher: 'Ichki nashriyot', category: 'Jahon adabiyoti',
+      description: 'Kitob haqida ma’lumot', price: 12000, stock: 7,
+      discountPercent: 0, imageUrl: '', isActive: true,
+    );
+    expect(storyShippingHighlight(product), '4 ta kitobdan boshlab pochta bepul');
+    expect(storyCategoryHighlight(product), 'Jahon adabiyoti');
+    expect(storyShippingHighlight(product.copyWith(stock: 0)),
+        storyShippingHighlight(product));
+    expect(storyShippingHighlight(product.copyWith(stock: 90)),
+        storyShippingHighlight(product));
+    expect(storyShippingHighlight(product.copyWith(preorderEnabled: true)),
+        'Oldindan buyurtma qabul qilinadi');
+
+    final painter = File('lib/book_story_image.dart').readAsStringSync();
+    expect(painter.contains('book.publisher'), isFalse,
+        reason: 'No Story renderer may paint publisher metadata');
+    expect(painter.contains('book.stock'), isFalse,
+        reason: 'No Story renderer may paint warehouse counts');
+    expect(painter.contains('Omborda:'), isFalse);
+  });
+
+  test('Story design families export with the updated benefit copy', () async {
+    final cover = (await rootBundle.load('assets/images/muhajeer_logo.jpg'))
+        .buffer.asUint8List();
+    for (final template in [
+      BookStoryTemplate.current,
+      BookStoryTemplate.oldCurrent,
+      BookStoryTemplate.smartMatch,
+      BookStoryTemplate.quickPrice,
+      BookStoryTemplate.obsidianEdition,
+      BookStoryTemplate.magazine,
+    ]) {
+      final png = await renderBookStory(
+        book, coverBytes: cover, template: template, renderScale: 0.5,
+      );
+      expect(png.take(8), [137, 80, 78, 71, 13, 10, 26, 10],
+          reason: template.name);
+      final codec = await ui.instantiateImageCodec(png);
+      final image = (await codec.getNextFrame()).image;
+      expect(image.width, 540);
+      expect(image.height, 960);
+      image.dispose();
+      codec.dispose();
+    }
+  });
+
   test('story price uses the sale price and handles an unknown price', () {
     expect(storyPrice(book), '₩25,000');
     expect(storyPrice(book.copyWith(discountPercent: 20)), '₩20,000');

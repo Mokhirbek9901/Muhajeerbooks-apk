@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'uzbek_customer_style.dart';
+import 'admin_batch_finance_math.dart';
 
 class _SelectedBatchBook {
   _SelectedBatchBook(Map<String,dynamic> raw)
@@ -38,6 +39,7 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
   final _search = TextEditingController();
   final Map<String,_SelectedBatchBook> _selected = {};
   final Set<String> _selectedTransportIds = <String>{};
+  final Set<String> _selectedFinanceExpenseIds = <String>{};
   DateTime _date = DateTime.now();
   String _mode = 'new';
   String? _existing;
@@ -89,7 +91,8 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
 
   Future<void> _save() async {
     if (_submitting) return;
-    if (_selected.isEmpty && _selectedTransportIds.isEmpty) {
+    if (_selected.isEmpty && _selectedTransportIds.isEmpty &&
+        _selectedFinanceExpenseIds.isEmpty) {
       _message('Kamida bitta kitob yoki transport xarajatini belgilang.');
       return;
     }
@@ -124,12 +127,38 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
     final isOld = _mode == 'old';
     final data = await _data;
     final transportRows = _list(data['transports']);
+    final financeRows = _list(data['finance_options']);
+    final chosenFinance = financeRows.where((e)=>
+      _selectedFinanceExpenseIds.contains(e['id'].toString())).toList();
+    final purchaseTotal = chosenFinance.where((e)=>
+      e['category']=='inventory_purchase').fold<int>(0,(sum,e)=>
+        sum+((e['amount'] as num?)?.toInt()??0));
+    final selectedFinanceTransportTotal = chosenFinance.where((e)=>
+      e['category']=='transport').fold<int>(0,(sum,e)=>
+        sum+((e['amount'] as num?)?.toInt()??0));
+    final registeredCost = _selected.values.fold<int>(0,(sum,row)=>
+      sum+row.qty*row.unitCost);
+    final financeMath = BatchExpenseMath(
+      purchaseExpenses:purchaseTotal,
+      transportExpenses:selectedFinanceTransportTotal,
+      enteredBookCost:registeredCost,
+      hasPurchaseSelection:chosenFinance.any((e)=>
+        e['category']=='inventory_purchase'),
+    );
     final transportSum = transportRows
         .where((t) => _selectedTransportIds.contains(t['id'].toString()))
         .fold<int>(0, (sum, t) => sum + ((t['amount'] as num?)?.toInt() ?? 0));
-    final transportNote = '${_selectedTransportIds.length} ta transport: '
-        '${_money(transportSum)}. Bu xarajatlar moliyada avval hisoblangan, '
-        'ikkinchi marta xarajat yozilmaydi.';
+    final transportNote = isOld
+      ? '${_selectedTransportIds.length} ta transport: '
+        '${_money(transportSum)}. Moliya qayta yozilmaydi.'
+      : 'Moliyadan tanlangan kitob xarajati: ${_money(purchaseTotal)}; '
+        'transport: ${_money(selectedFinanceTransportTotal)}; '
+        'Moliya jami: ${_money(financeMath.financeTotal)}; '
+        'partiyaga kiritilgan kitoblarning tan narxi: ${_money(registeredCost)}; '
+        'farq: ${financeMath.bookDifference==null
+          ? "hisoblanmaydi (kitob xarajati tanlanmagan)"
+          : _money(financeMath.bookDifference!)}. '
+        'Bu xarajatlar Moliya tarixida mavjud, qayta yaratilmaydi.';
     final text = isOld
       ? 'Eski partiyaga $nBooks nomdagi, jami $nQty dona kitob qayd etiladi. '
         '$transportNote '
@@ -169,7 +198,9 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
             if (!isOld) 'note': _note.text.trim(),
             if (isOld) 'existing_id': pieces.skip(1).join(':'),
             'apply_to_inventory': !isOld && _syncStock,
-            'transport_ids': _selectedTransportIds.toList(),
+            'transport_ids': isOld ? _selectedTransportIds.toList() : <String>[],
+            if (!isOld) 'finance_expense_ids':
+              _selectedFinanceExpenseIds.toList(),
             'items': list,
           },
         });
@@ -186,6 +217,112 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg)));
+  }
+
+  Widget _expenseChoice(Map<String,dynamic> expense) {
+    final id=(expense['id']??'').toString();
+    final usedGroup=expense['used_group']!=null;
+    final chosen=_selectedFinanceExpenseIds.contains(id);
+    final amount=(expense['amount'] as num?)?.toInt()??0;
+    final hint=(expense['historical_import']??'').toString();
+    final category=(expense['category']??'').toString();
+    final transportHistory=expense['historical_transport']==true;
+    return Card(
+      margin:const EdgeInsets.only(bottom:7),
+      child:CheckboxListTile(
+        controlAffinity:ListTileControlAffinity.leading,
+        value:chosen,
+        onChanged:_submitting||usedGroup?null:(selected)=>setState((){
+          if(selected??false){
+            _selectedFinanceExpenseIds.add(id);
+          }else{
+            _selectedFinanceExpenseIds.remove(id);
+          }
+        }),
+        title:Text(_money(amount),style:const TextStyle(
+          fontWeight:FontWeight.w900,fontSize:16)),
+        subtitle:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          Text('${expense['expense_date']??''} • '
+            '${(expense['note']??'Izoh yo‘q').toString()}',
+            style:const TextStyle(fontSize:12)),
+          if(usedGroup) Text('Boshqa partiyaga bog‘langan: '
+            '${expense['used_group_title']??''}',
+            style:const TextStyle(fontSize:11,color:Colors.red)),
+          if(!usedGroup&&hint.isNotEmpty)
+            Text('Moliyada oldingi xarid qaydida ham bor: $hint',
+              style:const TextStyle(fontSize:11,
+                color:UzbekCustomerColors.textMuted)),
+          if(!usedGroup&&category=='transport'&&transportHistory)
+            const Text('Oldingi transport qaydida mavjud; '
+              'moliyaga qayta yozilmaydi.',
+              style:TextStyle(fontSize:11,
+                color:UzbekCustomerColors.textMuted)),
+        ]),
+      ),
+    );
+  }
+
+  Widget _costComparison(BatchExpenseMath totals,int count) {
+    final difference=totals.bookDifference;
+    final positive=difference!=null&&difference>=0;
+    Widget line(String label,String value,{bool stronger=false})=>
+      Padding(padding:const EdgeInsets.symmetric(vertical:5),child:Row(
+        crossAxisAlignment:CrossAxisAlignment.start,children:[
+          Expanded(child:Text(label,style:TextStyle(
+            fontSize:stronger?13:12,color:UzbekCustomerColors.navy,
+            fontWeight:stronger?FontWeight.w800:FontWeight.w500))),
+          const SizedBox(width:8),
+          Text(value,style:TextStyle(
+            fontSize:stronger?16:13,
+            fontWeight:FontWeight.w900,
+            color:stronger?UzbekCustomerColors.teal:UzbekCustomerColors.navy)),
+        ]));
+    return Card(
+      margin:const EdgeInsets.only(top:12,bottom:12),
+      child:Padding(
+        padding:const EdgeInsets.all(14),
+        child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          const Text('Moliya va partiya tan narxi taqqoslash',
+            style:TextStyle(fontWeight:FontWeight.w900,fontSize:16,
+              color:UzbekCustomerColors.navy)),
+          const SizedBox(height:11),
+          line('Moliya — kitob xaridi',_money(totals.purchaseExpenses)),
+          line('Moliya — transport',_money(totals.transportExpenses)),
+          const Divider(),
+          line('Moliyadagi tanlangan jami',
+            _money(totals.financeTotal),stronger:true),
+          const SizedBox(height:8),
+          line('Kiritilgan kitoblar tan narxi ($count dona)',
+            _money(totals.enteredBookCost)),
+          line('Transport qo‘shilgan hisob',
+            _money(totals.enteredWithTransport)),
+          const Divider(),
+          line('Farq (Moliya kitob xaridi − tan narx)',
+            difference==null?'Kitob xarajatini tanlang':
+            (difference<0?'−':'')+_money(difference.abs()),
+            stronger:true),
+          Text(difference==null
+            ? 'Farqni hisoblash uchun “Yangi partiya kitoblar” xarajatini belgilang.'
+            : difference==0
+              ? 'Mos keldi: tanlangan kitob xarajati va ro‘yxat tan narxi teng.'
+              : positive
+                ? 'Moliya xarajati ro‘yxatdagi kitoblar tan narxidan katta. '
+                  'Kam kiritilgan kitoblar yoki qo‘shimcha xarajatni tekshiring.'
+                : 'Ro‘yxatdagi tan narx Moliya kitob xarajatidan katta. '
+                  'Ortiqcha kitob yoki tan narxni tekshiring.',
+            style:TextStyle(fontSize:11.5,height:1.4,
+              color:difference==0?UzbekCustomerColors.teal:
+                UzbekCustomerColors.textMuted)),
+          const SizedBox(height:7),
+          const Text('Bu xarajatlar allaqachon Moliyada yozilgan. '
+            'Tanlash yangi xarajat yaratmaydi. Agar “Kitob+transport” '
+            'birgalikda xarajatga yozilgan bo‘lsa, summalarni solishtirishdan '
+            'oldin izohini tekshiring.',
+            style:TextStyle(fontSize:11,height:1.35,
+              color:UzbekCustomerColors.textMuted)),
+        ]),
+      ),
+    );
   }
 
   Widget _sectionTitle(String s) => Padding(
@@ -275,6 +412,15 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
         final imported = _list(data['historical']);
         final groups = _list(data['groups']);
         final transports = _list(data['transports']);
+        final financeOptions = _list(data['finance_options']);
+        final selectedExpenseOptions = financeOptions.where((e)=>
+          _selectedFinanceExpenseIds.contains(e['id'].toString())).toList();
+        final purchaseExpenses=selectedExpenseOptions.where((e)=>
+          e['category']=='inventory_purchase').fold<int>(0,(sum,e)=>
+            sum+((e['amount'] as num?)?.toInt()??0));
+        final newTransportExpenses=selectedExpenseOptions.where((e)=>
+          e['category']=='transport').fold<int>(0,(sum,e)=>
+            sum+((e['amount'] as num?)?.toInt()??0));
         final transportTotal = transports
           .where((t) => _selectedTransportIds.contains(t['id'].toString()))
           .fold<int>(0, (sum, t) => sum + ((t['amount'] as num?)?.toInt() ?? 0));
@@ -295,6 +441,12 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
           (b['title'] ?? '').toString().toLowerCase().contains(search)).toList();
         final sum = _selected.values.fold<int>(0,(s,e) =>
           s + e.qty * (e.unitCost < 0 ? 0 : e.unitCost));
+        final totals=BatchExpenseMath(
+          purchaseExpenses:purchaseExpenses,
+          transportExpenses:newTransportExpenses,
+          enteredBookCost:sum,
+          hasPurchaseSelection:selectedExpenseOptions.any((e)=>
+            e['category']=='inventory_purchase'));
         return Column(children: [
           Expanded(child: Center(child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 800),
@@ -360,6 +512,36 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                     style: TextStyle(fontSize: 12,
                       color: UzbekCustomerColors.textMuted)),
                 ],
+                if (_mode=='new') ...[
+                  _sectionTitle('2. Moliyada saqlangan xarajatlarni tanlang'),
+                  const Text('Moliyadagi “Yangi partiya kitoblar” va '
+                    '“Transport” xarajatlarini belgilang. Bu yerda yangi '
+                    'xarajat yozilmaydi, faqat shu partiyaga bog‘lanadi.',
+                    style:TextStyle(fontSize:12,
+                      color:UzbekCustomerColors.textMuted)),
+                  const SizedBox(height:8),
+                  const Text('Yangi partiya kitoblar',
+                    style:TextStyle(fontWeight:FontWeight.w900,
+                      fontSize:14,color:UzbekCustomerColors.navy)),
+                  const SizedBox(height:7),
+                  for(final expense in financeOptions.where((e)=>
+                    e['category']=='inventory_purchase'))
+                    _expenseChoice(expense),
+                  const SizedBox(height:12),
+                  const Text('Transport',
+                    style:TextStyle(fontWeight:FontWeight.w900,
+                      fontSize:14,color:UzbekCustomerColors.navy)),
+                  const SizedBox(height:7),
+                  for(final expense in financeOptions.where((e)=>
+                    e['category']=='transport'))
+                    _expenseChoice(expense),
+                  const SizedBox(height:10),
+                  Text('Tanlangan: kitob xaridi ${_money(purchaseExpenses)} '
+                    '• transport ${_money(newTransportExpenses)}',
+                    style:const TextStyle(
+                      fontWeight:FontWeight.w800,fontSize:12,
+                      color:UzbekCustomerColors.teal)),
+                ] else ...[
                 _sectionTitle('2. Transport xarajatlarini tanlang'),
                 const Text(
                   'Moliya bo‘limida saqlangan transport xarajatlari. '
@@ -419,6 +601,7 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                     ),
                   ),
                 ),
+                ],
                 _sectionTitle('3. Katalogdan kitoblarni belgilang'),
                 const Text(
                   'Eski partiyaga faqat transport bog‘lash uchun '
@@ -441,6 +624,9 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                     color: UzbekCustomerColors.textMuted, fontSize: 12)),
                 const SizedBox(height: 8),
                 for (final book in visible) _bookCard(book),
+                if(_mode=='new')
+                  _costComparison(totals,_selected.values.fold<int>(
+                    0,(sum,row)=>sum+row.qty)),
               ]),
           ))),
           SafeArea(top: false, child: Container(
@@ -457,14 +643,25 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
                     Text('${_selected.length} nomdagi kitob',
                       style: const TextStyle(
                         fontWeight: FontWeight.w800, fontSize: 12)),
-                    Text('Kitoblar ${_money(sum)} + '
-                        'transport ${_money(transportTotal)}',
+                    Text(_mode=='new'
+                        ? 'Moliya: ${_money(totals.financeTotal)}'
+                        : 'Kitoblar ${_money(sum)} + '
+                          'transport ${_money(transportTotal)}',
                       style: const TextStyle(
                         fontWeight: FontWeight.w700, fontSize: 11.5)),
-                    Text('Jami ${_money(sum + transportTotal)}',
+                    Text(_mode=='new'
+                        ? 'Kitob tan narxi: ${_money(sum)}'
+                        : 'Jami ${_money(sum + transportTotal)}',
                       style: const TextStyle(
                         fontWeight: FontWeight.w900, fontSize: 17,
                         color: UzbekCustomerColors.navy)),
+                    if(_mode=='new')
+                      Text('Farq: ${totals.bookDifference==null
+                        ? "kitob xarajati tanlanmagan"
+                        : ((totals.bookDifference!<0?"−":"")+
+                          _money(totals.bookDifference!.abs()))}',
+                        style:const TextStyle(fontSize:11.5,
+                          color:UzbekCustomerColors.textMuted)),
                   ],
                 )),
                 FilledButton.icon(

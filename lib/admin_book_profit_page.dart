@@ -249,7 +249,7 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
             Expanded(child:LinearProgressIndicator(
               value:(_n(d,'profit').clamp(0,999999999) /
                 (daily.map((r)=>_n(r,'profit'))
-                  .fold<int>(1,(a,b)=>b>a?b:a))).clamp(0.0,1.0),
+                  .fold<int>(1,(a,b)=>b>a?b:a))).clamp(0.0,1.0).toDouble(),
               minHeight:8,borderRadius:BorderRadius.circular(4),
               color:green,backgroundColor:const Color(0xFFE6EAF2))),
             const SizedBox(width:7),
@@ -313,6 +313,7 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
     }
     final ranked=categoryTotals.entries.toList()
       ..sort((a,b)=>b.value.compareTo(a.value));
+    final unlinked = Map<String,dynamic>.from(data['unlinked'] as Map? ?? {});
     return RefreshIndicator(onRefresh:_reload,
       child:LayoutBuilder(builder:(context,c){
         final wide=c.maxWidth>=750;
@@ -366,6 +367,13 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
                 '. Tan narxi kiritilmagan ombordagi kitoblar: '+
                 missing.toString()+'. Foydasi taxmin qilinmadi.',
                 style:const TextStyle(color:Color(0xFFB87519)))),
+            ],
+            if(_n(unlinked,'sold')>0) ...[
+              const SizedBox(height:10),
+              _pane(Text('Katalogga bog‘lanmagan avvalgi savdolar: '+
+                _n(unlinked,'sold').toString()+' dona, foyda '+
+                _w(_n(unlinked,'profit'))+'. Jami foydaga qo‘shilgan.',
+                style:const TextStyle(color:navy,fontSize:12))),
             ],
             const SizedBox(height:14),
             if(wide) Row(crossAxisAlignment:CrossAxisAlignment.start,children:[

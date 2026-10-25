@@ -33,6 +33,54 @@ void main(){
     expect(find.text('Saqlash'),findsNothing);
   });
 
+  testWidgets('Search filters existing batch titles without changing saved totals',
+    (tester)async{
+    await tester.pumpWidget(app());
+    expect(find.text('Yashil kitob'),findsOneWidget);
+    expect(find.text('Tobeʼyinlardan maktublar'),findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('batch-book-search')),
+      'yashil');
+    await tester.pumpAndSettle();
+    expect(find.text('Yashil kitob'),findsOneWidget);
+    expect(find.text('Tobeʼyinlardan maktublar'),findsNothing);
+    expect(find.text('Topildi: 1 ta'),findsOneWidget);
+    expect(find.text('2 xil · 14 dona'),findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('batch-book-search')),
+      'asdasd-not-found');
+    await tester.pumpAndSettle();
+    expect(find.text('Bu partiyada qidiruvga mos kitob topilmadi.'),
+      findsOneWidget);
+    expect(find.text('Kitob qo‘shish'),findsOneWidget);
+  });
+
+  testWidgets('Search while editing keeps unsaved counts for hidden books',
+    (tester)async{
+    await tester.pumpWidget(app());
+    await tester.tap(find.text('Tahrirlash'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('batch-book-search')),
+      'YASHIL');
+    await tester.pumpAndSettle();
+    expect(find.text('Yashil kitob'),findsOneWidget);
+    expect(find.text('Tobeʼyinlardan maktublar'),findsNothing);
+    expect(find.byIcon(Icons.add_rounded),findsOneWidget);
+    await tester.tap(find.byIcon(Icons.add_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('11'),findsOneWidget);
+    expect(find.text('2 xil · 15 dona (tahrir)'),findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('batch-book-search')),
+      "tobe'yin");
+    await tester.pumpAndSettle();
+    expect(find.text('Tobeʼyinlardan maktublar'),findsOneWidget);
+    expect(find.text('Yashil kitob'),findsNothing);
+    expect(find.text('2 xil · 15 dona (tahrir)'),findsOneWidget);
+    await tester.ensureVisible(find.text('Bekor qilish'));
+    await tester.tap(find.text('Bekor qilish'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 xil · 14 dona'),findsOneWidget);
+    expect(find.byIcon(Icons.remove_rounded),findsNothing);
+  });
+
   testWidgets('Steppers appear only after edit, cancel leaves saved count',
     (tester)async{
     await tester.pumpWidget(app());

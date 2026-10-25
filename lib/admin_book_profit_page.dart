@@ -178,13 +178,23 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
       content:Text('Jadval nusxalandi. Excel yoki Sheets’ga joylang.')));
   }
 
+  Widget _cover(Map<String,dynamic> b) {
+    final url=(b['image_url']??'').toString();
+    return ClipRRect(borderRadius:BorderRadius.circular(7),
+      child:SizedBox(width:38,height:51,child:
+        url.startsWith('https://')
+        ? Image.network(url,fit:BoxFit.cover,errorBuilder:(_,__,___)=>
+            const Icon(Icons.menu_book_rounded,color:navy))
+        : const Icon(Icons.menu_book_rounded,color:navy)));
+  }
+
   Widget _book(Map<String,dynamic> b,List<Map<String,dynamic>> sales) {
     final cost=_n(b,'cost_price'), price=_n(b,'sale_price');
     final stock=_n(b,'stock');
     return _pane(InkWell(onTap:()=>_openBook(b,sales),child:Column(
       crossAxisAlignment:CrossAxisAlignment.start,children:[
         Row(children:[
-          const Icon(Icons.menu_book_rounded,color:navy),
+          _cover(b),
           const SizedBox(width:10),
           Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,
             children:[

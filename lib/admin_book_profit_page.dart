@@ -597,7 +597,7 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
                       'va joriy sotuv narxiga qarab hisoblanadi.',
                       style:TextStyle(fontSize:12,color:gray,height:1.45)),
                   ])),
-                )),
+                ),
               ])
             else ...[
               _top(top,sales),

@@ -16,6 +16,19 @@ void main() {
       expect(calc.totalDifference,0);
     });
 
+    test('Real October 10 historical batch comparison stays separate from accounting', () {
+      const calc=BatchExpenseMath(
+        purchaseExpenses:827840,
+        transportExpenses:363000,
+        enteredBookCost:1259601,
+        hasPurchaseSelection:true,
+      );
+      expect(calc.financeTotal,1190840);
+      expect(calc.enteredWithTransport,1622601);
+      expect(calc.bookDifference,-431761);
+      expect(calc.totalDifference,-431761);
+    });
+
     test('Missing book entries show a positive discrepancy', () {
       const calc=BatchExpenseMath(
         purchaseExpenses:827840,transportExpenses:363000,

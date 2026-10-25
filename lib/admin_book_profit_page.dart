@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'design_system.dart';
+import 'admin_profit_charts.dart';
 
 /// Read-only admin report. Completed sales have frozen unit cost and price.
 class AdminBookProfitPage extends StatefulWidget {
@@ -31,6 +32,7 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
   final search = TextEditingController();
   late Future<Map<String, dynamic>> report;
   String period = 'all', category = 'all', sort = 'profit';
+  DateTimeRange? selectedRange;
 
   @override
   void initState() {
@@ -47,7 +49,9 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
   Future<Map<String,dynamic>> _fetch() async {
     final raw = await Supabase.instance.client.rpc(
       'admin_book_profit_report',
-      params: {'p_secret':widget.secret,'p_period':period},
+      params: {'p_secret':widget.secret,'p_period':period,
+        'p_from': selectedRange==null?null:DateFormat('yyyy-MM-dd').format(selectedRange!.start),
+        'p_to': selectedRange==null?null:DateFormat('yyyy-MM-dd').format(selectedRange!.end)},
     );
     if (raw is! Map) throw StateError('Foyda hisoboti olinmadi.');
     return Map<String,dynamic>.from(raw);
@@ -285,21 +289,167 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
           onTap:()=>_openBook(top[i],sales)),
     ]));
 
+  Widget _dashboardMetric(String caption,String value,IconData icon,
+      Color color,Color soft,{String? note}) => Container(
+    constraints:const BoxConstraints(minHeight:100),
+    padding:const EdgeInsets.symmetric(horizontal:14,vertical:15),
+    decoration:BoxDecoration(
+      color:Colors.white,
+      borderRadius:BorderRadius.circular(15),
+      border:Border.all(color:edge),
+      boxShadow:const [BoxShadow(color:Color(0x070E2846),
+        blurRadius:15,offset:Offset(0,3))],
+    ),
+    child:Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Container(width:43,height:43,decoration:BoxDecoration(
+        color:soft,borderRadius:BorderRadius.circular(12)),
+        child:Icon(icon,color:color,size:23)),
+      const SizedBox(width:11),
+      Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Text(caption,maxLines:2,style:const TextStyle(
+          color:Color(0xFF58667B),fontSize:12,fontWeight:FontWeight.w600)),
+        const SizedBox(height:6),
+        FittedBox(alignment:Alignment.centerLeft,fit:BoxFit.scaleDown,
+          child:Text(value,style:const TextStyle(color:navy,
+            fontSize:20,fontWeight:FontWeight.w900))),
+        if(note!=null) ...[
+          const SizedBox(height:5),
+          Text(note,maxLines:2,style:const TextStyle(color:gray,fontSize:10.5)),
+        ],
+      ])),
+    ]),
+  );
+
+  List<DataColumn> _tableHeader() => const [
+    DataColumn(label:Text('#')),
+    DataColumn(label:Text('Kitob')),
+    DataColumn(label:Text('Kategoriya')),
+    DataColumn(numeric:true,label:Text('Sotuv narxi')),
+    DataColumn(numeric:true,label:Text('Joriy tan narxi')),
+    DataColumn(numeric:true,label:Text('Sotilgan')),
+    DataColumn(numeric:true,label:Text('Jami tushum')),
+    DataColumn(numeric:true,label:Text('Jami foyda')),
+    DataColumn(numeric:true,label:Text('Foyda %')),
+    DataColumn(label:Text('Amallar')),
+  ];
+
+  Widget _tableValue(String value,{bool highlight=false}) => Text(
+    value,style:TextStyle(fontWeight:FontWeight.w800,fontSize:12,
+      color:highlight?green:navy));
+
+  Widget _bookTable(List<Map<String,dynamic>> books,
+      List<Map<String,dynamic>> sales) => _pane(SingleChildScrollView(
+    scrollDirection:Axis.horizontal,
+    child:DataTable(
+      headingRowColor:WidgetStateProperty.all(const Color(0xFFF1F5FA)),
+      dataRowMinHeight:56,dataRowMaxHeight:68,
+      columnSpacing:21,
+      horizontalMargin:12,
+      dividerThickness:.6,
+      headingTextStyle:const TextStyle(color:Color(0xFF435269),
+        fontWeight:FontWeight.w800,fontSize:12),
+      columns:_tableHeader(),
+      rows:List<DataRow>.generate(books.length,(i){
+        final b=books[i],revenue=_n(b,'revenue'),
+          cost=_n(b,'cost_price');
+        final pct=revenue>0
+          ? (100*_n(b,'profit')/revenue).toStringAsFixed(1)+'%'
+          : '—';
+        return DataRow(cells:[
+          DataCell(Text((i+1).toString())),
+          DataCell(SizedBox(width:215,child:InkWell(
+            onTap:()=>_openBook(b,sales),
+            child:Row(children:[
+              _cover(b),
+              const SizedBox(width:10),
+              Expanded(child:Column(
+                mainAxisAlignment:MainAxisAlignment.center,
+                crossAxisAlignment:CrossAxisAlignment.start,
+                children:[
+                  Text((b['title']??'Kitob').toString(),
+                    maxLines:2,overflow:TextOverflow.ellipsis,
+                    style:const TextStyle(fontWeight:FontWeight.w800,
+                      color:navy,fontSize:12.5)),
+                  if((b['author']??'').toString().isNotEmpty)
+                    Text((b['author']??'').toString(),maxLines:1,
+                      overflow:TextOverflow.ellipsis,
+                      style:const TextStyle(color:gray,fontSize:11)),
+                ]),
+              )),
+            ]),
+          ))),
+          DataCell(SizedBox(width:133,child:Text(
+            (b['category']??'').toString(),
+            maxLines:2,overflow:TextOverflow.ellipsis,
+            style:const TextStyle(color:Color(0xFF536177),fontSize:12)))),
+          DataCell(_tableValue(_w(_n(b,'sale_price')))),
+          DataCell(_tableValue(cost>0?_w(cost):'Noma’lum')),
+          DataCell(_tableValue(_n(b,'sold').toString())),
+          DataCell(_tableValue(_w(revenue))),
+          DataCell(_tableValue(_w(_n(b,'profit')),highlight:true)),
+          DataCell(_tableValue(pct)),
+          DataCell(IconButton(
+            tooltip:'Kitob foydasini ko‘rish',
+            icon:const Icon(Icons.more_horiz_rounded,color:navy),
+            onPressed:()=>_openBook(b,sales),
+          )),
+        ]);
+      }),
+    ),
+  ));
+
+  Future<void> _selectRange() async {
+    final now=DateTime.now();
+    final chosen=await showDateRangePicker(
+      context:context,
+      firstDate:DateTime(2024),
+      lastDate:DateTime(now.year,now.month,now.day),
+      initialDateRange:selectedRange,
+      helpText:'Hisobot sanalarini tanlang',
+      saveText:'Ko‘rsatish',
+      cancelText:'Bekor qilish',
+    );
+    if(chosen==null || !mounted)return;
+    setState((){
+      selectedRange=chosen;
+      period='custom';
+      report=_fetch();
+    });
+  }
+
+  String _periodLabel() {
+    if(period=='custom' && selectedRange!=null) {
+      return DateFormat('dd.MM.yy').format(selectedRange!.start)+' — '+
+        DateFormat('dd.MM.yy').format(selectedRange!.end);
+    }
+    switch(period){
+      case 'today':return 'Bugun';
+      case 'yesterday':return 'Kecha';
+      case 'week':return '7 kun';
+      case 'month':return 'Shu oy';
+      case 'previous_month':return 'O‘tgan oy';
+      default:return 'Barcha davr';
+    }
+  }
+
   Widget _content(Map<String,dynamic> data) {
     final books=_list(data['books']);
     final sales=_list(data['recent_sales']);
     final daily=_list(data['daily']);
     final info=Map<String,dynamic>.from(data['summary'] as Map? ?? {});
     final categories=books.map((b)=>(b['category']??'').toString())
-      .where((s)=>s.isNotEmpty).toSet().toList()..sort();
+      .where((v)=>v.isNotEmpty).toSet().toList()..sort();
     final q=search.text.trim().toLowerCase();
-    final visible=books.where((b)=>(
-      category=='all' || b['category']==category) &&
-      (q.isEmpty || (b['title']??'').toString().toLowerCase().contains(q) ||
-      (b['author']??'').toString().toLowerCase().contains(q))).toList();
-    int potential(Map<String,dynamic> b) => _n(b,'cost_price')>0
-      ? BookProfitMath.potential(_n(b,'sale_price'),_n(b,'cost_price'),
-          _n(b,'stock')) : 0;
+    final visible=books.where((b)=>
+      (category=='all'||b['category']==category) &&
+      (q.isEmpty ||
+        (b['title']??'').toString().toLowerCase().contains(q) ||
+        (b['author']??'').toString().toLowerCase().contains(q))
+      ).toList();
+    int potential(Map<String,dynamic> b) =>
+      _n(b,'cost_price')<=0?0:
+      BookProfitMath.potential(_n(b,'sale_price'),
+        _n(b,'cost_price'),_n(b,'stock'));
     switch(sort){
       case 'name':
         visible.sort((a,b)=>(a['title']??'').toString().compareTo(
@@ -313,141 +463,226 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
     }
     final top=books.where((b)=>_n(b,'sold')>0).toList()
       ..sort((a,b)=>_n(b,'profit').compareTo(_n(a,'profit')));
-    final expected=books.fold<int>(0,(total,b)=>total+potential(b));
-    final missing=books.where((b)=>_n(b,'stock')>0 &&
-      _n(b,'cost_price')<=0).length;
-    final categoryTotals=<String,int>{};
+    final categoryProfits=<String,int>{};
     for(final b in books){
-      final cat=(b['category']??'Boshqa').toString();
-      categoryTotals[cat]=(categoryTotals[cat]??0)+_n(b,'profit');
+      final key=(b['category']??'Boshqa').toString();
+      categoryProfits[key]=(categoryProfits[key]??0)+_n(b,'profit');
     }
-    final ranked=categoryTotals.entries.toList()
-      ..sort((a,b)=>b.value.compareTo(a.value));
-    final unlinked = Map<String,dynamic>.from(data['unlinked'] as Map? ?? {});
+    final missing=books.where((b)=>
+      _n(b,'stock')>0 && _n(b,'cost_price')<=0).length;
+    final salesCost=_n(info,'revenue')-_n(info,'profit');
+    final stockProjection=books.fold<int>(0,(v,b)=>v+potential(b));
+    final unlinked=Map<String,dynamic>.from(data['unlinked'] as Map? ?? {});
+
     return RefreshIndicator(onRefresh:_reload,
-      child:LayoutBuilder(builder:(context,c){
-        final wide=c.maxWidth>=750;
-        final usableWidth=c.maxWidth-28;
-        final cardWidth=usableWidth>=900?(usableWidth-30)/4:
-          usableWidth>=460?(usableWidth-10)/2:usableWidth;
-        return ListView(physics:const AlwaysScrollableScrollPhysics(),
-          padding:const EdgeInsets.fromLTRB(14,16,14,30),children:[
-            Row(children:[
-              const Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,
-                children:[
-                  Text('Kitoblar foydasi',style:TextStyle(color:navy,
-                    fontSize:23,fontWeight:FontWeight.w900)),
-                  SizedBox(height:4),
-                  Text('Har bir sotuvning tan narxi tarixda saqlanadi.',
+      child:LayoutBuilder(builder:(context,viewport){
+        final available=(viewport.maxWidth-36).clamp(200.0,99999.0);
+        final desktop=available>=970, tablet=available>=760;
+        final metricsPerRow=available>=1280?5:
+          available>=790?3:available>=440?2:1;
+        final metricWidth=(available-(metricsPerRow-1)*10)/metricsPerRow;
+        return ListView(
+          physics:const AlwaysScrollableScrollPhysics(),
+          padding:const EdgeInsets.fromLTRB(18,16,18,30),children:[
+            Wrap(
+              alignment:WrapAlignment.spaceBetween,
+              crossAxisAlignment:WrapCrossAlignment.center,
+              spacing:12,runSpacing:10,
+              children:[
+                const Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                  Text('Kitoblar foydasi',style:TextStyle(
+                    color:navy,fontWeight:FontWeight.w900,fontSize:25)),
+                  SizedBox(height:5),
+                  Text('Katalogdagi kitoblar va sotuvlardan olingan foyda',
                     style:TextStyle(color:gray,fontSize:12)),
-                ])),
-              IconButton.filledTonal(icon:const Icon(Icons.refresh_rounded),
-                tooltip:'Yangilash',onPressed:_reload),
-            ]),
+                ]),
+                OutlinedButton.icon(
+                  onPressed:_selectRange,
+                  icon:const Icon(Icons.calendar_today_outlined,size:18),
+                  label:Text(_periodLabel()),
+                ),
+              ],
+            ),
             const SizedBox(height:12),
-            SingleChildScrollView(scrollDirection:Axis.horizontal,child:Row(
-              children:[for(final item in const [
-                ('all','Barchasi'),('today','Bugun'),('yesterday','Kecha'),
-                ('week','7 kun'),('month','Shu oy'),
-                ('previous_month','O‘tgan oy'),
-              ]) ...[
-                ChoiceChip(label:Text(item.$2),selected:period==item.$1,
-                  onSelected:(_)=>setState((){
-                    period=item.$1;
-                    report=_fetch();
-                  })),
-                const SizedBox(width:7),
-              ]])),
-            const SizedBox(height:12),
+            SingleChildScrollView(scrollDirection:Axis.horizontal,
+              child:Row(children:[
+                for(final item in const[
+                  ('all','Barchasi'),('today','Bugun'),
+                  ('yesterday','Kecha'),('week','7 kun'),
+                  ('month','Shu oy'),('previous_month','O‘tgan oy'),
+                ]) ...[
+                  ChoiceChip(
+                    label:Text(item.$2),selected:period==item.$1,
+                    onSelected:(_)=>setState((){
+                      period=item.$1;
+                      selectedRange=null;
+                      report=_fetch();
+                    }),
+                  ),
+                  const SizedBox(width:7),
+                ],
+                IconButton.filledTonal(
+                  tooltip:'Yangilash',onPressed:_reload,
+                  icon:const Icon(Icons.refresh_rounded)),
+              ]),
+            ),
+            const SizedBox(height:17),
             Wrap(spacing:10,runSpacing:10,children:[
-              SizedBox(width:cardWidth,child:_metric('Katalogdagi kitoblar',
-                books.length.toString(),Icons.menu_book_rounded,Colors.blue)),
-              SizedBox(width:cardWidth,child:_metric('Sotilgan nusxalar',
-                _n(info,'sold').toString(),Icons.shopping_cart_rounded,green)),
-              SizedBox(width:cardWidth,child:_metric('Olingan foyda',
-                _w(_n(info,'profit')),Icons.payments_rounded,Colors.orange,
-                'Sotuv narxi − sotuv vaqtidagi tan narxi')),
-              SizedBox(width:cardWidth,child:_metric('Kutilayotgan foyda',
-                _w(expected),Icons.trending_up_rounded,Colors.purple,
-                'Hozirgi ombor va joriy narxlar')),
+              SizedBox(width:metricWidth,child:_dashboardMetric(
+                'Jami kitoblar',books.length.toString(),
+                Icons.menu_book_rounded,
+                const Color(0xFF2878DF),const Color(0xFFE6F0FF),
+                note:'Katalogdagi nomlar')),
+              SizedBox(width:metricWidth,child:_dashboardMetric(
+                'Sotilgan kitoblar',_n(info,'sold').toString(),
+                Icons.shopping_cart_rounded,
+                const Color(0xFF13A775),const Color(0xFFE0F7EB),
+                note:'Tanlangan davrda')),
+              SizedBox(width:metricWidth,child:_dashboardMetric(
+                'Jami tushum',_w(_n(info,'revenue')),
+                Icons.monetization_on_outlined,
+                const Color(0xFFE49B18),const Color(0xFFFFF2D5),
+                note:'Kitoblar sotilishidan')),
+              SizedBox(width:metricWidth,child:_dashboardMetric(
+                'Sotilgan kitob tan narxi',_w(salesCost),
+                Icons.receipt_long_rounded,
+                const Color(0xFFF39C32),const Color(0xFFFFEEDA),
+                note:'Sotuv paytida saqlangan')),
+              SizedBox(width:metricWidth,child:_dashboardMetric(
+                'Kitoblar foydasi',_w(_n(info,'profit')),
+                Icons.bar_chart_rounded,
+                const Color(0xFF8759DF),const Color(0xFFF1E8FF),
+                note:'Tushum − sotuvdagi tan narx')),
             ]),
             if(_n(info,'unknown_cost_sales')>0 || missing>0) ...[
-              const SizedBox(height:10),
-              _pane(Text('Tan narxi noma’lum sotuvlar: '+
-                _n(info,'unknown_cost_sales').toString()+
-                '. Tan narxi kiritilmagan ombordagi kitoblar: '+
-                missing.toString()+'. Foydasi taxmin qilinmadi.',
-                style:const TextStyle(color:Color(0xFFB87519)))),
-            ],
-            if(_n(unlinked,'sold')>0) ...[
-              const SizedBox(height:10),
-              _pane(Text('Katalogga bog‘lanmagan avvalgi savdolar: '+
-                _n(unlinked,'sold').toString()+' dona, foyda '+
-                _w(_n(unlinked,'profit'))+'. Jami foydaga qo‘shilgan.',
-                style:const TextStyle(color:navy,fontSize:12))),
+              const SizedBox(height:12),
+              _pane(Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                const Icon(Icons.info_outline_rounded,
+                  color:Color(0xFFB97913)),
+                const SizedBox(width:9),
+                Expanded(child:Text('Tan narxi noma’lum sotuvlar: '+
+                  _n(info,'unknown_cost_sales').toString()+
+                  '; hozirgi tan narxi kiritilmagan kitoblar: '+
+                  missing.toString()+'. Noma’lum foyda taxmin qilinmaydi.',
+                  style:const TextStyle(color:Color(0xFF8B671F),
+                    fontSize:12))),
+              ])),
             ],
             const SizedBox(height:14),
-            if(wide) Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
-              Expanded(child:_chart(daily)),
-              const SizedBox(width:12),
-              Expanded(child:_top(top,sales)),
-            ]) else ...[
-              _chart(daily),
+            if(desktop)
+              Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                Expanded(flex:7,child:_pane(
+                  ProfitDashboardTrend(daily:daily))),
+                const SizedBox(width:12),
+                Expanded(flex:4,child:_pane(
+                  ProfitDashboardDonut(categoryProfit:categoryProfits))),
+              ])
+            else ...[
+              _pane(ProfitDashboardTrend(daily:daily)),
               const SizedBox(height:12),
+              _pane(ProfitDashboardDonut(categoryProfit:categoryProfits)),
+            ],
+            const SizedBox(height:12),
+            if(tablet)
+              Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                Expanded(flex:6,child:_top(top,sales)),
+                const SizedBox(width:12),
+                Expanded(flex:4,child:_pane(
+                  Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                    _title('Ombordan kutilayotgan foyda'),
+                    Text(_w(stockProjection),style:const TextStyle(
+                      color:green,fontSize:22,fontWeight:FontWeight.w900)),
+                    const SizedBox(height:9),
+                    const Text('Qolgan kitoblarning hozirgi tan narxi '
+                      'va joriy sotuv narxiga qarab hisoblanadi.',
+                      style:TextStyle(fontSize:12,color:gray,height:1.45)),
+                  ])),
+                )),
+              ])
+            else ...[
               _top(top,sales),
+              const SizedBox(height:12),
+              _pane(Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                _title('Ombordan kutilayotgan foyda'),
+                Text(_w(stockProjection),style:const TextStyle(
+                  color:green,fontSize:23,fontWeight:FontWeight.w900)),
+                const Text('Joriy tan narxi asosida, hali olinmagan.',
+                  style:TextStyle(color:gray,fontSize:12)),
+              ])),
             ],
             const SizedBox(height:16),
-            _title('Katalogdagi kitoblar va foyda'),
-            TextField(controller:search,onChanged:(_)=>setState((){}),
-              decoration:const InputDecoration(
-                prefixIcon:Icon(Icons.search_rounded),
-                hintText:'Kitob nomi yoki muallif bo‘yicha qidirish')),
-            const SizedBox(height:8),
-            Wrap(spacing:8,runSpacing:8,children:[
-              SizedBox(width:170,child:DropdownButtonFormField<String>(
-                value:category,isExpanded:true,
-                decoration:const InputDecoration(labelText:'Kategoriya'),
-                items:[
-                  const DropdownMenuItem(value:'all',child:Text('Barchasi')),
-                  for(final c in categories)
-                    DropdownMenuItem(value:c,
-                      child:Text(c,overflow:TextOverflow.ellipsis)),
-                ],
-                onChanged:(v)=>setState(()=>category=v??'all'))),
-              SizedBox(width:170,child:DropdownButtonFormField<String>(
-                value:sort,decoration:const InputDecoration(labelText:'Saralash'),
-                items:const[
-                  DropdownMenuItem(value:'profit',child:Text('Ko‘p foyda')),
-                  DropdownMenuItem(value:'expected',child:Text('Kutilayotgan foyda')),
-                  DropdownMenuItem(value:'stock',child:Text('Ko‘p qoldiq')),
-                  DropdownMenuItem(value:'name',child:Text('Kitob nomi')),
-                ],
-                onChanged:(v)=>setState(()=>sort=v??'profit'))),
-              OutlinedButton.icon(
-                icon:const Icon(Icons.copy_all_rounded),
-                label:const Text('Excel uchun nusxalash'),
-                onPressed:()=>_export(visible)),
-            ]),
-            const SizedBox(height:12),
-            if(visible.isEmpty)
-              _pane(const Text('Mos kitob topilmadi.'))
-            else for(final b in visible) ...[
-              _book(b,sales),
+            _pane(Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Row(children:[
+                const Expanded(child:Text('Katalogdagi kitoblar va foyda',
+                  style:TextStyle(color:navy,fontSize:17,
+                    fontWeight:FontWeight.w900))),
+                OutlinedButton.icon(onPressed:()=>_export(visible),
+                  icon:const Icon(Icons.file_download_outlined,size:17),
+                  label:const Text('Excel')),
+              ]),
+              const SizedBox(height:11),
+              TextField(controller:search,
+                onChanged:(_)=>setState((){}),
+                decoration:const InputDecoration(
+                  hintText:'Kitob nomi yoki muallif bo‘yicha qidirish...',
+                  prefixIcon:Icon(Icons.search_rounded))),
+              const SizedBox(height:9),
+              Wrap(spacing:8,runSpacing:8,children:[
+                SizedBox(width:185,child:DropdownButtonFormField<String>(
+                  value:category,isExpanded:true,
+                  decoration:const InputDecoration(labelText:'Kategoriya'),
+                  items:[
+                    const DropdownMenuItem(value:'all',
+                      child:Text('Barchasi')),
+                    for(final c in categories)
+                      DropdownMenuItem(value:c,child:Text(c,
+                        overflow:TextOverflow.ellipsis)),
+                  ],
+                  onChanged:(v)=>setState(()=>category=v??'all'))),
+                SizedBox(width:185,child:DropdownButtonFormField<String>(
+                  value:sort,isExpanded:true,
+                  decoration:const InputDecoration(labelText:'Saralash'),
+                  items:const[
+                    DropdownMenuItem(value:'profit',
+                      child:Text('Eng ko‘p foyda')),
+                    DropdownMenuItem(value:'expected',
+                      child:Text('Kutilayotgan foyda')),
+                    DropdownMenuItem(value:'stock',
+                      child:Text('Ko‘p qoldiq')),
+                    DropdownMenuItem(value:'name',
+                      child:Text('Nomi bo‘yicha')),
+                  ],
+                  onChanged:(v)=>setState(()=>sort=v??'profit'))),
+              ]),
               const SizedBox(height:8),
-            ],
-            const SizedBox(height:12),
-            _title('Kategoriyalar bo‘yicha foyda'),
-            _pane(Column(children:[
-              for(final e in ranked) _entry(e.key,_w(e.value)),
+              Text('Natija: '+visible.length.toString()+' ta kitob',
+                style:const TextStyle(color:gray,fontSize:11)),
             ])),
+            const SizedBox(height:8),
+            if(visible.isEmpty)
+              _pane(const Text('Qidiruvga mos kitob yo‘q.'))
+            else if(tablet)
+              _bookTable(visible,sales)
+            else
+              for(final b in visible) ...[
+                _book(b,sales),const SizedBox(height:8),
+              ],
+            const SizedBox(height:9),
+            if(_n(unlinked,'sold')>0)
+              _pane(Text('Katalogga bog‘lanmagan tarixiy savdolar: '+
+                _n(unlinked,'sold').toString()+' dona. Olingan foyda: '+
+                _w(_n(unlinked,'profit'))+
+                '. Bu umumiy foydaga qo‘shilgan.',
+                style:const TextStyle(color:gray,fontSize:12))),
             const SizedBox(height:12),
-            const Text('Bu sahifada kitob foydasi = sotuv narxi − sotuv '
-              'vaqtidagi tan narxi. Pochta, reklama va umumiy xarajatlar '
-              'Moliya bo‘limida alohida hisoblanadi. Oldingi sotuvlarning '
-              'narxi keyingi partiya yoki katalogdagi o‘zgarishlardan '
+            const Text('Muhim: “Kitoblar foydasi” — faqat sotuv tushumi '
+              'bilan o‘sha sotuvda saqlangan tan narxi farqi. Pochta, '
+              'reklama va boshqa do‘kon xarajatlari Moliya bo‘limida '
+              'hisoblanadi. Oldingi savdolar keyingi narx o‘zgarishi bilan '
               'qayta hisoblanmaydi.',
-              style:TextStyle(color:gray,fontSize:11.5,height:1.45)),
-          ]);
+              style:TextStyle(color:gray,fontSize:11.5,height:1.4)),
+          ],
+        );
       }),
     );
   }

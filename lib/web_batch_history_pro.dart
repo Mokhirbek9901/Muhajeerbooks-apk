@@ -315,6 +315,11 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
     final transport = linked.fold<int>(0,
       (s,t) => s + _batchNum(t['amount']));
     final books = _batchNum(item['book_value']);
+    final purchaseExpense = _batchNum(item['finance_purchase_total']);
+    final financeTransport = _batchNum(item['finance_transport_total']);
+    final expensesLinked=_batchNum(item['finance_expense_count']);
+    final difference=purchaseExpense-books;
+    final references=_items(item['finance_references']);
     return Card(margin: const EdgeInsets.only(bottom: 9),
       child: ExpansionTile(
         leading: const Icon(Icons.inventory_2_outlined,
@@ -327,9 +332,48 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
           style: const TextStyle(fontWeight: FontWeight.w900)),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
         children: [
-          _detail('Kiritilgan kitoblar tannarxi',_batchMoney(books)),
-          _detail('Transport xarajatlari',_batchMoney(transport)),
-          _detail('Kitob + transport (hisoblangan)',_batchMoney(books + transport)),
+          if(expensesLinked>0) ...[
+            const Text('Moliyada avval saqlangan xarajatlar',
+              style:TextStyle(color:UzbekCustomerColors.navy,
+                fontSize:14,fontWeight:FontWeight.w900)),
+            _detail('Yangi partiya kitoblar',_batchMoney(purchaseExpense)),
+            _detail('Transport',_batchMoney(financeTransport)),
+            _detail('Moliyada tanlangan jami',
+              _batchMoney(purchaseExpense+financeTransport)),
+            const Divider(),
+            _detail('Bu partiyada kiritilgan kitoblar tan narxi',
+              _batchMoney(books)),
+            if(references.any((e)=>e['category']=='inventory_purchase')) ...[
+              _detail('Farq (Moliya kitob xaridi − tan narx)',
+                (difference<0?'−':'')+_batchMoney(difference.abs())),
+              Text(difference==0
+                ? 'Kitob xarajati va kiritilgan kitoblar tan narxi teng.'
+                : difference>0
+                  ? 'Kitob xarajati katta: kiritilmagan kitob yoki '
+                    'qo‘shimcha xarajatni tekshiring.'
+                  : 'Kiritilgan kitoblar tan narxi katta: '
+                    'son va narxlarni tekshiring.',
+                style:const TextStyle(color:UzbekCustomerColors.textMuted,
+                  fontSize:11.5)),
+            ],
+            for(final entry in references)
+              Padding(padding:const EdgeInsets.symmetric(vertical:4),
+                child:Text('${entry['date']??''} • '
+                  '${entry['category']=='transport'
+                    ? 'Transport' : 'Yangi partiya kitoblar'} • '
+                  '${_batchMoney(_batchNum(entry['amount']))} • '
+                  '${entry['note']??''}',
+                  style:const TextStyle(fontSize:11.5,
+                    color:UzbekCustomerColors.textMuted))),
+            const Text('Ushbu summalar Moliyada qayta xarajat qilinmagan; '
+              'faqat mavjud yozuvlarga havola qilingan.',
+              style:TextStyle(fontSize:11,
+                color:UzbekCustomerColors.textMuted)),
+          ] else ...[
+            _detail('Kiritilgan kitoblar tannarxi',_batchMoney(books)),
+            _detail('Transport xarajatlari',_batchMoney(transport)),
+            _detail('Kitob + transport (hisoblangan)',_batchMoney(books + transport)),
+          ],
           const SizedBox(height: 12),
           WebBatchInlineEditor(
             key:ValueKey('group:'+id),

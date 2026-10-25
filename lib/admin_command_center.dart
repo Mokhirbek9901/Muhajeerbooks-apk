@@ -297,6 +297,9 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
           'Mijoz so‘rovlari va oldindan buyurtma qabuli',
           Icons.fact_check_outlined, (ctx) => _pushPage(ctx,
             WebPreorderAdminPage(secret: widget.api.secret))),
+      _AdminMenuAction('Kitoblar foydasi', 'Sotilgan paytdagi tan narx va o‘zgarmas foyda tarixi',
+        Icons.bar_chart_rounded, (ctx) => _pushPage(ctx,
+          AdminBookProfitPage(secret: widget.api.secret))),
       _AdminMenuAction('Batafsil statistika', 'Qo‘shimcha hisobot va ko‘rsatkichlar',
         Icons.insights_outlined, (ctx) => _pushPage(ctx, Scaffold(
           appBar: AppBar(title: const Text('Batafsil statistika')),

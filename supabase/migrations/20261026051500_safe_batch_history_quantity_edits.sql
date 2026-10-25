@@ -128,6 +128,7 @@ end; $function$
 
 
 -- Return the persisted value on subsequent visits to the batch editor.
+;
 CREATE OR REPLACE FUNCTION public.admin_web_batch_line_list(p_secret text)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -157,6 +158,7 @@ begin
 end; $function$
 
 
+;
 create or replace function public.admin_web_batch_edit_line(
  p_secret text, p_line_id bigint, p_expected_quantity integer, p_quantity integer
 ) returns jsonb

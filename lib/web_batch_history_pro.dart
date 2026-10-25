@@ -53,6 +53,8 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
         params: {'p_secret': widget.secret}),
       Supabase.instance.client.rpc('admin_web_transport_overview',
         params: {'p_secret': widget.secret}),
+      Supabase.instance.client.rpc('admin_web_batch_line_list',
+        params: {'p_secret': widget.secret}),
     ]).then((data) {
       final main = data[0] is Map
         ? Map<String,dynamic>.from(data[0] as Map) : <String,dynamic>{};
@@ -61,6 +63,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
       return {...main,
         'transport_records': transport['transports'] ?? [],
         'batch_groups': transport['groups'] ?? [],
+        'saved_batch_lines': data[2] ?? [],
       };
     });
   }
@@ -204,9 +207,108 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
     );
   }
 
+  // Edit the persisted batch line in place instead of appending another
+  // receipt. RPC checks the previously saved quantity before applying delta.
+  Future<void> _editSavedBatchLine(Map<String,dynamic> line) async {
+    final previous = _batchNum(line['quantity']);
+    final controller = TextEditingController(text:previous.toString());
+    final formKey=GlobalKey<FormState>();
+    final result=await showDialog<int>(
+      context:context,
+      builder:(dialogContext)=>AlertDialog(
+        title:const Text('Partiyadagi sonni tahrirlash'),
+        content:Form(key:formKey,child:Column(
+          mainAxisSize:MainAxisSize.min,
+          crossAxisAlignment:CrossAxisAlignment.start,
+          children:[
+            Text((line['title']??'Kitob').toString(),
+              style:const TextStyle(fontWeight:FontWeight.w800)),
+            const SizedBox(height:6),
+            Text('Saqlangan son: $previous dona',
+              style:const TextStyle(fontSize:12)),
+            const SizedBox(height:12),
+            TextFormField(
+              controller:controller,
+              keyboardType:TextInputType.number,
+              autofocus:true,
+              decoration:const InputDecoration(
+                labelText:'Yangi kelgan soni',
+                suffixText:'dona',
+                border:OutlineInputBorder()),
+              validator:(v){
+                final n=int.tryParse(v?.trim()??'');
+                if(n==null || n<1 || n>10000) {
+                  return '1 dan 10000 gacha son kiriting';
+                }
+                return null;
+              }),
+            const SizedBox(height:10),
+            Text(
+              line['inventory_applied']==true
+                ? 'Omborga faqat sonlar farqi qo‘llanadi. Eski yozuv qayta qo‘shilmaydi.'
+                : 'Tarixiy partiya: bu tahrir omborga qo‘shimcha kirim yaratmaydi.',
+              style:const TextStyle(fontSize:11.5,
+                color:UzbekCustomerColors.textMuted)),
+          ],
+        )),
+        actions:[
+          TextButton(onPressed:()=>Navigator.pop(dialogContext),
+            child:const Text('Bekor qilish')),
+          FilledButton(onPressed:(){
+            if(formKey.currentState?.validate()!=true)return;
+            Navigator.pop(dialogContext,int.parse(controller.text.trim()));
+          },child:const Text('Saqlash')),
+        ],
+      ),
+    );
+    controller.dispose();
+    if(result==null || result==previous || !mounted) return;
+    try {
+      final response=await Supabase.instance.client.rpc(
+        'admin_web_batch_edit_line',
+        params:{
+          'p_secret':widget.secret,
+          'p_line_id':_batchNum(line['id']),
+          'p_expected_quantity':previous,
+          'p_quantity':result,
+        });
+      if(!mounted)return;
+      _refresh();
+      final applied=response is Map && response['inventory_updated']==true;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content:Text(applied
+          ? 'Partiya yangilandi: omborga faqat ${result-previous} dona farq qo‘llandi'
+          : 'Partiya soni $previous → $result qilib saqlandi. Omborga takror qo‘shilmadi.'),
+      ));
+    } catch(error) {
+      if(!mounted)return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text('Partiyani tahrirlashda xatolik: $error')));
+    }
+  }
+
+  Widget _savedBatchLine(Map<String,dynamic> line) => ListTile(
+    contentPadding:EdgeInsets.zero,
+    leading:const Icon(Icons.menu_book_outlined,
+      color:UzbekCustomerColors.teal),
+    title:Text((line['title']??'Kitob').toString(),
+      maxLines:2,overflow:TextOverflow.ellipsis,
+      style:const TextStyle(fontSize:13,fontWeight:FontWeight.w800)),
+    subtitle:Text('${_batchNum(line['quantity'])} dona • 1 dona ${_batchMoney(_batchNum(line['unit_cost']))}',
+      style:const TextStyle(fontSize:12)),
+    trailing:IconButton(
+      tooltip:'Kiritilgan sonni tahrirlash',
+      icon:const Icon(Icons.edit_outlined),
+      onPressed:()=>_editSavedBatchLine(line)),
+    onTap:()=>_editSavedBatchLine(line),
+  );
+
   Widget _groupTile(Map<String,dynamic> item,
-      List<Map<String,dynamic>> transports) {
+      List<Map<String,dynamic>> transports,
+      List<Map<String,dynamic>> savedLines) {
     final id = item['id'].toString();
+    final lines=savedLines.where((l)=>l['batch_group_id']?.toString()==id).toList();
+    final count=lines.fold<int>(0,(sum,l)=>sum+_batchNum(l['quantity']));
     final linked = transports.where((t) =>
       t['batch_group_id']?.toString() == id).toList();
     final transport = linked.fold<int>(0,
@@ -219,7 +321,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
         title: Text((item['title'] ?? 'Yangi partiya').toString(),
           style: const TextStyle(fontWeight: FontWeight.w900)),
         subtitle: Text('${_batchDate(item['batch_date'])} • '
-          '${item['book_lines'] ?? 0} nomdagi kitob'),
+          '${lines.length} xil kitob · $count dona saqlangan'),
         trailing: Text(_batchMoney(books + transport),
           style: const TextStyle(fontWeight: FontWeight.w900)),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
@@ -227,6 +329,14 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
           _detail('Kiritilgan kitoblar tannarxi',_batchMoney(books)),
           _detail('Transport xarajatlari',_batchMoney(transport)),
           _detail('Kitob + transport (hisoblangan)',_batchMoney(books + transport)),
+          const SizedBox(height: 12),
+          const Align(alignment:Alignment.centerLeft,
+            child:Text('Partiyaga saqlangan kitoblar',
+              style:TextStyle(fontWeight:FontWeight.w900))),
+          for(final line in lines) _savedBatchLine(line),
+          if(lines.isEmpty) const Text(
+            'Hali partiyaga kitoblar kiritilmagan.',
+            style:TextStyle(fontSize:12,color:UzbekCustomerColors.textMuted)),
           const SizedBox(height: 6),
           for(final expense in linked) _transportLine(expense),
           const Text('Kitob tannarxi partiyaga kiritilgan qiymatlar '
@@ -276,13 +386,18 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
   }
 
   Widget _purchaseTile(Map<String, dynamic> item, int index,
-      List<Map<String,dynamic>> transports) {
+      List<Map<String,dynamic>> transports,
+      List<Map<String,dynamic>> savedLines) {
     final title = (item['title'] ?? 'Kitob xaridi').toString();
     final members = _items(item['members']);
     final grouped = members.isNotEmpty;
     final memberIds = grouped
       ? members.map((m) => m['id'].toString()).toSet()
       : <String>{item['id'].toString()};
+    final matchedLines=savedLines.where((l)=>
+      memberIds.contains((l['batch_import_id']??'').toString())).toList();
+    final matchedQty=matchedLines.fold<int>(
+      0,(sum,l)=>sum+_batchNum(l['quantity']));
     final bookCost = _batchNum(item['total_krw']);
     final verified = item['item_breakdown_verified'] == true;
     final isOpeningStock = item['source'] == 'opening_stock_baseline';
@@ -344,6 +459,13 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
           ] else
             _detail('Kitoblar tarkibi',
               verified ? 'Tasdiqlangan' : 'Kitobma-kitob tasdiqlanmagan'),
+          const SizedBox(height:12),
+          Text('Bu partiyaga kiritilgan: ${matchedLines.length} nomdagi kitob, $matchedQty dona',
+            style:const TextStyle(fontWeight:FontWeight.w800)),
+          for(final line in matchedLines) _savedBatchLine(line),
+          if(matchedLines.isEmpty)
+            const Text('Kitoblar soni hali tasdiqlanmagan. Partiyaga kitoblar qo‘shish tugmasidan foydalaning.',
+              style:TextStyle(fontSize:12,color:UzbekCustomerColors.textMuted)),
           if (linked.isNotEmpty) ...[
             const SizedBox(height: 12),
             const Align(
@@ -439,6 +561,11 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
             _batchMoney(_batchNum(item['suggested_price']))),
           if ((item['note'] ?? '').toString().trim().isNotEmpty)
             _detail('Izoh', (item['note'] ?? '').toString()),
+          Align(alignment:Alignment.centerRight,
+            child:OutlinedButton.icon(
+              onPressed:()=>_editSavedBatchLine(item),
+              icon:const Icon(Icons.edit_outlined,size:18),
+              label:const Text('Sonini tahrirlash'))),
         ],
       ),
     );
@@ -464,6 +591,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
       final inventory = _items(data['inventory']);
       final transports = _items(data['transport_records']);
       final groups = _items(data['batch_groups']);
+      final savedLines=_items(data['saved_batch_lines']);
       final connectedTotal = transports.where((x) =>
         x['batch_name'] != null).fold<int>(
           0, (sum,item) => sum + _batchNum(item['amount']));
@@ -609,7 +737,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
               const Padding(padding: EdgeInsets.all(24),
                 child: Text('Mos xarid yozuvi yo‘q')),
             for (var i=0;i<shownPurchases.length;i++)
-              _purchaseTile(shownPurchases[i],i,transports),
+              _purchaseTile(shownPurchases[i],i,transports,savedLines),
           ],
           if (mode == 'inventory') ...[
             if (shownInventory.isEmpty)
@@ -638,7 +766,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
             const Text('Yangi partiyalar',
               style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
             const SizedBox(height: 8),
-            for (final group in groups) _groupTile(group,transports),
+            for (final group in groups) _groupTile(group,transports,savedLines),
             const SizedBox(height: 12),
             const Text('Kitobma-kitob aniq kirim',
               style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),

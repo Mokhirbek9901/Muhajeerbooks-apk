@@ -227,12 +227,15 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
     final hint=(expense['historical_import']??'').toString();
     final category=(expense['category']??'').toString();
     final transportHistory=expense['historical_transport']==true;
+    // Finance entries already reconciled with a historical purchase or
+    // transport must not also be allocated to another new batch.
+    final assignedElsewhere=usedGroup||hint.isNotEmpty||transportHistory;
     return Card(
       margin:const EdgeInsets.only(bottom:7),
       child:CheckboxListTile(
         controlAffinity:ListTileControlAffinity.leading,
         value:chosen,
-        onChanged:_submitting||usedGroup?null:(selected)=>setState((){
+        onChanged:_submitting||assignedElsewhere?null:(selected)=>setState((){
           if(selected??false){
             _selectedFinanceExpenseIds.add(id);
           }else{
@@ -249,12 +252,13 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
             '${expense['used_group_title']??''}',
             style:const TextStyle(fontSize:11,color:Colors.red)),
           if(!usedGroup&&hint.isNotEmpty)
-            Text('Moliyada oldingi xarid qaydida ham bor: $hint',
+            Text('Oldingi partiyada ishlatilgan ($hint). '
+              'Takroriy hisob bo‘lmasligi uchun bu yerda tanlanmaydi.',
               style:const TextStyle(fontSize:11,
                 color:UzbekCustomerColors.textMuted)),
           if(!usedGroup&&category=='transport'&&transportHistory)
-            const Text('Oldingi transport qaydida mavjud; '
-              'moliyaga qayta yozilmaydi.',
+            const Text('Oldingi transport partiyasiga bog‘langan. '
+              'Takroriy hisob bo‘lmasligi uchun bu yerda tanlanmaydi.',
               style:TextStyle(fontSize:11,
                 color:UzbekCustomerColors.textMuted)),
         ]),

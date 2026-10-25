@@ -327,8 +327,9 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
     return RefreshIndicator(onRefresh:_reload,
       child:LayoutBuilder(builder:(context,c){
         final wide=c.maxWidth>=750;
-        final cardWidth=c.maxWidth>=900?(c.maxWidth-30)/4:
-          c.maxWidth>=460?(c.maxWidth-10)/2:c.maxWidth;
+        final usableWidth=c.maxWidth-28;
+        final cardWidth=usableWidth>=900?(usableWidth-30)/4:
+          usableWidth>=460?(usableWidth-10)/2:usableWidth;
         return ListView(physics:const AlwaysScrollableScrollPhysics(),
           padding:const EdgeInsets.fromLTRB(14,16,14,30),children:[
             Row(children:[

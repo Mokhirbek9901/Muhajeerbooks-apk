@@ -32,11 +32,26 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
   bool editing=false,saving=false,loadingBooks=false;
   Map<int,int> counts={};
   final Map<String,Map<String,dynamic>> added={};
+  final TextEditingController _bookSearch=TextEditingController();
+
+  // Search affects only visible rows. Counts and unsaved edits are retained
+  // for all books, including those hidden by the current filter.
+  String _normalizeTitle(String value)=>value.toLowerCase()
+    .replaceAll(RegExp(r"[ʻʼ’‘`´]"), "'").trim();
+
+  bool _matchesBook(Map<String,dynamic> book,String term)=>
+    _normalizeTitle((book['title']??'').toString()).contains(term);
 
   @override
   void initState(){
     super.initState();
     _reset();
+  }
+
+  @override
+  void dispose(){
+    _bookSearch.dispose();
+    super.dispose();
   }
 
   @override
@@ -311,6 +326,10 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
       (editing?(counts[_n(line['id'])]??_n(line['quantity'])):
       _n(line['quantity'])))+
       (editing?added.values.fold<int>(0,(sum,b)=>sum+_n(b['quantity'])):0);
+    final term=_normalizeTitle(_bookSearch.text);
+    final filtered=widget.lines.where((book)=>_matchesBook(book,term)).toList();
+    final filteredAdded=added.values.where(
+      (book)=>_matchesBook(book,term)).toList();
     return Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
       Row(children:[
         Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,
@@ -330,13 +349,45 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
         else const Text('Tahrirlash rejimi',
           style:TextStyle(color:teal,fontSize:11,fontWeight:FontWeight.w800)),
       ]),
-      const SizedBox(height:9),
+      const SizedBox(height:10),
+      TextField(
+        key:const ValueKey('batch-book-search'),
+        controller:_bookSearch,
+        textInputAction:TextInputAction.search,
+        onChanged:(_)=>setState((){}),
+        decoration:InputDecoration(
+          hintText:'Shu partiyadagi kitobni qidiring...',
+          prefixIcon:const Icon(Icons.search_rounded),
+          suffixIcon:term.isNotEmpty
+            ?IconButton(
+              tooltip:'Qidiruvni tozalash',
+              icon:const Icon(Icons.close_rounded),
+              onPressed:(){
+                _bookSearch.clear();
+                setState((){});
+              })
+            :null,
+          isDense:true,
+          border:OutlineInputBorder(
+            borderRadius:BorderRadius.circular(12))),
+      ),
+      if(term.isNotEmpty)
+        Padding(padding:const EdgeInsets.only(top:7),
+          child:Text('Topildi: ${filtered.length+(editing?filteredAdded.length:0)} ta',
+            style:const TextStyle(fontSize:11.5,
+              color:Color(0xFF617370)))),
+      const SizedBox(height:8),
       if(widget.lines.isEmpty && added.isEmpty)
         const Padding(padding:EdgeInsets.symmetric(vertical:10),
           child:Text('Bu partiyaga hozircha kitob kiritilmagan.'))
-      else
-        for(final line in widget.lines)_recordedRow(line),
-      if(editing) for(final row in added.values)_addedRow(row),
+      else if(filtered.isEmpty && (!editing||filteredAdded.isEmpty))
+        const Padding(padding:EdgeInsets.symmetric(vertical:12),
+          child:Text('Bu partiyada qidiruvga mos kitob topilmadi.',
+            style:TextStyle(color:Color(0xFF617370))))
+      else ...[
+        for(final line in filtered)_recordedRow(line),
+        if(editing) for(final row in filteredAdded)_addedRow(row),
+      ],
       const SizedBox(height:9),
       // Deliberately below the final book, not a separate new-batch action.
       OutlinedButton.icon(onPressed:saving||loadingBooks?null:_pickBook,

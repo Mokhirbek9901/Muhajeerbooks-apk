@@ -457,6 +457,71 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
     return result;
   }
 
+  // Read-only comparison: references finance expenses without posting them
+  // again or changing inventory, sales or the historical lot unit costs.
+  Widget _savedBatchFinanceComparison({
+    required int purchaseExpense,
+    required int transportExpense,
+    required List<Map<String,dynamic>> lines,
+  }) {
+    final entered=lines.fold<int>(0,(total,line)=>
+      total+_batchNum(line['quantity'])*_batchNum(line['unit_cost']));
+    final qty=lines.fold<int>(0,(total,line)=>
+      total+_batchNum(line['quantity']));
+    final difference=purchaseExpense-entered;
+    final known=lines.isNotEmpty;
+    final differenceText=(difference<0?'−':'')+
+      _batchMoney(difference.abs());
+    return Container(
+      margin:const EdgeInsets.fromLTRB(0,14,0,12),
+      padding:const EdgeInsets.all(13),
+      decoration:BoxDecoration(
+        color:const Color(0xFFF1F7F4),
+        border:Border.all(color:const Color(0xFFCDE4D9)),
+        borderRadius:BorderRadius.circular(14),
+      ),
+      child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        const Text('Moliya va partiya tan narxi taqqoslash',
+          style:TextStyle(color:UzbekCustomerColors.navy,
+            fontSize:15,fontWeight:FontWeight.w900)),
+        const SizedBox(height:8),
+        _detail('Moliyada kitoblar uchun xarajat',
+          _batchMoney(purchaseExpense)),
+        _detail('Moliyadagi transport xarajati',
+          _batchMoney(transportExpense)),
+        const Divider(),
+        _detail('Moliyadagi jami xarajat',
+          _batchMoney(purchaseExpense+transportExpense)),
+        const SizedBox(height:8),
+        _detail('Bu partiyaga kiritilgan kitoblar tan narxi ($qty dona)',
+          _batchMoney(entered)),
+        if(known)...[
+          const Divider(),
+          _detail('Farq: kitob xarajati − kiritilgan tan narx',
+            differenceText),
+          Text(difference==0
+            ? 'Kitob xarajati va ro‘yxatdagi kitoblarning tan narxi teng.'
+            : difference<0
+              ? 'Ro‘yxatdagi kitoblarning tan narxi Moliyadagi '
+                'kitob xarajatidan katta. Son va narxlarni tekshiring.'
+              : 'Moliyadagi kitob xarajati ro‘yxatdagi tan narxdan '
+                'katta. Kiritilmagan kitoblar yoki boshqa xarajatlarni tekshiring.',
+            style:const TextStyle(fontSize:11.5,
+              color:UzbekCustomerColors.textMuted,height:1.35)),
+        ] else
+          const Text('Partiyadagi kitoblar hali kiritilmagan; '
+            'farqni hisoblash uchun kitoblarni belgilang.',
+            style:TextStyle(color:UzbekCustomerColors.textMuted,
+              fontSize:11.5)),
+        const SizedBox(height:8),
+        const Text('Bu faqat taqqoslash: Moliya xarajatlari, sotuv foydasi '
+          'va ombor qoldig‘i o‘zgartirilmaydi.',
+          style:TextStyle(color:UzbekCustomerColors.textMuted,
+            fontSize:10.5,height:1.35)),
+      ]),
+    );
+  }
+
   Widget _purchaseTile(Map<String, dynamic> item, int index,
       List<Map<String,dynamic>> transports,
       List<Map<String,dynamic>> savedLines) {
@@ -531,6 +596,13 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
           ] else
             _detail('Kitoblar tarkibi',
               verified ? 'Tasdiqlangan' : 'Kitobma-kitob tasdiqlanmagan'),
+          // One visible card for already-recorded finance and the actual
+          // book receipt values. No finance insert, inventory write or
+          // historical profit recalculation takes place here.
+          _savedBatchFinanceComparison(
+            purchaseExpense:bookCost,
+            transportExpense:shipping,
+            lines:matchedLines),
           const SizedBox(height:12),
           Text('Bu partiyaga kiritilgan: ${matchedLines.length} nomdagi kitob, $matchedQty dona',
             style:const TextStyle(fontWeight:FontWeight.w800)),

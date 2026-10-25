@@ -375,7 +375,7 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
                       overflow:TextOverflow.ellipsis,
                       style:const TextStyle(color:gray,fontSize:11)),
                 ]),
-              )),
+              ),
             ]),
           ))),
           DataCell(SizedBox(width:133,child:Text(

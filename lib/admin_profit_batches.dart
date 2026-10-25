@@ -192,7 +192,7 @@ class AdminProfitBatchPanel extends StatelessWidget {
       Row(children:[
         const Expanded(child:Text('Partiyalar bo‘yicha foyda',
           style:TextStyle(color:navy,fontWeight:FontWeight.w900,fontSize:17))),
-        if(groups.length>4) TextButton(
+        if(groups.isNotEmpty) TextButton(
           onPressed:()=>_showAll(context,positiveTotal),
           child:const Text('Barchasini ko‘rish',
             style:TextStyle(fontSize:11))),

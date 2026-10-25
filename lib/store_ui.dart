@@ -33,6 +33,15 @@ import 'web_book_purchase_count.dart';
 import 'preview_features.dart';
 import 'purchase_price_notice.dart';
 
+/// Fixed filters should never steal catalogue width on an iPad. The
+/// filter button by search remains available across all iOS orientations.
+@visibleForTesting
+bool shouldShowFixedCatalogSidebar({
+  required TargetPlatform platform,
+  required double width,
+  required bool isWeb,
+}) => platform != TargetPlatform.iOS && width >= (isWeb ? 1600 : 1180);
+
 const bool _playStoreCustomerBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
 const bool _appStoreCustomerBuild = bool.fromEnvironment('APP_STORE_BUILD');
 // Match web/Play customer features in new iOS TestFlight builds without
@@ -2556,8 +2565,11 @@ class _HomePageState extends State<HomePage> {
         // catalog width. Filters remain accessible from the search-bar button,
         // never from a permanently visible left-hand sidebar on iOS.
         // The wide sidebar is reserved for real desktop platforms only.
-        if (defaultTargetPlatform == TargetPlatform.iOS ||
-            constraints.maxWidth < (kIsWeb ? 1600 : 1180)) {
+        if (!shouldShowFixedCatalogSidebar(
+          platform: defaultTargetPlatform,
+          width: constraints.maxWidth,
+          isWeb: kIsWeb,
+        )) {
           return catalogView;
         }
         return Row(

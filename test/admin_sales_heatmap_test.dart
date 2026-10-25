@@ -13,10 +13,6 @@ void main() {
 
   testWidgets('30-day heatmap shows exact daily volume and opens day totals',
       (tester) async {
-    tester.view.physicalSize=const Size(390,950);
-    tester.view.devicePixelRatio=1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
     final days=<Map<String,dynamic>>[
       for(var n=1;n<=30;n++)
         {

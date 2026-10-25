@@ -348,6 +348,34 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
       ));
   }
 
+  // Older batch records can have neither a finance import ID nor a
+  // catalog group ID. Group them by their recorded purchase date for editing,
+  // without fabricating a finance/stock linkage.
+  Widget _legacyDateBatchTile(String date,List<Map<String,dynamic>> lines) {
+    final count=lines.fold<int>(0,(sum,line)=>sum+_batchNum(line['quantity']));
+    final cost=lines.fold<int>(0,(sum,line)=>
+      sum+_batchNum(line['quantity'])*_batchNum(line['unit_cost']));
+    return Card(margin:const EdgeInsets.only(bottom:9),
+      child:ExpansionTile(
+        leading:const Icon(Icons.history_rounded,
+          color:UzbekCustomerColors.teal),
+        title:Text('${_batchDate(date)} partiyasi',
+          style:const TextStyle(fontWeight:FontWeight.w900)),
+        subtitle:Text('${lines.length} xil kitob · $count dona saqlangan',
+          style:const TextStyle(fontSize:12)),
+        trailing:Text(_batchMoney(cost),
+          style:const TextStyle(fontWeight:FontWeight.w900)),
+        childrenPadding:const EdgeInsets.fromLTRB(16,0,16,14),
+        children:[
+          const Text('Bu tarixiy kirim; hozirgi omborga qayta qo‘shilmaydi.',
+            style:TextStyle(fontSize:12,
+              color:UzbekCustomerColors.textMuted)),
+          for(final line in lines) _savedBatchLine(line),
+        ],
+      ),
+    );
+  }
+
   // UI grouping only: original finance records are never rewritten or added.
   List<Map<String,dynamic>> _combinedPurchases(
       List<Map<String,dynamic>> purchases) {
@@ -592,6 +620,14 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
       final transports = _items(data['transport_records']);
       final groups = _items(data['batch_groups']);
       final savedLines=_items(data['saved_batch_lines']);
+      final unlinkedByDate=<String,List<Map<String,dynamic>>>{};
+      for(final line in savedLines) {
+        if(line['batch_group_id']!=null || line['batch_import_id']!=null) continue;
+        final key=(line['purchased_at']??'').toString();
+        unlinkedByDate.putIfAbsent(key,()=>[]).add(line);
+      }
+      final unlinkedDates=unlinkedByDate.keys.toList()
+        ..sort((a,b)=>b.compareTo(a));
       final connectedTotal = transports.where((x) =>
         x['batch_name'] != null).fold<int>(
           0, (sum,item) => sum + _batchNum(item['amount']));
@@ -767,6 +803,14 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
               style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
             const SizedBox(height: 8),
             for (final group in groups) _groupTile(group,transports,savedLines),
+            if(unlinkedDates.isNotEmpty) ...[
+              const SizedBox(height:12),
+              const Text('Eski qayd qilingan partiyalar',
+                style:TextStyle(fontSize:17,fontWeight:FontWeight.w900)),
+              const SizedBox(height:7),
+              for(final date in unlinkedDates)
+                _legacyDateBatchTile(date,unlinkedByDate[date]!),
+            ],
             const SizedBox(height: 12),
             const Text('Kitobma-kitob aniq kirim',
               style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),

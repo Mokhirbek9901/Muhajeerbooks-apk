@@ -104,7 +104,10 @@ begin
   end if;
 
   with sale_rows as (
-    select s.*,
+    select s.id,s.order_id,s.item_index,s.unit_index,s.book_id,s.title,s.source,
+      coalesce(ps.first_sold_at,s.sold_at) as sold_at,
+      coalesce(ps.unit_price,s.unit_price) as unit_price,
+      coalesce(ps.unit_cost,s.unit_cost) as unit_cost,
       coalesce(ps.cost_known,s.unit_cost>0) known
     from public.sales_log s
     left join private.book_sale_profit_snapshots ps

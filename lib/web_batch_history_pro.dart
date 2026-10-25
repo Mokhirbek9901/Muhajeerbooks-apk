@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app_state.dart';
+import 'web_batch_inline_editor.dart';
 import 'uzbek_customer_style.dart';
 
 String _batchMoney(num value) => '₩${NumberFormat('#,###').format(value.round())}';
@@ -330,13 +331,10 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
           _detail('Transport xarajatlari',_batchMoney(transport)),
           _detail('Kitob + transport (hisoblangan)',_batchMoney(books + transport)),
           const SizedBox(height: 12),
-          const Align(alignment:Alignment.centerLeft,
-            child:Text('Partiyaga saqlangan kitoblar',
-              style:TextStyle(fontWeight:FontWeight.w900))),
-          for(final line in lines) _savedBatchLine(line),
-          if(lines.isEmpty) const Text(
-            'Hali partiyaga kitoblar kiritilmagan.',
-            style:TextStyle(fontSize:12,color:UzbekCustomerColors.textMuted)),
+          WebBatchInlineEditor(
+            key:ValueKey('group:'+id),
+            secret:widget.secret,kind:'group',batchKey:id,
+            lines:lines,onSaved:_refresh),
           const SizedBox(height: 6),
           for(final expense in linked) _transportLine(expense),
           const Text('Kitob tannarxi partiyaga kiritilgan qiymatlar '
@@ -370,7 +368,9 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
           const Text('Bu tarixiy kirim; hozirgi omborga qayta qo‘shilmaydi.',
             style:TextStyle(fontSize:12,
               color:UzbekCustomerColors.textMuted)),
-          for(final line in lines) _savedBatchLine(line),
+          WebBatchInlineEditor(
+            key:ValueKey('legacy:'+date),secret:widget.secret,
+            kind:'legacy',batchKey:date,lines:lines,onSaved:_refresh),
         ],
       ),
     );
@@ -490,10 +490,26 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
           const SizedBox(height:12),
           Text('Bu partiyaga kiritilgan: ${matchedLines.length} nomdagi kitob, $matchedQty dona',
             style:const TextStyle(fontWeight:FontWeight.w800)),
-          for(final line in matchedLines) _savedBatchLine(line),
-          if(matchedLines.isEmpty)
-            const Text('Kitoblar soni hali tasdiqlanmagan. Partiyaga kitoblar qo‘shish tugmasidan foydalaning.',
-              style:TextStyle(fontSize:12,color:UzbekCustomerColors.textMuted)),
+          if(grouped)
+            for(final member in members) ...[
+              const SizedBox(height:12),
+              Text((member['title']??'Kitob xaridi').toString(),
+                style:const TextStyle(fontWeight:FontWeight.w800,fontSize:13)),
+              WebBatchInlineEditor(
+                key:ValueKey('import:'+member['id'].toString()),
+                secret:widget.secret,kind:'import',
+                batchKey:member['id'].toString(),
+                lines:matchedLines.where((l)=>
+                  l['batch_import_id']?.toString()==member['id'].toString()
+                ).toList(),
+                onSaved:_refresh),
+            ]
+          else
+            WebBatchInlineEditor(
+              key:ValueKey('import:'+item['id'].toString()),
+              secret:widget.secret,kind:'import',
+              batchKey:item['id'].toString(),
+              lines:matchedLines,onSaved:_refresh),
           if (linked.isNotEmpty) ...[
             const SizedBox(height: 12),
             const Align(

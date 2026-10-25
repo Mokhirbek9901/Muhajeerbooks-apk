@@ -21,9 +21,9 @@ class ProfitDashboardTrend extends StatelessWidget {
       Row(children:[
         const Expanded(child:Text('Daromad va foyda grafigi',
           style:TextStyle(fontWeight:FontWeight.w900,fontSize:17,color:Color(0xFF17243D)))),
-        const _ProfitLegend(color:Color(0xFF2879E8),text:'Tushum'),
+        const _ProfitLegend(color:Color(0xFF14A77D),text:'Tushum'),
         const SizedBox(width:12),
-        const _ProfitLegend(color:Color(0xFF14A77D),text:'Foyda'),
+        const _ProfitLegend(color:Color(0xFF2879E8),text:'Foyda'),
       ]),
       const SizedBox(height:18),
       if(daily.isEmpty)
@@ -134,8 +134,8 @@ class _ProfitLinesPainter extends CustomPainter {
         canvas.drawCircle(points[i],3.5,Paint()..color=color);
       }
     }
-    series('revenue',blue);
-    series('profit',green);
+    series('revenue',green);
+    series('profit',blue);
   }
   @override
   bool shouldRepaint(covariant _ProfitLinesPainter old)=>

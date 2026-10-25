@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'design_system.dart';
 import 'admin_profit_charts.dart';
 import 'admin_profit_batches.dart';
+import 'admin_sales_heatmap.dart';
 
 /// Read-only admin report. Completed sales have frozen unit cost and price.
 class AdminBookProfitPage extends StatefulWidget {
@@ -66,6 +67,17 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
       }
     } catch (error) {
       combined['batch_error']=error.toString();
+    }
+    try {
+      final response=await Supabase.instance.client.rpc(
+        'admin_book_sales_activity',params:{'p_secret':widget.secret});
+      if(response is Map) {
+        combined['sales_activity']=Map<String,dynamic>.from(response);
+      } else {
+        combined['activity_error']='Savdo xaritasi mavjud emas.';
+      }
+    } catch (error) {
+      combined['activity_error']=error.toString();
     }
     return combined;
   }
@@ -524,6 +536,9 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
     final batchData=Map<String,dynamic>.from(data['batch_data'] as Map? ?? {});
     final batches=_list(batchData['groups']);
     final lots=_list(batchData['lots']);
+    final activity=Map<String,dynamic>.from(
+      data['sales_activity'] as Map? ?? {});
+    final activityDays=_list(activity['days']);
     final byBook=<String,List<Map<String,dynamic>>>{};
     for(final lot in lots) {
       final id=(lot['book_id']??'').toString();
@@ -544,8 +559,7 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
       }
     }
     final sales=_list(data['recent_sales']);
-    final daily=_list(data['daily']);
-    final info=Map<String,dynamic>.from(data['summary'] as Map? ?? {});
+     final info=Map<String,dynamic>.from(data['summary'] as Map? ?? {});
     final categories=books.map((b)=>(b['category']??'').toString())
       .where((v)=>v.isNotEmpty).toSet().toList()..sort();
     final q=search.text.trim().toLowerCase();
@@ -673,15 +687,25 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
             if(desktop)
               Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
                 Expanded(flex:7,child:_pane(
-                  ProfitDashboardTrend(daily:daily))),
+                  AdminSalesHeatmap(days:activityDays,
+                    totalSold:_n(activity,'total_sold'),
+                    activeDays:_n(activity,'active_days')))),
                 const SizedBox(width:12),
                 Expanded(flex:4,child:_pane(
                   AdminProfitBatchPanel(groups:batches,lots:lots))),
               ])
             else ...[
-              _pane(ProfitDashboardTrend(daily:daily)),
+              _pane(AdminSalesHeatmap(days:activityDays,
+                totalSold:_n(activity,'total_sold'),
+                activeDays:_n(activity,'active_days'))),
               const SizedBox(height:12),
               _pane(AdminProfitBatchPanel(groups:batches,lots:lots)),
+            ],
+            if(data['activity_error']!=null) ...[
+              const SizedBox(height:8),
+              _pane(Text('Savdo faolligini yuklashda xatolik: '+
+                data['activity_error'].toString(),
+                style:const TextStyle(color:Color(0xFFB26A15)))),
             ],
             if(data['batch_error']!=null) ...[
               const SizedBox(height:8),

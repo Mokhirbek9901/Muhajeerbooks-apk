@@ -2552,10 +2552,12 @@ class _HomePageState extends State<HomePage> {
     if (!_webOrPlayCustomer) return catalogView;
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Tablet web (including 13-inch iPads in landscape) must not lose
-        // 250 logical pixels to a permanently visible desktop sidebar.
-        // Native Store builds retain their current, separately reviewed UI.
-        if (constraints.maxWidth < (kIsWeb ? 1600 : 1180)) {
+        // iPad, including landscape and Safari/PWA, always uses the full
+        // catalog width. Filters remain accessible from the search-bar button,
+        // never from a permanently visible left-hand sidebar on iOS.
+        // The wide sidebar is reserved for real desktop platforms only.
+        if (defaultTargetPlatform == TargetPlatform.iOS ||
+            constraints.maxWidth < (kIsWeb ? 1600 : 1180)) {
           return catalogView;
         }
         return Row(

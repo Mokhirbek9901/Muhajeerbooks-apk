@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -69,7 +70,7 @@ class _ProfitLinesPainter extends CustomPainter {
   void label(Canvas canvas,String text,Offset offset,{TextAlign align=TextAlign.left}) {
     final painter=TextPainter(
       text:TextSpan(text:text,style:const TextStyle(color:gray,fontSize:10)),
-      textDirection:TextDirection.ltr,textAlign:align,maxLines:1,
+      textDirection:ui.TextDirection.ltr,textAlign:align,maxLines:1,
     )..layout();
     painter.paint(canvas,offset);
   }
@@ -90,7 +91,7 @@ class _ProfitLinesPainter extends CustomPainter {
       final text=compact(value);
       final tp=TextPainter(text:TextSpan(text:text,
         style:const TextStyle(color:gray,fontSize:10)),
-        textDirection:TextDirection.ltr)..layout();
+        textDirection:ui.TextDirection.ltr)..layout();
       tp.paint(canvas,Offset(left-tp.width-9,y-tp.height/2));
     }
     final count=daily.length;
@@ -103,7 +104,7 @@ class _ProfitLinesPainter extends CustomPainter {
       final title=d.length>=10?d.substring(5):d;
       final tp=TextPainter(text:TextSpan(text:title,
         style:const TextStyle(color:gray,fontSize:10)),
-        textDirection:TextDirection.ltr)..layout();
+        textDirection:ui.TextDirection.ltr)..layout();
       tp.paint(canvas,Offset(
         (xs[i]-tp.width/2).clamp(plot.left-2,plot.right-tp.width+3),
         plot.bottom+8,
@@ -164,7 +165,6 @@ class ProfitDashboardDonut extends StatelessWidget {
         MapEntry('Boshqa',sorted.skip(5).fold<int>(0,(s,e)=>s+e.value)),
     ];
     final total=entries.fold<int>(0,(s,e)=>s+e.value);
-    final narrow=MediaQuery.sizeOf(context).width<420;
     final chart= SizedBox(width:173,height:173,child:Stack(alignment:Alignment.center,
       children:[
         CustomPaint(size:const Size(170,170),

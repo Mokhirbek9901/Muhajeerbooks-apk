@@ -470,7 +470,7 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
     }
     final missing=books.where((b)=>
       _n(b,'stock')>0 && _n(b,'cost_price')<=0).length;
-    final salesCost=_n(info,'revenue')-_n(info,'profit');
+    final salesCost=_n(info,'cost_of_goods');
     final stockProjection=books.fold<int>(0,(v,b)=>v+potential(b));
     final unlinked=Map<String,dynamic>.from(data['unlinked'] as Map? ?? {});
 
@@ -544,7 +544,7 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
                 const Color(0xFFE49B18),const Color(0xFFFFF2D5),
                 note:'Kitoblar sotilishidan')),
               SizedBox(width:metricWidth,child:_dashboardMetric(
-                'Sotilgan kitob tan narxi',_w(salesCost),
+                'Jami tan narxi',_w(salesCost),
                 Icons.receipt_long_rounded,
                 const Color(0xFFF39C32),const Color(0xFFFFEEDA),
                 note:'Sotuv paytida saqlangan')),

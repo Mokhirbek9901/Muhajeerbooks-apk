@@ -143,7 +143,9 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
     required ValueChanged<int> onPrice,
   }) async {
     if(!editing || saving)return;
-    final controller=TextEditingController(text:initial.toString());
+    // Use initialValue rather than a manually disposed controller: the
+    // dialog remains in Flutter's exit animation after its result returns.
+    String draft=initial.toString();
     final form=GlobalKey<FormState>();
     final amount=await showDialog<int>(context:context,
       builder:(dialogContext)=>AlertDialog(
@@ -155,7 +157,8 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
             const SizedBox(height:12),
             TextFormField(
               key:const ValueKey('batch-unit-cost-input'),
-              autofocus:true,controller:controller,
+              autofocus:true,initialValue:initial.toString(),
+              onChanged:(value)=>draft=value,
               keyboardType:TextInputType.number,
               decoration:const InputDecoration(
                 labelText:'1 dona tan narxi (₩)',
@@ -179,12 +182,11 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
             child:const Text('Bekor qilish')),
           FilledButton(onPressed:(){
             if(form.currentState?.validate()!=true)return;
-            Navigator.pop(dialogContext,int.parse(controller.text.trim()));
+            Navigator.pop(dialogContext,int.parse(draft.trim()));
           },child:const Text('Tasdiqlash')),
         ],
       ),
     );
-    controller.dispose();
     if(amount!=null && mounted)onPrice(amount);
   }
 

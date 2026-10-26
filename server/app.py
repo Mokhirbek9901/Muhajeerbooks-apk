@@ -523,8 +523,8 @@ def send_push_notification():
     _admin_rpc_call("admin_push_message_finish",{
       "p_secret":supplied,
       "p_id":str(message_id),
-      "p_success":success,
-      "p_failure":failure,
+      "p_success":success+ios["sent"],
+      "p_failure":failure+ios["failed"],
     })
     return jsonify(
       ok=True, id=str(message_id),

@@ -2420,12 +2420,21 @@ class _PushNotificationAdminState extends State<_PushNotificationAdmin> {
       final success = (result['success'] as num?)?.toInt() ?? 0;
       final failure = (result['failure'] as num?)?.toInt() ?? 0;
       final total = (result['total'] as num?)?.toInt() ?? 0;
+      final webCount = (result['web_success'] as num?)?.toInt() ?? 0;
+      final iosCount = (result['ios_success'] as num?)?.toInt() ?? 0;
+      final iosConfigured = result['ios_configured'] == true;
+      final iosLookupError = result['ios_lookup_error'] == true;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+          duration: const Duration(seconds: 8),
           content: Text(
-            total == 0
-                ? 'Hozircha bildirishnomani yoqqan mijoz yo‘q.'
-                : 'Yuborildi: $success ta${failure > 0 ? ' · yetmadi: $failure ta' : ''} ✅',
+            !iosConfigured
+                ? 'Web: $webCount ta qabul qilindi. iPhone pushi yuborilmadi: serverda Apple APNs kaliti yo‘q.'
+                : iosLookupError
+                ? 'Web: $webCount ta. iPhone obunalarini olishda xatolik bo‘ldi.'
+                : total == 0
+                ? 'Hozircha pushni yoqqan mijoz yo‘q.'
+                : 'Web: $webCount · iPhone: $iosCount ta qabul qilindi${failure > 0 ? ' · xato: $failure ta' : ''}.',
           ),
         ),
       );

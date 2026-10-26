@@ -2635,7 +2635,7 @@ class _PushNotificationAdminState extends State<_PushNotificationAdmin> {
         }),
       const SizedBox(height: 10),
       const Text(
-        '“Yuborildi” — push xizmati xabarni qabul qilgan qurilmalar soni. “Ochdi” — bildirishnomani bosib ilovani ochgan noyob qurilmalar soni.',
+        '“Yuborildi” — push xizmati xabarni qabul qilgan qurilmalar soni. “Ochdi” — vebdagi bildirishnomani bosib ilovani ochgan noyob qurilmalar soni. iOS ochilishlari hali bu hisobga kirmaydi.',
         style: TextStyle(fontSize: 11.5, color: AppColors.muted, height: 1.4),
       ),
     ],

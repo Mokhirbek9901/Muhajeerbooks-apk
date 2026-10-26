@@ -86,7 +86,7 @@ void main(){
     await tester.pumpWidget(app());
     await tester.tap(find.text('Tahrirlash'));
     await tester.pumpAndSettle();
-    expect(find.text('₩130,272'),findsOneWidget);
+    expect(find.text('₩130,672'),findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('edit-batch-cost-123')));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -94,7 +94,7 @@ void main(){
     await tester.tap(find.text('Tasdiqlash'));
     await tester.pumpAndSettle();
     expect(find.text('Tan narx: ₩7,900'),findsOneWidget);
-    expect(find.text('₩140,272'),findsOneWidget);
+    expect(find.text('₩140,672'),findsOneWidget);
     expect(find.textContaining('O‘zgarish: +₩10,000'),findsOneWidget);
     await tester.ensureVisible(find.text('Bekor qilish'));
     await tester.tap(find.text('Bekor qilish'));

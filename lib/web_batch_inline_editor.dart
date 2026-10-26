@@ -283,7 +283,10 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
                 onPressed:saving?null:()=>_editUnitCost(
                   title:(row['title']??'Kitob').toString(),
                   initial:_n(row['unit_cost']),
-                  onPrice:(n)=>setState(()=>row['unit_cost']=n)),
+                  onPrice:(n)=>setState((){
+                    row['unit_cost']=n;
+                    row['edited_cost']=true;
+                  })),
                 icon:const Icon(Icons.edit_outlined,size:13),
                 label:Text('Yangi tan narx: '+_won(_n(row['unit_cost'])),
                   style:const TextStyle(fontSize:11)),
@@ -339,6 +342,7 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
       ...chosen,
       'quantity':1,
       'unit_cost':_n(chosen['cost_price']),
+      'edited_cost':false,
       'image_url':chosen['image_url']??chosen['thumbnail_url'],
     });
   }
@@ -382,7 +386,8 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
       final additions=<Map<String,dynamic>>[
         for(final b in added.values)
           {'book_id':b['id'],'quantity':b['quantity'],
-           'unit_cost':b['unit_cost']},
+           'unit_cost':b['unit_cost'],
+           'edited_cost':b['edited_cost']==true},
       ];
       await Supabase.instance.client.rpc('admin_web_batch_apply_edits',
         params:{

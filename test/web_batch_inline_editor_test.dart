@@ -81,6 +81,28 @@ void main(){
     expect(find.byIcon(Icons.remove_rounded),findsNothing);
   });
 
+  testWidgets('Correcting partiya unit price updates draft total only',
+    (tester) async {
+    await tester.pumpWidget(app());
+    await tester.tap(find.text('Tahrirlash'));
+    await tester.pumpAndSettle();
+    expect(find.text('₩130,272'),findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('edit-batch-cost-123')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('batch-unit-cost-input')),'7900');
+    await tester.tap(find.text('Tasdiqlash'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tan narx: ₩7,900'),findsOneWidget);
+    expect(find.text('₩140,272'),findsOneWidget);
+    expect(find.textContaining('O‘zgarish: +₩10,000'),findsOneWidget);
+    await tester.ensureVisible(find.text('Bekor qilish'));
+    await tester.tap(find.text('Bekor qilish'));
+    await tester.pumpAndSettle();
+    expect(find.text('10 dona · 1 dona ₩6,900'),findsOneWidget);
+    expect(find.byKey(const ValueKey('batch-draft-cost-summary')),findsNothing);
+  });
+
   testWidgets('Steppers appear only after edit, cancel leaves saved count',
     (tester)async{
     await tester.pumpWidget(app());

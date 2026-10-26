@@ -129,7 +129,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: book, error } = await supabase
     .from("books")
-    .select("id,title,author,publisher,category,description,price,old_price,discount_percent,stock,image_url,updated_at,is_active")
+    .select("id,title,author,publisher,category,description,price,old_price,discount_percent,discount_ends_at,stock,image_url,updated_at,is_active")
     .eq("id", id)
     .eq("is_active", true)
     .maybeSingle();
@@ -139,7 +139,8 @@ Deno.serve(async (req: Request) => {
   }
 
   const price = Number(book.price ?? 0);
-  const discount = Number(book.discount_percent ?? 0);
+  const discount = !book.discount_ends_at || Date.parse(String(book.discount_ends_at)) > Date.now()
+    ? Number(book.discount_percent ?? 0) : 0;
   const salePrice = currentPrice(price, discount);
   const title = String(book.title ?? "Kitob").trim() || "Kitob";
   const author = String(book.author ?? "").trim();

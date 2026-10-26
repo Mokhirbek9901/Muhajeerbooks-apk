@@ -6,6 +6,8 @@ import UserNotifications
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var pendingTokenReply: FlutterResult?
   private var apnsToken: String?
+  private var pushChannel: FlutterMethodChannel?
+  private var pendingCustomerOrder: String?
 
   override func application(
     _ application: UIApplication,
@@ -21,7 +23,11 @@ import UserNotifications
       name: "muhajeerbooks/admin_apns",
       binaryMessenger: engineBridge.applicationRegistrar.messenger()
     )
+    pushChannel = channel
     channel.setMethodCallHandler { [weak self] call, result in
+      if call.method == "getPendingCustomerOrder" {
+        result(self?.pendingCustomerOrder); self?.pendingCustomerOrder = nil; return
+      }
       guard call.method == "getToken" else {
         result(FlutterMethodNotImplemented)
         return
@@ -60,6 +66,7 @@ import UserNotifications
     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
   ) {
     apnsToken = deviceToken.map { String(format: "%02x", $0) }.joined()
+    pushChannel?.invokeMethod("tokenUpdated", arguments: nil)
     pendingTokenReply?(apnsToken)
     pendingTokenReply = nil
     super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
@@ -76,6 +83,22 @@ import UserNotifications
     ))
     pendingTokenReply = nil
     super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
+  }
+
+  override func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    didReceive response: UNNotificationResponse,
+    withCompletionHandler completionHandler: @escaping () -> Void
+  ) {
+    let info = response.notification.request.content.userInfo
+    if info["kind"] as? String == "customer_order",
+       let orderId = info["order_id"] as? String {
+      pendingCustomerOrder = orderId
+      pushChannel?.invokeMethod("customerOrderTapped", arguments: orderId)
+      completionHandler()
+      return
+    }
+    super.userNotificationCenter(center, didReceive: response, withCompletionHandler: completionHandler)
   }
 
   override func userNotificationCenter(

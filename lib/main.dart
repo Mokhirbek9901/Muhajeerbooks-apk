@@ -7,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'admin_ui.dart';
+import 'native_customer_notification_bridge.dart';
 import 'admin_resume_session.dart';
 import 'app_state.dart';
 import 'catalog_resume.dart';
@@ -34,9 +35,7 @@ Future<void> main() async {
   const liveSupabasePublishableKey =
       'sb_publishable_5lDr_sw4bu8g3x8LCVzp4g_sHSTMBiO';
 
-  final supabaseUrl = kIsWeb
-      ? '${Uri.base.origin}/supabase'
-      : liveSupabaseUrl;
+  final supabaseUrl = kIsWeb ? '${Uri.base.origin}/supabase' : liveSupabaseUrl;
   final supabaseAnonKey = kIsWeb && definedSupabaseAnonKey.trim().isNotEmpty
       ? definedSupabaseAnonKey.trim()
       : liveSupabasePublishableKey;
@@ -53,9 +52,7 @@ Future<void> main() async {
     // Eski admin/auth sessiyasi storefrontni bloklamasin, lekin tarmoqdagi
     // signOut javobini kutib app startini sekinlashtirmaymiz.
     if (Supabase.instance.client.auth.currentSession != null) {
-      unawaited(
-        Supabase.instance.client.auth.signOut().catchError((_) {}),
-      );
+      unawaited(Supabase.instance.client.auth.signOut().catchError((_) {}));
     }
   } else {
     await catalogResumeInit;
@@ -81,9 +78,9 @@ class MuhajeerBooksApp extends StatelessWidget {
               AppStateFixed(backendConfigured: backendConfigured)..initialize(),
         ),
         ChangeNotifierProvider<RemoteConfigStore>(
-          create: (_) => RemoteConfigStore(
-            backendConfigured: backendConfigured,
-          )..initialize(),
+          create: (_) =>
+              RemoteConfigStore(backendConfigured: backendConfigured)
+                ..initialize(),
         ),
       ],
       child: MaterialApp(
@@ -93,14 +90,17 @@ class MuhajeerBooksApp extends StatelessWidget {
         title: 'Muhajeer Books',
         debugShowCheckedModeBanner: false,
         theme: MuhajeerDesign.theme,
-        builder: (context, child) => NotificationPermissionGate(
-          child: CartStockAlertBridge(
-            child: BrowserBackSync(
-            navigatorKey: _navigatorKey,
-            observer: _navigatorObserver,
-            child: ColoredBox(
-              color: AppColors.background,
-              child: child ?? const SizedBox.shrink(),
+        builder: (context, child) => NativeCustomerNotificationBridge(
+          navigatorKey: _navigatorKey,
+          child: NotificationPermissionGate(
+            child: CartStockAlertBridge(
+              child: BrowserBackSync(
+                navigatorKey: _navigatorKey,
+                observer: _navigatorObserver,
+                child: ColoredBox(
+                  color: AppColors.background,
+                  child: child ?? const SizedBox.shrink(),
+                ),
               ),
             ),
           ),
@@ -112,20 +112,19 @@ class MuhajeerBooksApp extends StatelessWidget {
         home: SharedBookEntry(
           uri: kIsWeb ? Uri.base : Uri(),
           child: AppUpdateGate(
-          child: kIsWeb && Uri.base.fragment.startsWith('admin_session=')
-              ? const AdminGatePage()
-              : _AdminResumeBootstrap(
-                  child: backendConfigured
-                      ? const CustomerAuthGate()
-                      : const FastStoreShell(),
-                ),
+            child: kIsWeb && Uri.base.fragment.startsWith('admin_session=')
+                ? const AdminGatePage()
+                : _AdminResumeBootstrap(
+                    child: backendConfigured
+                        ? const CustomerAuthGate()
+                        : const FastStoreShell(),
+                  ),
           ),
         ),
       ),
     );
   }
 }
-
 
 class _AdminResumeBootstrap extends StatefulWidget {
   const _AdminResumeBootstrap({required this.child});
@@ -154,39 +153,47 @@ class _AdminResumeBootstrapState extends State<_AdminResumeBootstrap> {
   void _openPushLink() {
     if (_pushLinkOpened || !mounted || !kIsWeb) return;
     final open = Uri.base.queryParameters['open'];
-    if (open != 'notifications' && open != 'orders' &&
-        open != 'admin_orders') return;
+    if (open != 'notifications' && open != 'orders' && open != 'admin_orders')
+      return;
     _pushLinkOpened = true;
     if (open == 'admin_orders') {
       unawaited(_openAdminOrdersFromPush());
       return;
     }
     if (open == 'orders') {
-      final number = int.tryParse(Uri.base.queryParameters['order_number'] ?? '');
-      Navigator.of(context).push(MaterialPageRoute<void>(
-        settings: const RouteSettings(name: 'mb:orders'),
-        builder: (_) => MyOrdersPage(
-          focusOrderId: Uri.base.queryParameters['order_id'],
-          focusOrderNumber: number,
+      final number = int.tryParse(
+        Uri.base.queryParameters['order_number'] ?? '',
+      );
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          settings: const RouteSettings(name: 'mb:orders'),
+          builder: (_) => MyOrdersPage(
+            focusOrderId: Uri.base.queryParameters['order_id'],
+            focusOrderNumber: number,
+          ),
         ),
-      ));
+      );
       return;
     }
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'mb:notifications'),
-      builder: (_) => const CustomerNotificationsPage(),
-    ));
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'mb:notifications'),
+        builder: (_) => const CustomerNotificationsPage(),
+      ),
+    );
   }
 
   Future<void> _openAdminOrdersFromPush() async {
     final snapshot = await AdminResumeSession.restore();
     if (!mounted) return;
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      settings: const RouteSettings(name: 'mb:admin-push-orders'),
-      builder: (_) => snapshot == null
-          ? const AdminGatePage()
-          : AdminDashboardPage(secret: snapshot.secret, initialTab: 3),
-    ));
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'mb:admin-push-orders'),
+        builder: (_) => snapshot == null
+            ? const AdminGatePage()
+            : AdminDashboardPage(secret: snapshot.secret, initialTab: 3),
+      ),
+    );
   }
 
   Future<void> _restoreAdminIfNeeded() async {
@@ -212,7 +219,6 @@ class _AdminResumeBootstrapState extends State<_AdminResumeBootstrap> {
   @override
   Widget build(BuildContext context) => widget.child;
 }
-
 
 class NotificationPermissionGate extends StatefulWidget {
   const NotificationPermissionGate({super.key, required this.child});

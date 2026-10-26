@@ -16,7 +16,7 @@ void main() {
       'Kitob ', 'Ombor ', 'Rasm yuklanmagan ', 'Tarifsiz ',
       'Sahifasi ko‘rsatilmagan ', 'Tan narxi kiritilmagan ',
       'Sotuvda ko‘rsatilgan ', 'Sotuvda ko‘rsatilmagan ',
-      'Rejadagi kitoblar ', 'Sotilmagan kitoblar ', 'Muammoli ',
+      'Rejadagi kitoblar ', 'Muammoli ',
     ]) {
       expect(booksPage.contains("label: '$label"), isTrue, reason: label);
     }

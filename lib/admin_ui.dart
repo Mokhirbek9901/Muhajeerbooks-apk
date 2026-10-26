@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
@@ -17,6 +18,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'admin_session.dart';
+import 'business_time.dart';
+import 'admin_book_profit_page.dart';
 import 'app_state.dart';
 import 'brand.dart';
 import 'book_story_page.dart';
@@ -32,33 +35,78 @@ import 'web_preorders.dart';
 import 'preview_features.dart';
 
 part 'admin_command_center.dart';
+part 'admin_customer_safety.dart';
+
+String _formRequestUuid() {
+  final b = List.generate(16, (_) => Random.secure().nextInt(256));
+  b[6] = (b[6] & 15) | 64;
+  b[8] = (b[8] & 63) | 128;
+  final h = b.map((v) => v.toRadixString(16).padLeft(2, '0')).join();
+  return '${h.substring(0, 8)}-${h.substring(8, 12)}-${h.substring(12, 16)}-${h.substring(16, 20)}-${h.substring(20)}';
+}
 
 const _navy = Color(0xFF10213D);
 const _orange = Color(0xFFFF8A00);
 final _money = NumberFormat('#,###', 'en_US');
 String _won(int value) => '₩${_money.format(value)}';
 
+/// Legacy shipments created before the owner's 23 Oct 2026 instruction are
+/// exempt; only NEW app orders require a tracking reminder.
+final DateTime _appTrackingReminderCutoff = DateTime.utc(
+  2026,
+  10,
+  23,
+  10,
+  33,
+  32,
+);
+
+bool _requiresAppShipmentTracking(ShopOrder order) =>
+    order.isApp &&
+    order.status == 'shipping' &&
+    order.deliveryType != 'pickup' &&
+    order.trackingNumber.trim().isEmpty &&
+    order.createdAt.toUtc().isAfter(_appTrackingReminderCutoff);
+
+bool _showsAppTrackingEditor(ShopOrder order) =>
+    order.isApp &&
+    order.status != 'cancelled' &&
+    (order.trackingNumber.trim().isNotEmpty ||
+        order.createdAt.toUtc().isAfter(_appTrackingReminderCutoff));
+
 // Bring the web administration experience to the new signed iOS tester
 // build. Browser-specific passkeys and URL handling must remain web-only.
 const bool _iosTesterParity = bool.fromEnvironment('APP_STORE_BUILD');
 bool get _enhancedAdminUi =>
-    webPreviewFeaturesAvailable || (defaultTargetPlatform == TargetPlatform.iOS && _iosTesterParity);
+    webPreviewFeaturesAvailable ||
+    (defaultTargetPlatform == TargetPlatform.iOS && _iosTesterParity);
 const Set<String> _canonicalBookCategories = {
-  'Badiiy adabiyot','Biznes va moliya','Bolalar adabiyoti','Diniy-ma’rifiy',
-  'Islom tarixi','Jahon adabiyoti','Jamiyat va kommunikatsiya','O‘zbek adabiyoti',
-  'Oila va nikoh','Psixologiya va shaxsiy rivojlanish','Qur’on va islom ilmlari',
-  'Ta’lim va tillar','Tarix va biografiya','Texnologiya','Tibbiyot va jamiyat',
+  'Badiiy adabiyot',
+  'Biznes va moliya',
+  'Bolalar adabiyoti',
+  'Diniy-ma’rifiy',
+  'Islom tarixi',
+  'Jahon adabiyoti',
+  'Jamiyat va kommunikatsiya',
+  'O‘zbek adabiyoti',
+  'Oila va nikoh',
+  'Psixologiya va shaxsiy rivojlanish',
+  'Qur’on va islom ilmlari',
+  'Ta’lim va tillar',
+  'Tarix va biografiya',
+  'Texnologiya',
+  'Tibbiyot va jamiyat',
 };
 
 String _validatedAiBookCategory(dynamic value) {
-  final raw=(value??'').toString().trim();
-  final key=raw.toLowerCase().replaceAll(RegExp(r"[’ʻ‘']"), '');
-  for(final category in _canonicalBookCategories) {
-    if(category.toLowerCase().replaceAll(RegExp(r"[’ʻ‘']"), '')==key) return category;
+  final raw = (value ?? '').toString().trim();
+  final key = raw.toLowerCase().replaceAll(RegExp(r"[’ʻ‘']"), '');
+  for (final category in _canonicalBookCategories) {
+    if (category.toLowerCase().replaceAll(RegExp(r"[’ʻ‘']"), '') == key)
+      return category;
   }
   return '';
 }
-
 
 class _UploadedBookImage {
   const _UploadedBookImage({required this.url, required this.thumbnailUrl});
@@ -147,34 +195,35 @@ class _AdminApi {
   final String secret;
   SupabaseClient get client => Supabase.instance.client;
 
-  Future<dynamic> _rpc(
-    String name, {
-    Map<String, dynamic>? params,
-  }) async {
+  Future<dynamic> _rpc(String name, {Map<String, dynamic>? params}) async {
     final response = await client.functions.invoke(
       'admin-rpc',
       body: {'name': name, 'params': params ?? <String, dynamic>{}},
     );
     final data = _functionResponseMap(response.data);
     if (data['ok'] != true) {
-      throw StateError((data['error'] ?? 'Admin amali bajarilmadi.').toString());
+      throw StateError(
+        (data['error'] ?? 'Admin amali bajarilmadi.').toString(),
+      );
     }
     return data['data'];
   }
 
   Future<void> registerAdminApnsDevice(String token) async {
-    await _rpc('admin_register_apns_device', params: {
-      'p_secret': secret,
-      'p_token': token,
-    });
+    await _rpc(
+      'admin_register_apns_device',
+      params: {'p_secret': secret, 'p_token': token},
+    );
   }
 
   Future<bool> isApnsProviderConfigured() async {
-    final response = await http.post(
-      _serverUri('/api/push/apns-status'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'admin_code': secret}),
-    ).timeout(const Duration(seconds: 15));
+    final response = await http
+        .post(
+          _serverUri('/api/push/apns-status'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'admin_code': secret}),
+        )
+        .timeout(const Duration(seconds: 15));
     if (response.statusCode != 200) {
       throw StateError('APNs server holatini tekshirib bo‘lmadi.');
     }
@@ -183,25 +232,19 @@ class _AdminApi {
   }
 
   Future<void> registerAdminPushDevice(String endpoint) async {
-    await _rpc('admin_register_order_push_device', params: {
-      'p_secret': secret,
-      'p_endpoint': endpoint,
-    });
+    await _rpc(
+      'admin_register_order_push_device',
+      params: {'p_secret': secret, 'p_endpoint': endpoint},
+    );
   }
 
   Future<bool> verify() async {
-    final result = await _rpc(
-      'admin_verify',
-      params: {'p_secret': secret},
-    );
+    final result = await _rpc('admin_verify', params: {'p_secret': secret});
     return result == true;
   }
 
   Future<List<Book>> books() async {
-    final data = await _rpc(
-      'admin_list_books',
-      params: {'p_secret': secret},
-    );
+    final data = await _rpc('admin_list_books', params: {'p_secret': secret});
     return (data as List)
         .map((e) => Book.fromMap(Map<String, dynamic>.from(e as Map)))
         .toList();
@@ -210,28 +253,52 @@ class _AdminApi {
   /// A single server-side switch controls every eligible sold-out book,
   /// including titles that become unavailable after this setting is saved.
   Future<Map<String, dynamic>> soldoutPreorderSettings() async {
-    final value = await _rpc('admin_soldout_preorder_manage', params: {
-      'p_secret': secret,
-    });
+    final value = await _rpc(
+      'admin_soldout_preorder_manage',
+      params: {'p_secret': secret},
+    );
     return Map<String, dynamic>.from(value as Map);
   }
 
   Future<Map<String, dynamic>> setSoldoutPreorders(bool enabled) async {
-    final value = await _rpc('admin_soldout_preorder_manage', params: {
-      'p_secret': secret,
-      'p_enabled': enabled,
-    });
+    final value = await _rpc(
+      'admin_soldout_preorder_manage',
+      params: {'p_secret': secret, 'p_enabled': enabled},
+    );
     return Map<String, dynamic>.from(value as Map);
   }
 
   Future<void> setCatalogPins(List<String> ids) async {
-    await _rpc('admin_set_catalog_pins', params: {
-      'p_secret': secret,
-      'p_ids': ids,
-    });
+    await _rpc(
+      'admin_set_catalog_pins',
+      params: {'p_secret': secret, 'p_ids': ids},
+    );
   }
 
-  Future<void> saveBook(Book book) async {
+  Future<Map<String, dynamic>> releasePreorder(
+    String source,
+    String id,
+    String action, [
+    Map<String, dynamic> payload = const {},
+  ]) async {
+    final raw = await _rpc(
+      'admin_release_preorder',
+      params: {
+        'p_secret': secret,
+        'p_source': source,
+        'p_id': id,
+        'p_action': action,
+        'p_payload': payload,
+      },
+    );
+    return Map<String, dynamic>.from(raw as Map);
+  }
+
+  Future<void> saveBook(
+    Book book, {
+    int? expectedStock,
+    String? requestId,
+  }) async {
     final savedId = await _rpc(
       'admin_save_book',
       params: {
@@ -250,7 +317,11 @@ class _AdminApi {
           'description': book.description,
           'page_count': book.pageCount,
           'price': book.price,
-          'stock': book.stock,
+          if (book.id.isEmpty || expectedStock != null) 'stock': book.stock,
+          if (expectedStock != null) 'expected_stock': expectedStock,
+          if (requestId != null) 'request_id': requestId,
+          'planned': book.planned,
+          'preorder_price_max': book.preorderPriceMax,
           'discount_percent': book.discountPercent,
           'image_url': book.galleryImages.isEmpty
               ? ''
@@ -268,20 +339,7 @@ class _AdminApi {
         },
       },
     );
-    final id = savedId?.toString().trim() ?? '';
-    if (id.isNotEmpty && id != 'null') {
-      await _rpc('admin_set_book_planned', params: {
-        'p_secret': secret, 'p_id': id, 'p_planned': book.planned,
-      });
-      await _rpc(
-        'admin_set_preorder_price_max',
-        params: {
-          'p_secret': secret,
-          'p_id': id,
-          'p_price_max': book.preorderPriceMax,
-        },
-      );
-    }
+    if (savedId == null) throw StateError('Kitob saqlanmadi');
   }
 
   Future<_UploadedBookImage> uploadCover(XFile file) async {
@@ -463,72 +521,163 @@ class _AdminApi {
 
   Uri _serverUri(String path) {
     if (kIsWeb) return Uri.base.resolve(path);
-    return Uri.parse('https://muhajeer-books-live-production.up.railway.app' + path);
+    return Uri.parse(
+      'https://muhajeer-books-live-production.up.railway.app' + path,
+    );
   }
 
   Future<String> aiAsk(String query) async {
     final booksData = await books();
     final salesData = await sales();
     final ordersData = await orders();
-    final context = <String,dynamic>{
-      'books': booksData.take(300).map((b)=>{'title':b.title,'author':b.author,'publisher':b.publisher,'category':b.category,'page_count':b.pageCount,'price':b.currentPrice,'cost_price':b.costPrice,'stock':b.stock,'active':b.isActive}).toList(),
-      'sales': salesData.take(1000).map((s)=>{'book_id':s['book_id'],'title':s['title'],'quantity':s['quantity']??s['qty'],'unit_price':s['unit_price']??s['price'],'total':s['total'],'cost_price':s['cost_price'],'created_at':s['created_at']}).toList(),
-      'orders': ordersData.take(500).map((o)=>{'status':o.status,'source':o.source,'delivery_fee':o.deliveryFee,'subtotal':o.subtotal,'total':o.total,'items':o.items,'created_at':o.createdAt.toIso8601String(),'stock_reserved':o.stockReserved}).toList(),
+    final context = <String, dynamic>{
+      'books': booksData
+          .take(300)
+          .map(
+            (b) => {
+              'title': b.title,
+              'author': b.author,
+              'publisher': b.publisher,
+              'category': b.category,
+              'page_count': b.pageCount,
+              'price': b.currentPrice,
+              'cost_price': b.costPrice,
+              'stock': b.stock,
+              'active': b.isActive,
+            },
+          )
+          .toList(),
+      'sales': salesData
+          .take(1000)
+          .map(
+            (s) => {
+              'book_id': s['book_id'],
+              'title': s['title'],
+              'quantity': s['quantity'] ?? s['qty'],
+              'unit_price': s['unit_price'] ?? s['price'],
+              'total': s['total'],
+              'cost_price': s['cost_price'],
+              'created_at': s['created_at'],
+            },
+          )
+          .toList(),
+      'orders': ordersData
+          .take(500)
+          .map(
+            (o) => {
+              'status': o.status,
+              'source': o.source,
+              'delivery_fee': o.deliveryFee,
+              'subtotal': o.subtotal,
+              'total': o.total,
+              'items': o.items,
+              'created_at': o.createdAt.toIso8601String(),
+              'stock_reserved': o.stockReserved,
+            },
+          )
+          .toList(),
     };
-    final r=await http.post(_serverUri('/api/admin-ai'),headers:{'Content-Type':'application/json'},body:jsonEncode({'admin_code':secret,'query':query,'context':context})).timeout(const Duration(seconds:120));
-    final data=jsonDecode(r.body);
-    if(r.statusCode!=200) throw StateError((data['error']??'Admin AI ishlamadi').toString());
-    return (data['text']??'').toString();
+    final r = await http
+        .post(
+          _serverUri('/api/admin-ai'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'admin_code': secret,
+            'query': query,
+            'context': context,
+          }),
+        )
+        .timeout(const Duration(seconds: 120));
+    final data = jsonDecode(r.body);
+    if (r.statusCode != 200)
+      throw StateError((data['error'] ?? 'Admin AI ishlamadi').toString());
+    return (data['text'] ?? '').toString();
   }
 
-  Future<Map<String,dynamic>> researchBook({required String title, String author='', String publisher=''}) async {
-    final r=await http.post(_serverUri('/api/admin-ai/book-research'),headers:{'Content-Type':'application/json'},body:jsonEncode({'admin_code':secret,'title':title,'author':author,'publisher':publisher})).timeout(const Duration(seconds:210));
-    final data=jsonDecode(r.body);
-    if(r.statusCode!=200 || data is! Map) throw StateError(data is Map ? (data['error']??'Kitob topilmadi').toString() : 'Kitob topilmadi');
-    final result=Map<String,dynamic>.from(data);
-    result['category']=_validatedAiBookCategory(result['category']);
+  Future<Map<String, dynamic>> researchBook({
+    required String title,
+    String author = '',
+    String publisher = '',
+  }) async {
+    final r = await http
+        .post(
+          _serverUri('/api/admin-ai/book-research'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'admin_code': secret,
+            'title': title,
+            'author': author,
+            'publisher': publisher,
+          }),
+        )
+        .timeout(const Duration(seconds: 210));
+    final data = jsonDecode(r.body);
+    if (r.statusCode != 200 || data is! Map)
+      throw StateError(
+        data is Map
+            ? (data['error'] ?? 'Kitob topilmadi').toString()
+            : 'Kitob topilmadi',
+      );
+    final result = Map<String, dynamic>.from(data);
+    result['category'] = _validatedAiBookCategory(result['category']);
     return result;
   }
 
-  Future<Map<String,dynamic>> researchBookPrice(String title) async {
-    final r=await http.post(
-      _serverUri('/api/admin-ai/book-price-research'),
-      headers:{'Content-Type':'application/json'},
-      body:jsonEncode({'admin_code':secret,'title':title}),
-    ).timeout(const Duration(seconds:210));
-    final raw=jsonDecode(r.body);
-    if(r.statusCode!=200 || raw is! Map) {
-      throw StateError(raw is Map ? (raw['error']??'Narx tadqiqoti ishlamadi').toString() : 'Narx tadqiqoti ishlamadi');
+  Future<Map<String, dynamic>> researchBookPrice(String title) async {
+    final r = await http
+        .post(
+          _serverUri('/api/admin-ai/book-price-research'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'admin_code': secret, 'title': title}),
+        )
+        .timeout(const Duration(seconds: 210));
+    final raw = jsonDecode(r.body);
+    if (r.statusCode != 200 || raw is! Map) {
+      throw StateError(
+        raw is Map
+            ? (raw['error'] ?? 'Narx tadqiqoti ishlamadi').toString()
+            : 'Narx tadqiqoti ishlamadi',
+      );
     }
-    return Map<String,dynamic>.from(raw);
+    return Map<String, dynamic>.from(raw);
   }
 
-  Future<List<Map<String,dynamic>>> researchBooksBulk(List<Book> books) async {
-    final payload=books.map((b)=>{'id':b.id,'title':b.title,'author':b.author,'publisher':b.publisher,'page_count':b.pageCount}).toList();
-    final r=await http.post(
-      _serverUri('/api/admin-ai/books-bulk-research'),
-      headers:{'Content-Type':'application/json'},
-      body:jsonEncode({'admin_code':secret,'books':payload}),
-    ).timeout(const Duration(seconds:210));
-    final raw=jsonDecode(r.body);
-    if(r.statusCode!=200 || raw is! Map) {
-      throw StateError(raw is Map ? (raw['error']??'Ommaviy AI qidiruv ishlamadi').toString() : 'Ommaviy AI qidiruv ishlamadi');
-    }
-    return ((raw['books'] as List?)??const [])
-        .whereType<Map>()
-        .map((e){
-          final row=Map<String,dynamic>.from(e);
-          row['category']=_validatedAiBookCategory(row['category']);
-          return row;
-        })
+  Future<List<Map<String, dynamic>>> researchBooksBulk(List<Book> books) async {
+    final payload = books
+        .map(
+          (b) => {
+            'id': b.id,
+            'title': b.title,
+            'author': b.author,
+            'publisher': b.publisher,
+            'page_count': b.pageCount,
+          },
+        )
         .toList();
+    final r = await http
+        .post(
+          _serverUri('/api/admin-ai/books-bulk-research'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'admin_code': secret, 'books': payload}),
+        )
+        .timeout(const Duration(seconds: 210));
+    final raw = jsonDecode(r.body);
+    if (r.statusCode != 200 || raw is! Map) {
+      throw StateError(
+        raw is Map
+            ? (raw['error'] ?? 'Ommaviy AI qidiruv ishlamadi').toString()
+            : 'Ommaviy AI qidiruv ishlamadi',
+      );
+    }
+    return ((raw['books'] as List?) ?? const []).whereType<Map>().map((e) {
+      final row = Map<String, dynamic>.from(e);
+      row['category'] = _validatedAiBookCategory(row['category']);
+      return row;
+    }).toList();
   }
 
   Future<void> deleteBook(String id) async {
-    await _rpc(
-      'admin_delete_book',
-      params: {'p_secret': secret, 'p_id': id},
-    );
+    await _rpc('admin_delete_book', params: {'p_secret': secret, 'p_id': id});
   }
 
   Future<void> applyDiscount(
@@ -551,46 +700,67 @@ class _AdminApi {
     await _rpc('admin_clear_discounts', params: {'p_secret': secret});
   }
 
-  Future<Map<String,dynamic>> storeNotice() async {
-    final data=await _rpc('admin_store_notice_get',params:{'p_secret':secret});
-    return data is Map ? Map<String,dynamic>.from(data) : <String,dynamic>{};
+  Future<Map<String, dynamic>> storeNotice() async {
+    final data = await _rpc(
+      'admin_store_notice_get',
+      params: {'p_secret': secret},
+    );
+    return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
-  Future<void> saveStoreNotice({required String title,required String message,required bool enabled}) async {
-    await _rpc('admin_store_notice_save',params:{
-      'p_secret':secret,'p_title':title,'p_message':message,'p_enabled':enabled,
-    });
+  Future<void> saveStoreNotice({
+    required String title,
+    required String message,
+    required bool enabled,
+  }) async {
+    await _rpc(
+      'admin_store_notice_save',
+      params: {
+        'p_secret': secret,
+        'p_title': title,
+        'p_message': message,
+        'p_enabled': enabled,
+      },
+    );
   }
 
-  Future<Map<String,dynamic>> sendPushNotification({
+  Future<Map<String, dynamic>> sendPushNotification({
     required String title,
     required String message,
   }) async {
-    final response=await http.post(
-      _serverUri('/api/push/send'),
-      headers:{'Content-Type':'application/json'},
-      body:jsonEncode({'admin_code':secret,'title':title,'message':message}),
-    ).timeout(const Duration(seconds:120));
-    final raw=jsonDecode(response.body);
-    final data=raw is Map ? Map<String,dynamic>.from(raw) : <String,dynamic>{};
-    if(response.statusCode!=200 || data['ok']!=true) {
-      throw StateError((data['error']??'Xabarnoma yuborilmadi.').toString());
+    final response = await http
+        .post(
+          _serverUri('/api/push/send'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'admin_code': secret,
+            'title': title,
+            'message': message,
+          }),
+        )
+        .timeout(const Duration(seconds: 120));
+    final raw = jsonDecode(response.body);
+    final data = raw is Map
+        ? Map<String, dynamic>.from(raw)
+        : <String, dynamic>{};
+    if (response.statusCode != 200 || data['ok'] != true) {
+      throw StateError((data['error'] ?? 'Xabarnoma yuborilmadi.').toString());
     }
     return data;
   }
 
-  Future<List<Map<String,dynamic>>> pushHistory() async {
-    final raw=await _rpc('admin_push_history',params:{'p_secret':secret,'p_limit':50});
-    return ((raw as List?)??const [])
-      .map((e)=>Map<String,dynamic>.from(e as Map))
-      .toList();
+  Future<List<Map<String, dynamic>>> pushHistory() async {
+    final raw = await _rpc(
+      'admin_push_history',
+      params: {'p_secret': secret, 'p_limit': 50},
+    );
+    return ((raw as List?) ?? const [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
   }
 
   Future<List<ShopOrder>> orders() async {
-    final data = await _rpc(
-      'admin_list_orders',
-      params: {'p_secret': secret},
-    );
+    final data = await _rpc('admin_list_orders', params: {'p_secret': secret});
     return (data as List)
         .map((e) => ShopOrder.fromMap(Map<String, dynamic>.from(e as Map)))
         .toList();
@@ -603,11 +773,7 @@ class _AdminApi {
     while (true) {
       final raw = await _rpc(
         'admin_list_sales',
-        params: {
-          'p_secret': secret,
-          'p_limit': pageSize,
-          'p_offset': offset,
-        },
+        params: {'p_secret': secret, 'p_limit': pageSize, 'p_offset': offset},
       );
       final page = ((raw as List?) ?? const [])
           .map((e) => Map<String, dynamic>.from(e as Map))
@@ -635,14 +801,25 @@ class _AdminApi {
   }
 
   Future<void> setStock(Book book, int value) async {
-    await saveBook(book.copyWith(stock: value < 0 ? 0 : value));
+    await saveBook(
+      book.copyWith(stock: value < 0 ? 0 : value),
+      expectedStock: book.stock,
+    );
   }
 
-  Future<void> updateOrderStatus(String id, String status, {String? customerNote}) async {
+  Future<void> updateOrderStatus(
+    String id,
+    String status, {
+    String? customerNote,
+  }) async {
     if (status == 'accepted') {
       await _rpc(
         'admin_accept_order_with_note',
-        params: {'p_secret': secret, 'p_id': id, 'p_note': customerNote?.trim() ?? ''},
+        params: {
+          'p_secret': secret,
+          'p_id': id,
+          'p_note': customerNote?.trim() ?? '',
+        },
       );
       return;
     }
@@ -669,10 +846,7 @@ class _AdminApi {
   }
 
   Future<Map<String, dynamic>> userStats() async {
-    final raw = await _rpc(
-      'admin_user_stats',
-      params: {'p_secret': secret},
-    );
+    final raw = await _rpc('admin_user_stats', params: {'p_secret': secret});
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
 
@@ -690,7 +864,9 @@ class _AdminApi {
     // The iOS TestFlight preview uses the same corrected read-only aggregate
     // as web. Normal native builds retain their existing endpoint.
     final raw = await _rpc(
-      webPreviewFeaturesAvailable ? 'admin_web_unique_device_summary' : 'admin_device_analytics',
+      webPreviewFeaturesAvailable
+          ? 'admin_web_unique_device_summary'
+          : 'admin_device_analytics',
       params: {'p_secret': secret},
     );
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
@@ -705,15 +881,136 @@ class _AdminApi {
   }
 
   Future<Map<String, dynamic>> demandAnalytics() async {
-    final raw = await _rpc('admin_demand_analytics', params: {'p_secret': secret});
+    final raw = await _rpc(
+      'admin_demand_analytics',
+      params: {'p_secret': secret},
+    );
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
 
-  Future<List<Map<String, dynamic>>> bundles() async {
+  /// All native preorder states, not just the 100 waiting items in insights.
+  /// Read-only, bounded pages; throws instead of silently dropping history.
+  Future<List<Map<String, dynamic>>> nativePreordersAll() async {
+    const pageSize = 200;
+    final all = <Map<String, dynamic>>[];
+    for (var offset = 0; offset < 20000; offset += pageSize) {
+      final raw = await _rpc(
+        'admin_preorders_all_list',
+        params: {'p_secret': secret, 'p_limit': pageSize, 'p_offset': offset},
+      );
+      if (raw is! Map || raw['rows'] is! List) {
+        throw StateError('Oldindan zakazlar server javobi noto‘g‘ri.');
+      }
+      final page = (raw['rows'] as List)
+          .whereType<Map>()
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList();
+      all.addAll(page);
+      if (page.length < pageSize) return all;
+    }
+    throw StateError('20 000 dan ortiq yozuv bor. Tarix to‘liq yuklanmadi.');
+  }
+
+  /// Updates one native preorder, optimistic-status guarded on the server.
+  /// Unlike a normal sale, this does not touch inventory or an existing receipt.
+  Future<Map<String, dynamic>> setNativePreorderStatus({
+    required int id,
+    required String expectedStatus,
+    required String status,
+    String note = '',
+  }) async {
+    final result = await _rpc(
+      'admin_native_preorder_set_status',
+      params: {
+        'p_secret': secret,
+        'p_id': id,
+        'p_expected_status': expectedStatus,
+        'p_status': status,
+        'p_note': note.trim(),
+      },
+    );
+    if (result is! Map || result['status'] != status) {
+      throw StateError('Zakaz holati serverda tasdiqlanmadi.');
+    }
+    return Map<String, dynamic>.from(result);
+  }
+
+  /// Atomically reserves received copies, creates final amount and notifies
+  /// the customer in-app. Fails when the batch has not been entered into stock.
+  /// Increment a received physical shipment, do not replace absolute stock.
+  /// Accepted preorder holds are assigned by the same DB transaction.
+  Future<Map<String, dynamic>> receiveNativePreorderBatch({
+    required String bookId,
+    required int quantity,
+  }) async {
+    final result = await _rpc(
+      'admin_preorder_receive_batch',
+      params: {'p_secret': secret, 'p_book_id': bookId, 'p_quantity': quantity},
+    );
+    if (result is! Map || (result['received'] as num?)?.toInt() != quantity) {
+      throw StateError('Yangi partiya omborga qo‘shilmadi');
+    }
+    return Map<String, dynamic>.from(result);
+  }
+
+  Future<Map<String, dynamic>> arriveNativePreorder({
+    required int id,
+    required String expectedStatus,
+    required int unitPrice,
+    required int shippingFee,
+    required String adminNote,
+  }) async {
     final raw = await _rpc(
-      'admin_bundle_list',
+      'admin_native_preorder_arrive_invoice',
+      params: {
+        'p_secret': secret,
+        'p_id': id,
+        'p_expected_status': expectedStatus,
+        'p_unit_price': unitPrice,
+        'p_shipping_fee': shippingFee,
+        'p_note': adminNote.trim(),
+      },
+    );
+    if (raw is! Map || raw['status'] != 'arrived') {
+      throw StateError('Kelgan kitob va to‘lov summasi saqlanmadi.');
+    }
+    return Map<String, dynamic>.from(raw);
+  }
+
+  Future<void> confirmNativePreorderPayment(int id) async {
+    final raw = await _rpc(
+      'admin_native_preorder_payment_confirm',
+      params: {'p_secret': secret, 'p_preorder_id': id},
+    );
+    if (raw is! Map || raw['payment_state'] != 'verified') {
+      throw StateError('Qolgan to‘lov tasdiqlanmadi.');
+    }
+  }
+
+  /// Read and manage customer-requested books without sending SMS.
+  Future<List<Map<String, dynamic>>> requestedBooks() async {
+    final raw = await _rpc(
+      'admin_book_requests_list',
       params: {'p_secret': secret},
     );
+    return ((raw as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+
+  Future<void> setRequestedBookStatus(int id, String status) async {
+    final result = await _rpc(
+      'admin_book_request_set_status',
+      params: {'p_secret': secret, 'p_id': id, 'p_status': status},
+    );
+    if (result is! Map || result['status'] != status) {
+      throw StateError('Kitob so‘rovi holati tasdiqlanmadi.');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> bundles() async {
+    final raw = await _rpc('admin_bundle_list', params: {'p_secret': secret});
     return ((raw as List?) ?? const [])
         .whereType<Map>()
         .map((e) => Map<String, dynamic>.from(e))
@@ -747,10 +1044,7 @@ class _AdminApi {
   }
 
   Future<void> deleteBundle(String id) async {
-    await _rpc(
-      'admin_bundle_delete',
-      params: {'p_secret': secret, 'p_id': id},
-    );
+    await _rpc('admin_bundle_delete', params: {'p_secret': secret, 'p_id': id});
   }
 
   Future<List<Map<String, dynamic>>> restockWaitlist() async {
@@ -1279,7 +1573,8 @@ class AdminDashboardPage extends StatefulWidget {
   State<AdminDashboardPage> createState() => _AdminDashboardPageState();
 }
 
-class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBindingObserver {
+class _AdminDashboardPageState extends State<AdminDashboardPage>
+    with WidgetsBindingObserver {
   late int tab;
   late final _AdminApi api;
   Timer? _liveRefreshTimer;
@@ -1343,39 +1638,56 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
     final confirm = await showDialog<bool>(
       context: context,
       builder: (dialog) => AlertDialog(
-        title: const Row(children: [
-          Icon(Icons.notifications_active_outlined, color: AppColors.navy),
-          SizedBox(width: 10),
-          Expanded(child: Text('Admin buyurtma bildirishnomalari')),
-        ]),
-        content: Column(mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Admin paroli bilan tasdiqlangan qurilmangizga quyidagi xabarlar kelishi mumkin:'),
-          const SizedBox(height: 12),
-          const Text('🛒 Yangi buyurtma tushganda'),
-          const SizedBox(height: 6),
-          const Text('📚 Buyurtmadagi kitoblar va dona soni'),
-          const SizedBox(height: 6),
-          const Text('💳 Buyurtmaning umumiy summasi'),
-          const SizedBox(height: 12),
-          Text(_adminPushConfigured
-            ? '✅ Ushbu qurilmada admin bildirishnomalari faol.'
-            : ios
-              ? 'iPhone uchun tizim ruxsati va serverda Apple APNs kaliti kerak. Bu sozlanmaguncha push kelmaydi.'
-              : 'Brauzer ruxsatini berib, ushbu qurilmani admin uchun faollashtiring.',
-            style: const TextStyle(fontSize: 12.5)),
-          const SizedBox(height: 8),
-          const Text('Faqat admin sifatida tekshirilgan qurilmalar xabar oladi.',
-            style: TextStyle(fontSize: 12, color: AppColors.muted)),
-        ]),
+        title: const Row(
+          children: [
+            Icon(Icons.notifications_active_outlined, color: AppColors.navy),
+            SizedBox(width: 10),
+            Expanded(child: Text('Admin buyurtma bildirishnomalari')),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Admin paroli bilan tasdiqlangan qurilmangizga quyidagi xabarlar kelishi mumkin:',
+            ),
+            const SizedBox(height: 12),
+            const Text('🛒 Yangi buyurtma tushganda'),
+            const SizedBox(height: 6),
+            const Text('📚 Buyurtmadagi kitoblar va dona soni'),
+            const SizedBox(height: 6),
+            const Text('💳 Buyurtmaning umumiy summasi'),
+            const SizedBox(height: 12),
+            Text(
+              _adminPushConfigured
+                  ? '✅ Ushbu qurilmada admin bildirishnomalari faol.'
+                  : ios
+                  ? 'iPhone uchun tizim ruxsati va serverda Apple APNs kaliti kerak. Bu sozlanmaguncha push kelmaydi.'
+                  : 'Brauzer ruxsatini berib, ushbu qurilmani admin uchun faollashtiring.',
+              style: const TextStyle(fontSize: 12.5),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Faqat admin sifatida tekshirilgan qurilmalar xabar oladi.',
+              style: TextStyle(fontSize: 12, color: AppColors.muted),
+            ),
+          ],
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialog, false),
-            child: const Text('Yopish')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialog, false),
+            child: const Text('Yopish'),
+          ),
           FilledButton(
             onPressed: _adminPushBusy
-                ? null : () => Navigator.pop(dialog, true),
-            child: Text(_adminPushConfigured
-              ? 'Qayta tekshirish' : 'Bildirishnomalarni yoqish'),
+                ? null
+                : () => Navigator.pop(dialog, true),
+            child: Text(
+              _adminPushConfigured
+                  ? 'Qayta tekshirish'
+                  : 'Bildirishnomalarni yoqish',
+            ),
           ),
         ],
       ),
@@ -1386,7 +1698,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
   }
 
   Future<void> _setupAdminPush({required bool requestPermission}) async {
-    if ((!kIsWeb && !NativeAdminPush.supported) || !mounted || _adminPushBusy) return;
+    if ((!kIsWeb && !NativeAdminPush.supported) || !mounted || _adminPushBusy)
+      return;
     setState(() => _adminPushBusy = true);
     try {
       if (NativeAdminPush.supported) {
@@ -1400,16 +1713,24 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
         setState(() => _adminPushConfigured = providerReady);
         if (!providerReady) {
           if (requestPermission) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('iPhone ro‘yxatga olindi, ammo Apple APNs kaliti serverda hali sozlanmagan.'),
-            ));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'iPhone ro‘yxatga olindi, ammo Apple APNs kaliti serverda hali sozlanmagan.',
+                ),
+              ),
+            );
           }
           return;
         }
         if (requestPermission) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('✅ iPhone yangi buyurtma xabarlari uchun ro‘yxatga olindi.'),
-          ));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                '✅ iPhone yangi buyurtma xabarlari uchun ro‘yxatga olindi.',
+              ),
+            ),
+          );
         }
         return;
       }
@@ -1422,7 +1743,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
       final endpoint = await existingWebPushEndpoint();
       if (endpoint.isEmpty) {
         if (requestPermission) {
-          throw StateError('Push obunasi topilmadi. Brauzer ruxsatini tekshiring.');
+          throw StateError(
+            'Push obunasi topilmadi. Brauzer ruxsatini tekshiring.',
+          );
         }
         return;
       }
@@ -1432,15 +1755,17 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
       if (!mounted) return;
       setState(() => _adminPushConfigured = true);
       if (requestPermission) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('✅ Yangi buyurtmalar uchun admin xabarlari yoqildi.'),
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Yangi buyurtmalar uchun admin xabarlari yoqildi.'),
+          ),
+        );
       }
     } catch (error) {
       if (requestPermission && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Admin push faollashmadi: $error'),
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Admin push faollashmadi: $error')),
+        );
       }
     } finally {
       if (mounted) setState(() => _adminPushBusy = false);
@@ -1521,7 +1846,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
       unawaited(AdminResumeSession.touch(tab: 0));
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || dashboardRoute == null) return;
-        Navigator.of(context).popUntil((route) => identical(route, dashboardRoute));
+        Navigator.of(context)
+            .popUntil((route) => identical(route, dashboardRoute));
       });
     }
   }
@@ -1529,23 +1855,35 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
   // Original eight internal tabs remain intact (also for saved admin sessions).
   int get _primaryIndex {
     switch (tab) {
-      case 0: return 0;
-      case 3: return 1;
-      case 1: return 2;
-      case 4: return 3;
-      case 6: return 4;
-      default: return 5;
+      case 0:
+        return 0;
+      case 3:
+        return 1;
+      case 1:
+        return 2;
+      case 4:
+        return 3;
+      case 6:
+        return 4;
+      default:
+        return 5;
     }
   }
 
   void _selectPrimary(int index) {
     switch (index) {
-      case 0: _selectTab(0);
-      case 1: _selectTab(3);
-      case 2: _selectTab(1);
-      case 3: _selectTab(4);
-      case 4: _selectTab(6);
-      default: _showAllTabsMenu();
+      case 0:
+        _selectTab(0);
+      case 1:
+        _selectTab(3);
+      case 2:
+        _selectTab(1);
+      case 3:
+        _selectTab(4);
+      case 4:
+        _selectTab(6);
+      default:
+        _showAllTabsMenu();
     }
   }
 
@@ -1607,31 +1945,39 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
       _loadedTabs.contains(6)
           ? FinanceAdminPage(secret: widget.secret)
           : const SizedBox.shrink(),
-      _loadedTabs.contains(7) ? _AdminAiPage(api: api) : const SizedBox.shrink(),
+      _loadedTabs.contains(7)
+          ? _AdminAiPage(api: api)
+          : const SizedBox.shrink(),
     ];
     const railDestinations = [
       NavigationRailDestination(
-        icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard_rounded),
+        icon: Icon(Icons.dashboard_outlined),
+        selectedIcon: Icon(Icons.dashboard_rounded),
         label: Text('Bosh sahifa'),
       ),
       NavigationRailDestination(
-        icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long_rounded),
+        icon: Icon(Icons.receipt_long_outlined),
+        selectedIcon: Icon(Icons.receipt_long_rounded),
         label: Text('Buyurtmalar'),
       ),
       NavigationRailDestination(
-        icon: Icon(Icons.menu_book_outlined), selectedIcon: Icon(Icons.menu_book_rounded),
+        icon: Icon(Icons.menu_book_outlined),
+        selectedIcon: Icon(Icons.menu_book_rounded),
         label: Text('Kitoblar'),
       ),
       NavigationRailDestination(
-        icon: Icon(Icons.sell_outlined), selectedIcon: Icon(Icons.sell_rounded),
+        icon: Icon(Icons.sell_outlined),
+        selectedIcon: Icon(Icons.sell_rounded),
         label: Text('Sotilgan kitoblar'),
       ),
       NavigationRailDestination(
-        icon: Icon(Icons.account_balance_wallet_outlined), selectedIcon: Icon(Icons.account_balance_wallet_rounded),
+        icon: Icon(Icons.account_balance_wallet_outlined),
+        selectedIcon: Icon(Icons.account_balance_wallet_rounded),
         label: Text('Moliya'),
       ),
       NavigationRailDestination(
-        icon: Icon(Icons.grid_view_outlined), selectedIcon: Icon(Icons.grid_view_rounded),
+        icon: Icon(Icons.grid_view_outlined),
+        selectedIcon: Icon(Icons.grid_view_rounded),
         label: Text('Bo‘limlar'),
       ),
     ];
@@ -1742,14 +2088,35 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with WidgetsBin
               : NavigationBar(
                   selectedIndex: _primaryIndex,
                   onDestinationSelected: _selectPrimary,
-                  labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+                  labelBehavior:
+                      NavigationDestinationLabelBehavior.onlyShowSelected,
                   destinations: const [
-                    NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Bosh'),
-                    NavigationDestination(icon: Icon(Icons.receipt_long_outlined), label: 'Buyurtmalar'),
-                    NavigationDestination(icon: Icon(Icons.menu_book_outlined), label: 'Kitoblar'),
-                    NavigationDestination(icon: Icon(Icons.sell_outlined), selectedIcon: Icon(Icons.sell_rounded), label: 'Sotilgan'),
-                    NavigationDestination(icon: Icon(Icons.account_balance_wallet_outlined), selectedIcon: Icon(Icons.account_balance_wallet_rounded), label: 'Moliya'),
-                    NavigationDestination(icon: Icon(Icons.grid_view_outlined), label: 'Bo‘limlar'),
+                    NavigationDestination(
+                      icon: Icon(Icons.dashboard_outlined),
+                      label: 'Bosh',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.receipt_long_outlined),
+                      label: 'Buyurtmalar',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.menu_book_outlined),
+                      label: 'Kitoblar',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.sell_outlined),
+                      selectedIcon: Icon(Icons.sell_rounded),
+                      label: 'Sotilgan',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.account_balance_wallet_outlined),
+                      selectedIcon: Icon(Icons.account_balance_wallet_rounded),
+                      label: 'Moliya',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.grid_view_outlined),
+                      label: 'Bo‘limlar',
+                    ),
                   ],
                 ),
         );
@@ -1762,65 +2129,207 @@ class _EmergencyNoticeAdmin extends StatefulWidget {
   const _EmergencyNoticeAdmin({required this.api});
   final _AdminApi api;
   @override
-  State<_EmergencyNoticeAdmin> createState()=>_EmergencyNoticeAdminState();
+  State<_EmergencyNoticeAdmin> createState() => _EmergencyNoticeAdminState();
 }
 
 class _EmergencyNoticeAdminState extends State<_EmergencyNoticeAdmin> {
-  final title=TextEditingController();
-  final message=TextEditingController();
-  bool enabled=false, loading=true, saving=false;
+  final title = TextEditingController();
+  final message = TextEditingController();
+  bool enabled = false, loading = true, saving = false;
 
   @override
-  void initState(){super.initState();_load();}
+  void initState() {
+    super.initState();
+    _load();
+  }
+
   @override
-  void dispose(){title.dispose();message.dispose();super.dispose();}
+  void dispose() {
+    title.dispose();
+    message.dispose();
+    super.dispose();
+  }
 
   Future<void> _load() async {
     try {
-      final data=await widget.api.storeNotice();
-      if(!mounted)return;
-      title.text=(data['title']??'MUHIM MA’LUMOT').toString();
-      message.text=(data['message']??'').toString();
-      setState(()=>enabled=data['enabled']==true);
-    } catch(e) {
-      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Xabarni yuklashda xatolik: $e')));
-    } finally {if(mounted)setState(()=>loading=false);}
+      final data = await widget.api.storeNotice();
+      if (!mounted) return;
+      title.text = (data['title'] ?? 'MUHIM MA’LUMOT').toString();
+      message.text = (data['message'] ?? '').toString();
+      setState(() => enabled = data['enabled'] == true);
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Xabarni yuklashda xatolik: $e')),
+        );
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
   }
 
   Future<void> _save() async {
-    if(message.text.trim().isEmpty && enabled){
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Xabar matnini yozing.')));return;
+    if (message.text.trim().isEmpty && enabled) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Xabar matnini yozing.')));
+      return;
     }
-    setState(()=>saving=true);
-    try{
-      await widget.api.saveStoreNotice(title:title.text.trim(),message:message.text.trim(),enabled:enabled);
-      if(!mounted)return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Muhim xabar saqlandi ✅')));
-    }catch(e){
-      if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Saqlashda xatolik: $e')));
-    }finally{if(mounted)setState(()=>saving=false);}
+    setState(() => saving = true);
+    try {
+      await widget.api.saveStoreNotice(
+        title: title.text.trim(),
+        message: message.text.trim(),
+        enabled: enabled,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Muhim xabar saqlandi ✅')));
+      unawaited(context.read<AppState>().refreshStoreNotice());
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Saqlashda xatolik: $e')));
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  Future<void> _deleteNotice() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xabarni o‘chirish'),
+        content: const Text(
+          'Xabar matni o‘chiriladi va mijozlarga ko‘rsatilmaydi. Davom etilsinmi?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Bekor qilish'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('O‘chirish'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => saving = true);
+    try {
+      await widget.api.saveStoreNotice(title: '', message: '', enabled: false);
+      if (!mounted) return;
+      setState(() {
+        title.clear();
+        message.clear();
+        enabled = false;
+      });
+      await context.read<AppState>().refreshStoreNotice();
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Xabar o‘chirildi')));
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Xabar o‘chirilmadi: $e')));
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
   }
 
   @override
-  Widget build(BuildContext context){
-    if(loading)return const Center(child:CircularProgressIndicator());
-    return ListView(padding:const EdgeInsets.all(18),children:[
-      const AppPageHeading(title:'Muhim xabar',subtitle:'Favqulodda holat, bayram yoki yetkazib berishdagi o‘zgarishni mijozlarga ko‘rsating.'),
-      const SizedBox(height:16),
-      AppSurface(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        SwitchListTile.adaptive(contentPadding:EdgeInsets.zero,value:enabled,onChanged:(v)=>setState(()=>enabled=v),
-          title:const Text('Xabarni ko‘rsatish',style:TextStyle(fontWeight:FontWeight.w900)),
-          subtitle:const Text('Yoqilsa katalogda va buyurtma berishda ko‘rinadi.')),
-        const SizedBox(height:10),
-        TextField(controller:title,maxLength:80,decoration:const InputDecoration(labelText:'Sarlavha',hintText:'MUHIM MA’LUMOT')),
-        const SizedBox(height:10),
-        TextField(controller:message,maxLength:1000,minLines:4,maxLines:8,decoration:const InputDecoration(labelText:'Xabar matni',hintText:'Masalan: Chuseok sababli yetkazib berish...')),
-        const SizedBox(height:14),
-        SizedBox(width:double.infinity,child:FilledButton.icon(onPressed:saving?null:_save,
-          icon:saving?const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2)):const Icon(Icons.save_rounded),
-          label:Text(saving?'Saqlanmoqda...':'Saqlash'))),
-      ])),
-    ]);
+  Widget build(BuildContext context) {
+    if (loading) return const Center(child: CircularProgressIndicator());
+    return ListView(
+      padding: const EdgeInsets.all(18),
+      children: [
+        const AppPageHeading(
+          title: 'Muhim xabar',
+          subtitle: 'Favqulodda holat, bayram yoki yetkazib berishdagi o‘zgarishni mijozlarga ko‘rsating.',
+        ),
+        const SizedBox(height: 16),
+        AppSurface(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                value: enabled,
+                onChanged: (v) => setState(() => enabled = v),
+                title: const Text(
+                  'Xabarni ko‘rsatish',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+                subtitle: const Text(
+                  'Yoqilsa katalogda va buyurtma berishda ko‘rinadi.',
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: title,
+                maxLength: 80,
+                decoration: const InputDecoration(
+                  labelText: 'Sarlavha',
+                  hintText: 'MUHIM MA’LUMOT',
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: message,
+                maxLength: 1000,
+                minLines: 4,
+                maxLines: 8,
+                decoration: const InputDecoration(
+                  labelText: 'Xabar matni',
+                  hintText: 'Masalan: Chuseok sababli yetkazib berish...',
+                ),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: saving ? null : _save,
+                  icon: saving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.save_rounded),
+                  label: Text(
+                    saving
+                        ? 'Saqlanmoqda...'
+                        : 'Xabarni e’lon qilish / saqlash',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: saving
+                        ? null
+                        : () => setState(() {
+                            title.clear();
+                            message.clear();
+                            enabled = true;
+                          }),
+                    icon: const Icon(Icons.edit_note),
+                    label: const Text('Yangi xabar yozish'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: saving ? null : _deleteNotice,
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Xabarni o‘chirish'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -1829,186 +2338,296 @@ class _PushNotificationAdmin extends StatefulWidget {
   final _AdminApi api;
 
   @override
-  State<_PushNotificationAdmin> createState()=>_PushNotificationAdminState();
+  State<_PushNotificationAdmin> createState() => _PushNotificationAdminState();
 }
 
 class _PushNotificationAdminState extends State<_PushNotificationAdmin> {
-  final title=TextEditingController(text:'Muhajeer Books');
-  final message=TextEditingController();
-  bool sending=false;
-  bool loadingHistory=true;
-  List<Map<String,dynamic>> history=[];
+  final title = TextEditingController(text: 'Muhajeer Books');
+  final message = TextEditingController();
+  bool sending = false;
+  bool loadingHistory = true;
+  List<Map<String, dynamic>> history = [];
 
   @override
-  void initState(){super.initState();_loadHistory();}
-
-  @override
-  void dispose(){title.dispose();message.dispose();super.dispose();}
-
-  Future<void> _loadHistory() async {
-    try{
-      final rows=await widget.api.pushHistory();
-      if(mounted)setState((){history=rows;loadingHistory=false;});
-    }catch(_){if(mounted)setState(()=>loadingHistory=false);}
+  void initState() {
+    super.initState();
+    _loadHistory();
   }
 
-  String _date(dynamic raw){
-    final d=DateTime.tryParse(raw?.toString()??'')?.toLocal();
-    if(d==null)return '';
-    String two(int v)=>v.toString().padLeft(2,'0');
+  @override
+  void dispose() {
+    title.dispose();
+    message.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadHistory() async {
+    try {
+      final rows = await widget.api.pushHistory();
+      if (mounted)
+        setState(() {
+          history = rows;
+          loadingHistory = false;
+        });
+    } catch (_) {
+      if (mounted) setState(() => loadingHistory = false);
+    }
+  }
+
+  String _date(dynamic raw) {
+    final d = DateTime.tryParse(raw?.toString() ?? '')?.toLocal();
+    if (d == null) return '';
+    String two(int v) => v.toString().padLeft(2, '0');
     return '${d.year}.${two(d.month)}.${two(d.day)} ${two(d.hour)}:${two(d.minute)}';
   }
 
   Future<void> _send() async {
-    final cleanTitle=title.text.trim();
-    final cleanMessage=message.text.trim();
-    if(cleanTitle.isEmpty || cleanMessage.isEmpty){
+    final cleanTitle = title.text.trim();
+    final cleanMessage = message.text.trim();
+    if (cleanTitle.isEmpty || cleanMessage.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content:Text('Sarlavha va xabar matnini yozing.')),
+        const SnackBar(content: Text('Sarlavha va xabar matnini yozing.')),
       );
       return;
     }
-    final confirmed=await showDialog<bool>(
-      context:context,
-      builder:(dialogContext)=>AlertDialog(
-        title:const Text('Xabarnomani yuborish'),
-        content:Text('“$cleanTitle” xabarnomasi bildirishnomani yoqqan mijozlarga yuborilsinmi?'),
-        actions:[
-          TextButton(onPressed:()=>Navigator.pop(dialogContext,false),child:const Text('Bekor qilish')),
-          FilledButton(onPressed:()=>Navigator.pop(dialogContext,true),child:const Text('Yuborish')),
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Xabarnomani yuborish'),
+        content: Text(
+          '“$cleanTitle” xabarnomasi bildirishnomani yoqqan mijozlarga yuborilsinmi?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Bekor qilish'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Yuborish'),
+          ),
         ],
       ),
     );
-    if(confirmed!=true || !mounted)return;
-    setState(()=>sending=true);
-    try{
-      final result=await widget.api.sendPushNotification(title:cleanTitle,message:cleanMessage);
-      if(!mounted)return;
-      final success=(result['success'] as num?)?.toInt()??0;
-      final failure=(result['failure'] as num?)?.toInt()??0;
-      final total=(result['total'] as num?)?.toInt()??0;
+    if (confirmed != true || !mounted) return;
+    setState(() => sending = true);
+    try {
+      final result = await widget.api.sendPushNotification(
+        title: cleanTitle,
+        message: cleanMessage,
+      );
+      if (!mounted) return;
+      final success = (result['success'] as num?)?.toInt() ?? 0;
+      final failure = (result['failure'] as num?)?.toInt() ?? 0;
+      final total = (result['total'] as num?)?.toInt() ?? 0;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content:Text(total==0
-          ? 'Hozircha bildirishnomani yoqqan mijoz yo‘q.'
-          : 'Yuborildi: $success ta${failure>0 ? ' · yetmadi: $failure ta' : ''} ✅')),
+        SnackBar(
+          content: Text(
+            total == 0
+                ? 'Hozircha bildirishnomani yoqqan mijoz yo‘q.'
+                : 'Yuborildi: $success ta${failure > 0 ? ' · yetmadi: $failure ta' : ''} ✅',
+          ),
+        ),
       );
-      if(success>0)message.clear();
+      if (success > 0) message.clear();
       await _loadHistory();
-    }catch(e){
-      if(mounted)ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content:Text('Yuborishda xatolik: ${e.toString().replaceFirst('StateError: ', '')}')),
-      );
-    }finally{if(mounted)setState(()=>sending=false);}
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Yuborishda xatolik: ${e.toString().replaceFirst('StateError: ', '')}',
+            ),
+          ),
+        );
+    } finally {
+      if (mounted) setState(() => sending = false);
+    }
   }
 
-  Widget _stat(IconData icon,String label,int value)=>Expanded(
-    child:Container(
-      padding:const EdgeInsets.symmetric(vertical:12,horizontal:8),
-      decoration:BoxDecoration(
-        color:AppColors.surface,
-        borderRadius:BorderRadius.circular(14),
-        border:Border.all(color:AppColors.border),
+  Widget _stat(IconData icon, String label, int value) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
       ),
-      child:Column(children:[
-        Icon(icon,size:20,color:AppColors.navy2),
-        const SizedBox(height:5),
-        Text(value.toString(),style:const TextStyle(fontSize:18,fontWeight:FontWeight.w900)),
-        Text(label,textAlign:TextAlign.center,style:const TextStyle(fontSize:10.5,color:AppColors.muted,fontWeight:FontWeight.w700)),
-      ]),
+      child: Column(
+        children: [
+          Icon(icon, size: 20, color: AppColors.navy2),
+          const SizedBox(height: 5),
+          Text(
+            value.toString(),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+          ),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 10.5,
+              color: AppColors.muted,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
     ),
   );
 
   @override
-  Widget build(BuildContext context)=>ListView(
-    padding:const EdgeInsets.all(18),
-    children:[
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.all(18),
+    children: [
       const AppPageHeading(
-        title:'Xabarnoma yuborish',
-        subtitle:'Ilova yopiq yoki fonda bo‘lsa ham, bildirishnomani yoqqan mijozlarga push xabar yuboring.',
+        title: 'Xabarnoma yuborish',
+        subtitle: 'Ilova yopiq yoki fonda bo‘lsa ham, bildirishnomani yoqqan mijozlarga push xabar yuboring.',
       ),
-      const SizedBox(height:16),
+      const SizedBox(height: 16),
       AppSurface(
-        shadow:true,
-        child:Column(
-          crossAxisAlignment:CrossAxisAlignment.start,
-          children:[
+        shadow: true,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             const AppInfoPill(
-              icon:Icons.notifications_active_rounded,
-              label:'Telefon bildirishnomasi',
-              foreground:AppColors.success,
-              background:AppColors.successSoft,
-              border:Color(0xFFCDEAD7),
+              icon: Icons.notifications_active_rounded,
+              label: 'Telefon bildirishnomasi',
+              foreground: AppColors.success,
+              background: AppColors.successSoft,
+              border: Color(0xFFCDEAD7),
             ),
-            const SizedBox(height:14),
+            const SizedBox(height: 14),
             TextField(
-              controller:title,
-              maxLength:120,
-              decoration:const InputDecoration(labelText:'Sarlavha',hintText:'Masalan: Yangi kitoblar keldi'),
+              controller: title,
+              maxLength: 120,
+              decoration: const InputDecoration(
+                labelText: 'Sarlavha',
+                hintText: 'Masalan: Yangi kitoblar keldi',
+              ),
             ),
-            const SizedBox(height:10),
+            const SizedBox(height: 10),
             TextField(
-              controller:message,
-              maxLength:1000,
-              minLines:4,
-              maxLines:8,
-              decoration:const InputDecoration(labelText:'Xabar matni',hintText:'Mijoz telefonida chiqadigan xabar...'),
+              controller: message,
+              maxLength: 1000,
+              minLines: 4,
+              maxLines: 8,
+              decoration: const InputDecoration(
+                labelText: 'Xabar matni',
+                hintText: 'Mijoz telefonida chiqadigan xabar...',
+              ),
             ),
-            const SizedBox(height:14),
+            const SizedBox(height: 14),
             SizedBox(
-              width:double.infinity,
-              child:FilledButton.icon(
-                onPressed:sending?null:_send,
-                icon:sending
-                  ? const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2,color:Colors.white))
-                  : const Icon(Icons.send_rounded),
-                label:Text(sending?'Yuborilmoqda...':'Xabarnomani yuborish'),
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: sending ? null : _send,
+                icon: sending
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.send_rounded),
+                label: Text(
+                  sending ? 'Yuborilmoqda...' : 'Xabarnomani yuborish',
+                ),
               ),
             ),
           ],
         ),
       ),
-      const SizedBox(height:18),
-      Row(children:[
-        const Expanded(child:Text('Yuborilgan xabarnomalar',style:TextStyle(fontSize:17,fontWeight:FontWeight.w900))),
-        IconButton(onPressed:_loadHistory,tooltip:'Yangilash',icon:const Icon(Icons.refresh_rounded)),
-      ]),
-      const SizedBox(height:8),
-      if(loadingHistory)
-        const Center(child:Padding(padding:EdgeInsets.all(18),child:CircularProgressIndicator()))
-      else if(history.isEmpty)
-        const AppSurface(child:Text('Hali xabarnoma yuborilmagan.',style:TextStyle(color:AppColors.muted)))
+      const SizedBox(height: 18),
+      Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'Yuborilgan xabarnomalar',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+            ),
+          ),
+          IconButton(
+            onPressed: _loadHistory,
+            tooltip: 'Yangilash',
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      if (loadingHistory)
+        const Center(
+          child: Padding(
+            padding: EdgeInsets.all(18),
+            child: CircularProgressIndicator(),
+          ),
+        )
+      else if (history.isEmpty)
+        const AppSurface(
+          child: Text(
+            'Hali xabarnoma yuborilmagan.',
+            style: TextStyle(color: AppColors.muted),
+          ),
+        )
       else
-        ...history.map((row){
-          final total=(row['total_count'] as num?)?.toInt()??0;
-          final sent=(row['success_count'] as num?)?.toInt()??0;
-          final opened=(row['open_count'] as num?)?.toInt()??0;
+        ...history.map((row) {
+          final total = (row['total_count'] as num?)?.toInt() ?? 0;
+          final sent = (row['success_count'] as num?)?.toInt() ?? 0;
+          final opened = (row['open_count'] as num?)?.toInt() ?? 0;
           return Padding(
-            padding:const EdgeInsets.only(bottom:10),
-            child:AppSurface(
-              child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-                Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
-                  Expanded(child:Text((row['title']??'Muhajeer Books').toString(),style:const TextStyle(fontWeight:FontWeight.w900,fontSize:15.5))),
-                  const SizedBox(width:8),
-                  Text(_date(row['sent_at']),style:const TextStyle(fontSize:11,color:AppColors.muted,fontWeight:FontWeight.w700)),
-                ]),
-                const SizedBox(height:5),
-                Text((row['body']??'').toString(),style:const TextStyle(height:1.35)),
-                const SizedBox(height:12),
-                Row(children:[
-                  _stat(Icons.people_alt_outlined,'Nishon',total),
-                  const SizedBox(width:7),
-                  _stat(Icons.send_rounded,'Yuborildi',sent),
-                  const SizedBox(width:7),
-                  _stat(Icons.touch_app_rounded,'Ochdi',opened),
-                ]),
-              ]),
+            padding: const EdgeInsets.only(bottom: 10),
+            child: AppSurface(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          (row['title'] ?? 'Muhajeer Books').toString(),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _date(row['sent_at']),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.muted,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    (row['body'] ?? '').toString(),
+                    style: const TextStyle(height: 1.35),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _stat(Icons.people_alt_outlined, 'Nishon', total),
+                      const SizedBox(width: 7),
+                      _stat(Icons.send_rounded, 'Yuborildi', sent),
+                      const SizedBox(width: 7),
+                      _stat(Icons.touch_app_rounded, 'Ochdi', opened),
+                    ],
+                  ),
+                ],
+              ),
             ),
           );
         }),
-      const SizedBox(height:10),
+      const SizedBox(height: 10),
       const Text(
         '“Yuborildi” — push xizmati xabarni qabul qilgan qurilmalar soni. “Ochdi” — bildirishnomani bosib ilovani ochgan noyob qurilmalar soni.',
-        style:TextStyle(fontSize:11.5,color:AppColors.muted,height:1.4),
+        style: TextStyle(fontSize: 11.5, color: AppColors.muted, height: 1.4),
       ),
     ],
   );
@@ -2021,11 +2640,7 @@ class _OverviewData {
 }
 
 class _OverviewAdmin extends StatefulWidget {
-  const _OverviewAdmin({
-    super.key,
-    required this.api,
-    this.onOpenTab,
-  });
+  const _OverviewAdmin({super.key, required this.api, this.onOpenTab});
   final _AdminApi api;
   final ValueChanged<int>? onOpenTab;
 
@@ -2098,13 +2713,13 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
       final data = snap.data ?? const _OverviewData([], []);
       final books = data.books;
       final orders = data.orders;
-      final now = DateTime.now();
+      final now = koreaNow();
       final todayOrders = orders
           .where(
             (o) =>
-                o.createdAt.year == now.year &&
-                o.createdAt.month == now.month &&
-                o.createdAt.day == now.day,
+                koreaTime(o.createdAt).year == now.year &&
+                koreaTime(o.createdAt).month == now.month &&
+                koreaTime(o.createdAt).day == now.day,
           )
           .length;
       final newOrders = orders.where((o) => o.status == 'new').length;
@@ -2139,9 +2754,9 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
           .fold<int>(0, (sum, o) => sum + o.total);
       final todayRevenue = orders
           .where((o) {
-            return o.createdAt.year == now.year &&
-                o.createdAt.month == now.month &&
-                o.createdAt.day == now.day &&
+            return koreaTime(o.createdAt).year == now.year &&
+                koreaTime(o.createdAt).month == now.month &&
+                koreaTime(o.createdAt).day == now.day &&
                 (o.status == 'shipping' ||
                     (o.isApp && ['accepted', 'paid'].contains(o.status)));
           })
@@ -2247,13 +2862,20 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                       width: cardWidth,
                       child: InkWell(
                         borderRadius: BorderRadius.circular(AppRadii.large),
-                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => _AdminBookListPage(title: 'Kam qolgan kitoblar', books: lowStock))),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => _AdminBookListPage(
+                              title: 'Kam qolgan kitoblar',
+                              books: lowStock,
+                            ),
+                          ),
+                        ),
                         child: AppMetricCard(
-                        icon: Icons.warning_amber_rounded,
-                        label: 'Kam qolgan kitob',
-                        value: '${lowStock.length}',
-                        accent: AppColors.warning,
-                        note: '2 dona yoki undan kam',
+                          icon: Icons.warning_amber_rounded,
+                          label: 'Kam qolgan kitob',
+                          value: '${lowStock.length}',
+                          accent: AppColors.warning,
+                          note: '2 dona yoki undan kam',
                         ),
                       ),
                     ),
@@ -2468,7 +3090,8 @@ class _OverviewAdminState extends State<_OverviewAdmin> {
                               ),
                             ),
                             subtitle: Text(
-                              DateFormat('MM.dd • HH:mm').format(o.createdAt.toLocal()),
+                              DateFormat('MM.dd • HH:mm')
+                                  .format(koreaTime(o.createdAt)),
                               style: const TextStyle(fontSize: 11.5),
                             ),
                             trailing: Column(
@@ -2724,7 +3347,9 @@ class _ShippingQueueAdminState extends State<_ShippingQueueAdmin> {
 
   Future<void> editContact(Map<String, dynamic> row) async {
     final phone = TextEditingController(text: (row['phone'] ?? '').toString());
-    final address = TextEditingController(text: (row['address'] ?? '').toString());
+    final address = TextEditingController(
+      text: (row['address'] ?? '').toString(),
+    );
     bool saving = false;
     final ok = await showDialog<bool>(
       context: context,
@@ -2760,16 +3385,21 @@ class _ShippingQueueAdminState extends State<_ShippingQueueAdmin> {
           ),
           actions: [
             TextButton(
-              onPressed: saving ? null : () => Navigator.pop(dialogContext, false),
+              onPressed: saving
+                  ? null
+                  : () => Navigator.pop(dialogContext, false),
               child: const Text('Bekor qilish'),
             ),
             FilledButton.icon(
               onPressed: saving
                   ? null
                   : () async {
-                      if (phone.text.trim().isEmpty || address.text.trim().isEmpty) {
+                      if (phone.text.trim().isEmpty ||
+                          address.text.trim().isEmpty) {
                         ScaffoldMessenger.of(dialogContext).showSnackBar(
-                          const SnackBar(content: Text('Telefon va manzilni to‘ldiring.')),
+                          const SnackBar(
+                            content: Text('Telefon va manzilni to‘ldiring.'),
+                          ),
                         );
                         return;
                       }
@@ -2781,18 +3411,25 @@ class _ShippingQueueAdminState extends State<_ShippingQueueAdmin> {
                           phone: phone.text,
                           address: address.text,
                         );
-                        if (dialogContext.mounted) Navigator.pop(dialogContext, true);
+                        if (dialogContext.mounted)
+                          Navigator.pop(dialogContext, true);
                       } catch (_) {
                         setDialogState(() => saving = false);
                         if (dialogContext.mounted) {
                           ScaffoldMessenger.of(dialogContext).showSnackBar(
-                            const SnackBar(content: Text('O‘zgarish saqlanmadi.')),
+                            const SnackBar(
+                              content: Text('O‘zgarish saqlanmadi.'),
+                            ),
                           );
                         }
                       }
                     },
               icon: saving
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : const Icon(Icons.save_outlined),
               label: Text(saving ? 'Saqlanmoqda...' : 'Saqlash'),
             ),
@@ -2941,7 +3578,8 @@ class _ShippingQueueAdminState extends State<_ShippingQueueAdmin> {
               final displayOrderNumberValue = int.tryParse(
                 (row['display_order_number'] ?? '').toString(),
               );
-              final displayOrderNumber = displayOrderNumberValue == null ||
+              final displayOrderNumber =
+                  displayOrderNumberValue == null ||
                       displayOrderNumberValue <= 0
                   ? ''
                   : displayOrderNumberValue.toString();
@@ -3111,21 +3749,27 @@ class _AdminBookListPage extends StatelessWidget {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(title)),
     body: books.isEmpty
-      ? const Center(child: Text('Hozircha ma’lumot yo‘q.'))
-      : ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: books.length,
-          separatorBuilder: (_, __) => const Divider(),
-          itemBuilder: (_, i) {
-            final b = books[i];
-            return ListTile(
-              leading: _AdminBookThumb(url: b.previewImageUrl),
-              title: Text(b.title, style: const TextStyle(fontWeight: FontWeight.w800)),
-              subtitle: Text(_won(b.currentPrice)),
-              trailing: Text('${b.stock} dona', style: const TextStyle(fontWeight: FontWeight.w900)),
-            );
-          },
-        ),
+        ? const Center(child: Text('Hozircha ma’lumot yo‘q.'))
+        : ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: books.length,
+            separatorBuilder: (_, __) => const Divider(),
+            itemBuilder: (_, i) {
+              final b = books[i];
+              return ListTile(
+                leading: _AdminBookThumb(url: b.previewImageUrl),
+                title: Text(
+                  b.title,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: Text(_won(b.currentPrice)),
+                trailing: Text(
+                  '${b.stock} dona',
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+              );
+            },
+          ),
   );
 }
 
@@ -3389,7 +4033,11 @@ class _CatalogPinsAdminPageState extends State<_CatalogPinsAdminPage> {
         error = null;
       });
     } catch (e) {
-      if (mounted) setState(() { error = '$e'; loading = false; });
+      if (mounted)
+        setState(() {
+          error = '$e';
+          loading = false;
+        });
     }
   }
 
@@ -3411,10 +4059,14 @@ class _CatalogPinsAdminPageState extends State<_CatalogPinsAdminPage> {
       await context.read<AppState>().refreshBooks();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Katalog tartibi barcha mijozlar uchun saqlandi')));
+        const SnackBar(
+          content: Text('Katalog tartibi barcha mijozlar uchun saqlandi'),
+        ),
+      );
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Tartib saqlanmadi: $e')));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Tartib saqlanmadi: $e')));
     } finally {
       if (mounted) setState(() => saving = false);
     }
@@ -3423,79 +4075,144 @@ class _CatalogPinsAdminPageState extends State<_CatalogPinsAdminPage> {
   @override
   Widget build(BuildContext context) {
     final byId = {for (final book in books) book.id: book};
-    final available = books.where((b) =>
-      !selected.contains(b.id) &&
-      (filter.isEmpty ||
-       b.title.toLowerCase().contains(filter.toLowerCase()) ||
-       b.author.toLowerCase().contains(filter.toLowerCase()))).toList()
-      ..sort((a,b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+    final available =
+        books
+            .where(
+              (b) =>
+                  !selected.contains(b.id) &&
+                  (filter.isEmpty ||
+                      b.title.toLowerCase().contains(filter.toLowerCase()) ||
+                      b.author.toLowerCase().contains(filter.toLowerCase())),
+            )
+            .toList()
+          ..sort(
+            (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+          );
     return Scaffold(
       appBar: AppBar(title: const Text('Katalog tartibini boshqarish')),
       body: loading
-        ? const Center(child: CircularProgressIndicator())
-        : error != null
+          ? const Center(child: CircularProgressIndicator())
+          : error != null
           ? Center(child: Text(error!))
-          : Column(children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Yuqoriga chiqariladigan kitoblar',
-                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-                const SizedBox(height: 5),
-                Text('Tanlangan ${selected.length} ta kitob katalog boshida siz belgilagan tartibda chiqadi. Qolganlar yangi kelish sanasi bo‘yicha.'),
-              ]),
+          : Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Yuqoriga chiqariladigan kitoblar',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 18,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        'Tanlangan ${selected.length} ta kitob katalog boshida siz belgilagan tartibda chiqadi. Qolganlar yangi kelish sanasi bo‘yicha.',
+                      ),
+                    ],
+                  ),
+                ),
+                if (selected.isNotEmpty)
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: selected.length,
+                      itemBuilder: (_, i) {
+                        final book = byId[selected[i]];
+                        if (book == null) return const SizedBox.shrink();
+                        return ListTile(
+                          leading: CircleAvatar(child: Text('${i + 1}')),
+                          title: Text(
+                            book.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            '₩${book.currentPrice} • ${book.stock} dona',
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                tooltip: 'Tepaga',
+                                onPressed: i == 0 ? null : () => _move(i, -1),
+                                icon: const Icon(Icons.arrow_upward_rounded),
+                              ),
+                              IconButton(
+                                tooltip: 'Pastga',
+                                onPressed: i == selected.length - 1
+                                    ? null
+                                    : () => _move(i, 1),
+                                icon: const Icon(Icons.arrow_downward_rounded),
+                              ),
+                              IconButton(
+                                tooltip: 'Ro‘yxatdan olib tashlash',
+                                onPressed: () =>
+                                    setState(() => selected.removeAt(i)),
+                                icon: const Icon(Icons.close_rounded),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                const Divider(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: TextField(
+                    onChanged: (v) => setState(() => filter = v),
+                    decoration: const InputDecoration(
+                      labelText: 'Kitob qidirish',
+                      prefixIcon: Icon(Icons.search_rounded),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: available.length,
+                    itemBuilder: (_, i) {
+                      final book = available[i];
+                      return ListTile(
+                        title: Text(
+                          book.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text('${book.stock} dona mavjud'),
+                        trailing: const Icon(Icons.add_circle_outline),
+                        onTap: selected.length >= 60
+                            ? null
+                            : () => setState(() => selected.add(book.id)),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-            if (selected.isNotEmpty)
-              Flexible(child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: selected.length,
-                itemBuilder: (_, i) {
-                  final book = byId[selected[i]];
-                  if (book == null) return const SizedBox.shrink();
-                  return ListTile(
-                    leading: CircleAvatar(child: Text('${i+1}')),
-                    title: Text(book.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    subtitle: Text('₩${book.currentPrice} • ${book.stock} dona'),
-                    trailing: Row(mainAxisSize: MainAxisSize.min,children: [
-                      IconButton(tooltip: 'Tepaga', onPressed: i == 0 ? null : () => _move(i,-1),
-                        icon: const Icon(Icons.arrow_upward_rounded)),
-                      IconButton(tooltip: 'Pastga', onPressed: i == selected.length-1 ? null : () => _move(i,1),
-                        icon: const Icon(Icons.arrow_downward_rounded)),
-                      IconButton(tooltip: 'Ro‘yxatdan olib tashlash',
-                        onPressed: () => setState(() => selected.removeAt(i)),
-                        icon: const Icon(Icons.close_rounded)),
-                    ]),
-                  );
-                },
-              )),
-            const Divider(),
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 16),child:
-              TextField(onChanged: (v) => setState(() => filter = v),
-                decoration: const InputDecoration(labelText: 'Kitob qidirish',
-                  prefixIcon: Icon(Icons.search_rounded)))),
-            Expanded(child: ListView.builder(
-              itemCount: available.length,
-              itemBuilder: (_, i) {
-                final book = available[i];
-                return ListTile(
-                  title: Text(book.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  subtitle: Text('${book.stock} dona mavjud'),
-                  trailing: const Icon(Icons.add_circle_outline),
-                  onTap: selected.length >= 60 ? null : () =>
-                    setState(() => selected.add(book.id)),
-                );
-              },
-            )),
-          ]),
-      bottomNavigationBar: SafeArea(child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: FilledButton.icon(
-          onPressed: loading || saving || error != null ? null : _save,
-          icon: saving ? const SizedBox(width: 18,height: 18,child: CircularProgressIndicator(strokeWidth: 2)) :
-            const Icon(Icons.save_rounded),
-          label: Text(saving ? 'Saqlanmoqda...' : 'Tartibni barcha mijozlar uchun saqlash'),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: FilledButton.icon(
+            onPressed: loading || saving || error != null ? null : _save,
+            icon: saving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.save_rounded),
+            label: Text(
+              saving
+                  ? 'Saqlanmoqda...'
+                  : 'Tartibni barcha mijozlar uchun saqlash',
+            ),
+          ),
         ),
-      )),
+      ),
     );
   }
 }
@@ -3786,105 +4503,375 @@ class _InventoryAdminState extends State<_InventoryAdmin> {
   }
 }
 
-
 class _CatalogGroupsAdminPage extends StatefulWidget {
   const _CatalogGroupsAdminPage({required this.api});
   final _AdminApi api;
-  @override State<_CatalogGroupsAdminPage> createState()=>_CatalogGroupsAdminPageState();
+  @override
+  State<_CatalogGroupsAdminPage> createState() =>
+      _CatalogGroupsAdminPageState();
 }
-class _CatalogGroupsAdminPageState extends State<_CatalogGroupsAdminPage> with SingleTickerProviderStateMixin {
+
+class _CatalogGroupsAdminPageState extends State<_CatalogGroupsAdminPage>
+    with SingleTickerProviderStateMixin {
   late final TabController tabs;
   late Future<List<Book>> future;
-  @override void initState(){super.initState();tabs=TabController(length:2,vsync:this);future=widget.api.books();}
-  @override void dispose(){tabs.dispose();super.dispose();}
-  Future<void> reload() async {final b=await widget.api.books();if(mounted)setState(()=>future=Future.value(b));}
-  List<MapEntry<String,int>> groups(List<Book> books,bool pub){
-    final m=<String,int>{};
-    for(final b in books){final raw=pub?normalizePublisher(b.publisher):b.category.trim();final n=raw.isEmpty?(pub?'Ko‘rsatilmagan':'Boshqalar'):raw;m[n]=(m[n]??0)+1;}
-    final r=m.entries.toList()..sort((a,b)=>a.key.toLowerCase().compareTo(b.key.toLowerCase()));return r;
+  @override
+  void initState() {
+    super.initState();
+    tabs = TabController(length: 2, vsync: this);
+    future = widget.api.books();
   }
-  Future<void> edit(List<Book> books,bool pub,[String? name]) async {
-    final ok=await Navigator.push<bool>(context,MaterialPageRoute(builder:(_)=>_CatalogGroupEditorPage(api:widget.api,books:books,publisher:pub,currentName:name)));
-    if(ok==true)await reload();
+
+  @override
+  void dispose() {
+    tabs.dispose();
+    super.dispose();
   }
-  Widget list(List<Book> books,bool pub)=>RefreshIndicator(onRefresh:reload,child:ListView(
-    physics:const AlwaysScrollableScrollPhysics(),padding:const EdgeInsets.fromLTRB(16,14,16,100),children:[
-      AppSurface(backgroundColor:AppColors.surfaceSoft,child:Row(children:[
-        Icon(pub?Icons.apartment_rounded:Icons.category_rounded,color:AppColors.navy),const SizedBox(width:12),
-        Expanded(child:Text(pub?'Nashriyot nomini o‘zgartiring yoki ichiga kitoblarni tanlab qo‘shing.':'Kategoriya nomini o‘zgartiring yoki ichiga kitoblarni tanlab qo‘shing.',style:const TextStyle(fontWeight:FontWeight.w700,color:AppColors.muted))),
-      ])),const SizedBox(height:12),
-      ...groups(books,pub).map((e)=>Card(margin:const EdgeInsets.only(bottom:8),child:ListTile(
-        leading:CircleAvatar(child:Icon(pub?Icons.apartment_rounded:Icons.category_rounded,size:19)),
-        title:Text(e.key,style:const TextStyle(fontWeight:FontWeight.w900)),subtitle:Text('${e.value} ta kitob'),
-        trailing:const Icon(Icons.edit_rounded),onTap:()=>edit(books,pub,e.key),
-      ))),
-    ]));
-  @override Widget build(BuildContext context)=>Scaffold(
-    appBar:AppBar(title:const Text('Katalog bo‘limlari'),bottom:TabBar(controller:tabs,tabs:const[
-      Tab(icon:Icon(Icons.category_rounded),text:'Kategoriyalar'),Tab(icon:Icon(Icons.apartment_rounded),text:'Nashriyotlar'),
-    ])),
-    floatingActionButton:FutureBuilder<List<Book>>(future:future,builder:(context,s)=>FloatingActionButton.extended(
-      onPressed:s.hasData?()=>edit(s.data!,tabs.index==1):null,icon:const Icon(Icons.add_rounded),label:const Text('Yangi'))),
-    body:FutureBuilder<List<Book>>(future:future,builder:(context,s){
-      if(s.connectionState==ConnectionState.waiting&&!s.hasData)return const Center(child:CircularProgressIndicator());
-      if(s.hasError)return Center(child:FilledButton.tonalIcon(onPressed:()=>setState(()=>future=widget.api.books()),icon:const Icon(Icons.refresh_rounded),label:const Text('Qayta yuklash')));
-      final books=s.data??const <Book>[];return TabBarView(controller:tabs,children:[list(books,false),list(books,true)]);
-    }),
+
+  Future<void> reload() async {
+    final b = await widget.api.books();
+    if (mounted) setState(() => future = Future.value(b));
+  }
+
+  List<MapEntry<String, int>> groups(List<Book> books, bool pub) {
+    final m = <String, int>{};
+    for (final b in books) {
+      final raw = pub ? normalizePublisher(b.publisher) : b.category.trim();
+      final n = raw.isEmpty ? (pub ? 'Ko‘rsatilmagan' : 'Boshqalar') : raw;
+      m[n] = (m[n] ?? 0) + 1;
+    }
+    final r = m.entries.toList()
+      ..sort((a, b) => a.key.toLowerCase().compareTo(b.key.toLowerCase()));
+    return r;
+  }
+
+  Future<void> edit(List<Book> books, bool pub, [String? name]) async {
+    final ok = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _CatalogGroupEditorPage(
+          api: widget.api,
+          books: books,
+          publisher: pub,
+          currentName: name,
+        ),
+      ),
+    );
+    if (ok == true) await reload();
+  }
+
+  Widget list(List<Book> books, bool pub) => RefreshIndicator(
+    onRefresh: reload,
+    child: ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 100),
+      children: [
+        AppSurface(
+          backgroundColor: AppColors.surfaceSoft,
+          child: Row(
+            children: [
+              Icon(
+                pub ? Icons.apartment_rounded : Icons.category_rounded,
+                color: AppColors.navy,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  pub
+                      ? 'Nashriyot nomini o‘zgartiring yoki ichiga kitoblarni tanlab qo‘shing.'
+                      : 'Kategoriya nomini o‘zgartiring yoki ichiga kitoblarni tanlab qo‘shing.',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.muted,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...groups(books, pub).map(
+          (e) => Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            child: ListTile(
+              leading: CircleAvatar(
+                child: Icon(
+                  pub ? Icons.apartment_rounded : Icons.category_rounded,
+                  size: 19,
+                ),
+              ),
+              title: Text(
+                e.key,
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+              subtitle: Text('${e.value} ta kitob'),
+              trailing: const Icon(Icons.edit_rounded),
+              onTap: () => edit(books, pub, e.key),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: const Text('Katalog bo‘limlari'),
+      bottom: TabBar(
+        controller: tabs,
+        tabs: const [
+          Tab(icon: Icon(Icons.category_rounded), text: 'Kategoriyalar'),
+          Tab(icon: Icon(Icons.apartment_rounded), text: 'Nashriyotlar'),
+        ],
+      ),
+    ),
+    floatingActionButton: FutureBuilder<List<Book>>(
+      future: future,
+      builder: (context, s) => FloatingActionButton.extended(
+        onPressed: s.hasData ? () => edit(s.data!, tabs.index == 1) : null,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Yangi'),
+      ),
+    ),
+    body: FutureBuilder<List<Book>>(
+      future: future,
+      builder: (context, s) {
+        if (s.connectionState == ConnectionState.waiting && !s.hasData)
+          return const Center(child: CircularProgressIndicator());
+        if (s.hasError)
+          return Center(
+            child: FilledButton.tonalIcon(
+              onPressed: () => setState(() => future = widget.api.books()),
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Qayta yuklash'),
+            ),
+          );
+        final books = s.data ?? const <Book>[];
+        return TabBarView(
+          controller: tabs,
+          children: [list(books, false), list(books, true)],
+        );
+      },
+    ),
   );
 }
+
 class _CatalogGroupEditorPage extends StatefulWidget {
-  const _CatalogGroupEditorPage({required this.api,required this.books,required this.publisher,this.currentName});
-  final _AdminApi api; final List<Book> books; final bool publisher; final String? currentName;
-  @override State<_CatalogGroupEditorPage> createState()=>_CatalogGroupEditorPageState();
+  const _CatalogGroupEditorPage({
+    required this.api,
+    required this.books,
+    required this.publisher,
+    this.currentName,
+  });
+  final _AdminApi api;
+  final List<Book> books;
+  final bool publisher;
+  final String? currentName;
+  @override
+  State<_CatalogGroupEditorPage> createState() =>
+      _CatalogGroupEditorPageState();
 }
-class _CatalogGroupEditorPageState extends State<_CatalogGroupEditorPage>{
-  late final TextEditingController name; final search=TextEditingController(); final selected=<String>{}; bool saving=false;
-  String value(Book b)=>widget.publisher?normalizePublisher(b.publisher):b.category.trim();
-  bool same(String a,String b)=>widget.publisher?publisherKey(a)==publisherKey(b):a.trim().toLowerCase()==b.trim().toLowerCase();
-  @override void initState(){super.initState();name=TextEditingController(text:widget.currentName??'');final cur=widget.currentName;if(cur!=null){for(final b in widget.books){final v=value(b);final d=v.isEmpty?(widget.publisher?'Ko‘rsatilmagan':'Boshqalar'):v;if(same(d,cur))selected.add(b.id);}}search.addListener(refresh);}
-  void refresh(){if(mounted)setState((){});}
-  @override void dispose(){search.removeListener(refresh);search.dispose();name.dispose();super.dispose();}
-  Future<void> save() async {
-    final newName=name.text.trim();if(newName.isEmpty){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Nomini kiriting.')));return;}
-    setState(()=>saving=true);
-    try{
-      final cur=widget.currentName;
-      for(final b in widget.books){
-        final raw=value(b);final display=raw.isEmpty?(widget.publisher?'Ko‘rsatilmagan':'Boshqalar'):raw;
-        final was=cur!=null&&same(display,cur);final should=selected.contains(b.id);Book? updated;
-        if(should&&!same(raw,newName))updated=widget.publisher?b.copyWith(publisher:normalizePublisher(newName)):b.copyWith(category:newName);
-        else if(!should&&was)updated=widget.publisher?b.copyWith(publisher:''):b.copyWith(category:'Boshqalar');
-        if(updated!=null)await widget.api.saveBook(updated);
+
+class _CatalogGroupEditorPageState extends State<_CatalogGroupEditorPage> {
+  late final TextEditingController name;
+  final search = TextEditingController();
+  final selected = <String>{};
+  bool saving = false;
+  String value(Book b) =>
+      widget.publisher ? normalizePublisher(b.publisher) : b.category.trim();
+  bool same(String a, String b) => widget.publisher
+      ? publisherKey(a) == publisherKey(b)
+      : a.trim().toLowerCase() == b.trim().toLowerCase();
+  @override
+  void initState() {
+    super.initState();
+    name = TextEditingController(text: widget.currentName ?? '');
+    final cur = widget.currentName;
+    if (cur != null) {
+      for (final b in widget.books) {
+        final v = value(b);
+        final d = v.isEmpty
+            ? (widget.publisher ? 'Ko‘rsatilmagan' : 'Boshqalar')
+            : v;
+        if (same(d, cur)) selected.add(b.id);
       }
-      if(mounted)Navigator.pop(context,true);
-    }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Saqlashda xatolik: $e')));}
-    finally{if(mounted)setState(()=>saving=false);}
+    }
+    search.addListener(refresh);
   }
-  @override Widget build(BuildContext context){
-    final q=search.text.trim().toLowerCase();final visible=widget.books.where((b)=>q.isEmpty||b.title.toLowerCase().contains(q)||b.author.toLowerCase().contains(q)||b.category.toLowerCase().contains(q)||b.publisher.toLowerCase().contains(q)).toList()..sort((a,b)=>a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+
+  void refresh() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    search.removeListener(refresh);
+    search.dispose();
+    name.dispose();
+    super.dispose();
+  }
+
+  Future<void> save() async {
+    final newName = name.text.trim();
+    if (newName.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Nomini kiriting.')));
+      return;
+    }
+    setState(() => saving = true);
+    try {
+      final cur = widget.currentName;
+      for (final b in widget.books) {
+        final raw = value(b);
+        final display = raw.isEmpty
+            ? (widget.publisher ? 'Ko‘rsatilmagan' : 'Boshqalar')
+            : raw;
+        final was = cur != null && same(display, cur);
+        final should = selected.contains(b.id);
+        Book? updated;
+        if (should && !same(raw, newName))
+          updated = widget.publisher
+              ? b.copyWith(publisher: normalizePublisher(newName))
+              : b.copyWith(category: newName);
+        else if (!should && was)
+          updated = widget.publisher
+              ? b.copyWith(publisher: '')
+              : b.copyWith(category: 'Boshqalar');
+        if (updated != null) await widget.api.saveBook(updated);
+      }
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Saqlashda xatolik: $e')));
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final q = search.text.trim().toLowerCase();
+    final visible =
+        widget.books
+            .where(
+              (b) =>
+                  q.isEmpty ||
+                  b.title.toLowerCase().contains(q) ||
+                  b.author.toLowerCase().contains(q) ||
+                  b.category.toLowerCase().contains(q) ||
+                  b.publisher.toLowerCase().contains(q),
+            )
+            .toList()
+          ..sort(
+            (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+          );
     return Scaffold(
-      appBar:AppBar(title:Text(widget.publisher?'Nashriyotni tahrirlash':'Kategoriyani tahrirlash')),
-      body:Column(children:[
-        Padding(padding:const EdgeInsets.fromLTRB(16,16,16,8),child:Column(children:[
-          TextField(controller:name,decoration:InputDecoration(labelText:widget.publisher?'Nashriyot nomi':'Kategoriya nomi',prefixIcon:Icon(widget.publisher?Icons.apartment_rounded:Icons.category_rounded))),
-          const SizedBox(height:10),TextField(controller:search,decoration:const InputDecoration(labelText:'Kitob qidirish',prefixIcon:Icon(Icons.search_rounded))),
-          const SizedBox(height:8),Row(children:[Text('${selected.length} ta kitob tanlangan',style:const TextStyle(fontWeight:FontWeight.w800)),const Spacer(),
-            TextButton(onPressed:()=>setState((){for(final b in visible){selected.add(b.id);}}),child:const Text('Barchasini tanlash'))]),
-        ])),const Divider(height:1),
-        Expanded(child:ListView.builder(itemCount:visible.length,itemBuilder:(context,i){final b=visible[i];final checked=selected.contains(b.id);return CheckboxListTile(
-          value:checked,onChanged:saving?null:(v)=>setState((){if(v==true)selected.add(b.id);else selected.remove(b.id);}),
-          title:Text(b.title,style:const TextStyle(fontWeight:FontWeight.w800)),
-          subtitle:Text(widget.publisher?'Hozir: ${normalizePublisher(b.publisher).isEmpty?'Ko‘rsatilmagan':normalizePublisher(b.publisher)}':'Hozir: ${b.category}'),
-          controlAffinity:ListTileControlAffinity.leading,
-        );})),
-      ]),
-      bottomNavigationBar:SafeArea(minimum:const EdgeInsets.all(16),child:FilledButton.icon(onPressed:saving?null:save,
-        icon:saving?const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2)):const Icon(Icons.save_rounded),
-        label:Text(saving?'Saqlanmoqda…':'Saqlash'))),
+      appBar: AppBar(
+        title: Text(
+          widget.publisher
+              ? 'Nashriyotni tahrirlash'
+              : 'Kategoriyani tahrirlash',
+        ),
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Column(
+              children: [
+                TextField(
+                  controller: name,
+                  decoration: InputDecoration(
+                    labelText: widget.publisher
+                        ? 'Nashriyot nomi'
+                        : 'Kategoriya nomi',
+                    prefixIcon: Icon(
+                      widget.publisher
+                          ? Icons.apartment_rounded
+                          : Icons.category_rounded,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: search,
+                  decoration: const InputDecoration(
+                    labelText: 'Kitob qidirish',
+                    prefixIcon: Icon(Icons.search_rounded),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text(
+                      '${selected.length} ta kitob tanlangan',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () => setState(() {
+                        for (final b in visible) {
+                          selected.add(b.id);
+                        }
+                      }),
+                      child: const Text('Barchasini tanlash'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: ListView.builder(
+              itemCount: visible.length,
+              itemBuilder: (context, i) {
+                final b = visible[i];
+                final checked = selected.contains(b.id);
+                return CheckboxListTile(
+                  value: checked,
+                  onChanged: saving
+                      ? null
+                      : (v) => setState(() {
+                          if (v == true)
+                            selected.add(b.id);
+                          else
+                            selected.remove(b.id);
+                        }),
+                  title: Text(
+                    b.title,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  subtitle: Text(
+                    widget.publisher
+                        ? 'Hozir: ${normalizePublisher(b.publisher).isEmpty ? 'Ko‘rsatilmagan' : normalizePublisher(b.publisher)}'
+                        : 'Hozir: ${b.category}',
+                  ),
+                  controlAffinity: ListTileControlAffinity.leading,
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.all(16),
+        child: FilledButton.icon(
+          onPressed: saving ? null : save,
+          icon: saving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.save_rounded),
+          label: Text(saving ? 'Saqlanmoqda…' : 'Saqlash'),
+        ),
+      ),
     );
   }
 }
-
 
 /// AI returns 0 (or text) when it could not verify the page count; only a
 /// positive whole number counts as a real answer.
@@ -3895,99 +4882,333 @@ int _aiPageCount(Object? value) {
 
 class _BulkAiBookEditorPage extends StatefulWidget {
   const _BulkAiBookEditorPage({required this.api, required this.books});
-  final _AdminApi api; final List<Book> books;
-  @override State<_BulkAiBookEditorPage> createState()=>_BulkAiBookEditorPageState();
+  final _AdminApi api;
+  final List<Book> books;
+  @override
+  State<_BulkAiBookEditorPage> createState() => _BulkAiBookEditorPageState();
 }
+
 class _BulkAiBookEditorPageState extends State<_BulkAiBookEditorPage> {
-  final selectedBooks=<String>{}; final fields=<String>{};
-  final proposals=<String,Map<String,dynamic>>{}; final search=TextEditingController();
-  bool researching=false,saving=false; int done=0,total=0;
-  static const fieldItems=<({String key,String label,IconData icon})>[
-    (key:'title',label:'Kitob nomi',icon:Icons.menu_book_rounded),
-    (key:'author',label:'Yozuvchi',icon:Icons.person_rounded),
-    (key:'publisher',label:'Nashriyot',icon:Icons.apartment_rounded),
-    (key:'category',label:'Kategoriya',icon:Icons.category_rounded),
-    (key:'description',label:'Tavsif',icon:Icons.notes_rounded),
-    (key:'page_count',label:'Sahifalar soni',icon:Icons.menu_book_outlined),
+  final selectedBooks = <String>{};
+  final fields = <String>{};
+  final proposals = <String, Map<String, dynamic>>{};
+  final search = TextEditingController();
+  bool researching = false, saving = false;
+  int done = 0, total = 0;
+  static const fieldItems = <({String key, String label, IconData icon})>[
+    (key: 'title', label: 'Kitob nomi', icon: Icons.menu_book_rounded),
+    (key: 'author', label: 'Yozuvchi', icon: Icons.person_rounded),
+    (key: 'publisher', label: 'Nashriyot', icon: Icons.apartment_rounded),
+    (key: 'category', label: 'Kategoriya', icon: Icons.category_rounded),
+    (key: 'description', label: 'Tavsif', icon: Icons.notes_rounded),
+    (
+      key: 'page_count',
+      label: 'Sahifalar soni',
+      icon: Icons.menu_book_outlined,
+    ),
   ];
-  @override void initState(){super.initState();selectedBooks.addAll(widget.books.map((b)=>b.id));search.addListener(_refresh);}
-  void _refresh(){if(mounted)setState((){});}
-  @override void dispose(){search.removeListener(_refresh);search.dispose();super.dispose();}
-  List<Book> get visible {final q=search.text.trim().toLowerCase();return widget.books.where((b)=>q.isEmpty||b.title.toLowerCase().contains(q)||b.author.toLowerCase().contains(q)).toList();}
+  @override
+  void initState() {
+    super.initState();
+    selectedBooks.addAll(widget.books.map((b) => b.id));
+    search.addListener(_refresh);
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    search.removeListener(_refresh);
+    search.dispose();
+    super.dispose();
+  }
+
+  List<Book> get visible {
+    final q = search.text.trim().toLowerCase();
+    return widget.books
+        .where(
+          (b) =>
+              q.isEmpty ||
+              b.title.toLowerCase().contains(q) ||
+              b.author.toLowerCase().contains(q),
+        )
+        .toList();
+  }
 
   Future<void> research() async {
-    if(researching||fields.isEmpty||selectedBooks.isEmpty){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Avval kamida bitta maydon va bitta kitobni + bilan tanlang.')));return;}
-    final chosen=widget.books.where((b)=>selectedBooks.contains(b.id)).toList();
-    setState((){researching=true;done=0;total=chosen.length;proposals.clear();});
-    try{
-      for(var i=0;i<chosen.length;i+=12){
-        final end=(i+12<chosen.length)?i+12:chosen.length;
-        final result=await widget.api.researchBooksBulk(chosen.sublist(i,end));
-        for(final row in result){final id=(row['id']??'').toString();if(id.isNotEmpty)proposals[id]=row;}
-        if(mounted)setState(()=>done=end);
+    if (researching || fields.isEmpty || selectedBooks.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Avval kamida bitta maydon va bitta kitobni + bilan tanlang.',
+          ),
+        ),
+      );
+      return;
+    }
+    final chosen = widget.books
+        .where((b) => selectedBooks.contains(b.id))
+        .toList();
+    setState(() {
+      researching = true;
+      done = 0;
+      total = chosen.length;
+      proposals.clear();
+    });
+    try {
+      for (var i = 0; i < chosen.length; i += 12) {
+        final end = (i + 12 < chosen.length) ? i + 12 : chosen.length;
+        final result = await widget.api.researchBooksBulk(
+          chosen.sublist(i, end),
+        );
+        for (final row in result) {
+          final id = (row['id'] ?? '').toString();
+          if (id.isNotEmpty) proposals[id] = row;
+        }
+        if (mounted) setState(() => done = end);
       }
-      if(!mounted)return;
-      final ok=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
-        title:const Text('AI ma’lumotlarni tayyorladi'),
-        content:Text('${proposals.length} ta kitob uchun ma’lumot topildi. Faqat + bilan tanlangan maydonlar o‘zgaradi. Tanlanmagan maydonlar va AI topa olmagan qiymatlar aslicha qoladi.'),
-        actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Hozircha saqlamaslik')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Hammasini saqlash'))],
-      ));
-      if(ok==true)await saveAll();
-    }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('AI qidiruvda xatolik: $e')));}
-    finally{if(mounted)setState(()=>researching=false);}
+      if (!mounted) return;
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('AI ma’lumotlarni tayyorladi'),
+          content: Text(
+            '${proposals.length} ta kitob uchun ma’lumot topildi. Faqat + bilan tanlangan maydonlar o‘zgaradi. Tanlanmagan maydonlar va AI topa olmagan qiymatlar aslicha qoladi.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Hozircha saqlamaslik'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Hammasini saqlash'),
+            ),
+          ],
+        ),
+      );
+      if (ok == true) await saveAll();
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('AI qidiruvda xatolik: $e')));
+    } finally {
+      if (mounted) setState(() => researching = false);
+    }
   }
-  String pick(Map<String,dynamic> p,String key,String old){if(!fields.contains(key))return old;final v=(p[key]??'').toString().trim();return v.isEmpty?old:v;}
+
+  String pick(Map<String, dynamic> p, String key, String old) {
+    if (!fields.contains(key)) return old;
+    final v = (p[key] ?? '').toString().trim();
+    return v.isEmpty ? old : v;
+  }
+
   Future<void> saveAll() async {
-    if(saving)return;setState(()=>saving=true);var saved=0;
-    try{
-      for(final b in widget.books){
-        if(!selectedBooks.contains(b.id))continue;final p=proposals[b.id];if(p==null)continue;
-        final updated=b.copyWith(title:pick(p,'title',b.title),author:pick(p,'author',b.author),publisher:pick(p,'publisher',b.publisher),category:pick(p,'category',b.category),description:pick(p,'description',b.description),pageCount:fields.contains('page_count') && _aiPageCount(p['page_count'])>0 ? _aiPageCount(p['page_count']) : b.pageCount);
-        await widget.api.saveBook(updated);saved++;
+    if (saving) return;
+    setState(() => saving = true);
+    var saved = 0;
+    try {
+      for (final b in widget.books) {
+        if (!selectedBooks.contains(b.id)) continue;
+        final p = proposals[b.id];
+        if (p == null) continue;
+        final updated = b.copyWith(
+          title: pick(p, 'title', b.title),
+          author: pick(p, 'author', b.author),
+          publisher: pick(p, 'publisher', b.publisher),
+          category: pick(p, 'category', b.category),
+          description: pick(p, 'description', b.description),
+          pageCount:
+              fields.contains('page_count') && _aiPageCount(p['page_count']) > 0
+              ? _aiPageCount(p['page_count'])
+              : b.pageCount,
+        );
+        await widget.api.saveBook(updated);
+        saved++;
       }
-      if(!mounted)return;ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('$saved ta kitob yangilandi.')));Navigator.pop(context,true);
-    }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Saqlashda xatolik: $e')));}
-    finally{if(mounted)setState(()=>saving=false);}
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('$saved ta kitob yangilandi.')));
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Saqlashda xatolik: $e')));
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
   }
-  Widget fieldChip(({String key,String label,IconData icon}) item){final on=fields.contains(item.key);return FilterChip(selected:on,avatar:Icon(on?Icons.check_rounded:Icons.add_rounded,size:18),label:Text(item.label),onSelected:researching||saving?null:(v)=>setState((){if(v)fields.add(item.key);else fields.remove(item.key);}));}
-  @override Widget build(BuildContext context){
-    final list=visible;
+
+  Widget fieldChip(({String key, String label, IconData icon}) item) {
+    final on = fields.contains(item.key);
+    return FilterChip(
+      selected: on,
+      avatar: Icon(on ? Icons.check_rounded : Icons.add_rounded, size: 18),
+      label: Text(item.label),
+      onSelected: researching || saving
+          ? null
+          : (v) => setState(() {
+              if (v)
+                fields.add(item.key);
+              else
+                fields.remove(item.key);
+            }),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final list = visible;
     return Scaffold(
-      appBar:AppBar(title:const Text('AI bilan ommaviy tahrirlash')),
-      body:Column(children:[
-        Padding(padding:const EdgeInsets.fromLTRB(16,14,16,10),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-          const Text('Qaysi ma’lumotlar o‘zgarsin?',style:TextStyle(fontSize:17,fontWeight:FontWeight.w900)),
-          const SizedBox(height:5),const Text('+ bilan tanlangan maydonlargina AI topgan ma’lumot bilan yangilanadi. Qolganlari aslicha qoladi.',style:TextStyle(color:AppColors.muted,height:1.35)),
-          const SizedBox(height:10),Wrap(spacing:8,runSpacing:8,children:fieldItems.map(fieldChip).toList()),
-          const SizedBox(height:12),TextField(controller:search,decoration:const InputDecoration(hintText:'Kitob yoki muallif...',prefixIcon:Icon(Icons.search_rounded))),
-          const SizedBox(height:8),Row(children:[
-            Text('${selectedBooks.length} / ${widget.books.length} ta tanlangan',style:const TextStyle(fontWeight:FontWeight.w800)),const Spacer(),
-            TextButton(onPressed:researching||saving?null:()=>setState(()=>selectedBooks.addAll(list.map((b)=>b.id))),child:const Text('Barchasini +')),
-            TextButton(onPressed:researching||saving?null:()=>setState(()=>selectedBooks.clear()),child:const Text('Tozalash')),
-          ]),
-          if(researching)...[const SizedBox(height:4),LinearProgressIndicator(value:total==0?null:done/total),const SizedBox(height:5),Text('AI tekshirmoqda: $done / $total',style:const TextStyle(fontWeight:FontWeight.w700,color:AppColors.muted))],
-        ])),
-        const Divider(height:1),
-        Expanded(child:ListView.builder(itemCount:list.length,itemBuilder:(context,i){
-          final b=list[i],on=selectedBooks.contains(b.id),p=proposals[b.id];
-          return ListTile(leading:_AdminBookThumb(url:b.previewImageUrl),title:Text(b.title,style:const TextStyle(fontWeight:FontWeight.w800)),
-            subtitle:Text(p==null?b.author:'AI ma’lumoti tayyor • ${b.author}'),
-            trailing:IconButton(tooltip:on?'Tanlangan':'Tanlash',onPressed:researching||saving?null:()=>setState((){if(on)selectedBooks.remove(b.id);else selectedBooks.add(b.id);}),icon:Icon(on?Icons.check_circle_rounded:Icons.add_circle_outline_rounded,color:on?AppColors.success:AppColors.navy)),
-            onTap:researching||saving?null:()=>setState((){if(on)selectedBooks.remove(b.id);else selectedBooks.add(b.id);}));
-        })),
-      ]),
-      bottomNavigationBar:SafeArea(minimum:const EdgeInsets.all(16),child:FilledButton.icon(
-        onPressed:researching||saving?null:research,
-        icon:researching||saving?const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2)):const Icon(Icons.auto_awesome_rounded),
-        label:Text(researching?'AI tekshirmoqda $done/$total':saving?'Saqlanmoqda...':'AI bilan bir martada to‘ldirish'),
-      )),
+      appBar: AppBar(title: const Text('AI bilan ommaviy tahrirlash')),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Qaysi ma’lumotlar o‘zgarsin?',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 5),
+                const Text(
+                  '+ bilan tanlangan maydonlargina AI topgan ma’lumot bilan yangilanadi. Qolganlari aslicha qoladi.',
+                  style: TextStyle(color: AppColors.muted, height: 1.35),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: fieldItems.map(fieldChip).toList(),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: search,
+                  decoration: const InputDecoration(
+                    hintText: 'Kitob yoki muallif...',
+                    prefixIcon: Icon(Icons.search_rounded),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text(
+                      '${selectedBooks.length} / ${widget.books.length} ta tanlangan',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: researching || saving
+                          ? null
+                          : () => setState(
+                              () => selectedBooks.addAll(list.map((b) => b.id)),
+                            ),
+                      child: const Text('Barchasini +'),
+                    ),
+                    TextButton(
+                      onPressed: researching || saving
+                          ? null
+                          : () => setState(() => selectedBooks.clear()),
+                      child: const Text('Tozalash'),
+                    ),
+                  ],
+                ),
+                if (researching) ...[
+                  const SizedBox(height: 4),
+                  LinearProgressIndicator(
+                    value: total == 0 ? null : done / total,
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    'AI tekshirmoqda: $done / $total',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: ListView.builder(
+              itemCount: list.length,
+              itemBuilder: (context, i) {
+                final b = list[i],
+                    on = selectedBooks.contains(b.id),
+                    p = proposals[b.id];
+                return ListTile(
+                  leading: _AdminBookThumb(url: b.previewImageUrl),
+                  title: Text(
+                    b.title,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  subtitle: Text(
+                    p == null ? b.author : 'AI ma’lumoti tayyor • ${b.author}',
+                  ),
+                  trailing: IconButton(
+                    tooltip: on ? 'Tanlangan' : 'Tanlash',
+                    onPressed: researching || saving
+                        ? null
+                        : () => setState(() {
+                            if (on)
+                              selectedBooks.remove(b.id);
+                            else
+                              selectedBooks.add(b.id);
+                          }),
+                    icon: Icon(
+                      on
+                          ? Icons.check_circle_rounded
+                          : Icons.add_circle_outline_rounded,
+                      color: on ? AppColors.success : AppColors.navy,
+                    ),
+                  ),
+                  onTap: researching || saving
+                      ? null
+                      : () => setState(() {
+                          if (on)
+                            selectedBooks.remove(b.id);
+                          else
+                            selectedBooks.add(b.id);
+                        }),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.all(16),
+        child: FilledButton.icon(
+          onPressed: researching || saving ? null : research,
+          icon: researching || saving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.auto_awesome_rounded),
+          label: Text(
+            researching
+                ? 'AI tekshirmoqda $done/$total'
+                : saving
+                ? 'Saqlanmoqda...'
+                : 'AI bilan bir martada to‘ldirish',
+          ),
+        ),
+      ),
     );
   }
 }
 
-
 class _BooksAdmin extends StatefulWidget {
-  const _BooksAdmin({super.key, required this.api});
+  const _BooksAdmin({super.key, required this.api, this.initialFilter = 'all'});
+  final String initialFilter;
   final _AdminApi api;
 
   @override
@@ -4133,6 +5354,8 @@ class _BooksAdminState extends State<_BooksAdmin> {
         return _invalidImage(book);
       case 'missing_author':
         return _missingAuthor(book);
+      case 'missing_publisher':
+        return book.publisher.trim().isEmpty;
       case 'gallery_over_2':
         return webPreviewFeaturesAvailable && _galleryOverTwo(book);
       case 'gallery_over_1':
@@ -4199,6 +5422,7 @@ class _BooksAdminState extends State<_BooksAdmin> {
   @override
   void initState() {
     super.initState();
+    filter = widget.initialFilter;
     future = widget.api.books();
     unawaited(_startThumbnailBackfill(future));
     unawaited(_loadSales());
@@ -4475,22 +5699,23 @@ class _BooksAdminState extends State<_BooksAdmin> {
           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
           decoration: BoxDecoration(
             borderRadius: radius,
-            border: Border.all(
-              color: selected ? foreground : AppColors.border,
-            ),
+            border: Border.all(color: selected ? foreground : AppColors.border),
           ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(icon, size: 14, color: foreground),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                color: foreground,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: foreground),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  color: foreground,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
-            ),
-          ]),
+            ],
+          ),
         ),
       ),
     );
@@ -4529,8 +5754,7 @@ class _BooksAdminState extends State<_BooksAdmin> {
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(
-              child:
-              Padding(
+              child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -4565,14 +5789,16 @@ class _BooksAdminState extends State<_BooksAdmin> {
                           icon: Icons.description_outlined,
                           foreground: AppColors.navy,
                           selected: filter == 'missing_description',
-                          onTap: () => setState(() => filter = 'missing_description'),
+                          onTap: () =>
+                              setState(() => filter = 'missing_description'),
                         ),
                         _booksFilterChip(
                           label: 'Sahifasi ko‘rsatilmagan ${missingPageCounts}',
                           icon: Icons.menu_book_outlined,
                           foreground: AppColors.navy,
                           selected: filter == 'missing_page_count',
-                          onTap: () => setState(() => filter = 'missing_page_count'),
+                          onTap: () =>
+                              setState(() => filter = 'missing_page_count'),
                         ),
                         _booksFilterChip(
                           label: 'Tan narxi kiritilmagan ${missingCost}',
@@ -4603,11 +5829,14 @@ class _BooksAdminState extends State<_BooksAdmin> {
                           onTap: () => setState(() => filter = 'planned'),
                         ),
                         _booksFilterChip(
-                          label: 'Sotilmagan kitoblar ${salesLoaded ? unsoldBooks : '…'}',
+                          label:
+                              'Sotilmagan kitoblar ${salesLoaded ? unsoldBooks : '…'}',
                           icon: Icons.sell_outlined,
                           foreground: AppColors.navy,
                           selected: filter == 'unsold',
-                          onTap: salesLoaded ? () => setState(() => filter = 'unsold') : null,
+                          onTap: salesLoaded
+                              ? () => setState(() => filter = 'unsold')
+                              : null,
                         ),
                         _booksFilterChip(
                           label: 'Muammoli ${problemBooks}',
@@ -4656,8 +5885,13 @@ class _BooksAdminState extends State<_BooksAdmin> {
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: all.isEmpty ? null : () => openBulkAi(all),
-                            icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                            onPressed: all.isEmpty
+                                ? null
+                                : () => openBulkAi(all),
+                            icon: const Icon(
+                              Icons.auto_awesome_rounded,
+                              size: 18,
+                            ),
                             label: const FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text('AI tahrir'),
@@ -4668,7 +5902,10 @@ class _BooksAdminState extends State<_BooksAdmin> {
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: openCatalogGroups,
-                            icon: const Icon(Icons.account_tree_rounded, size: 18),
+                            icon: const Icon(
+                              Icons.account_tree_rounded,
+                              size: 18,
+                            ),
                             label: const FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text('Kategoriya / Nashriyot'),
@@ -4680,7 +5917,7 @@ class _BooksAdminState extends State<_BooksAdmin> {
                   ],
                 ),
               ),
-              ),
+            ),
             if (snap.connectionState == ConnectionState.waiting &&
                 snap.data == null)
               const SliverFillRemaining(
@@ -4723,12 +5960,11 @@ class _BooksAdminState extends State<_BooksAdmin> {
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
                 sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (_, index) {
-                      if (index.isOdd) {
-                        return const SizedBox(height: 8);
-                      }
-                      final i = index ~/ 2;
+                  delegate: SliverChildBuilderDelegate((_, index) {
+                    if (index.isOdd) {
+                      return const SizedBox(height: 8);
+                    }
+                    final i = index ~/ 2;
 
                     final b = books[i];
                     final profit = b.currentPrice - b.costPrice;
@@ -4745,7 +5981,9 @@ class _BooksAdminState extends State<_BooksAdmin> {
                         subtitle: Text(
                           [
                             '${b.author} • ${b.stock} dona • ${_won(b.currentPrice)}${b.planned ? ' • Rejada' : (b.isActive ? '' : ' • Yashirilgan')}',
-                            if (webPreviewFeaturesAvailable && (filter == 'gallery_over_2' || filter == 'gallery_over_1'))
+                            if (webPreviewFeaturesAvailable &&
+                                (filter == 'gallery_over_2' ||
+                                    filter == 'gallery_over_1'))
                               'Jami ${b.galleryImages.length} ta rasm — tahrirlash uchun bosing',
                             if (showCostLine)
                               b.costPrice <= 0
@@ -4753,8 +5991,15 @@ class _BooksAdminState extends State<_BooksAdmin> {
                                   : 'Tannarx ${_won(b.costPrice)} • Foyda ${_won(profit)}',
                           ].join('\n'),
                         ),
-                        isThreeLine: showCostLine || (webPreviewFeaturesAvailable && (filter == 'gallery_over_2' || filter == 'gallery_over_1')),
-                        onTap: webPreviewFeaturesAvailable && (filter == 'gallery_over_2' || filter == 'gallery_over_1')
+                        isThreeLine:
+                            showCostLine ||
+                            (webPreviewFeaturesAvailable &&
+                                (filter == 'gallery_over_2' ||
+                                    filter == 'gallery_over_1')),
+                        onTap:
+                            webPreviewFeaturesAvailable &&
+                                (filter == 'gallery_over_2' ||
+                                    filter == 'gallery_over_1')
                             ? () => openForm(b)
                             : null,
                         trailing: PopupMenuButton<String>(
@@ -4773,9 +6018,7 @@ class _BooksAdminState extends State<_BooksAdmin> {
                         ),
                       ),
                     );
-                  },
-                    childCount: books.length * 2 - 1,
-                  ),
+                  }, childCount: books.length * 2 - 1),
                 ),
               ),
           ],
@@ -4881,7 +6124,10 @@ class _PreorderAdminPageState extends State<_PreorderAdminPage> {
   bool demandAllTime = false;
   bool soldoutSaving = false;
   @override
-  void initState() { super.initState(); future = _load(); }
+  void initState() {
+    super.initState();
+    future = _load();
+  }
 
   Future<Map<String, dynamic>> _soldoutStatus() async {
     try {
@@ -4901,27 +6147,50 @@ class _PreorderAdminPageState extends State<_PreorderAdminPage> {
 
   Future<void> _toggleSoldout(bool enabled, int eligible) async {
     if (soldoutSaving) return;
-    final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
-      title: Text(enabled ? 'Oldindan buyurtmalarni ochish' : 'Oldindan buyurtmalarni yopish'),
-      content: Text(enabled
-          ? 'Omborda tugagan $eligible ta kitob uchun oldindan buyurtma qabul qilish yoqiladi. Yangi tugagan kitoblar ham avtomatik qo‘shiladi. Oldingi narx kafolatlanmaydi.'
-          : 'Barcha tugagan kitoblarga yangi oldindan buyurtma berish yopiladi. Oldin qabul qilingan buyurtmalar saqlanadi.'),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Bekor qilish')),
-        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(enabled ? 'Yoqish' : 'O‘chirish')),
-      ],
-    ));
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          enabled
+              ? 'Oldindan buyurtmalarni ochish'
+              : 'Oldindan buyurtmalarni yopish',
+        ),
+        content: Text(
+          enabled
+              ? 'Omborda tugagan $eligible ta kitob uchun oldindan buyurtma qabul qilish yoqiladi. Yangi tugagan kitoblar ham avtomatik qo‘shiladi. Oldingi narx kafolatlanmaydi.'
+              : 'Barcha tugagan kitoblarga yangi oldindan buyurtma berish yopiladi. Oldin qabul qilingan buyurtmalar saqlanadi.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Bekor qilish'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(enabled ? 'Yoqish' : 'O‘chirish'),
+          ),
+        ],
+      ),
+    );
     if (confirm != true || !mounted) return;
     setState(() => soldoutSaving = true);
     try {
       await widget.api.setSoldoutPreorders(enabled);
       if (!mounted) return;
       reload();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
-        enabled ? 'Tugagan kitoblar uchun oldindan buyurtma ochildi.' : 'Tugagan kitoblar uchun yangi oldindan buyurtmalar yopildi.',
-      )));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            enabled
+                ? 'Tugagan kitoblar uchun oldindan buyurtma ochildi.'
+                : 'Tugagan kitoblar uchun yangi oldindan buyurtmalar yopildi.',
+          ),
+        ),
+      );
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Saqlanmadi: $e')));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Saqlanmadi: $e')));
     } finally {
       if (mounted) setState(() => soldoutSaving = false);
     }
@@ -4930,7 +6199,10 @@ class _PreorderAdminPageState extends State<_PreorderAdminPage> {
   Future<void> _edit([Book? book]) async {
     final changed = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => _BookForm(api: widget.api, book: book, preorderMode: true)),
+      MaterialPageRoute(
+        builder: (_) =>
+            _BookForm(api: widget.api, book: book, preorderMode: true),
+      ),
     );
     if (changed == true) reload();
   }
@@ -4939,11 +6211,15 @@ class _PreorderAdminPageState extends State<_PreorderAdminPage> {
     try {
       final url = await widget.api.paymentProofUrl(path);
       final uri = Uri.tryParse(url);
-      if (uri == null || !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (uri == null ||
+          !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
         throw StateError('Chek ochilmadi');
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Chekni ochishda xatolik: $e')));
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Chekni ochishda xatolik: $e')));
     }
   }
 
@@ -4964,117 +6240,238 @@ class _PreorderAdminPageState extends State<_PreorderAdminPage> {
       future: future,
       builder: (context, snap) {
         if (!snap.hasData) {
-          if (snap.hasError) return Center(child: Text('Xatolik: ${snap.error}'));
+          if (snap.hasError)
+            return Center(child: Text('Xatolik: ${snap.error}'));
           return const Center(child: CircularProgressIndicator());
         }
-        final books = (snap.data![0] as List<Book>).where((b) => b.preorderEnabled).toList();
+        final books = (snap.data![0] as List<Book>)
+            .where((b) => b.preorderEnabled)
+            .toList();
         final soldout = Map<String, dynamic>.from(snap.data![2] as Map);
         final soldoutReady = soldout['enabled'] is bool;
         final soldoutEnabled = soldout['enabled'] == true;
         final eligible = (soldout['eligible_count'] as num?)?.toInt() ?? 0;
-        final insight = Map<String,dynamic>.from(snap.data![1] as Map);
-        final requests = ((insight['preorders'] as List?) ?? const []).whereType<Map>().map((e)=>Map<String,dynamic>.from(e)).toList();
+        final insight = Map<String, dynamic>.from(snap.data![1] as Map);
+        final requests = ((insight['preorders'] as List?) ?? const [])
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
         return RefreshIndicator(
-          onRefresh: () async { reload(); await future; },
+          onRefresh: () async {
+            reload();
+            await future;
+          },
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16,16,16,100),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
             children: [
               AppSurface(
                 backgroundColor: const Color(0xFFE9F4F0),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Row(children: [
-                    Icon(Icons.inventory_2_outlined, color: AppColors.success),
-                    SizedBox(width: 8),
-                    Expanded(child: Text('Tugagan kitoblar • umumiy boshqaruv',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900))),
-                  ]),
-                  const SizedBox(height: 8),
-                  Text('$eligible ta kitob hozir omborda yo‘q. Qabul ochiq bo‘lsa, mijoz oldingi narxni, ₩4,000 택배 to‘lovini va kurs bo‘yicha narx o‘zgarishi mumkinligini ko‘radi.',
-                      style: const TextStyle(color: AppColors.muted, height: 1.4)),
-                  if (!soldoutReady) Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text('Sozlama serverda hali mavjud emas: ${soldout['error'] ?? 'Qayta yuklab ko‘ring.'}',
-                        style: const TextStyle(color: AppColors.danger, fontSize: 12)),
-                  ),
-                  SwitchListTile.adaptive(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(soldoutEnabled ? 'Qabul ochiq' : 'Qabul yopiq',
-                        style: const TextStyle(fontWeight: FontWeight.w800)),
-                    subtitle: const Text('Bitta tugma barcha tugagan kitoblarga va keyin tugaydigan kitoblarga ta’sir qiladi. Maxsus oldindan sotuvlar alohida qoladi.'),
-                    secondary: soldoutSaving
-                        ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
-                        : Icon(soldoutEnabled ? Icons.toggle_on_rounded : Icons.toggle_off_outlined),
-                    value: soldoutEnabled,
-                    onChanged: soldoutReady && !soldoutSaving
-                        ? (value) => _toggleSoldout(value, eligible) : null,
-                  ),
-                ]),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.inventory_2_outlined,
+                          color: AppColors.success,
+                        ),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Tugagan kitoblar • umumiy boshqaruv',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '$eligible ta kitob hozir omborda yo‘q. Qabul ochiq bo‘lsa, mijoz oldingi narxni, ₩4,000 택배 to‘lovini va kurs bo‘yicha narx o‘zgarishi mumkinligini ko‘radi.',
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        height: 1.4,
+                      ),
+                    ),
+                    if (!soldoutReady)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          'Sozlama serverda hali mavjud emas: ${soldout['error'] ?? 'Qayta yuklab ko‘ring.'}',
+                          style: const TextStyle(
+                            color: AppColors.danger,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        soldoutEnabled ? 'Qabul ochiq' : 'Qabul yopiq',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      subtitle: const Text(
+                        'Bitta tugma barcha tugagan kitoblarga va keyin tugaydigan kitoblarga ta’sir qiladi. Maxsus oldindan sotuvlar alohida qoladi.',
+                      ),
+                      secondary: soldoutSaving
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              soldoutEnabled
+                                  ? Icons.toggle_on_rounded
+                                  : Icons.toggle_off_outlined,
+                            ),
+                      value: soldoutEnabled,
+                      onChanged: soldoutReady && !soldoutSaving
+                          ? (value) => _toggleSoldout(value, eligible)
+                          : null,
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 18),
               AppSectionHeader(
                 title: 'Oldindan sotuvdagi kitoblar',
                 subtitle: 'Rasm, ma’lumot, kelish muddati va oldindan to‘lov',
                 icon: Icons.event_available_rounded,
-                trailing: AppInfoPill(icon: Icons.menu_book_rounded, label: '${books.length} ta'),
+                trailing: AppInfoPill(
+                  icon: Icons.menu_book_rounded,
+                  label: '${books.length} ta',
+                ),
               ),
               const SizedBox(height: 12),
               if (books.isEmpty)
-                const AppSurface(child: Text('Hozircha oldindan sotuvdagi kitob yo‘q. “Yangi kitob”ni bosing.'))
+                const AppSurface(
+                  child: Text(
+                    'Hozircha oldindan sotuvdagi kitob yo‘q. “Yangi kitob”ni bosing.',
+                  ),
+                )
               else
-                ...books.map((b) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: AppSurface(
-                    child: Row(
-                      children: [
-                        _AdminBookThumb(url: b.previewImageUrl),
-                        const SizedBox(width: 12),
-                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(b.title, style: const TextStyle(fontSize:16,fontWeight:FontWeight.w900)),
-                          const SizedBox(height:4),
-                          Text(b.preorderArrivalNote.isEmpty ? 'Kelish muddati kiritilmagan' : 'Taxminiy kelishi: ${b.preorderArrivalNote}', style: const TextStyle(color:AppColors.muted)),
-                          Text('Oldindan to‘lov: ${_won(b.preorderDepositMin)} – ${_won(b.preorderDepositMax)}', style: const TextStyle(fontWeight:FontWeight.w700)),
-                        ])),
-                        PopupMenuButton<String>(
-                          onSelected: (v) {
-                            if (v=='edit') _edit(b);
-                            if (v=='story') Navigator.push(context, MaterialPageRoute(builder:(_)=>BookStoryPage(book:b)));
-                          },
-                          itemBuilder: (_) => const [
-                            PopupMenuItem(value:'edit', child:Text('Tahrirlash')),
-                            PopupMenuItem(value:'story', child:Text('Story / ulashish')),
-                          ],
-                        ),
-                      ],
+                ...books.map(
+                  (b) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: AppSurface(
+                      child: Row(
+                        children: [
+                          _AdminBookThumb(url: b.previewImageUrl),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  b.title,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  b.preorderArrivalNote.isEmpty
+                                      ? 'Kelish muddati kiritilmagan'
+                                      : 'Taxminiy kelishi: ${b.preorderArrivalNote}',
+                                  style: const TextStyle(
+                                    color: AppColors.muted,
+                                  ),
+                                ),
+                                Text(
+                                  'Oldindan to‘lov: ${_won(b.preorderDepositMin)} – ${_won(b.preorderDepositMax)}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          PopupMenuButton<String>(
+                            onSelected: (v) {
+                              if (v == 'edit') _edit(b);
+                              if (v == 'story')
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => BookStoryPage(book: b),
+                                  ),
+                                );
+                            },
+                            itemBuilder: (_) => const [
+                              PopupMenuItem(
+                                value: 'edit',
+                                child: Text('Tahrirlash'),
+                              ),
+                              PopupMenuItem(
+                                value: 'story',
+                                child: Text('Story / ulashish'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                )),
+                ),
               const SizedBox(height: 20),
               AppSectionHeader(
                 title: 'Oldindan buyurtmalar',
                 subtitle: 'Mijoz yuborgan oldindan to‘lovlar',
                 icon: Icons.receipt_long_rounded,
-                trailing: AppInfoPill(icon: Icons.people_alt_outlined, label: '${requests.length} ta'),
+                trailing: AppInfoPill(
+                  icon: Icons.people_alt_outlined,
+                  label: '${requests.length} ta',
+                ),
               ),
               const SizedBox(height: 10),
               if (requests.isEmpty)
-                const AppSurface(child: Text('Hozircha oldindan buyurtma yo‘q.'))
+                const AppSurface(
+                  child: Text('Hozircha oldindan buyurtma yo‘q.'),
+                )
               else
-                ...requests.map((r) => Padding(
-                  padding: const EdgeInsets.only(bottom: 9),
-                  child: AppSurface(child: Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-                    Text((r['title']??'Kitob').toString(),style:const TextStyle(fontWeight:FontWeight.w900)),
-                    const SizedBox(height:4),
-                    Text('${r['customer_name']??'Mijoz'} • ${r['phone']??''}'),
-                    Text('Oldindan to‘lov: ${_won((r['deposit_amount'] as num?)?.toInt()??0)}',style:const TextStyle(fontWeight:FontWeight.w800)),
-                    if ((r['note']??'').toString().trim().isNotEmpty) Text('Izoh: ${r['note']}'),
-                    if ((r['payment_proof_path']??'').toString().trim().isNotEmpty)
-                      Align(alignment:Alignment.centerLeft,child:TextButton.icon(
-                        onPressed:()=>_openProof(r['payment_proof_path'].toString()),
-                        icon:const Icon(Icons.receipt_outlined),
-                        label:const Text('To‘lov chekini ko‘rish'),
-                      )),
-                  ])),
-                )),
+                ...requests.map(
+                  (r) => Padding(
+                    padding: const EdgeInsets.only(bottom: 9),
+                    child: AppSurface(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            (r['title'] ?? 'Kitob').toString(),
+                            style: const TextStyle(fontWeight: FontWeight.w900),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${r['customer_name'] ?? 'Mijoz'} • ${r['phone'] ?? ''}',
+                          ),
+                          Text(
+                            'Oldindan to‘lov: ${_won((r['deposit_amount'] as num?)?.toInt() ?? 0)}',
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          if ((r['note'] ?? '').toString().trim().isNotEmpty)
+                            Text('Izoh: ${r['note']}'),
+                          if ((r['payment_proof_path'] ?? '')
+                              .toString()
+                              .trim()
+                              .isNotEmpty)
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: TextButton.icon(
+                                onPressed: () => _openProof(
+                                  r['payment_proof_path'].toString(),
+                                ),
+                                icon: const Icon(Icons.receipt_outlined),
+                                label: const Text('To‘lov chekini ko‘rish'),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         );
@@ -5094,6 +6491,7 @@ class _BookForm extends StatefulWidget {
 }
 
 class _BookFormState extends State<_BookForm> {
+  final saveRequestId = _formRequestUuid();
   final key = GlobalKey<FormState>();
   late final TextEditingController title;
   late final TextEditingController author;
@@ -5134,7 +6532,9 @@ class _BookFormState extends State<_BookForm> {
     publisher = TextEditingController(text: b?.publisher ?? '');
     category = TextEditingController(text: b?.category ?? 'Boshqalar');
     description = TextEditingController(text: b?.description ?? '');
-    pageCount = TextEditingController(text: b == null || b.pageCount <= 0 ? '' : '${b.pageCount}');
+    pageCount = TextEditingController(
+      text: b == null || b.pageCount <= 0 ? '' : '${b.pageCount}',
+    );
     price = TextEditingController(text: b == null ? '' : '${b.price}');
     preorderPriceMax = TextEditingController(
       text: b == null || b.preorderPriceMax <= 0 ? '' : '${b.preorderPriceMax}',
@@ -5160,8 +6560,12 @@ class _BookFormState extends State<_BookForm> {
     planned = b?.planned ?? false;
     preorderEnabled = widget.preorderMode || (b?.preorderEnabled ?? false);
     preorderArrival = TextEditingController(text: b?.preorderArrivalNote ?? '');
-    preorderMin = TextEditingController(text: '${b?.preorderDepositMin ?? 5000}');
-    preorderMax = TextEditingController(text: '${b?.preorderDepositMax ?? 10000}');
+    preorderMin = TextEditingController(
+      text: '${b?.preorderDepositMin ?? 5000}',
+    );
+    preorderMax = TextEditingController(
+      text: '${b?.preorderDepositMax ?? 10000}',
+    );
     if (widget.preorderMode && b == null) stock.text = '0';
     image.addListener(_imageChanged);
   }
@@ -5333,7 +6737,7 @@ class _BookFormState extends State<_BookForm> {
 
   Future<void> pickAndUploadImages() async {
     if (uploadingImage) return;
-    final slots = 10 - gallery.length;
+    final slots = 20 - gallery.length;
     if (slots <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -5371,7 +6775,7 @@ class _BookFormState extends State<_BookForm> {
           if (!mounted) return;
           if (!gallery.contains(url)) {
             setState(() {
-              gallery = [...gallery, url].take(10).toList();
+              gallery = [...gallery, url].take(20).toList();
               _syncCoverController();
             });
             uploadedCount++;
@@ -5441,53 +6845,131 @@ class _BookFormState extends State<_BookForm> {
 
   Future<void> _researchBook({String? editField}) async {
     if (title.text.trim().isEmpty || researchingBook) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Avval kitob nomini kiriting.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Avval kitob nomini kiriting.')),
+      );
       return;
     }
-    setState(()=>researchingBook=true);
+    setState(() => researchingBook = true);
     try {
-      final data=await widget.api.researchBook(title:title.text.trim(),author:author.text.trim(),publisher:publisher.text.trim());
-      if(!mounted) return;
-      final aiPages=_aiPageCount(data['page_count']);
-      data['page_count']=aiPages>0 ? '$aiPages' : '';
-      if(editField!=null && editField!='description') {
-        final fieldMap=<String,TextEditingController>{'title':title,'author':author,'publisher':publisher,'category':category,'page_count':pageCount};
-        final controller=fieldMap[editField];
-        final value=(data[editField]??'').toString().trim();
-        if(controller!=null && value.isNotEmpty) {
-          controller.text=value;
-          setState((){});
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('AI topgan ma’lumot maydonga qo‘yildi. “Saqlash”ni bosing.')));
+      final data = await widget.api.researchBook(
+        title: title.text.trim(),
+        author: author.text.trim(),
+        publisher: publisher.text.trim(),
+      );
+      if (!mounted) return;
+      final aiPages = _aiPageCount(data['page_count']);
+      data['page_count'] = aiPages > 0 ? '$aiPages' : '';
+      if (editField != null && editField != 'description') {
+        final fieldMap = <String, TextEditingController>{
+          'title': title,
+          'author': author,
+          'publisher': publisher,
+          'category': category,
+          'page_count': pageCount,
+        };
+        final controller = fieldMap[editField];
+        final value = (data[editField] ?? '').toString().trim();
+        if (controller != null && value.isNotEmpty) {
+          controller.text = value;
+          setState(() {});
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'AI topgan ma’lumot maydonga qo‘yildi. “Saqlash”ni bosing.',
+              ),
+            ),
+          );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Bu ma’lumot internetdan aniq topilmadi.')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Bu ma’lumot internetdan aniq topilmadi.'),
+            ),
+          );
         }
         return;
       }
-      final foundDescription=(data['description']??'').toString().trim();
-      final ok=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
-        title:const Text('AI internetdan topdi'),
-        content:SizedBox(width:620,child:SingleChildScrollView(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-          Text('Nomi: '+(data['title']??'').toString()), const SizedBox(height:6),
-          if((data['author']??'').toString().trim().isNotEmpty) Text('Muallif: '+data['author'].toString()),
-          if((data['publisher']??'').toString().trim().isNotEmpty) Text('Nashriyot: '+data['publisher'].toString()),
-          if(aiPages>0) Text('Sahifalar soni: '+data['page_count'].toString()+' bet'),
-          const SizedBox(height:12),
-          if(foundDescription.isNotEmpty) Text(foundDescription),
-          if((data['notes']??'').toString().trim().isNotEmpty) Padding(padding:const EdgeInsets.only(top:8),child:Text('Izoh: '+data['notes'].toString())),
-          const SizedBox(height:8),const Text('Shu tavsifni qo‘llash uchun “Tanlash”ni bosing. Boshqa tavsif kerak bo‘lsa oynani yoping va AI qidiruvini qayta bosing.',style:TextStyle(fontWeight:FontWeight.w700)),
-        ]))),
-        actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Yopish')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Tanlash'))],
-      ));
-      if(ok!=true || !mounted) return;
-      void setIf(TextEditingController x,String name){final v=(data[name]??'').toString().trim();if(v.isNotEmpty)x.text=v;}
-      setIf(title,'title'); setIf(author,'author'); setIf(publisher,'publisher'); setIf(category,'category'); setIf(pageCount,'page_count');
-      if(foundDescription.isNotEmpty) description.text=foundDescription;
-      final cv=(data['cover']??'').toString().trim(); if(cv.isNotEmpty) cover=cv;
-      setState((){});
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Maydonlarga qo‘llandi. Bazaga yozish uchun “Saqlash”ni bosing.')));
-    } catch(e) {
-      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('AI qidiruvda xatolik: ' + e.toString())));
-    } finally { if(mounted) setState(()=>researchingBook=false); }
+      final foundDescription = (data['description'] ?? '').toString().trim();
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('AI internetdan topdi'),
+          content: SizedBox(
+            width: 620,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Nomi: ' + (data['title'] ?? '').toString()),
+                  const SizedBox(height: 6),
+                  if ((data['author'] ?? '').toString().trim().isNotEmpty)
+                    Text('Muallif: ' + data['author'].toString()),
+                  if ((data['publisher'] ?? '').toString().trim().isNotEmpty)
+                    Text('Nashriyot: ' + data['publisher'].toString()),
+                  if (aiPages > 0)
+                    Text(
+                      'Sahifalar soni: ' +
+                          data['page_count'].toString() +
+                          ' bet',
+                    ),
+                  const SizedBox(height: 12),
+                  if (foundDescription.isNotEmpty) Text(foundDescription),
+                  if ((data['notes'] ?? '').toString().trim().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text('Izoh: ' + data['notes'].toString()),
+                    ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Shu tavsifni qo‘llash uchun “Tanlash”ni bosing. Boshqa tavsif kerak bo‘lsa oynani yoping va AI qidiruvini qayta bosing.',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Yopish'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Tanlash'),
+            ),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+      void setIf(TextEditingController x, String name) {
+        final v = (data[name] ?? '').toString().trim();
+        if (v.isNotEmpty) x.text = v;
+      }
+
+      setIf(title, 'title');
+      setIf(author, 'author');
+      setIf(publisher, 'publisher');
+      setIf(category, 'category');
+      setIf(pageCount, 'page_count');
+      if (foundDescription.isNotEmpty) description.text = foundDescription;
+      final cv = (data['cover'] ?? '').toString().trim();
+      if (cv.isNotEmpty) cover = cv;
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Maydonlarga qo‘llandi. Bazaga yozish uchun “Saqlash”ni bosing.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('AI qidiruvda xatolik: ' + e.toString())),
+        );
+    } finally {
+      if (mounted) setState(() => researchingBook = false);
+    }
   }
 
   Future<void> save() async {
@@ -5502,9 +6984,18 @@ class _BookFormState extends State<_BookForm> {
     final pages = int.tryParse(pageCount.text.trim()) ?? 0;
     final preorderMinValue = int.tryParse(preorderMin.text.trim()) ?? 5000;
     final preorderMaxValue = int.tryParse(preorderMax.text.trim()) ?? 10000;
-    if (p < 0 || s < 0 || d < 0 || d > 99 || c < 0 ||
-        (widget.preorderMode && (preorderPriceMaxValue < p || preorderPriceMaxValue <= 0)) ||
-        (preorderEnabled && (preorderMinValue < 5000 || preorderMaxValue < preorderMinValue || preorderMaxValue > 10000000 || preorderArrival.text.trim().isEmpty))) {
+    if (p < 0 ||
+        s < 0 ||
+        d < 0 ||
+        d > 99 ||
+        c < 0 ||
+        (widget.preorderMode &&
+            (preorderPriceMaxValue < p || preorderPriceMaxValue <= 0)) ||
+        (preorderEnabled &&
+            (preorderMinValue < 5000 ||
+                preorderMaxValue < preorderMinValue ||
+                preorderMaxValue > 10000000 ||
+                preorderArrival.text.trim().isEmpty))) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Narx, ombor yoki chegirma qiymatini tekshiring.'),
@@ -5556,6 +7047,10 @@ class _BookFormState extends State<_BookForm> {
           preorderPriceMax: preorderPriceMaxValue,
           createdAt: widget.book?.createdAt,
         ),
+        expectedStock: widget.book != null && s != widget.book!.stock
+            ? widget.book!.stock
+            : null,
+        requestId: saveRequestId,
       );
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
@@ -5574,7 +7069,9 @@ class _BookFormState extends State<_BookForm> {
       appBar: AppBar(
         title: Text(
           widget.preorderMode
-              ? (widget.book == null ? 'Oldindan sotuvga kitob qo‘shish' : 'Oldindan sotuvni tahrirlash')
+              ? (widget.book == null
+                    ? 'Oldindan sotuvga kitob qo‘shish'
+                    : 'Oldindan sotuvni tahrirlash')
               : (widget.book == null ? 'Kitob qo‘shish' : 'Kitobni tahrirlash'),
         ),
       ),
@@ -5584,34 +7081,92 @@ class _BookFormState extends State<_BookForm> {
           padding: const EdgeInsets.all(16),
           children: [
             FilledButton.tonalIcon(
-              onPressed: researchingBook ? null : () async {
-                if(widget.book==null) {
-                  await _researchBook();
-                  return;
-                }
-                final field=await showModalBottomSheet<String>(
-                  context:context,
-                  showDragHandle:true,
-                  builder:(ctx)=>SafeArea(child:Padding(
-                    padding:const EdgeInsets.fromLTRB(16,0,16,20),
-                    child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.stretch,children:[
-                      const Text('Nimasini AI bilan tahrirlaysiz?',style:TextStyle(fontSize:20,fontWeight:FontWeight.w900)),
-                      const SizedBox(height:12),
-                      ListTile(leading:const Icon(Icons.notes_rounded),title:const Text('Tavsif'),subtitle:const Text('3 xil variant beradi'),onTap:()=>Navigator.pop(ctx,'description')),
-                      ListTile(leading:const Icon(Icons.person_rounded),title:const Text('Muallif'),onTap:()=>Navigator.pop(ctx,'author')),
-                      ListTile(leading:const Icon(Icons.apartment_rounded),title:const Text('Nashriyot'),onTap:()=>Navigator.pop(ctx,'publisher')),
-                      ListTile(leading:const Icon(Icons.menu_book_outlined),title:const Text('Sahifalar soni'),onTap:()=>Navigator.pop(ctx,'page_count')),
-                      ListTile(leading:const Icon(Icons.category_rounded),title:const Text('Kategoriya'),onTap:()=>Navigator.pop(ctx,'category')),
-                      ListTile(leading:const Icon(Icons.menu_book_rounded),title:const Text('Kitob nomi'),onTap:()=>Navigator.pop(ctx,'title')),
-                      ListTile(leading:const Icon(Icons.auto_awesome_rounded),title:const Text('Hammasini tekshirish'),onTap:()=>Navigator.pop(ctx,'all')),
-                    ]),
-                  )),
-                );
-                if(field==null) return;
-                await _researchBook(editField:field=='all'?null:field);
-              },
-              icon: researchingBook ? const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2)) : const Icon(Icons.travel_explore_rounded),
-              label: Text(researchingBook ? 'Internetdan qidirilmoqda...' : 'AI bilan internetdan ma’lumot topish'),
+              onPressed: researchingBook
+                  ? null
+                  : () async {
+                      if (widget.book == null) {
+                        await _researchBook();
+                        return;
+                      }
+                      final field = await showModalBottomSheet<String>(
+                        context: context,
+                        showDragHandle: true,
+                        builder: (ctx) => SafeArea(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const Text(
+                                  'Nimasini AI bilan tahrirlaysiz?',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                ListTile(
+                                  leading: const Icon(Icons.notes_rounded),
+                                  title: const Text('Tavsif'),
+                                  subtitle: const Text('3 xil variant beradi'),
+                                  onTap: () =>
+                                      Navigator.pop(ctx, 'description'),
+                                ),
+                                ListTile(
+                                  leading: const Icon(Icons.person_rounded),
+                                  title: const Text('Muallif'),
+                                  onTap: () => Navigator.pop(ctx, 'author'),
+                                ),
+                                ListTile(
+                                  leading: const Icon(Icons.apartment_rounded),
+                                  title: const Text('Nashriyot'),
+                                  onTap: () => Navigator.pop(ctx, 'publisher'),
+                                ),
+                                ListTile(
+                                  leading: const Icon(Icons.menu_book_outlined),
+                                  title: const Text('Sahifalar soni'),
+                                  onTap: () => Navigator.pop(ctx, 'page_count'),
+                                ),
+                                ListTile(
+                                  leading: const Icon(Icons.category_rounded),
+                                  title: const Text('Kategoriya'),
+                                  onTap: () => Navigator.pop(ctx, 'category'),
+                                ),
+                                ListTile(
+                                  leading: const Icon(Icons.menu_book_rounded),
+                                  title: const Text('Kitob nomi'),
+                                  onTap: () => Navigator.pop(ctx, 'title'),
+                                ),
+                                ListTile(
+                                  leading: const Icon(
+                                    Icons.auto_awesome_rounded,
+                                  ),
+                                  title: const Text('Hammasini tekshirish'),
+                                  onTap: () => Navigator.pop(ctx, 'all'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                      if (field == null) return;
+                      await _researchBook(
+                        editField: field == 'all' ? null : field,
+                      );
+                    },
+              icon: researchingBook
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.travel_explore_rounded),
+              label: Text(
+                researchingBook
+                    ? 'Internetdan qidirilmoqda...'
+                    : 'AI bilan internetdan ma’lumot topish',
+              ),
             ),
             const SizedBox(height: 14),
             Center(
@@ -5652,7 +7207,7 @@ class _BookFormState extends State<_BookForm> {
             const SizedBox(height: 10),
             Center(
               child: FilledButton.tonalIcon(
-                onPressed: uploadingImage || gallery.length >= 10
+                onPressed: uploadingImage || gallery.length >= 20
                     ? null
                     : pickAndUploadImages,
                 icon: uploadingImage
@@ -5665,7 +7220,7 @@ class _BookFormState extends State<_BookForm> {
                 label: Text(
                   uploadingImage
                       ? 'Yuklanmoqda...'
-                      : 'Rasmlar tanlash (${gallery.length}/10)',
+                      : 'Rasmlar tanlash (${gallery.length}/20)',
                 ),
               ),
             ),
@@ -5748,7 +7303,7 @@ class _BookFormState extends State<_BookForm> {
             const Padding(
               padding: EdgeInsets.only(top: 8, bottom: 14),
               child: Text(
-                '1-rasm — kitob muqovasi. U ilovada ham, Telegram botda ham asosiy rasm bo‘ladi. Qolgan rasmlar kitob ichini ko‘rsatish uchun. Maksimal 10 ta.',
+                '1-rasm — kitob muqovasi. U ilovada ham, Telegram botda ham asosiy rasm bo‘ladi. Qolgan rasmlar kitob ichini ko‘rsatish uchun. Maksimal 20 ta.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: Colors.black54),
               ),
@@ -5783,16 +7338,29 @@ class _BookFormState extends State<_BookForm> {
               ),
               const Text(
                 'Masalan: 18,000 dan 20,000 gacha. Yakuniy narx kitob kelganda aniq bo‘ladi.',
-                style: TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.muted,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 8),
               field(stock, 'Ombor', number: true, required: true),
             ] else
               Row(
                 children: [
-                  Expanded(child: field(price, 'Asl narx (₩)', number: true, required: true)),
+                  Expanded(
+                    child: field(
+                      price,
+                      'Asl narx (₩)',
+                      number: true,
+                      required: true,
+                    ),
+                  ),
                   const SizedBox(width: 8),
-                  Expanded(child: field(stock, 'Ombor', number: true, required: true)),
+                  Expanded(
+                    child: field(stock, 'Ombor', number: true, required: true),
+                  ),
                 ],
               ),
             Row(
@@ -5858,38 +7426,76 @@ class _BookFormState extends State<_BookForm> {
                   selected: planned,
                   onSelected: (v) => setState(() {
                     planned = v;
-                    if (v) { active = false; preorderEnabled = false; }
+                    if (v) {
+                      active = false;
+                      preorderEnabled = false;
+                    }
                   }),
                 ),
               ],
             ),
             if (planned)
-              const Text('Rejadagi kitob mijozlar katalogida va buyurtmada chiqmaydi.',
-                style: TextStyle(fontSize: 12, color: AppColors.muted)),
+              const Text(
+                'Rejadagi kitob mijozlar katalogida va buyurtmada chiqmaydi.',
+                style: TextStyle(fontSize: 12, color: AppColors.muted),
+              ),
             SwitchListTile(
               value: preorderEnabled,
-              onChanged: planned ? null : (v) => setState(() => preorderEnabled = v),
+              onChanged: planned
+                  ? null
+                  : (v) => setState(() => preorderEnabled = v),
               title: const Text('Oldindan sotuv ochiq'),
-              subtitle: const Text('Mijoz kitob kelishidan oldin band qilib, oldindan to‘lov yubora oladi.'),
+              subtitle: const Text(
+                'Mijoz kitob kelishidan oldin band qilib, oldindan to‘lov yubora oladi.',
+              ),
               contentPadding: EdgeInsets.zero,
             ),
             if (preorderEnabled) ...[
               const SizedBox(height: 6),
-              field(preorderArrival, 'Taxminiy kelish sanasi yoki muddati', required: true),
-              const Text('Mijoz bu sanani avans yuborishdan oldin ko‘radi.', style: TextStyle(fontSize: 12)),
+              field(
+                preorderArrival,
+                'Taxminiy kelish sanasi yoki muddati',
+                required: true,
+              ),
+              const Text(
+                'Mijoz bu sanani avans yuborishdan oldin ko‘radi.',
+                style: TextStyle(fontSize: 12),
+              ),
               Row(
                 children: [
-                  Expanded(child: field(preorderMin, 'Oldindan to‘lov min (₩)', number: true, required: true)),
+                  Expanded(
+                    child: field(
+                      preorderMin,
+                      'Oldindan to‘lov min (₩)',
+                      number: true,
+                      required: true,
+                    ),
+                  ),
                   const SizedBox(width: 10),
-                  Expanded(child: field(preorderMax, 'Oldindan to‘lov max (₩)', number: true, required: true)),
+                  Expanded(
+                    child: field(
+                      preorderMax,
+                      'Oldindan to‘lov max (₩)',
+                      number: true,
+                      required: true,
+                    ),
+                  ),
                 ],
               ),
-              if (webPreordersAvailable) Wrap(spacing: 8, children: [
-                for (final value in [5000, 10000])
-                  ActionChip(label: Text('Avans ${_won(value)}'), onPressed: () => setState(() {
-                    preorderMin.text = '$value'; preorderMax.text = '$value';
-                  })),
-              ]),
+              if (webPreordersAvailable)
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final value in [5000, 10000])
+                      ActionChip(
+                        label: Text('Avans ${_won(value)}'),
+                        onPressed: () => setState(() {
+                          preorderMin.text = '$value';
+                          preorderMax.text = '$value';
+                        }),
+                      ),
+                  ],
+                ),
               const Text(
                 'Avans bir dona kitob uchun. Kamida ₩5,000. Bir xil min/max kiritsangiz summa qat’iy bo‘ladi.',
                 style: TextStyle(fontSize: 11.5, color: AppColors.muted),
@@ -5915,7 +7521,11 @@ class _BookFormState extends State<_BookForm> {
 }
 
 class _OrdersAdmin extends StatefulWidget {
-  const _OrdersAdmin({super.key, required this.api, this.initialFilter = 'all'});
+  const _OrdersAdmin({
+    super.key,
+    required this.api,
+    this.initialFilter = 'all',
+  });
   final _AdminApi api;
   final String initialFilter;
 
@@ -5958,13 +7568,19 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
       final result = await showDialog<String?>(
         context: context,
         builder: (_) => AlertDialog(
-          icon: const Icon(Icons.inventory_2_rounded, color: Color(0xFF138A4B), size: 44),
+          icon: const Icon(
+            Icons.inventory_2_rounded,
+            color: Color(0xFF138A4B),
+            size: 44,
+          ),
           title: const Text('Buyurtmani qabul qilasizmi?'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Qabul qilinganda buyurtma sotilgan kitoblar va statistikaga qo‘shiladi.'),
+              const Text(
+                'Qabul qilinganda buyurtma sotilgan kitoblar va statistikaga qo‘shiladi.',
+              ),
               const SizedBox(height: 14),
               TextField(
                 controller: noteController,
@@ -5979,7 +7595,10 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Yo‘q')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Yo‘q'),
+            ),
             FilledButton(
               onPressed: () => Navigator.pop(context, noteController.text),
               child: const Text('Qabul qilish'),
@@ -6018,7 +7637,11 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
 
     setState(() => busy.add(order.id));
     try {
-      await widget.api.updateOrderStatus(order.id, status, customerNote: customerNote);
+      await widget.api.updateOrderStatus(
+        order.id,
+        status,
+        customerNote: customerNote,
+      );
       if (status != 'prepared') {
         await context.read<AppState>().refreshBooks();
       }
@@ -6050,16 +7673,16 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
       builder: (context, snap) {
         final all = snap.data ?? const <ShopOrder>[];
         final q = query.trim().toLowerCase();
-        final now = DateTime.now();
+        final now = koreaNow();
         final today = DateTime(now.year, now.month, now.day);
         final yesterday = today.subtract(const Duration(days: 1));
         final orders = all.where((o) {
-          final created = o.createdAt.toLocal();
+          final created = koreaTime(o.createdAt);
           final orderDay = DateTime(created.year, created.month, created.day);
           final matchStatus = switch (filter) {
             'all' => o.status != 'cancelled',
             'today' => o.status != 'cancelled' && orderDay == today,
-            'today_sales' => _adminRecognizedTodaySale(o, now),
+            'today_sales' => _adminRecognizedTodaySale(o, DateTime.now()),
             'yesterday' => o.status != 'cancelled' && orderDay == yesterday,
             'accepted' => _adminAwaitingPreparation(o),
             'prepared' => _adminPreparedForDispatch(o),
@@ -6367,9 +7990,8 @@ class _ProfessionalOrderCard extends StatelessWidget {
       );
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Tracking saqlanmadi: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Tracking saqlanmadi: $e')));
       }
     } finally {
       tracking.dispose();
@@ -6402,7 +8024,9 @@ class _ProfessionalOrderCard extends StatelessWidget {
               ),
             ),
             _AdminOrderStatusChip(
-              status: _enhancedAdminUi && order.preparedAt != null &&
+              status:
+                  _enhancedAdminUi &&
+                      order.preparedAt != null &&
                       (order.status == 'accepted' || order.status == 'paid')
                   ? 'prepared'
                   : order.status,
@@ -6482,7 +8106,8 @@ class _ProfessionalOrderCard extends StatelessWidget {
                 ),
               ),
               Text(
-                DateFormat('yyyy.MM.dd HH:mm').format(order.createdAt.toLocal()),
+                DateFormat('yyyy.MM.dd HH:mm')
+                    .format(koreaTime(order.createdAt)),
                 style: const TextStyle(fontSize: 11, color: Colors.black45),
               ),
             ],
@@ -6551,7 +8176,10 @@ class _ProfessionalOrderCard extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.local_shipping_outlined, color: AppColors.info),
+                  const Icon(
+                    Icons.local_shipping_outlined,
+                    color: AppColors.info,
+                  ),
                   const SizedBox(width: 9),
                   Expanded(
                     child: Text(
@@ -6564,7 +8192,9 @@ class _ProfessionalOrderCard extends StatelessWidget {
                   OutlinedButton.icon(
                     onPressed: () => _editTracking(context),
                     icon: const Icon(Icons.edit_outlined, size: 17),
-                    label: Text(order.trackingNumber.isEmpty ? 'Kiritish' : 'Tahrirlash'),
+                    label: Text(
+                      order.trackingNumber.isEmpty ? 'Kiritish' : 'Tahrirlash',
+                    ),
                   ),
                 ],
               ),
@@ -6579,30 +8209,42 @@ class _ProfessionalOrderCard extends StatelessWidget {
               ),
             )
           else ...[
-            if (_enhancedAdminUi && order.preparedAt != null &&
+            if (_enhancedAdminUi &&
+                order.preparedAt != null &&
                 (order.status == 'accepted' || order.status == 'paid'))
               const Padding(
                 padding: EdgeInsets.only(bottom: 9),
                 child: Row(
                   children: [
-                    Icon(Icons.check_circle_rounded, color: AppColors.success, size: 18),
+                    Icon(
+                      Icons.check_circle_rounded,
+                      color: AppColors.success,
+                      size: 18,
+                    ),
                     SizedBox(width: 7),
-                    Text('Tayyorlandi — jo‘natishga tayyor',
-                        style: TextStyle(fontWeight: FontWeight.w700)),
+                    Text(
+                      'Tayyorlandi — jo‘natishga tayyor',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
                   ],
                 ),
               ),
-            if (webPreviewFeaturesAvailable && order.preparedAt == null &&
+            if (webPreviewFeaturesAvailable &&
+                order.preparedAt == null &&
                 (order.status == 'accepted' || order.status == 'paid')) ...[
-              SizedBox(width: double.infinity,
+              SizedBox(
+                width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: () => Navigator.push(context, MaterialPageRoute<void>(
-                    builder: (_) => WebPackingPage(
-                      order: order,
-                      secret: api.secret,
-                      onPrepared: () => onStatus('prepared'),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => WebPackingPage(
+                        order: order,
+                        secret: api.secret,
+                        onPrepared: () => onStatus('prepared'),
+                      ),
                     ),
-                  )),
+                  ),
                   icon: const Icon(Icons.fact_check_outlined),
                   label: const Text('Qadoqlash tekshiruvi'),
                 ),
@@ -6637,8 +8279,12 @@ class _OrderActions extends StatelessWidget {
       primaryLabel = 'Qabul qilish';
       primaryIcon = Icons.check_circle_rounded;
     } else if (order.status == 'accepted' || order.status == 'paid') {
-      primaryStatus = _enhancedAdminUi && order.preparedAt == null ? 'prepared' : 'shipping';
-      primaryLabel = _enhancedAdminUi && order.preparedAt == null ? 'Tayyorlandi' : 'Jo‘natildi';
+      primaryStatus = _enhancedAdminUi && order.preparedAt == null
+          ? 'prepared'
+          : 'shipping';
+      primaryLabel = _enhancedAdminUi && order.preparedAt == null
+          ? 'Tayyorlandi'
+          : 'Jo‘natildi';
       primaryIcon = _enhancedAdminUi && order.preparedAt == null
           ? Icons.inventory_rounded
           : Icons.local_shipping_rounded;
@@ -6891,7 +8537,8 @@ class _RestockAdminState extends State<_RestockAdmin> {
                   .toList(),
             ),
             builder: (context, snap) {
-              if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+              if (!snap.hasData)
+                return const Center(child: CircularProgressIndicator());
               final waiters = snap.data!;
               if (waiters.isEmpty) return const Text('Kutayotgan mijoz yo‘q.');
               return ListView.separated(
@@ -6905,21 +8552,34 @@ class _RestockAdminState extends State<_RestockAdmin> {
                   final platform = (w['platform'] ?? '').toString();
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: const CircleAvatar(child: Icon(Icons.person_outline_rounded)),
-                    title: Text(name.isEmpty ? 'Eski so‘rov — mijoz ma’lumoti yo‘q' : name,
-                      style: const TextStyle(fontWeight: FontWeight.w800)),
-                    subtitle: Text([
-                      if (phone.isNotEmpty) phone else 'Telefon raqami yo‘q',
-                      if (platform.isNotEmpty) platform,
-                      _when(w['created_at']),
-                    ].where((e) => e.isNotEmpty).join(' • ')),
+                    leading: const CircleAvatar(
+                      child: Icon(Icons.person_outline_rounded),
+                    ),
+                    title: Text(
+                      name.isEmpty
+                          ? 'Eski so‘rov — mijoz ma’lumoti yo‘q'
+                          : name,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    subtitle: Text(
+                      [
+                        if (phone.isNotEmpty) phone else 'Telefon raqami yo‘q',
+                        if (platform.isNotEmpty) platform,
+                        _when(w['created_at']),
+                      ].where((e) => e.isNotEmpty).join(' • '),
+                    ),
                   );
                 },
               );
             },
           ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Yopish'))],
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Yopish'),
+          ),
+        ],
       ),
     );
   }
@@ -7114,19 +8774,34 @@ class _RestockAdminState extends State<_RestockAdmin> {
                           borderRadius: BorderRadius.circular(999),
                           onTap: () => _showWaiters(row),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFFFF4E6),
                               borderRadius: BorderRadius.circular(999),
-                              border: Border.all(color: const Color(0xFFFFD6A3)),
+                              border: Border.all(
+                                color: const Color(0xFFFFD6A3),
+                              ),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text('$count kishi kutyapti',
-                                  style: const TextStyle(color: _navy,fontWeight: FontWeight.w900,fontSize: 12)),
+                                Text(
+                                  '$count kishi kutyapti',
+                                  style: const TextStyle(
+                                    color: _navy,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 12,
+                                  ),
+                                ),
                                 const SizedBox(width: 4),
-                                const Icon(Icons.chevron_right_rounded, size: 17, color: _navy),
+                                const Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 17,
+                                  color: _navy,
+                                ),
                               ],
                             ),
                           ),
@@ -7181,10 +8856,12 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
     List<Book> books, {
     Map<String, dynamic>? bundle,
   }) async {
-    final title =
-        TextEditingController(text: (bundle?['title'] ?? '').toString());
-    final description =
-        TextEditingController(text: (bundle?['description'] ?? '').toString());
+    final title = TextEditingController(
+      text: (bundle?['title'] ?? '').toString(),
+    );
+    final description = TextEditingController(
+      text: (bundle?['description'] ?? '').toString(),
+    );
     final price = TextEditingController(
       text: ((bundle?['price'] as num?)?.toInt() ?? 0) > 0
           ? (bundle!['price'] as num).toInt().toString()
@@ -7222,180 +8899,308 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setLocal) {
           final q = query.trim().toLowerCase();
-          final visibleBooks = books.where((b) {
-            if (!b.isActive) return false;
-            if (onlyInStock && b.stock <= 0) return false;
-            if (q.isEmpty) return true;
-            return b.title.toLowerCase().contains(q) ||
-                b.author.toLowerCase().contains(q) ||
-                b.category.toLowerCase().contains(q);
-          }).toList()
-            ..sort((a, b) {
-              final as = selected.containsKey(a.id) ? 0 : 1;
-              final bs = selected.containsKey(b.id) ? 0 : 1;
-              if (as != bs) return as.compareTo(bs);
-              return a.title.toLowerCase().compareTo(b.title.toLowerCase());
-            });
+          final visibleBooks =
+              books.where((b) {
+                if (!b.isActive) return false;
+                if (onlyInStock && b.stock <= 0) return false;
+                if (q.isEmpty) return true;
+                return b.title.toLowerCase().contains(q) ||
+                    b.author.toLowerCase().contains(q) ||
+                    b.category.toLowerCase().contains(q);
+              }).toList()..sort((a, b) {
+                final as = selected.containsKey(a.id) ? 0 : 1;
+                final bs = selected.containsKey(b.id) ? 0 : 1;
+                if (as != bs) return as.compareTo(bs);
+                return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+              });
           return AlertDialog(
-            title: Text(bundle == null ? 'Yangi kitob seti' : 'Setni tahrirlash'),
+            title: Text(
+              bundle == null ? 'Yangi kitob seti' : 'Setni tahrirlash',
+            ),
             content: SizedBox(
               width: 620,
               height: MediaQuery.sizeOf(context).height * .76,
               child: Column(
                 children: [
-                  TextField(controller: title, decoration: const InputDecoration(labelText: 'Set nomi')),
+                  TextField(
+                    controller: title,
+                    decoration: const InputDecoration(labelText: 'Set nomi'),
+                  ),
                   const SizedBox(height: 8),
-                  TextField(controller: description, maxLines: 2, decoration: const InputDecoration(labelText: 'Izoh')),
+                  TextField(
+                    controller: description,
+                    maxLines: 2,
+                    decoration: const InputDecoration(labelText: 'Izoh'),
+                  ),
                   const SizedBox(height: 10),
-                  Row(children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: bundleImageUrl.isEmpty
-                          ? Container(
-                              width: 72, height: 88,
-                              color: AppColors.surfaceSoft,
-                              child: const Icon(Icons.collections_rounded, color: AppColors.muted),
-                            )
-                          : Image.network(bundleImageUrl, width: 72, height: 88, fit: BoxFit.cover),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(child: OutlinedButton.icon(
-                      onPressed: uploadingBundleImage ? null : () async {
-                        final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
-                        if (picked == null) return;
-                        setLocal(() => uploadingBundleImage = true);
-                        try {
-                          final uploaded = await widget.api.uploadCover(picked);
-                          setLocal(() => bundleImageUrl = uploaded.url);
-                        } catch (e) {
-                          if (dialogContext.mounted) {
-                            ScaffoldMessenger.of(dialogContext).showSnackBar(
-                              SnackBar(content: Text('Set rasmi yuklanmadi: $e')),
-                            );
-                          }
-                        } finally {
-                          if (dialogContext.mounted) setLocal(() => uploadingBundleImage = false);
-                        }
-                      },
-                      icon: uploadingBundleImage
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.add_photo_alternate_outlined),
-                      label: Text(bundleImageUrl.isEmpty ? 'Setga rasm yuklash' : 'Set rasmini almashtirish'),
-                    )),
-                    if (bundleImageUrl.isNotEmpty)
-                      IconButton(
-                        tooltip: 'Set rasmini olib tashlash',
-                        onPressed: () => setLocal(() => bundleImageUrl = ''),
-                        icon: const Icon(Icons.delete_outline_rounded),
+                  Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: bundleImageUrl.isEmpty
+                            ? Container(
+                                width: 72,
+                                height: 88,
+                                color: AppColors.surfaceSoft,
+                                child: const Icon(
+                                  Icons.collections_rounded,
+                                  color: AppColors.muted,
+                                ),
+                              )
+                            : Image.network(
+                                bundleImageUrl,
+                                width: 72,
+                                height: 88,
+                                fit: BoxFit.cover,
+                              ),
                       ),
-                  ]),
-                  const SizedBox(height: 10),
-                  Row(children: [
-                    Expanded(child: TextField(
-                      controller: price,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText: 'Set narxi',
-                        prefixText: '₩ ',
-                        helperText: 'Oddiy narx: ${_won(selectedRegularTotal())}',
-                      ),
-                    )),
-                    const SizedBox(width: 10),
-                    Column(children: [
-                      Text('${selected.length} xil', style: const TextStyle(fontWeight: FontWeight.w900)),
-                      const Text('tanlandi', style: TextStyle(color: AppColors.muted, fontSize: 11)),
-                    ]),
-                  ]),
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    Expanded(child: TextField(
-                      controller: search,
-                      onChanged: (v) => setLocal(() => query = v),
-                      decoration: InputDecoration(
-                        hintText: 'Kitob nomi, muallif yoki kategoriya...',
-                        prefixIcon: const Icon(Icons.search_rounded),
-                        suffixIcon: query.isEmpty ? null : IconButton(
-                          onPressed: () { search.clear(); setLocal(() => query = ''); },
-                          icon: const Icon(Icons.close_rounded),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: uploadingBundleImage
+                              ? null
+                              : () async {
+                                  final picked = await ImagePicker().pickImage(
+                                    source: ImageSource.gallery,
+                                  );
+                                  if (picked == null) return;
+                                  setLocal(() => uploadingBundleImage = true);
+                                  try {
+                                    final uploaded = await widget.api
+                                        .uploadCover(picked);
+                                    setLocal(
+                                      () => bundleImageUrl = uploaded.url,
+                                    );
+                                  } catch (e) {
+                                    if (dialogContext.mounted) {
+                                      ScaffoldMessenger.of(dialogContext)
+                                          .showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Set rasmi yuklanmadi: $e',
+                                              ),
+                                            ),
+                                          );
+                                    }
+                                  } finally {
+                                    if (dialogContext.mounted)
+                                      setLocal(
+                                        () => uploadingBundleImage = false,
+                                      );
+                                  }
+                                },
+                          icon: uploadingBundleImage
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.add_photo_alternate_outlined),
+                          label: Text(
+                            bundleImageUrl.isEmpty
+                                ? 'Setga rasm yuklash'
+                                : 'Set rasmini almashtirish',
+                          ),
                         ),
                       ),
-                    )),
-                    const SizedBox(width: 8),
-                    FilterChip(
-                      label: const Text('Omborda bor'),
-                      selected: onlyInStock,
-                      onSelected: (v) => setLocal(() => onlyInStock = v),
-                    ),
-                  ]),
+                      if (bundleImageUrl.isNotEmpty)
+                        IconButton(
+                          tooltip: 'Set rasmini olib tashlash',
+                          onPressed: () => setLocal(() => bundleImageUrl = ''),
+                          icon: const Icon(Icons.delete_outline_rounded),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: price,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: 'Set narxi',
+                            prefixText: '₩ ',
+                            helperText:
+                                'Oddiy narx: ${_won(selectedRegularTotal())}',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        children: [
+                          Text(
+                            '${selected.length} xil',
+                            style: const TextStyle(fontWeight: FontWeight.w900),
+                          ),
+                          const Text(
+                            'tanlandi',
+                            style: TextStyle(
+                              color: AppColors.muted,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: search,
+                          onChanged: (v) => setLocal(() => query = v),
+                          decoration: InputDecoration(
+                            hintText: 'Kitob nomi, muallif yoki kategoriya...',
+                            prefixIcon: const Icon(Icons.search_rounded),
+                            suffixIcon: query.isEmpty
+                                ? null
+                                : IconButton(
+                                    onPressed: () {
+                                      search.clear();
+                                      setLocal(() => query = '');
+                                    },
+                                    icon: const Icon(Icons.close_rounded),
+                                  ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      FilterChip(
+                        label: const Text('Omborda bor'),
+                        selected: onlyInStock,
+                        onSelected: (v) => setLocal(() => onlyInStock = v),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 8),
                   Expanded(
                     child: visibleBooks.isEmpty
-                      ? const Center(child: Text('Kitob topilmadi.'))
-                      : ListView.builder(
-                          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                          itemCount: visibleBooks.length,
-                          itemBuilder: (_, i) {
-                            final book = visibleBooks[i];
-                            final qty = selected[book.id] ?? 0;
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 6),
-                              child: ListTile(
-                                dense: true,
-                                leading: _AdminBookThumb(url: book.previewImageUrl),
-                                title: Text(book.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
-                                subtitle: Text('${_won(book.price)} • ombor ${book.stock}'),
-                                trailing: qty == 0
-                                  ? IconButton(
-                                      tooltip: 'Setga qo‘shish',
-                                      onPressed: () => setLocal(() => selected[book.id] = 1),
-                                      icon: const Icon(Icons.add_circle_rounded, color: AppColors.success),
-                                    )
-                                  : Row(mainAxisSize: MainAxisSize.min, children: [
-                                      IconButton(
-                                        visualDensity: VisualDensity.compact,
-                                        onPressed: () => setLocal(() {
-                                          if (qty <= 1) selected.remove(book.id);
-                                          else selected[book.id] = qty - 1;
-                                        }),
-                                        icon: const Icon(Icons.remove_circle_outline),
-                                      ),
-                                      Text('$qty', style: const TextStyle(fontWeight: FontWeight.w900)),
-                                      IconButton(
-                                        visualDensity: VisualDensity.compact,
-                                        onPressed: () => setLocal(() => selected[book.id] = qty + 1),
-                                        icon: const Icon(Icons.add_circle_outline),
-                                      ),
-                                    ]),
-                                onTap: () => setLocal(() {
-                                  if (qty == 0) selected[book.id] = 1;
-                                }),
-                              ),
-                            );
-                          },
-                        ),
+                        ? const Center(child: Text('Kitob topilmadi.'))
+                        : ListView.builder(
+                            keyboardDismissBehavior:
+                                ScrollViewKeyboardDismissBehavior.onDrag,
+                            itemCount: visibleBooks.length,
+                            itemBuilder: (_, i) {
+                              final book = visibleBooks[i];
+                              final qty = selected[book.id] ?? 0;
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 6),
+                                child: ListTile(
+                                  dense: true,
+                                  leading: _AdminBookThumb(
+                                    url: book.previewImageUrl,
+                                  ),
+                                  title: Text(
+                                    book.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    '${_won(book.price)} • ombor ${book.stock}',
+                                  ),
+                                  trailing: qty == 0
+                                      ? IconButton(
+                                          tooltip: 'Setga qo‘shish',
+                                          onPressed: () => setLocal(
+                                            () => selected[book.id] = 1,
+                                          ),
+                                          icon: const Icon(
+                                            Icons.add_circle_rounded,
+                                            color: AppColors.success,
+                                          ),
+                                        )
+                                      : Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            IconButton(
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                              onPressed: () => setLocal(() {
+                                                if (qty <= 1)
+                                                  selected.remove(book.id);
+                                                else
+                                                  selected[book.id] = qty - 1;
+                                              }),
+                                              icon: const Icon(
+                                                Icons.remove_circle_outline,
+                                              ),
+                                            ),
+                                            Text(
+                                              '$qty',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w900,
+                                              ),
+                                            ),
+                                            IconButton(
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                              onPressed: () => setLocal(
+                                                () =>
+                                                    selected[book.id] = qty + 1,
+                                              ),
+                                              icon: const Icon(
+                                                Icons.add_circle_outline,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                  onTap: () => setLocal(() {
+                                    if (qty == 0) selected[book.id] = 1;
+                                  }),
+                                ),
+                              );
+                            },
+                          ),
                   ),
                   const SizedBox(height: 4),
-                  Row(children: [
-                    Expanded(child: SwitchListTile.adaptive(
-                      dense: true, contentPadding: EdgeInsets.zero,
-                      value: deliveryIncluded,
-                      onChanged: (v) => setLocal(() => deliveryIncluded = v),
-                      title: const Text('Pochta narx ichida', style: TextStyle(fontWeight: FontWeight.w700)),
-                    )),
-                    Expanded(child: SwitchListTile.adaptive(
-                      dense: true, contentPadding: EdgeInsets.zero,
-                      value: active,
-                      onChanged: (v) => setLocal(() => active = v),
-                      title: const Text('Ko‘rsatish', style: TextStyle(fontWeight: FontWeight.w700)),
-                    )),
-                  ]),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SwitchListTile.adaptive(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          value: deliveryIncluded,
+                          onChanged: (v) =>
+                              setLocal(() => deliveryIncluded = v),
+                          title: const Text(
+                            'Pochta narx ichida',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: SwitchListTile.adaptive(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          value: active,
+                          onChanged: (v) => setLocal(() => active = v),
+                          title: const Text(
+                            'Ko‘rsatish',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Bekor qilish')),
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Bekor qilish'),
+              ),
               FilledButton.icon(
-                onPressed: selected.isEmpty ? null : () => Navigator.pop(dialogContext, true),
+                onPressed: selected.isEmpty
+                    ? null
+                    : () => Navigator.pop(dialogContext, true),
                 icon: const Icon(Icons.check_rounded),
                 label: Text('Saqlash (${selected.length})'),
               ),
@@ -7424,15 +9229,13 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
       return;
     }
 
-    final setPrice = int.tryParse(
-          price.text.replaceAll(RegExp(r'[^0-9]'), ''),
-        ) ??
-        0;
+    final setPrice =
+        int.tryParse(price.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
     if (setPrice <= 0) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Set narxini kiriting.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Set narxini kiriting.')));
       }
       title.dispose();
       description.dispose();
@@ -7467,9 +9270,9 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
       );
       if (mounted) {
         setState(_reload);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Kitob seti saqlandi ✅')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Kitob seti saqlandi ✅')));
       }
     } catch (e) {
       if (mounted) {
@@ -7511,203 +9314,241 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
       await widget.api.deleteBundle(id);
       if (!mounted) return;
       setState(_reload);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kitob seti o‘chirildi.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Kitob seti o‘chirildi.')));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Set o‘chirilmadi: $e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Set o‘chirilmadi: $e')));
     }
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Savdo imkoniyatlari')),
-        body: FutureBuilder<List<Object>>(
-          future: future,
-          builder: (context, snap) {
-            if (!snap.hasData) {
-              if (snap.hasError) {
-                return Center(
-                  child: Text('Xatolik: ' + snap.error.toString()),
-                );
-              }
-              return const Center(child: CircularProgressIndicator());
-            }
-            final insight =
-                Map<String, dynamic>.from(snap.data![0] as Map);
-            final bundles = (snap.data![1] as List)
-                .whereType<Map>()
-                .map((e) => Map<String, dynamic>.from(e))
-                .toList();
-            final books = (snap.data![2] as List).cast<Book>();
-            final preorders = _rows(insight['preorders']);
-            final requests = _rows(insight['requests']);
-            final misses = _rows(insight['search_misses']);
-            final restock = _rows(insight['restock']);
-            final bundleSales = _rows(insight['bundle_sales']);
-            final demand = Map<String, dynamic>.from(snap.data![3] as Map);
-            final viewed = _rows(demand[demandAllTime ? 'views_all' : 'views']);
-            final searched = _rows(demand[demandAllTime ? 'searches_all' : 'searches']);
-            final waitingDemand = _rows(demand['waiting']);
-            final bundleSummary = insight['bundle_summary'] is Map
-                ? Map<String, dynamic>.from(insight['bundle_summary'] as Map)
-                : <String, dynamic>{};
+    appBar: AppBar(title: const Text('Savdo imkoniyatlari')),
+    body: FutureBuilder<List<Object>>(
+      future: future,
+      builder: (context, snap) {
+        if (!snap.hasData) {
+          if (snap.hasError) {
+            return Center(child: Text('Xatolik: ' + snap.error.toString()));
+          }
+          return const Center(child: CircularProgressIndicator());
+        }
+        final insight = Map<String, dynamic>.from(snap.data![0] as Map);
+        final bundles = (snap.data![1] as List)
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+        final books = (snap.data![2] as List).cast<Book>();
+        final preorders = _rows(insight['preorders']);
+        final requests = _rows(insight['requests']);
+        final misses = _rows(insight['search_misses']);
+        final restock = _rows(insight['restock']);
+        final bundleSales = _rows(insight['bundle_sales']);
+        final demand = Map<String, dynamic>.from(snap.data![3] as Map);
+        final viewed = _rows(demand[demandAllTime ? 'views_all' : 'views']);
+        final searched = _rows(
+          demand[demandAllTime ? 'searches_all' : 'searches'],
+        );
+        final waitingDemand = _rows(demand['waiting']);
+        final bundleSummary = insight['bundle_summary'] is Map
+            ? Map<String, dynamic>.from(insight['bundle_summary'] as Map)
+            : <String, dynamic>{};
 
-            return RefreshIndicator(
-              onRefresh: () async {
-                setState(_reload);
-                await future;
-              },
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  Card(
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(children: [
-                      ListTile(
-                        leading: const Icon(Icons.notifications_active_rounded, color: AppColors.success),
-                        title: const Text('Xabarnoma yuborish', style: TextStyle(fontWeight: FontWeight.w900)),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Xabarnoma yuborish')), body: _PushNotificationAdmin(api: widget.api)))),
+        return RefreshIndicator(
+          onRefresh: () async {
+            setState(_reload);
+            await future;
+          },
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Card(
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(
+                        Icons.notifications_active_rounded,
+                        color: AppColors.success,
                       ),
-                      const Divider(height: 1),
-                      ListTile(
-                        leading: const Icon(Icons.notifications_none_rounded),
-                        title: const Text('Kutayotganlar', style: TextStyle(fontWeight: FontWeight.w900)),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Kutayotganlar')), body: _RestockAdmin(api: widget.api)))),
+                      title: const Text(
+                        'Xabarnoma yuborish',
+                        style: TextStyle(fontWeight: FontWeight.w900),
                       ),
-                      const Divider(height: 1),
-                      ListTile(
-                        leading: const Icon(Icons.percent_rounded),
-                        title: const Text('Chegirma berish', style: TextStyle(fontWeight: FontWeight.w900)),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Chegirma boshqaruvi')), body: _DiscountAdmin(api: widget.api)))),
-                      ),
-                    ]),
-                  ),
-                  const SizedBox(height: 14),
-                  AppSurface(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        AppSectionHeader(
-                          title: 'Kitob setlari',
-                          subtitle:
-                              'Bir nechta kitobni bitta tayyor to‘plam qilib ko‘rsating',
-                          icon: Icons.auto_awesome_mosaic_rounded,
-                          trailing: FilledButton.icon(
-                            onPressed: () => _openBundleEditor(books),
-                            icon: const Icon(Icons.add_rounded),
-                            label: const Text('Yangi set'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => Scaffold(
+                            appBar: AppBar(
+                              title: const Text('Xabarnoma yuborish'),
+                            ),
+                            body: _PushNotificationAdmin(api: widget.api),
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        if (bundles.isEmpty)
-                          const Text('Hozircha set yo‘q.',
-                              style: TextStyle(color: AppColors.muted))
-                        else
-                          ...bundles.map(
-                            (b) => ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              leading: const Icon(
-                                  Icons.collections_bookmark_rounded),
-                              title: Text(
-                                (b['title'] ?? '').toString(),
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w800),
-                              ),
-                              subtitle: Text(
-                                [
-                                  _rows(b['items']).length.toString() +
-                                      ' turdagi kitob',
-                                  'Oddiy: ${_won((b['regular_total'] as num?)?.toInt() ?? 0)}',
-                                  'Set: ${_won((b['price'] as num?)?.toInt() ?? 0)}',
-                                  b['delivery_included'] == true
-                                      ? 'pochta ichida'
-                                      : 'pochta alohida',
-                                ].join(' • '),
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    b['is_active'] == true
-                                        ? Icons.visibility_rounded
-                                        : Icons.visibility_off_rounded,
-                                  ),
-                                  IconButton(
-                                    tooltip: 'Setni o‘chirish',
-                                    onPressed: () => _deleteBundle(b),
-                                    icon: const Icon(
-                                      Icons.delete_outline_rounded,
-                                      color: AppColors.danger,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              onTap: () =>
-                                  _openBundleEditor(books, bundle: b),
-                            ),
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.notifications_none_rounded),
+                      title: const Text(
+                        'Kutayotganlar',
+                        style: TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => Scaffold(
+                            appBar: AppBar(title: const Text('Kutayotganlar')),
+                            body: _RestockAdmin(api: widget.api),
                           ),
+                        ),
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.percent_rounded),
+                      title: const Text(
+                        'Chegirma berish',
+                        style: TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => Scaffold(
+                            appBar: AppBar(
+                              title: const Text('Chegirma boshqaruvi'),
+                            ),
+                            body: _DiscountAdmin(api: widget.api),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              AppSurface(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AppSectionHeader(
+                      title: 'Kitob setlari',
+                      subtitle: 'Bir nechta kitobni bitta tayyor to‘plam qilib ko‘rsating',
+                      icon: Icons.auto_awesome_mosaic_rounded,
+                      trailing: FilledButton.icon(
+                        onPressed: () => _openBundleEditor(books),
+                        icon: const Icon(Icons.add_rounded),
+                        label: const Text('Yangi set'),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    if (bundles.isEmpty)
+                      const Text(
+                        'Hozircha set yo‘q.',
+                        style: TextStyle(color: AppColors.muted),
+                      )
+                    else
+                      ...bundles.map(
+                        (b) => ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(
+                            Icons.collections_bookmark_rounded,
+                          ),
+                          title: Text(
+                            (b['title'] ?? '').toString(),
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          subtitle: Text(
+                            [
+                              _rows(b['items']).length.toString() +
+                                  ' turdagi kitob',
+                              'Oddiy: ${_won((b['regular_total'] as num?)?.toInt() ?? 0)}',
+                              'Set: ${_won((b['price'] as num?)?.toInt() ?? 0)}',
+                              b['delivery_included'] == true
+                                  ? 'pochta ichida'
+                                  : 'pochta alohida',
+                            ].join(' • '),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                b['is_active'] == true
+                                    ? Icons.visibility_rounded
+                                    : Icons.visibility_off_rounded,
+                              ),
+                              IconButton(
+                                tooltip: 'Setni o‘chirish',
+                                onPressed: () => _deleteBundle(b),
+                                icon: const Icon(
+                                  Icons.delete_outline_rounded,
+                                  color: AppColors.danger,
+                                ),
+                              ),
+                            ],
+                          ),
+                          onTap: () => _openBundleEditor(books, bundle: b),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              AppSurface(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AppSectionHeader(
+                      title: 'Set savdolari statistikasi',
+                      subtitle: 'Set narxi, tejash va pochta set ichida yoki alohida hisoblangani',
+                      icon: Icons.query_stats_rounded,
+                      trailing: AppInfoPill(
+                        label:
+                            '${bundleSummary['sets_sold'] ?? bundleSales.length} ta set',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        AppInfoPill(
+                          icon: Icons.payments_outlined,
+                          label:
+                              'Set savdosi ${_won((bundleSummary['set_revenue'] as num?)?.toInt() ?? 0)}',
+                        ),
+                        AppInfoPill(
+                          icon: Icons.savings_outlined,
+                          label:
+                              'Mijoz tejadi ${_won((bundleSummary['set_savings'] as num?)?.toInt() ?? 0)}',
+                          foreground: AppColors.success,
+                          background: AppColors.successSoft,
+                        ),
+                        AppInfoPill(
+                          icon: Icons.local_shipping_outlined,
+                          label:
+                              'Pochta ichida ${bundleSummary['shipping_included_sets'] ?? 0} ta',
+                        ),
+                        AppInfoPill(
+                          icon: Icons.add_road_rounded,
+                          label:
+                              'Pochta alohida ${bundleSummary['shipping_separate_sets'] ?? 0} ta',
+                        ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  AppSurface(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        AppSectionHeader(
-                          title: 'Set savdolari statistikasi',
-                          subtitle:
-                              'Set narxi, tejash va pochta set ichida yoki alohida hisoblangani',
-                          icon: Icons.query_stats_rounded,
-                          trailing: AppInfoPill(
-                            label:
-                                '${bundleSummary['sets_sold'] ?? bundleSales.length} ta set',
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            AppInfoPill(
-                              icon: Icons.payments_outlined,
-                              label:
-                                  'Set savdosi ${_won((bundleSummary['set_revenue'] as num?)?.toInt() ?? 0)}',
-                            ),
-                            AppInfoPill(
-                              icon: Icons.savings_outlined,
-                              label:
-                                  'Mijoz tejadi ${_won((bundleSummary['set_savings'] as num?)?.toInt() ?? 0)}',
-                              foreground: AppColors.success,
-                              background: AppColors.successSoft,
-                            ),
-                            AppInfoPill(
-                              icon: Icons.local_shipping_outlined,
-                              label:
-                                  'Pochta ichida ${bundleSummary['shipping_included_sets'] ?? 0} ta',
-                            ),
-                            AppInfoPill(
-                              icon: Icons.add_road_rounded,
-                              label:
-                                  'Pochta alohida ${bundleSummary['shipping_separate_sets'] ?? 0} ta',
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        if (bundleSales.isEmpty)
-                          const Text(
-                            'Hozircha sotilgan set yo‘q.',
-                            style: TextStyle(color: AppColors.muted),
-                          )
-                        else
-                          ...bundleSales.take(30).map(
+                    const SizedBox(height: 10),
+                    if (bundleSales.isEmpty)
+                      const Text(
+                        'Hozircha sotilgan set yo‘q.',
+                        style: TextStyle(color: AppColors.muted),
+                      )
+                    else
+                      ...bundleSales
+                          .take(30)
+                          .map(
                             (sale) => ListTile(
                               dense: true,
                               contentPadding: EdgeInsets.zero,
@@ -7735,91 +9576,95 @@ class _MerchandisingAdminPageState extends State<_MerchandisingAdminPage> {
                               ),
                             ),
                           ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _AdminInsightCard(
-                    title: 'Eng ko‘p ko‘rilgan kitoblar',
-                    icon: Icons.visibility_rounded,
-                    rows: viewed,
-                    empty: 'Ko‘rish statistikasi hali yig‘ilmagan.',
-                    line: (r) => '${r['title'] ?? ''} • ${r['count'] ?? 0} marta',
-                    periodAllTime: demandAllTime,
-                    onPeriodChanged: (value) => setState(() => demandAllTime = value),
-                  ),
-                  const SizedBox(height: 14),
-                  _AdminInsightCard(
-                    title: 'Eng ko‘p qidirilgan',
-                    icon: Icons.search_rounded,
-                    rows: searched,
-                    empty: 'Qidiruv statistikasi hali yig‘ilmagan.',
-                    line: (r) => '${r['query'] ?? ''} • ${r['count'] ?? 0} marta • o‘rtacha ${r['avg_results'] ?? 0} natija',
-                    periodAllTime: demandAllTime,
-                    onPeriodChanged: (value) => setState(() => demandAllTime = value),
-                  ),
-                  const SizedBox(height: 14),
-                  _AdminInsightCard(
-                    title: 'Eng ko‘p kutilayotgan kitoblar',
-                    icon: Icons.notifications_active_rounded,
-                    rows: waitingDemand,
-                    empty: 'Kutayotgan mijozlar yo‘q.',
-                    line: (r) => '${r['title'] ?? ''} • ${r['waiting'] ?? 0} kishi • ombor ${r['stock'] ?? 0}',
-                  ),
-                  const SizedBox(height: 14),
-                  _AdminInsightCard(
-                    title: 'Pre-order',
-                    icon: Icons.event_available_rounded,
-                    rows: preorders,
-                    empty: 'Hozircha pre-order yo‘q.',
-                    line: (r) => [
-                      (r['title'] ?? '').toString(),
-                      (r['quantity'] ?? 1).toString() + ' dona',
-                      (r['customer_name'] ?? 'Mijoz').toString(),
-                    ].join(' • '),
-                  ),
-                  const SizedBox(height: 14),
-                  _AdminInsightCard(
-                    title: '“Shu kitob kerak” so‘rovlari',
-                    icon: Icons.library_add_rounded,
-                    rows: requests,
-                    empty: 'Hozircha kitob so‘rovi yo‘q.',
-                    line: (r) => [
-                      (r['title'] ?? '').toString(),
-                      if ((r['phone'] ?? '').toString().trim().isNotEmpty)
-                        r['phone'].toString(),
-                    ].join(' • '),
-                  ),
-                  const SizedBox(height: 14),
-                  _AdminInsightCard(
-                    title: 'Qayta olib kelish tavsiyasi',
-                    icon: Icons.replay_circle_filled_rounded,
-                    rows: restock,
-                    empty: 'Hozircha alohida tavsiya yo‘q.',
-                    line: (r) => [
-                      (r['title'] ?? '').toString(),
-                      'ombor ' + (r['stock'] ?? 0).toString(),
-                      'kutmoqda ' + (r['waiting'] ?? 0).toString(),
-                      '30 kunda ' + (r['sold_30d'] ?? 0).toString() + ' sotildi',
-                    ].join(' • '),
-                  ),
-                  const SizedBox(height: 14),
-                  _AdminInsightCard(
-                    title: 'Topilmagan qidiruvlar statistikasi',
-                    icon: Icons.manage_search_rounded,
-                    rows: misses,
-                    empty: 'Topilmagan qidiruvlar hali yo‘q.',
-                    line: (r) => [
-                      (r['query'] ?? '').toString(),
-                      (r['count'] ?? 0).toString() + ' marta',
-                    ].join(' • '),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            );
-          },
-        ),
-      );
+              const SizedBox(height: 14),
+              _AdminInsightCard(
+                title: 'Eng ko‘p ko‘rilgan kitoblar',
+                icon: Icons.visibility_rounded,
+                rows: viewed,
+                empty: 'Ko‘rish statistikasi hali yig‘ilmagan.',
+                line: (r) => '${r['title'] ?? ''} • ${r['count'] ?? 0} marta',
+                periodAllTime: demandAllTime,
+                onPeriodChanged: (value) =>
+                    setState(() => demandAllTime = value),
+              ),
+              const SizedBox(height: 14),
+              _AdminInsightCard(
+                title: 'Eng ko‘p qidirilgan',
+                icon: Icons.search_rounded,
+                rows: searched,
+                empty: 'Qidiruv statistikasi hali yig‘ilmagan.',
+                line: (r) =>
+                    '${r['query'] ?? ''} • ${r['count'] ?? 0} marta • o‘rtacha ${r['avg_results'] ?? 0} natija',
+                periodAllTime: demandAllTime,
+                onPeriodChanged: (value) =>
+                    setState(() => demandAllTime = value),
+              ),
+              const SizedBox(height: 14),
+              _AdminInsightCard(
+                title: 'Eng ko‘p kutilayotgan kitoblar',
+                icon: Icons.notifications_active_rounded,
+                rows: waitingDemand,
+                empty: 'Kutayotgan mijozlar yo‘q.',
+                line: (r) =>
+                    '${r['title'] ?? ''} • ${r['waiting'] ?? 0} kishi • ombor ${r['stock'] ?? 0}',
+              ),
+              const SizedBox(height: 14),
+              _AdminInsightCard(
+                title: 'Pre-order',
+                icon: Icons.event_available_rounded,
+                rows: preorders,
+                empty: 'Hozircha pre-order yo‘q.',
+                line: (r) => [
+                  (r['title'] ?? '').toString(),
+                  (r['quantity'] ?? 1).toString() + ' dona',
+                  (r['customer_name'] ?? 'Mijoz').toString(),
+                ].join(' • '),
+              ),
+              const SizedBox(height: 14),
+              _AdminInsightCard(
+                title: '“Shu kitob kerak” so‘rovlari',
+                icon: Icons.library_add_rounded,
+                rows: requests,
+                empty: 'Hozircha kitob so‘rovi yo‘q.',
+                line: (r) => [
+                  (r['title'] ?? '').toString(),
+                  if ((r['phone'] ?? '').toString().trim().isNotEmpty)
+                    r['phone'].toString(),
+                ].join(' • '),
+              ),
+              const SizedBox(height: 14),
+              _AdminInsightCard(
+                title: 'Qayta olib kelish tavsiyasi',
+                icon: Icons.replay_circle_filled_rounded,
+                rows: restock,
+                empty: 'Hozircha alohida tavsiya yo‘q.',
+                line: (r) => [
+                  (r['title'] ?? '').toString(),
+                  'ombor ' + (r['stock'] ?? 0).toString(),
+                  'kutmoqda ' + (r['waiting'] ?? 0).toString(),
+                  '30 kunda ' + (r['sold_30d'] ?? 0).toString() + ' sotildi',
+                ].join(' • '),
+              ),
+              const SizedBox(height: 14),
+              _AdminInsightCard(
+                title: 'Topilmagan qidiruvlar statistikasi',
+                icon: Icons.manage_search_rounded,
+                rows: misses,
+                empty: 'Topilmagan qidiruvlar hali yo‘q.',
+                line: (r) => [
+                  (r['query'] ?? '').toString(),
+                  (r['count'] ?? 0).toString() + ' marta',
+                ].join(' • '),
+              ),
+            ],
+          ),
+        );
+      },
+    ),
+  );
 }
 
 class _AdminInsightCard extends StatelessWidget {
@@ -7842,46 +9687,49 @@ class _AdminInsightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AppSurface(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AppSectionHeader(
-              title: title,
-              icon: icon,
-              trailing: periodAllTime == null
-                  ? AppInfoPill(label: rows.length.toString() + ' ta')
-                  : SegmentedButton<bool>(
-                      segments: const [
-                        ButtonSegment(value: false, label: Text('Kun')),
-                        ButtonSegment(value: true, label: Text('Butun davr')),
-                      ],
-                      selected: {periodAllTime!},
-                      onSelectionChanged: (value) => onPeriodChanged?.call(value.first),
-                      showSelectedIcon: false,
-                      style: const ButtonStyle(
-                        visualDensity: VisualDensity.compact,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                    ),
-            ),
-            const SizedBox(height: 10),
-            if (rows.isEmpty)
-              Text(empty, style: const TextStyle(color: AppColors.muted))
-            else
-              ...rows.take(30).map(
-                    (row) => ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.chevron_right_rounded),
-                      title: Text(
-                        line(row),
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSectionHeader(
+          title: title,
+          icon: icon,
+          trailing: periodAllTime == null
+              ? AppInfoPill(label: rows.length.toString() + ' ta')
+              : SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(value: false, label: Text('Kun')),
+                    ButtonSegment(value: true, label: Text('Butun davr')),
+                  ],
+                  selected: {periodAllTime!},
+                  onSelectionChanged: (value) =>
+                      onPeriodChanged?.call(value.first),
+                  showSelectedIcon: false,
+                  style: const ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-          ],
+                ),
         ),
-      );
+        const SizedBox(height: 10),
+        if (rows.isEmpty)
+          Text(empty, style: const TextStyle(color: AppColors.muted))
+        else
+          ...rows
+              .take(30)
+              .map(
+                (row) => ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.chevron_right_rounded),
+                  title: Text(
+                    line(row),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+      ],
+    ),
+  );
 }
 
 class _DiscountAdmin extends StatefulWidget {
@@ -7960,7 +9808,9 @@ class _DiscountAdminState extends State<_DiscountAdmin> {
     }
     if (!endsAt.isAfter(DateTime.now())) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tugash sanasi va soati kelajakda bo‘lsin.')),
+        const SnackBar(
+          content: Text('Tugash sanasi va soati kelajakda bo‘lsin.'),
+        ),
       );
       return;
     }
@@ -7973,14 +9823,13 @@ class _DiscountAdminState extends State<_DiscountAdmin> {
       );
       await context.read<AppState>().refreshBooks();
       if (mounted)
-        ScaffoldMessenger.of(context)
-            .showSnackBar(
-              SnackBar(
-                content: Text(
-                  '$p% chegirma ${DateFormat('yyyy.MM.dd HH:mm').format(endsAt)} gacha qo‘llandi ✅',
-                ),
-              ),
-            );
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '$p% chegirma ${DateFormat('yyyy.MM.dd HH:mm').format(endsAt)} gacha qo‘llandi ✅',
+            ),
+          ),
+        );
     } finally {
       if (mounted) setState(() => loading = false);
     }
@@ -8109,9 +9958,8 @@ class _DiscountAdminState extends State<_DiscountAdmin> {
                       value: freeDeliveryForFourPlus,
                       onChanged: loading
                           ? null
-                          : (value) => setState(
-                                () => freeDeliveryForFourPlus = value,
-                              ),
+                          : (value) =>
+                                setState(() => freeDeliveryForFourPlus = value),
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -8272,13 +10120,14 @@ class _SalesAdminState extends State<_SalesAdmin> {
   ];
 
   Future<void> _pickYearMonth(List<Map<String, dynamic>> all) async {
-    final years = all
-        .map(_soldAt)
-        .whereType<DateTime>()
-        .map((d) => d.year)
-        .toSet()
-        .toList()
-      ..sort((a, b) => b.compareTo(a));
+    final years =
+        all
+            .map(_soldAt)
+            .whereType<DateTime>()
+            .map((d) => d.year)
+            .toSet()
+            .toList()
+          ..sort((a, b) => b.compareTo(a));
     if (years.isEmpty) return;
 
     var year = selectedYear ?? years.first;
@@ -8312,10 +10161,7 @@ class _SalesAdminState extends State<_SalesAdmin> {
                   ),
                   items: [
                     for (final value in years)
-                      DropdownMenuItem(
-                        value: value,
-                        child: Text('$value-yil'),
-                      ),
+                      DropdownMenuItem(value: value, child: Text('$value-yil')),
                   ],
                   onChanged: (value) {
                     if (value != null) {
@@ -8432,9 +10278,10 @@ class _SalesAdminState extends State<_SalesAdmin> {
 
   DateTime? _soldAt(Map<String, dynamic> row) {
     final raw = (row['sold_at'] ?? '').toString();
-    return DateTime.tryParse(raw)?.toLocal();
+    return DateTime.tryParse(raw) == null
+        ? null
+        : koreaTime(DateTime.parse(raw));
   }
-
 
   Widget _salesPeriodChip({
     required String label,
@@ -8456,13 +10303,21 @@ class _SalesAdminState extends State<_SalesAdmin> {
             borderRadius: BorderRadius.circular(13),
             border: Border.all(color: selected ? foreground : AppColors.border),
           ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(icon, size: 14, color: foreground),
-            const SizedBox(width: 5),
-            Text(label, style: TextStyle(
-              color: foreground, fontSize: 12, fontWeight: FontWeight.w800,
-            )),
-          ]),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: foreground),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  color: foreground,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -8506,7 +10361,7 @@ class _SalesAdminState extends State<_SalesAdmin> {
         }
 
         final all = snap.data ?? const <Map<String, dynamic>>[];
-        final now = DateTime.now();
+        final now = koreaNow();
         final todayCount = all.where((row) {
           final dt = _soldAt(row);
           return dt != null &&
@@ -8526,17 +10381,30 @@ class _SalesAdminState extends State<_SalesAdmin> {
         // Use [start, end) so Sunday night, month and year boundaries
         // are counted correctly without overlapping neighbouring weeks.
         final thisWeekStart = DateTime(
-          now.year, now.month, now.day - (now.weekday - DateTime.monday));
+          now.year,
+          now.month,
+          now.day - (now.weekday - DateTime.monday),
+        );
         final nextWeekStart = DateTime(
-          thisWeekStart.year, thisWeekStart.month, thisWeekStart.day + 7);
+          thisWeekStart.year,
+          thisWeekStart.month,
+          thisWeekStart.day + 7,
+        );
         final previousWeekStart = DateTime(
-          thisWeekStart.year, thisWeekStart.month, thisWeekStart.day - 7);
+          thisWeekStart.year,
+          thisWeekStart.month,
+          thisWeekStart.day - 7,
+        );
         bool inWeek(DateTime? date, DateTime start, DateTime end) =>
             date != null && !date.isBefore(start) && date.isBefore(end);
-        final thisWeekCount = all.where((row) =>
-            inWeek(_soldAt(row), thisWeekStart, nextWeekStart)).length;
-        final previousWeekCount = all.where((row) =>
-            inWeek(_soldAt(row), previousWeekStart, thisWeekStart)).length;
+        final thisWeekCount = all
+            .where((row) => inWeek(_soldAt(row), thisWeekStart, nextWeekStart))
+            .length;
+        final previousWeekCount = all
+            .where(
+              (row) => inWeek(_soldAt(row), previousWeekStart, thisWeekStart),
+            )
+            .length;
         final monthCount = all.where((row) {
           final dt = _soldAt(row);
           return dt != null && dt.year == now.year && dt.month == now.month;
@@ -8616,174 +10484,209 @@ class _SalesAdminState extends State<_SalesAdmin> {
             slivers: [
               SliverToBoxAdapter(
                 child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  AppPageHeading(
-                    title: 'Sotilgan kitoblar',
-                    subtitle: 'Ilova, Telegram va Instagram savdolari bitta tarixda saqlanadi.',
-                    trailing: IconButton.filledTonal(
-                      onPressed: reload,
-                      tooltip: 'Yangilash',
-                      icon: const Icon(Icons.refresh_rounded),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 7,
-                    runSpacing: 7,
+                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _salesPeriodChip(label: 'Jami ${all.length}', icon: Icons.auto_stories_rounded,
-                        filter: 'all', foreground: AppColors.navy),
-                      _salesPeriodChip(label: 'Bugun $todayCount', icon: Icons.today_rounded,
-                        filter: 'today', foreground: AppColors.success),
-                      _salesPeriodChip(label: 'Kecha $yesterdayCount', icon: Icons.history_toggle_off_rounded,
-                        filter: 'yesterday', foreground: AppColors.navy),
-                      _salesPeriodChip(label: 'Bu hafta $thisWeekCount', icon: Icons.date_range_rounded,
-                        filter: 'this_week', foreground: AppColors.success),
-                      _salesPeriodChip(label: 'O‘tgan hafta $previousWeekCount', icon: Icons.history_rounded,
-                        filter: 'previous_week', foreground: AppColors.navy),
-                      _salesPeriodChip(label: 'Shu oy $monthCount', icon: Icons.calendar_month_rounded,
-                        filter: 'month', foreground: AppColors.orange),
-                      _salesPeriodChip(label: 'O‘tgan oy $previousMonthCount', icon: Icons.history_rounded,
-                        filter: 'previous_month', foreground: AppColors.navy),
-                      _salesPeriodChip(label: 'O‘tgan yil $previousYearCount', icon: Icons.event_repeat_rounded,
-                        filter: 'previous_year', foreground: AppColors.navy),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    onChanged: (value) => setState(() => query = value),
-                    decoration: const InputDecoration(
-                      hintText: 'Kitob nomi bo‘yicha qidirish...',
-                      prefixIcon: Icon(Icons.search_rounded),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _pickYearMonth(all),
-                          icon: const Icon(Icons.filter_alt_rounded),
-                          label: Text(
-                            selectedYear == null
-                                ? 'Sana filtri'
-                                : selectedMonth == null
-                                    ? '${selectedYear!}-yil · $customPeriodCount ta'
-                                    : '${_monthNames[selectedMonth! - 1]} ${selectedYear!} · $customPeriodCount ta',
-                          ),
+                      AppPageHeading(
+                        title: 'Sotilgan kitoblar',
+                        subtitle: 'Ilova, Telegram va Instagram savdolari bitta tarixda saqlanadi.',
+                        trailing: IconButton.filledTonal(
+                          onPressed: reload,
+                          tooltip: 'Yangilash',
+                          icon: const Icon(Icons.refresh_rounded),
                         ),
                       ),
-                      if (period == 'custom') ...[
-                        const SizedBox(width: 8),
-                        IconButton.filledTonal(
-                          tooltip: 'Sana filtrini tozalash',
-                          onPressed: () => setState(() {
-                            selectedYear = null;
-                            selectedMonth = null;
-                            period = 'all';
-                          }),
-                          icon: const Icon(Icons.close_rounded),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 7,
+                        runSpacing: 7,
+                        children: [
+                          _salesPeriodChip(
+                            label: 'Jami ${all.length}',
+                            icon: Icons.auto_stories_rounded,
+                            filter: 'all',
+                            foreground: AppColors.navy,
+                          ),
+                          _salesPeriodChip(
+                            label: 'Bugun $todayCount',
+                            icon: Icons.today_rounded,
+                            filter: 'today',
+                            foreground: AppColors.success,
+                          ),
+                          _salesPeriodChip(
+                            label: 'Kecha $yesterdayCount',
+                            icon: Icons.history_toggle_off_rounded,
+                            filter: 'yesterday',
+                            foreground: AppColors.navy,
+                          ),
+                          _salesPeriodChip(
+                            label: 'Bu hafta $thisWeekCount',
+                            icon: Icons.date_range_rounded,
+                            filter: 'this_week',
+                            foreground: AppColors.success,
+                          ),
+                          _salesPeriodChip(
+                            label: 'O‘tgan hafta $previousWeekCount',
+                            icon: Icons.history_rounded,
+                            filter: 'previous_week',
+                            foreground: AppColors.navy,
+                          ),
+                          _salesPeriodChip(
+                            label: 'Shu oy $monthCount',
+                            icon: Icons.calendar_month_rounded,
+                            filter: 'month',
+                            foreground: AppColors.orange,
+                          ),
+                          _salesPeriodChip(
+                            label: 'O‘tgan oy $previousMonthCount',
+                            icon: Icons.history_rounded,
+                            filter: 'previous_month',
+                            foreground: AppColors.navy,
+                          ),
+                          _salesPeriodChip(
+                            label: 'O‘tgan yil $previousYearCount',
+                            icon: Icons.event_repeat_rounded,
+                            filter: 'previous_year',
+                            foreground: AppColors.navy,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        onChanged: (value) => setState(() => query = value),
+                        decoration: const InputDecoration(
+                          hintText: 'Kitob nomi bo‘yicha qidirish...',
+                          prefixIcon: Icon(Icons.search_rounded),
                         ),
-                      ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => _pickYearMonth(all),
+                              icon: const Icon(Icons.filter_alt_rounded),
+                              label: Text(
+                                selectedYear == null
+                                    ? 'Sana filtri'
+                                    : selectedMonth == null
+                                    ? '${selectedYear!}-yil · $customPeriodCount ta'
+                                    : '${_monthNames[selectedMonth! - 1]} ${selectedYear!} · $customPeriodCount ta',
+                              ),
+                            ),
+                          ),
+                          if (period == 'custom') ...[
+                            const SizedBox(width: 8),
+                            IconButton.filledTonal(
+                              tooltip: 'Sana filtrini tozalash',
+                              onPressed: () => setState(() {
+                                selectedYear = null;
+                                selectedMonth = null;
+                                period = 'all';
+                              }),
+                              icon: const Icon(Icons.close_rounded),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            for (final item in const [
+                              ('all', 'Barchasi'),
+                              ('app', 'Ilova'),
+                              ('telegram', 'Telegram'),
+                              ('instagram', 'Instagram'),
+                              ('legacy', 'Eski sotuvlar'),
+                            ]) ...[
+                              ChoiceChip(
+                                label: Text(item.$2),
+                                selected: source == item.$1,
+                                onSelected: (_) =>
+                                    setState(() => source = item.$1),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                          ],
+                        ),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        for (final item in const [
-                          ('all', 'Barchasi'),
-                          ('app', 'Ilova'),
-                          ('telegram', 'Telegram'),
-                          ('instagram', 'Instagram'),
-                          ('legacy', 'Eski sotuvlar'),
-                        ]) ...[
-                          ChoiceChip(
-                            label: Text(item.$2),
-                            selected: source == item.$1,
-                            onSelected: (_) => setState(() => source = item.$1),
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+                ),
               ),
               if (filtered.isEmpty)
                 const SliverToBoxAdapter(
                   child: Padding(
                     padding: EdgeInsets.fromLTRB(18, 45, 18, 30),
-                    child: Center(child: Text(
-                      'Hozircha mos sotuv topilmadi.',
-                      style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700),
-                    )),
+                    child: Center(
+                      child: Text(
+                        'Hozircha mos sotuv topilmadi.',
+                        style: TextStyle(
+                          color: AppColors.muted,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
                   ),
                 )
               else
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(18, 4, 18, 28),
                   sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                          final row = filtered[index];
-                          final title = (row['title'] ?? 'Kitob').toString();
-                          final rowSource = (row['source'] ?? 'app').toString();
-                          final dt = _soldAt(row);
-                          final date = dt == null
-                              ? '—'
-                              : DateFormat('dd.MM.yyyy').format(dt);
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: AppSurface(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
-                            child: Row(
-                              children: [
-                                SizedBox(
-                                  width: 42,
-                                  child: Text(
-                                    '${index + 1}.',
-                                    style: const TextStyle(
-                                      color: AppColors.muted,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    '$title ($date)',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      color: AppColors.navy,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Tooltip(
-                                  message: _sourceLabel(rowSource),
-                                  child: Icon(
-                                    _sourceIcon(rowSource),
-                                    size: 19,
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final row = filtered[index];
+                      final title = (row['title'] ?? 'Kitob').toString();
+                      final rowSource = (row['source'] ?? 'app').toString();
+                      final dt = _soldAt(row);
+                      final date = dt == null
+                          ? '—'
+                          : DateFormat('dd.MM.yyyy').format(dt);
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: AppSurface(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 42,
+                                child: Text(
+                                  '${index + 1}.',
+                                  style: const TextStyle(
                                     color: AppColors.muted,
+                                    fontWeight: FontWeight.w900,
                                   ),
                                 ),
-                              ],
-                            ),
-                          ));
-
-                      },
-                      childCount: filtered.length,
-                    ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  '$title ($date)',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.navy,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Tooltip(
+                                message: _sourceLabel(rowSource),
+                                child: Icon(
+                                  _sourceIcon(rowSource),
+                                  size: 19,
+                                  color: AppColors.muted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }, childCount: filtered.length),
                   ),
                 ),
             ],
@@ -8843,11 +10746,15 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
       const Duration(seconds: 10),
       (_) => reloadQuietly(),
     );
-    _deviceFuture = widget.api.deviceAnalytics().timeout(const Duration(seconds: 8));
+    _deviceFuture = widget.api.deviceAnalytics().timeout(
+      const Duration(seconds: 8),
+    );
     _deviceRefreshTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       if (!mounted) return;
       setState(() {
-        _deviceFuture = widget.api.deviceAnalytics().timeout(const Duration(seconds: 8));
+        _deviceFuture = widget.api.deviceAnalytics().timeout(
+          const Duration(seconds: 8),
+        );
       });
     });
   }
@@ -8907,25 +10814,51 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
         final q = query.trim().toLowerCase();
         final customers = all.where((c) {
           final platform = (c['platform'] ?? 'web').toString().toLowerCase();
-          final source = (c['install_source'] ?? c['source'] ?? '').toString().toLowerCase();
+          final source = (c['install_source'] ?? c['source'] ?? '')
+              .toString()
+              .toLowerCase();
           if (sourceFilter == 'android' && platform != 'android') return false;
           if (sourceFilter == 'ios' && platform != 'ios') return false;
-          if (sourceFilter == 'play' && !(source == 'play_market' || source == 'play_store' || platform == 'android_play')) return false;
+          if (sourceFilter == 'play' &&
+              !(source == 'play_market' ||
+                  source == 'play_store' ||
+                  platform == 'android_play'))
+            return false;
           if (sourceFilter == 'web' && platform != 'web') return false;
           if (q.isEmpty) return true;
           return (c['full_name'] ?? '').toString().toLowerCase().contains(q) ||
               (c['phone'] ?? '').toString().toLowerCase().contains(q);
         }).toList();
-        final androidCustomers = all.where((c) => (c['platform'] ?? '').toString().toLowerCase() == 'android').length;
-        final iosCustomers = all.where((c) => (c['platform'] ?? '').toString().toLowerCase() == 'ios').length;
+        final androidCustomers = all
+            .where(
+              (c) =>
+                  (c['platform'] ?? '').toString().toLowerCase() == 'android',
+            )
+            .length;
+        final iosCustomers = all
+            .where(
+              (c) => (c['platform'] ?? '').toString().toLowerCase() == 'ios',
+            )
+            .length;
         final playCustomers = all.where((c) {
           final platform = (c['platform'] ?? '').toString().toLowerCase();
-          final source = (c['install_source'] ?? c['source'] ?? '').toString().toLowerCase();
-          return platform == 'android_play' || source == 'play_market' || source == 'play_store';
+          final source = (c['install_source'] ?? c['source'] ?? '')
+              .toString()
+              .toLowerCase();
+          return platform == 'android_play' ||
+              source == 'play_market' ||
+              source == 'play_store';
         }).length;
-        final webCustomers = all.where((c) => (c['platform'] ?? 'web').toString().toLowerCase() == 'web').length;
+        final webCustomers = all
+            .where(
+              (c) => (c['platform'] ?? 'web').toString().toLowerCase() == 'web',
+            )
+            .length;
 
-        void showPeople(String title, bool Function(Map<String, dynamic>) test) {
+        void showPeople(
+          String title,
+          bool Function(Map<String, dynamic>) test,
+        ) {
           final people = all.where(test).toList();
           showModalBottomSheet<void>(
             context: context,
@@ -8940,8 +10873,19 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                       padding: const EdgeInsets.fromLTRB(18, 4, 18, 12),
                       child: Row(
                         children: [
-                          Expanded(child: Text('$title — ${people.length} ta', style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900))),
-                          IconButton(onPressed: () => Navigator.pop(sheetContext), icon: const Icon(Icons.close_rounded)),
+                          Expanded(
+                            child: Text(
+                              '$title — ${people.length} ta',
+                              style: const TextStyle(
+                                fontSize: 19,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(sheetContext),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
                         ],
                       ),
                     ),
@@ -8952,17 +10896,35 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                           : ListView.separated(
                               padding: const EdgeInsets.all(14),
                               itemCount: people.length,
-                              separatorBuilder: (_, __) => const Divider(height: 1),
+                              separatorBuilder: (_, __) =>
+                                  const Divider(height: 1),
                               itemBuilder: (_, i) {
                                 final p = people[i];
-                                final name = (p['full_name'] ?? '').toString().trim();
+                                final name = (p['full_name'] ?? '')
+                                    .toString()
+                                    .trim();
                                 return ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                                  leading: const CircleAvatar(child: Icon(Icons.person_rounded)),
-                                  title: Text(name.isEmpty ? 'Nomsiz mijoz' : name, style: const TextStyle(fontWeight: FontWeight.w800)),
-                                  subtitle: Text('${p['phone'] ?? '—'}\nOxirgi faollik: ${_date(p['last_seen_at'])}'),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 4,
+                                  ),
+                                  leading: const CircleAvatar(
+                                    child: Icon(Icons.person_rounded),
+                                  ),
+                                  title: Text(
+                                    name.isEmpty ? 'Nomsiz mijoz' : name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    '${p['phone'] ?? '—'}\nOxirgi faollik: ${_date(p['last_seen_at'])}',
+                                  ),
                                   isThreeLine: true,
-                                  trailing: Text('${p['order_count'] ?? 0} ta\n${_won((p['spent'] as num?)?.toInt() ?? 0)}', textAlign: TextAlign.end),
+                                  trailing: Text(
+                                    '${p['order_count'] ?? 0} ta\n${_won((p['spent'] as num?)?.toInt() ?? 0)}',
+                                    textAlign: TextAlign.end,
+                                  ),
                                 );
                               },
                             ),
@@ -8975,117 +10937,324 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
         }
 
         Future<void> showDevices() async {
-          showModalBottomSheet<void>(context: context,isScrollControlled:true,showDragHandle:true,builder:(sheetContext)=>SafeArea(child:SizedBox(height:MediaQuery.of(sheetContext).size.height*.62,child:FutureBuilder<Map<String,dynamic>>(future:widget.api.deviceAnalytics().timeout(const Duration(seconds:8)),builder:(context,snap){
-            if(snap.connectionState==ConnectionState.waiting)return const Center(child:CircularProgressIndicator());
-            if(snap.hasError)return Center(child:Padding(padding:const EdgeInsets.all(24),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.error_outline_rounded,size:38),const SizedBox(height:10),const Text('Qurilmalar ma’lumotini yuklab bo‘lmadi.',textAlign:TextAlign.center),const SizedBox(height:12),FilledButton(onPressed:()=>Navigator.pop(sheetContext),child:const Text('Yopish'))])));
-            final d=snap.data??const <String,dynamic>{};
-            if (webPreviewFeaturesAvailable && d['platforms'] is Map) {
-              final bySource = Map<String, dynamic>.from(d['platforms'] as Map);
-              Map<String, dynamic> source(String key) {
-                final raw = bySource[key];
-                return raw is Map ? Map<String, dynamic>.from(raw) : {};
-              }
-              int n(String key, String field) =>
-                (source(key)[field] as num?)?.toInt() ?? 0;
-              Widget sourceTile(String title, String key) {
-                final isPlay = key == 'play_market_or_test';
-                final totalIds = n(key, 'installation_ids');
-                final newIds = n(key, 'new_ids_since_play_launch');
-                return ListTile(
-                  title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-                  subtitle: Text(
-                    isPlay
-                        ? '11-oktabrdan yangi ID: $newIds ta'
-                          '\n11-oktabrdan oldingi ID: ${totalIds - newIds} ta'
-                          '\nBarcha tarixiy IDlar: $totalIds ta'
-                        : 'Telefon raqamiga bog‘langan: ${n(key, 'linked_unique_phones')} ta'
-                          '\nRaqamsiz ID: ${n(key, 'unlinked_installation_ids')} ta'
-                          ' • Jami ID: $totalIds ta',
+          showModalBottomSheet<void>(
+            context: context,
+            isScrollControlled: true,
+            showDragHandle: true,
+            builder: (sheetContext) => SafeArea(
+              child: SizedBox(
+                height: MediaQuery.of(sheetContext).size.height * .62,
+                child: FutureBuilder<Map<String, dynamic>>(
+                  future: widget.api.deviceAnalytics().timeout(
+                    const Duration(seconds: 8),
                   ),
-                  isThreeLine: true,
-                );
-              }
-              return Column(children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 10, 10),
-                  child: Row(children: [
-                    const Expanded(child: Text('Manbalar va takrorlanish',
-                      style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900))),
-                    IconButton(onPressed: () => Navigator.pop(sheetContext),
-                      icon: const Icon(Icons.close_rounded)),
-                  ]),
-                ),
-                Expanded(child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                  children: [
-                    AppSurface(padding: const EdgeInsets.all(16),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('${((d['linked_unique_phones'] as num?)?.toInt() ?? 0) + ((d['unlinked_installation_ids'] as num?)?.toInt() ?? 0)}',
-                            style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900)),
-                          const Text('Hisoblar va anonim IDlar (qurilmalar soni emas)'),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Raqamga bog‘langan ${d['linked_unique_phones'] ?? 0} ta kishi '
-                            'takrorlanmaydi. Raqamsiz ${d['unlinked_installation_ids'] ?? 0} ta '
-                            'identifikator bor. Ular alohida kirish sifatida sanaladi, '
-                            'ammo noyob jismoniy telefon ekanini tasdiqlab bo‘lmaydi.',
-                            style: const TextStyle(color: AppColors.muted, height: 1.4),
+                  builder: (context, snap) {
+                    if (snap.connectionState == ConnectionState.waiting)
+                      return const Center(child: CircularProgressIndicator());
+                    if (snap.hasError)
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.error_outline_rounded, size: 38),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Qurilmalar ma’lumotini yuklab bo‘lmadi.',
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 12),
+                              FilledButton(
+                                onPressed: () => Navigator.pop(sheetContext),
+                                child: const Text('Yopish'),
+                              ),
+                            ],
                           ),
-                        ])),
-                    const SizedBox(height: 12),
-                    sourceTile('Play / beta (tarixiy va yangi IDlar)', 'play_market_or_test'),
-                    sourceTile('App Store / TestFlight', 'app_store_or_testflight'),
-                    sourceTile('Web brauzer', 'web'),
-                    sourceTile('Android APK', 'android_apk'),
-                    if (n('ios_other', 'installation_ids') > 0)
-                      sourceTile('Boshqa iOS build', 'ios_other'),
-                    const Divider(),
-                    const Text(
-                      'Ilovaga kirishlar identifikatorlar orqali qayd etiladi. '
-                      'Sana bo‘yicha ajratish test yoki haqiqiy mijozni tasdiqlamaydi. '
-                      'Bu Google Play haqiqiy yuklab olish soni emas. '
-                      'App Store va TestFlight, Play Market va beta '
-                      'versiyalarini ushbu bazadan aniq ajratib bo‘lmaydi. '
-                      'Rasmiy raqamlarni Play Console va App Store Connect '
-                      'orqali tekshiring.',
-                      style: TextStyle(color: AppColors.muted, height: 1.4),
-                    ),
-                  ],
-                )),
-              ]);
-            }
-            final total=d['total']??0;
-            final android=d['android_total']??d['android']??0;
-            final androidApk=d['android_apk']??d['android']??0;
-            final iphone=d['ios']??d['iphone']??0;
-            final playMarket=d['play_market']??d['play_store']??0;
-            final appStore=d['app_store']??0;
-            final web=d['web_unknown']??0;
-            return Column(children:[
-              Padding(padding:const EdgeInsets.fromLTRB(16,4,10,10),child:Row(children:[const Expanded(child:Text('Kirish manbalari',style:TextStyle(fontSize:19,fontWeight:FontWeight.w900))),IconButton(onPressed:()=>Navigator.pop(sheetContext),icon:const Icon(Icons.close_rounded))])),
-              Padding(padding:const EdgeInsets.all(16),child:AppSurface(padding:const EdgeInsets.all(18),child:Wrap(
-                spacing:24,runSpacing:18,alignment:WrapAlignment.center,
-                children:[
-                  Column(children:[Text('$total',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Jami qurilma')]),
-                  Column(children:[Text('$android',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Android jami')]),
-                  Column(children:[Text('$iphone',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('iOS / iPadOS')]),
-                  Column(children:[Text('$androidApk',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Android APK')]),
-                  Column(children:[Text('$playMarket',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Play Market')]),
-                  Column(children:[Text('$appStore',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('App Store')]),
-                  Column(children:[Text('$web',style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('Web brauzer')]),
-                ],
-              ))),
-              const Padding(padding:EdgeInsets.all(20),child:Text('Bu ko‘rsatkichlar install IDlar, do‘kon yuklab olishlari emas.',textAlign:TextAlign.center,style:TextStyle(color:AppColors.muted)))
-            ]);
-          }))));}
+                        ),
+                      );
+                    final d = snap.data ?? const <String, dynamic>{};
+                    if (webPreviewFeaturesAvailable && d['platforms'] is Map) {
+                      final bySource = Map<String, dynamic>.from(
+                        d['platforms'] as Map,
+                      );
+                      Map<String, dynamic> source(String key) {
+                        final raw = bySource[key];
+                        return raw is Map ? Map<String, dynamic>.from(raw) : {};
+                      }
+
+                      int n(String key, String field) =>
+                          (source(key)[field] as num?)?.toInt() ?? 0;
+                      Widget sourceTile(String title, String key) {
+                        final isPlay = key == 'play_market_or_test';
+                        final totalIds = n(key, 'installation_ids');
+                        final newIds = n(key, 'new_ids_since_play_launch');
+                        return ListTile(
+                          title: Text(
+                            title,
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          subtitle: Text(
+                            isPlay
+                                ? '11-oktabrdan yangi ID: $newIds ta'
+                                      '\n11-oktabrdan oldingi ID: ${totalIds - newIds} ta'
+                                      '\nBarcha tarixiy IDlar: $totalIds ta'
+                                : 'Telefon raqamiga bog‘langan: ${n(key, 'linked_unique_phones')} ta'
+                                      '\nRaqamsiz ID: ${n(key, 'unlinked_installation_ids')} ta'
+                                      ' • Jami ID: $totalIds ta',
+                          ),
+                          isThreeLine: true,
+                        );
+                      }
+
+                      return Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 4, 10, 10),
+                            child: Row(
+                              children: [
+                                const Expanded(
+                                  child: Text(
+                                    'Manbalar va takrorlanish',
+                                    style: TextStyle(
+                                      fontSize: 19,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  onPressed: () => Navigator.pop(sheetContext),
+                                  icon: const Icon(Icons.close_rounded),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: ListView(
+                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                              children: [
+                                AppSurface(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${((d['linked_unique_phones'] as num?)?.toInt() ?? 0) + ((d['unlinked_installation_ids'] as num?)?.toInt() ?? 0)}',
+                                        style: const TextStyle(
+                                          fontSize: 30,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                      const Text(
+                                        'Hisoblar va anonim IDlar (qurilmalar soni emas)',
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Raqamga bog‘langan ${d['linked_unique_phones'] ?? 0} ta kishi '
+                                        'takrorlanmaydi. Raqamsiz ${d['unlinked_installation_ids'] ?? 0} ta '
+                                        'identifikator bor. Ular alohida kirish sifatida sanaladi, '
+                                        'ammo noyob jismoniy telefon ekanini tasdiqlab bo‘lmaydi.',
+                                        style: const TextStyle(
+                                          color: AppColors.muted,
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                sourceTile(
+                                  'Play / beta (tarixiy va yangi IDlar)',
+                                  'play_market_or_test',
+                                ),
+                                sourceTile(
+                                  'App Store / TestFlight',
+                                  'app_store_or_testflight',
+                                ),
+                                sourceTile('Web brauzer', 'web'),
+                                sourceTile('Android APK', 'android_apk'),
+                                if (n('ios_other', 'installation_ids') > 0)
+                                  sourceTile('Boshqa iOS build', 'ios_other'),
+                                const Divider(),
+                                const Text(
+                                  'Ilovaga kirishlar identifikatorlar orqali qayd etiladi. '
+                                  'Sana bo‘yicha ajratish test yoki haqiqiy mijozni tasdiqlamaydi. '
+                                  'Bu Google Play haqiqiy yuklab olish soni emas. '
+                                  'App Store va TestFlight, Play Market va beta '
+                                  'versiyalarini ushbu bazadan aniq ajratib bo‘lmaydi. '
+                                  'Rasmiy raqamlarni Play Console va App Store Connect '
+                                  'orqali tekshiring.',
+                                  style: TextStyle(
+                                    color: AppColors.muted,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+                    final total = d['total'] ?? 0;
+                    final android = d['android_total'] ?? d['android'] ?? 0;
+                    final androidApk = d['android_apk'] ?? d['android'] ?? 0;
+                    final iphone = d['ios'] ?? d['iphone'] ?? 0;
+                    final playMarket = d['play_market'] ?? d['play_store'] ?? 0;
+                    final appStore = d['app_store'] ?? 0;
+                    final web = d['web_unknown'] ?? 0;
+                    return Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 4, 10, 10),
+                          child: Row(
+                            children: [
+                              const Expanded(
+                                child: Text(
+                                  'Kirish manbalari',
+                                  style: TextStyle(
+                                    fontSize: 19,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () => Navigator.pop(sheetContext),
+                                icon: const Icon(Icons.close_rounded),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: AppSurface(
+                            padding: const EdgeInsets.all(18),
+                            child: Wrap(
+                              spacing: 24,
+                              runSpacing: 18,
+                              alignment: WrapAlignment.center,
+                              children: [
+                                Column(
+                                  children: [
+                                    Text(
+                                      '$total',
+                                      style: const TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    const Text('Jami qurilma'),
+                                  ],
+                                ),
+                                Column(
+                                  children: [
+                                    Text(
+                                      '$android',
+                                      style: const TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    const Text('Android jami'),
+                                  ],
+                                ),
+                                Column(
+                                  children: [
+                                    Text(
+                                      '$iphone',
+                                      style: const TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    const Text('iOS / iPadOS'),
+                                  ],
+                                ),
+                                Column(
+                                  children: [
+                                    Text(
+                                      '$androidApk',
+                                      style: const TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    const Text('Android APK'),
+                                  ],
+                                ),
+                                Column(
+                                  children: [
+                                    Text(
+                                      '$playMarket',
+                                      style: const TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    const Text('Play Market'),
+                                  ],
+                                ),
+                                Column(
+                                  children: [
+                                    Text(
+                                      '$appStore',
+                                      style: const TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    const Text('App Store'),
+                                  ],
+                                ),
+                                Column(
+                                  children: [
+                                    Text(
+                                      '$web',
+                                      style: const TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    const Text('Web brauzer'),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.all(20),
+                          child: Text(
+                            'Bu ko‘rsatkichlar install IDlar, do‘kon yuklab olishlari emas.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: AppColors.muted),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+          );
+        }
 
         final now = DateTime.now();
-        DateTime? localDate(dynamic v) => DateTime.tryParse((v ?? '').toString())?.toLocal();
-        bool sameDay(DateTime? a, DateTime b) => a != null && a.year == b.year && a.month == b.month && a.day == b.day;
+        DateTime? localDate(dynamic v) =>
+            DateTime.tryParse((v ?? '').toString())?.toLocal();
+        bool sameDay(DateTime? a, DateTime b) =>
+            a != null &&
+            a.year == b.year &&
+            a.month == b.month &&
+            a.day == b.day;
         final monthStart = DateTime(now.year, now.month, 1);
 
-        Widget metric(String label, dynamic value, IconData icon, {VoidCallback? onTap}) => Expanded(
+        Widget metric(
+          String label,
+          dynamic value,
+          IconData icon, {
+          VoidCallback? onTap,
+        }) => Expanded(
           child: InkWell(
             borderRadius: BorderRadius.circular(18),
             onTap: onTap,
@@ -9094,11 +11263,35 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(children: [Icon(icon, color: AppColors.navy, size: 20), const Spacer(), if (onTap != null) const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.muted)]),
+                  Row(
+                    children: [
+                      Icon(icon, color: AppColors.navy, size: 20),
+                      const Spacer(),
+                      if (onTap != null)
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          size: 18,
+                          color: AppColors.muted,
+                        ),
+                    ],
+                  ),
                   const SizedBox(height: 10),
-                  Text('$value', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.navy)),
+                  Text(
+                    '$value',
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.navy,
+                    ),
+                  ),
                   const SizedBox(height: 3),
-                  Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 11.5)),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 11.5,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -9121,15 +11314,20 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
               ),
               const SizedBox(height: 14),
               FutureBuilder<Map<String, dynamic>>(
-                future: _deviceFuture ??= widget.api.deviceAnalytics().timeout(const Duration(seconds: 8)),
+                future: _deviceFuture ??= widget.api.deviceAnalytics().timeout(
+                  const Duration(seconds: 8),
+                ),
                 builder: (context, deviceSnap) {
-                  if (webPreviewFeaturesAvailable && (deviceSnap.hasError ||
-                      deviceSnap.data?['platforms'] is! Map)) {
+                  if (webPreviewFeaturesAvailable &&
+                      (deviceSnap.hasError ||
+                          deviceSnap.data?['platforms'] is! Map)) {
                     return AppSurface(
                       padding: const EdgeInsets.all(16),
-                      child: Text(deviceSnap.hasError
-                          ? 'Statistikani yuklab bo‘lmadi. Sahifani yangilang.'
-                          : 'Statistika yuklanmoqda…'),
+                      child: Text(
+                        deviceSnap.hasError
+                            ? 'Statistikani yuklab bo‘lmadi. Sahifani yangilang.'
+                            : 'Statistika yuklanmoqda…',
+                      ),
                     );
                   }
                   final d = deviceSnap.data ?? const <String, dynamic>{};
@@ -9139,91 +11337,160 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                   final web = d['web_unknown'] ?? 0;
 
                   if (webPreviewFeaturesAvailable && d['platforms'] is Map) {
-                    final sources = Map<String, dynamic>.from(d['platforms'] as Map);
+                    final sources = Map<String, dynamic>.from(
+                      d['platforms'] as Map,
+                    );
                     int observed(String key) {
                       final entry = sources[key];
                       if (entry is! Map) return 0;
                       // Only linked accounts can be deduplicated reliably.
                       // Anonymous IDs remain in the detail sheet, never in customer totals.
-                      final known = (entry['linked_unique_phones'] as num?)?.toInt() ?? 0;
+                      final known =
+                          (entry['linked_unique_phones'] as num?)?.toInt() ?? 0;
                       return known;
                     }
-                    final uniqueKnown = (d['linked_unique_phones'] as num?)?.toInt() ?? 0;
-                    final anonymousIds = (d['unlinked_installation_ids'] as num?)?.toInt() ?? 0;
-                    return Column(children: [
-                      Row(children: [
-                        metric('Ilovaga kirganlar • unikal raqam',
-                          uniqueKnown, Icons.people_outline_rounded, onTap: showDevices),
-                        const SizedBox(width: 10),
-                        metric('Ism va raqam kiritganlar',
-                          all.length, Icons.verified_user_outlined,
-                          onTap: () => showPeople('Ism va raqam kiritganlar', (_) => true)),
-                      ]),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Bir telefon raqami bir marta sanaladi. '
-                        'Raqamsiz $anonymousIds ta tarixiy ID mijozlar soniga qo‘shilmaydi. '
-                        'Qurilmalar va rasmiy yuklab olishlar soni mavjud ma’lumotdan aniqlanmaydi.',
-                        style: TextStyle(color: AppColors.muted, fontSize: 11.5, height: 1.4),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(children: [
-                        metric('App Store / TestFlight • unikal raqam',
-                          observed('app_store_or_testflight'),
-                          Icons.phone_iphone_rounded, onTap: showDevices),
-                        const SizedBox(width: 10),
-                        metric('Play / beta • unikal raqam',
-                          observed('play_market_or_test'),
-                          Icons.shop_rounded, onTap: showDevices),
-                      ]),
-                      const SizedBox(height: 10),
-                      Row(children: [
-                        metric('Web • unikal raqam',
-                          observed('web'),
-                          Icons.language_rounded, onTap: showDevices),
-                        const SizedBox(width: 10),
-                        metric('Android APK • unikal raqam',
-                          observed('android_apk'),
-                          Icons.android_rounded, onTap: showDevices),
-                      ]),
-                      if (observed('ios_other') > 0) ...[
-                        const SizedBox(height: 10),
-                        Row(children: [
-                          metric('Boshqa iOS versiyasi',
-                            observed('ios_other'),
-                            Icons.phone_iphone_rounded, onTap: showDevices),
-                          const SizedBox(width: 10),
-                          const Expanded(child: SizedBox.shrink()),
-                        ]),
-                      ],
-                      const Padding(
-                        padding: EdgeInsets.only(top: 8),
-                        child: Text(
-                          'Har bir manbada telefon raqami takrorlanmaydi. Bir kishi '
-                          'bir nechta manbadan foydalansa, tegishli kartalarda ko‘rinadi; '
-                          'umumiy hisobda bir marta sanaladi. Anonim IDlar tafsilotda alohida. '
-                          'Play/beta va App Store/TestFlight eski yozuvlarda birga saqlangan. '
-                          'Rasmiy yuklab olishlar: Play Console va App Store Connect.',
-                          style: TextStyle(color: AppColors.muted, fontSize: 11, height: 1.35),
+
+                    final uniqueKnown =
+                        (d['linked_unique_phones'] as num?)?.toInt() ?? 0;
+                    final anonymousIds =
+                        (d['unlinked_installation_ids'] as num?)?.toInt() ?? 0;
+                    return Column(
+                      children: [
+                        Row(
+                          children: [
+                            metric(
+                              'Ilovaga kirganlar • unikal raqam',
+                              uniqueKnown,
+                              Icons.people_outline_rounded,
+                              onTap: showDevices,
+                            ),
+                            const SizedBox(width: 10),
+                            metric(
+                              'Ism va raqam kiritganlar',
+                              all.length,
+                              Icons.verified_user_outlined,
+                              onTap: () => showPeople(
+                                'Ism va raqam kiritganlar',
+                                (_) => true,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ]);
+                        const SizedBox(height: 8),
+                        Text(
+                          'Bir telefon raqami bir marta sanaladi. '
+                          'Raqamsiz $anonymousIds ta tarixiy ID mijozlar soniga qo‘shilmaydi. '
+                          'Qurilmalar va rasmiy yuklab olishlar soni mavjud ma’lumotdan aniqlanmaydi.',
+                          style: TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 11.5,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            metric(
+                              'App Store / TestFlight • unikal raqam',
+                              observed('app_store_or_testflight'),
+                              Icons.phone_iphone_rounded,
+                              onTap: showDevices,
+                            ),
+                            const SizedBox(width: 10),
+                            metric(
+                              'Play / beta • unikal raqam',
+                              observed('play_market_or_test'),
+                              Icons.shop_rounded,
+                              onTap: showDevices,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            metric(
+                              'Web • unikal raqam',
+                              observed('web'),
+                              Icons.language_rounded,
+                              onTap: showDevices,
+                            ),
+                            const SizedBox(width: 10),
+                            metric(
+                              'Android APK • unikal raqam',
+                              observed('android_apk'),
+                              Icons.android_rounded,
+                              onTap: showDevices,
+                            ),
+                          ],
+                        ),
+                        if (observed('ios_other') > 0) ...[
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              metric(
+                                'Boshqa iOS versiyasi',
+                                observed('ios_other'),
+                                Icons.phone_iphone_rounded,
+                                onTap: showDevices,
+                              ),
+                              const SizedBox(width: 10),
+                              const Expanded(child: SizedBox.shrink()),
+                            ],
+                          ),
+                        ],
+                        const Padding(
+                          padding: EdgeInsets.only(top: 8),
+                          child: Text(
+                            'Har bir manbada telefon raqami takrorlanmaydi. Bir kishi '
+                            'bir nechta manbadan foydalansa, tegishli kartalarda ko‘rinadi; '
+                            'umumiy hisobda bir marta sanaladi. Anonim IDlar tafsilotda alohida. '
+                            'Play/beta va App Store/TestFlight eski yozuvlarda birga saqlangan. '
+                            'Rasmiy yuklab olishlar: Play Console va App Store Connect.',
+                            style: TextStyle(
+                              color: AppColors.muted,
+                              fontSize: 11,
+                              height: 1.35,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
                   }
                   return Column(
                     children: [
                       Row(
                         children: [
-                          metric('Android APK', androidApk, Icons.android_rounded, onTap: showDevices),
+                          metric(
+                            'Android APK',
+                            androidApk,
+                            Icons.android_rounded,
+                            onTap: showDevices,
+                          ),
                           const SizedBox(width: 10),
-                          metric('iOS / iPadOS', ios, Icons.phone_iphone_rounded, onTap: showDevices),
+                          metric(
+                            'iOS / iPadOS',
+                            ios,
+                            Icons.phone_iphone_rounded,
+                            onTap: showDevices,
+                          ),
                         ],
                       ),
                       const SizedBox(height: 10),
                       Row(
                         children: [
-                          metric('Play Market', playMarket, Icons.shop_rounded, onTap: showDevices),
+                          metric(
+                            'Play Market',
+                            playMarket,
+                            Icons.shop_rounded,
+                            onTap: showDevices,
+                          ),
                           const SizedBox(width: 10),
-                          metric('Web brauzer', web, Icons.language_rounded, onTap: showDevices),
+                          metric(
+                            'Web brauzer',
+                            web,
+                            Icons.language_rounded,
+                            onTap: showDevices,
+                          ),
                         ],
                       ),
                     ],
@@ -9233,43 +11500,120 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  metric(webPreviewFeaturesAvailable ? 'Ro‘yxatdan o‘tganlar' : 'Jami mijozlar', stats['total_users'] ?? 0, Icons.groups_rounded, onTap: () => showPeople('Ro‘yxatdan o‘tganlar', (_) => true)),
+                  metric(
+                    webPreviewFeaturesAvailable
+                        ? 'Ro‘yxatdan o‘tganlar'
+                        : 'Jami mijozlar',
+                    stats['total_users'] ?? 0,
+                    Icons.groups_rounded,
+                    onTap: () =>
+                        showPeople('Ro‘yxatdan o‘tganlar', (_) => true),
+                  ),
                   const SizedBox(width: 10),
-                  metric('Bugun qo‘shildi', stats['new_today'] ?? 0, Icons.person_add_alt_1_rounded, onTap: () => showPeople('Bugun qo‘shilganlar', (p) => sameDay(localDate(p['created_at']), now))),
+                  metric(
+                    'Bugun qo‘shildi',
+                    stats['new_today'] ?? 0,
+                    Icons.person_add_alt_1_rounded,
+                    onTap: () => showPeople(
+                      'Bugun qo‘shilganlar',
+                      (p) => sameDay(localDate(p['created_at']), now),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 10),
               Row(
                 children: [
-                  metric('Bugun faol', stats['active_today'] ?? 0, Icons.bolt_rounded, onTap: () => showPeople('Bugun faol', (p) => sameDay(localDate(p['last_seen_at']), now))),
+                  metric(
+                    'Bugun faol',
+                    stats['active_today'] ?? 0,
+                    Icons.bolt_rounded,
+                    onTap: () => showPeople(
+                      'Bugun faol',
+                      (p) => sameDay(localDate(p['last_seen_at']), now),
+                    ),
+                  ),
                   const SizedBox(width: 10),
-                  metric('7 kunda faol', stats['active_7d'] ?? 0, Icons.calendar_view_week_rounded, onTap: () => showPeople('7 kunda faol', (p) { final d=localDate(p['last_seen_at']); return d != null && d.isAfter(now.subtract(const Duration(days: 7))); })),
+                  metric(
+                    '7 kunda faol',
+                    stats['active_7d'] ?? 0,
+                    Icons.calendar_view_week_rounded,
+                    onTap: () => showPeople('7 kunda faol', (p) {
+                      final d = localDate(p['last_seen_at']);
+                      return d != null &&
+                          d.isAfter(now.subtract(const Duration(days: 7)));
+                    }),
+                  ),
                 ],
               ),
               const SizedBox(height: 10),
               Row(
                 children: [
-                  metric('7 kunda yangi', stats['new_7d'] ?? 0, Icons.trending_up_rounded, onTap: () => showPeople('7 kunda yangi', (p) { final d=localDate(p['created_at']); return d != null && d.isAfter(now.subtract(const Duration(days: 7))); })),
+                  metric(
+                    '7 kunda yangi',
+                    stats['new_7d'] ?? 0,
+                    Icons.trending_up_rounded,
+                    onTap: () => showPeople('7 kunda yangi', (p) {
+                      final d = localDate(p['created_at']);
+                      return d != null &&
+                          d.isAfter(now.subtract(const Duration(days: 7)));
+                    }),
+                  ),
                   const SizedBox(width: 10),
-                  metric('Shu oy yangi', stats['new_this_month'] ?? 0, Icons.calendar_month_rounded, onTap: () => showPeople('Shu oy yangi', (p) { final d=localDate(p['created_at']); return d != null && !d.isBefore(monthStart); })),
+                  metric(
+                    'Shu oy yangi',
+                    stats['new_this_month'] ?? 0,
+                    Icons.calendar_month_rounded,
+                    onTap: () => showPeople('Shu oy yangi', (p) {
+                      final d = localDate(p['created_at']);
+                      return d != null && !d.isBefore(monthStart);
+                    }),
+                  ),
                 ],
               ),
               const SizedBox(height: 10),
               Row(
                 children: [
-                  metric('Xaridorlar', stats['buyers'] ?? 0, Icons.shopping_bag_rounded, onTap: () => showPeople('Xaridorlar', (p) => ((p['order_count'] as num?)?.toInt() ?? 0) > 0)),
+                  metric(
+                    'Xaridorlar',
+                    stats['buyers'] ?? 0,
+                    Icons.shopping_bag_rounded,
+                    onTap: () => showPeople(
+                      'Xaridorlar',
+                      (p) => ((p['order_count'] as num?)?.toInt() ?? 0) > 0,
+                    ),
+                  ),
                   const SizedBox(width: 10),
-                  metric('Qayta xarid qilgan', stats['repeat_buyers'] ?? 0, Icons.repeat_rounded, onTap: () => showPeople('Qayta xarid qilganlar', (p) => ((p['order_count'] as num?)?.toInt() ?? 0) > 1)),
+                  metric(
+                    'Qayta xarid qilgan',
+                    stats['repeat_buyers'] ?? 0,
+                    Icons.repeat_rounded,
+                    onTap: () => showPeople(
+                      'Qayta xarid qilganlar',
+                      (p) => ((p['order_count'] as num?)?.toInt() ?? 0) > 1,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 10),
               Row(
                 children: [
-                  metric(webPreviewFeaturesAvailable ? 'Qurilmalar: to‘liq aniqlanmagan' : 'Ilova qurilmalari',
-                     webPreviewFeaturesAvailable ? '—' : (stats['total_installs'] ?? 0),
-                     Icons.phone_iphone_rounded, onTap: showDevices),
+                  metric(
+                    webPreviewFeaturesAvailable
+                        ? 'Qurilmalar: to‘liq aniqlanmagan'
+                        : 'Ilova qurilmalari',
+                    webPreviewFeaturesAvailable
+                        ? '—'
+                        : (stats['total_installs'] ?? 0),
+                    Icons.phone_iphone_rounded,
+                    onTap: showDevices,
+                  ),
                   const SizedBox(width: 10),
-                  metric('Jami kirishlar', stats['total_logins'] ?? 0, Icons.login_rounded),
+                  metric(
+                    'Jami kirishlar',
+                    stats['total_logins'] ?? 0,
+                    Icons.login_rounded,
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -9279,7 +11623,10 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.receipt_long_rounded, color: AppColors.navy),
+                        const Icon(
+                          Icons.receipt_long_rounded,
+                          color: AppColors.navy,
+                        ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
@@ -9289,14 +11636,20 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                         ),
                         Text(
                           _won((stats['revenue_today'] as num?)?.toInt() ?? 0),
-                          style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.success),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.success,
+                          ),
                         ),
                       ],
                     ),
                     const Divider(height: 24),
                     Row(
                       children: [
-                        const Icon(Icons.analytics_outlined, color: AppColors.navy),
+                        const Icon(
+                          Icons.analytics_outlined,
+                          color: AppColors.navy,
+                        ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
@@ -9305,8 +11658,13 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                           ),
                         ),
                         Text(
-                          _won((stats['completed_revenue'] as num?)?.toInt() ?? 0),
-                          style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.success),
+                          _won(
+                            (stats['completed_revenue'] as num?)?.toInt() ?? 0,
+                          ),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.success,
+                          ),
                         ),
                       ],
                     ),
@@ -9337,7 +11695,8 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                       avatar: const Icon(Icons.android_rounded, size: 18),
                       label: Text('Android ($androidCustomers)'),
                       selected: sourceFilter == 'android',
-                      onSelected: (_) => setState(() => sourceFilter = 'android'),
+                      onSelected: (_) =>
+                          setState(() => sourceFilter = 'android'),
                     ),
                     ChoiceChip(
                       avatar: const Icon(Icons.phone_iphone_rounded, size: 18),
@@ -9345,12 +11704,14 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                       selected: sourceFilter == 'ios',
                       onSelected: (_) => setState(() => sourceFilter = 'ios'),
                     ),
-                    if (!webPreviewFeaturesAvailable) ChoiceChip(
-                      avatar: const Icon(Icons.shop_rounded, size: 18),
-                      label: Text('Play Market ($playCustomers)'),
-                      selected: sourceFilter == 'play',
-                      onSelected: (_) => setState(() => sourceFilter = 'play'),
-                    ),
+                    if (!webPreviewFeaturesAvailable)
+                      ChoiceChip(
+                        avatar: const Icon(Icons.shop_rounded, size: 18),
+                        label: Text('Play Market ($playCustomers)'),
+                        selected: sourceFilter == 'play',
+                        onSelected: (_) =>
+                            setState(() => sourceFilter = 'play'),
+                      ),
                     ChoiceChip(
                       avatar: const Icon(Icons.language_rounded, size: 18),
                       label: Text('Web ($webCustomers)'),
@@ -9430,8 +11791,19 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
                                           '${c['order_count'] ?? 0} buyurtma',
                                     ),
                                     AppInfoPill(
-                                      icon: (c['platform'] ?? '').toString() == 'android' ? Icons.android_rounded : Icons.language_rounded,
-                                      label: (c['platform'] ?? '').toString() == 'android' ? 'Android ilova' : ((c['platform'] ?? '').toString() == 'ios' ? 'iPhone' : 'Web'),
+                                      icon:
+                                          (c['platform'] ?? '').toString() ==
+                                              'android'
+                                          ? Icons.android_rounded
+                                          : Icons.language_rounded,
+                                      label:
+                                          (c['platform'] ?? '').toString() ==
+                                              'android'
+                                          ? 'Android ilova'
+                                          : ((c['platform'] ?? '').toString() ==
+                                                    'ios'
+                                                ? 'iPhone'
+                                                : 'Web'),
                                     ),
                                     AppInfoPill(
                                       icon: Icons.payments_outlined,
@@ -9489,148 +11861,278 @@ class _CustomersAdminState extends State<_CustomersAdmin> {
   }
 }
 
-
 class _AdminAiPage extends StatefulWidget {
   const _AdminAiPage({required this.api});
   final _AdminApi api;
-  @override State<_AdminAiPage> createState()=>_AdminAiPageState();
+  @override
+  State<_AdminAiPage> createState() => _AdminAiPageState();
 }
+
 class _AdminAiPageState extends State<_AdminAiPage> {
-  final q=TextEditingController();
-  final priceTitle=TextEditingController();
-  String answer='';
-  Map<String,dynamic>? priceResult;
-  bool loading=false;
-  bool priceLoading=false;
+  final q = TextEditingController();
+  final priceTitle = TextEditingController();
+  String answer = '';
+  Map<String, dynamic>? priceResult;
+  bool loading = false;
+  bool priceLoading = false;
 
   @override
-  void dispose(){q.dispose();priceTitle.dispose();super.dispose();}
+  void dispose() {
+    q.dispose();
+    priceTitle.dispose();
+    super.dispose();
+  }
 
   Future<void> ask() async {
-    final value=q.text.trim(); if(value.isEmpty||loading)return;
-    setState((){loading=true;answer='';});
-    try { final a=await widget.api.aiAsk(value); if(mounted)setState(()=>answer=a); }
-    catch(e){if(mounted)setState(()=>answer='Xatolik: ' + e.toString());}
-    finally{if(mounted)setState(()=>loading=false);}
+    final value = q.text.trim();
+    if (value.isEmpty || loading) return;
+    setState(() {
+      loading = true;
+      answer = '';
+    });
+    try {
+      final a = await widget.api.aiAsk(value);
+      if (mounted) setState(() => answer = a);
+    } catch (e) {
+      if (mounted) setState(() => answer = 'Xatolik: ' + e.toString());
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
   }
 
   Future<void> researchPrice() async {
-    final value=priceTitle.text.trim();
-    if(value.isEmpty||priceLoading)return;
-    setState((){priceLoading=true;priceResult=null;});
+    final value = priceTitle.text.trim();
+    if (value.isEmpty || priceLoading) return;
+    setState(() {
+      priceLoading = true;
+      priceResult = null;
+    });
     try {
-      final result=await widget.api.researchBookPrice(value);
-      if(mounted)setState(()=>priceResult=result);
-    } catch(e) {
-      if(mounted)ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content:Text('Narx tadqiqotida xatolik: $e')),
-      );
+      final result = await widget.api.researchBookPrice(value);
+      if (mounted) setState(() => priceResult = result);
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Narx tadqiqotida xatolik: $e')));
     } finally {
-      if(mounted)setState(()=>priceLoading=false);
+      if (mounted) setState(() => priceLoading = false);
     }
   }
 
   String money(dynamic value) {
-    final n=value is num ? value.round() : int.tryParse(value?.toString()??'')??0;
+    final n = value is num
+        ? value.round()
+        : int.tryParse(value?.toString() ?? '') ?? 0;
     return _won(n);
   }
 
   String som(dynamic value) {
-    final n=value is num ? value.round() : int.tryParse(value?.toString()??'')??0;
+    final n = value is num
+        ? value.round()
+        : int.tryParse(value?.toString() ?? '') ?? 0;
     return '${_money.format(n)} so‘m';
   }
 
-  Widget priceResearchResult(Map<String,dynamic> r) {
-    final offers=(r['offers'] as List?)??const [];
-    final weight=(r['weight_kg'] as num?)?.toDouble()??0;
-    final basis=(r['weight_basis']??'').toString();
-    final min=(r['estimated_min_krw'] as num?)?.round()??0;
-    final max=(r['estimated_max_krw'] as num?)?.round()??0;
-    final avg=(r['estimated_average_krw'] as num?)?.round()??0;
+  Widget priceResearchResult(Map<String, dynamic> r) {
+    final offers = (r['offers'] as List?) ?? const [];
+    final weight = (r['weight_kg'] as num?)?.toDouble() ?? 0;
+    final basis = (r['weight_basis'] ?? '').toString();
+    final min = (r['estimated_min_krw'] as num?)?.round() ?? 0;
+    final max = (r['estimated_max_krw'] as num?)?.round() ?? 0;
+    final avg = (r['estimated_average_krw'] as num?)?.round() ?? 0;
     return AppSurface(
-      padding:const EdgeInsets.all(16),
-      child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        Text((r['matched_title']??priceTitle.text).toString(),style:const TextStyle(fontSize:18,fontWeight:FontWeight.w900)),
-        const SizedBox(height:10),
-        if(offers.isNotEmpty)...[
-          const Text('O‘zbekistondagi topilgan narxlar',style:TextStyle(fontWeight:FontWeight.w800)),
-          const SizedBox(height:5),
-          ...offers.whereType<Map>().map((x)=>Text('• ${(x['seller']??'Do‘kon')}: ${som(x['price_uzs'])}')),
-          const SizedBox(height:10),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            (r['matched_title'] ?? priceTitle.text).toString(),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 10),
+          if (offers.isNotEmpty) ...[
+            const Text(
+              'O‘zbekistondagi topilgan narxlar',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 5),
+            ...offers.whereType<Map>().map(
+              (x) => Text(
+                '• ${(x['seller'] ?? 'Do‘kon')}: ${som(x['price_uzs'])}',
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          Text(
+            'Arzon → qimmat: ${som(r['low_uzs'])} — ${som(r['high_uzs'])}',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          Text(
+            'O‘rtacha O‘zbekiston narxi: ${som(r['average_uzs'])} ≈ ${money(r['average_book_krw'])}',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            weight > 0
+                ? 'Kitob og‘irligi: ${weight.toStringAsFixed(weight < 1 ? 3 : 2)} kg${basis == 'estimated' ? ' (AI taxmini)' : ' (topilgan)'}'
+                : 'Kitob og‘irligi topilmadi',
+          ),
+          Text(
+            'Koreyaga transport: ${weight > 0 ? money(r['shipping_krw']) : 'hisoblanmadi'}  (1 kg = ₩10,000)',
+          ),
+          const Divider(height: 24),
+          if (min > 0 && max > 0) ...[
+            const Text(
+              'Taxminiy Koreyaga tushish narxi',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${money(min)} ~ ${money(max)}',
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+                color: AppColors.navy,
+              ),
+            ),
+            if (avg > 0)
+              Text(
+                'O‘rtacha: ${money(avg)}',
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+            const SizedBox(height: 5),
+            const Text(
+              'Hisob: O‘zbekistondagi kitob narxi + og‘irlik × ₩10,000/kg. Natija yuqoriga ₩1,000 gacha yaxlitlanadi.',
+              style: TextStyle(
+                fontSize: 12.5,
+                color: AppColors.muted,
+                height: 1.35,
+              ),
+            ),
+          ] else
+            const Text(
+              'Narx yoki og‘irlik yetarli topilmagani uchun yakuniy hisob chiqarilmadi.',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          if ((r['notes'] ?? '').toString().trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              'AI izohi: ${r['notes']}',
+              style: const TextStyle(
+                fontSize: 12.5,
+                color: AppColors.muted,
+                height: 1.35,
+              ),
+            ),
+          ],
         ],
-        Text('Arzon → qimmat: ${som(r['low_uzs'])} — ${som(r['high_uzs'])}',style:const TextStyle(fontWeight:FontWeight.w700)),
-        Text('O‘rtacha O‘zbekiston narxi: ${som(r['average_uzs'])} ≈ ${money(r['average_book_krw'])}',style:const TextStyle(fontWeight:FontWeight.w700)),
-        const SizedBox(height:8),
-        Text(weight>0
-          ? 'Kitob og‘irligi: ${weight.toStringAsFixed(weight<1?3:2)} kg${basis=='estimated'?' (AI taxmini)':' (topilgan)'}'
-          : 'Kitob og‘irligi topilmadi'),
-        Text('Koreyaga transport: ${weight>0?money(r['shipping_krw']):'hisoblanmadi'}  (1 kg = ₩10,000)'),
-        const Divider(height:24),
-        if(min>0&&max>0)...[
-          const Text('Taxminiy Koreyaga tushish narxi',style:TextStyle(fontWeight:FontWeight.w800)),
-          const SizedBox(height:4),
-          Text('${money(min)} ~ ${money(max)}',style:const TextStyle(fontSize:24,fontWeight:FontWeight.w900,color:AppColors.navy)),
-          if(avg>0) Text('O‘rtacha: ${money(avg)}',style:const TextStyle(fontWeight:FontWeight.w800)),
-          const SizedBox(height:5),
-          const Text('Hisob: O‘zbekistondagi kitob narxi + og‘irlik × ₩10,000/kg. Natija yuqoriga ₩1,000 gacha yaxlitlanadi.',style:TextStyle(fontSize:12.5,color:AppColors.muted,height:1.35)),
-        ] else
-          const Text('Narx yoki og‘irlik yetarli topilmagani uchun yakuniy hisob chiqarilmadi.',style:TextStyle(fontWeight:FontWeight.w700)),
-        if((r['notes']??'').toString().trim().isNotEmpty)...[
-          const SizedBox(height:10),
-          Text('AI izohi: ${r['notes']}',style:const TextStyle(fontSize:12.5,color:AppColors.muted,height:1.35)),
-        ],
-      ]),
+      ),
     );
   }
 
   @override
-  Widget build(BuildContext context)=>ListView(
-    padding:const EdgeInsets.all(16),
-    children:[
-      const Text('Muhajeer Admin AI',style:TextStyle(fontSize:24,fontWeight:FontWeight.w900)),
-      const SizedBox(height:6),
-      const Text('Kitob narxini internetdan tekshirish — pulli AI. Savdo, ombor va buyurtma tahlillari esa ichki ma’lumotlardan ishlaydi.',style:TextStyle(color:AppColors.muted,height:1.4)),
-      const SizedBox(height:14),
-      AppSurface(
-        padding:const EdgeInsets.all(16),
-        child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-          const Text('Kitob narxini AI bilan hisoblash',style:TextStyle(fontSize:18,fontWeight:FontWeight.w900)),
-          const SizedBox(height:5),
-          const Text('AI O‘zbekistondagi arzon va qimmat sotuv narxlarini, kitob og‘irligini va joriy so‘m → won kursini topadi. Koreyaga kelishi 1 kg uchun ₩10,000 hisoblanadi.',style:TextStyle(color:AppColors.muted,height:1.4)),
-          const SizedBox(height:12),
-          TextField(
-            controller:priceTitle,
-            textInputAction:TextInputAction.search,
-            onSubmitted:(_)=>researchPrice(),
-            decoration:const InputDecoration(
-              labelText:'Kitob nomi',
-              hintText:'Masalan: Baxtiyor oila',
-              prefixIcon:Icon(Icons.menu_book_rounded),
-            ),
-          ),
-          const SizedBox(height:10),
-          FilledButton.icon(
-            onPressed:priceLoading?null:researchPrice,
-            icon:priceLoading
-              ? const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2))
-              : const Icon(Icons.travel_explore_rounded),
-            label:Text(priceLoading?'Internetdan tekshirilmoqda...':'Narxni hisoblash'),
-          ),
-        ]),
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.all(16),
+    children: [
+      const Text(
+        'Muhajeer Admin AI',
+        style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
       ),
-      if(priceResult!=null)...[
-        const SizedBox(height:12),
+      const SizedBox(height: 6),
+      const Text(
+        'Kitob narxini internetdan tekshirish — pulli AI. Savdo, ombor va buyurtma tahlillari esa ichki ma’lumotlardan ishlaydi.',
+        style: TextStyle(color: AppColors.muted, height: 1.4),
+      ),
+      const SizedBox(height: 14),
+      AppSurface(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Kitob narxini AI bilan hisoblash',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 5),
+            const Text(
+              'AI O‘zbekistondagi arzon va qimmat sotuv narxlarini, kitob og‘irligini va joriy so‘m → won kursini topadi. Koreyaga kelishi 1 kg uchun ₩10,000 hisoblanadi.',
+              style: TextStyle(color: AppColors.muted, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: priceTitle,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => researchPrice(),
+              decoration: const InputDecoration(
+                labelText: 'Kitob nomi',
+                hintText: 'Masalan: Baxtiyor oila',
+                prefixIcon: Icon(Icons.menu_book_rounded),
+              ),
+            ),
+            const SizedBox(height: 10),
+            FilledButton.icon(
+              onPressed: priceLoading ? null : researchPrice,
+              icon: priceLoading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.travel_explore_rounded),
+              label: Text(
+                priceLoading
+                    ? 'Internetdan tekshirilmoqda...'
+                    : 'Narxni hisoblash',
+              ),
+            ),
+          ],
+        ),
+      ),
+      if (priceResult != null) ...[
+        const SizedBox(height: 12),
         priceResearchResult(priceResult!),
       ],
-      const SizedBox(height:18),
-      const Text('Boshqa admin savollari',style:TextStyle(fontSize:18,fontWeight:FontWeight.w900)),
-      const SizedBox(height:8),
-      TextField(controller:q,minLines:2,maxLines:5,onSubmitted:(_)=>ask(),decoration:const InputDecoration(hintText:'Masalan: Qaysi kitoblarni qayta olib kelish kerak? Bu oy savdo holati qanday?')),
-      const SizedBox(height:10),
-      FilledButton.icon(onPressed:loading?null:ask,icon:loading?const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2)):const Icon(Icons.auto_awesome_rounded),label:Text(loading?'Tahlil qilmoqda...':'AI dan so‘rash')),
-      if(answer.isNotEmpty)...[
-        const SizedBox(height:16),
-        AppSurface(padding:const EdgeInsets.all(16),child:SelectableText(answer,style:const TextStyle(fontSize:15.5,height:1.55,fontWeight:FontWeight.w500))),
+      const SizedBox(height: 18),
+      const Text(
+        'Boshqa admin savollari',
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+      ),
+      const SizedBox(height: 8),
+      TextField(
+        controller: q,
+        minLines: 2,
+        maxLines: 5,
+        onSubmitted: (_) => ask(),
+        decoration: const InputDecoration(
+          hintText: 'Masalan: Qaysi kitoblarni qayta olib kelish kerak? Bu oy savdo holati qanday?',
+        ),
+      ),
+      const SizedBox(height: 10),
+      FilledButton.icon(
+        onPressed: loading ? null : ask,
+        icon: loading
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.auto_awesome_rounded),
+        label: Text(loading ? 'Tahlil qilmoqda...' : 'AI dan so‘rash'),
+      ),
+      if (answer.isNotEmpty) ...[
+        const SizedBox(height: 16),
+        AppSurface(
+          padding: const EdgeInsets.all(16),
+          child: SelectableText(
+            answer,
+            style: const TextStyle(
+              fontSize: 15.5,
+              height: 1.55,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
       ],
     ],
   );

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app_state.dart';
+import 'web_batch_inline_editor.dart';
 import 'uzbek_customer_style.dart';
 
 String _batchMoney(num value) => '₩${NumberFormat('#,###').format(value.round())}';
@@ -53,6 +54,8 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
         params: {'p_secret': widget.secret}),
       Supabase.instance.client.rpc('admin_web_transport_overview',
         params: {'p_secret': widget.secret}),
+      Supabase.instance.client.rpc('admin_web_batch_line_list',
+        params: {'p_secret': widget.secret}),
     ]).then((data) {
       final main = data[0] is Map
         ? Map<String,dynamic>.from(data[0] as Map) : <String,dynamic>{};
@@ -61,6 +64,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
       return {...main,
         'transport_records': transport['transports'] ?? [],
         'batch_groups': transport['groups'] ?? [],
+        'saved_batch_lines': data[2] ?? [],
       };
     });
   }
@@ -204,14 +208,118 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
     );
   }
 
+  // Edit the persisted batch line in place instead of appending another
+  // receipt. RPC checks the previously saved quantity before applying delta.
+  Future<void> _editSavedBatchLine(Map<String,dynamic> line) async {
+    final previous = _batchNum(line['quantity']);
+    final controller = TextEditingController(text:previous.toString());
+    final formKey=GlobalKey<FormState>();
+    final result=await showDialog<int>(
+      context:context,
+      builder:(dialogContext)=>AlertDialog(
+        title:const Text('Partiyadagi sonni tahrirlash'),
+        content:Form(key:formKey,child:Column(
+          mainAxisSize:MainAxisSize.min,
+          crossAxisAlignment:CrossAxisAlignment.start,
+          children:[
+            Text((line['title']??'Kitob').toString(),
+              style:const TextStyle(fontWeight:FontWeight.w800)),
+            const SizedBox(height:6),
+            Text('Saqlangan son: $previous dona',
+              style:const TextStyle(fontSize:12)),
+            const SizedBox(height:12),
+            TextFormField(
+              controller:controller,
+              keyboardType:TextInputType.number,
+              autofocus:true,
+              decoration:const InputDecoration(
+                labelText:'Yangi kelgan soni',
+                suffixText:'dona',
+                border:OutlineInputBorder()),
+              validator:(v){
+                final n=int.tryParse(v?.trim()??'');
+                if(n==null || n<1 || n>10000) {
+                  return '1 dan 10000 gacha son kiriting';
+                }
+                return null;
+              }),
+            const SizedBox(height:10),
+            Text(
+              line['inventory_applied']==true
+                ? 'Omborga faqat sonlar farqi qo‘llanadi. Eski yozuv qayta qo‘shilmaydi.'
+                : 'Tarixiy partiya: bu tahrir omborga qo‘shimcha kirim yaratmaydi.',
+              style:const TextStyle(fontSize:11.5,
+                color:UzbekCustomerColors.textMuted)),
+          ],
+        )),
+        actions:[
+          TextButton(onPressed:()=>Navigator.pop(dialogContext),
+            child:const Text('Bekor qilish')),
+          FilledButton(onPressed:(){
+            if(formKey.currentState?.validate()!=true)return;
+            Navigator.pop(dialogContext,int.parse(controller.text.trim()));
+          },child:const Text('Saqlash')),
+        ],
+      ),
+    );
+    controller.dispose();
+    if(result==null || result==previous || !mounted) return;
+    try {
+      final response=await Supabase.instance.client.rpc(
+        'admin_web_batch_edit_line',
+        params:{
+          'p_secret':widget.secret,
+          'p_line_id':_batchNum(line['id']),
+          'p_expected_quantity':previous,
+          'p_quantity':result,
+        });
+      if(!mounted)return;
+      _refresh();
+      final applied=response is Map && response['inventory_updated']==true;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content:Text(applied
+          ? 'Partiya yangilandi: omborga faqat ${result-previous} dona farq qo‘llandi'
+          : 'Partiya soni $previous → $result qilib saqlandi. Omborga takror qo‘shilmadi.'),
+      ));
+    } catch(error) {
+      if(!mounted)return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text('Partiyani tahrirlashda xatolik: $error')));
+    }
+  }
+
+  Widget _savedBatchLine(Map<String,dynamic> line) => ListTile(
+    contentPadding:EdgeInsets.zero,
+    leading:const Icon(Icons.menu_book_outlined,
+      color:UzbekCustomerColors.teal),
+    title:Text((line['title']??'Kitob').toString(),
+      maxLines:2,overflow:TextOverflow.ellipsis,
+      style:const TextStyle(fontSize:13,fontWeight:FontWeight.w800)),
+    subtitle:Text('${_batchNum(line['quantity'])} dona • 1 dona ${_batchMoney(_batchNum(line['unit_cost']))}',
+      style:const TextStyle(fontSize:12)),
+    trailing:IconButton(
+      tooltip:'Kiritilgan sonni tahrirlash',
+      icon:const Icon(Icons.edit_outlined),
+      onPressed:()=>_editSavedBatchLine(line)),
+    onTap:()=>_editSavedBatchLine(line),
+  );
+
   Widget _groupTile(Map<String,dynamic> item,
-      List<Map<String,dynamic>> transports) {
+      List<Map<String,dynamic>> transports,
+      List<Map<String,dynamic>> savedLines) {
     final id = item['id'].toString();
+    final lines=savedLines.where((l)=>l['batch_group_id']?.toString()==id).toList();
+    final count=lines.fold<int>(0,(sum,l)=>sum+_batchNum(l['quantity']));
     final linked = transports.where((t) =>
       t['batch_group_id']?.toString() == id).toList();
     final transport = linked.fold<int>(0,
       (s,t) => s + _batchNum(t['amount']));
     final books = _batchNum(item['book_value']);
+    final purchaseExpense = _batchNum(item['finance_purchase_total']);
+    final financeTransport = _batchNum(item['finance_transport_total']);
+    final expensesLinked=_batchNum(item['finance_expense_count']);
+    final difference=purchaseExpense-books;
+    final references=_items(item['finance_references']);
     return Card(margin: const EdgeInsets.only(bottom: 9),
       child: ExpansionTile(
         leading: const Icon(Icons.inventory_2_outlined,
@@ -219,14 +327,58 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
         title: Text((item['title'] ?? 'Yangi partiya').toString(),
           style: const TextStyle(fontWeight: FontWeight.w900)),
         subtitle: Text('${_batchDate(item['batch_date'])} • '
-          '${item['book_lines'] ?? 0} nomdagi kitob'),
+          '${lines.length} xil kitob · $count dona saqlangan'),
         trailing: Text(_batchMoney(books + transport),
           style: const TextStyle(fontWeight: FontWeight.w900)),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
         children: [
-          _detail('Kiritilgan kitoblar tannarxi',_batchMoney(books)),
-          _detail('Transport xarajatlari',_batchMoney(transport)),
-          _detail('Kitob + transport (hisoblangan)',_batchMoney(books + transport)),
+          if(expensesLinked>0) ...[
+            const Text('Moliyada avval saqlangan xarajatlar',
+              style:TextStyle(color:UzbekCustomerColors.navy,
+                fontSize:14,fontWeight:FontWeight.w900)),
+            _detail('Yangi partiya kitoblar',_batchMoney(purchaseExpense)),
+            _detail('Transport',_batchMoney(financeTransport)),
+            _detail('Moliyada tanlangan jami',
+              _batchMoney(purchaseExpense+financeTransport)),
+            const Divider(),
+            _detail('Bu partiyada kiritilgan kitoblar tan narxi',
+              _batchMoney(books)),
+            if(references.any((e)=>e['category']=='inventory_purchase')) ...[
+              _detail('Farq (Moliya kitob xaridi − tan narx)',
+                (difference<0?'−':'')+_batchMoney(difference.abs())),
+              Text(difference==0
+                ? 'Kitob xarajati va kiritilgan kitoblar tan narxi teng.'
+                : difference>0
+                  ? 'Kitob xarajati katta: kiritilmagan kitob yoki '
+                    'qo‘shimcha xarajatni tekshiring.'
+                  : 'Kiritilgan kitoblar tan narxi katta: '
+                    'son va narxlarni tekshiring.',
+                style:const TextStyle(color:UzbekCustomerColors.textMuted,
+                  fontSize:11.5)),
+            ],
+            for(final entry in references)
+              Padding(padding:const EdgeInsets.symmetric(vertical:4),
+                child:Text('${entry['date']??''} • '
+                  '${entry['category']=='transport'
+                    ? 'Transport' : 'Yangi partiya kitoblar'} • '
+                  '${_batchMoney(_batchNum(entry['amount']))} • '
+                  '${entry['note']??''}',
+                  style:const TextStyle(fontSize:11.5,
+                    color:UzbekCustomerColors.textMuted))),
+            const Text('Ushbu summalar Moliyada qayta xarajat qilinmagan; '
+              'faqat mavjud yozuvlarga havola qilingan.',
+              style:TextStyle(fontSize:11,
+                color:UzbekCustomerColors.textMuted)),
+          ] else ...[
+            _detail('Kiritilgan kitoblar tannarxi',_batchMoney(books)),
+            _detail('Transport xarajatlari',_batchMoney(transport)),
+            _detail('Kitob + transport (hisoblangan)',_batchMoney(books + transport)),
+          ],
+          const SizedBox(height: 12),
+          WebBatchInlineEditor(
+            key:ValueKey('group:'+id),
+            secret:widget.secret,kind:'group',batchKey:id,
+            lines:lines,onSaved:_refresh),
           const SizedBox(height: 6),
           for(final expense in linked) _transportLine(expense),
           const Text('Kitob tannarxi partiyaga kiritilgan qiymatlar '
@@ -236,6 +388,36 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
               color: UzbekCustomerColors.textMuted)),
         ],
       ));
+  }
+
+  // Older batch records can have neither a finance import ID nor a
+  // catalog group ID. Group them by their recorded purchase date for editing,
+  // without fabricating a finance/stock linkage.
+  Widget _legacyDateBatchTile(String date,List<Map<String,dynamic>> lines) {
+    final count=lines.fold<int>(0,(sum,line)=>sum+_batchNum(line['quantity']));
+    final cost=lines.fold<int>(0,(sum,line)=>
+      sum+_batchNum(line['quantity'])*_batchNum(line['unit_cost']));
+    return Card(margin:const EdgeInsets.only(bottom:9),
+      child:ExpansionTile(
+        leading:const Icon(Icons.history_rounded,
+          color:UzbekCustomerColors.teal),
+        title:Text('${_batchDate(date)} partiyasi',
+          style:const TextStyle(fontWeight:FontWeight.w900)),
+        subtitle:Text('${lines.length} xil kitob · $count dona saqlangan',
+          style:const TextStyle(fontSize:12)),
+        trailing:Text(_batchMoney(cost),
+          style:const TextStyle(fontWeight:FontWeight.w900)),
+        childrenPadding:const EdgeInsets.fromLTRB(16,0,16,14),
+        children:[
+          const Text('Bu tarixiy kirim; hozirgi omborga qayta qo‘shilmaydi.',
+            style:TextStyle(fontSize:12,
+              color:UzbekCustomerColors.textMuted)),
+          WebBatchInlineEditor(
+            key:ValueKey('legacy:'+date),secret:widget.secret,
+            kind:'legacy',batchKey:date,lines:lines,onSaved:_refresh),
+        ],
+      ),
+    );
   }
 
   // UI grouping only: original finance records are never rewritten or added.
@@ -275,14 +457,84 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
     return result;
   }
 
+  // Read-only comparison: references finance expenses without posting them
+  // again or changing inventory, sales or the historical lot unit costs.
+  Widget _savedBatchFinanceComparison({
+    required int purchaseExpense,
+    required int transportExpense,
+    required List<Map<String,dynamic>> lines,
+  }) {
+    final entered=lines.fold<int>(0,(total,line)=>
+      total+_batchNum(line['quantity'])*_batchNum(line['unit_cost']));
+    final qty=lines.fold<int>(0,(total,line)=>
+      total+_batchNum(line['quantity']));
+    final difference=purchaseExpense-entered;
+    final known=lines.isNotEmpty;
+    final differenceText=(difference<0?'−':'')+
+      _batchMoney(difference.abs());
+    return Container(
+      margin:const EdgeInsets.fromLTRB(0,14,0,12),
+      padding:const EdgeInsets.all(13),
+      decoration:BoxDecoration(
+        color:const Color(0xFFF1F7F4),
+        border:Border.all(color:const Color(0xFFCDE4D9)),
+        borderRadius:BorderRadius.circular(14),
+      ),
+      child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        const Text('Moliya va partiya tan narxi taqqoslash',
+          style:TextStyle(color:UzbekCustomerColors.navy,
+            fontSize:15,fontWeight:FontWeight.w900)),
+        const SizedBox(height:8),
+        _detail('Moliyada kitoblar uchun xarajat',
+          _batchMoney(purchaseExpense)),
+        _detail('Moliyadagi transport xarajati',
+          _batchMoney(transportExpense)),
+        const Divider(),
+        _detail('Moliyadagi jami xarajat',
+          _batchMoney(purchaseExpense+transportExpense)),
+        const SizedBox(height:8),
+        _detail('Bu partiyaga kiritilgan kitoblar tan narxi ($qty dona)',
+          _batchMoney(entered)),
+        if(known)...[
+          const Divider(),
+          _detail('Farq: kitob xarajati − kiritilgan tan narx',
+            differenceText),
+          Text(difference==0
+            ? 'Kitob xarajati va ro‘yxatdagi kitoblarning tan narxi teng.'
+            : difference<0
+              ? 'Ro‘yxatdagi kitoblarning tan narxi Moliyadagi '
+                'kitob xarajatidan katta. Son va narxlarni tekshiring.'
+              : 'Moliyadagi kitob xarajati ro‘yxatdagi tan narxdan '
+                'katta. Kiritilmagan kitoblar yoki boshqa xarajatlarni tekshiring.',
+            style:const TextStyle(fontSize:11.5,
+              color:UzbekCustomerColors.textMuted,height:1.35)),
+        ] else
+          const Text('Partiyadagi kitoblar hali kiritilmagan; '
+            'farqni hisoblash uchun kitoblarni belgilang.',
+            style:TextStyle(color:UzbekCustomerColors.textMuted,
+              fontSize:11.5)),
+        const SizedBox(height:8),
+        const Text('Bu faqat taqqoslash: Moliya xarajatlari, sotuv foydasi '
+          'va ombor qoldig‘i o‘zgartirilmaydi.',
+          style:TextStyle(color:UzbekCustomerColors.textMuted,
+            fontSize:10.5,height:1.35)),
+      ]),
+    );
+  }
+
   Widget _purchaseTile(Map<String, dynamic> item, int index,
-      List<Map<String,dynamic>> transports) {
+      List<Map<String,dynamic>> transports,
+      List<Map<String,dynamic>> savedLines) {
     final title = (item['title'] ?? 'Kitob xaridi').toString();
     final members = _items(item['members']);
     final grouped = members.isNotEmpty;
     final memberIds = grouped
       ? members.map((m) => m['id'].toString()).toSet()
       : <String>{item['id'].toString()};
+    final matchedLines=savedLines.where((l)=>
+      memberIds.contains((l['batch_import_id']??'').toString())).toList();
+    final matchedQty=matchedLines.fold<int>(
+      0,(sum,l)=>sum+_batchNum(l['quantity']));
     final bookCost = _batchNum(item['total_krw']);
     final verified = item['item_breakdown_verified'] == true;
     final isOpeningStock = item['source'] == 'opening_stock_baseline';
@@ -344,6 +596,36 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
           ] else
             _detail('Kitoblar tarkibi',
               verified ? 'Tasdiqlangan' : 'Kitobma-kitob tasdiqlanmagan'),
+          // One visible card for already-recorded finance and the actual
+          // book receipt values. No finance insert, inventory write or
+          // historical profit recalculation takes place here.
+          _savedBatchFinanceComparison(
+            purchaseExpense:bookCost,
+            transportExpense:shipping,
+            lines:matchedLines),
+          const SizedBox(height:12),
+          Text('Bu partiyaga kiritilgan: ${matchedLines.length} nomdagi kitob, $matchedQty dona',
+            style:const TextStyle(fontWeight:FontWeight.w800)),
+          if(grouped)
+            for(final member in members) ...[
+              const SizedBox(height:12),
+              Text((member['title']??'Kitob xaridi').toString(),
+                style:const TextStyle(fontWeight:FontWeight.w800,fontSize:13)),
+              WebBatchInlineEditor(
+                key:ValueKey('import:'+member['id'].toString()),
+                secret:widget.secret,kind:'import',
+                batchKey:member['id'].toString(),
+                lines:matchedLines.where((l)=>
+                  l['batch_import_id']?.toString()==member['id'].toString()
+                ).toList(),
+                onSaved:_refresh),
+            ]
+          else
+            WebBatchInlineEditor(
+              key:ValueKey('import:'+item['id'].toString()),
+              secret:widget.secret,kind:'import',
+              batchKey:item['id'].toString(),
+              lines:matchedLines,onSaved:_refresh),
           if (linked.isNotEmpty) ...[
             const SizedBox(height: 12),
             const Align(
@@ -439,6 +721,11 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
             _batchMoney(_batchNum(item['suggested_price']))),
           if ((item['note'] ?? '').toString().trim().isNotEmpty)
             _detail('Izoh', (item['note'] ?? '').toString()),
+          Align(alignment:Alignment.centerRight,
+            child:OutlinedButton.icon(
+              onPressed:()=>_editSavedBatchLine(item),
+              icon:const Icon(Icons.edit_outlined,size:18),
+              label:const Text('Sonini tahrirlash'))),
         ],
       ),
     );
@@ -464,6 +751,15 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
       final inventory = _items(data['inventory']);
       final transports = _items(data['transport_records']);
       final groups = _items(data['batch_groups']);
+      final savedLines=_items(data['saved_batch_lines']);
+      final unlinkedByDate=<String,List<Map<String,dynamic>>>{};
+      for(final line in savedLines) {
+        if(line['batch_group_id']!=null || line['batch_import_id']!=null) continue;
+        final key=(line['purchased_at']??'').toString();
+        unlinkedByDate.putIfAbsent(key,()=>[]).add(line);
+      }
+      final unlinkedDates=unlinkedByDate.keys.toList()
+        ..sort((a,b)=>b.compareTo(a));
       final connectedTotal = transports.where((x) =>
         x['batch_name'] != null).fold<int>(
           0, (sum,item) => sum + _batchNum(item['amount']));
@@ -609,7 +905,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
               const Padding(padding: EdgeInsets.all(24),
                 child: Text('Mos xarid yozuvi yo‘q')),
             for (var i=0;i<shownPurchases.length;i++)
-              _purchaseTile(shownPurchases[i],i,transports),
+              _purchaseTile(shownPurchases[i],i,transports,savedLines),
           ],
           if (mode == 'inventory') ...[
             if (shownInventory.isEmpty)
@@ -638,7 +934,15 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
             const Text('Yangi partiyalar',
               style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
             const SizedBox(height: 8),
-            for (final group in groups) _groupTile(group,transports),
+            for (final group in groups) _groupTile(group,transports,savedLines),
+            if(unlinkedDates.isNotEmpty) ...[
+              const SizedBox(height:12),
+              const Text('Eski qayd qilingan partiyalar',
+                style:TextStyle(fontSize:17,fontWeight:FontWeight.w900)),
+              const SizedBox(height:7),
+              for(final date in unlinkedDates)
+                _legacyDateBatchTile(date,unlinkedByDate[date]!),
+            ],
             const SizedBox(height: 12),
             const Text('Kitobma-kitob aniq kirim',
               style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),

@@ -1,3 +1,5 @@
+import 'customer_session.dart';
+
 import 'dart:js_interop';
 
 @JS('muhajeerPushSupported')
@@ -13,7 +15,7 @@ external JSPromise<JSString> _existingPushEndpoint();
 external JSString _permissionStatus();
 
 @JS('muhajeerSyncPushPhone')
-external JSPromise<JSBoolean> _syncPushPhone(JSString phone);
+external JSPromise<JSBoolean> _syncPushPhone(JSString phone, JSString session);
 
 bool get pushNotificationsSupported {
   try {
@@ -33,7 +35,10 @@ Future<bool> enablePushNotifications() async {
 
 Future<bool> syncPushIdentity(String phone) async {
   try {
-    return (await _syncPushPhone(phone.toJS).toDart).toDart;
+    return (await _syncPushPhone(
+      phone.toJS,
+      CustomerSession.token.toJS,
+    ).toDart).toDart;
   } catch (_) {
     return false;
   }
@@ -48,5 +53,9 @@ Future<String> existingWebPushEndpoint() async {
 }
 
 String pushNotificationPermissionStatusSync() {
-  try { return _permissionStatus().toDart; } catch (_) { return 'unsupported'; }
+  try {
+    return _permissionStatus().toDart;
+  } catch (_) {
+    return 'unsupported';
+  }
 }

@@ -2,7 +2,7 @@ name: Flutter CI
 
 on:
   push:
-    branches: [main, feature/store-app-v2]
+    branches: [main, feature/store-app-v2, fix/mb2108-all-approved-20261027]
   pull_request:
 
 jobs:
@@ -16,6 +16,7 @@ jobs:
         run: python3 -m unittest discover -s server/tests -p 'test_admin_research_api.py' -v
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: 3.47.5
           channel: stable
           cache: true
       - name: Create platform folders if missing
@@ -29,6 +30,8 @@ jobs:
         env:
           TZ: Asia/Seoul
         run: flutter test test/order_time_test.dart --dart-define=REQUIRE_KOREA_TIME=true
+      - name: Build the web release
+        run: flutter build web --release --dart-define=ANALYTICS_TEST_BUILD=true
       - name: Upload story previews and resolved dependencies
         uses: actions/upload-artifact@v4
         with:

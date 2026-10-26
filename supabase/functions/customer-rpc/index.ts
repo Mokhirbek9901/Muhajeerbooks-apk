@@ -6,12 +6,20 @@ const db = createClient(url, serviceKey, { auth: { persistSession: false } });
 
 const origins = new Set(["https://muhajeer-books-live-production.up.railway.app","https://muhajeer-books-render-preview.onrender.com"]);
 const allowed = new Set([
+  "customer_release_preorder","customer_release_preorders","customer_release_link_orders","customer_release_my_orders","customer_release_quote","customer_release_order","customer_release_inbox","customer_release_push_subscribe","customer_release_receipt","customer_release_apns","customer_release_recover_pin","customer_release_delete_profile","customer_release_reviews","customer_release_review_action","customer_release_professional_login",
   "customer_catalog_delta",
   "customer_store_notice",
   "customer_order_statuses",
   "customer_order_statuses_v2",
   "customer_order_submit",
   "customer_register_free",
+  "customer_pin_register",
+  "customer_pin_login",
+  "customer_pin_profile",
+  "customer_pin_logout",
+  "customer_pin_preorders",
+  "customer_web_preorder_checkout",
+  "customer_web_preorder_delivery",
   "customer_restock_notifications",
   "customer_restock_subscribe",
   "customer_restock_unsubscribe",
@@ -19,15 +27,24 @@ const allowed = new Set([
   "register_app_install",
   "register_app_install_v2",
   "customer_preorder_submit",
+  "customer_preorder_balance_list",
+  "customer_preorder_discovery",
+  "customer_preorder_activity_list",
+  "customer_preorder_event_list",
   "customer_book_request_submit",
   "customer_search_miss_log",
+  "customer_book_view_log",
+  "customer_search_event_log",
   "customer_bundle_list",
   "customer_push_subscribe",
+  "customer_register_native_fcm",
+  "customer_unregister_native_fcm",
   "customer_push_open",
   "customer_push_history",
   "customer_book_reviews",
   "customer_book_review_submit",
   "customer_professional_code_verify",
+  "customer_story_owner_check",
 ]);
 
 const rate = new Map<string, { n: number; until: number }>();
@@ -77,12 +94,48 @@ function textParam(v: unknown, max: number) {
   return typeof v === "string" && v.trim().length > 0 && v.length <= max;
 }
 function validate(name: string, p: Record<string, unknown>): string | null {
-  if (name === "customer_catalog_delta") {
+  if (name.startsWith("customer_release_")) {
+    if (name !== "customer_release_recover_pin" && name !== "customer_release_professional_login" && name !== "customer_release_reviews" &&
+        !(name === "customer_release_quote" || name === "customer_release_order") &&
+        (typeof p.p_session !== "string" || !/^[a-f0-9]{64}$/.test(p.p_session))) return "PIN session required";
+    if (JSON.stringify(p).length > 100000) return "Request too large";
+  } else if (name === "customer_catalog_delta") {
     if (!textParam(p.p_since, 64) || Number.isNaN(Date.parse(String(p.p_since)))) return "Invalid catalog cursor";
   } else if (name === "customer_order_submit") {
     if (!p.p_order || typeof p.p_order !== "object" || Array.isArray(p.p_order)) return "Invalid order";
   } else if (name === "customer_order_statuses" || name === "customer_order_statuses_v2") {
     if (!Array.isArray(p.p_ids) || p.p_ids.length > 50 || p.p_ids.some((x) => typeof x !== "string" || !uuidRe.test(x))) return "Invalid order ids";
+  } else if (name === "customer_pin_register" || name === "customer_pin_login") {
+    if (!textParam(p.p_phone, 32) ||
+        !textParam(p.p_install_id, 120) ||
+        String(p.p_install_id).trim().length < 12 ||
+        typeof p.p_pin !== "string" || !/^[0-9]{4}$/.test(p.p_pin) ||
+        (name === "customer_pin_register" &&
+          (!textParam(p.p_name, 80) || String(p.p_name).trim().length < 2)))
+      return "Invalid four-digit PIN request";
+  } else if (name === "customer_pin_profile" ||
+        name === "customer_pin_logout" ||
+        name === "customer_pin_preorders") {
+    if (typeof p.p_session !== "string" || !/^[a-f0-9]{64}$/.test(p.p_session))
+      return "Invalid PIN session";
+  } else if (name === "customer_web_preorder_checkout") {
+    if (typeof p.p_session !== "string" || !/^[a-f0-9]{64}$/.test(p.p_session) ||
+        typeof p.p_preorder_id !== "string" || !uuidRe.test(p.p_preorder_id) ||
+        !["detail", "add", "proof"].includes(String(p.p_action))) return "Invalid prepaid order";
+    if (p.p_action === "add" &&
+        (typeof p.p_book_id !== "string" || !uuidRe.test(p.p_book_id) ||
+         !Number.isInteger(p.p_delta) || Math.abs(Number(p.p_delta)) > 5 ||
+         p.p_delta === 0)) return "Invalid add-on";
+    if (p.p_action === "proof" &&
+        !textParam(p.p_path, 500)) return "Invalid remaining payment proof";
+  } else if (name === "customer_web_preorder_delivery") {
+    if (typeof p.p_session !== "string" || !/^[a-f0-9]{64}$/.test(p.p_session) ||
+        typeof p.p_preorder_id !== "string" || !uuidRe.test(p.p_preorder_id) ||
+        !textParam(p.p_recipient_name,80) ||
+        !textParam(p.p_recipient_phone,32) ||
+        typeof p.p_address !== "string" || p.p_address.length > 500 ||
+        !["택배","경산 직접수령","경산 무료배송"].includes(p.p_delivery_type))
+      return "Invalid prepaid delivery";
   } else if (name === "customer_register_free") {
     if (!textParam(p.p_name, 80) || String(p.p_name).trim().length < 2 || !textParam(p.p_phone, 32)) return "Invalid registration";
   } else if (name === "customer_restock_notifications") {
@@ -93,10 +146,49 @@ function validate(name: string, p: Record<string, unknown>): string | null {
     if (!textParam(p.p_phone, 32) || !textParam(p.p_recovery_code, 80) || String(p.p_recovery_code).replace(/[^0-9a-f]/gi, "").length < 12) return "Invalid recovery request";
   } else if (name === "customer_preorder_submit") {
     if (!textParam(p.p_install_id, 120) || String(p.p_install_id).trim().length < 12 || typeof p.p_book_id !== "string" || !uuidRe.test(p.p_book_id) || !Number.isInteger(p.p_quantity) || Number(p.p_quantity) < 1 || Number(p.p_quantity) > 20) return "Invalid preorder";
+  } else if (name === "customer_preorder_discovery" ||
+    name === "customer_preorder_activity_list") {
+    if (!textParam(p.p_install_id, 120) ||
+        String(p.p_install_id).trim().length < 12 ||
+        typeof p.p_name !== "string" || String(p.p_name).length > 80 ||
+        typeof p.p_phone !== "string" || String(p.p_phone).length > 32)
+      return "Invalid preorder lookup";
+    if (name === "customer_preorder_activity_list" &&
+        (!Number.isInteger(p.p_limit) ||
+         Number(p.p_limit) < 1 || Number(p.p_limit) > 100))
+      return "Invalid inbox limit";
+  } else if (name === "customer_preorder_event_list") {
+    if (!textParam(p.p_install_id, 120) || String(p.p_install_id).trim().length < 12 ||
+        !Number.isInteger(p.p_limit) || Number(p.p_limit) < 1 || Number(p.p_limit) > 100) return "Invalid preorder inbox request";
+  } else if (name === "customer_preorder_balance_list" ||
+    name === "customer_preorder_extra_change" ||
+    name === "customer_preorder_balance_proof") {
+    if (!textParam(p.p_install_id, 120) ||
+        String(p.p_install_id).trim().length < 12) return "Invalid install ID";
+    if (name !== "customer_preorder_balance_list" &&
+        (!Number.isInteger(p.p_preorder_id) || Number(p.p_preorder_id) < 1)) return "Invalid preorder ID";
+    if (name === "customer_preorder_extra_change" &&
+        (typeof p.p_book_id !== "string" || !uuidRe.test(p.p_book_id) ||
+         !Number.isInteger(p.p_delta) || Math.abs(Number(p.p_delta)) > 5 ||
+         Number(p.p_delta) === 0)) return "Invalid add-on";
+    if (name === "customer_preorder_balance_proof" &&
+        !textParam(p.p_path, 500)) return "Invalid payment proof";
   } else if (name === "customer_book_request_submit") {
     if (!textParam(p.p_install_id, 120) || String(p.p_install_id).trim().length < 12 || !textParam(p.p_title, 160) || String(p.p_title).trim().length < 2) return "Invalid book request";
+  } else if (name === "customer_book_view_log") {
+    if (!textParam(p.p_install_id, 120) || String(p.p_install_id).trim().length < 12 ||
+        typeof p.p_book_id !== "string" || !uuidRe.test(p.p_book_id))
+      return "Invalid book view";
+  } else if (name === "customer_search_event_log") {
+    if (!textParam(p.p_install_id, 120) || String(p.p_install_id).trim().length < 12 ||
+        !textParam(p.p_query, 160) || String(p.p_query).trim().length < 2 ||
+        !Number.isInteger(p.p_result_count) ||
+        Number(p.p_result_count) < 0 || Number(p.p_result_count) > 10000)
+      return "Invalid search event";
   } else if (name === "customer_search_miss_log") {
     if (!textParam(p.p_install_id, 120) || String(p.p_install_id).trim().length < 12 || !textParam(p.p_query, 160) || String(p.p_query).trim().length < 2) return "Invalid search";
+  } else if (name === "customer_story_owner_check") {
+    if (!textParam(p.p_name, 80) || !textParam(p.p_phone, 32)) return "Invalid owner profile";
   } else if (name === "customer_professional_code_verify") {
     if (!textParam(p.p_code, 32) || !/^\d{4,12}$/.test(String(p.p_code).trim())) return "Invalid professional code";
   } else if (name === "customer_book_reviews") {
@@ -111,6 +203,19 @@ function validate(name: string, p: Record<string, unknown>): string | null {
     if (p.p_limit !== undefined && (!Number.isInteger(p.p_limit) || Number(p.p_limit) < 1 || Number(p.p_limit) > 100)) return "Invalid push history limit";
   } else if (name === "customer_push_open") {
     if (!textParam(p.p_message_id, 64) || !textParam(p.p_endpoint, 2048)) return "Invalid push open";
+  } else if (name === "customer_register_native_fcm") {
+    if (!textParam(p.p_token, 4096) || String(p.p_token).length < 40 ||
+        !textParam(p.p_phone, 40) ||
+        !textParam(p.p_install_id, 120) || String(p.p_install_id).length < 12)
+      return "Invalid native token registration";
+  } else if (name === "customer_register_native_apns") {
+    if (!textParam(p.p_token, 200) || String(p.p_token).length < 64 ||
+        !textParam(p.p_phone, 40) ||
+        !textParam(p.p_install_id, 120) || String(p.p_install_id).length < 12)
+      return "Invalid APNs registration";
+  } else if (name === "customer_unregister_native_fcm" || name === "customer_unregister_native_apns") {
+    if (!textParam(p.p_install_id, 120) || String(p.p_install_id).length < 12)
+      return "Invalid installation ID";
   } else if (name === "customer_push_subscribe") {
     if (!textParam(p.p_endpoint, 2048) || !textParam(p.p_p256dh, 512) || !textParam(p.p_auth, 256)) return "Invalid push subscription";
   } else if (name === "register_app_install" || name === "register_app_install_v2") {
@@ -136,9 +241,16 @@ Deno.serve(async (req) => {
       ? body.params as Record<string, unknown>
       : {};
     if (!allowed.has(name)) return out(origin, 403, { ok: false, error: "Operation not allowed" });
-    if (name === "customer_professional_code_verify" &&
+    if (name === "customer_story_owner_check" && !professionalRateOk(`story-owner:${key(req)}`)) {
+      return out(origin, 429, { ok: false, error: "Too many owner checks" });
+    }
+    if ((name === "customer_professional_code_verify" || name === "customer_release_professional_login" || name === "customer_release_recover_pin" || name === "customer_release_delete_profile") &&
         !professionalRateOk(`professional:${key(req)}`)) {
       return out(origin, 429, { ok: false, error: "Too many attempts" });
+    }
+    if ((name === "customer_pin_login" || name === "customer_pin_register") &&
+        !professionalRateOk("profile-pin:" + key(req))) {
+      return out(origin, 429, { ok: false, error: "Too many PIN attempts. Try later." });
     }
     const invalid = validate(name, params);
     if (invalid) return out(origin, 400, { ok: false, error: invalid });
@@ -155,3 +267,4 @@ Deno.serve(async (req) => {
     return out(origin, 400, { ok: false, error: "Bad request" });
   }
 });
+

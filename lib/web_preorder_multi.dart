@@ -45,6 +45,24 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
     initialName = name.text;
     initialPhone = phone.text;
     _reload();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _requireProfile());
+  }
+
+  Future<bool> _requireProfile() async {
+    if (!mounted) return false;
+    final ready = await ensureCustomerCheckoutIdentity(context);
+    if (!mounted) return false;
+    if (!ready) {
+      if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+      return false;
+    }
+    final state=context.read<AppState>();
+    if(state.checkoutIdentityReady){
+      final saved=state.savedCustomer;
+      name.text=(saved['name']??'').trim();
+      phone.text=(saved['phone']??'').trim();
+    }
+    return true;
   }
 
   @override
@@ -214,7 +232,8 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
   }
 
   Future<void> submit() async {
-    if (saving || picking || completed || !validateDetails()) return;
+    if (saving || picking || completed || !await _requireProfile()) return;
+    if (!mounted || !validateDetails()) return;
     if (proof == null) { message('Jami avans uchun to‘lov chekini yuklang.'); return; }
     setState(() => saving = true);
     try {
@@ -224,8 +243,9 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
         book.path ??= await api.upload(id, 'book', book.image!, c.revision);
       }
       proofPath ??= await api.upload(id, 'proof', proof!, c.revision);
+      final preorderInstallId = await context.read<AppState>().preorderInstallationId();
       await api.call('submit_multi', {'p_request': {
-        'id': id, 'customer_name': name.text.trim(), 'phone': phone.text.trim(),
+        'id': id, 'install_id': preorderInstallId, 'customer_name': name.text.trim(), 'phone': phone.text.trim(),
         'revision': c.revision, 'deposit_amount': total, 'payment_proof_path': proofPath,
         'items': [for (final b in books) {'book_title': b.title.text.trim(), 'book_image_path': b.path, 'quantity': b.quantity}],
       }});

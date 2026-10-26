@@ -11,6 +11,7 @@ from pywebpush import webpush, WebPushException
 from flask import Flask, jsonify, request, Response
 
 from preorder_delivery import register_preorder_routes
+from native_customer_push import send_customer_apns_order_event
 
 app = Flask(__name__)
 register_preorder_routes(app, webpush)
@@ -630,7 +631,7 @@ def order_push_event():
 
     private_key=os.getenv("VAPID_PRIVATE_KEY","").strip()
     if not private_key:
-        return jsonify(error="Push server sozlanmagan."),503
+        subscriptions=[]
 
     try:
       order_no=int(body.get("order_number") or 0)
@@ -722,7 +723,7 @@ def order_push_event():
       })
 
     # Admin APNs is independent of Web Push (browser subscription).
-    native_result = _send_admin_apns_order_event(supplied,notifications[0],body) if event=="admin_new_order" else None
+    native_result = _send_admin_apns_order_event(supplied,notifications[0],body) if event=="admin_new_order" else send_customer_apns_order_event(supplied, phone, notifications, body, _admin_rpc_call)
 
     import json
     success=0

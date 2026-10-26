@@ -1,3 +1,5 @@
+import 'business_time.dart';
+
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -15,7 +17,6 @@ const bool _iosTesterFinanceParity = bool.fromEnvironment('APP_STORE_BUILD');
 bool get _webFinanceUi =>
     webPreviewFeaturesAvailable ||
     (defaultTargetPlatform == TargetPlatform.iOS && _iosTesterFinanceParity);
-
 
 final _financeMoney = NumberFormat('#,###', 'en_US');
 final _financeDisplayDate = DateFormat('dd.MM.yyyy');
@@ -58,10 +59,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
   int inventoryStockSellingValue = 0;
   int allTimeSoldCost = 0;
 
-  Future<dynamic> _rpc(
-    String name, {
-    Map<String, dynamic>? params,
-  }) async {
+  Future<dynamic> _rpc(String name, {Map<String, dynamic>? params}) async {
     final response = await client.functions.invoke(
       'admin-rpc',
       body: {'name': name, 'params': params ?? <String, dynamic>{}},
@@ -71,7 +69,9 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
         ? Map<String, dynamic>.from(raw)
         : <String, dynamic>{};
     if (data['ok'] != true) {
-      throw StateError((data['error'] ?? 'Moliya amali bajarilmadi.').toString());
+      throw StateError(
+        (data['error'] ?? 'Moliya amali bajarilmadi.').toString(),
+      );
     }
     return data['data'];
   }
@@ -109,12 +109,11 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
     'other': 'Boshqa',
   };
 
-
   // FINANCE_PERIOD_FILTERS_V2
   String _twoDigits(int value) => value.toString().padLeft(2, '0');
 
   Future<void> _openPeriodFilter() async {
-    final now = DateTime.now();
+    final now = koreaNow();
     final latestFinanceYear = now.year < 2026 ? 2026 : now.year;
     var selectedYear = latestFinanceYear;
     var selectedMonth = now.month;
@@ -177,11 +176,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                         prefixIcon: Icon(Icons.calendar_today_outlined),
                       ),
                       items: [
-                        for (
-                          var year = latestFinanceYear;
-                          year >= 2026;
-                          year--
-                        )
+                        for (var year = latestFinanceYear; year >= 2026; year--)
                           DropdownMenuItem<int>(
                             value: year,
                             child: Text('$year-yil'),
@@ -199,10 +194,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                       child: OutlinedButton.icon(
                         onPressed: () => Navigator.pop(
                           sheetContext,
-                          <String, int>{
-                            'year': selectedYear,
-                            'month': 0,
-                          },
+                          <String, int>{'year': selectedYear, 'month': 0},
                         ),
                         icon: const Icon(Icons.date_range_rounded),
                         label: Text('Butun $selectedYear-yilni ko‘rsatish'),
@@ -232,13 +224,11 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
-                        onPressed: () => Navigator.pop(
-                          sheetContext,
-                          <String, int>{
-                            'year': selectedYear,
-                            'month': selectedMonth,
-                          },
-                        ),
+                        onPressed: () =>
+                            Navigator.pop(sheetContext, <String, int>{
+                              'year': selectedYear,
+                              'month': selectedMonth,
+                            }),
                         icon: const Icon(Icons.filter_alt_rounded),
                         label: const Text('Shu davrni ko‘rsatish'),
                       ),
@@ -305,7 +295,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
 
   DateTime _expenseDate(dynamic raw) {
     final parsed = DateTime.tryParse((raw ?? '').toString());
-    if (parsed == null) return DateTime.now();
+    if (parsed == null) return koreaNow();
     return DateTime(parsed.year, parsed.month, parsed.day);
   }
 
@@ -313,7 +303,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
     BuildContext context,
     DateTime current,
   ) async {
-    final now = DateTime.now();
+    final now = koreaNow();
     final today = DateTime(now.year, now.month, now.day);
     final firstDate = DateTime(2020, 1, 1);
     var initial = DateTime(current.year, current.month, current.day);
@@ -366,10 +356,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
           'admin_finance_expenses',
           params: {'p_secret': widget.secret, 'p_limit': 100},
         ),
-        _rpc(
-          'admin_list_books',
-          params: {'p_secret': widget.secret},
-        ),
+        _rpc('admin_list_books', params: {'p_secret': widget.secret}),
         _rpc(
           'admin_finance_report',
           params: {'p_secret': widget.secret, 'p_period': 'all'},
@@ -406,12 +393,13 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
           final endsAt = DateTime.tryParse(
             (row['discount_ends_at'] ?? '').toString(),
           );
-          final activeDiscount = discountPercent > 0 &&
-              (endsAt == null || endsAt.isAfter(now));
-          final effectivePercent =
-              activeDiscount ? discountPercent.clamp(0, 100).toInt() : 0;
-          final currentSellingPrice =
-              (price * (100 - effectivePercent) / 100).round();
+          final activeDiscount =
+              discountPercent > 0 && (endsAt == null || endsAt.isAfter(now));
+          final effectivePercent = activeDiscount
+              ? discountPercent.clamp(0, 100).toInt()
+              : 0;
+          final currentSellingPrice = (price * (100 - effectivePercent) / 100)
+              .round();
           stockSellingValue += stock * currentSellingPrice;
         }
       }
@@ -421,9 +409,9 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
             : <String, dynamic>{};
         expenses = rawExpenses is List
             ? rawExpenses
-                .whereType<Map>()
-                .map((e) => Map<String, dynamic>.from(e))
-                .toList()
+                  .whereType<Map>()
+                  .map((e) => Map<String, dynamic>.from(e))
+                  .toList()
             : <Map<String, dynamic>>[];
         inventoryStockCost = stockCost;
         inventoryStockSellingValue = stockSellingValue;
@@ -447,7 +435,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
     final amount = TextEditingController();
     final note = TextEditingController();
     var category = 'postage';
-    var expenseDate = DateTime.now();
+    var expenseDate = koreaNow();
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -555,9 +543,8 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Xarajat saqlanmadi: $e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Xarajat saqlanmadi: $e')));
     }
   }
 
@@ -671,15 +658,13 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
       );
       await _load();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Xarajat yangilandi.')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Xarajat yangilandi.')));
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Xarajat tahrirlanmadi: $e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Xarajat tahrirlanmadi: $e')));
     }
   }
 
@@ -713,9 +698,8 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('O‘chirilmadi: $e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('O‘chirilmadi: $e')));
     }
   }
 
@@ -748,33 +732,33 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
       end = DateTime.tryParse(rawEnd);
     }
 
-    final rows = expenses.where((expense) {
-      final date = _expenseDate(expense['expense_date']);
-      final day = DateTime(date.year, date.month, date.day);
-      if (start != null) {
-        final from = DateTime(start.year, start.month, start.day);
-        if (day.isBefore(from)) return false;
-      }
-      if (end != null) {
-        final through = DateTime(end.year, end.month, end.day);
-        if (day.isAfter(through)) return false;
-      }
-      return true;
-    }).map((e) => Map<String, dynamic>.from(e)).toList();
+    final rows = expenses
+        .where((expense) {
+          final date = _expenseDate(expense['expense_date']);
+          final day = DateTime(date.year, date.month, date.day);
+          if (start != null) {
+            final from = DateTime(start.year, start.month, start.day);
+            if (day.isBefore(from)) return false;
+          }
+          if (end != null) {
+            final through = DateTime(end.year, end.month, end.day);
+            if (day.isAfter(through)) return false;
+          }
+          return true;
+        })
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
 
     final manualPostage = rows
         .where((e) => (e['category'] ?? '').toString() == 'postage')
-        .fold<int>(
-          0,
-          (sum, e) => sum + ((e['amount'] as num?)?.round() ?? 0),
-        );
+        .fold<int>(0, (sum, e) => sum + ((e['amount'] as num?)?.round() ?? 0));
 
     // Agar foydalanuvchi shu davr uchun pochta xarajatini qo'lda
     // kiritmagan bo'lsa, server hisoblagan do'kon ulushini ro'yxatda ham
     // ko'rsatamiz. Shunda tepada "Chiqim" va pastdagi ro'yxat jami bir xil.
     final automaticStorePostage = _int('store_postage_expense');
     if (manualPostage == 0 && automaticStorePostage > 0) {
-      final autoDate = end ?? DateTime.now();
+      final autoDate = end ?? koreaNow();
       rows.add(<String, dynamic>{
         'expense_date': autoDate.toIso8601String(),
         'category': 'postage',
@@ -795,8 +779,9 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
 
   @override
   Widget build(BuildContext context) {
-    final webVisibleExpenses =
-        _webFinanceUi ? _webVisibleExpenseRows() : const <Map<String, dynamic>>[];
+    final webVisibleExpenses = _webFinanceUi
+        ? _webVisibleExpenseRows()
+        : const <Map<String, dynamic>>[];
     final webExpenseTotal = webVisibleExpenses.fold<int>(
       0,
       (sum, e) => sum + ((e['amount'] as num?)?.round() ?? 0),
@@ -811,14 +796,13 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
     final webProfitCostTotal = _int('profit_cost_total') > 0
         ? _int('profit_cost_total')
         : _int('cost_of_goods') +
-            _int('store_postage_expense') +
-            _int('other_expenses');
+              _int('store_postage_expense') +
+              _int('other_expenses');
     final webPeriodResult = webBooksRevenue - webProfitCostTotal;
     final webPeriodMargin = webBooksRevenue == 0
         ? 0.0
         : (webPeriodResult / webBooksRevenue) * 100;
-    final result =
-        _webFinanceUi ? webPeriodResult : _cashResult;
+    final result = _webFinanceUi ? webPeriodResult : _cashResult;
     final margin = _webFinanceUi
         ? _double('operating_margin_percent')
         : _double('margin_percent');
@@ -829,8 +813,8 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
     final resultTitle = result > 0
         ? 'SOF FOYDA'
         : result < 0
-            ? 'SOF ZARAR'
-            : 'SOF NATIJA';
+        ? 'SOF ZARAR'
+        : 'SOF NATIJA';
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -937,8 +921,8 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                 final columns = width >= 1000
                     ? 3
                     : width >= 650
-                        ? 2
-                        : 1;
+                    ? 2
+                    : 1;
                 final itemWidth = (width - (columns - 1) * 12) / columns;
                 final cards = <Widget>[
                   _FinanceCard(
@@ -1015,8 +999,8 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                     icon: result > 0
                         ? Icons.trending_up_rounded
                         : result < 0
-                            ? Icons.trending_down_rounded
-                            : Icons.horizontal_rule_rounded,
+                        ? Icons.trending_down_rounded
+                        : Icons.horizontal_rule_rounded,
                     strong: true,
                   ),
                 ];
@@ -1081,7 +1065,6 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                 ),
               ),
             ),
-
           ],
           const SizedBox(height: 22),
           Row(
@@ -1108,70 +1091,66 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
               ),
             )
           else
-            ...(_webFinanceUi ? webVisibleExpenses : expenses).map(
-              (e) {
-                final category = (e['category'] ?? 'other').toString();
-                final date = _expenseDate(e['expense_date']);
-                return Card(
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      child: Icon(_expenseIcon(category)),
-                    ),
-                    title: Text(
-                      '${categoryLabels[category] ?? 'Boshqa'} — ${_financeWon((e['amount'] as num?) ?? 0)}',
-                    ),
-                    subtitle: Text(
-                      [
-                        _financeDisplayDate.format(date),
-                        if ((e['note'] ?? '').toString().trim().isNotEmpty)
-                          (e['note'] ?? '').toString(),
-                        (e['source'] ?? '').toString() == 'telegram'
-                            ? 'Telegramdan kiritilgan'
-                            : 'Admin ilovadan kiritilgan',
-                      ].join(' • '),
-                    ),
-                    trailing: e['_system'] == true
-                        ? const Tooltip(
-                            message: 'Avtomatik hisoblangan',
-                            child: Icon(Icons.auto_awesome_rounded),
-                          )
-                        : PopupMenuButton<String>(
-                            tooltip: 'Amallar',
-                            icon: const Icon(Icons.more_vert_rounded),
-                            onSelected: (action) {
-                              if (action == 'edit') {
-                                unawaited(_editExpense(e));
-                              } else if (action == 'delete') {
-                                unawaited(_deleteExpense(e));
-                              }
-                            },
-                            itemBuilder: (context) => const [
-                              PopupMenuItem<String>(
-                                value: 'edit',
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.edit_outlined),
-                                    SizedBox(width: 10),
-                                    Text('Tahrirlash'),
-                                  ],
-                                ),
-                              ),
-                              PopupMenuItem<String>(
-                                value: 'delete',
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.delete_outline_rounded),
-                                    SizedBox(width: 10),
-                                    Text('O‘chirish'),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
+            ...(_webFinanceUi ? webVisibleExpenses : expenses).map((e) {
+              final category = (e['category'] ?? 'other').toString();
+              final date = _expenseDate(e['expense_date']);
+              return Card(
+                child: ListTile(
+                  leading: CircleAvatar(child: Icon(_expenseIcon(category))),
+                  title: Text(
+                    '${categoryLabels[category] ?? 'Boshqa'} — ${_financeWon((e['amount'] as num?) ?? 0)}',
                   ),
-                );
-              },
-            ),
+                  subtitle: Text(
+                    [
+                      _financeDisplayDate.format(date),
+                      if ((e['note'] ?? '').toString().trim().isNotEmpty)
+                        (e['note'] ?? '').toString(),
+                      (e['source'] ?? '').toString() == 'telegram'
+                          ? 'Telegramdan kiritilgan'
+                          : 'Admin ilovadan kiritilgan',
+                    ].join(' • '),
+                  ),
+                  trailing: e['_system'] == true
+                      ? const Tooltip(
+                          message: 'Avtomatik hisoblangan',
+                          child: Icon(Icons.auto_awesome_rounded),
+                        )
+                      : PopupMenuButton<String>(
+                          tooltip: 'Amallar',
+                          icon: const Icon(Icons.more_vert_rounded),
+                          onSelected: (action) {
+                            if (action == 'edit') {
+                              unawaited(_editExpense(e));
+                            } else if (action == 'delete') {
+                              unawaited(_deleteExpense(e));
+                            }
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem<String>(
+                              value: 'edit',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.edit_outlined),
+                                  SizedBox(width: 10),
+                                  Text('Tahrirlash'),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem<String>(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete_outline_rounded),
+                                  SizedBox(width: 10),
+                                  Text('O‘chirish'),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              );
+            }),
           const SizedBox(height: 12),
           const Card(
             child: Padding(
@@ -1219,8 +1198,8 @@ class _WebPeriodBusinessResult extends StatelessWidget {
     final resultLabel = result > 0
         ? 'FOYDA'
         : result < 0
-            ? 'ZARAR'
-            : 'NATIJA';
+        ? 'ZARAR'
+        : 'NATIJA';
 
     Widget row(String label, int amount, {bool strong = false}) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
@@ -1352,9 +1331,7 @@ class _WebPeriodBusinessResult extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w900,
-                        color: positive
-                            ? AppColors.success
-                            : AppColors.danger,
+                        color: positive ? AppColors.success : AppColors.danger,
                       ),
                     ),
                   ],
@@ -1702,10 +1679,7 @@ class _WebFinanceBar extends StatelessWidget {
               value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-              ),
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 6),
             Expanded(

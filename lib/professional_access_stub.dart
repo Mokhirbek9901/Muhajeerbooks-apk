@@ -1,23 +1,17 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
+import 'customer_session.dart';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 Future<bool> verifyProfessionalAccess(String code) async {
   final clean = code.trim();
   if (clean.isEmpty || clean.length > 64) return false;
 
-  const playStoreBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
-  final isPlayAndroid =
-      defaultTargetPlatform == TargetPlatform.android && playStoreBuild;
-
-  // iOS intentionally keeps its existing behavior until its separate update.
-  if (!isPlayAndroid) return clean == '6494';
-
   final response = await Supabase.instance.client.functions.invoke(
     'customer-rpc',
     body: {
-      'name': 'customer_professional_code_verify',
+      'name': 'customer_release_professional_login',
       'params': {'p_code': clean},
     },
   );
@@ -30,5 +24,8 @@ Future<bool> verifyProfessionalAccess(String code) async {
     final decoded = jsonDecode(raw);
     if (decoded is Map) envelope = Map<String, dynamic>.from(decoded);
   }
-  return envelope['ok'] == true && envelope['data'] == true;
+  final token = '${envelope['data'] ?? ''}';
+  if (envelope['ok'] != true || token.length != 36) return false;
+  CustomerSession.professionalToken = token;
+  return true;
 }

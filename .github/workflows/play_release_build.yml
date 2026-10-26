@@ -1,0 +1,118 @@
+name: Play Store Signed AAB
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-aab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check upload key configuration
+        env:
+          UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD }}
+          UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+          UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+        run: |
+          for name in UPLOAD_KEYSTORE_BASE64 UPLOAD_STORE_PASSWORD UPLOAD_KEY_PASSWORD UPLOAD_KEY_ALIAS; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing Android signing secret: $name. See docs/google-play-release.md."
+              exit 1
+            fi
+          done
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Create Android platform
+        run: flutter create . --platforms=android --project-name muhajeerbooks --org com.muhajeerbooks
+
+      - run: flutter pub get
+
+      - name: Prepare Play package for upload signing
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('android/app/build.gradle.kts')
+          s = p.read_text(encoding='utf-8')
+          s = re.sub(r'compileSdk\s*=\s*flutter\.compileSdkVersion', 'compileSdk = 36', s)
+          s = re.sub(r'applicationId\s*=\s*"[^"]+"', 'applicationId = "com.muhajeerbooks.app"', s)
+          s = re.sub(r'targetSdk\s*=\s*flutter\.targetSdkVersion', 'targetSdk = 36', s)
+          debug_signing = 'signingConfig = signingConfigs.getByName("debug")'
+          if s.count(debug_signing) != 1:
+              raise SystemExit('Unexpected Flutter signing template; review before building.')
+          s = s.replace(debug_signing, '')
+          p.write_text(s, encoding='utf-8')
+
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          m = manifest.read_text(encoding='utf-8')
+          if 'android.permission.INTERNET' not in m:
+              m = m.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">', '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET" />', 1)
+          m = re.sub(r'android:label="[^"]*"', 'android:label="Muhajeer Books"', m, count=1)
+          manifest.write_text(m, encoding='utf-8')
+          PY
+
+      - name: Apply official Muhajeer launcher icon
+        run: |
+          sudo apt-get -qq update
+          sudo apt-get -qq install -y imagemagick
+          for spec in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+            density="${spec%%:*}"
+            size="${spec##*:}"
+            dir="android/app/src/main/res/mipmap-${density}"
+            convert assets/images/muhajeer_logo.jpg -resize "${size}x${size}^" -gravity center -extent "${size}x${size}" "$dir/ic_launcher.png"
+          done
+
+      - name: Analyze and test
+        run: |
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+
+      - name: Build release AAB
+        run: flutter build appbundle --release
+
+      - name: Sign and verify upload bundle
+        env:
+          UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD }}
+          UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+          UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          umask 077
+          keystore="$RUNNER_TEMP/muhajeer-upload.jks"
+          trap 'rm -f "$keystore"' EXIT
+          printf '%s' "$UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          bundle=build/app/outputs/bundle/release/app-release.aab
+          # Verify the configured alias exists before signing.
+          keytool -list -keystore "$keystore" -storepass:env UPLOAD_STORE_PASSWORD -alias "$UPLOAD_KEY_ALIAS" > /dev/null
+          jarsigner -keystore "$keystore" -storepass:env UPLOAD_STORE_PASSWORD -keypass:env UPLOAD_KEY_PASSWORD "$bundle" "$UPLOAD_KEY_ALIAS"
+          # Trust the configured upload certificate, including self-signed upload keys.
+          jarsigner -verify -strict -keystore "$keystore" -storepass:env UPLOAD_STORE_PASSWORD "$bundle" "$UPLOAD_KEY_ALIAS"
+
+      - name: Show bundle info
+        run: |
+          ls -lh build/app/outputs/bundle/release/
+          sha256sum build/app/outputs/bundle/release/app-release.aab
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: muhajeer-books-play-signed-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 14
+          if-no-files-found: error

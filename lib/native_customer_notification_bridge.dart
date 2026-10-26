@@ -42,6 +42,10 @@ class _NativeCustomerNotificationBridgeState
     });
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
+        final pendingAdmin = await channel.invokeMethod<bool>('getPendingAdminOrder');
+        if (pendingAdmin == true && mounted) await openAdminOrders();
+      } catch (_) {}
+      try {
         final id = await channel.invokeMethod<String>(
           'getPendingCustomerOrder',
         );

@@ -1681,6 +1681,29 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    FilledButton.tonalIcon(
+                      onPressed: widget.onPushSettings,
+                      icon: const Icon(Icons.notifications_active_outlined),
+                      label: const Text('Admin pushni yoqish'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => _pushPage(
+                        context,
+                        Scaffold(
+                          appBar: AppBar(title: const Text('Xabarnoma yuborish')),
+                          body: _PushNotificationAdmin(api: widget.api),
+                        ),
+                      ),
+                      icon: const Icon(Icons.campaign_outlined),
+                      label: const Text('Mijozlarga xabar yuborish'),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 18),
                 const Text(
                   'Bugungi holat',

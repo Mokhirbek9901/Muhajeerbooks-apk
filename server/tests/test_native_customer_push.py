@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from native_customer_push import send_customer_apns_order_event
+from native_customer_push import send_customer_apns_order_event, send_customer_apns_broadcast
 
 
 class NativeCustomerPushTest(unittest.TestCase):
@@ -71,13 +71,76 @@ class NativeCustomerPushTest(unittest.TestCase):
         self.assertEqual(len(posts), 1)
         self.assertTrue(posts[0][0].endswith(token))
         self.assertEqual(posts[0][1]["kind"], "customer_order")
-        self.assertNotIn("order_id", posts[0][1])
+        self.assertEqual(posts[0][1].get("order_id"), "abc")
         self.assertNotIn("order_number", posts[0][1])
         self.assertNotIn("amount", posts[0][1])
         self.assertEqual(posts[0][2]["apns-topic"], "com.muhajeerbooks.app")
         lookup.assert_called_once_with("event_customer_apns_for_phone", {
             "p_event_secret": "event-secret", "p_phone": "01012345678",
         })
+
+
+    def test_broadcast_without_apns_key_does_not_claim_success(self):
+        rpc = Mock(side_effect=AssertionError("credentials missing"))
+        with patch.dict(os.environ, {
+            "APPLE_APNS_KEY_ID": "",
+            "APPLE_APNS_TEAM_ID": "",
+            "APPLE_APNS_PRIVATE_KEY": "",
+        }):
+            outcome = send_customer_apns_broadcast(
+                "verified-admin", "Yangi kitob", "Barcha mijozlarga", rpc)
+        self.assertFalse(outcome["configured"])
+        self.assertEqual(outcome["sent"], 0)
+        rpc.assert_not_called()
+
+    def test_broadcast_is_public_and_admin_authorized(self):
+        token = "a" * 64
+        calls = []
+        class Client:
+            def __init__(self, **kwargs):
+                pass
+            def __enter__(self):
+                return self
+            def __exit__(self, *_):
+                return False
+            def post(self, url, json, headers):
+                calls.append((url, json, headers))
+                return types.SimpleNamespace(status_code=200)
+        rpc = Mock(return_value=[{"token": token}, {"token": token}])
+        with patch.dict(os.environ, {
+            "APPLE_APNS_KEY_ID": "keyid",
+            "APPLE_APNS_TEAM_ID": "teamid",
+            "APPLE_APNS_PRIVATE_KEY": "mock-private-key",
+        }), patch.dict(sys.modules, {
+            "jwt": types.SimpleNamespace(encode=lambda *a, **k: "signed"),
+            "httpx": types.SimpleNamespace(Client=Client),
+        }):
+            result = send_customer_apns_broadcast(
+                "verified-admin", "Yangi kitob", "Yangi kitob keldi!", rpc)
+        rpc.assert_called_once_with(
+            "admin_release_apns_broadcast_recipients",
+            {"p_secret": "verified-admin"},
+        )
+        self.assertEqual(result["sent"], 1)
+        self.assertEqual(result["devices"], 1)
+        self.assertEqual(len(calls), 1)
+        payload = calls[0][1]
+        self.assertEqual(payload["kind"], "customer_broadcast")
+        self.assertEqual(payload["aps"]["sound"], "default")
+        self.assertNotIn("order_id", payload)
+        self.assertNotIn("customer_name", payload)
+        self.assertNotIn("address", payload)
+
+    def test_broadcast_does_not_accept_unverified_lookup(self):
+        with patch.dict(os.environ, {
+            "APPLE_APNS_KEY_ID": "keyid",
+            "APPLE_APNS_TEAM_ID": "teamid",
+            "APPLE_APNS_PRIVATE_KEY": "mock-private-key",
+        }):
+            result = send_customer_apns_broadcast(
+                "wrong-admin", "Hi", "Hello", lambda *args: None)
+        self.assertTrue(result["lookup_error"])
+        self.assertEqual(result["sent"], 0)
 
 if __name__ == "__main__":
     unittest.main()

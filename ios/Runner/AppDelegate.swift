@@ -8,6 +8,7 @@ import UserNotifications
   private var apnsToken: String?
   private var pushChannel: FlutterMethodChannel?
   private var pendingCustomerOrder: String?
+  private var pendingAdminOrder = false
 
   override func application(
     _ application: UIApplication,
@@ -25,6 +26,9 @@ import UserNotifications
     )
     pushChannel = channel
     channel.setMethodCallHandler { [weak self] call, result in
+      if call.method == "getPendingAdminOrder" {
+        result(self?.pendingAdminOrder ?? false); self?.pendingAdminOrder = false; return
+      }
       if call.method == "getPendingCustomerOrder" {
         result(self?.pendingCustomerOrder); self?.pendingCustomerOrder = nil; return
       }
@@ -91,6 +95,12 @@ import UserNotifications
     withCompletionHandler completionHandler: @escaping () -> Void
   ) {
     let info = response.notification.request.content.userInfo
+    if info["kind"] as? String == "admin_new_order" {
+      pendingAdminOrder = true
+      pushChannel?.invokeMethod("adminOrderTapped", arguments: nil)
+      completionHandler()
+      return
+    }
     if info["kind"] as? String == "customer_order",
        let orderId = info["order_id"] as? String {
       pendingCustomerOrder = orderId

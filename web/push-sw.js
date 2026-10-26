@@ -12,8 +12,10 @@ self.addEventListener('push', (event) => {
     icon: data.icon || '/icons/Icon-192.png',
     badge: data.badge || '/icons/Icon-192.png',
     data: { url: data.url || '/', messageId: data.message_id || '', openInbox: data.open_inbox === true },
-    tag: data.tag || 'muhajeer-books',
-    renotify: true
+    tag: data.tag || (data.message_id ? `muhajeer-${data.message_id}` : 'muhajeer-books'),
+    renotify: true,
+    silent: false,
+    vibrate: [180, 80, 180]
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });

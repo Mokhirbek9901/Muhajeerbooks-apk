@@ -10,7 +10,7 @@ import time
 
 def send_customer_apns_order_event(event_secret, phone, notifications, order, rpc):
     key_id = os.getenv("APPLE_APNS_KEY_ID", "").strip()
-    team_id = os.getenv("APPLE_APNS_TEAM_ID", "").strip()
+    team_id = os.getenv("APPLE_APNS_TEAM_ID", "8HJA5K2BQJ").strip()
     key = os.getenv("APPLE_APNS_PRIVATE_KEY", "").strip().replace("\\n", "\n")
     if not (key_id and team_id and key):
         return {"configured": False, "devices": 0, "sent": 0, "failed": 0}
@@ -83,3 +83,65 @@ def send_customer_apns_order_event(event_secret, phone, notifications, order, rp
         print(f"Customer APNs configuration error: {type(exc).__name__}", flush=True)
         return {"configured": True, "devices": len(tokens), "sent": 0,
                 "failed": len(tokens)}
+
+
+def send_customer_apns_broadcast(admin_secret, title, message, rpc):
+    """Send only a public announcement to opted-in customer iPhones.
+
+    Recipient enumeration requires a verified admin secret at the database.
+    No customer identity, addresses or order details go to other devices.
+    """
+    key_id = os.getenv("APPLE_APNS_KEY_ID", "").strip()
+    team_id = os.getenv("APPLE_APNS_TEAM_ID", "8HJA5K2BQJ").strip()
+    key = os.getenv("APPLE_APNS_PRIVATE_KEY", "").strip().replace("\\n", "\n")
+    if not (key_id and team_id and key):
+        return {"configured": False, "devices": 0, "sent": 0, "failed": 0}
+    recipients = rpc("admin_release_apns_broadcast_recipients", {"p_secret": admin_secret})
+    if not isinstance(recipients, list):
+        return {"configured": True, "devices": 0, "sent": 0, "failed": 0, "lookup_error": True}
+    tokens = list(dict.fromkeys(str(row.get("token", "")).lower()
+                for row in recipients if isinstance(row, dict)))
+    tokens = [token for token in tokens if 64 <= len(token) <= 200
+              and all(c in "0123456789abcdef" for c in token)]
+    if not tokens:
+        return {"configured": True, "devices": 0, "sent": 0, "failed": 0}
+    try:
+        import jwt
+        import httpx
+        bearer = jwt.encode({"iss": team_id, "iat": int(time.time())},
+                            key, algorithm="ES256", headers={"kid": key_id})
+        headers = {
+            "authorization": f"bearer {bearer}",
+            "apns-topic": "com.muhajeerbooks.app",
+            "apns-push-type": "alert",
+            "apns-priority": "10",
+        }
+        payload = {
+            "aps": {"alert": {"title": str(title)[:120], "body": str(message)[:1000]},
+                    "sound": "default"},
+            "kind": "customer_broadcast",
+        }
+        sent = failed = 0
+        with httpx.Client(http2=True, timeout=8.0) as client:
+            for token in tokens:
+                try:
+                    response = client.post(
+                        f"https://api.push.apple.com/3/device/{token}",
+                        json=payload, headers=headers)
+                    if response.status_code == 200:
+                        sent += 1
+                    else:
+                        failed += 1
+                        reason = ""
+                        try:
+                            reason = str(response.json().get("reason", ""))[:80]
+                        except Exception:
+                            pass
+                        print(f"Announcement APNs HTTP {response.status_code}: {reason}", flush=True)
+                except Exception as exc:
+                    failed += 1
+                    print(f"Announcement APNs delivery error: {type(exc).__name__}", flush=True)
+        return {"configured": True, "devices": len(tokens), "sent": sent, "failed": failed}
+    except Exception as exc:
+        print(f"Announcement APNs error: {type(exc).__name__}", flush=True)
+        return {"configured": True, "devices": len(tokens), "sent": 0, "failed": len(tokens)}

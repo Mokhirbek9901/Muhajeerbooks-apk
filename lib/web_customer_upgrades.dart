@@ -145,7 +145,7 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
   bool _busy = false;
   bool get _nativeIosPreview =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS &&
-      webPreviewFeaturesAvailable;
+      true; // Native push toggle must stay visible in App Store and TestFlight.
 
   @override
   void initState() {
@@ -252,7 +252,7 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
     final enabled = _status == 'enabled' || _status == 'native_allowed';
     final available = (kIsWeb && pushNotificationsSupported) || _nativeIosPreview;
     final statusLabel = _status == 'checking' ? 'Holat tekshirilmoqda…'
-      : _status == 'native_allowed' ? 'iPhone bildirishnoma ruxsati berilgan'
+      : _status == 'native_allowed' ? 'iPhone ruxsati berilgan (serverga ulanishni tekshiring)'
       : enabled ? 'Bildirishnomalar faol'
       : _status == 'blocked' ? 'Bildirishnoma ruxsati bloklangan'
       : available ? 'Hozircha yoqilmagan'

@@ -11,7 +11,7 @@ from pywebpush import webpush, WebPushException
 from flask import Flask, jsonify, request, Response
 
 from preorder_delivery import register_preorder_routes
-from native_customer_push import send_customer_apns_order_event
+from native_customer_push import send_customer_apns_order_event, send_customer_apns_broadcast
 
 app = Flask(__name__)
 register_preorder_routes(app, webpush)
@@ -517,13 +517,23 @@ def send_push_notification():
         if future.result(): success+=1
         else: failure+=1
 
+    # iOS announcements are public marketing notices; never relay an
+    # individual customer's order details through this broadcast route.
+    ios = send_customer_apns_broadcast(supplied, title, message, _admin_rpc_call)
     _admin_rpc_call("admin_push_message_finish",{
       "p_secret":supplied,
       "p_id":str(message_id),
       "p_success":success,
       "p_failure":failure,
     })
-    return jsonify(ok=True,id=str(message_id),total=len(subscriptions),success=success,failure=failure)
+    return jsonify(
+      ok=True, id=str(message_id),
+      total=len(subscriptions)+ios["devices"],
+      success=success+ios["sent"], failure=failure+ios["failed"],
+      web_total=len(subscriptions), web_success=success, web_failure=failure,
+      ios_total=ios["devices"], ios_success=ios["sent"], ios_failure=ios["failed"],
+      ios_configured=ios["configured"], ios_lookup_error=ios.get("lookup_error",False),
+    )
 
 
 def _send_admin_apns_order_event(event_secret, notification, body):

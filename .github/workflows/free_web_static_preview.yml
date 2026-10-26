@@ -1,0 +1,50 @@
+name: Free-hosting web build check (no deployment)
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_href:
+        description: "Base path for static hosting (for example / or /Muhajeerbooks-apk/)"
+        required: true
+        default: "/"
+  push:
+    branches:
+      - "prep/free-plan-transition-*"
+    paths:
+      - "lib/**"
+      - "web/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - ".github/workflows/free_web_static_preview.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: free-static-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Install packages
+        run: flutter pub get
+      - name: Build standalone web bundle (testing only)
+        env:
+          BASE_HREF: ${{ inputs.base_href || '/' }}
+        run: |
+          flutter build web --release --pwa-strategy=none --base-href "$BASE_HREF" --dart-define=WEB_DIRECT_SUPABASE=true
+      - name: Store test build without publishing it
+        uses: actions/upload-artifact@v4
+        with:
+          name: muhajeer-static-web-preview
+          path: build/web/
+          if-no-files-found: error
+          retention-days: 7

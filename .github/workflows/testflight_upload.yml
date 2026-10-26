@@ -3,7 +3,7 @@ name: Build and Upload iOS to TestFlight
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, fix/mb-ios-web-push-privacy-20261027]
     paths:
       - '.github/workflows/testflight_upload.yml'
       - '.github/ios-release-trigger'

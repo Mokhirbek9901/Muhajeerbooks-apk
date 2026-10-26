@@ -91,6 +91,11 @@ import UserNotifications
     withCompletionHandler completionHandler: @escaping () -> Void
   ) {
     let info = response.notification.request.content.userInfo
+    if info["kind"] as? String == "admin_new_order" {
+      pushChannel?.invokeMethod("adminOrderTapped", arguments: nil)
+      completionHandler()
+      return
+    }
     if info["kind"] as? String == "customer_order",
        let orderId = info["order_id"] as? String {
       pendingCustomerOrder = orderId

@@ -78,7 +78,8 @@ void main() {
     await tester.tap(find.text('PIN esimda yo‘q'));
     await tester.pumpAndSettle();
     expect(find.text('PIN esimda yo‘q'), findsWidgets);
-    expect(find.textContaining('eski buyurtmalar xavfsizligi'), findsOneWidget);
-    expect(find.text('Tushunarli'), findsOneWidget);
+    expect(find.text('PINni tiklash so‘rovi'), findsOneWidget);
+    expect(find.textContaining('Admin shaxsingizni alohida tekshirgandan keyin PINni tiklaydi'), findsOneWidget);
+    expect(find.text('So‘rov yuborish'), findsOneWidget);
   });
 }

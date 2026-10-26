@@ -10,7 +10,7 @@ import time
 
 def send_customer_apns_order_event(event_secret, phone, notifications, order, rpc):
     key_id = os.getenv("APPLE_APNS_KEY_ID", "").strip()
-    team_id = os.getenv("APPLE_APNS_TEAM_ID", "").strip()
+    team_id = os.getenv("APPLE_APNS_TEAM_ID", "8HJA5K2BQJ").strip()
     key = os.getenv("APPLE_APNS_PRIVATE_KEY", "").strip().replace("\\n", "\n")
     if not (key_id and team_id and key):
         return {"configured": False, "devices": 0, "sent": 0, "failed": 0}
@@ -92,7 +92,7 @@ def send_customer_apns_broadcast(admin_secret, title, message, rpc):
     No customer identity, addresses or order details go to other devices.
     """
     key_id = os.getenv("APPLE_APNS_KEY_ID", "").strip()
-    team_id = os.getenv("APPLE_APNS_TEAM_ID", "").strip()
+    team_id = os.getenv("APPLE_APNS_TEAM_ID", "8HJA5K2BQJ").strip()
     key = os.getenv("APPLE_APNS_PRIVATE_KEY", "").strip().replace("\\n", "\n")
     if not (key_id and team_id and key):
         return {"configured": False, "devices": 0, "sent": 0, "failed": 0}

@@ -67,7 +67,8 @@ jobs:
           s = p.read_text(encoding='utf-8')
           needle = '  List<Book> get books => List.unmodifiable(_books);'
           getter = '  List<ShopOrder> get localOrders => List.unmodifiable(_localOrders);'
-          if getter not in s:
+          # The existing guarded getter may span multiple lines; do not inject a duplicate.
+          if 'get localOrders =>' not in s:
               if needle not in s:
                   raise SystemExit('AppState books getter not found')
               s = s.replace(needle, needle + '\n' + getter, 1)

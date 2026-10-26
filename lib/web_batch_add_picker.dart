@@ -6,6 +6,22 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'uzbek_customer_style.dart';
 import 'admin_batch_finance_math.dart';
 
+/// Store an independent cost snapshot for each newly saved batch line.
+/// The server must use this amount, rather than re-reading a potentially
+/// changed catalog price between selecting and saving the book.
+@visibleForTesting
+Map<String,dynamic> batchLineSnapshotPayload({
+  required String bookId,
+  required int quantity,
+  required int unitCost,
+  required bool manuallyEdited,
+}) => {
+  'book_id':bookId,
+  'quantity':quantity,
+  'unit_cost':unitCost,
+  'edited_cost':manuallyEdited,
+};
+
 class _SelectedBatchBook {
   _SelectedBatchBook(Map<String,dynamic> raw)
     : id = raw['id'].toString(),
@@ -115,12 +131,15 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
         _message('${row.title}: dona soni yoki tannarx noto‘g‘ri.');
         return;
       }
-      list.add({
-        'book_id': row.id,
-        'quantity': row.qty,
-        if (row.changedCost) 'unit_cost': row.unitCost,
-        'edited_cost': row.changedCost,
-      });
+      // Always submit the selected amount, even if catalog-prefilled.
+      // It belongs to THIS batch and must never retroactively follow the
+      // changing global books.cost_price of future deliveries.
+      list.add(batchLineSnapshotPayload(
+        bookId:row.id,
+        quantity:row.qty,
+        unitCost:row.unitCost,
+        manuallyEdited:row.changedCost,
+      ));
     }
     final nBooks = list.length;
     final nQty = _selected.values.fold<int>(0, (s, x) => s + x.qty);

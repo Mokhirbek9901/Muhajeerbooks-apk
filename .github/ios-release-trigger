@@ -4,5 +4,3 @@ Keep the colorful sales-style 11 filter chips, counts, active filter selections,
 Correct the owner-requested scrolling: ALL filters and search/actions are regular content in the SAME scrollable CustomScrollView as the lazily-rendered book cards. They should scroll off the top as the user scrolls down; no pinned/sticky filters and no nested independent book list. Same behavior as Sold Books page.
 Do not affect stock counts, sales history, finance, other admin pages, or data.
 Marketing version 2.5.20, unique build number chosen by App Store Connect preflight. Upload signed IPA to TestFlight INTERNAL TESTERS ONLY. No public App Store or Play Market release.
-
-2026-10-26 TestFlight ONLY — Variant 8 30-day activity heatmap; Kitoblar foydasi beneath Pochta zakaslari; editable old/new batch history with saved quantities, optimistic lock, inventory delta protection. No App Store public submission, no Play Market release.

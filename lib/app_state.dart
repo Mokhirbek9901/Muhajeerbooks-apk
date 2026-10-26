@@ -8,41 +8,45 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'push_notifications.dart';
 import 'owner_story_access.dart';
+import 'native_admin_push.dart';
 import 'preview_features.dart';
+import 'customer_session.dart';
 
 String normalizePublisher(String value) {
-  final cleaned=value.trim().replaceAll(RegExp(r'\s+'), ' ');
-  final key=cleaned.toLowerCase().replaceAll('-', ' ');
-  const aliases=<String,String>{
-    'hilol nashr':'Hilol Nashr',
-    'hilol nashriyoti':'Hilol Nashr',
-    'huzur':'Huzur Nashr',
-    'huzur nashr':'Huzur Nashr',
-    'huzur nashriyoti':'Huzur Nashr',
-    'misbah':'Misbah Nashr',
-    'misbah nashr':'Misbah Nashr',
-    'misbah nashriyoti':'Misbah Nashr',
-    'nasim kutub':'Nasim Kutub',
-    'global book':'Global Book',
-    'global books':'Global Book',
-    'inson':'Inson Nashriyoti',
-    'inson nashr':'Inson Nashriyoti',
-    'inson nashriyoti':'Inson Nashriyoti',
-    'falaq nashr':'Falaq Nashr',
-    'falaq nashriyoti':'Falaq Nashr',
+  final cleaned = value.trim().replaceAll(RegExp(r'\s+'), ' ');
+  final key = cleaned.toLowerCase().replaceAll('-', ' ');
+  const aliases = <String, String>{
+    'hilol nashr': 'Hilol Nashr',
+    'hilol nashriyoti': 'Hilol Nashr',
+    'huzur': 'Huzur Nashr',
+    'huzur nashr': 'Huzur Nashr',
+    'huzur nashriyoti': 'Huzur Nashr',
+    'misbah': 'Misbah Nashr',
+    'misbah nashr': 'Misbah Nashr',
+    'misbah nashriyoti': 'Misbah Nashr',
+    'nasim kutub': 'Nasim Kutub',
+    'global book': 'Global Book',
+    'global books': 'Global Book',
+    'inson': 'Inson Nashriyoti',
+    'inson nashr': 'Inson Nashriyoti',
+    'inson nashriyoti': 'Inson Nashriyoti',
+    'falaq nashr': 'Falaq Nashr',
+    'falaq nashriyoti': 'Falaq Nashr',
   };
   return aliases[key] ?? cleaned;
 }
 
 String publisherKey(String value) => normalizePublisher(value).toLowerCase();
 
-const MethodChannel _deviceAnalyticsChannel =
-    MethodChannel('muhajeer/device_analytics');
+const MethodChannel _deviceAnalyticsChannel = MethodChannel(
+  'muhajeer/device_analytics',
+);
 
 const bool _playStoreBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
 const bool _appStoreBuild = bool.fromEnvironment('APP_STORE_BUILD');
@@ -67,14 +71,13 @@ Future<bool> _runningInFirebaseTestLab() async {
 }
 
 String _newOrderUuid() {
-  final bytes=List<int>.generate(16,(_)=>Random.secure().nextInt(256));
-  bytes[6]=(bytes[6]&0x0f)|0x40;
-  bytes[8]=(bytes[8]&0x3f)|0x80;
-  String h(int v)=>v.toRadixString(16).padLeft(2,'0');
-  final s=bytes.map(h).join();
-  return '${s.substring(0,8)}-${s.substring(8,12)}-${s.substring(12,16)}-${s.substring(16,20)}-${s.substring(20)}';
+  final bytes = List<int>.generate(16, (_) => Random.secure().nextInt(256));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  String h(int v) => v.toRadixString(16).padLeft(2, '0');
+  final s = bytes.map(h).join();
+  return '${s.substring(0, 8)}-${s.substring(8, 12)}-${s.substring(12, 16)}-${s.substring(16, 20)}-${s.substring(20)}';
 }
-
 
 List<String> bookPublishers(Iterable<Book> books) {
   final names = <String, String>{};
@@ -169,6 +172,7 @@ class Book {
   final int preorderDepositMax;
   final int preorderPriceMax;
   final DateTime? createdAt;
+
   /// Latest verified stock replenishment; does not change original creation date.
   final DateTime? restockedAt;
   final int? catalogPinRank;
@@ -195,6 +199,7 @@ class Book {
     final remaining = endsAt.difference(DateTime.now());
     return remaining.isNegative ? Duration.zero : remaining;
   }
+
   bool get inStock => stock > 0 && price > 0;
   String get previewImageUrl =>
       thumbnailUrl.trim().isNotEmpty ? thumbnailUrl.trim() : imageUrl;
@@ -412,7 +417,9 @@ class BookReview {
     reviewerName: (map['reviewer_name'] ?? 'Muhajeer kitobxoni').toString(),
     rating: ((map['rating'] as num?)?.toInt() ?? 0).clamp(0, 5).toInt(),
     comment: (map['comment'] ?? '').toString(),
-    createdAt: DateTime.tryParse((map['created_at'] ?? '').toString()) ?? DateTime.now(),
+    createdAt:
+        DateTime.tryParse((map['created_at'] ?? '').toString()) ??
+        DateTime.now(),
   );
 }
 
@@ -438,6 +445,7 @@ class ShopOrder {
     this.trackingNumber = '',
     this.trackingUpdatedAt,
     this.preparedAt,
+    this.recognizedSaleAt,
   });
 
   final String id;
@@ -460,6 +468,7 @@ class ShopOrder {
   final String trackingNumber;
   final DateTime? trackingUpdatedAt;
   final DateTime? preparedAt;
+  final DateTime? recognizedSaleAt;
 
   bool get hasPaymentProof => paymentProofPath.trim().isNotEmpty;
   bool get isTelegram => source == 'telegram';
@@ -497,8 +506,12 @@ class ShopOrder {
     stockReserved: map['stock_reserved'] as bool? ?? false,
     carrier: (map['carrier'] ?? '').toString(),
     trackingNumber: (map['tracking_number'] ?? '').toString(),
-    trackingUpdatedAt: DateTime.tryParse((map['tracking_updated_at'] ?? '').toString())?.toLocal(),
-    preparedAt: DateTime.tryParse((map['prepared_at'] ?? '').toString())?.toLocal(),
+    trackingUpdatedAt: DateTime.tryParse(
+      (map['tracking_updated_at'] ?? '').toString(),
+    )?.toLocal(),
+    recognizedSaleAt: DateTime.tryParse('${map['recognized_sale_at'] ?? ''}'),
+    preparedAt: DateTime.tryParse((map['prepared_at'] ?? '').toString())
+        ?.toLocal(),
   );
 
   Map<String, dynamic> toMap() => {
@@ -522,6 +535,7 @@ class ShopOrder {
     'tracking_number': trackingNumber,
     'tracking_updated_at': trackingUpdatedAt?.toUtc().toIso8601String(),
     'prepared_at': preparedAt?.toUtc().toIso8601String(),
+    'recognized_sale_at': recognizedSaleAt?.toUtc().toIso8601String(),
   };
 
   ShopOrder copyWith({
@@ -555,7 +569,15 @@ class ShopOrder {
     trackingNumber: trackingNumber ?? this.trackingNumber,
     trackingUpdatedAt: trackingUpdatedAt ?? this.trackingUpdatedAt,
     preparedAt: preparedAt ?? this.preparedAt,
+    recognizedSaleAt: recognizedSaleAt,
   );
+}
+
+class CustomerRequestRejected implements Exception {
+  CustomerRequestRejected(this.message);
+  final String message;
+  @override
+  String toString() => message;
 }
 
 class BackendService {
@@ -567,10 +589,7 @@ class BackendService {
       'discount_percent,discount_ends_at,image_url,thumbnail_url,image_urls,is_active,cover_type,recommended,preorder_enabled,'
       'preorder_arrival_note,preorder_deposit_min,preorder_deposit_max,preorder_price_max,created_at,restocked_at,catalog_pin_rank';
 
-  Future<dynamic> _customerRpc(
-    String name,
-    Map<String, dynamic> params,
-  ) async {
+  Future<dynamic> _customerRpc(String name, Map<String, dynamic> params) async {
     final response = await client.functions.invoke(
       'customer-rpc',
       body: {'name': name, 'params': params},
@@ -584,7 +603,7 @@ class BackendService {
       if (decoded is Map) envelope = Map<String, dynamic>.from(decoded);
     }
     if (envelope['ok'] != true) {
-      throw StateError(
+      throw CustomerRequestRejected(
         (envelope['error'] ?? 'Server so‘rovni bajarmadi.').toString(),
       );
     }
@@ -623,10 +642,9 @@ class BackendService {
   }
 
   Future<Map<String, dynamic>> fetchCatalogDelta(String since) async {
-    final raw = await _customerRpc(
-      'customer_catalog_delta',
-      {'p_since': since},
-    );
+    final raw = await _customerRpc('customer_catalog_delta', {
+      'p_since': since,
+    });
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
 
@@ -636,11 +654,22 @@ class BackendService {
   }
 
   Future<void> logBookView(String installId, String bookId) async {
-    await _customerRpc('customer_book_view_log', {'p_install_id': installId, 'p_book_id': bookId});
+    await _customerRpc('customer_book_view_log', {
+      'p_install_id': installId,
+      'p_book_id': bookId,
+    });
   }
 
-  Future<void> logSearchEvent(String installId, String query, int resultCount) async {
-    await _customerRpc('customer_search_event_log', {'p_install_id': installId, 'p_query': query, 'p_result_count': resultCount});
+  Future<void> logSearchEvent(
+    String installId,
+    String query,
+    int resultCount,
+  ) async {
+    await _customerRpc('customer_search_event_log', {
+      'p_install_id': installId,
+      'p_query': query,
+      'p_result_count': resultCount,
+    });
   }
 
   Future<void> saveBook(Book book) async {
@@ -705,16 +734,37 @@ class BackendService {
 
   Future<void> signOut() => client.auth.signOut();
 
-  Future<void> registerInstallation(String installId, String platform, {String phone = ''}) async {
-    await _customerRpc(
-      'register_app_install_v2',
-      {
-        'p_install_id': installId,
-        'p_platform': platform,
-        'p_device_model': '',
-        'p_phone': phone.trim(),
-      },
-    );
+  Future<void> registerInstallation(
+    String installId,
+    String platform, {
+    String phone = '',
+  }) async {
+    await _customerRpc('register_app_install_v2', {
+      'p_install_id': installId,
+      'p_platform': platform,
+      'p_device_model': '',
+      'p_phone': phone.trim(),
+    });
+  }
+
+  /// Registers a consenting, phone-linked iOS device for existing APNs events.
+  /// Only called from a physical iOS app after notification permission.
+  Future<void> registerCustomerNativeApns(
+    String token,
+    String phone,
+    String installId,
+  ) async {
+    await _customerRpc('customer_register_native_apns', {
+      'p_token': token,
+      'p_phone': phone.trim(),
+      'p_install_id': installId,
+    });
+  }
+
+  Future<void> unregisterCustomerNativeApns(String installId) async {
+    await _customerRpc('customer_unregister_native_apns', {
+      'p_install_id': installId,
+    });
   }
 
   Future<Map<String, dynamic>> subscribeRestock(
@@ -723,32 +773,28 @@ class BackendService {
     String name = '',
     String phone = '',
   }) async {
-    final raw = await _customerRpc(
-      'customer_restock_subscribe',
-      {
-        'p_install_id': installId,
-        'p_book_id': bookId,
-        'p_name': name.trim(),
-        'p_phone': phone.trim(),
-      },
-    );
+    final raw = await _customerRpc('customer_restock_subscribe', {
+      'p_install_id': installId,
+      'p_book_id': bookId,
+      'p_name': name.trim(),
+      'p_phone': phone.trim(),
+    });
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
 
   Future<void> unsubscribeRestock(String installId, String bookId) async {
-    await _customerRpc(
-      'customer_restock_unsubscribe',
-      {'p_install_id': installId, 'p_book_id': bookId},
-    );
+    await _customerRpc('customer_restock_unsubscribe', {
+      'p_install_id': installId,
+      'p_book_id': bookId,
+    });
   }
 
   Future<List<Map<String, dynamic>>> fetchRestockNotifications(
     String installId,
   ) async {
-    final raw = await _customerRpc(
-      'customer_restock_notifications',
-      {'p_install_id': installId},
-    );
+    final raw = await _customerRpc('customer_restock_notifications', {
+      'p_install_id': installId,
+    });
     if (raw is! List) return [];
     return raw
         .whereType<Map>()
@@ -756,16 +802,24 @@ class BackendService {
         .toList();
   }
 
-  Future<List<Map<String, dynamic>>> fetchPushMessages({int limit = 50, String phone = ''}) async {
+  Future<List<Map<String, dynamic>>> fetchPushMessages({
+    int limit = 50,
+    String phone = '',
+  }) async {
     final cleanPhone = phone.trim();
     final raw = await _customerRpc(
-      'customer_push_history',
+      CustomerSession.token.isEmpty
+          ? 'customer_push_history'
+          : 'customer_release_inbox',
       {
+        if (CustomerSession.token.isNotEmpty)
+          'p_session': CustomerSession.token,
         'p_limit': limit.clamp(1, 100),
         // The gateway rejects an empty optional phone. A non-numeric guest
         // marker keeps the two-argument RPC unambiguous and returns only
         // global push messages until the customer has saved a real phone.
-        'p_phone': cleanPhone.isEmpty ? 'guest' : cleanPhone,
+        if (CustomerSession.token.isEmpty)
+          'p_phone': cleanPhone.isEmpty ? 'guest' : cleanPhone,
       },
     );
     if (raw is! List) return const [];
@@ -798,19 +852,212 @@ class BackendService {
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> requestMissingBook(String installId, String title, {String author = '', String phone = ''}) async {
-    final raw = await _customerRpc('customer_book_request_submit', {'p_install_id': installId, 'p_title': title, 'p_author': author, 'p_phone': phone});
+  Future<Map<String, dynamic>> pinCreate(
+    String name,
+    String phone,
+    String pin,
+    String installId,
+  ) async {
+    final data = await _customerRpc('customer_pin_register', {
+      'p_name': name,
+      'p_phone': phone,
+      'p_pin': pin,
+      'p_install_id': installId,
+    });
+    if (data is! Map) throw StateError('PIN yaratilmadi');
+    final m = Map<String, dynamic>.from(data);
+    if (m['error'] != null) throw StateError('${m['error']}');
+    return m;
+  }
+
+  Future<Map<String, dynamic>> pinLogin(
+    String phone,
+    String pin,
+    String installId,
+  ) async {
+    final data = await _customerRpc('customer_pin_login', {
+      'p_phone': phone,
+      'p_pin': pin,
+      'p_install_id': installId,
+    });
+    if (data is! Map) throw StateError('PIN tekshirilmadi');
+    final m = Map<String, dynamic>.from(data);
+    if (m['error'] != null) throw StateError('${m['error']}');
+    return m;
+  }
+
+  Future<Map<String, dynamic>> pinProfile(String token) async {
+    final raw = await _customerRpc('customer_pin_profile', {
+      'p_session': token,
+    });
+    if (raw is! Map) throw StateError('PIN sessiyasi tugagan');
+    return Map<String, dynamic>.from(raw);
+  }
+
+  Future<List<Map<String, dynamic>>> pinPreorders(String token) async {
+    final raw = await _customerRpc('customer_pin_preorders', {
+      'p_session': token,
+    });
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+
+  Future<void> pinLogout(String token) async {
+    await _customerRpc('customer_pin_logout', {'p_session': token});
+  }
+
+  /// Historical web preorder: PIN-bound and idempotent, never creates an
+  /// ordinary order or charges a second deposit.
+  Future<Map<String, dynamic>> webPreorderCheckout(
+    String session,
+    String preorderId,
+    String action, {
+    String? bookId,
+    int delta = 0,
+    String? proofPath,
+  }) async {
+    final raw = await _customerRpc('customer_web_preorder_checkout', {
+      'p_session': session,
+      'p_preorder_id': preorderId,
+      'p_action': action,
+      if (bookId != null) 'p_book_id': bookId,
+      'p_delta': delta,
+      if (proofPath != null) 'p_path': proofPath,
+    });
+    if (raw is! Map) throw StateError('Oldindan zakaz hisobi olinmadi');
+    return Map<String, dynamic>.from(raw);
+  }
+
+  Future<Map<String, dynamic>> saveWebPreorderDelivery(
+    String session,
+    String preorderId, {
+    required String recipientName,
+    required String recipientPhone,
+    required String address,
+    required String deliveryType,
+  }) async {
+    final raw = await _customerRpc('customer_web_preorder_delivery', {
+      'p_session': session,
+      'p_preorder_id': preorderId,
+      'p_recipient_name': recipientName,
+      'p_recipient_phone': recipientPhone,
+      'p_address': address,
+      'p_delivery_type': deliveryType,
+    });
+    if (raw is! Map) throw StateError('Yetkazish ma’lumotlari saqlanmadi');
+    return Map<String, dynamic>.from(raw);
+  }
+
+  Future<List<Map<String, dynamic>>> fetchPreorderBalances(
+    String installId,
+  ) async {
+    final raw = await _customerRpc('customer_preorder_balance_list', {
+      'p_install_id': installId,
+    });
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> discoverPreorders(
+    String installId,
+    String name,
+    String phone,
+  ) async {
+    final raw = await _customerRpc('customer_preorder_discovery', {
+      'p_install_id': installId,
+      'p_name': name,
+      'p_phone': phone,
+    });
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> preorderActivity(
+    String installId,
+    String name,
+    String phone,
+  ) async {
+    final raw = await _customerRpc('customer_preorder_activity_list', {
+      'p_install_id': installId,
+      'p_name': name,
+      'p_phone': phone,
+      'p_limit': 60,
+    });
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList();
+  }
+
+  Future<void> changePreorderExtra(
+    String installId,
+    int preorderId,
+    String bookId,
+    int delta,
+  ) async {
+    final result = await _customerRpc('customer_preorder_extra_change', {
+      'p_install_id': installId,
+      'p_preorder_id': preorderId,
+      'p_book_id': bookId,
+      'p_delta': delta,
+    });
+    if (result is! Map) throw StateError('Qo‘shimcha kitob saqlanmadi');
+  }
+
+  Future<void> submitPreorderBalanceProof(
+    String installId,
+    int preorderId,
+    String proofPath,
+  ) async {
+    final result = await _customerRpc('customer_preorder_balance_proof', {
+      'p_install_id': installId,
+      'p_preorder_id': preorderId,
+      'p_path': proofPath,
+    });
+    if (result is! Map || result['payment_state'] != 'proof_submitted') {
+      throw StateError('Qolgan to‘lov cheki saqlanmadi');
+    }
+  }
+
+  Future<Map<String, dynamic>> requestMissingBook(
+    String installId,
+    String title, {
+    String author = '',
+    String phone = '',
+  }) async {
+    final raw = await _customerRpc('customer_book_request_submit', {
+      'p_install_id': installId,
+      'p_title': title,
+      'p_author': author,
+      'p_phone': phone,
+    });
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
 
   Future<void> logSearchMiss(String installId, String query) async {
-    await _customerRpc('customer_search_miss_log', {'p_install_id': installId, 'p_query': query});
+    await _customerRpc('customer_search_miss_log', {
+      'p_install_id': installId,
+      'p_query': query,
+    });
   }
 
   Future<List<Map<String, dynamic>>> fetchBundles() async {
     final raw = await _customerRpc('customer_bundle_list', const {});
     if (raw is! List) return const [];
-    return raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    return raw
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
   }
 
   Future<String> uploadPaymentProof(XFile file) async {
@@ -831,6 +1078,7 @@ class BackendService {
       'payment-proof',
       body: {
         'action': 'upload',
+        'session': CustomerSession.token,
         'file_name': file.name,
         'content_type': contentType,
         'data_base64': base64Encode(bytes),
@@ -854,10 +1102,54 @@ class BackendService {
         (data['error'] ?? 'To‘lov cheki yuklanmadi.').toString(),
       );
     }
+    if (CustomerSession.token.isNotEmpty) {
+      await _customerRpc('customer_release_receipt', {
+        'p_session': CustomerSession.token,
+        'p_path': path,
+      });
+    }
     return path;
   }
 
-  Future<String> createOrder({
+  Map<String, dynamic>? checkoutQuote;
+  String _pendingKey(String phone, bool professional) =>
+      'mb_checkout_pending_v3_${professional ? 'admin' : phone.replaceAll(RegExp(r"[^0-9]"), '')}';
+  Future<bool> hasPendingOrder(
+    String phone, {
+    bool professional = false,
+  }) async => (await SharedPreferences.getInstance()).containsKey(
+    _pendingKey(phone, professional),
+  );
+  Future<Map<String, dynamic>?> resumePendingOrder(
+    String phone, {
+    bool professional = false,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = _pendingKey(phone, professional);
+    final encoded = prefs.getString(key);
+    if (encoded == null) return null;
+    final pending = Map<String, dynamic>.from(jsonDecode(encoded) as Map);
+    try {
+      final raw = await _customerRpc('customer_release_order', {
+        ...pending,
+        'p_session': CustomerSession.token,
+        'p_admin_token': professional
+            ? CustomerSession.professionalToken
+            : null,
+      }).timeout(const Duration(seconds: 15));
+      if (raw is! Map || '${raw['id'] ?? ''}'.isEmpty)
+        throw StateError('Buyurtma javobi olinmadi');
+      await prefs.remove(key);
+      return Map<String, dynamic>.from(raw);
+    } on CustomerRequestRejected {
+      // A SQL rejection is definitive: its entire transaction rolled back.
+      // Timeouts and transport failures deliberately retain the attempt ID.
+      await prefs.remove(key);
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> createOrder({
     required String customerName,
     required String phone,
     required String address,
@@ -874,82 +1166,64 @@ class BackendService {
     String paymentStatus = 'paid',
     int? manualSubtotal,
   }) async {
-    // Bir checkout urinishida ID oldindan yaratiladi. Tarmoq javobi kechiksa
-    // retry aynan shu ID bilan ketadi va ikkinchi buyurtma/ombor kamayishi yaratilmaydi.
-    final orderId = _newOrderUuid();
+    final existing = await resumePendingOrder(
+      phone,
+      professional: enteredByAdmin,
+    );
+    if (existing != null) return existing;
+    final quote = checkoutQuote;
+    if (quote == null || quote['quote_id'] == null)
+      throw StateError('To‘lovdan oldin yakuniy summani tekshiring');
+    final snapshot = Map<String, dynamic>.from(quote);
+    if (snapshot['customer_name'] != customerName.trim() ||
+        snapshot['phone'] != phone.trim() ||
+        snapshot['address'] != address.trim() ||
+        snapshot['delivery_type'] != deliveryType)
+      throw StateError('Ma’lumotlar o‘zgardi. Yakuniy hisobni qayta oling');
     final payload = {
-      'id': orderId,
-      'customer_name': customerName.trim(),
-      'phone': phone.trim(),
-      'address': address.trim(),
-      'delivery_type': deliveryType,
-      'delivery_fee': deliveryFee,
-      'subtotal': subtotal,
-      'total': total,
-      'status': 'new',
-      'source': 'app',
-      'items': lines.map(_lineToMap).toList(),
-      'bundle_selections': bundleSelections,
+      ...snapshot,
+      'id': _newOrderUuid(),
       'payment_proof_path': paymentProofPath,
-      'payment_submitted_at': paymentProofPath.isEmpty
-          ? null
-          : DateTime.now().toIso8601String(),
-      'instagram_handle': instagramHandle.trim(),
-      'order_note': orderNote.trim(),
-      'entered_by_admin': enteredByAdmin,
-      'payment_status': paymentStatus,
-      if (manualSubtotal != null) 'manual_subtotal': manualSubtotal,
     };
-    // Checkoutni maksimal tez tutamiz: normal tarmoqda darhol tugaydi,
-    // uzilish bo'lsa esa foydalanuvchini uzoq kuttirmaymiz.
-    Object? lastError;
-    for (var attempt = 0; attempt < 2; attempt++) {
-      try {
-        final data = await _customerRpc(
-          'customer_order_submit',
-          {'p_order': payload},
-        ).timeout(const Duration(seconds: 8));
-        final savedId = (data ?? '').toString().trim();
-        if (savedId.isEmpty) {
-          throw StateError('Buyurtma serverda tasdiqlanmadi.');
-        }
-        return savedId;
-      } catch (error) {
-        lastError = error;
-        // Birinchi insert serverda muvaffaqiyatli bo‘lib, faqat javob yo‘qolgan
-        // bo‘lsa retry bir xil PK sabab 23505 qaytaradi. Bu — avvalgi buyurtma
-        // allaqachon yaratilgan degani; yangi buyurtma ochmaymiz.
-        if (error is PostgrestException && error.code == '23505') {
-          return orderId;
-        }
-        if (attempt == 1) rethrow;
-        await Future<void>.delayed(const Duration(milliseconds: 120));
-      }
-    }
-    throw StateError('Buyurtma yuborilmadi: $lastError');
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _pendingKey(phone, enteredByAdmin),
+      jsonEncode({'p_quote_id': quote['quote_id'], 'p_order': payload}),
+    );
+    final result = await resumePendingOrder(
+      phone,
+      professional: enteredByAdmin,
+    );
+    if (result == null) throw StateError('Buyurtma saqlanmadi');
+    return result;
   }
 
   Future<Map<String, Map<String, dynamic>>> fetchOrderStatuses(
     List<String> ids,
   ) async {
     if (ids.isEmpty) return {};
-    final data = await _customerRpc(
-      _enhancedCustomerFeatures ? 'customer_order_statuses_v2' : 'customer_order_statuses',
-      {'p_ids': ids.take(50).toList()},
-    );
     final result = <String, Map<String, dynamic>>{};
-    for (final row in (data as List)) {
-      final map = Map<String, dynamic>.from(row as Map);
-      result[(map['id'] ?? '').toString()] = map;
+    final unique = ids.toSet().toList();
+    for (var offset = 0; offset < unique.length; offset += 50) {
+      final data = await _customerRpc(
+        _enhancedCustomerFeatures
+            ? 'customer_order_statuses_v2'
+            : 'customer_order_statuses',
+        {'p_ids': unique.skip(offset).take(50).toList()},
+      );
+      for (final row in (data as List)) {
+        final map = Map<String, dynamic>.from(row as Map);
+        result[(map['id'] ?? '').toString()] = map;
+      }
     }
     return result;
   }
 
   Future<List<BookReview>> fetchBookReviews(String bookId) async {
-    final raw = await _customerRpc(
-      'customer_book_reviews',
-      {'p_book_id': bookId},
-    );
+    final raw = await _customerRpc('customer_release_reviews', {
+      'p_book_id': bookId,
+      'p_session': CustomerSession.token,
+    });
     if (raw is! List) return const <BookReview>[];
     return raw
         .whereType<Map>()
@@ -964,26 +1238,23 @@ class BackendService {
     required int rating,
     required String comment,
   }) async {
-    await _customerRpc(
-      'customer_book_review_submit',
-      {
-        'p_order_id': orderId,
-        'p_phone': phone.trim(),
-        'p_book_id': bookId,
-        'p_rating': rating,
-        'p_comment': comment.trim(),
-      },
-    );
+    await _customerRpc('customer_book_review_submit', {
+      'p_order_id': orderId,
+      'p_phone': phone.trim(),
+      'p_book_id': bookId,
+      'p_rating': rating,
+      'p_comment': comment.trim(),
+    });
   }
 
   Future<List<ShopOrder>> restoreOrders({
     required String phone,
     required String recoveryCode,
   }) async {
-    final raw = await _customerRpc(
-      'customer_restore_orders',
-      {'p_phone': phone.trim(), 'p_recovery_code': recoveryCode.trim()},
-    );
+    final raw = await _customerRpc('customer_restore_orders', {
+      'p_phone': phone.trim(),
+      'p_recovery_code': recoveryCode.trim(),
+    });
     if (raw is! List) return [];
     return raw
         .whereType<Map>()
@@ -1029,6 +1300,8 @@ class _LocalStore {
   static const _customerVerifiedKey = 'muhajeer_customer_verified_v1';
   static const _installIdKey = 'muhajeer_install_id_v1';
   static const _secureInstallIdKey = 'muhajeer_install_id_secure_v2';
+  static const _customerPinSessionKey = 'muhajeer_pin_session_v1';
+  static const _pinOrderArchiveKey = 'muhajeer_pin_order_archive_v1';
   static const _restockSubscriptionsKey = 'muhajeer_restock_subscriptions_v1';
   static const _recentlyViewedKey = 'muhajeer_recently_viewed_v1';
   static const _catalogCursorKey = 'muhajeer_catalog_cursor_v1';
@@ -1074,6 +1347,60 @@ class _LocalStore {
       _ordersKey,
       jsonEncode(orders.map((e) => e.toMap()).toList()),
     );
+  }
+
+  /// Keep private native order history encrypted across local sign-out.
+  /// Never expose it until a matching PIN login has succeeded.
+  Future<void> archiveOrdersForPin(String phone, List<ShopOrder> orders) async {
+    if (kIsWeb) return;
+    final key = phone.replaceAll(RegExp(r'\D'), '');
+    if (key.length < 9 || orders.isEmpty) return;
+    final raw = await _secureStorage.read(key: _pinOrderArchiveKey);
+    final records = <String, dynamic>{};
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        records.addAll(Map<String, dynamic>.from(jsonDecode(raw) as Map));
+      } catch (_) {
+        /* Ignore a corrupted old cache. */
+      }
+    }
+    final permitted = orders
+        .where((order) => order.phone.replaceAll(RegExp(r'\D'), '') == key)
+        .toList();
+    if (permitted.isEmpty) return;
+    final oldRows = (records[key] as List?) ?? const [];
+    final dedup = <String, Map<String, dynamic>>{};
+    for (final row in oldRows.whereType<Map>()) {
+      final entry = Map<String, dynamic>.from(row);
+      final id = (entry['id'] ?? '').toString();
+      if (id.isNotEmpty) dedup[id] = entry;
+    }
+    for (final order in permitted) {
+      dedup[order.id] = order.toMap();
+    }
+    records[key] = dedup.values.toList();
+    await _secureStorage.write(
+      key: _pinOrderArchiveKey,
+      value: jsonEncode(records),
+    );
+  }
+
+  Future<List<ShopOrder>> readOrdersAfterPinLogin(String phone) async {
+    if (kIsWeb) return const [];
+    final key = phone.replaceAll(RegExp(r'\D'), '');
+    if (key.length < 9) return const [];
+    try {
+      final raw = await _secureStorage.read(key: _pinOrderArchiveKey);
+      if (raw == null || raw.isEmpty) return const [];
+      final data = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+      return ((data[key] as List?) ?? const [])
+          .whereType<Map>()
+          .map((row) => ShopOrder.fromMap(Map<String, dynamic>.from(row)))
+          .where((order) => order.phone.replaceAll(RegExp(r'\D'), '') == key)
+          .toList();
+    } catch (_) {
+      return const [];
+    }
   }
 
   Future<List<Map<String, dynamic>>> loadCustomerNotices() async {
@@ -1142,6 +1469,27 @@ class _LocalStore {
     await prefs.setString(_customerAddressKey, address);
   }
 
+  Future<void> savePinSession(String token) async {
+    if (kIsWeb) {
+      await (await _prefs).setString(_customerPinSessionKey, token);
+    } else {
+      await _secureStorage.write(key: _customerPinSessionKey, value: token);
+    }
+  }
+
+  Future<String?> readPinSession() async {
+    if (kIsWeb) return (await _prefs).getString(_customerPinSessionKey);
+    return _secureStorage.read(key: _customerPinSessionKey);
+  }
+
+  Future<void> clearPinSession() async {
+    if (kIsWeb) {
+      await (await _prefs).remove(_customerPinSessionKey);
+    } else {
+      await _secureStorage.delete(key: _customerPinSessionKey);
+    }
+  }
+
   Future<bool?> loadCustomerVerified() async =>
       (await _prefs).getBool(_customerVerifiedKey);
 
@@ -1165,8 +1513,9 @@ class _LocalStore {
     // statistika sonini oshirib yubormaydi. Web esa SharedPreferences'da qoladi.
     if (!kIsWeb) {
       try {
-        final secureExisting =
-            await _secureStorage.read(key: _secureInstallIdKey);
+        final secureExisting = await _secureStorage.read(
+          key: _secureInstallIdKey,
+        );
         if (secureExisting != null && secureExisting.length >= 12) {
           if (prefs.getString(_installIdKey) != secureExisting) {
             await prefs.setString(_installIdKey, secureExisting);
@@ -1187,10 +1536,7 @@ class _LocalStore {
 
         final generated =
             'mb-${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 31)}';
-        await _secureStorage.write(
-          key: _secureInstallIdKey,
-          value: generated,
-        );
+        await _secureStorage.write(key: _secureInstallIdKey, value: generated);
         await prefs.setString(_installIdKey, generated);
         return generated;
       } catch (_) {
@@ -1324,6 +1670,14 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   bool loading = true;
   String? error;
   bool customerVerified = false;
+  String? _pinSessionValue;
+  String? get _pinSession => _pinSessionValue;
+  set _pinSession(String? value) {
+    _pinSessionValue = value;
+    CustomerSession.token = value ?? '';
+  }
+
+  bool get pinSessionActive => _pinSession != null && _pinSession!.isNotEmpty;
   Map<String, String> savedCustomer = const {
     'name': '',
     'phone': '',
@@ -1334,9 +1688,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   List<Book> get books => List.unmodifiable(_books);
   List<Map<String, dynamic>> get bundles => List.unmodifiable(_bundles);
   Map<String, dynamic> get storeNotice => Map.unmodifiable(_storeNotice);
-  bool get storeNoticeEnabled => _storeNotice['enabled'] == true &&
+  bool get storeNoticeEnabled =>
+      _storeNotice['enabled'] == true &&
       (_storeNotice['message'] ?? '').toString().trim().isNotEmpty;
-  String get storeNoticeTitle => (_storeNotice['title'] ?? 'MUHIM MA’LUMOT').toString();
+  String get storeNoticeTitle =>
+      (_storeNotice['title'] ?? 'MUHIM MA’LUMOT').toString();
   String get storeNoticeMessage => (_storeNotice['message'] ?? '').toString();
   Set<String> get favorites => Set.unmodifiable(_favorites);
   List<Book> get recentlyViewedBooks => _recentlyViewedIds
@@ -1359,23 +1715,34 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     final signals = <Book>[
       ...recentlyViewedBooks,
       ..._books.where((b) => _favorites.contains(b.id)),
-      if (webPreviewFeaturesAvailable) ..._books.where((b) => purchased.contains(b.id)),
+      if (webPreviewFeaturesAvailable)
+        ..._books.where((b) => purchased.contains(b.id)),
     ];
     final scores = <String, int>{};
     for (final b in signals) {
-      if (b.category.trim().isNotEmpty) scores[b.category] = (scores[b.category] ?? 0) + 3;
-      if (b.author.trim().isNotEmpty && b.author != 'Ko‘rsatilmagan') scores['a:${b.author}'] = (scores['a:${b.author}'] ?? 0) + 1;
+      if (b.category.trim().isNotEmpty)
+        scores[b.category] = (scores[b.category] ?? 0) + 3;
+      if (b.author.trim().isNotEmpty && b.author != 'Ko‘rsatilmagan')
+        scores['a:${b.author}'] = (scores['a:${b.author}'] ?? 0) + 1;
     }
     final seen = _recentlyViewedIds.toSet();
-    final candidates = _books.where((b) => b.isActive && b.inStock && !seen.contains(b.id)).toList();
-    candidates.sort((a,b) {
-      int score(Book x) => (scores[x.category] ?? 0) + (scores['a:${x.author}'] ?? 0) + (x.recommended ? 2 : 0);
+    final candidates = _books
+        .where((b) => b.isActive && b.inStock && !seen.contains(b.id))
+        .toList();
+    candidates.sort((a, b) {
+      int score(Book x) =>
+          (scores[x.category] ?? 0) +
+          (scores['a:${x.author}'] ?? 0) +
+          (x.recommended ? 2 : 0);
       final d = score(b).compareTo(score(a));
       if (d != 0) return d;
-      return (b.createdAt ?? DateTime(2000)).compareTo(a.createdAt ?? DateTime(2000));
+      return (b.createdAt ?? DateTime(2000)).compareTo(
+        a.createdAt ?? DateTime(2000),
+      );
     });
     return candidates.take(10).toList();
   }
+
   bool isRestockSubscribed(Book book) =>
       _restockSubscriptions.contains(book.id);
   BackendService? get backend => _backend;
@@ -1450,15 +1817,18 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       ..clear()
       ..addAll(secondary[4] as List<String>);
     savedCustomer = secondary[5] as Map<String, String>;
-    final pushPhone=(savedCustomer['phone']??'').trim();
-    if(pushPhone.isNotEmpty) unawaited(syncPushIdentity(pushPhone));
+    final pushPhone = (savedCustomer['phone'] ?? '').trim();
+    if (pushPhone.isNotEmpty) unawaited(syncPushIdentity(pushPhone));
     final storedVerification = secondary[6] as bool?;
     _localOrders
       ..clear()
       ..addAll(secondary[7] as List<ShopOrder>);
     final storedNotices = (secondary[8] as List<Map<String, dynamic>>)
-        .where((n) => (n['title'] ?? '').toString().trim().toLowerCase() !=
-            'Yangi buyurtma tushdi 🛒'.toLowerCase())
+        .where(
+          (n) =>
+              (n['title'] ?? '').toString().trim().toLowerCase() !=
+              'Yangi buyurtma tushdi 🛒'.toLowerCase(),
+        )
         .toList();
     _customerNotices
       ..clear()
@@ -1467,18 +1837,13 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     unawaited(_local.saveCustomerNotices(_customerNotices));
     _catalogCursor = secondary[9] as String;
 
-    if (storedVerification == null) {
-      final legacyName = (savedCustomer['name'] ?? '').trim();
-      final legacyPhone = (savedCustomer['phone'] ?? '').replaceAll(
-        RegExp(r'\\D'),
-        '',
-      );
-      customerVerified = legacyName.length >= 2 && legacyPhone.length >= 9;
-      if (customerVerified) {
-        unawaited(_local.saveCustomerVerified(true));
-      }
-    } else {
-      customerVerified = storedVerification;
+    if (_backend != null) unawaited(_restorePersonalPinQuietly());
+    // Name and phone are a convenience profile, not proof of phone ownership.
+    // Older builds used to mark saved contacts as "verified" without SMS;
+    // reset that flag rather than granting identity privileges silently.
+    customerVerified = false;
+    if (storedVerification == true) {
+      unawaited(_local.saveCustomerVerified(false));
     }
 
     _sanitizeCart();
@@ -1502,6 +1867,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _startLiveBooksSync();
     unawaited(_checkRestockNotificationsQuietly());
     unawaited(refreshCustomerPushMessages());
+    unawaited(refreshPreorderNotices());
     unawaited(_refreshCustomerOrderStatusesQuietly());
     _orderStatusTimer?.cancel();
     _orderStatusTimer = Timer.periodic(
@@ -1512,6 +1878,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> _registerInstallation() async {
     try {
+      // QA emulators must not be counted as customers or real devices.
+      if (const bool.fromEnvironment('ANALYTICS_TEST_BUILD')) return;
       // Google Play Pre-launch Report Firebase Test Lab qurilmalarida
       // analytics install yaratmaymiz. Aks holda avtomatik Robo testlar
       // haqiqiy mijoz/qurilma sifatida sanalib ketadi.
@@ -1520,27 +1888,115 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       final id = await _local.installId();
       const playStoreBuild = bool.fromEnvironment('PLAY_STORE_BUILD');
       const appStoreBuild = bool.fromEnvironment('APP_STORE_BUILD');
+      const testFlightBuild = bool.fromEnvironment('TESTFLIGHT_PREVIEW');
+      // TestFlight sets APP_STORE_BUILD for feature parity, but those
+      // installations are testers rather than public App Store customers.
       final platform = kIsWeb
           ? 'web'
+          : (defaultTargetPlatform == TargetPlatform.iOS && testFlightBuild)
+          ? 'ios_testflight'
           : (defaultTargetPlatform == TargetPlatform.android && playStoreBuild)
-              ? 'android_play'
-              : (defaultTargetPlatform == TargetPlatform.iOS && appStoreBuild)
-                  ? 'ios_app_store'
-                  : defaultTargetPlatform.name;
-      await _backend?.registerInstallation(id, platform, phone: (savedCustomer['phone'] ?? '').trim());
+          ? 'android_play'
+          : (defaultTargetPlatform == TargetPlatform.iOS && appStoreBuild)
+          ? 'ios_app_store'
+          : defaultTargetPlatform.name;
+      await _backend?.registerInstallation(
+        id,
+        platform,
+        phone: (savedCustomer['phone'] ?? '').trim(),
+      );
+      // Device analytics and APNs are independent: a valid customer should
+      // still be able to receive push after accepting notification access.
     } catch (_) {
       // Analytics must never slow or block shopping.
+    } finally {
+      unawaited(syncNativeCustomerPushIfAllowed());
     }
+  }
+
+  /// Safe to call after a user grants notification permission, and on login.
+  /// Does not request permission, block the storefront, or send messages.
+  Future<void> syncNativeCustomerPushIfAllowed() async {
+    if (kIsWeb ||
+        defaultTargetPlatform != TargetPlatform.iOS ||
+        const bool.fromEnvironment('ANALYTICS_TEST_BUILD'))
+      return;
+    final backend = _backend;
+    final phone = (savedCustomer['phone'] ?? '').trim();
+    if (backend == null || phone.isEmpty || !checkoutIdentityReady) return;
+    final session = _pinSession;
+    try {
+      if (!(await Permission.notification.status).isGranted) return;
+      final token = await NativeAdminPush.requestDeviceToken().timeout(
+        const Duration(seconds: 20),
+      );
+      if (token.isEmpty) return;
+      final id = await _local.installId();
+      if (session != _pinSession) return;
+      await backend._customerRpc('customer_release_apns', {
+        'p_session': session,
+        'p_token': token,
+        'p_install_id': id,
+        'p_enabled': true,
+      });
+    } catch (error) {
+      // APNs network/permission failure must not interrupt shopping.
+      debugPrint(
+        'Customer native push registration unavailable: ${error.runtimeType}',
+      );
+    }
+  }
+
+  Future<void> _unregisterNativeCustomerPushQuietly() async {
+    if (kIsWeb ||
+        defaultTargetPlatform != TargetPlatform.iOS ||
+        _backend == null)
+      return;
+    try {
+      final id = await _local.installId();
+      await _backend!.unregisterCustomerNativeApns(id);
+    } catch (_) {
+      // Local sign-out remains immediate even when the network is offline.
+    }
+  }
+
+  Future<void> _unlinkLocalPinQuietly() async {
+    final token = _pinSession;
+    _pinSession = null;
+    try {
+      await _local.clearPinSession();
+    } catch (_) {}
+    if (token != null && _backend != null) {
+      unawaited(_backend!.pinLogout(token).catchError((_) {}));
+    }
+    _localOrders.clear();
+    _customerNotices.clear();
+    await Future.wait([
+      _local.saveOrders(const <ShopOrder>[]),
+      _local.saveCustomerNotices(const <Map<String, dynamic>>[]),
+    ]);
+    notifyListeners();
   }
 
   Future<void> setAuthenticatedCustomer(
     String name,
     String phone, {
     String? address,
-    bool verified = true,
+    bool verified = false,
   }) async {
     final cleanName = name.trim();
     final cleanPhone = phone.trim();
+    final previousPhone = (savedCustomer['phone'] ?? '').replaceAll(
+      RegExp(r'\D'),
+      '',
+    );
+    final nextPhone = cleanPhone.replaceAll(RegExp(r'\D'), '');
+    if (_pinSession != null &&
+        previousPhone.isNotEmpty &&
+        nextPhone.isNotEmpty &&
+        previousPhone != nextPhone) {
+      await _unlinkLocalPinQuietly();
+    }
     final cleanAddress = address?.trim();
     savedCustomer = {
       'name': cleanName.isEmpty ? (savedCustomer['name'] ?? '') : cleanName,
@@ -1557,18 +2013,179 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     customerVerified = verified;
     await _local.saveCustomerVerified(verified);
     unawaited(OwnerStoryAccess.instance.refreshFor(this));
-    if (_backend != null) unawaited(_registerInstallation());
+    if (_backend != null) {
+      unawaited(_registerInstallation());
+      unawaited(syncNativeCustomerPushIfAllowed());
+    }
+    notifyListeners();
+    unawaited(refreshPreorderNotices());
+  }
+
+  /// Checkout requires a reusable PIN-backed local profile, not an SMS code.
+  /// Existing successful PIN logins stay active until the session expires.
+  bool get checkoutIdentityReady =>
+      pinSessionActive &&
+      (savedCustomer['name'] ?? '').trim().length >= 2 &&
+      (savedCustomer['phone'] ?? '').replaceAll(RegExp(r'\D'), '').length >= 9;
+
+  /// Register first, then save locally: an existing phone/PIN must not replace
+  /// the current local identity when account registration fails.
+  Future<void> enrollCustomerWithPin(
+    String name,
+    String phone,
+    String pin,
+  ) async {
+    if (_backend == null)
+      throw StateError('Ro‘yxatdan o‘tish uchun internet kerak');
+    final cleanName = name.trim();
+    final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
+    if (cleanName.length < 2 ||
+        cleanPhone.length < 9 ||
+        !RegExp(r'^[0-9]{4}$').hasMatch(pin)) {
+      throw StateError('Ism, telefon yoki 4 xonali PINni tekshiring');
+    }
+    final installId = await _local.installId();
+    final result = await _backend!.pinCreate(
+      cleanName,
+      cleanPhone,
+      pin,
+      installId,
+    );
+    final token = '${result['session'] ?? ''}';
+    if (token.length != 64) throw StateError('PIN ro‘yxati tasdiqlanmadi');
+    await setAuthenticatedCustomer(cleanName, cleanPhone, verified: false);
+    await _local.savePinSession(token);
+    _pinSession = token;
+    notifyListeners();
+    unawaited(refreshPreorderNotices());
+  }
+
+  Future<void> createPersonalPin(String pin) async {
+    if (_backend == null) throw StateError('Internet kerak');
+    final name = (savedCustomer['name'] ?? '').trim();
+    final phone = (savedCustomer['phone'] ?? '').trim();
+    if (name.length < 2 || phone.isEmpty) {
+      throw StateError('Avval ism va telefonni profilga kiriting');
+    }
+    final id = await _local.installId();
+    final result = await _backend!.pinCreate(name, phone, pin, id);
+    final token = '${result['session'] ?? ''}';
+    if (token.length != 64) throw StateError('Kirish sessiyasi olinmadi');
+    await _local.savePinSession(token);
+    _pinSession = token;
     notifyListeners();
   }
 
+  Future<void> loginPersonalPin(String phone, String pin) async {
+    if (_backend == null) throw StateError('Internet kerak');
+    final id = await _local.installId();
+    final result = await _backend!.pinLogin(phone.trim(), pin, id);
+    final token = '${result['session'] ?? ''}';
+    if (token.length != 64) throw StateError('Kirish sessiyasi olinmadi');
+    final name = '${result['name'] ?? ''}'.trim();
+    final savedPhone = '${result['phone'] ?? ''}'.trim();
+    if (name.isEmpty || savedPhone.isEmpty) throw StateError('Profil olinmadi');
+    // Clear any previously logged-in phone before connecting the NEW token.
+    await setAuthenticatedCustomer(name, savedPhone, verified: false);
+    await _local.savePinSession(token);
+    _pinSession = token;
+    final restored = await _local.readOrdersAfterPinLogin(savedPhone);
+    if (restored.isNotEmpty) {
+      final ordersById = <String, ShopOrder>{
+        for (final order in _localOrders.where(
+          (o) => _customerPhoneKey(o.phone) == _customerPhoneKey(savedPhone),
+        ))
+          order.id: order,
+        for (final order in restored) order.id: order,
+      };
+      _localOrders
+        ..clear()
+        ..addAll(ordersById.values);
+      await _local.saveOrders(_localOrders);
+    }
+    notifyListeners();
+    unawaited(refreshPreorderNotices());
+    unawaited(refreshCustomerPushMessages());
+  }
+
+  Future<void> _restorePersonalPinQuietly() async {
+    if (_backend == null) return;
+    try {
+      final token = await _local.readPinSession();
+      if (token == null || token.isEmpty) return;
+      final profile = await _backend!.pinProfile(token);
+      if (profile['valid'] != true) throw StateError('Expired PIN session');
+      await setAuthenticatedCustomer(
+        '${profile['name'] ?? ''}',
+        '${profile['phone'] ?? ''}',
+        verified: false,
+      );
+      _pinSession = token;
+      notifyListeners();
+    } catch (_) {
+      _pinSession = null;
+      await _local.clearPinSession();
+      notifyListeners();
+    }
+  }
+
   Future<void> signOutCustomer() async {
-    // Profil lokal qurilmada saqlanadi. Uni tarmoq javobini kutmasdan darhol
-    // tozalaymiz, shuning uchun tugma internet sust bo‘lsa ham ishlaydi.
+    final token = _pinSession;
+    _pinSession = null;
+    try {
+      await _local.clearPinSession();
+    } catch (_) {}
+    if (token != null && _backend != null) {
+      unawaited(_backend!.pinLogout(token).catchError((_) {}));
+    }
+
+    if ((savedCustomer['phone'] ?? '').trim().isNotEmpty) {
+      unawaited(_unregisterNativeCustomerPushQuietly());
+    }
+    // Securely archive existing orders BEFORE clearing this device's data.
+    final oldPhone = (savedCustomer['phone'] ?? '').trim();
+    try {
+      await _local.archiveOrdersForPin(
+        oldPhone,
+        _localOrders.isNotEmpty
+            ? List<ShopOrder>.from(_localOrders)
+            : await _local.loadOrders(),
+      );
+    } catch (archiveError) {
+      debugPrint('Secure order archive not available');
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(
+      'muhajeer_address_v1_${oldPhone.replaceAll(RegExp(r'[^0-9]'), '')}',
+    );
+    CustomerSession.professionalToken = '';
+    // Clear this device's account-specific data. Keep the durable device ID:
+    // it is used for unique-install analytics and PIN-linked order recovery.
     savedCustomer = const {'name': '', 'phone': '', 'address': ''};
     customerVerified = false;
     OwnerStoryAccess.instance.lock();
     await _local.clearCustomer();
+    // PIN logout must not leave old personal orders/notifications displayed
+    // under the next person's name on this same phone.
+    _localOrders.clear();
+    _customerNotices.clear();
+    _favorites.clear();
+    _cart.clear();
+    _cartBundleIds.clear();
+    _restockSubscriptions.clear();
+    _recentlyViewedIds.clear();
+    // Do not erase the database's orders or paid preorders on sign-out.
+    // They can be restored only by authenticating with the matching PIN.
     notifyListeners();
+    await Future.wait([
+      _local.saveOrders(const <ShopOrder>[]),
+      _local.saveCustomerNotices(const <Map<String, dynamic>>[]),
+      _local.saveFavorites(<String>{}),
+      _local.saveCart(<String, int>{}),
+      _local.saveCartBundles(<String>[]),
+      _local.saveRestockSubscriptions(<String>{}),
+      _local.saveRecentlyViewed(<String>[]),
+    ]);
 
     if (backendConfigured) {
       unawaited(Supabase.instance.client.auth.signOut().catchError((_) {}));
@@ -1587,7 +2204,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _booksFallbackTimer = Timer.periodic(const Duration(minutes: 2), (_) {
       unawaited(_refreshBooksQuietly());
       unawaited(_checkRestockNotificationsQuietly());
+      unawaited(refreshStoreNotice());
       unawaited(refreshCustomerPushMessages());
+      unawaited(refreshPreorderNotices());
     });
   }
 
@@ -1615,6 +2234,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           b.costPrice,
           b.recommended,
           b.preorderEnabled,
+          b.preorderArrivalNote,
+          b.preorderDepositMin,
+          b.preorderDepositMax,
+          b.preorderPriceMax,
+          b.thumbnailUrl,
         ].join('¦'),
       )
       .join('§');
@@ -1736,15 +2360,28 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     Book book, {
     required String customerName,
     required String phone,
+    int quantity = 1,
     required int depositAmount,
     required XFile paymentProof,
     String note = '',
   }) async {
     if (_backend == null) return 'Oldindan buyurtma uchun internet kerak.';
+    if (!checkoutIdentityReady ||
+        customerName.trim() != (savedCustomer['name'] ?? '').trim() ||
+        phone.replaceAll(RegExp(r'\D'), '') !=
+            (savedCustomer['phone'] ?? '').replaceAll(RegExp(r'\D'), '')) {
+      throw StateError(
+        'Avval Mening ma’lumotlarim bo‘limida ism, telefon va PIN bilan kiring',
+      );
+    }
     final min = book.preorderDepositMin;
     final max = book.preorderDepositMax;
-    if (depositAmount < min || depositAmount > max) {
-      return 'Oldindan to‘lov ₩$min–₩$max oralig‘ida bo‘lishi kerak.';
+    if (quantity < 1 || quantity > 20)
+      throw StateError('Kitob soni 1–20 orasida bo‘lishi kerak');
+    if (depositAmount < min * quantity || depositAmount > max * quantity) {
+      throw StateError(
+        'Jami avans ₩${min * quantity}–₩${max * quantity} oralig‘ida bo‘lsin.',
+      );
     }
     final proofPath = await _backend!.uploadPaymentProof(paymentProof);
     final installId = await _local.installId();
@@ -1753,11 +2390,254 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       book.id,
       customerName,
       phone,
+      quantity: quantity,
       depositAmount: depositAmount,
       paymentProofPath: proofPath,
       note: note,
     );
+    // Use the preorder contact for in-app arrival notices, but do NOT
+    // grant verified-customer status without authentication.
+    // A local storage failure must never re-submit a paid preorder.
+    try {
+      final digits = phone.replaceAll(RegExp(r'\D'), '');
+      final previousPhone = (savedCustomer['phone'] ?? '').replaceAll(
+        RegExp(r'\D'),
+        '',
+      );
+      if (previousPhone.isNotEmpty && previousPhone != digits) {
+        if (_pinSession != null) await _unlinkLocalPinQuietly();
+        // A preorder cannot reuse an old phone number's verified identity.
+        customerVerified = false;
+        await _local.saveCustomerVerified(false);
+      }
+      savedCustomer = {
+        ...savedCustomer,
+        'name': customerName.trim(),
+        'phone': digits,
+      };
+      await _local.saveCustomer(
+        savedCustomer['name'] ?? '',
+        digits,
+        savedCustomer['address'] ?? '',
+      );
+      notifyListeners();
+      unawaited(refreshCustomerPushMessages());
+      unawaited(refreshPreorderNotices());
+      unawaited(syncNativeCustomerPushIfAllowed());
+    } catch (error) {
+      debugPrint('Preorder local contact save skipped: ${error.runtimeType}');
+    }
     return 'Oldindan buyurtma qabul qilindi ✅';
+  }
+
+  Future<List<Map<String, dynamic>>> myPreorderBalances() async {
+    if (_backend == null || !checkoutIdentityReady) return const [];
+    final session = _pinSession;
+    final id = await _local.installId();
+    if (_pinSession != session || !checkoutIdentityReady) return const [];
+    final result = await _backend!.fetchPreorderBalances(id);
+    return _pinSession == session && checkoutIdentityReady ? result : const [];
+  }
+
+  // Test/offline builds do not need a secure-storage installation token.
+  // Avoid a platform-channel read before a mock checkout is committed.
+  Future<String?> preorderInstallationId() =>
+      backendConfigured ? _local.installId() : Future<String?>.value(null);
+
+  Future<List<Map<String, dynamic>>> myPinPreorders() async {
+    if (_backend == null || !checkoutIdentityReady) return const [];
+    final session = _pinSession!;
+    final result = await _backend!.pinPreorders(session);
+    return _pinSession == session && checkoutIdentityReady ? result : const [];
+  }
+
+  Future<Map<String, dynamic>> _releasePreorder(
+    String id,
+    String action, [
+    Map<String, dynamic> payload = const {},
+  ]) async {
+    if (_backend == null || !checkoutIdentityReady)
+      throw StateError('PIN bilan kiring');
+    final source = id.startsWith('native:') ? 'native' : 'web';
+    final reference = id.startsWith('native:') ? id.substring(7) : id;
+    final value = await _backend!._customerRpc('customer_release_preorder', {
+      'p_session': _pinSession,
+      'p_source': source,
+      'p_id': reference,
+      'p_action': action,
+      'p_payload': payload,
+    });
+    return Map<String, dynamic>.from(value as Map);
+  }
+
+  Future<Map<String, dynamic>> webPreorderInvoice(String id) =>
+      _releasePreorder(id, 'detail');
+  Future<Map<String, dynamic>> saveWebPreorderDelivery(
+    String id, {
+    required String recipientName,
+    required String recipientPhone,
+    required String address,
+    required String deliveryType,
+  }) => _releasePreorder(id, 'delivery', {
+    'recipient_name': recipientName,
+    'recipient_phone': recipientPhone,
+    'address': address,
+    'delivery_type': deliveryType,
+  });
+  Future<Map<String, dynamic>> changeWebPreorderExtra(
+    String id,
+    String bookId,
+    int delta,
+  ) => _releasePreorder(id, 'add', {'book_id': bookId, 'delta': delta});
+  Future<Map<String, dynamic>> submitWebPreorderRemainingPayment(
+    String id,
+    XFile image,
+  ) async {
+    if (_backend == null || !checkoutIdentityReady)
+      throw StateError('PIN bilan kiring');
+    final path = await _backend!.uploadPaymentProof(image);
+    return _releasePreorder(id, 'proof', {'path': path});
+  }
+
+  Future<List<Map<String, dynamic>>> releasePreorders() async {
+    if (_backend == null || !checkoutIdentityReady) return const [];
+    final token = _pinSession;
+    final raw = await _backend!._customerRpc('customer_release_preorders', {
+      'p_session': token,
+    });
+    if (token != _pinSession) return const [];
+    return (raw as List)
+        .whereType<Map>()
+        .map((v) => Map<String, dynamic>.from(v))
+        .toList();
+  }
+
+  Future<void> recoverPin(String name, String phone, String note) async {
+    if (_backend == null) throw StateError('Internet kerak');
+    await _backend!._customerRpc('customer_release_recover_pin', {
+      'p_name': name,
+      'p_phone': phone,
+      'p_note': note,
+    });
+  }
+
+  Future<void> deleteCustomerProfile(String pin) async {
+    if (_backend == null || !checkoutIdentityReady)
+      throw StateError('PIN bilan kiring');
+    final raw = await _backend!._customerRpc(
+      'customer_release_delete_profile',
+      {'p_session': _pinSession, 'p_pin': pin},
+    );
+    if (raw is! Map || raw['deleted'] != true)
+      throw StateError('PIN noto‘g‘ri yoki profil o‘chmadi');
+    await signOutCustomer();
+  }
+
+  Future<void> reviewAction(
+    String id,
+    String action, {
+    String reason = '',
+  }) async {
+    if (_backend == null || !checkoutIdentityReady)
+      throw StateError('PIN bilan kiring');
+    await _backend!._customerRpc('customer_release_review_action', {
+      'p_session': _pinSession,
+      'p_review_id': id,
+      'p_action': action,
+      'p_reason': reason,
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> myDiscoveredPreorders() async {
+    if (_backend == null || !checkoutIdentityReady) return const [];
+    final session = _pinSession;
+    final id = await _local.installId();
+    if (_pinSession != session || !checkoutIdentityReady) return const [];
+    final result = await _backend!.discoverPreorders(
+      id,
+      (savedCustomer['name'] ?? '').trim(),
+      (savedCustomer['phone'] ?? '').trim(),
+    );
+    return _pinSession == session && checkoutIdentityReady ? result : const [];
+  }
+
+  bool _preorderNoticeRefreshing = false;
+  Future<void> refreshPreorderNotices() async {
+    if (_backend == null || _preorderNoticeRefreshing || !checkoutIdentityReady)
+      return;
+    final session = _pinSession;
+    _preorderNoticeRefreshing = true;
+    try {
+      final id = await _local.installId();
+      final events = await _backend!.preorderActivity(
+        id,
+        (savedCustomer['name'] ?? '').trim(),
+        (savedCustomer['phone'] ?? '').trim(),
+      );
+      if (_pinSession != session || !checkoutIdentityReady) return;
+      final seen = _customerNotices.map((n) => '${n['id'] ?? ''}').toSet();
+      var changed = false;
+      for (final e in events) {
+        final noticeId = 'preorder:${e['id']}';
+        if (seen.contains(noticeId)) continue;
+        _customerNotices.add({
+          'id': noticeId,
+          'kind': 'preorder_status',
+          'status': 'push',
+          'title': '${e['title'] ?? 'Oldindan zakaz'}',
+          'message': '${e['message'] ?? ''}',
+          'preorder_id': '${e['preorder_id'] ?? ''}',
+          'preorder_source': '${e['source'] ?? ''}',
+          'order_id': '',
+          'created_at':
+              '${e['created_at'] ?? DateTime.now().toIso8601String()}',
+          'read': false,
+        });
+        seen.add(noticeId);
+        changed = true;
+      }
+      if (!changed) return;
+      _customerNotices.sort((a, b) {
+        final da =
+            DateTime.tryParse('${a['created_at'] ?? ''}') ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+        final db =
+            DateTime.tryParse('${b['created_at'] ?? ''}') ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+        return db.compareTo(da);
+      });
+      if (_customerNotices.length > 80) {
+        _customerNotices.removeRange(80, _customerNotices.length);
+      }
+      await _local.saveCustomerNotices(_customerNotices);
+      notifyListeners();
+    } catch (error) {
+      debugPrint('Preorder notices unavailable: ${error.runtimeType}');
+    } finally {
+      _preorderNoticeRefreshing = false;
+    }
+  }
+
+  Future<void> changePreorderExtra(
+    int preorderId,
+    String bookId,
+    int delta,
+  ) async {
+    if (_backend == null) throw StateError('Internetga ulaning');
+    final id = await _local.installId();
+    await _backend!.changePreorderExtra(id, preorderId, bookId, delta);
+    // Inventory changed, including stock available for other customers.
+    unawaited(refreshBooks());
+  }
+
+  Future<void> submitPreorderRemainingPayment(
+    int preorderId,
+    XFile file,
+  ) async {
+    if (_backend == null) throw StateError('Internetga ulaning');
+    final proofPath = await _backend!.uploadPaymentProof(file);
+    final id = await _local.installId();
+    await _backend!.submitPreorderBalanceProof(id, preorderId, proofPath);
   }
 
   Future<String> requestMissingBook(String title) async {
@@ -1765,29 +2645,44 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     final clean = title.trim();
     if (clean.length < 2) return 'Kitob nomini yozing.';
     final installId = await _local.installId();
-    await _backend!.requestMissingBook(installId, clean, phone: savedCustomer['phone'] ?? '');
+    await _backend!.requestMissingBook(
+      installId,
+      clean,
+      phone: savedCustomer['phone'] ?? '',
+    );
     return 'So‘rovingiz yuborildi ✅';
   }
 
   Future<void> recordBookView(Book book) async {
     _recentlyViewedIds.remove(book.id);
     _recentlyViewedIds.insert(0, book.id);
-    if (_recentlyViewedIds.length > 30) _recentlyViewedIds.removeRange(30, _recentlyViewedIds.length);
+    if (_recentlyViewedIds.length > 30)
+      _recentlyViewedIds.removeRange(30, _recentlyViewedIds.length);
     await _local.saveRecentlyViewed(_recentlyViewedIds);
     notifyListeners();
     if (_backend != null) {
-      try { await _backend!.logBookView(await _local.installId(), book.id); } catch (_) {}
+      try {
+        await _backend!.logBookView(await _local.installId(), book.id);
+      } catch (_) {}
     }
   }
 
   Future<void> recordSearchEvent(String query, int resultCount) async {
     if (_backend == null || query.trim().length < 2) return;
-    try { await _backend!.logSearchEvent(await _local.installId(), query.trim(), resultCount); } catch (_) {}
+    try {
+      await _backend!.logSearchEvent(
+        await _local.installId(),
+        query.trim(),
+        resultCount,
+      );
+    } catch (_) {}
   }
 
   Future<void> recordSearchMiss(String query) async {
     if (_backend == null || query.trim().length < 2) return;
-    try { await _backend!.logSearchMiss(await _local.installId(), query.trim()); } catch (_) {}
+    try {
+      await _backend!.logSearchMiss(await _local.installId(), query.trim());
+    } catch (_) {}
   }
 
   Future<String> toggleRestockNotification(Book book) async {
@@ -1830,14 +2725,13 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     if (!kIsWeb || _backend == null) return;
     final digits = phone.replaceAll(RegExp(r'\\D'), '');
     if (digits.length != 11 || !digits.startsWith('010')) {
-      throw ArgumentError('Telefon raqamini 01012345678 ko‘rinishida kiriting.');
+      throw ArgumentError(
+        'Telefon raqamini 01012345678 ko‘rinishida kiriting.',
+      );
     }
     final installId = await _local.installId();
     await _backend!.registerInstallation(installId, 'web', phone: digits);
-    savedCustomer = {
-      ...savedCustomer,
-      'phone': digits,
-    };
+    savedCustomer = {...savedCustomer, 'phone': digits};
     await _local.saveCustomer(
       savedCustomer['name'] ?? '',
       digits,
@@ -1902,14 +2796,21 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> refreshCustomerPushMessages() async {
-    if (_backend == null || _pushMessagesRefreshing) return;
+    if (_backend == null || _pushMessagesRefreshing || !checkoutIdentityReady)
+      return;
+    final session = _pinSession;
+    final requestedPhone = (savedCustomer['phone'] ?? '').trim();
     _pushMessagesRefreshing = true;
     try {
       final rows = await _backend!.fetchPushMessages(
         limit: 50,
-        phone: (savedCustomer['phone'] ?? '').trim(),
+        phone: requestedPhone,
       );
-      if (rows.isEmpty) return;
+      if (rows.isEmpty ||
+          _pinSession != session ||
+          !checkoutIdentityReady ||
+          (savedCustomer['phone'] ?? '').trim() != requestedPhone)
+        return;
 
       final existingIds = _customerNotices
           .map((n) => (n['id'] ?? '').toString())
@@ -1935,8 +2836,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           'kind': (row['kind'] ?? '').toString(),
           'order_number': row['order_number'],
           'order_id': (row['order_id'] ?? '').toString(),
-          'created_at':
-              (row['sent_at'] ?? DateTime.now().toIso8601String()).toString(),
+          'created_at': (row['sent_at'] ?? DateTime.now().toIso8601String())
+              .toString(),
           'read': false,
         });
         existingIds.add(noticeId);
@@ -1945,9 +2846,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
       if (!changed) return;
       _customerNotices.sort((a, b) {
-        final aAt = DateTime.tryParse((a['created_at'] ?? '').toString()) ??
+        final aAt =
+            DateTime.tryParse((a['created_at'] ?? '').toString()) ??
             DateTime.fromMillisecondsSinceEpoch(0);
-        final bAt = DateTime.tryParse((b['created_at'] ?? '').toString()) ??
+        final bAt =
+            DateTime.tryParse((b['created_at'] ?? '').toString()) ??
             DateTime.fromMillisecondsSinceEpoch(0);
         return bAt.compareTo(aAt);
       });
@@ -1966,7 +2869,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      unawaited(refreshStoreNotice());
       unawaited(refreshCustomerPushMessages());
+      unawaited(refreshPreorderNotices());
       unawaited(_refreshCustomerOrderStatusesQuietly());
       unawaited(_checkRestockNotificationsQuietly());
     }
@@ -2105,7 +3010,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   List<CartLine> get cartStandaloneLines {
     final remaining = Map<String, int>.from(_cart);
     for (final bundle in cartBundles) {
-      for (final raw in ((bundle['items'] as List?) ?? const []).whereType<Map>()) {
+      for (final raw
+          in ((bundle['items'] as List?) ?? const []).whereType<Map>()) {
         final item = Map<String, dynamic>.from(raw);
         final id = (item['book_id'] ?? '').toString();
         final qty = (item['quantity'] as num?)?.toInt() ?? 1;
@@ -2146,7 +3052,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       if (bundle == null) continue;
       final setPrice = (bundle['price'] as num?)?.toInt() ?? 0;
       var liveTotal = 0;
-      for (final raw in ((bundle['items'] as List?) ?? const []).whereType<Map>()) {
+      for (final raw
+          in ((bundle['items'] as List?) ?? const []).whereType<Map>()) {
         final item = Map<String, dynamic>.from(raw);
         final bookId = (item['book_id'] ?? '').toString();
         final qty = (item['quantity'] as num?)?.toInt() ?? 1;
@@ -2167,7 +3074,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     for (final id in _cartBundleIds) {
       for (final bundle in _bundles) {
         if ((bundle['id'] ?? '').toString() == id &&
-            bundle['delivery_included'] == true) return true;
+            bundle['delivery_included'] == true)
+          return true;
       }
     }
     return false;
@@ -2198,9 +3106,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   // bo‘lsa, shu savat uchun yana pochta puli olinmaydi.
   int get cartDeliveryFee =>
       cartBundleDeliveryIncluded ||
-              (cartDisplayCount >= 4 && fourPlusFreeDeliveryEnabled)
-          ? 0
-          : deliveryFee;
+          (cartDisplayCount >= 4 && fourPlusFreeDeliveryEnabled)
+      ? 0
+      : deliveryFee;
 
   void addToCart(Book book) {
     if (!book.inStock) return;
@@ -2237,7 +3145,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     final bundleId = (bundle['id'] ?? '').toString();
     final index = _cartBundleIds.indexOf(bundleId);
     if (index < 0) return;
-    for (final raw in ((bundle['items'] as List?) ?? const []).whereType<Map>()) {
+    for (final raw
+        in ((bundle['items'] as List?) ?? const []).whereType<Map>()) {
       final item = Map<String, dynamic>.from(raw);
       final id = (item['book_id'] ?? '').toString();
       final qty = (item['quantity'] as num?)?.toInt() ?? 1;
@@ -2335,6 +3244,70 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     return _backend!.uploadCover(file);
   }
 
+  Future<Map<String, dynamic>> prepareCheckoutQuote({
+    required String name,
+    required String phone,
+    required String address,
+    required String deliveryType,
+    bool professional = false,
+    int? manualSubtotal,
+    String instagram = '',
+    String note = '',
+    String paymentStatus = 'paid',
+  }) async {
+    if (_backend == null)
+      return {
+        'total': cartSubtotal + cartDeliveryFee,
+        'subtotal': cartSubtotal,
+        'delivery_fee': cartDeliveryFee,
+        'items': cartLines.map(BackendService._lineToMap).toList(),
+      };
+    final request = {
+      'customer_name': name.trim(),
+      'phone': phone.trim(),
+      'address': address.trim(),
+      'delivery_type': deliveryType,
+      'source': 'app',
+      'items': cartLines.map(BackendService._lineToMap).toList(),
+      'bundle_selections': cartBundleSelections,
+      'instagram_handle': instagram,
+      'order_note': note,
+      'payment_status': paymentStatus,
+      if (manualSubtotal != null) 'manual_subtotal': manualSubtotal,
+    };
+    final raw = await _backend!._customerRpc('customer_release_quote', {
+      'p_session': _pinSession ?? '',
+      'p_order': request,
+      'p_admin_token': professional ? CustomerSession.professionalToken : null,
+    });
+    final quote = Map<String, dynamic>.from(raw as Map);
+    _backend!.checkoutQuote = quote;
+    return quote;
+  }
+
+  Future<String> _rememberRemoteOrder(
+    Map<String, dynamic> remote,
+    String? session,
+  ) async {
+    final receipt = ShopOrder.fromMap(remote);
+    if (session != _pinSession)
+      throw StateError(
+        'Profil o‘zgardi. Buyurtma eski profil tarixida saqlandi',
+      );
+    _localOrders.removeWhere((o) => o.id == receipt.id);
+    _localOrders.insert(0, receipt);
+    _cart.clear();
+    _cartBundleIds.clear();
+    await Future.wait([
+      _local.saveOrders(_localOrders),
+      _local.saveCart(_cart),
+      _local.saveCartBundles(_cartBundleIds),
+    ]);
+    notifyListeners();
+    await _refreshBooksQuietly();
+    return receipt.id;
+  }
+
   Future<String> placeOrder({
     required String customerName,
     required String phone,
@@ -2349,6 +3322,29 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     String paymentStatus = 'paid',
     int? manualSubtotal,
   }) async {
+    if (_backend != null && !preserveCustomerProfile) {
+      if (!checkoutIdentityReady) {
+        throw StateError(
+          'Buyurtma berish uchun Mening ma’lumotlarim bo‘limida ism, telefon va PINni kiriting',
+        );
+      }
+      if (customerName.trim() != (savedCustomer['name'] ?? '').trim() ||
+          phone.replaceAll(RegExp(r'\D'), '') !=
+              (savedCustomer['phone'] ?? '').replaceAll(RegExp(r'\D'), '')) {
+        throw StateError(
+          'Buyurtmani profilingizdagi ism va telefon bilan rasmiylashtiring',
+        );
+      }
+    }
+    final checkoutSession = _pinSession;
+    if (_backend != null) {
+      final pending = await _backend!.resumePendingOrder(
+        phone,
+        professional: preserveCustomerProfile,
+      );
+      if (pending != null)
+        return _rememberRemoteOrder(pending, checkoutSession);
+    }
     final lines = cartLines;
     if (lines.isEmpty) throw StateError('Savatcha bo‘sh.');
     for (final line in lines) {
@@ -2363,10 +3359,17 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
     final subtotal = manualSubtotal ?? cartSubtotal;
     final isGyeongsanPickup = deliveryType == '경산 직접수령';
-    final safeDeliveryFee =
-        isGyeongsanPickup ? 0 : cartDeliveryFee;
+    final safeDeliveryFee = isGyeongsanPickup ? 0 : cartDeliveryFee;
     final total = subtotal + safeDeliveryFee;
     if (!preserveCustomerProfile) {
+      final prior = (savedCustomer['phone'] ?? '').replaceAll(
+        RegExp(r'\D'),
+        '',
+      );
+      final next = phone.replaceAll(RegExp(r'\D'), '');
+      if (_pinSession != null && prior.isNotEmpty && prior != next) {
+        await _unlinkLocalPinQuietly();
+      }
       await _local.saveCustomer(
         customerName.trim(),
         phone.trim(),
@@ -2377,6 +3380,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         'phone': phone.trim(),
         'address': address.trim(),
       };
+      // A submitted contact is not SMS-verified. Keep normal purchases free
+      // of OTP while never treating typed phone numbers as authentication.
+      customerVerified = false;
+      unawaited(_local.saveCustomerVerified(false));
+      notifyListeners();
       unawaited(syncPushIdentity(phone.trim()));
       unawaited(OwnerStoryAccess.instance.refreshFor(this));
     }
@@ -2392,7 +3400,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     final items = lines.map(BackendService._lineToMap).toList();
 
     if (_backend != null) {
-      final id = await _backend!.createOrder(
+      final remote = await _backend!.createOrder(
         customerName: customerName,
         phone: phone,
         address: address,
@@ -2410,35 +3418,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         manualSubtotal: manualSubtotal,
       );
 
-      final receipt = ShopOrder(
-        id: id,
-        customerName: customerName.trim(),
-        phone: phone.trim(),
-        address: address.trim(),
-        deliveryType: deliveryType,
-        deliveryFee: safeDeliveryFee,
-        subtotal: subtotal,
-        total: total,
-        status: 'new',
-        items: items,
-        createdAt: now,
-        paymentProofPath: paymentProofPath,
-        paymentSubmittedAt: paymentProofPath.isEmpty ? null : now,
-        stockReserved: true,
-      );
-      _localOrders.removeWhere((o) => o.id == id);
-      _localOrders.insert(0, receipt);
-      _cart.clear();
-      _cartBundleIds.clear();
-      await Future.wait([
-        _local.saveOrders(_localOrders),
-        _local.saveCart(_cart),
-        _local.saveCartBundles(_cartBundleIds),
-      ]);
-      // Buyurtmadan keyin butun katalogni emas, faqat ombori o'zgargan
-      // kitoblarni delta orqali yangilaymiz.
-      await _refreshBooksQuietly();
-      return id;
+      return _rememberRemoteOrder(remote, checkoutSession);
     }
 
     final id = 'MB-${now.millisecondsSinceEpoch.toString().substring(5)}';
@@ -2594,11 +3574,14 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
                 ? (row['carrier'] ?? _localOrders[i].carrier).toString()
                 : _localOrders[i].carrier,
             trackingNumber: _enhancedCustomerFeatures
-                ? (row['tracking_number'] ?? _localOrders[i].trackingNumber).toString()
+                ? (row['tracking_number'] ?? _localOrders[i].trackingNumber)
+                      .toString()
                 : _localOrders[i].trackingNumber,
             trackingUpdatedAt: _enhancedCustomerFeatures
-                ? (DateTime.tryParse((row['tracking_updated_at'] ?? '').toString()) ??
-                    _localOrders[i].trackingUpdatedAt)
+                ? (DateTime.tryParse(
+                        (row['tracking_updated_at'] ?? '').toString(),
+                      ) ??
+                      _localOrders[i].trackingUpdatedAt)
                 : _localOrders[i].trackingUpdatedAt,
           );
         }
@@ -2696,7 +3679,13 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         final newReserved =
             row['stock_reserved'] as bool? ?? oldOrder.stockReserved;
         if (newStatus == oldOrder.status &&
-            newReserved == oldOrder.stockReserved) {
+            newReserved == oldOrder.stockReserved &&
+            (row['carrier'] ?? oldOrder.carrier).toString() ==
+                oldOrder.carrier &&
+            (row['tracking_number'] ?? oldOrder.trackingNumber).toString() ==
+                oldOrder.trackingNumber &&
+            DateTime.tryParse('${row['tracking_updated_at'] ?? ''}') ==
+                oldOrder.trackingUpdatedAt) {
           continue;
         }
         _localOrders[i] = oldOrder.copyWith(
@@ -2709,8 +3698,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
               ? (row['tracking_number'] ?? oldOrder.trackingNumber).toString()
               : oldOrder.trackingNumber,
           trackingUpdatedAt: _enhancedCustomerFeatures
-              ? (DateTime.tryParse((row['tracking_updated_at'] ?? '').toString()) ??
-                  oldOrder.trackingUpdatedAt)
+              ? (DateTime.tryParse(
+                      (row['tracking_updated_at'] ?? '').toString(),
+                    ) ??
+                    oldOrder.trackingUpdatedAt)
               : oldOrder.trackingUpdatedAt,
         );
         ordersChanged = true;
@@ -2741,11 +3732,14 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
               'message': switch (newStatus) {
                 'accepted' => [
                   'Buyurtmangiz tasdiqlandi va tayyorlanmoqda.',
-                  if ((row['customer_accept_note'] ?? '').toString().trim().isNotEmpty)
+                  if ((row['customer_accept_note'] ?? '')
+                      .toString()
+                      .trim()
+                      .isNotEmpty)
                     'Izoh: ${row['customer_accept_note'].toString().trim()}',
                 ].join('\n'),
                 'paid' => 'To‘lov tekshirildi. Buyurtmangiz tayyorlanmoqda.',
-                'shipping' => 'Buyurtmangiz jo‘natildi! Pochta kuzatuv raqami va yetkazish holatini “Mening buyurtmalarim” bo‘limida tekshiring.',
+                'shipping' => 'Buyurtmangiz jo‘natildi! Pochta orqali odatda 1–2 kunda yetib boradi. Kuzatuv raqami berilgan bo‘lsa, “Mening buyurtmalarim” bo‘limida ko‘rishingiz mumkin.',
                 'cancelled' => 'Buyurtma bekor qilindi. Savol bo‘lsa Muhajeer Books bilan bog‘laning.',
                 _ => 'Buyurtmangiz holati yangilandi.',
               },

@@ -1,3 +1,6 @@
+import 'business_time.dart';
+import 'customer_session.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
@@ -12,6 +15,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_state.dart';
+import 'customer_pin_page.dart';
 import 'design_system.dart';
 import 'push_notifications.dart';
 import 'preview_features.dart';
@@ -24,7 +28,9 @@ bool get webPreordersAvailable => webPreviewFeaturesAvailable;
 
 String webPreorderTime(dynamic value) {
   final time = DateTime.tryParse((value ?? '').toString());
-  return time == null ? '—' : DateFormat('yyyy.MM.dd HH:mm').format(time.toLocal());
+  return time == null
+      ? '—'
+      : DateFormat('yyyy.MM.dd HH:mm').format(koreaTime(time));
 }
 
 String webPreorderMoney(int amount) =>
@@ -37,9 +43,11 @@ class WebPreorderConfig {
     this.deposit = 5000,
     this.batchQuantity = 0,
     this.revision = 1,
-    this.bookId = '', this.bookTitle = '', this.bookImageUrl = '', this.termsToken = '',
+    this.bookId = '',
+    this.bookTitle = '',
+    this.bookImageUrl = '',
+    this.termsToken = '',
     this.depositMax,
-
   });
   factory WebPreorderConfig.fromMap(Map<String, dynamic> data) =>
       WebPreorderConfig(
@@ -68,6 +76,16 @@ class WebPreorderApi {
     String action, [
     Map<String, dynamic> params = const {},
   ]) async {
+    if ((action == 'submit' || action == 'submit_multi') &&
+        params['p_request'] is Map) {
+      params = {
+        ...params,
+        'p_request': {
+          ...Map<String, dynamic>.from(params['p_request'] as Map),
+          'session': CustomerSession.token,
+        },
+      };
+    }
     final response = await Supabase.instance.client.functions
         .invoke('web-preorders', body: {'action': action, 'params': params})
         .timeout(const Duration(seconds: 40));
@@ -87,9 +105,12 @@ class WebPreorderApi {
   Future<WebPreorderConfig> config() async => WebPreorderConfig.fromMap(
     Map<String, dynamic>.from(await call('config') as Map),
   );
-  Future<WebPreorderConfig> bookConfig(String bookId) async => WebPreorderConfig.fromMap(
-    Map<String, dynamic>.from(await call('book_config', {'book_id': bookId}) as Map),
-  );
+  Future<WebPreorderConfig> bookConfig(String bookId) async =>
+      WebPreorderConfig.fromMap(
+        Map<String, dynamic>.from(
+          await call('book_config', {'book_id': bookId}) as Map,
+        ),
+      );
   Future<dynamic> admin(
     String secret,
     String action, [
@@ -103,8 +124,10 @@ class WebPreorderApi {
     String id,
     String kind,
     Uint8List bytes,
-    int revision, {String? bookId, String? termsToken}
-  ) async {
+    int revision, {
+    String? bookId,
+    String? termsToken,
+  }) async {
     final data = await call('upload', {
       'id': id,
       'kind': kind,
@@ -312,6 +335,24 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
     initialName = name.text;
     initialPhone = phone.text;
     _reload();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _requireProfile());
+  }
+
+  Future<bool> _requireProfile() async {
+    if (!mounted) return false;
+    final ready = await ensureCustomerCheckoutIdentity(context);
+    if (!mounted) return false;
+    if (!ready) {
+      if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+      return false;
+    }
+    final state = context.read<AppState>();
+    if (state.checkoutIdentityReady) {
+      final saved = state.savedCustomer;
+      name.text = (saved['name'] ?? '').trim();
+      phone.text = (saved['phone'] ?? '').trim();
+    }
+    return true;
   }
 
   @override
@@ -325,10 +366,13 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
 
   Future<void> _reload() async {
     try {
-      final next = widget.book == null ? await api.config() : await api.bookConfig(widget.book!.id);
+      final next = widget.book == null
+          ? await api.config()
+          : await api.bookConfig(widget.book!.id);
       if (mounted)
         setState(() {
-          if (config?.revision != next.revision || config?.termsToken != next.termsToken) {
+          if (config?.revision != next.revision ||
+              config?.termsToken != next.termsToken) {
             payment = false;
             advance.text = '${next.deposit}';
           }
@@ -349,12 +393,16 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
   }
 
   void _message(String text) {
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    if (mounted)
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
   Future<void> _back() async {
     if (busy || leaving) return;
-    if (payment) { setState(() => payment = false); return; }
+    if (payment) {
+      setState(() => payment = false);
+      return;
+    }
     await _cancelRequest();
   }
 
@@ -362,23 +410,45 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
     if (busy || leaving) return;
     leaving = true;
     try {
-      final dirty = payment || proofImage != null || bookImage != null || quantity != 1 ||
-          name.text != initialName || phone.text != initialPhone ||
+      final dirty =
+          payment ||
+          proofImage != null ||
+          bookImage != null ||
+          quantity != 1 ||
+          name.text != initialName ||
+          phone.text != initialPhone ||
           (widget.book == null && title.text.isNotEmpty);
       if (dirty) {
-        final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
-          title: const Text('Buyurtmadan chiqasizmi?'),
-          content: const Text('Yuborilmagan ma’lumotlar saqlanmaydi. Avans o‘tkazgan bo‘lsangiz, so‘rovni yuboring yoki administrator bilan bog‘laning.'),
-          actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Davom etish')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Chiqish'))],
-        ));
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Buyurtmadan chiqasizmi?'),
+            content: const Text(
+              'Yuborilmagan ma’lumotlar saqlanmaydi. Avans o‘tkazgan bo‘lsangiz, so‘rovni yuboring yoki administrator bilan bog‘laning.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Davom etish'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Chiqish'),
+              ),
+            ],
+          ),
+        );
         if (confirmed != true || !mounted) return;
       }
       if (!mounted || !Navigator.of(context).canPop()) return;
       ScaffoldMessenger.of(context).clearSnackBars();
       setState(() => allowPop = true);
-      WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) Navigator.pop(context); });
-    } finally { leaving = false; }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.pop(context);
+      });
+    } finally {
+      leaving = false;
+    }
   }
 
   void _removeImage(bool receipt) {
@@ -386,19 +456,38 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
     final image = receipt ? proofImage : bookImage;
     final path = receipt ? proofPath : bookPath;
     setState(() {
-      if (receipt) { proofImage = null; proofPath = null; }
-      else { bookImage = null; bookPath = null; }
+      if (receipt) {
+        proofImage = null;
+        proofPath = null;
+      } else {
+        bookImage = null;
+        bookPath = null;
+      }
     });
     final messenger = ScaffoldMessenger.of(context);
     messenger.clearSnackBars();
-    messenger.showSnackBar(SnackBar(content: Text(receipt ? 'Chek olib tashlandi.' : 'Rasm olib tashlandi.'),
-      action: SnackBarAction(label: 'Qaytarish', onPressed: () {
-        if (!mounted || busy) return;
-        setState(() {
-          if (receipt) { proofImage = image; proofPath = path; }
-          else { bookImage = image; bookPath = path; }
-        });
-      })));
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          receipt ? 'Chek olib tashlandi.' : 'Rasm olib tashlandi.',
+        ),
+        action: SnackBarAction(
+          label: 'Qaytarish',
+          onPressed: () {
+            if (!mounted || busy) return;
+            setState(() {
+              if (receipt) {
+                proofImage = image;
+                proofPath = path;
+              } else {
+                bookImage = image;
+                bookPath = path;
+              }
+            });
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _pick(bool receipt) async {
@@ -410,8 +499,12 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
       if (widget.pickImage != null) {
         bytes = await widget.pickImage!();
       } else {
-        final file = await ImagePicker().pickImage(source: ImageSource.gallery,
-          maxWidth: 1200, maxHeight: 1600, imageQuality: 80);
+        final file = await ImagePicker().pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 1200,
+          maxHeight: 1600,
+          imageQuality: 80,
+        );
         bytes = await file?.readAsBytes();
       }
       if (bytes == null || !mounted) return;
@@ -426,7 +519,12 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
       }
       decoded = img.bakeOrientation(decoded);
       if (decoded.width > 1200 || decoded.height > 1600) {
-        decoded = img.copyResize(decoded, width: 1200, height: 1600, maintainAspect: true);
+        decoded = img.copyResize(
+          decoded,
+          width: 1200,
+          height: 1600,
+          maintainAspect: true,
+        );
       }
       final encoded = Uint8List.fromList(img.encodeJpg(decoded, quality: 80));
       if (encoded.length > 2097152) {
@@ -445,23 +543,32 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
         });
     } catch (_) {
       if (mounted) _message('Rasmni tanlab bo‘lmadi. Qayta urining.');
-    } finally { if (mounted) setState(() => picking = false); }
+    } finally {
+      if (mounted) setState(() => picking = false);
+    }
   }
 
   bool _validateDetails() {
     // ListView may dispose offscreen FormFields; validate their controllers too.
     if (title.text.trim().length < 2 || title.text.trim().length > 160) {
-      _message('Kitob nomini tekshiring.'); return false;
+      _message('Kitob nomini tekshiring.');
+      return false;
     }
     if (name.text.trim().length < 2 || name.text.trim().length > 80) {
-      _message('Ismingizni kiriting.'); return false;
+      _message('Ismingizni kiriting.');
+      return false;
     }
     if (!RegExp(r'^010\d{8}$').hasMatch(phone.text.trim())) {
-      _message('Telefon raqamini tekshiring.'); return false;
+      _message('Telefon raqamini tekshiring.');
+      return false;
     }
     final amount = int.tryParse(advance.text);
-    if (config == null || amount == null || amount < config!.deposit || amount > config!.maximumDeposit) {
-      _message('Avans summasini tekshiring.'); return false;
+    if (config == null ||
+        amount == null ||
+        amount < config!.deposit ||
+        amount > config!.maximumDeposit) {
+      _message('Avans summasini tekshiring.');
+      return false;
     }
     return form.currentState?.validate() ?? false;
   }
@@ -470,7 +577,8 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
     final old = config;
     await _reload();
     if (!mounted || config?.accepting != true) return false;
-    if (old?.revision != config!.revision || old?.termsToken != config!.termsToken) {
+    if (old?.revision != config!.revision ||
+        old?.termsToken != config!.termsToken) {
       _message(
         'Kelish sanasi yoki avans yangilandi. Shartlarni qayta ko‘rib chiqing.',
       );
@@ -495,7 +603,8 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
   }
 
   Future<void> _submit() async {
-    if (busy || !_validateDetails()) return;
+    if (busy || !await _requireProfile()) return;
+    if (!mounted || !_validateDetails()) return;
     if (proofImage == null) {
       _message('Avans to‘lovi chekini yuklang.');
       return;
@@ -504,12 +613,23 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
     try {
       if (!await _checkCurrent()) return;
       final c = config!;
-      if (widget.book == null) bookPath ??= await api.upload(id, 'book', bookImage!, c.revision);
-      proofPath ??= await api.upload(id, 'proof', proofImage!, c.revision,
-        bookId: widget.book?.id, termsToken: widget.book == null ? null : c.termsToken);
+      if (widget.book == null)
+        bookPath ??= await api.upload(id, 'book', bookImage!, c.revision);
+      proofPath ??= await api.upload(
+        id,
+        'proof',
+        proofImage!,
+        c.revision,
+        bookId: widget.book?.id,
+        termsToken: widget.book == null ? null : c.termsToken,
+      );
+      final preorderInstallId = await context
+          .read<AppState>()
+          .preorderInstallationId();
       await api.call('submit', {
         'p_request': {
           'id': id,
+          'install_id': preorderInstallId,
           if (widget.book != null) 'book_id': widget.book!.id,
           'terms_token': c.termsToken,
           'customer_name': name.text.trim(),
@@ -523,15 +643,23 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
         },
       });
       if (!mounted) return;
-      setState(() { completed = true; saving = false; });
+      setState(() {
+        completed = true;
+        saving = false;
+      });
       final state = context.read<AppState>();
       final samePhone = state.savedCustomerPhone == phone.text.trim();
       try {
-        await state.setAuthenticatedCustomer(name.text.trim(), phone.text.trim(),
-          verified: samePhone && state.customerVerified);
+        await state.setAuthenticatedCustomer(
+          name.text.trim(),
+          phone.text.trim(),
+          verified: samePhone && state.customerVerified,
+        );
         unawaited(syncPushIdentity(phone.text.trim()));
         unawaited(state.refreshCustomerPushMessages());
-      } catch (_) { /* The server already committed the request and inbox. */ }
+      } catch (_) {
+        /* The server already committed the request and inbox. */
+      }
       if (!mounted) return;
       await showDialog<void>(
         context: context,
@@ -562,315 +690,409 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
     final c = config;
     return PopScope(
       canPop: allowPop || completed,
-      onPopInvokedWithResult: (didPop, result) { if (!didPop) _back(); },
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _back();
+      },
       child: Scaffold(
-      appBar: AppBar(title: const Text('Oldindan buyurtma'),
-        leading: IconButton(tooltip: 'Orqaga', icon: const Icon(Icons.arrow_back), onPressed: busy ? null : _back)),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 640),
-          child: loading
-              ? const Center(child: CircularProgressIndicator())
-              : Form(
-                  key: form,
-                  child: ListView(
-                    padding: const EdgeInsets.all(18),
-                    children: [
-                      AppSurface(
-                        backgroundColor: const Color(0xFFE5F3ED),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Taxminiy kelish sanasi',
-                              style: TextStyle(fontWeight: FontWeight.w800),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              c?.arrival.isNotEmpty == true
-                                  ? c!.arrival
-                                  : 'Hali belgilanmagan',
-                              style: const TextStyle(
-                                fontSize: 23,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                            if (c != null && c.batchQuantity > 0)
-                              Text('Partiyada keladi: ${c.batchQuantity} ta'),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Kitobni shu muddatga qarab buyurtma qiling. Kelish sanasi taxminiy.',
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      if (error != null || c?.accepting != true) ...[
-                        Text(
-                          error ?? 'Oldindan buyurtma qabuli hozircha yopiq. Avans yubormang.',
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: _reload,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Yangilash'),
-                        ),
-                      ] else ...[
-                        if (iosTestFlightPreview) ...[
-                          const PurchasePriceNotice(),
-                          const SizedBox(height: 12),
-                        ],
-                        if (widget.book != null &&
-                            widget.book!.stock == 0 && !widget.book!.preorderEnabled) ...[
-                          AppSurface(
-                            backgroundColor: const Color(0xFFFFF7E8),
-                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              const Row(children: [
-                                Icon(Icons.inventory_2_outlined, color: AppColors.orange),
-                                SizedBox(width: 8),
-                                Expanded(child: Text('Hozir omborda tugagan',
-                                    style: TextStyle(fontWeight: FontWeight.w900))),
-                              ]),
-                              const SizedBox(height: 10),
-                              Text('Oldingi sotuv narxi: ${webPreorderMoney(widget.book!.currentPrice)}',
-                                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
-                              const SizedBox(height: 4),
-                              const Text('택배 (yetkazib berish): ₩4,000',
-                                  style: TextStyle(fontWeight: FontWeight.w800)),
-                              const SizedBox(height: 7),
+        appBar: AppBar(
+          title: const Text('Oldindan buyurtma'),
+          leading: IconButton(
+            tooltip: 'Orqaga',
+            icon: const Icon(Icons.arrow_back),
+            onPressed: busy ? null : _back,
+          ),
+        ),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 640),
+            child: loading
+                ? const Center(child: CircularProgressIndicator())
+                : Form(
+                    key: form,
+                    child: ListView(
+                      padding: const EdgeInsets.all(18),
+                      children: [
+                        AppSurface(
+                          backgroundColor: const Color(0xFFE5F3ED),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                               const Text(
-                                'Kurs o‘zgarishi sabab yakuniy narx oshishi yoki kamayishi mumkin. '
-                                'Kitob kelganda yangi narx tasdiqlanadi; avans yakuniy summadan ayriladi.',
-                                style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.muted),
+                                'Taxminiy kelish sanasi',
+                                style: TextStyle(fontWeight: FontWeight.w800),
                               ),
-                            ]),
-                          ),
-                          const SizedBox(height: 14),
-                        ],
-                        Text(
-                          c!.maximumDeposit == c.deposit ? 'Avans: ${webPreorderMoney(c.deposit)} / dona' : 'Avans: ${webPreorderMoney(c.deposit)} – ${webPreorderMoney(c.maximumDeposit)} / dona',
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
+                              const SizedBox(height: 8),
+                              Text(
+                                c?.arrival.isNotEmpty == true
+                                    ? c!.arrival
+                                    : 'Hali belgilanmagan',
+                                style: const TextStyle(
+                                  fontSize: 23,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              if (c != null && c.batchQuantity > 0)
+                                Text('Partiyada keladi: ${c.batchQuantity} ta'),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Kitobni shu muddatga qarab buyurtma qiling. Kelish sanasi taxminiy.',
+                              ),
+                            ],
                           ),
                         ),
-                        const Text(
-                          'Yakuniy narx kitob kelganda aniqlanadi. Avans yakuniy to‘lovdan ayriladi.',
-                        ),
-                        const SizedBox(height: 18),
-                        TextFormField(
-                          controller: title,
-                          readOnly: widget.book != null || payment || busy,
-                          decoration: const InputDecoration(
-                            labelText: 'Kitob nomi',
+                        const SizedBox(height: 14),
+                        if (error != null || c?.accepting != true) ...[
+                          Text(
+                            error ?? 'Oldindan buyurtma qabuli hozircha yopiq. Avans yubormang.',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
-                          maxLength: 160,
-                          validator: (v) => (v ?? '').trim().length < 2
-                              ? 'Kitob nomini kiriting'
-                              : null,
-                        ),
-                        if (widget.book != null && c.bookImageUrl.isNotEmpty)
-                          SizedBox(height: 160, child: Image.network(c.bookImageUrl, fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => const Icon(Icons.menu_book_outlined))),
-                        if (bookImage != null)
-                          SizedBox(
-                            height: 160,
-                            child: Image.memory(
-                              bookImage!,
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                        if (widget.book == null && !payment)
                           OutlinedButton.icon(
-                            onPressed: busy ? null : () => _pick(false),
-                            icon: const Icon(
-                              Icons.add_photo_alternate_outlined,
-                            ),
-                            label: Text(
-                              bookImage == null
-                                  ? 'Kitob rasmini yuklash'
-                                  : 'Rasmni almashtirish',
-                            ),
+                            onPressed: _reload,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Yangilash'),
                           ),
-                        if (bookImage != null && !payment)
-                          TextButton(onPressed: busy ? null : () => _removeImage(false), child: const Text('Rasmni bekor qilish')),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: name,
-                          readOnly: payment || busy,
-                          maxLength: 80,
-                          decoration: const InputDecoration(
-                            labelText: 'Ismingiz',
-                          ),
-                          validator: (v) => (v ?? '').trim().length < 2
-                              ? 'Ismingizni kiriting'
-                              : null,
-                        ),
-                        TextFormField(
-                          controller: phone,
-                          readOnly: payment || busy,
-                          keyboardType: TextInputType.phone,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(11),
+                        ] else ...[
+                          if (iosTestFlightPreview) ...[
+                            const PurchasePriceNotice(),
+                            const SizedBox(height: 12),
                           ],
-                          decoration: const InputDecoration(
-                            labelText: 'Telefon raqam',
-                            hintText: '01012345678',
-                          ),
-                          validator: (v) =>
-                              RegExp(r'^010\d{8}$').hasMatch(v ?? '')
-                              ? null
-                              : '010 bilan boshlanuvchi 11 ta raqam kiriting',
-                        ),
-                        const SizedBox(height: 12),
-                        if (c.maximumDeposit > c.deposit) ...[
-                          TextFormField(controller: advance, readOnly: payment || busy,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                            decoration: const InputDecoration(labelText: 'Bir kitob uchun avans (₩)'),
-                            onChanged: (_) => setState(() {}),
-                            validator: (v) {
-                              final n = int.tryParse(v ?? '') ?? 0;
-                              return n < c.deposit || n > c.maximumDeposit ? '${webPreorderMoney(c.deposit)}–${webPreorderMoney(c.maximumDeposit)} oralig‘ida kiriting' : null;
-                            }),
-                          Wrap(spacing: 8, children: [
-                            for (final value in {c.deposit, 5000, 10000, c.maximumDeposit}.where((v) => v >= c.deposit && v <= c.maximumDeposit))
-                              ActionChip(label: Text(webPreorderMoney(value)), onPressed: payment || busy ? null : () => setState(() => advance.text = '$value')),
-                          ]),
-                        ],
-                        Row(
-                          children: [
-                            const Expanded(child: Text('Miqdor')),
-                            IconButton(
-                              onPressed: quantity <= 1 || payment || busy
-                                  ? null
-                                  : () => setState(() => quantity--),
-                              icon: const Icon(Icons.remove_circle_outline),
-                            ),
-                            Text(
-                              '$quantity',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 20,
+                          if (widget.book != null &&
+                              widget.book!.stock == 0 &&
+                              !widget.book!.preorderEnabled) ...[
+                            AppSurface(
+                              backgroundColor: const Color(0xFFFFF7E8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Icon(
+                                        Icons.inventory_2_outlined,
+                                        color: AppColors.orange,
+                                      ),
+                                      SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Hozir omborda tugagan',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    'Oldingi sotuv narxi: ${webPreorderMoney(widget.book!.currentPrice)}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 17,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    '택배 (yetkazib berish): ₩4,000',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 7),
+                                  const Text(
+                                    'Kurs o‘zgarishi sabab yakuniy narx oshishi yoki kamayishi mumkin. '
+                                    'Kitob kelganda yangi narx tasdiqlanadi; avans yakuniy summadan ayriladi.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      height: 1.4,
+                                      color: AppColors.muted,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            IconButton(
-                              onPressed: quantity >= 20 || payment || busy
-                                  ? null
-                                  : () => setState(() => quantity++),
-                              icon: const Icon(Icons.add_circle_outline),
-                            ),
+                            const SizedBox(height: 14),
                           ],
-                        ),
-                        Text(
-                          'Jami avans: ${webPreorderMoney(c.total(quantity, int.tryParse(advance.text)))}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 22,
-                          ),
-                        ),
-                        const Text('Pochtaga +4 000 won qo‘shiladi. Hozir faqat avansni o‘tkazing.',
-                          style: TextStyle(fontSize: 12, color: AppColors.muted)),
-                        const SizedBox(height: 16),
-                        if (!payment)
-                          FilledButton(
-                            onPressed: busy ? null : _continue,
-                            child: Text(
-                              saving
-                                  ? 'Tekshirilmoqda…'
-                                  : 'Shartlarni ko‘rdim — to‘lovga o‘tish',
-                            ),
-                          )
-                        else ...[
-                          AppSurface(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Bank o‘tkazmasi',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 18,
-                                  ),
-                                ),
-                                const Text(
-                                  '${AppState.bankName}\n${AppState.bankOwner}',
-                                ),
-                                Row(
-                                  children: [
-                                    const Expanded(
-                                      child: SelectableText(
-                                        AppState.bankAccount,
-                                        maxLines: 1,
-                                      ),
-                                    ),
-                                    IconButton(
-                                      tooltip: 'Hisob raqamini nusxalash',
-                                      icon: const Icon(Icons.copy),
-                                      onPressed: () async {
-                                        await Clipboard.setData(
-                                          const ClipboardData(
-                                            text: AppState.bankAccount,
-                                          ),
-                                        );
-                                        if (mounted)
-                                          _message('Hisob raqami nusxalandi');
-                                      },
-                                    ),
-                                  ],
-                                ),
-                                Text(
-                                  'O‘tkaziladigan summa: ${webPreorderMoney(c.total(quantity, int.tryParse(advance.text)))}',
-                                ),
-                              ],
+                          Text(
+                            c!.maximumDeposit == c.deposit
+                                ? 'Avans: ${webPreorderMoney(c.deposit)} / dona'
+                                : 'Avans: ${webPreorderMoney(c.deposit)} – ${webPreorderMoney(c.maximumDeposit)} / dona',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          if (proofImage != null)
+                          const Text(
+                            'Yakuniy narx kitob kelganda aniqlanadi. Avans yakuniy to‘lovdan ayriladi.',
+                          ),
+                          const SizedBox(height: 18),
+                          TextFormField(
+                            controller: title,
+                            readOnly: widget.book != null || payment || busy,
+                            decoration: const InputDecoration(
+                              labelText: 'Kitob nomi',
+                            ),
+                            maxLength: 160,
+                            validator: (v) => (v ?? '').trim().length < 2
+                                ? 'Kitob nomini kiriting'
+                                : null,
+                          ),
+                          if (widget.book != null && c.bookImageUrl.isNotEmpty)
                             SizedBox(
-                              height: 150,
+                              height: 160,
+                              child: Image.network(
+                                c.bookImageUrl,
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, __, ___) =>
+                                    const Icon(Icons.menu_book_outlined),
+                              ),
+                            ),
+                          if (bookImage != null)
+                            SizedBox(
+                              height: 160,
                               child: Image.memory(
-                                proofImage!,
+                                bookImage!,
                                 fit: BoxFit.contain,
                               ),
                             ),
-                          OutlinedButton.icon(
-                            onPressed: busy ? null : () => _pick(true),
-                            icon: const Icon(Icons.receipt_long_outlined),
-                            label: Text(
-                              proofImage == null
-                                  ? 'Avans chekini yuklash'
-                                  : 'Chekni almashtirish',
+                          if (widget.book == null && !payment)
+                            OutlinedButton.icon(
+                              onPressed: busy ? null : () => _pick(false),
+                              icon: const Icon(
+                                Icons.add_photo_alternate_outlined,
+                              ),
+                              label: Text(
+                                bookImage == null
+                                    ? 'Kitob rasmini yuklash'
+                                    : 'Rasmni almashtirish',
+                              ),
                             ),
-                          ),
-                          if (proofImage != null)
-                            TextButton(onPressed: busy ? null : () => _removeImage(true), child: const Text('Chekni bekor qilish')),
-                          FilledButton(
-                            onPressed: busy ? null : _submit,
-                            child: Text(
-                              saving
-                                  ? 'Yuborilmoqda…'
-                                  : 'Avans yubordim — buyurtma berish',
+                          if (bookImage != null && !payment)
+                            TextButton(
+                              onPressed: busy
+                                  ? null
+                                  : () => _removeImage(false),
+                              child: const Text('Rasmni bekor qilish'),
                             ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: name,
+                            readOnly: payment || busy,
+                            maxLength: 80,
+                            decoration: const InputDecoration(
+                              labelText: 'Ismingiz',
+                            ),
+                            validator: (v) => (v ?? '').trim().length < 2
+                                ? 'Ismingizni kiriting'
+                                : null,
                           ),
-                          TextButton(
-                            onPressed: busy
+                          TextFormField(
+                            controller: phone,
+                            readOnly: payment || busy,
+                            keyboardType: TextInputType.phone,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(11),
+                            ],
+                            decoration: const InputDecoration(
+                              labelText: 'Telefon raqam',
+                              hintText: '01012345678',
+                            ),
+                            validator: (v) =>
+                                RegExp(r'^010\d{8}$').hasMatch(v ?? '')
                                 ? null
-                                : () => setState(() => payment = false),
-                            child: const Text('Ma’lumotlarni tahrirlash'),
+                                : '010 bilan boshlanuvchi 11 ta raqam kiriting',
                           ),
+                          const SizedBox(height: 12),
+                          if (c.maximumDeposit > c.deposit) ...[
+                            TextFormField(
+                              controller: advance,
+                              readOnly: payment || busy,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              decoration: const InputDecoration(
+                                labelText: 'Bir kitob uchun avans (₩)',
+                              ),
+                              onChanged: (_) => setState(() {}),
+                              validator: (v) {
+                                final n = int.tryParse(v ?? '') ?? 0;
+                                return n < c.deposit || n > c.maximumDeposit
+                                    ? '${webPreorderMoney(c.deposit)}–${webPreorderMoney(c.maximumDeposit)} oralig‘ida kiriting'
+                                    : null;
+                              },
+                            ),
+                            Wrap(
+                              spacing: 8,
+                              children: [
+                                for (final value
+                                    in {
+                                      c.deposit,
+                                      5000,
+                                      10000,
+                                      c.maximumDeposit,
+                                    }.where(
+                                      (v) =>
+                                          v >= c.deposit &&
+                                          v <= c.maximumDeposit,
+                                    ))
+                                  ActionChip(
+                                    label: Text(webPreorderMoney(value)),
+                                    onPressed: payment || busy
+                                        ? null
+                                        : () => setState(
+                                            () => advance.text = '$value',
+                                          ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                          Row(
+                            children: [
+                              const Expanded(child: Text('Miqdor')),
+                              IconButton(
+                                onPressed: quantity <= 1 || payment || busy
+                                    ? null
+                                    : () => setState(() => quantity--),
+                                icon: const Icon(Icons.remove_circle_outline),
+                              ),
+                              Text(
+                                '$quantity',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 20,
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: quantity >= 20 || payment || busy
+                                    ? null
+                                    : () => setState(() => quantity++),
+                                icon: const Icon(Icons.add_circle_outline),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            'Jami avans: ${webPreorderMoney(c.total(quantity, int.tryParse(advance.text)))}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 22,
+                            ),
+                          ),
+                          const Text(
+                            'Pochtaga +4 000 won qo‘shiladi. Hozir faqat avansni o‘tkazing.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.muted,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          if (!payment)
+                            FilledButton(
+                              onPressed: busy ? null : _continue,
+                              child: Text(
+                                saving
+                                    ? 'Tekshirilmoqda…'
+                                    : 'Shartlarni ko‘rdim — to‘lovga o‘tish',
+                              ),
+                            )
+                          else ...[
+                            AppSurface(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Bank o‘tkazmasi',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                  const Text(
+                                    '${AppState.bankName}\n${AppState.bankOwner}',
+                                  ),
+                                  Row(
+                                    children: [
+                                      const Expanded(
+                                        child: SelectableText(
+                                          AppState.bankAccount,
+                                          maxLines: 1,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        tooltip: 'Hisob raqamini nusxalash',
+                                        icon: const Icon(Icons.copy),
+                                        onPressed: () async {
+                                          await Clipboard.setData(
+                                            const ClipboardData(
+                                              text: AppState.bankAccount,
+                                            ),
+                                          );
+                                          if (mounted)
+                                            _message('Hisob raqami nusxalandi');
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    'O‘tkaziladigan summa: ${webPreorderMoney(c.total(quantity, int.tryParse(advance.text)))}',
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            if (proofImage != null)
+                              SizedBox(
+                                height: 150,
+                                child: Image.memory(
+                                  proofImage!,
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                            OutlinedButton.icon(
+                              onPressed: busy ? null : () => _pick(true),
+                              icon: const Icon(Icons.receipt_long_outlined),
+                              label: Text(
+                                proofImage == null
+                                    ? 'Avans chekini yuklash'
+                                    : 'Chekni almashtirish',
+                              ),
+                            ),
+                            if (proofImage != null)
+                              TextButton(
+                                onPressed: busy
+                                    ? null
+                                    : () => _removeImage(true),
+                                child: const Text('Chekni bekor qilish'),
+                              ),
+                            FilledButton(
+                              onPressed: busy ? null : _submit,
+                              child: Text(
+                                saving
+                                    ? 'Yuborilmoqda…'
+                                    : 'Avans yubordim — buyurtma berish',
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: busy
+                                  ? null
+                                  : () => setState(() => payment = false),
+                              child: const Text('Ma’lumotlarni tahrirlash'),
+                            ),
+                          ],
+                          TextButton.icon(
+                            onPressed: busy ? null : _cancelRequest,
+                            icon: const Icon(Icons.close),
+                            label: const Text('Buyurtmani bekor qilish'),
+                          ),
+                          if (picking || saving)
+                            const LinearProgressIndicator(),
                         ],
-                        TextButton.icon(onPressed: busy ? null : _cancelRequest,
-                          icon: const Icon(Icons.close), label: const Text('Buyurtmani bekor qilish')),
-                        if (picking || saving) const LinearProgressIndicator(),
                       ],
-                    ],
+                    ),
                   ),
-                ),
+          ),
         ),
       ),
-    ));
+    );
   }
 }
 
@@ -934,7 +1156,11 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
   Future<void> _save() async {
     if (saving) return;
     if (enabled && arrival.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Qabulni ochishdan oldin sanani kiriting')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Qabulni ochishdan oldin sanani kiriting'),
+        ),
+      );
       return;
     }
     if (!form.currentState!.validate()) return;
@@ -964,7 +1190,7 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
   }
 
   Future<void> _date() async {
-    final now = DateTime.now();
+    final now = koreaNow();
     final value = await showDatePicker(
       context: context,
       initialDate: now,
@@ -981,52 +1207,259 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
     final itemCount = (row['request_items'] as List?)?.length ?? 0;
     final needsReason = status == 'cancelled' || status == 'waiting';
     final key = GlobalKey<FormState>();
-    final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
-      title: Text(status == 'accepted' ? 'Avans chekini tasdiqlash' : status == 'arrived' ? 'Kitob keldimi?' : status == 'waiting' ? 'Qayta ko‘rib chiqish' : 'Buyurtmani bekor qilish'),
-      content: Form(key: key, child: Column(mainAxisSize: MainAxisSize.min, children: [
-        if (itemCount > 1) Text('$itemCount turdagi kitobning barchasi uchun amal bajariladi.', style: const TextStyle(fontWeight: FontWeight.w800)),
-        Text(status == 'accepted' ? 'Chek va bankdagi to‘lov mosligini tekshiring. Mijozga tasdiq xabari yuboriladi.' :
-          status == 'cancelled' ? 'Mijozga sabab yoziladi. Avans bu tugma orqali avtomatik qaytarilmaydi.' : 'Mijozning bildirishnomalariga yangi holat yoziladi.'),
-        const SizedBox(height: 12),
-        TextFormField(onChanged: (v) => reason = v, maxLength: 500, maxLines: 3,
-          decoration: InputDecoration(labelText: needsReason ? 'Sababi (majburiy)' : 'Mijozga izoh (ixtiyoriy)'),
-          validator: (v) => needsReason && (v ?? '').trim().length < 3 ? 'Sababini yozing' : null),
-      ])),
-      actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Yopish')),
-        FilledButton(onPressed: () { if (key.currentState!.validate()) Navigator.pop(ctx, true); }, child: const Text('Tasdiqlash'))],
-    ));
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          status == 'accepted'
+              ? 'Avans chekini tasdiqlash'
+              : status == 'arrived'
+              ? 'Kitob keldimi?'
+              : status == 'waiting'
+              ? 'Qayta ko‘rib chiqish'
+              : 'Buyurtmani bekor qilish',
+        ),
+        content: Form(
+          key: key,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (itemCount > 1)
+                Text(
+                  '$itemCount turdagi kitobning barchasi uchun amal bajariladi.',
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              Text(
+                status == 'accepted'
+                    ? 'Chek va bankdagi to‘lov mosligini tekshiring. Mijozga tasdiq xabari yuboriladi.'
+                    : status == 'cancelled'
+                    ? 'Mijozga sabab yoziladi. Avans bu tugma orqali avtomatik qaytarilmaydi.'
+                    : 'Mijozning bildirishnomalariga yangi holat yoziladi.',
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                onChanged: (v) => reason = v,
+                maxLength: 500,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  labelText: needsReason
+                      ? 'Sababi (majburiy)'
+                      : 'Mijozga izoh (ixtiyoriy)',
+                ),
+                validator: (v) => needsReason && (v ?? '').trim().length < 3
+                    ? 'Sababini yozing'
+                    : null,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Yopish'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (key.currentState!.validate()) Navigator.pop(ctx, true);
+            },
+            child: const Text('Tasdiqlash'),
+          ),
+        ],
+      ),
+    );
     final note = reason.trim();
     if (confirmed != true || !mounted) return;
     setState(() => statusSaving.add(id));
     try {
       final result = await api.admin(widget.secret, 'status', {
-        'id': id, 'status': status, 'version': row['status_version'] ?? 1, 'note': note,
+        'id': id,
+        'status': status,
+        'version': row['status_version'] ?? 1,
+        'note': note,
       });
-      if (result is! Map || result['status'] != status) throw StateError('Holat tasdiqlanmadi. Yangilab tekshiring.');
+      if (result is! Map || result['status'] != status)
+        throw StateError('Holat tasdiqlanmadi. Yangilab tekshiring.');
       var refreshFailed = false;
       try {
         final updated = await api.admin(widget.secret, 'list');
         if (!mounted) return;
-        setState(() { requests = Future.value(updated); hasMore = (updated as List).length == 200; });
+        setState(() {
+          requests = Future.value(updated);
+          hasMore = (updated as List).length == 200;
+        });
       } catch (_) {
         refreshFailed = true;
         if (!mounted) return;
         setState(() {
-          row['status'] = status; row['status_version'] = result['version'] ?? (row['status_version'] as int? ?? 1) + 1;
-          row['status_note'] = note; row['notification_state'] = 'pending';
+          row['status'] = status;
+          row['status_version'] =
+              result['version'] ?? (row['status_version'] as int? ?? 1) + 1;
+          row['status_note'] = note;
+          row['notification_state'] = 'pending';
         });
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
-        (result['inbox_created'] == true ? 'Holat saqlandi. Mijozning bildirishnomalariga xabar yozildi.' : 'Holat saqlandi.') +
-        (refreshFailed ? ' Ro‘yxatni qayta yuklang.' : ''))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            (result['inbox_created'] == true
+                    ? 'Holat saqlandi. Mijozning bildirishnomalariga xabar yozildi.'
+                    : 'Holat saqlandi.') +
+                (refreshFailed ? ' Ro‘yxatni qayta yuklang.' : ''),
+          ),
+        ),
+      );
     } catch (e) {
       if (mounted) {
-        setState(() { requests = api.admin(widget.secret, 'list'); });
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        setState(() {
+          requests = api.admin(widget.secret, 'list');
+        });
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
       }
     } finally {
       if (mounted) setState(() => statusSaving.remove(id));
+    }
+  }
+
+  /// Legacy prepaid order balance is separate from the original advance.
+  /// Only the authenticated administrator can see the remaining receipt.
+  Future<void> _checkoutPayment(Map row) async {
+    final id = '${row['id']}';
+    try {
+      final raw = await api.admin(widget.secret, 'checkout_detail', {'id': id});
+      if (!mounted) return;
+      if (raw is! Map || raw['price_ready'] != true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Yakuniy narx hali tasdiqlanmagan yoki hisob ochilmagan.',
+            ),
+          ),
+        );
+        return;
+      }
+      final due = (raw['amount_due'] as num?)?.toInt() ?? 0;
+      final deposited = (raw['deposit_credit'] as num?)?.toInt() ?? 0;
+      final submitted = (raw['proof_submitted_amount'] as num?)?.toInt() ?? 0;
+      final refund = (raw['shipping_refund_due'] as num?)?.toInt() ?? 0;
+      final extra = (raw['extra_total'] as num?)?.toInt() ?? 0;
+      final status = '${raw['payment_state'] ?? ''}';
+      final receipt = '${raw['balance_proof_url'] ?? ''}';
+      final added = ((raw['extras'] as List?) ?? const [])
+          .whereType<Map>()
+          .toList();
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Oldindan zakaz • Qolgan to‘lov'),
+          content: SizedBox(
+            width: 430,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Kitob: ${row['book_title'] ?? ''}'),
+                  Text('Avans: ${webPreorderMoney(deposited)}'),
+                  Text('Qo‘shimcha kitoblar: ${webPreorderMoney(extra)}'),
+                  for (final item in added)
+                    Text('• ${item['title']} × ${item['quantity']}'),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Qolgan summa: ${webPreorderMoney(due)}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 20,
+                    ),
+                  ),
+                  Text('Holat: $status'),
+                  if (submitted > 0)
+                    Text(
+                      'Yuborilgan chek summasi: ${webPreorderMoney(submitted)}',
+                    ),
+                  if (refund > 0) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'MUHIM: Mijozga ${webPreorderMoney(refund)} '
+                      'yetkazish puli qaytarilishi kerak.',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        color: Colors.deepOrange,
+                      ),
+                    ),
+                    const Text(
+                      'Bepul Gyeongsan yetkazish tanlangan. '
+                      'Bankdagi to‘lovni tekshirib, ortiqcha pulni qaytaring. '
+                      'Bu xabar pul qaytarildi degani emas.',
+                    ),
+                  ],
+                  const Divider(height: 16),
+                  Text(
+                    raw['delivery_saved'] == true
+                        ? 'Qabul qiluvchi: ' +
+                              (raw['recipient_name'] ?? '').toString()
+                        : 'Yetkazish ma’lumotlari hali kiritilmagan',
+                  ),
+                  if (raw['delivery_saved'] == true) ...[
+                    Text(
+                      'Telefon: ' + (raw['recipient_phone'] ?? '').toString(),
+                    ),
+                    Text(
+                      'Yetkazish: ' + (raw['delivery_type'] ?? '').toString(),
+                    ),
+                    Text(
+                      'Manzil: ' + (raw['delivery_address'] ?? '').toString(),
+                    ),
+                  ],
+                  if (receipt.isNotEmpty)
+                    TextButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx, false);
+                        _view(receipt);
+                      },
+                      icon: const Icon(Icons.receipt_long),
+                      label: const Text('Qolgan to‘lov chekini ko‘rish'),
+                    ),
+                  if (status == 'proof_submitted')
+                    const Text(
+                      'Tasdiqlashdan oldin bankdagi haqiqiy tushumni tekshiring.',
+                    ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Yopish'),
+            ),
+            if (status == 'proof_submitted' ||
+                (due == 0 && status == 'requested'))
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Qolgan to‘lovni tasdiqlash'),
+              ),
+          ],
+        ),
+      );
+      if (confirm != true || !mounted) return;
+      final result = await api.admin(widget.secret, 'checkout_confirm', {
+        'id': id,
+      });
+      if (result is! Map || result['payment_state'] != 'verified') {
+        throw StateError('To‘lov tasdiqlanmadi');
+      }
+      await _load();
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('To‘lov tasdiqlandi ✅')));
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Qolgan to‘lov tekshirilmadi: $e')),
+        );
     }
   }
 
@@ -1034,13 +1467,29 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
     if (loadingMore) return;
     setState(() => loadingMore = true);
     try {
-      final next = await api.admin(widget.secret, 'list', {'offset': loaded.length, 'limit': 200}) as List;
+      final next = await api.admin(widget.secret, 'list', {
+        'offset': loaded.length,
+        'limit': 200,
+      }) as List;
       if (!mounted) return;
-      final merged = <String, Map>{for (final row in [...loaded, ...next.whereType<Map>()]) '${row['id']}': row};
-      setState(() { requests = Future.value(merged.values.toList()); hasMore = next.length == 200; });
+      final merged = <String, Map>{
+        for (final row in [...loaded, ...next.whereType<Map>()])
+          '${row['id']}': row,
+      };
+      setState(() {
+        requests = Future.value(merged.values.toList());
+        hasMore = next.length == 200;
+      });
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Keyingi so‘rovlar yuklanmadi. Qayta urining.')));
-    } finally { if (mounted) setState(() => loadingMore = false); }
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Keyingi so‘rovlar yuklanmadi. Qayta urining.'),
+          ),
+        );
+    } finally {
+      if (mounted) setState(() => loadingMore = false);
+    }
   }
 
   void _view(String url) {
@@ -1197,34 +1646,84 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
                       'Chekni bankdagi to‘lov bilan tekshiring. Bitta so‘rovdagi barcha kitoblar birgalikda boshqariladi.',
                     ),
                     const SizedBox(height: 12),
-                    TextField(onChanged: (value) => setState(() => search = value.trim().toLowerCase()),
-                      decoration: const InputDecoration(labelText: 'Kitob, mijoz yoki telefon bo‘yicha qidirish', prefixIcon: Icon(Icons.search))),
-                    Wrap(spacing: 6, children: [
-                      for (final entry in const {'all': 'Barchasi', 'waiting': 'Tekshirish kerak', 'accepted': 'Qabul qilindi', 'arrived': 'Keldi', 'cancelled': 'Bekor qilindi'}.entries)
-                        ChoiceChip(label: Text(entry.value), selected: statusFilter == entry.key,
-                          onSelected: (_) => setState(() => statusFilter = entry.key)),
-                    ]),
+                    TextField(
+                      onChanged: (value) =>
+                          setState(() => search = value.trim().toLowerCase()),
+                      decoration: const InputDecoration(
+                        labelText:
+                            'Kitob, mijoz yoki telefon bo‘yicha qidirish',
+                        prefixIcon: Icon(Icons.search),
+                      ),
+                    ),
+                    Wrap(
+                      spacing: 6,
+                      children: [
+                        for (final entry in const {
+                          'all': 'Barchasi',
+                          'waiting': 'Tekshirish kerak',
+                          'accepted': 'Qabul qilingan',
+                          'arrived': 'Yangi kelgan',
+                          'cancelled': 'Bekor qilingan',
+                        }.entries)
+                          ChoiceChip(
+                            label: Text(entry.value),
+                            selected: statusFilter == entry.key,
+                            onSelected: (_) =>
+                                setState(() => statusFilter = entry.key),
+                          ),
+                      ],
+                    ),
                     const SizedBox(height: 12),
                     FutureBuilder<dynamic>(
                       future: requests,
                       builder: (ctx, snap) {
                         if (snap.hasError)
                           return OutlinedButton.icon(
-                            onPressed: () => setState(() { requests = api.admin(widget.secret, 'list'); hasMore = true; }),
-                            icon: const Icon(Icons.refresh), label: const Text('Buyurtmalar yuklanmadi. Qayta yuklash'));
+                            onPressed: () => setState(() {
+                              requests = api.admin(widget.secret, 'list');
+                              hasMore = true;
+                            }),
+                            icon: const Icon(Icons.refresh),
+                            label: const Text(
+                              'Buyurtmalar yuklanmadi. Qayta yuklash',
+                            ),
+                          );
                         if (!snap.hasData)
                           return const Center(
                             child: CircularProgressIndicator(),
                           );
-                        final loaded = (snap.data as List).whereType<Map>().toList();
-                        final rows = loaded.where((r) => (statusFilter == 'all' || r['status'] == statusFilter) &&
-                          (search.isEmpty || '${r['book_title']} ${r['request_items']} ${r['customer_name']} ${r['phone']}'.toLowerCase().contains(search))).toList();
+                        final loaded = (snap.data as List)
+                            .whereType<Map>()
+                            .toList();
+                        final rows = loaded
+                            .where(
+                              (r) =>
+                                  (statusFilter == 'all'
+                                      ? r['status'] != 'cancelled'
+                                      : r['status'] == statusFilter) &&
+                                  (search.isEmpty ||
+                                      '${r['book_title']} ${r['request_items']} ${r['customer_name']} ${r['phone']}'
+                                          .toLowerCase()
+                                          .contains(search)),
+                            )
+                            .toList();
                         if (rows.isEmpty)
-                          return Column(children: [
-                            const AppSurface(child: Text('Bu filtr bo‘yicha so‘rov topilmadi. Boshqa filtr yoki qidiruvni tanlang.')),
-                            if (hasMore && loaded.length >= 200) OutlinedButton(
-                              onPressed: loadingMore ? null : () => _more(loaded), child: const Text('Yana so‘rovlarni yuklash')),
-                          ]);
+                          return Column(
+                            children: [
+                              const AppSurface(
+                                child: Text(
+                                  'Bu filtr bo‘yicha so‘rov topilmadi. Boshqa filtr yoki qidiruvni tanlang.',
+                                ),
+                              ),
+                              if (hasMore && loaded.length >= 200)
+                                OutlinedButton(
+                                  onPressed: loadingMore
+                                      ? null
+                                      : () => _more(loaded),
+                                  child: const Text('Yana so‘rovlarni yuklash'),
+                                ),
+                            ],
+                          );
                         const labels = {
                           'waiting': 'Chek tekshirilmoqda',
                           'accepted': 'Qabul qilindi',
@@ -1232,110 +1731,253 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
                           'cancelled': 'Bekor qilindi',
                         };
                         return Column(
-                          children: rows
-                              .map<Widget>(
-                                (r) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 14),
-                                  child: AppSurface(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '${r['book_title']} • ${r['quantity']} dona',
-                                          style: const TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.w900,
-                                          ),
-                                        ),
-                                        if ((r['request_items'] as List?)?.isNotEmpty == true)
-                                          SizedBox(height: ((r['request_items'] as List).length * 88.0).clamp(88.0, 352.0).toDouble(),
-                                            child: ListView.builder(primary: false,
-                                              itemCount: (r['request_items'] as List).length,
-                                              itemBuilder: (_, index) {
-                                                final item = (r['request_items'] as List)[index];
-                                                return Material(type: MaterialType.transparency, child: ListTile(contentPadding: EdgeInsets.zero,
-                                                  leading: SizedBox(width: 48, height: 64, child: Image.network('${item['book_image_url'] ?? ''}', fit: BoxFit.contain,
-                                                    errorBuilder: (_, __, ___) => const Icon(Icons.menu_book_outlined))),
-                                                  title: Text('${item['book_title']}'), subtitle: Text('${item['quantity']} dona'),
-                                                  trailing: const Icon(Icons.zoom_in),
-                                                  onTap: () => _view('${item['book_image_url'] ?? ''}')));
-                                              })),
-                                        SelectableText(
-                                          '${r['customer_name']}\n${r['phone']}',
-                                        ),
-                                        Text('Yuborilgan: ${webPreorderTime(r['created_at'])}'),
-                                        Text(
-                                          'Avans: ${webPreorderMoney((r['deposit_amount'] as num).toInt())}',
-                                        ),
-                                        Text(
-                                          'Kelish muddati: ${r['arrival_note']}',
-                                        ),
-                                        Text(
-                                          'Holat: ${labels[r['status']] ?? r['status']}',
-                                        ),
-                                        Text(
-                                          'Buyurtma: ${r['id'].toString().substring(0, 8)}',
-                                        ),
-                                        if ((r['status_note'] ?? '').toString().isNotEmpty) Text('Izoh: ${r['status_note']}'),
-                                        Text(r['notification_state'] == null ? 'Holat yangilanganda mijozga xabar beriladi.' :
-                                          r['notification_state'] == 'sent' ? 'Mijoz xabari: ilovaga yozildi, web push yuborildi.' :
-                                          r['notification_state'] == 'failed' ? 'Mijoz xabari: ilovaga yozildi. Push yetkazilmadi.' :
-                                          r['notification_state'] == 'no_subscribers' ? 'Mijoz xabari: ilovaga yozildi. Push ruxsati yo‘q.' :
-                                          'Mijoz xabari: ilovaga yozildi, push navbatda.'),
-                                        if ((r['history'] as List?)?.isNotEmpty == true)
-                                          ExpansionTile(title: const Text('Holat tarixi'), children: [
-                                            for (final h in r['history'] as List)
-                                              Material(type: MaterialType.transparency, child: ListTile(title: Text('${labels[h['status']] ?? h['status']}'),
-                                                subtitle: Text('${h['message']}\n${webPreorderTime(h['created_at'])}'))),
-                                          ]),
-
-                                        Wrap(
-                                          spacing: 8,
+                          children:
+                              rows
+                                  .map<Widget>(
+                                    (r) => Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 14,
+                                      ),
+                                      child: AppSurface(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
-                                            OutlinedButton.icon(
-                                              onPressed: () => _view(
-                                                '${r['book_image_url'] ?? ''}',
+                                            Text(
+                                              '${r['book_title']} • ${r['quantity']} dona',
+                                              style: const TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.w900,
                                               ),
-                                              icon: const Icon(
-                                                Icons.menu_book_outlined,
-                                              ),
-                                              label: const Text('Kitob rasmi'),
                                             ),
-                                            OutlinedButton.icon(
-                                              onPressed: () => _view(
-                                                '${r['payment_proof_url'] ?? ''}',
+                                            if ((r['request_items'] as List?)
+                                                    ?.isNotEmpty ==
+                                                true)
+                                              SizedBox(
+                                                height:
+                                                    ((r['request_items']
+                                                                    as List)
+                                                                .length *
+                                                            88.0)
+                                                        .clamp(88.0, 352.0)
+                                                        .toDouble(),
+                                                child: ListView.builder(
+                                                  primary: false,
+                                                  itemCount:
+                                                      (r['request_items']
+                                                              as List)
+                                                          .length,
+                                                  itemBuilder: (_, index) {
+                                                    final item =
+                                                        (r['request_items']
+                                                            as List)[index];
+                                                    return Material(
+                                                      type: MaterialType
+                                                          .transparency,
+                                                      child: ListTile(
+                                                        contentPadding:
+                                                            EdgeInsets.zero,
+                                                        leading: SizedBox(
+                                                          width: 48,
+                                                          height: 64,
+                                                          child: Image.network(
+                                                            '${item['book_image_url'] ?? ''}',
+                                                            fit: BoxFit.contain,
+                                                            errorBuilder:
+                                                                (
+                                                                  _,
+                                                                  __,
+                                                                  ___,
+                                                                ) => const Icon(
+                                                                  Icons
+                                                                      .menu_book_outlined,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                        title: Text(
+                                                          '${item['book_title']}',
+                                                        ),
+                                                        subtitle: Text(
+                                                          '${item['quantity']} dona',
+                                                        ),
+                                                        trailing: const Icon(
+                                                          Icons.zoom_in,
+                                                        ),
+                                                        onTap: () => _view(
+                                                          '${item['book_image_url'] ?? ''}',
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
                                               ),
-                                              icon: const Icon(
-                                                Icons.receipt_outlined,
-                                              ),
-                                              label: const Text('Avans cheki'),
+                                            SelectableText(
+                                              '${r['customer_name']}\n${r['phone']}',
                                             ),
-                                            for (final action in <String>[
-                                              if (r['status'] == 'waiting') 'accepted',
-                                              if (r['status'] == 'accepted') 'arrived',
-                                              if (r['status'] != 'cancelled') 'cancelled',
-                                              if (r['status'] == 'cancelled') 'waiting',
-                                            ])
-                                              OutlinedButton(
-                                                onPressed: statusSaving.contains('${r['id']}') ? null : () => _status(r, action),
-                                                child: Text(action == 'accepted' ? 'Qabul qilish' : action == 'arrived' ? ((r['request_items'] as List?)?.length != null && (r['request_items'] as List).length > 1 ? 'Barcha kitoblar keldi' : 'Kitob keldi') : action == 'waiting' ? 'Qayta ochish' : 'Bekor qilish'),
+                                            Text(
+                                              'Yuborilgan: ${webPreorderTime(r['created_at'])}',
+                                            ),
+                                            Text(
+                                              'Avans: ${webPreorderMoney((r['deposit_amount'] as num).toInt())}',
+                                            ),
+                                            Text(
+                                              'Kelish muddati: ${r['arrival_note']}',
+                                            ),
+                                            Text(
+                                              'Holat: ${labels[r['status']] ?? r['status']}',
+                                            ),
+                                            Text(
+                                              'Buyurtma: ${r['id'].toString().substring(0, 8)}',
+                                            ),
+                                            if ((r['status_note'] ?? '')
+                                                .toString()
+                                                .isNotEmpty)
+                                              Text('Izoh: ${r['status_note']}'),
+                                            Text(
+                                              r['notification_state'] == null
+                                                  ? 'Holat yangilanganda mijozga xabar beriladi.'
+                                                  : r['notification_state'] ==
+                                                        'sent'
+                                                  ? 'Mijoz xabari: ilovaga yozildi, web push yuborildi.'
+                                                  : r['notification_state'] ==
+                                                        'failed'
+                                                  ? 'Mijoz xabari: ilovaga yozildi. Push yetkazilmadi.'
+                                                  : r['notification_state'] ==
+                                                        'no_subscribers'
+                                                  ? 'Mijoz xabari: ilovaga yozildi. Push ruxsati yo‘q.'
+                                                  : 'Mijoz xabari: ilovaga yozildi, push navbatda.',
+                                            ),
+                                            if ((r['history'] as List?)
+                                                    ?.isNotEmpty ==
+                                                true)
+                                              ExpansionTile(
+                                                title: const Text(
+                                                  'Holat tarixi',
+                                                ),
+                                                children: [
+                                                  for (final h
+                                                      in r['history'] as List)
+                                                    Material(
+                                                      type: MaterialType
+                                                          .transparency,
+                                                      child: ListTile(
+                                                        title: Text(
+                                                          '${labels[h['status']] ?? h['status']}',
+                                                        ),
+                                                        subtitle: Text(
+                                                          '${h['message']}\n${webPreorderTime(h['created_at'])}',
+                                                        ),
+                                                      ),
+                                                    ),
+                                                ],
                                               ),
-                                            if (statusSaving.contains('${r['id']}')) const Padding(
-                                              padding: EdgeInsets.all(10), child: Text('Saqlanmoqda…')),
 
+                                            Wrap(
+                                              spacing: 8,
+                                              children: [
+                                                OutlinedButton.icon(
+                                                  onPressed: () => _view(
+                                                    '${r['book_image_url'] ?? ''}',
+                                                  ),
+                                                  icon: const Icon(
+                                                    Icons.menu_book_outlined,
+                                                  ),
+                                                  label: const Text(
+                                                    'Kitob rasmi',
+                                                  ),
+                                                ),
+                                                OutlinedButton.icon(
+                                                  onPressed: () => _view(
+                                                    '${r['payment_proof_url'] ?? ''}',
+                                                  ),
+                                                  icon: const Icon(
+                                                    Icons.receipt_outlined,
+                                                  ),
+                                                  label: const Text(
+                                                    'Avans cheki',
+                                                  ),
+                                                ),
+                                                OutlinedButton.icon(
+                                                  onPressed: () =>
+                                                      _checkoutPayment(r),
+                                                  icon: const Icon(
+                                                    Icons
+                                                        .account_balance_wallet_outlined,
+                                                  ),
+                                                  label: const Text(
+                                                    'Qolgan to‘lov va chek',
+                                                  ),
+                                                ),
+                                                for (final action in <String>[
+                                                  if (r['status'] == 'waiting')
+                                                    'accepted',
+                                                  if (r['status'] == 'accepted')
+                                                    'arrived',
+                                                  if (r['status'] !=
+                                                      'cancelled')
+                                                    'cancelled',
+                                                  if (r['status'] ==
+                                                      'cancelled')
+                                                    'waiting',
+                                                ])
+                                                  OutlinedButton(
+                                                    onPressed:
+                                                        statusSaving.contains(
+                                                          '${r['id']}',
+                                                        )
+                                                        ? null
+                                                        : () => _status(
+                                                            r,
+                                                            action,
+                                                          ),
+                                                    child: Text(
+                                                      action == 'accepted'
+                                                          ? 'Qabul qilish'
+                                                          : action == 'arrived'
+                                                          ? ((r['request_items']
+                                                                                as List?)
+                                                                            ?.length !=
+                                                                        null &&
+                                                                    (r['request_items']
+                                                                                as List)
+                                                                            .length >
+                                                                        1
+                                                                ? 'Barcha kitoblar keldi'
+                                                                : 'Kitob keldi')
+                                                          : action == 'waiting'
+                                                          ? 'Qayta ochish'
+                                                          : 'Bekor qilish',
+                                                    ),
+                                                  ),
+                                                if (statusSaving.contains(
+                                                  '${r['id']}',
+                                                ))
+                                                  const Padding(
+                                                    padding: EdgeInsets.all(10),
+                                                    child: Text('Saqlanmoqda…'),
+                                                  ),
+                                              ],
+                                            ),
                                           ],
                                         ),
-                                      ],
+                                      ),
                                     ),
-                                  ),
-                                ),
-                              )
-                              .toList()..addAll([
-                                if (hasMore && loaded.length >= 200) OutlinedButton.icon(
-                                  onPressed: loadingMore ? null : () => _more(loaded), icon: const Icon(Icons.expand_more),
-                                  label: Text(loadingMore ? 'Yuklanmoqda…' : 'Yana so‘rovlarni yuklash')),
-                              ]),
+                                  )
+                                  .toList()
+                                ..addAll([
+                                  if (hasMore && loaded.length >= 200)
+                                    OutlinedButton.icon(
+                                      onPressed: loadingMore
+                                          ? null
+                                          : () => _more(loaded),
+                                      icon: const Icon(Icons.expand_more),
+                                      label: Text(
+                                        loadingMore
+                                            ? 'Yuklanmoqda…'
+                                            : 'Yana so‘rovlarni yuklash',
+                                      ),
+                                    ),
+                                ]),
                         );
                       },
                     ),

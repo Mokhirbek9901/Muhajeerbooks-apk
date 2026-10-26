@@ -62,7 +62,10 @@ class AppStateFixed extends AppState {
 
     for (final entry in requested.entries) {
       final live = liveBooks[entry.key];
-      if (live == null || !live.isActive || live.stock <= 0 || live.price <= 0) {
+      if (live == null ||
+          !live.isActive ||
+          live.stock <= 0 ||
+          live.price <= 0) {
         soldOut.add(entry.value.title);
         continue;
       }
@@ -121,7 +124,12 @@ class AppStateFixed extends AppState {
     _checkoutChangingCart = true;
     try {
       // 1) Final tugma bosilgan lahzada live stockni UI'ni bloklamasdan tekshiramiz.
-      await _verifyFreshCartStock();
+      if (!(await backend?.hasPendingOrder(
+            phone,
+            professional: preserveCustomerProfile,
+          ) ??
+          false))
+        await _verifyFreshCartStock();
 
       try {
         // 2) Serverdagi order INSERT trigger ham kitob qatorlarini FOR UPDATE
@@ -158,30 +166,5 @@ class AppStateFixed extends AppState {
   }
 
   @override
-  Future<void> signOutCustomer() async {
-    // 1) UI darhol mehmon holatiga o'tadi.
-    savedCustomer = const {'name': '', 'phone': '', 'address': ''};
-    customerVerified = false;
-    notifyListeners();
-
-    // 2) Qurilmada/brauzerda saqlangan mijoz ma'lumotlarini o'chiramiz.
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('muhajeer_customer_name');
-    await prefs.remove('muhajeer_customer_phone');
-    await prefs.remove('muhajeer_customer_address');
-    await prefs.setBool('muhajeer_customer_verified_v1', false);
-
-    // 3) Supabase auth lokal logoutni bloklamaydi.
-    if (backendConfigured) {
-      unawaited(_remoteSignOut());
-    }
-  }
-
-  Future<void> _remoteSignOut() async {
-    try {
-      await Supabase.instance.client.auth.signOut();
-    } catch (_) {
-      // Local logout allaqachon bajarilgan; tarmoq xatosi foydalanuvchini ushlab qolmaydi.
-    }
-  }
+  Future<void> signOutCustomer() => super.signOutCustomer();
 }

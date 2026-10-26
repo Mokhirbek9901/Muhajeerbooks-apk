@@ -1,0 +1,108 @@
+name: PROMOTE validated Android 1186 to Google Play production
+
+# Emergency production promotion, without rebuilding the already tested AAB.
+# This workflow intentionally NEVER runs for main or any future app change.
+on:
+  push:
+    branches: [hotfix/android-white-screen-startup-20261018]
+    paths: ['.github/workflows/promote_android_1186_production.yml']
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: muhajeer-emergency-promote-1186
+  cancel-in-progress: false
+
+jobs:
+  promote-tested-internal-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Install Google Play API client
+        run: python3 -m pip install --quiet google-auth requests
+      - name: Verify internal build and promote exactly 1186 to production
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys, requests
+          from google.oauth2 import service_account
+          from google.auth.transport.requests import AuthorizedSession
+
+          # The previously tested internal build was made from this exact commit.
+          EXPECTED_SHA='874bd60cfab7f860ba39b430e102f96e3f5ffc25'
+          RUN_ID=39124719402
+          CODE='1186'
+          package='com.muhajeerbooks.app'
+          gh=requests.get(
+              f'https://api.github.com/repos/{os.environ["GITHUB_REPOSITORY"]}/actions/runs/{RUN_ID}',
+              headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],
+                       'Accept':'application/vnd.github+json'},
+              timeout=30)
+          gh.raise_for_status()
+          ci=gh.json()
+          if not (ci.get('conclusion')=='success' and ci.get('head_sha')==EXPECTED_SHA):
+              sys.exit('SAFETY STOP: exact signed internal release was not successful')
+          raw=os.environ.get('PLAY_SERVICE_ACCOUNT_JSON','').strip()
+          if not raw: sys.exit('SAFETY STOP: Google Play service credentials not available')
+          cred=service_account.Credentials.from_service_account_info(
+              json.loads(raw),
+              scopes=['https://www.googleapis.com/auth/androidpublisher'])
+          api=AuthorizedSession(cred)
+          root=f'https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{package}/edits'
+          def request(method,url,**kw):
+              r=api.request(method,url,timeout=50,**kw)
+              if not r.ok:
+                  print('Google Play API error:',r.status_code,r.text[:1100],flush=True)
+                  r.raise_for_status()
+              return r.json() if r.content else {}
+          edit=request('POST',root,json={})['id']
+          internal=request('GET',f'{root}/{edit}/tracks/internal')
+          production=request('GET',f'{root}/{edit}/tracks/production')
+          internal_releases=internal.get('releases',[])
+          prod_releases=production.get('releases',[])
+          summary=lambda releases: [
+              {'versions':r.get('versionCodes'),'status':r.get('status'),'name':r.get('name')}
+              for r in releases]
+          print('Internal track BEFORE:',summary(internal_releases),flush=True)
+          print('Production track BEFORE:',summary(prod_releases),flush=True)
+          tested=[r for r in internal_releases if CODE in [str(v) for v in r.get('versionCodes',[])]
+                  and r.get('status') in ('completed','inProgress')]
+          if len(tested)!=1:
+              sys.exit('SAFETY STOP: exact build 1186 not active in internal testing')
+          if len(tested[0].get('versionCodes',[]))!=1:
+              sys.exit('SAFETY STOP: internal release contains other untested versions')
+          if any(CODE in [str(v) for v in r.get('versionCodes',[])]
+                 and r.get('status')=='completed' for r in prod_releases):
+              print('Already PRODUCTION: build 1186 is live. No edit required.')
+              sys.exit(0)
+          if not any('1185' in [str(v) for v in r.get('versionCodes',[])]
+                     and r.get('status')=='halted' for r in prod_releases):
+              sys.exit('SAFETY STOP: original broken 1185 is not halted, manual review required')
+          active=[r for r in prod_releases if r.get('status') in ('completed','inProgress')]
+          if any(any(str(v) not in ('1082',) for v in r.get('versionCodes',[])) for r in active):
+              sys.exit('SAFETY STOP: unexpected production version already released')
+          # Promote the exact, pre-uploaded/signed AAB in Internal testing.
+          # No rebuild, no new upload and no change to the Android app database.
+          newrelease={'name':'2.5.20',
+                      'versionCodes':[CODE],
+                      'status':'completed',
+                      'releaseNotes':[{'language':'en-US',
+                                      'text':'Fixed startup on older Android phones. Improved reliability and notifications.'}]}
+          # New completed release replaces the previous serving release.
+          request('PUT',f'{root}/{edit}/tracks/production',
+                  json={'track':'production','releases':[newrelease]})
+          committed=request('POST',f'{root}/{edit}:commit',json={})
+          print('Production promotion COMMITTED, edit:',committed.get('id',edit),flush=True)
+          verify=request('POST',root,json={})['id']
+          latest=request('GET',f'{root}/{verify}/tracks/production').get('releases',[])
+          print('Production track AFTER:',summary(latest),flush=True)
+          if not any(CODE in [str(v) for v in r.get('versionCodes',[])]
+                     and r.get('status')=='completed' for r in latest):
+              sys.exit('FAILED VERIFICATION: Google Play does not show production 1186 completed')
+          print('SUCCESS: exact tested Android build 1186 is in Google Play PRODUCTION',flush=True)
+          PY

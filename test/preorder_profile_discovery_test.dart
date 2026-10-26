@@ -10,10 +10,7 @@ class _MockCustomerPreorders extends AppState {
   final List<Map<String, dynamic>> discovered;
 
   @override
-  Future<List<Map<String, dynamic>>> myPreorderBalances() async => const [];
-
-  @override
-  Future<List<Map<String, dynamic>>> myDiscoveredPreorders() async => discovered;
+  Future<List<Map<String, dynamic>>> releasePreorders() async => discovered.map((row) => Map<String, dynamic>.from(row)).toList();
 }
 
 void main() {

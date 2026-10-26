@@ -24,6 +24,9 @@ class _PrepaidCheckoutState extends AppState {
     'book_id': 'fabb4d3a-fd96-470a-bcc8-738f59ce157d',
     'status': 'arrived', 'price_ready': true,
     'quantity': 1, 'unit_price': 17000,
+    'main_items': <Map<String, dynamic>>[{
+      'title': 'Yusufning qizi', 'quantity': 1, 'unit_price': 17000,
+    }],
     'extra_total': 0, 'base_total': savedDeliveryType == '택배' ? 21000 : 17000,
     'deposit_credit': 5000, 'amount_due': savedDeliveryType == '택배' ? 16000 : 12000,
     'shipping_fee': savedDeliveryType == '택배' ? 4000 : 0,

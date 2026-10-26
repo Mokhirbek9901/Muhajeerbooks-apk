@@ -631,7 +631,7 @@ def order_push_event():
 
     private_key=os.getenv("VAPID_PRIVATE_KEY","").strip()
     if not private_key:
-        return jsonify(error="Push server sozlanmagan."),503
+        subscriptions=[]
 
     try:
       order_no=int(body.get("order_number") or 0)

@@ -43,7 +43,8 @@ def send_customer_apns_order_event(event_secret, phone, notifications, order, rp
         }
         sent = failed = 0
         # Phone ownership is not verified through SMS in this app.
-        # Do not reveal order IDs, items, amounts or addresses on lock screens.
+        # Do not reveal items, amounts or addresses on lock screens.
+        # The opaque order ID is used only after the app authenticates its owner.
         event = str(order.get("event", "")).strip().lower()
         title, message = {
             "submitted": ("Buyurtma yuborildi ✅", "Buyurtmangiz haqidagi ma’lumot ilovada."),
@@ -55,6 +56,7 @@ def send_customer_apns_order_event(event_secret, phone, notifications, order, rp
             "aps": {"alert": {"title": title, "body": message},
                     "sound": "default"},
             "kind": "customer_order",
+            "order_id": str(order.get("order_id", ""))[:36],
         }
         with httpx.Client(http2=True, timeout=8.0) as client:
             for token in tokens:

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
@@ -7712,6 +7713,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final prepaidDeposit = (prepaid?['deposit_credit'] as num?)?.toInt() ?? 0;
     final prepaidDue = (prepaid?['amount_due'] as num?)?.toInt() ?? 0;
     final pendingRefund = (prepaid?['refund_due'] as num?)?.toInt() ?? 0;
+    final submittedAmount =
+        (prepaid?['submitted_amount'] as num?)?.toInt() ?? 0;
     final professionalSubtotal =
         int.tryParse(manualPrice.text.trim()) ?? state.cartSubtotal;
     final total = isPrepaid

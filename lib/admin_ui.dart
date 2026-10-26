@@ -987,14 +987,6 @@ class _AdminApi {
     }
   }
 
-  Future<Map<String, dynamic>> demandAnalytics() async {
-    final raw = await _rpc(
-      'admin_demand_analytics',
-      params: {'p_secret': secret},
-    );
-    return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
-  }
-
   /// Read and manage customer-requested books without sending SMS.
   Future<List<Map<String, dynamic>>> requestedBooks() async {
     final raw = await _rpc(

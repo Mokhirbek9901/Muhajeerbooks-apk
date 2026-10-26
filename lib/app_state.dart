@@ -1616,15 +1616,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     return 0;
   }
 
-  bool get fourPlusFreeDeliveryEnabled {
-    for (final book in _books) {
-      if (book.discountActive && !book.discountFreeDelivery) return false;
-    }
-    return true;
-  }
-
-  bool get discountBlocksFourPlusFreeDelivery =>
-      activeGlobalDiscountPercent > 0 && !fourPlusFreeDeliveryEnabled;
+  bool get fourPlusFreeDeliveryEnabled => !cartLines.any(
+    (line) => line.book.discountActive && !line.book.discountFreeDelivery,
+  );
+  bool get discountBlocksFourPlusFreeDelivery => !fourPlusFreeDeliveryEnabled;
 
   void _scheduleDiscountExpiryRefresh() {
     _discountExpiryTimer?.cancel();
@@ -1655,12 +1650,15 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   bool _pushMessagesRefreshing = false;
   bool _lifecycleObserverRegistered = false;
 
-  List<Map<String, dynamic>> get customerNotices =>
-      List.unmodifiable(_customerNotices);
+  List<Map<String, dynamic>> get customerNotices => List.unmodifiable(
+    _backend != null && !checkoutIdentityReady
+        ? _customerNotices.where((n) => n['kind'] == 'global')
+        : _customerNotices,
+  );
   int get unreadCustomerNoticeCount =>
-      _customerNotices.where((n) => n['read'] != true).length;
+      customerNotices.where((n) => n['read'] != true).length;
   Map<String, dynamic>? get latestUnreadCustomerNotice {
-    for (final notice in _customerNotices) {
+    for (final notice in customerNotices) {
       if (notice['read'] != true) return notice;
     }
     return null;
@@ -1684,7 +1682,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     'address': '',
   };
 
-  List<ShopOrder> get localOrders => List.unmodifiable(_localOrders);
+  List<ShopOrder> get localOrders => List.unmodifiable(
+    _backend != null && !checkoutIdentityReady
+        ? const <ShopOrder>[]
+        : _localOrders,
+  );
   List<Book> get books => List.unmodifiable(_books);
   List<Map<String, dynamic>> get bundles => List.unmodifiable(_bundles);
   Map<String, dynamic> get storeNotice => Map.unmodifiable(_storeNotice);
@@ -1963,6 +1965,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _unlinkLocalPinQuietly() async {
     final token = _pinSession;
     _pinSession = null;
+    unawaited(syncPushIdentity(''));
     try {
       await _local.clearPinSession();
     } catch (_) {}
@@ -2056,6 +2059,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     await setAuthenticatedCustomer(cleanName, cleanPhone, verified: false);
     await _local.savePinSession(token);
     _pinSession = token;
+    unawaited(refreshPinOrderHistory().catchError((_) {}));
+    unawaited(syncPushIdentity(savedCustomerPhone));
+    unawaited(syncNativeCustomerPushIfAllowed());
     notifyListeners();
     unawaited(refreshPreorderNotices());
   }
@@ -2073,6 +2079,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     if (token.length != 64) throw StateError('Kirish sessiyasi olinmadi');
     await _local.savePinSession(token);
     _pinSession = token;
+    unawaited(refreshPinOrderHistory().catchError((_) {}));
+    unawaited(syncPushIdentity(savedCustomerPhone));
+    unawaited(syncNativeCustomerPushIfAllowed());
     notifyListeners();
   }
 
@@ -2089,6 +2098,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     await setAuthenticatedCustomer(name, savedPhone, verified: false);
     await _local.savePinSession(token);
     _pinSession = token;
+    unawaited(refreshPinOrderHistory().catchError((_) {}));
+    unawaited(syncPushIdentity(savedCustomerPhone));
+    unawaited(syncNativeCustomerPushIfAllowed());
     final restored = await _local.readOrdersAfterPinLogin(savedPhone);
     if (restored.isNotEmpty) {
       final ordersById = <String, ShopOrder>{
@@ -2121,6 +2133,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         verified: false,
       );
       _pinSession = token;
+      unawaited(refreshPinOrderHistory().catchError((_) {}));
+      unawaited(syncPushIdentity(savedCustomerPhone));
+      unawaited(syncNativeCustomerPushIfAllowed());
       notifyListeners();
     } catch (_) {
       _pinSession = null;
@@ -2131,42 +2146,14 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> signOutCustomer() async {
     final token = _pinSession;
+    final oldPhone = savedCustomerPhone;
+    final archive = List<ShopOrder>.from(_localOrders);
     _pinSession = null;
-    try {
-      await _local.clearPinSession();
-    } catch (_) {}
-    if (token != null && _backend != null) {
-      unawaited(_backend!.pinLogout(token).catchError((_) {}));
-    }
-
-    if ((savedCustomer['phone'] ?? '').trim().isNotEmpty) {
-      unawaited(_unregisterNativeCustomerPushQuietly());
-    }
-    // Securely archive existing orders BEFORE clearing this device's data.
-    final oldPhone = (savedCustomer['phone'] ?? '').trim();
-    try {
-      await _local.archiveOrdersForPin(
-        oldPhone,
-        _localOrders.isNotEmpty
-            ? List<ShopOrder>.from(_localOrders)
-            : await _local.loadOrders(),
-      );
-    } catch (archiveError) {
-      debugPrint('Secure order archive not available');
-    }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(
-      'muhajeer_address_v1_${oldPhone.replaceAll(RegExp(r'[^0-9]'), '')}',
-    );
     CustomerSession.professionalToken = '';
-    // Clear this device's account-specific data. Keep the durable device ID:
-    // it is used for unique-install analytics and PIN-linked order recovery.
+    _backend?.checkoutQuote = null;
     savedCustomer = const {'name': '', 'phone': '', 'address': ''};
     customerVerified = false;
     OwnerStoryAccess.instance.lock();
-    await _local.clearCustomer();
-    // PIN logout must not leave old personal orders/notifications displayed
-    // under the next person's name on this same phone.
     _localOrders.clear();
     _customerNotices.clear();
     _favorites.clear();
@@ -2174,10 +2161,13 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _cartBundleIds.clear();
     _restockSubscriptions.clear();
     _recentlyViewedIds.clear();
-    // Do not erase the database's orders or paid preorders on sign-out.
-    // They can be restored only by authenticating with the matching PIN.
     notifyListeners();
+    unawaited(syncPushIdentity(''));
+    if (token != null && _backend != null)
+      unawaited(_backend!.pinLogout(token).catchError((_) {}));
     await Future.wait([
+      _local.clearPinSession(),
+      _local.clearCustomer(),
       _local.saveOrders(const <ShopOrder>[]),
       _local.saveCustomerNotices(const <Map<String, dynamic>>[]),
       _local.saveFavorites(<String>{}),
@@ -2185,11 +2175,14 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       _local.saveCartBundles(<String>[]),
       _local.saveRestockSubscriptions(<String>{}),
       _local.saveRecentlyViewed(<String>[]),
+      () async {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(
+          'muhajeer_address_v1_${oldPhone.replaceAll(RegExp(r"[^0-9]"), "")}',
+        );
+      }(),
+      _local.archiveOrdersForPin(oldPhone, archive).catchError((_) {}),
     ]);
-
-    if (backendConfigured) {
-      unawaited(Supabase.instance.client.auth.signOut().catchError((_) {}));
-    }
   }
 
   void _startLiveBooksSync() {
@@ -2796,10 +2789,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> refreshCustomerPushMessages() async {
-    if (_backend == null || _pushMessagesRefreshing || !checkoutIdentityReady)
-      return;
+    if (_backend == null || _pushMessagesRefreshing) return;
     final session = _pinSession;
-    final requestedPhone = (savedCustomer['phone'] ?? '').trim();
+    final requestedPhone = checkoutIdentityReady
+        ? (savedCustomer['phone'] ?? '').trim()
+        : '';
     _pushMessagesRefreshing = true;
     try {
       final rows = await _backend!.fetchPushMessages(
@@ -2808,8 +2802,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       );
       if (rows.isEmpty ||
           _pinSession != session ||
-          !checkoutIdentityReady ||
-          (savedCustomer['phone'] ?? '').trim() != requestedPhone)
+          (checkoutIdentityReady
+                  ? (savedCustomer['phone'] ?? '').trim()
+                  : '') !=
+              requestedPhone)
         return;
 
       final existingIds = _customerNotices
@@ -3543,7 +3539,60 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     );
   }
 
+  bool _pinHistoryRefreshing = false;
+  Future<void> refreshPinOrderHistory() async {
+    if (_backend == null || !checkoutIdentityReady || _pinHistoryRefreshing)
+      return;
+    final token = _pinSession;
+    final phone = savedCustomerPhone;
+    _pinHistoryRefreshing = true;
+    try {
+      final ids = _localOrders
+          .where(
+            (o) =>
+                _customerPhoneKey(o.phone) == _customerPhoneKey(phone) &&
+                RegExp(r'^[a-fA-F0-9-]{36}$').hasMatch(o.id),
+          )
+          .map((o) => o.id)
+          .toList();
+      for (var offset = 0; offset < ids.length; offset += 50) {
+        await _backend!._customerRpc('customer_release_link_orders', {
+          'p_session': token,
+          'p_ids': ids.skip(offset).take(50).toList(),
+        });
+      }
+      final raw = await _backend!._customerRpc('customer_release_my_orders', {
+        'p_session': token,
+      });
+      if (_pinSession != token) return;
+      final byId = {
+        for (final o in _localOrders.where(
+          (o) => _customerPhoneKey(o.phone) == _customerPhoneKey(phone),
+        ))
+          o.id: o,
+      };
+      for (final r in (raw as List).whereType<Map>()) {
+        final order = ShopOrder.fromMap(Map<String, dynamic>.from(r));
+        byId[order.id] = order;
+      }
+      _localOrders
+        ..clear()
+        ..addAll(byId.values);
+      _localOrders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      await _local.saveOrders(_localOrders);
+      notifyListeners();
+    } finally {
+      _pinHistoryRefreshing = false;
+    }
+  }
+
   Future<List<ShopOrder>> customerOrdersByPhone(String phone) async {
+    if (_backend != null) {
+      if (!checkoutIdentityReady ||
+          _customerPhoneKey(phone) != _customerPhoneKey(savedCustomerPhone))
+        return const [];
+      await refreshPinOrderHistory();
+    }
     final key = _customerPhoneKey(phone);
     if (key.isEmpty) return [];
 

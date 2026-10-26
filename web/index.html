@@ -170,13 +170,13 @@
             'Authorization': 'Bearer ' + publishableKey
           },
           body: JSON.stringify({
-            name: 'customer_push_subscribe',
+            name: session ? 'customer_release_push_subscribe' : 'customer_push_subscribe',
             params: {
               p_endpoint: data.endpoint,
               p_p256dh: data.keys.p256dh,
               p_auth: data.keys.auth,
               p_user_agent: navigator.userAgent || '',
-              p_phone: (phone || '').toString().trim().slice(0, 40)
+              ...(session ? {p_session: session} : {p_phone: ''})
             }
           })
         });
@@ -245,14 +245,14 @@
         }
       }
 
-      window.muhajeerSyncPushPhone = async (phone = '') => {
+      window.muhajeerSyncPushPhone = async (phone = '', session = '') => {
         try {
           if (!window.muhajeerPushSupported() || Notification.permission !== 'granted') return false;
           const registration = await navigator.serviceWorker.register('/push-sw.js', { scope: '/' });
           await navigator.serviceWorker.ready;
           const subscription = await registration.pushManager.getSubscription();
           if (!subscription) return false;
-          return await syncSubscription(subscription, phone || savedCustomerPhone());
+          return await syncSubscription(subscription, phone, session);
         } catch (_) {
           return false;
         }

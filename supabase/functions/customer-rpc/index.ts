@@ -6,7 +6,7 @@ const db = createClient(url, serviceKey, { auth: { persistSession: false } });
 
 const origins = new Set(["https://muhajeer-books-live-production.up.railway.app","https://muhajeer-books-render-preview.onrender.com"]);
 const allowed = new Set([
-  "customer_release_preorder","customer_release_preorders","customer_release_quote","customer_release_order","customer_release_inbox","customer_release_receipt","customer_release_apns","customer_release_recover_pin","customer_release_delete_profile","customer_release_reviews","customer_release_review_action","customer_release_professional_login",
+  "customer_release_preorder","customer_release_preorders","customer_release_link_orders","customer_release_my_orders","customer_release_quote","customer_release_order","customer_release_inbox","customer_release_push_subscribe","customer_release_receipt","customer_release_apns","customer_release_recover_pin","customer_release_delete_profile","customer_release_reviews","customer_release_review_action","customer_release_professional_login",
   "customer_catalog_delta",
   "customer_store_notice",
   "customer_order_statuses",

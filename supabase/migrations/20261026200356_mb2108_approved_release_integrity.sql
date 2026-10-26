@@ -123,7 +123,7 @@ begin
   raise exception 'Yangi summa eski to‘lov chekidan ko‘p. Admin bilan bog‘laning'; end if;
  update private.release_preorder_invoices set shipping_fee=shipping,base_total=main_sum+shipping,extra_total=extras,
   amount_due=greatest(main_sum+extras+shipping-deposit_credit-balance_paid,0),
-  refund_due=greatest(deposit_credit+balance_paid-main_sum-extras-shipping,0),revision=revision+1,updated_at=now()
+  refund_due=greatest(deposit_credit+case when payment_state='proof_submitted' then submitted_amount else balance_paid end-main_sum-extras-shipping,0),revision=revision+1,updated_at=now()
   where source=p_source and reference=p_id;
 end $$;
 
@@ -140,7 +140,7 @@ begin
  return r||jsonb_build_object('price_ready',coalesce(inv.price_ready,false),'deposit_credit',coalesce(inv.deposit_credit,(r->>'deposit_amount')::bigint),
  'base_total',inv.base_total,'extra_total',inv.extra_total,'amount_due',inv.amount_due,'shipping_fee',inv.shipping_fee,'refund_due',inv.refund_due,
  'shipping_refund_due',case when inv.payment_state in ('proof_submitted','verified') then greatest(inv.submitted_amount-(inv.base_total+inv.extra_total-inv.deposit_credit),0) else 0 end,
- 'payment_state',inv.payment_state,'revision',inv.revision,'extras',extra_lines,'main_items',main_lines,'items',lines,
+ 'submitted_amount',inv.submitted_amount,'proof_submitted_amount',inv.submitted_amount,'payment_state',inv.payment_state,'revision',inv.revision,'extras',extra_lines,'main_items',main_lines,'items',lines,
  'unit_price',case when jsonb_array_length(main_lines)=1 then (main_lines->0->>'unit_price')::integer else 0 end,
  'can_edit',r->>'status'='arrived' and inv.payment_state='requested','recipient_name',coalesce(nullif(inv.recipient_name,''),r->>'customer_name'),
  'recipient_phone',coalesce(nullif(inv.recipient_phone,''),r->>'phone'),'delivery_address',inv.delivery_address,'delivery_type',coalesce(inv.delivery_type,'택배'),
@@ -174,7 +174,7 @@ begin
  perform pg_advisory_xact_lock(hashtextextended('release-preorder:'||p_source||':'||p_id,27));
  select * into inv from private.release_preorder_invoices where source=p_source and reference=p_id for update;
  if found then
-  if inv.converted_order_id is not null then
+  if inv.converted_order_id is not null and not exists(select 1 from public.orders where id=inv.converted_order_id and status='cancelled') then
    raise exception 'To‘langan zakasni avval buyurtmalar bo‘limida bekor qiling'; end if;
   update private.release_preorder_invoices set payment_state='cancelled',amount_due=0,refund_due=deposit_credit+balance_paid,revision=revision+1,updated_at=now() where source=p_source and reference=p_id;
   for l in select * from private.release_preorder_lines where source=p_source and reference=p_id and held>0 order by book_id for update loop
@@ -240,6 +240,9 @@ begin
   perform private.release_preorder_recalculate(p_source,p_id);
   if p_source='native' then update public.preorders set status='arrived' where id=p_id::bigint;
   else update public.web_preorder_requests set status='arrived',updated_at=now(),status_version=status_version+1 where id=p_id::uuid; end if;
+  if nullif(trim(r->>'phone'),'') is not null then
+   insert into public.customer_push_messages(phone,title,body,kind) values(r->>'phone','Oldindan zakasingiz keldi 📚','Yakuniy hisob va avans ayirilgan qolgan summani Oldindan zakaslarim bo‘limida tekshiring.','preorder_balance');
+  end if;
  elsif p_action='confirm' then
   if inv.converted_order_id is not null then return private.release_preorder_detail(p_source,p_id); end if;
   if r->>'status'<>'arrived' or not inv.price_ready or not inv.delivery_saved or
@@ -253,6 +256,7 @@ begin
   insert into public.orders(id,customer_name,phone,address,delivery_type,delivery_fee,subtotal,total,status,source,items,stock_reserved,payment_proof_path,payment_submitted_at,order_note,entered_by_admin,payment_status)
    values(oid,inv.recipient_name,inv.recipient_phone,inv.delivery_address,inv.delivery_type,inv.shipping_fee,subtotal::integer,(subtotal+inv.shipping_fee)::integer,'new','app',items,true,inv.balance_proof_path,now(),
    'Oldindan zakas '||p_source||':'||p_id||'; avans '||inv.deposit_credit::text,false,'paid');
+  insert into private.release_order_owners(order_id,phone_key) values(oid,public._customer_phone_key(r->>'phone')) on conflict do nothing;
   perform public.admin_accept_order_with_note(p_secret,oid,inv.admin_note);
   update private.release_preorder_invoices set balance_paid=submitted_amount,amount_due=0,payment_state='verified',converted_order_id=oid,revision=revision+1,updated_at=now() where source=p_source and reference=p_id;
   -- The normal order now owns the allocation, including cancellation/restock.
@@ -334,6 +338,7 @@ begin
   if inv.payment_state<>'requested' or inv.amount_due<=0 or not inv.delivery_saved then raise exception 'Avval manzil va qolgan summani tekshiring'; end if;
   if receipt_path !~ '^receipts/[A-Za-z0-9._/-]+$' or not exists(select 1 from storage.objects where bucket_id='payment-receipts' and name=receipt_path) then raise exception 'Chek fayli serverga yuklanmagan'; end if;
   if not exists(select 1 from private.release_receipt_claims c where c.path=receipt_path and c.phone_key=k) then raise exception 'Chek profilingizga tegishli emas'; end if;
+  if exists(select 1 from public.orders where payment_proof_path=receipt_path) or exists(select 1 from public.preorders where payment_proof_path=receipt_path) then raise exception 'Avval ishlatilgan chekni qayta yubormang'; end if;
   if exists(select 1 from private.release_preorder_invoices x where x.balance_proof_path=receipt_path and (x.source,x.reference)<>(p_source,p_id)) then raise exception 'Bu chek boshqa zakasda ishlatilgan'; end if;
   update private.release_preorder_invoices set balance_proof_path=receipt_path,submitted_amount=amount_due,payment_state='proof_submitted',revision=revision+1,updated_at=now() where source=p_source and reference=p_id;
  else raise exception 'Noto‘g‘ri amal'; end if;
@@ -776,6 +781,7 @@ declare
   v_subtotal int;
   v_delivery_fee int;
 begin
+  if private.pin_session_phone(p_order->>'session') is null then raise exception 'Buyurtma uchun ilovani yangilang va PIN bilan kiring'; end if;
   if coalesce((p_order->>'entered_by_admin')::boolean,false) then raise exception 'Professional buyurtma uchun yangilangan ilovada admin bilan kiring'; end if;
   v_id := coalesce(nullif(p_order->>'id','')::uuid, gen_random_uuid());
   v_subtotal := coalesce((p_order->>'manual_subtotal')::int, (p_order->>'subtotal')::int, 0);
@@ -998,7 +1004,7 @@ begin
  select q.snapshot into snapshot from private.release_order_owners o join private.release_checkout_quotes q on q.id=o.quote_id where o.order_id=new.id;
  if snapshot is not null then
   if new.entered_by_admin then new.subtotal:=(snapshot->>'subtotal')::integer;new.total:=new.subtotal+new.delivery_fee; end if;
-  if new.total<>(snapshot->>'total')::integer or new.subtotal<>(snapshot->>'subtotal')::integer or new.items<>snapshot->'items' or new.bundle_selections<>snapshot->'bundle_selections' then
+  if new.total<>(snapshot->>'total')::integer or new.subtotal<>(snapshot->>'subtotal')::integer or (select jsonb_agg(x-'unit_cost') from jsonb_array_elements(new.items)x)<>(select jsonb_agg(x-'unit_cost') from jsonb_array_elements(snapshot->'items')x) or new.bundle_selections<>snapshot->'bundle_selections' then
    raise exception 'Narx yoki set o‘zgardi. Yangi hisobni tasdiqlang; ortiqcha pul bo‘lsa admin bilan kelishing'; end if;
  end if;
  return new;
@@ -1040,6 +1046,7 @@ declare k text:=private.pin_session_phone(p_session);
 begin
  if k is null or not exists(select 1 from private.customer_pin_devices where phone_key=k and install_id=p_install_id) then raise exception 'PIN bilan kiring'; end if;
  if not p_enabled then update private.customer_apns_devices set opted_in=false where install_id=p_install_id and public._customer_phone_key(phone_digits)=k; return true; end if;
+ update private.customer_apns_devices set opted_in=false where install_id=p_install_id and token<>lower(p_token);
  return public.customer_register_native_apns(p_token,(select display_phone from private.customer_pin_profiles where phone_key=k),p_install_id);
 end $$;
 
@@ -1652,7 +1659,7 @@ begin
    select 1 from private.release_receipt_claims c join private.customer_pin_devices d on d.phone_key=c.phone_key
    where c.path=p_payment_proof_path and c.phone_key=public._customer_phone_key(p_phone) and d.install_id=p_install_id
   ) then raise exception 'Avans cheki PIN profilingizga biriktirilmagan'; end if;
-  if exists(select 1 from public.preorders where payment_proof_path=p_payment_proof_path and install_id<>p_install_id) or
+  if exists(select 1 from public.preorders where payment_proof_path=p_payment_proof_path and (install_id<>p_install_id or book_id<>p_book_id or status='cancelled')) or
    exists(select 1 from public.orders where payment_proof_path=p_payment_proof_path) then raise exception 'Chek boshqa buyurtmada ishlatilgan'; end if;
   -- A cancelled request is historical and never blocks a fresh booking.
   perform pg_catalog.pg_advisory_xact_lock(
@@ -1843,6 +1850,8 @@ declare k text:=private.pin_session_phone(p_session); device text;
 begin
  select install_id into device from private.customer_pin_sessions where token_hash=encode(extensions.digest(p_session,'sha256'),'hex');
  if k is not null then update private.customer_apns_devices set opted_in=false where install_id=device and public._customer_phone_key(phone_digits)=k; end if;
+ update public.push_subscriptions set phone='' where endpoint in (select endpoint from private.release_web_push_sessions where session_hash=encode(extensions.digest(p_session,'sha256'),'hex'));
+ delete from private.release_web_push_sessions where session_hash=encode(extensions.digest(p_session,'sha256'),'hex');
  delete from private.customer_pin_sessions where token_hash=encode(extensions.digest(p_session,'sha256'),'hex');
  return jsonb_build_object('ok',true);
 end $$;
@@ -1866,3 +1875,93 @@ do $$ declare r record; begin
  end loop;
 end $$;
 notify pgrst,'reload schema';
+
+create or replace function private.release_cancel_converted_order() returns trigger
+language plpgsql security definer set search_path='' as $$
+declare c private.release_conversion_orders%rowtype;
+begin
+ if new.status='cancelled' and old.status is distinct from new.status then
+  select * into c from private.release_conversion_orders where order_id=new.id;
+  if found then
+   perform private.release_cancel_preorder(c.source,c.reference);
+   if c.source='native' then update public.preorders set status='cancelled' where id=c.reference::bigint;
+   else update public.web_preorder_requests set status='cancelled',status_version=status_version+1,updated_at=now() where id=c.reference::uuid; end if;
+  end if;
+ end if;
+ return new;
+end $$;
+create trigger zzzz_orders_release_cancel_converted after update of status on public.orders for each row execute function private.release_cancel_converted_order();
+revoke all on function private.release_cancel_converted_order() from public,anon,authenticated;
+CREATE OR REPLACE FUNCTION private.release_push_subscribe_base(p_endpoint text, p_p256dh text, p_auth text, p_user_agent text DEFAULT ''::text, p_phone text DEFAULT ''::text)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+begin
+  if length(trim(coalesce(p_endpoint,''))) < 20
+     or length(coalesce(p_endpoint,'')) > 2048
+     or length(trim(coalesce(p_p256dh,''))) < 20
+     or length(coalesce(p_p256dh,'')) > 512
+     or length(trim(coalesce(p_auth,''))) < 8
+     or length(coalesce(p_auth,'')) > 256 then
+    raise exception 'Invalid push subscription';
+  end if;
+  insert into public.push_subscriptions(endpoint,p256dh,auth,user_agent,phone)
+  values (
+    trim(p_endpoint),trim(p_p256dh),trim(p_auth),
+    left(coalesce(p_user_agent,''),500),
+    left(trim(coalesce(p_phone,'')),40)
+  )
+  on conflict (endpoint) do update
+  set p256dh=excluded.p256dh,
+      auth=excluded.auth,
+      user_agent=excluded.user_agent,
+      phone=excluded.phone,
+      updated_at=now();
+  return true;
+end;
+$function$
+
+;
+create table if not exists private.release_web_push_sessions(endpoint text primary key,session_hash text not null);
+alter table private.release_web_push_sessions enable row level security;
+revoke all on private.release_web_push_sessions from public,anon,authenticated;
+create or replace function public.customer_push_subscribe(p_endpoint text,p_p256dh text,p_auth text,p_user_agent text default '',p_phone text default '') returns boolean
+language sql security definer set search_path='' as $$ select private.release_push_subscribe_base(p_endpoint,p_p256dh,p_auth,p_user_agent,'') $$;
+create or replace function public.customer_release_push_subscribe(p_session text,p_endpoint text,p_p256dh text,p_auth text,p_user_agent text default '') returns boolean
+language plpgsql security definer set search_path='' as $$
+declare k text:=private.pin_session_phone(p_session); phone text;
+begin
+ if k is null then raise exception 'PIN bilan kiring'; end if;
+ select display_phone into phone from private.customer_pin_profiles where phone_key=k;
+ perform private.release_push_subscribe_base(p_endpoint,p_p256dh,p_auth,p_user_agent,phone);
+ insert into private.release_web_push_sessions values(p_endpoint,encode(extensions.digest(p_session,'sha256'),'hex')) on conflict(endpoint) do update set session_hash=excluded.session_hash;
+ return true;
+end $$;
+revoke all on function private.release_push_subscribe_base(text,text,text,text,text),public.customer_release_push_subscribe(text,text,text,text,text) from public,anon,authenticated;
+grant execute on function public.customer_release_push_subscribe(text,text,text,text,text) to service_role;
+revoke all on function public.customer_register_native_apns(text,text,text),public.customer_unregister_native_apns(text) from public,anon,authenticated;
+
+create or replace function public.customer_release_link_orders(p_session text,p_ids uuid[]) returns boolean
+language plpgsql security definer set search_path='' as $$
+declare k text:=private.pin_session_phone(p_session); oid uuid;
+begin
+ if k is null or coalesce(array_length(p_ids,1),0)>50 then raise exception 'PIN bilan kiring'; end if;
+ for oid in select unnest(p_ids) loop
+  if exists(select 1 from public.orders where id=oid and public._customer_phone_key(phone)=k) then
+   insert into private.release_order_owners(order_id,phone_key) values(oid,k) on conflict do nothing;
+  end if;
+ end loop;
+ return true;
+end $$;
+create or replace function public.customer_release_my_orders(p_session text) returns jsonb
+language plpgsql security definer set search_path='' as $$
+declare k text:=private.pin_session_phone(p_session); result jsonb;
+begin
+ if k is null then raise exception 'PIN bilan kiring'; end if;
+ select coalesce(jsonb_agg(to_jsonb(o) order by o.created_at desc),'[]') into result from public.orders o join private.release_order_owners x on x.order_id=o.id where x.phone_key=k;
+ return result;
+end $$;
+revoke all on function public.customer_release_link_orders(text,uuid[]),public.customer_release_my_orders(text) from public,anon,authenticated;
+grant execute on function public.customer_release_link_orders(text,uuid[]),public.customer_release_my_orders(text) to service_role;

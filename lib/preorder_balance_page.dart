@@ -336,6 +336,8 @@ class _CustomerPreorderBalancesPageState
 
   Widget _invoiceCard(Map<String, dynamic> record) {
     final status = '${record['status'] ?? ''}';
+    final isContactOnly = record['ownership'] == 'contact';
+    final isWeb = record['source'] == 'web';
     final ref = record['source'] == 'native'
         ? 'native:${record['id']}'
         : '${record['id']}';
@@ -343,18 +345,25 @@ class _CustomerPreorderBalancesPageState
       child: ListTile(
         title: Text('${record['title'] ?? record['book_title'] ?? 'Kitob'}'),
         subtitle: Text(
-          'Holat: $status\nAvans: ${won((record['deposit_credit'] as num?)?.toInt() ?? 0)}'
-          '\nQolgan to‘lov: ${won((record['amount_due'] as num?)?.toInt() ?? 0)}'
-          '\nQaytariladigan pul: ${won((record['refund_due'] as num?)?.toInt() ?? 0)}',
+          '${isWeb ? 'Web oldindan zakaz\\n' : ''}'
+          'Holat: ${status == 'arrived' ? 'Kitob keldi' : status}\\n'
+          'Avans: ${won((record['deposit_credit'] as num?)?.toInt() ?? 0)}'
+          '\\nQolgan to‘lov: ${won((record['amount_due'] as num?)?.toInt() ?? 0)}'
+          '\\nQaytariladigan pul: ${won((record['refund_due'] as num?)?.toInt() ?? 0)}'
+          '${isContactOnly ? '\\nBu zakaz profil ma’lumotlari bilan topildi. To‘lovni davom ettirish uchun asl qurilmada oching yoki admin bilan bog‘laning.' : ''}',
         ),
         isThreeLine: true,
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute<void>(
-            builder: (_) => CheckoutPage(preorderId: ref),
-          ),
-        ).then((_) => refresh()),
+        trailing: isContactOnly
+            ? const Icon(Icons.lock_outline)
+            : const Icon(Icons.chevron_right),
+        onTap: isContactOnly
+            ? null
+            : () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => CheckoutPage(preorderId: ref),
+                ),
+              ).then((_) => refresh()),
       ),
     );
   }

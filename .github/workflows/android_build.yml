@@ -32,6 +32,7 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.47.7'
           channel: stable
           cache: true
 
@@ -101,6 +102,18 @@ jobs:
               deep_link = '''\n            <intent-filter android:autoVerify="true">\n                <action android:name="android.intent.action.VIEW" />\n                <category android:name="android.intent.category.DEFAULT" />\n                <category android:name="android.intent.category.BROWSABLE" />\n                <data android:scheme="https" android:host="muhajeer-books-live-production.up.railway.app" android:pathPrefix="/share/" />\n            </intent-filter>'''
               m = m.replace('</activity>', deep_link + '\n        </activity>', 1)
           manifest.write_text(m, encoding='utf-8')
+          PY
+
+      - name: Protect Android release plugin registrars and legacy rendering
+        run: |
+          python3 tools/prepare_android_release_compat.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('android/app/src/main/AndroidManifest.xml')
+          m = p.read_text()
+          if 'io.flutter.embedding.android.EnableImpeller' not in m:
+              m = m.replace('</application>', '    <meta-data android:name="io.flutter.embedding.android.EnableImpeller" android:value="false" />\n</application>', 1)
+          p.write_text(m)
           PY
 
       - name: Ignore Firebase Test Lab in device analytics

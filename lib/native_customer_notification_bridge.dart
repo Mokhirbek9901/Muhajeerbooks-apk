@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'app_state.dart';
+import 'admin_resume_session.dart';
+import 'admin_ui.dart' show AdminGatePage, AdminDashboardPage;
 import 'native_admin_push.dart';
 import 'customer_pin_page.dart';
 import 'store_ui.dart' show MyOrdersPage;
@@ -31,6 +33,8 @@ class _NativeCustomerNotificationBridgeState
     super.initState();
     if (!NativeAdminPush.supported) return;
     channel.setMethodCallHandler((call) async {
+      if (call.method == 'adminOrderTapped')
+        await openAdminOrders();
       if (call.method == 'customerOrderTapped')
         await open('${call.arguments ?? ''}');
       if (call.method == 'tokenUpdated' && mounted)
@@ -44,6 +48,25 @@ class _NativeCustomerNotificationBridgeState
         if (id != null && id.isNotEmpty) await open(id);
       } catch (_) {}
     });
+  }
+
+  Future<void> openAdminOrders() async {
+    if (opening || !mounted) return;
+    opening = true;
+    try {
+      final nav = widget.navigatorKey.currentState;
+      if (nav == null) return;
+      final snapshot = await AdminResumeSession.restore();
+      if (!mounted) return;
+      await nav.push(MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'mb:admin-push-orders'),
+        builder: (_) => snapshot == null
+            ? const AdminGatePage()
+            : AdminDashboardPage(secret: snapshot.secret, initialTab: 3),
+      ));
+    } finally {
+      opening = false;
+    }
   }
 
   Future<void> open(String id) async {

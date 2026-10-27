@@ -115,7 +115,7 @@ class AdminProfitBatchPanel extends StatelessWidget {
   double _soldRate(Map<String,dynamic> group) {
     final count=_n(group,'purchased_units');
     if(count<=0) return 0;
-    return (_n(group,'estimated_sold_units')*100.0/count).clamp(0.0,100.0);
+    return (_n(group,'estimated_sold_units')*100.0/count).clamp(0.0,100.0).toDouble();
   }
 
   Widget _groupRow(BuildContext context,Map<String,dynamic> group,

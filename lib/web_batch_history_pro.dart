@@ -857,18 +857,12 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
             : 'Moliya → Kitob xaridi'),
           if (grouped) ...[
             const SizedBox(height: 12),
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text('Partiya ichidagi kitob xaridlari',
-                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
-            ),
-            const SizedBox(height: 6),
-            for (final member in members)
-              _detail(
-                '${_batchDate(member['purchase_date'])} · '
-                '${member['title'] ?? 'Kitob xaridi'}',
-                _batchMoney(_batchNum(member['total_krw'])),
-              ),
+            _detail('Birlashtirilgan kitob xaridlari',
+              '${members.length} ta · ${_batchMoney(bookCost)}'),
+            const Text('Asl xarid qaydlari moliyada saqlangan. '
+              'Ularning eski alohida nomlari ko‘rsatilmaydi.',
+              style: TextStyle(fontSize: 11,
+                color: UzbekCustomerColors.textMuted)),
           ] else
             _detail('Kitoblar tarkibi',
               verified ? 'Tasdiqlangan' : 'Kitobma-kitob tasdiqlanmagan'),
@@ -884,19 +878,26 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
             style:const TextStyle(fontWeight:FontWeight.w800)),
           _batchOutflowSummary(matchedLines),
           if(grouped)
-            for(final member in members) ...[
-              const SizedBox(height:12),
-              Text((member['title']??'Kitob xaridi').toString(),
-                style:const TextStyle(fontWeight:FontWeight.w800,fontSize:13)),
-              WebBatchInlineEditor(
-                key:ValueKey('import:'+member['id'].toString()),
-                secret:widget.secret,kind:'import',
-                batchKey:member['id'].toString(),
-                lines:matchedLines.where((l)=>
-                  l['batch_import_id']?.toString()==member['id'].toString()
-                ).toList(),
-                onSaved:_refresh),
-            ]
+            // Only show an editor for the group's main receipt, plus any
+            // other receipt that already contains older book lines.
+            // This avoids five empty editors / five obsolete names.
+            for(final member in members)
+              if(member['id'].toString()==members.first['id'].toString() ||
+                 matchedLines.any((l) =>
+                   l['batch_import_id']?.toString()==member['id'].toString())) ...[
+                const SizedBox(height:12),
+                if(member['id'].toString()==members.first['id'].toString())
+                  const Text('Partiya kitoblarini tahrirlash',
+                    style:TextStyle(fontWeight:FontWeight.w800,fontSize:13)),
+                WebBatchInlineEditor(
+                  key:ValueKey('import:'+member['id'].toString()),
+                  secret:widget.secret,kind:'import',
+                  batchKey:member['id'].toString(),
+                  lines:matchedLines.where((l)=>
+                    l['batch_import_id']?.toString()==member['id'].toString()
+                  ).toList(),
+                  onSaved:_refresh),
+              ]
           else
             WebBatchInlineEditor(
               key:ValueKey('import:'+item['id'].toString()),

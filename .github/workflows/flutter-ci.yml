@@ -2,7 +2,7 @@ name: Flutter CI
 
 on:
   push:
-    branches: [main, feature/store-app-v2, fix/mb2108-all-approved-20261027]
+    branches: [main, feature/store-app-v2, fix/mb2108-all-approved-20261027, fix/batch-picker-and-professional-6494-20261028]
   pull_request:
 
 jobs:

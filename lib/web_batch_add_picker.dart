@@ -548,6 +548,13 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
         final transportTotal = transports
           .where((t) => _selectedTransportIds.contains(t['id'].toString()))
           .fold<int>(0, (sum, t) => sum + ((t['amount'] as num?)?.toInt() ?? 0));
+        // A confirmed historical finance group is one selectable batch.
+        // Expose the September 9 receipt directly instead of asking users
+        // to discover it under five outdated purchase names.
+        final septemberBatch = imported.where((row) =>
+          row['source'] == 'finance_group' &&
+          (row['purchase_date'] ?? '').toString() == '2026-09-09' &&
+          row['representative_import_id'] != null).toList();
         final listOfExisting = <DropdownMenuItem<String>>[
           for (final row in imported) DropdownMenuItem(
             value: row['source'] == 'finance_group'
@@ -590,6 +597,33 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
             constraints: const BoxConstraints(maxWidth: 800),
             child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
               children: [
+                if (septemberBatch.isNotEmpty) ...[
+                  Card(
+                    child: ListTile(
+                      key: const ValueKey('sep09-finance-batch-shortcut'),
+                      leading: const Icon(Icons.inventory_2_outlined,
+                        color: UzbekCustomerColors.teal),
+                      title: Text(
+                        (septemberBatch.first['title'] ??
+                          '09.09.2026 partiyasi').toString(),
+                        style: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                      subtitle: const Text(
+                        '09.09.2026 · Birlashtirilgan xarid va transport. '
+                        'Kitob soni va tannarxini shu partiyaga kiriting.',
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: _submitting ? null : () => setState(() {
+                        _mode = 'old';
+                        _existing = 'finance_group:${septemberBatch.first['id']}';
+                        _syncStock = false;
+                        _selectedTransportIds.clear();
+                        _selectedFinanceExpenseIds.clear();
+                      }),
+                    ),
+                  ),
+                  const SizedBox(height: 9),
+                ],
                 _sectionTitle('1. Partiya turi'),
                 SegmentedButton<String>(
                   segments: const [

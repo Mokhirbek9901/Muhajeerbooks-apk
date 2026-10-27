@@ -1122,7 +1122,11 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                 child: ListTile(
                   leading: CircleAvatar(child: Icon(_expenseIcon(category))),
                   title: Text(
-                    '${categoryLabels[category] ?? 'Boshqa'} — ${_financeWon((e['amount'] as num?) ?? 0)}',
+                    e['_consolidated_display_only'] == true
+                        ? '${(e['note'] ?? 'Partiya').toString().split(' · ').first} — '
+                          '${_financeWon((e['amount'] as num?) ?? 0)}'
+                        : '${categoryLabels[category] ?? 'Boshqa'} — '
+                          '${_financeWon((e['amount'] as num?) ?? 0)}',
                   ),
                   subtitle: Text(
                     [

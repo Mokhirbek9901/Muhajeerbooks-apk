@@ -37,6 +37,22 @@ void main() {
       'book-d');
   });
 
+  test('Uzrnoma from August stock is available for 10 October batch', () {
+    final books = <Map<String,dynamic>>[
+      {'id':'7e0d54ad-4696-4aa2-89d6-e239b60b250d','title':'Uzrnoma'},
+      {'id':'oct10-existing','title':'Oldin kiritilgan kitob'},
+    ];
+    // Only the October 10 (import 7) lines are excluded; an August
+    // (import 6) receipt for Uzrnoma does not hide the same catalog book.
+    final octoberSaved = <String>['oct10-existing'];
+    final visible = availableBatchPickerBooks(books,
+      excludedBookIds: octoberSaved,
+      excludedTitles: ['Oldin kiritilgan kitob'],
+      query: 'uzrnoma',
+    );
+    expect(visible.map((b)=>b['title']).toList(), ['Uzrnoma']);
+  });
+
   test('another batch does not hide this batch’s available books', () {
     final visible=availableBatchPickerBooks(catalog,
       excludedBookIds:['book-a'],

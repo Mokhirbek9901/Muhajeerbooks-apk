@@ -49,10 +49,30 @@ begin
         from public.web_book_batches l join public.books b on b.id=l.book_id
         where l.batch_import_id=p_key::bigint
     ),'[]'::jsonb);
+  elsif p_kind='legacy' then
+    if p_key is null or p_key !~ '^20[0-9]{2}-[0-9]{2}-[0-9]{2}
+revoke all on function public.admin_web_batch_existing_books(text,text,text)
+  from public,anon,authenticated;
+grant execute on function public.admin_web_batch_existing_books(text,text,text)
+  to anon,authenticated,service_role;
+ then
+      raise exception 'Tarixiy partiya sanasi noto‘g‘ri';
+    end if;
+    if not exists(select 1 from public.web_book_batches l
+      where l.purchased_at=p_key::date and l.batch_import_id is null
+        and l.batch_group_id is null) then
+      raise exception 'Tarixiy partiya topilmadi';
+    end if;
+    return coalesce((
+      select jsonb_agg(jsonb_build_object('book_id',l.book_id,'title',b.title))
+      from public.web_book_batches l join public.books b on b.id=l.book_id
+      where l.purchased_at=p_key::date and l.batch_import_id is null
+        and l.batch_group_id is null
+    ),'[]'::jsonb);
   else
     raise exception 'Partiya turi noto‘g‘ri';
   end if;
-end $$;
+end $;
 revoke all on function public.admin_web_batch_existing_books(text,text,text)
   from public,anon,authenticated;
 grant execute on function public.admin_web_batch_existing_books(text,text,text)

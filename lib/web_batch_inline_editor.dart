@@ -255,10 +255,19 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
                   icon:const Icon(Icons.edit_outlined,size:13),
                   label:Text('Tan narx: '+_won(cost),
                     style:const TextStyle(fontSize:11.5)))
-              else Text('$value dona · 1 dona ${_won(cost)}',
-                maxLines:2,
-                style:const TextStyle(fontSize:11.5,
-                  color:Color(0xFF657471))),
+              else ...[
+                Text('$value dona · 1 dona ${_won(cost)}',
+                  maxLines:2,
+                  style:const TextStyle(fontSize:11.5,
+                    color:Color(0xFF657471))),
+                if(line['fifo_outflow_units'] is num && value>0)
+                  Text(
+                    'Taxminiy sotilgan: ${_n(line['fifo_outflow_units'])} / '
+                    '$value dona • '
+                    '${(_n(line['fifo_outflow_units'])*100.0/value).toStringAsFixed(1)}%',
+                    style:const TextStyle(fontSize:11,
+                      fontWeight:FontWeight.w700,color:teal)),
+              ],
             ])),
           if(editing) ...[
             const SizedBox(width:5),

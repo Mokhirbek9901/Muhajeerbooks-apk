@@ -22,7 +22,7 @@ void main(){
     expect(find.text('Partiyalar bo‘yicha foyda'),findsOneWidget);
     expect(find.text('10.10.2026 partiyasi'),findsOneWidget);
     expect(find.text('₩10,000'),findsWidgets);
-    expect(find.textContaining('Haqiqiy savdo foydasi'),findsOneWidget);
+    expect(find.textContaining('Foyda ulushi sotilish foizi emas'),findsOneWidget);
     await tester.tap(find.text('10.10.2026 partiyasi'));
     await tester.pumpAndSettle();
     expect(find.text('Nafs tarbiyasi'),findsOneWidget);

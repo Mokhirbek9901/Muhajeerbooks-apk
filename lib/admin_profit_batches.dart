@@ -47,6 +47,12 @@ class AdminProfitBatchPanel extends StatelessWidget {
           Text('Sana: '+(group['date']??'').toString()+
             ' · '+_n(group,'purchased_units').toString()+' dona',
             style:const TextStyle(color:muted,fontSize:12)),
+          const SizedBox(height:7),
+          _line('Taxminiy sotilgan (FIFO)',
+            _n(group,'estimated_sold_units').toString()+' / '+
+            _n(group,'purchased_units').toString()+' dona'),
+          _line('Taxminiy sotilish foizi',
+            _soldRate(group).toStringAsFixed(0)+'%'),
           const SizedBox(height:12),
           Container(
             padding:const EdgeInsets.all(13),
@@ -75,6 +81,8 @@ class AdminProfitBatchPanel extends StatelessWidget {
               style:const TextStyle(color:navy,fontWeight:FontWeight.w800)),
             const SizedBox(height:5),
             _line('Kelgan',_n(item,'quantity').toString()+' dona'),
+            _line('Taxminiy sotilgan (FIFO)',
+              _n(item,'estimated_sold_units').toString()+' dona'),
             _line('O‘sha partiyadagi tan narxi',
               _won(_n(item,'unit_cost'))),
             _line('Hozirgi sotuv narxi',_won(_n(item,'sale_price'))),
@@ -83,9 +91,11 @@ class AdminProfitBatchPanel extends StatelessWidget {
               :_won(_n(item,'projected_profit'))),
           ],
           const SizedBox(height:15),
-          const Text('Eslatma: oldingi savdolarning qaysi partiyadan '
-            'chiqqani yozilmagan. Haqiqiy sotuv foydasi sotuv paytidagi '
-            'tan narxidan alohida hisoblanadi.',
+          const Text('Eslatma: sotilgan dona va foiz FIFO bo‘yicha '
+            'TAXMINIY hisob. Sotuvlar xarid partiyasiga aniq '
+            'bog‘lanmagan; kitob IDsi yo‘q eski savdolar hisobga '
+            'kirmaydi. Bu tasdiqlangan partiya sotuvlari emas. '
+            'Haqiqiy sotuv foydasi alohida hisoblanadi.',
             style:TextStyle(color:muted,fontSize:11.5,height:1.45)),
         ]),
       )),
@@ -102,59 +112,76 @@ class AdminProfitBatchPanel extends StatelessWidget {
     ]),
   );
 
+  double _soldRate(Map<String,dynamic> group) {
+    final count=_n(group,'purchased_units');
+    if(count<=0) return 0;
+    return (_n(group,'estimated_sold_units')*100.0/count).clamp(0.0,100.0);
+  }
+
   Widget _groupRow(BuildContext context,Map<String,dynamic> group,
     int index,int positiveTotal,{bool compact=false}) {
     final amount=_n(group,'projected_profit');
-    final proportion=positiveTotal>0&&amount>0
+    final share=positiveTotal>0&&amount>0
       ?(amount/positiveTotal).clamp(0.0,1.0):0.0;
+    final received=_n(group,'purchased_units');
+    final estimatedSold=_n(group,'estimated_sold_units').clamp(0,received>0?received:0);
+    final percent=_soldRate(group);
     final color=palette[index%palette.length];
     return InkWell(
       borderRadius:BorderRadius.circular(12),
       onTap:()=>_showGroupDetails(context,group),
       child:Padding(
-        padding:const EdgeInsets.symmetric(vertical:11,horizontal:3),
-        child:Row(children:[
-          CircleAvatar(radius:15,backgroundColor:const Color(0xFFF2F5FA),
-            child:Text((index+1).toString(),
-              style:const TextStyle(fontSize:12,color:navy,
-                fontWeight:FontWeight.w900))),
-          const SizedBox(width:8),
-          Container(width:32,height:32,decoration:BoxDecoration(
-            color:color.withValues(alpha:.10),
-            borderRadius:BorderRadius.circular(8)),
-            child:Icon(Icons.inventory_2_outlined,color:color,size:19)),
-          const SizedBox(width:9),
-          Expanded(flex:5,child:Column(
-            crossAxisAlignment:CrossAxisAlignment.start,children:[
-              Text((group['title']??'Partiya').toString(),maxLines:1,
-                overflow:TextOverflow.ellipsis,
-                style:const TextStyle(color:navy,fontSize:12,
-                  fontWeight:FontWeight.w800)),
+        padding:const EdgeInsets.symmetric(vertical:12,horizontal:3),
+        child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          Row(children:[
+            CircleAvatar(radius:15,backgroundColor:const Color(0xFFF2F5FA),
+              child:Text((index+1).toString(),
+                style:const TextStyle(fontSize:12,color:navy,
+                  fontWeight:FontWeight.w900))),
+            const SizedBox(width:8),
+            Container(width:32,height:32,decoration:BoxDecoration(
+              color:color.withValues(alpha:.10),
+              borderRadius:BorderRadius.circular(8)),
+              child:Icon(Icons.inventory_2_outlined,color:color,size:19)),
+            const SizedBox(width:9),
+            Expanded(child:Column(
+              crossAxisAlignment:CrossAxisAlignment.start,children:[
+                Text((group['title']??'Partiya').toString(),maxLines:1,
+                  overflow:TextOverflow.ellipsis,
+                  style:const TextStyle(color:navy,fontSize:12,
+                    fontWeight:FontWeight.w800)),
+                const SizedBox(height:3),
+                Text('$received dona kelgan · '+
+                  _n(group,'book_titles').toString()+' xil kitob',
+                  style:const TextStyle(color:muted,fontSize:10.5)),
+              ],
+            )),
+            const SizedBox(width:8),
+            Column(crossAxisAlignment:CrossAxisAlignment.end,children:[
+              Text(_won(amount),style:const TextStyle(
+                color:green,fontWeight:FontWeight.w900,fontSize:13)),
               const SizedBox(height:3),
-              Text(_n(group,'purchased_units').toString()+' dona · '+
-                _n(group,'book_titles').toString()+' xil kitob',
-                style:const TextStyle(color:muted,fontSize:10.5)),
-            ],
-          )),
-          const SizedBox(width:8),
-          Expanded(flex:5,child:Column(
-            crossAxisAlignment:CrossAxisAlignment.end,children:[
-              FittedBox(fit:BoxFit.scaleDown,
-                child:Text(_won(amount),style:const TextStyle(
-                  color:green,fontWeight:FontWeight.w900,fontSize:13))),
-              const SizedBox(height:7),
-              Row(children:[
-                Expanded(child:LinearProgressIndicator(value:proportion,
-                  minHeight:7,borderRadius:BorderRadius.circular(6),
-                  color:color,backgroundColor:const Color(0xFFE9EEF5))),
-                const SizedBox(width:6),
-                SizedBox(width:32,child:Text(
-                  (proportion*100).round().toString()+'%',
-                  style:const TextStyle(color:muted,fontSize:10))),
-              ]),
-            ],
-          )),
-          const Icon(Icons.chevron_right_rounded,color:muted,size:17),
+              Text('Foyda ulushi: ${(share*100).round()}%',
+                style:const TextStyle(color:muted,fontSize:10)),
+            ]),
+            const Icon(Icons.chevron_right_rounded,color:muted,size:17),
+          ]),
+          const SizedBox(height:11),
+          Row(children:[
+            const Expanded(child:Text('Taxminiy sotilish (FIFO)',
+              style:TextStyle(color:navy,fontSize:11,
+                fontWeight:FontWeight.w700))),
+            Text('${percent.toStringAsFixed(0)}%',
+              style:TextStyle(color:color,fontWeight:FontWeight.w800,
+                fontSize:12)),
+          ]),
+          const SizedBox(height:5),
+          LinearProgressIndicator(value:percent/100,minHeight:7,
+            borderRadius:BorderRadius.circular(6),
+            color:color,backgroundColor:const Color(0xFFE9EEF5)),
+          const SizedBox(height:5),
+          Text('$estimatedSold / $received dona taxminiy sotilgan',
+            style:const TextStyle(color:muted,fontSize:11)),
         ]),
       ),
     );
@@ -211,7 +238,10 @@ class AdminProfitBatchPanel extends StatelessWidget {
           const Divider(height:1,color:Color(0xFFE8EDF4)),
       ],
       const SizedBox(height:9),
-      const Text('Haqiqiy savdo foydasi partiyalarga taqsimlanmagan.',
+      const Text('Sotilgan dona va foiz — sotuvlar kitob IDsi bo‘yicha '
+        'eski partiyadan boshlab hisoblangan FIFO taxmini. '
+        'Sotuvlarning haqiqiy partiyasi belgilanmagan; IDsi yo‘q '
+        'eski savdolar kirmaydi. Foyda ulushi sotilish foizi emas.',
         style:TextStyle(color:muted,fontSize:10.5,height:1.35)),
     ]);
   }

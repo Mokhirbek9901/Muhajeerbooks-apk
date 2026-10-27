@@ -15,6 +15,21 @@ String _batchDate(dynamic value) {
   return parsed == null ? raw.substring(0, 10) : DateFormat('dd.MM.yyyy').format(parsed);
 }
 
+/// A saved catalog batch must remain visible in the main Partiyalar list,
+/// even when it has no separate finance expense or import record.
+@visibleForTesting
+List<Map<String, dynamic>> filterCatalogBatchGroups(
+  List<Map<String, dynamic>> groups,
+  String query,
+) {
+  final needle = query.trim().toLowerCase();
+  return groups.where((x) =>
+      (x['title'] ?? '').toString().toLowerCase().contains(needle) ||
+      (x['batch_date'] ?? '').toString().contains(needle)).toList()
+    ..sort((a, b) => (b['batch_date'] ?? '').toString()
+        .compareTo((a['batch_date'] ?? '').toString()));
+}
+
 /// Only confirmed finance purchases are called historical purchase batches.
 /// Current catalog stock and unit costs are NOT treated as received shipments.
 class WebProfessionalBatches extends StatefulWidget {
@@ -784,11 +799,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
         (x['title'] ?? '').toString().toLowerCase().contains(needle)).toList();
       // Catalog batch groups are saved receipts too, separate from finance.
       // Never double-count their book value as new finance purchases.
-      final shownGroups = groups.where((x) =>
-        (x['title'] ?? '').toString().toLowerCase().contains(needle) ||
-        (x['batch_date'] ?? '').toString().contains(needle)).toList()
-        ..sort((a,b) => (b['batch_date'] ?? '').toString()
-            .compareTo((a['batch_date'] ?? '').toString()));
+      final shownGroups = filterCatalogBatchGroups(groups, query);
       final shownInventory = inventory.where((x) =>
         (x['title'] ?? '').toString().toLowerCase().contains(needle) &&
         (!onlyRestocked || x['restocked_at'] != null)).toList();

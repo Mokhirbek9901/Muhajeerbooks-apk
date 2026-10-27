@@ -244,8 +244,8 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
               '$saved ta yangi kitob qo‘shildi. '
               '$skipped ta kitob partiyada avvaldan mavjud edi '
               'va uning soni yoki tannarxi o‘zgartirilmadi.'
-              '${titles.isEmpty ? '' : '\\n\\nMavjud kitoblar: $titles'}'
-              '\\n\\nUlarning sonini o‘zgartirish kerak bo‘lsa, '
+              '${titles.isEmpty ? '' : '\n\nMavjud kitoblar: $titles'}'
+              '\n\nUlarning sonini o‘zgartirish kerak bo‘lsa, '
               'Partiya tarixi bo‘limidan tahrirlang.',
             ),
             actions: [

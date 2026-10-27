@@ -102,6 +102,23 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
             }()
           else row,
       ];
+      // Already reconciled historical finance-group entries belong only to
+      // their existing batch. Do not show their obsolete individual names as
+      // candidate expenses for a second, new batch.
+      final groupedImports = purchases.where((row) =>
+        row['finance_group_id'] != null).toList();
+      final importIds = groupedImports.map((row) =>
+        (row['id'] ?? '').toString()).toSet();
+      final hiddenExpenseIds = <String>{
+        ...groupedImports.map((row) =>
+          (row['finance_expense_id'] ?? '').toString()),
+        ..._list(data['transports']).where((row) =>
+          importIds.contains((row['batch_import_id'] ?? '').toString()))
+          .map((row) => (row['id'] ?? '').toString()),
+      };
+      data['finance_options'] = _list(data['finance_options'])
+          .where((row) => !hiddenExpenseIds.contains(
+            (row['id'] ?? '').toString())).toList();
       data['saved_lines'] = values[2] is List ? values[2] : [];
       return data;
     });

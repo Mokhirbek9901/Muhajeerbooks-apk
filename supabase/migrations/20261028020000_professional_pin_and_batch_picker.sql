@@ -20,7 +20,7 @@ grant execute on function public.customer_release_professional_login(text)
 -- The caller must pass the same protected admin secret used by all batch tools.
 create or replace function public.admin_web_batch_existing_books(
  p_secret text,p_kind text,p_key text
-) returns jsonb language plpgsql security definer set search_path='' as $$
+) returns jsonb language plpgsql security definer set search_path='' as $func$
 begin
   if not coalesce(public.admin_verify(p_secret),false) then
     raise exception 'Admin tasdiqlanmadi';
@@ -50,12 +50,7 @@ begin
         where l.batch_import_id=p_key::bigint
     ),'[]'::jsonb);
   elsif p_kind='legacy' then
-    if p_key is null or p_key !~ '^20[0-9]{2}-[0-9]{2}-[0-9]{2}
-revoke all on function public.admin_web_batch_existing_books(text,text,text)
-  from public,anon,authenticated;
-grant execute on function public.admin_web_batch_existing_books(text,text,text)
-  to anon,authenticated,service_role;
- then
+    if p_key is null or p_key !~ '^20[0-9]{2}-[0-9]{2}-[0-9]{2}$' then
       raise exception 'Tarixiy partiya sanasi noto‘g‘ri';
     end if;
     if not exists(select 1 from public.web_book_batches l
@@ -72,7 +67,7 @@ grant execute on function public.admin_web_batch_existing_books(text,text,text)
   else
     raise exception 'Partiya turi noto‘g‘ri';
   end if;
-end $;
+end $func$;
 revoke all on function public.admin_web_batch_existing_books(text,text,text)
   from public,anon,authenticated;
 grant execute on function public.admin_web_batch_existing_books(text,text,text)

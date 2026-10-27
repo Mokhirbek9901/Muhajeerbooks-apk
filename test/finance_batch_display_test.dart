@@ -8,7 +8,7 @@ void main() {
     'id': i + 1,
     'finance_expense_id': 'purchase-$i',
     'finance_group_id': group,
-    'finance_group_title': '09.09.2026',
+    'finance_group_title': '09.09.2026 partiyasi',
     'finance_group_date': '2026-09-09',
   });
   final source = [
@@ -21,7 +21,7 @@ void main() {
       },
     <String, dynamic>{
       'id': 'transport',
-      'expense_date': '2026-09-10',
+      'expense_date': '2026-09-09',
       'category': 'transport',
       'amount': 19700,
     },
@@ -54,19 +54,19 @@ void main() {
     expect(source.last['id'], 'ads');
   });
 
-  test('single-day filter never shifts transport cost to another day', () {
+  test('all six historical expenses appear as a single Sep 9 item', () {
     final day9 = source.where((r) =>
       r['expense_date'] == '2026-09-09').toList();
     final shown = consolidatedFinanceDisplayRows(
       rows: day9, purchases: imports, transports: transport);
-    expect(shown.firstWhere((r) => r['_consolidated_display_only'] == true)
-      ['amount'], 987900);
-    expect(shown.fold<int>(0, (n, row) => n + row['amount'] as int), 990900);
-    final day10 = consolidatedFinanceDisplayRows(
-      rows: source.where((r) => r['expense_date'] == '2026-09-10').toList(),
-      purchases: imports, transports: transport);
-    expect(day10.single['amount'], 19700);
-    expect(day10.single['_consolidated_display_only'], isNull);
+    final group = shown.singleWhere(
+      (r) => r['_consolidated_display_only'] == true);
+    expect(group['amount'], 1007600);
+    expect(group['expense_date'], '2026-09-09');
+    expect(group['note'], contains('09.09.2026 partiyasi'));
+    expect(shown.fold<int>(0, (n, row) => n + (row['amount'] as int)),
+      1010600);
+    expect(shown.length, 2);
   });
 
   test('unlinked and missing overview do not fabricate groups', () {

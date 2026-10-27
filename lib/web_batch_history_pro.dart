@@ -30,6 +30,31 @@ List<Map<String, dynamic>> filterCatalogBatchGroups(
         .compareTo((a['batch_date'] ?? '').toString()));
 }
 
+/// Read-only FIFO projection: count historical intake and *estimated* outflow.
+/// This is NOT a verified sale count and never changes live inventory.
+@visibleForTesting
+Map<String, int>? historicalBatchOutflowEstimate(
+    List<Map<String, dynamic>> lines,
+    List<Map<String, dynamic>> lots) {
+  if (lines.isEmpty) return null;
+  final byId=<String,Map<String,dynamic>>{
+    for(final lot in lots) (lot['id']??'').toString():lot,
+  };
+  var received=0,outflow=0,remaining=0;
+  for(final line in lines){
+    final lot=byId[(line['id']??'').toString()];
+    if(lot==null) return null;
+    int? number(dynamic v)=>v is num?v.toInt():int.tryParse((v??'').toString());
+    final qty=number(line['quantity']);
+    final used=number(lot['estimated_sold_units']);
+    final left=number(lot['estimated_remaining_units']);
+    if(qty==null||used==null||left==null||qty<0||
+      used<0||left<0||used+left!=qty) return null;
+    received+=qty;outflow+=used;remaining+=left;
+  }
+  return {'received':received,'outflow':outflow,'remaining':remaining};
+}
+
 /// Only confirmed finance purchases are called historical purchase batches.
 /// Current catalog stock and unit costs are NOT treated as received shipments.
 class WebProfessionalBatches extends StatefulWidget {
@@ -56,6 +81,8 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
   String mode = 'purchases';
   String query = '';
   bool onlyRestocked = false;
+  List<Map<String,dynamic>> _lotEstimates=const [];
+  bool _lotEstimatesLoaded=false;
 
   @override
   void initState() {
@@ -71,6 +98,9 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
         params: {'p_secret': widget.secret}),
       Supabase.instance.client.rpc('admin_web_batch_line_list',
         params: {'p_secret': widget.secret}),
+      // Keep batch history usable if this optional read-only report fails.
+      Supabase.instance.client.rpc('admin_book_profit_batches',
+        params: {'p_secret':widget.secret}).catchError((_) => null),
     ]).then((data) {
       final main = data[0] is Map
         ? Map<String,dynamic>.from(data[0] as Map) : <String,dynamic>{};
@@ -80,6 +110,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
         'transport_records': transport['transports'] ?? [],
         'batch_groups': transport['groups'] ?? [],
         'saved_batch_lines': data[2] ?? [],
+        'fifo_outflow': data[3],
       };
     });
   }
@@ -431,6 +462,37 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
     }
   }
 
+  Widget _batchOutflowSummary(List<Map<String,dynamic>> lines){
+    if(lines.isEmpty) return const SizedBox.shrink();
+    if(!_lotEstimatesLoaded) return const Padding(
+      padding:EdgeInsets.symmetric(vertical:7),
+      child:Text('Hisobiy chiqim vaqtincha mavjud emas.',
+        style:TextStyle(fontSize:12,color:UzbekCustomerColors.textMuted)));
+    final x=historicalBatchOutflowEstimate(lines,_lotEstimates);
+    if(x==null) return const Padding(
+      padding:EdgeInsets.symmetric(vertical:7),
+      child:Text('FIFO hisobi bu partiya uchun to‘liq emas.',
+        style:TextStyle(fontSize:12,color:UzbekCustomerColors.textMuted)));
+    return Padding(
+      padding:const EdgeInsets.symmetric(vertical:10),
+      child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        const Text('Kirim va hisobiy chiqim (FIFO)',
+          style:TextStyle(fontSize:13,fontWeight:FontWeight.w900,
+            color:UzbekCustomerColors.navy)),
+        _detail('Jami qayd etilgan kirim','${x['received']} dona'),
+        _detail('Hisobiy chiqim','${x['outflow']} dona'),
+        _detail('Hisobiy qoldiq','${x['remaining']} dona'),
+        const Text('Bu aniq sotilgan son emas: hisob joriy ombor '
+          'qoldig‘iga asoslanadi. Qaytarish va qo‘lda tuzatishlar '
+          'ham ta’sir qilishi mumkin. Eski partiyani to‘ldirish '
+          'omborni qayta oshirmaydi va sotilgan kitobni '
+          'ikkinchi marta ayirmaydi.',
+          style:TextStyle(fontSize:11,color:UzbekCustomerColors.textMuted,
+            height:1.35)),
+      ]),
+    );
+  }
+
   Widget _groupTile(Map<String,dynamic> item,
       List<Map<String,dynamic>> transports,
       List<Map<String,dynamic>> savedLines) {
@@ -533,6 +595,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
             _detail('Transport xarajatlari',_batchMoney(transport)),
             _detail('Kitob + transport (hisoblangan)',_batchMoney(books + transport)),
           ],
+          _batchOutflowSummary(lines),
           const SizedBox(height: 12),
           WebBatchInlineEditor(
             key:ValueKey('group:'+id),
@@ -571,6 +634,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
           const Text('Bu tarixiy kirim; hozirgi omborga qayta qo‘shilmaydi.',
             style:TextStyle(fontSize:12,
               color:UzbekCustomerColors.textMuted)),
+          _batchOutflowSummary(lines),
           WebBatchInlineEditor(
             key:ValueKey('legacy:'+date),secret:widget.secret,
             kind:'legacy',batchKey:date,lines:lines,onSaved:_refresh),
@@ -765,6 +829,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
           const SizedBox(height:12),
           Text('Bu partiyaga kiritilgan: ${matchedLines.length} nomdagi kitob, $matchedQty dona',
             style:const TextStyle(fontWeight:FontWeight.w800)),
+          _batchOutflowSummary(matchedLines),
           if(grouped)
             for(final member in members) ...[
               const SizedBox(height:12),
@@ -911,6 +976,10 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
       final transports = _items(data['transport_records']);
       final groups = _items(data['batch_groups']);
       final savedLines=_items(data['saved_batch_lines']);
+      final fifo=data['fifo_outflow'];
+      _lotEstimatesLoaded=fifo is Map && fifo['lots'] is List;
+      _lotEstimates=_lotEstimatesLoaded
+        ? _items((fifo as Map)['lots']) : const [];
       final unlinkedByDate=<String,List<Map<String,dynamic>>>{};
       for(final line in savedLines) {
         if(line['batch_group_id']!=null || line['batch_import_id']!=null) continue;

@@ -1,7 +1,11 @@
-2026-10-28 internal TestFlight update — global chronological partiya history.
-Show all catalog batches and finance purchase batches in one date-sorted list:
-newest incoming receipt date first, oldest last.
-Example: 25 Oct 2026, 10 Oct 2026, 09 Sep 2026, Aug 2026.
-Keep all finance sums, batch names, books, FIFO estimates, sales and inventory unchanged.
-Use one common Flutter UI implementation for web and internal iOS TestFlight.
-Do not submit a public App Store release or publish to Play Market.
+2026-10-28 internal TestFlight update — existing batch multi-select books.
+Inside a saved batch, tap "Kitob qo‘shish" only once.
+Select multiple different book titles across searches in one picker,
+then tap "Tanlanganlarni qo‘shish", edit each item's quantity and unit cost,
+and finally tap a single "Saqlash" for one atomic historical batch update.
+Already recorded books in the selected batch must never show as new choices,
+including title aliases, books saved by another admin device, or locally staged
+additions. Keep existing unit-price snapshots, finance, sales, profits and
+live inventory unaffected until explicit Save; the historical receipt records
+must not restock current inventory or create duplicate expenses.
+Ship web + internal TestFlight only, no public App Store/Play Store release.

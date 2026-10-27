@@ -1,6 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+/// Keep finance-only historical groups in chronological order beside lots.
+@visibleForTesting
+List<Map<String,dynamic>> sortedProfitBatchGroups(
+    List<Map<String,dynamic>> groups) {
+  return [...groups]..sort((a,b) {
+    final d=(b['date']??'').toString().compareTo((a['date']??'').toString());
+    return d!=0?d:(a['title']??'').toString().compareTo((b['title']??'').toString());
+  });
+}
+
 /// Purchase lot margin projections. This does NOT attribute old sales to lots.
 /// Recorded sales use their immutable purchase-price snapshots elsewhere.
 class AdminProfitBatchPanel extends StatelessWidget {
@@ -34,6 +44,34 @@ class AdminProfitBatchPanel extends StatelessWidget {
   }
 
   void _showGroupDetails(BuildContext context,Map<String,dynamic> group) {
+    if (group['missing_lot_details']==true) {
+      showModalBottomSheet<void>(
+        context:context,isScrollControlled:true,showDragHandle:true,
+        builder:(context)=>SafeArea(child:Padding(
+          padding:const EdgeInsets.all(22),
+          child:Column(mainAxisSize:MainAxisSize.min,
+            crossAxisAlignment:CrossAxisAlignment.start,children:[
+            Text((group['title']??'Partiya').toString(),
+              style:const TextStyle(fontWeight:FontWeight.w900,fontSize:20,
+                color:navy)),
+            const SizedBox(height:14),
+            _line('Mavjud moliya xaridlari',
+              _n(group,'finance_purchase_count').toString()+' ta'),
+            _line('Moliyadagi xarajat',
+              _won(_n(group,'finance_recorded_cost'))),
+            const SizedBox(height:12),
+            const Text('Bu partiya uchun kitoblar hali biriktirilmagan. '
+              'Kelgan kitoblar soni, FIFO hisobiy chiqimi va kutilayotgan '
+              'foydani hozircha aniqlab bo‘lmaydi. '
+              'Biznes asboblari → Partiyalar tarixi bo‘limida kitoblarni '
+              'shu partiyaga kiriting. Xarajat qayta yozilmaydi.',
+              style:TextStyle(color:muted,fontSize:13,height:1.5)),
+            const SizedBox(height:8),
+          ]),
+        )),
+      );
+      return;
+    }
     final items=_groupLots(group);
     showModalBottomSheet<void>(
       context:context,isScrollControlled:true,showDragHandle:true,
@@ -121,6 +159,7 @@ class AdminProfitBatchPanel extends StatelessWidget {
 
   Widget _groupRow(BuildContext context,Map<String,dynamic> group,
     int index,int positiveTotal,{bool compact=false}) {
+    final incomplete=group['missing_lot_details']==true;
     final amount=_n(group,'projected_profit');
     final share=positiveTotal>0&&amount>0
       ?(amount/positiveTotal).clamp(0.0,1.0):0.0;
@@ -147,26 +186,36 @@ class AdminProfitBatchPanel extends StatelessWidget {
             const SizedBox(width:9),
             Expanded(child:Column(
               crossAxisAlignment:CrossAxisAlignment.start,children:[
-                Text((group['title']??'Partiya').toString(),maxLines:1,
+                Text((group['title']??'Partiya').toString(),maxLines:incomplete?2:1,
                   overflow:TextOverflow.ellipsis,
                   style:const TextStyle(color:navy,fontSize:12,
                     fontWeight:FontWeight.w800)),
                 const SizedBox(height:3),
-                Text('$received dona kelgan · '+
-                  _n(group,'book_titles').toString()+' xil kitob',
+                Text(incomplete
+                    ? '${_n(group,'finance_purchase_count')} ta xarid yozuvi · kitoblar biriktirilmagan'
+                    : '$received dona kelgan · '+
+                      _n(group,'book_titles').toString()+' xil kitob',
                   style:const TextStyle(color:muted,fontSize:10.5)),
               ],
             )),
             const SizedBox(width:8),
             Column(crossAxisAlignment:CrossAxisAlignment.end,children:[
-              Text(_won(amount),style:const TextStyle(
-                color:green,fontWeight:FontWeight.w900,fontSize:13)),
+              Text(incomplete?'Hisoblanmagan':_won(amount),
+                style:TextStyle(color:incomplete?muted:green,
+                  fontWeight:FontWeight.w900,fontSize:13)),
               const SizedBox(height:3),
-              Text('Foyda ulushi: ${(share*100).round()}%',
+              Text(incomplete?'Kitoblar kiritilmagan'
+                  :'Foyda ulushi: ${(share*100).round()}%',
                 style:const TextStyle(color:muted,fontSize:10)),
             ]),
             const Icon(Icons.chevron_right_rounded,color:muted,size:17),
           ]),
+          if (incomplete) ...[
+            const SizedBox(height:11),
+            Text('Moliyada: ${_won(_n(group,'finance_recorded_cost'))} · '
+              'Foydani hisoblash uchun partiyadagi kitoblarni kiriting.',
+              style:const TextStyle(color:muted,fontSize:11,height:1.4)),
+          ] else ...[
           const SizedBox(height:11),
           Row(children:[
             const Expanded(child:Text('FIFO chiqimi (hisobiy)',
@@ -184,6 +233,7 @@ class AdminProfitBatchPanel extends StatelessWidget {
           Text('$estimatedSold / $received dona hisobiy chiqim · '
             '${_n(group,'estimated_remaining_units')} dona qolgan',
             style:const TextStyle(color:muted,fontSize:11)),
+          ],
         ]),
       ),
     );
@@ -201,8 +251,8 @@ class AdminProfitBatchPanel extends StatelessWidget {
               'hozirgi sotuv narxida sotilgan deb hisoblanadi.',
               style:TextStyle(color:muted,fontSize:12)),
             const SizedBox(height:12),
-            for(var i=0;i<groups.length;i++) ...[
-              _groupRow(context,groups[i],i,total),
+            for(var i=0;i<sortedProfitBatchGroups(groups).length;i++) ...[
+              _groupRow(context,sortedProfitBatchGroups(groups)[i],i,total),
               const Divider(height:1),
             ],
           ]),
@@ -213,6 +263,7 @@ class AdminProfitBatchPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final visibleGroups=sortedProfitBatchGroups(groups);
     final positiveTotal=groups.fold<int>(0,(sum,g){
       final value=_n(g,'projected_profit');
       return sum+(value>0?value:0);
@@ -234,9 +285,9 @@ class AdminProfitBatchPanel extends StatelessWidget {
         const SizedBox(height:220,child:Center(
           child:Text('Partiya ma’lumotlari topilmadi.',
             style:TextStyle(color:muted))))
-      else for(var i=0;i<groups.length&&i<4;i++) ...[
-        _groupRow(context,groups[i],i,positiveTotal),
-        if(i+1<groups.length&&i<3)
+      else for(var i=0;i<visibleGroups.length&&i<4;i++) ...[
+        _groupRow(context,visibleGroups[i],i,positiveTotal),
+        if(i+1<visibleGroups.length&&i<3)
           const Divider(height:1,color:Color(0xFFE8EDF4)),
       ],
       const SizedBox(height:9),

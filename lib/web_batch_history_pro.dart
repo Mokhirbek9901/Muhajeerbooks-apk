@@ -42,17 +42,31 @@ Map<String, int>? historicalBatchOutflowEstimate(
   };
   var received=0,outflow=0,remaining=0;
   for(final line in lines){
-    final lot=byId[(line['id']??'').toString()];
+    // Prefer the batch-line RPC's authoritative per-lot FIFO projection.
+    // The old optional report remains a backwards-compatible fallback.
+    final hasLocal = line.containsKey('fifo_outflow_units') &&
+        line.containsKey('fifo_remaining_units');
+    final lot=hasLocal ? line : byId[(line['id']??'').toString()];
     if(lot==null) return null;
     int? number(dynamic v)=>v is num?v.toInt():int.tryParse((v??'').toString());
     final qty=number(line['quantity']);
-    final used=number(lot['estimated_sold_units']);
-    final left=number(lot['estimated_remaining_units']);
+    final used=number(lot['fifo_outflow_units'] ?? lot['estimated_sold_units']);
+    final left=number(lot['fifo_remaining_units'] ?? lot['estimated_remaining_units']);
     if(qty==null||used==null||left==null||qty<0||
       used<0||left<0||used+left!=qty) return null;
     received+=qty;outflow+=used;remaining+=left;
   }
   return {'received':received,'outflow':outflow,'remaining':remaining};
+}
+
+/// Consistent one-decimal FIFO estimate label on the closed batch card.
+@visibleForTesting
+String estimatedBatchSoldLabel(Map<String,int> amounts) {
+  final total=amounts['received'] ?? 0;
+  final used=amounts['outflow'] ?? 0;
+  if(total<=0 || used<0 || used>total) return 'Sotuv foizi hozircha aniqlanmadi';
+  return 'Taxminiy sotilgan: $used / $total dona • '
+      '${(used*100.0/total).toStringAsFixed(1)}%';
 }
 
 /// Only confirmed finance purchases are called historical purchase batches.
@@ -462,12 +476,39 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
     }
   }
 
+  Widget _soldBatchPreview(List<Map<String,dynamic>> lines) {
+    final x=historicalBatchOutflowEstimate(lines,_lotEstimates);
+    if(x==null || x['received']==0) {
+      return const Padding(
+        padding:EdgeInsets.only(top:5),
+        child:Text('Sotilgan dona va foizi: hozircha hisoblanmadi',
+          style:TextStyle(fontSize:11.5,
+            color:UzbekCustomerColors.textMuted)));
+    }
+    final total=x['received']!;
+    final used=x['outflow']!;
+    return Padding(
+      padding:const EdgeInsets.only(top:6),
+      child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Text(estimatedBatchSoldLabel(x),
+          style:const TextStyle(fontSize:12,fontWeight:FontWeight.w900,
+            color:UzbekCustomerColors.teal)),
+        const SizedBox(height:4),
+        ClipRRect(borderRadius:BorderRadius.circular(3),
+          child:LinearProgressIndicator(
+            value:(used/total).clamp(0.0,1.0),
+            minHeight:5,
+            backgroundColor:const Color(0xFFE5ECE8),
+            color:UzbekCustomerColors.teal)),
+        const Text('FIFO hisobiy — aniq sotuv emas',
+          style:TextStyle(fontSize:10.5,
+            color:UzbekCustomerColors.textMuted)),
+      ]),
+    );
+  }
+
   Widget _batchOutflowSummary(List<Map<String,dynamic>> lines){
     if(lines.isEmpty) return const SizedBox.shrink();
-    if(!_lotEstimatesLoaded) return const Padding(
-      padding:EdgeInsets.symmetric(vertical:7),
-      child:Text('Hisobiy chiqim vaqtincha mavjud emas.',
-        style:TextStyle(fontSize:12,color:UzbekCustomerColors.textMuted)));
     final x=historicalBatchOutflowEstimate(lines,_lotEstimates);
     if(x==null) return const Padding(
       padding:EdgeInsets.symmetric(vertical:7),
@@ -476,12 +517,15 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
     return Padding(
       padding:const EdgeInsets.symmetric(vertical:10),
       child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        const Text('Kirim va hisobiy chiqim (FIFO)',
+        const Text('Partiyada sotilganlar (FIFO — taxminiy)',
           style:TextStyle(fontSize:13,fontWeight:FontWeight.w900,
             color:UzbekCustomerColors.navy)),
-        _detail('Jami qayd etilgan kirim','${x['received']} dona'),
-        _detail('Hisobiy chiqim','${x['outflow']} dona'),
-        _detail('Hisobiy qoldiq','${x['remaining']} dona'),
+        _detail('Jami kelgan','${x['received']} dona'),
+        _detail('Taxminiy sotilgan','${x['outflow']} dona'),
+        _detail('Taxminiy qolgan','${x['remaining']} dona'),
+        _detail('Taxminiy sotilish foizi',
+          x['received']==0?'—':
+            '${(x['outflow']!*100.0/x['received']!).toStringAsFixed(1)}%'),
         const Text('Bu aniq sotilgan son emas: hisob joriy ombor '
           'qoldig‘iga asoslanadi. Qaytarish va qo‘lda tuzatishlar '
           'ham ta’sir qilishi mumkin. Eski partiyani to‘ldirish '
@@ -519,8 +563,11 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
           color: UzbekCustomerColors.teal),
         title: Text((item['title'] ?? 'Yangi partiya').toString(),
           style: const TextStyle(fontWeight: FontWeight.w900)),
-        subtitle: Text('${_batchDate(item['batch_date'])} • '
-          '${lines.length} xil kitob · $count dona saqlangan'),
+        subtitle:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          Text('${_batchDate(item['batch_date'])} • '
+            '${lines.length} xil kitob · $count dona saqlangan'),
+          _soldBatchPreview(lines),
+        ]),
         trailing: Text(_batchMoney(books + transport),
           style: const TextStyle(fontWeight: FontWeight.w900)),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
@@ -625,8 +672,11 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
           color:UzbekCustomerColors.teal),
         title:Text('${_batchDate(date)} partiyasi',
           style:const TextStyle(fontWeight:FontWeight.w900)),
-        subtitle:Text('${lines.length} xil kitob · $count dona saqlangan',
-          style:const TextStyle(fontSize:12)),
+        subtitle:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          Text('${lines.length} xil kitob · $count dona saqlangan',
+            style:const TextStyle(fontSize:12)),
+          _soldBatchPreview(lines),
+        ]),
         trailing:Text(_batchMoney(cost),
           style:const TextStyle(fontWeight:FontWeight.w900)),
         childrenPadding:const EdgeInsets.fromLTRB(16,0,16,14),
@@ -776,14 +826,17 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
             color: UzbekCustomerColors.teal)),
         title: Text(title, style: const TextStyle(
           fontSize: 14, fontWeight: FontWeight.w900)),
-        subtitle: Padding(padding: const EdgeInsets.only(top: 4),
-          child: Text(isOpeningStock
-            ? 'Boshlang‘ich qoldiq • Moliya qaydi'
-            : grouped
-              ? '${members.length} ta xarid birlashtirilgan • '
-                '${_batchDate(bought)}'
-              : 'Xarid: ${_batchDate(bought)} • Moliya qaydi',
-          style: const TextStyle(fontSize: 12))),
+        subtitle:Padding(padding:const EdgeInsets.only(top:4),
+          child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            Text(isOpeningStock
+              ? 'Boshlang‘ich qoldiq • Moliya qaydi'
+              : grouped
+                ? '${members.length} ta xarid birlashtirilgan • '
+                  '${_batchDate(bought)}'
+                : 'Xarid: ${_batchDate(bought)} • Moliya qaydi',
+              style:const TextStyle(fontSize:12)),
+            _soldBatchPreview(matchedLines),
+          ])),
         trailing: Text(_batchMoney(grandTotal),
           style: const TextStyle(fontSize: 14,
             fontWeight: FontWeight.w900, color: UzbekCustomerColors.navy)),

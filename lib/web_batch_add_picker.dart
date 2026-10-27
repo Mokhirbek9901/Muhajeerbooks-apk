@@ -42,8 +42,14 @@ class _SelectedBatchBook {
 }
 
 class WebBatchMultiAddPage extends StatefulWidget {
-  const WebBatchMultiAddPage({super.key, required this.secret});
+  const WebBatchMultiAddPage({
+    super.key,
+    required this.secret,
+    this.initialFinanceGroupId,
+  });
   final String secret;
+  /// Existing reconciled finance group to edit, never a new inventory intake.
+  final String? initialFinanceGroupId;
   @override
   State<WebBatchMultiAddPage> createState() => _WebBatchMultiAddPageState();
 }
@@ -65,6 +71,11 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialFinanceGroupId != null) {
+      _mode = 'old';
+      _existing = 'finance_group:${widget.initialFinanceGroupId}';
+      _syncStock = false;
+    }
     _data = Future.wait<dynamic>([
       Supabase.instance.client.rpc('admin_web_batch_picker_data',
         params: {'p_secret': widget.secret}),

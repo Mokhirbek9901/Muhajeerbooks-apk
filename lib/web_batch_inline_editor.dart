@@ -7,7 +7,7 @@ import 'uzbek_customer_style.dart';
 @visibleForTesting
 String normalizedBatchBookTitle(String title) => title.toLowerCase()
     .replaceAll(RegExp(r"[ʻʼ’‘`´]"), "'")
-    .replaceAll(RegExp(r'\\s+'), ' ').trim();
+    .replaceAll(RegExp(r'\s+'), ' ').trim();
 
 /// Filter the picker against the server's saved batch lines, not just the
 /// locally displayed lines. Canonical-title fallback catches legacy aliases.
@@ -624,7 +624,13 @@ class _BatchBookPickerState extends State<_BatchBookPicker>{
                 prefixIcon:Icon(Icons.search_rounded)),
               onChanged:(s)=>setState(()=>query=s)),
           ])),
-        Expanded(child:ListView.builder(
+        if(visible.isEmpty)
+          const Expanded(child:Center(child:Padding(
+            padding:EdgeInsets.all(24),
+            child:Text('Bu partiyada kiritilmagan kitob topilmadi. '
+              'Avval kiritilgan kitoblarni partiya tarixidan tahrirlang.',
+              textAlign:TextAlign.center))))
+        else Expanded(child:ListView.builder(
           itemCount:visible.length,
           itemBuilder:(context,i){
             final b=visible[i];

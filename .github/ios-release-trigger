@@ -1,12 +1,5 @@
-2026-10-28 Muhajeer Books internal TestFlight update — September finance batch UX.
-Ship the same validated source as web. Finance October view must show a
-navigational shortcut for the 09.09.2026 partiyasi (₩1,007,600),
-without counting September expenses in October totals. On selecting it,
-show the historical September 9 expense rows consolidated as ONE display item.
-Partiyalar tarixi: tapping 'Shu partiyaga kitob qo‘shish' opens the
-existing September finance batch directly (not a new stock receipt).
-Quantity and snapshot cost are entered to this existing group;
-never recreate expenses, duplicate inventory, or rewrite sold-book history.
-Keep App Store marketing version 2.5.20; use a new unique build number.
-Upload signed IPA to INTERNAL TESTFLIGHT testers only.
-Do not initiate public App Store release or Google Play submission.
+2026-10-28 internal TestFlight cleanup — remove retired historical batch shortcuts.
+Only remove obsolete hardcoded quick links for a deleted historical finance batch.
+All generic finance, catalog, inventory and batch capabilities stay available.
+Preserve sales history, sold-unit costs, revenues, orders and stock.
+No public App Store release or Google Play submission. Internal TestFlight only.

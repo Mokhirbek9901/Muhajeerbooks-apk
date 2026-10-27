@@ -1132,7 +1132,9 @@ class BackendService {
     try {
       final raw = await _customerRpc('customer_release_order', {
         ...pending,
-        'p_session': CustomerSession.token,
+        // A professional order belongs to the admin session, never to a
+        // customer's PIN login that may also be present on this device.
+        'p_session': professional ? '' : CustomerSession.token,
         'p_admin_token': professional
             ? CustomerSession.professionalToken
             : null,
@@ -3272,7 +3274,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       if (manualSubtotal != null) 'manual_subtotal': manualSubtotal,
     };
     final raw = await _backend!._customerRpc('customer_release_quote', {
-      'p_session': _pinSession ?? '',
+      // Use the same admin identity when obtaining the quote and saving it.
+      'p_session': professional ? '' : (_pinSession ?? ''),
       'p_order': request,
       'p_admin_token': professional ? CustomerSession.professionalToken : null,
     });

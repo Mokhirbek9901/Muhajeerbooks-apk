@@ -52,7 +52,7 @@ List<Map<String, dynamic>> consolidatedFinanceDisplayRows({
       (e) => (e['category'] ?? '') == 'transport',
     ).length;
     final originalImportTitle = (group.first['title'] ?? '').toString();
-    final archivedCountMatch = RegExp(r'(\\d+) ta xarid').firstMatch(originalImportTitle);
+    final archivedCountMatch = RegExp(r'(\d+) ta xarid').firstMatch(originalImportTitle);
     final archivedCount = archivedCountMatch == null
         ? null : int.tryParse(archivedCountMatch.group(1) ?? '');
     final displayPurchaseCount = archivedCount != null && archivedCount > purchaseCount

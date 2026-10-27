@@ -1,5 +1,7 @@
-2026-10-28 internal TestFlight cleanup — remove retired historical batch shortcuts.
-Only remove obsolete hardcoded quick links for a deleted historical finance batch.
-All generic finance, catalog, inventory and batch capabilities stay available.
-Preserve sales history, sold-unit costs, revenues, orders and stock.
-No public App Store release or Google Play submission. Internal TestFlight only.
+2026-10-28 internal TestFlight update — global chronological partiya history.
+Show all catalog batches and finance purchase batches in one date-sorted list:
+newest incoming receipt date first, oldest last.
+Example: 25 Oct 2026, 10 Oct 2026, 09 Sep 2026, Aug 2026.
+Keep all finance sums, batch names, books, FIFO estimates, sales and inventory unchanged.
+Use one common Flutter UI implementation for web and internal iOS TestFlight.
+Do not submit a public App Store release or publish to Play Market.

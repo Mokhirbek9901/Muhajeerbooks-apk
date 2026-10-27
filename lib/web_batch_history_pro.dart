@@ -31,6 +31,46 @@ List<Map<String, dynamic>> filterCatalogBatchGroups(
         .compareTo((a['batch_date'] ?? '').toString()));
 }
 
+/// One chronological list for catalog batches and finance purchase batches.
+/// Sorting affects presentation only: no finance, stock, cost, or sales writes.
+/// The receipt date (batch_date / purchase_date) is used, not created_at.
+@visibleForTesting
+List<Map<String, dynamic>> sortBatchHistoryByReceiptDate({
+  required List<Map<String, dynamic>> catalogGroups,
+  required List<Map<String, dynamic>> financePurchases,
+}) {
+  final entries = <Map<String, dynamic>>[
+    for (final group in catalogGroups)
+      <String, dynamic>{
+        'kind': 'catalog',
+        'date': (group['batch_date'] ?? '').toString(),
+        'item': group,
+      },
+    for (final purchase in financePurchases)
+      <String, dynamic>{
+        'kind': 'finance',
+        'date': (purchase['purchase_date'] ?? '').toString(),
+        'item': purchase,
+      },
+  ];
+  entries.sort((a, b) {
+    // ISO dates compare lexically in year/month/day order.
+    final dateOrder = (b['date'] ?? '').toString().compareTo(
+      (a['date'] ?? '').toString());
+    if (dateOrder != 0) return dateOrder;
+    // A deterministic stable tie order is useful when two sources share
+    // a receipt date. Never use the expense amount as a sort key.
+    final typeOrder = (a['kind'] ?? '').toString().compareTo(
+      (b['kind'] ?? '').toString());
+    if (typeOrder != 0) return typeOrder;
+    final itemA = a['item'] as Map<String, dynamic>;
+    final itemB = b['item'] as Map<String, dynamic>;
+    return (itemB['id'] ?? '').toString().compareTo(
+      (itemA['id'] ?? '').toString());
+  });
+  return entries;
+}
+
 /// Read-only FIFO projection: count historical intake and *estimated* outflow.
 /// This is NOT a verified sale count and never changes live inventory.
 @visibleForTesting
@@ -1098,6 +1138,10 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
       // Catalog batch groups are saved receipts too, separate from finance.
       // Never double-count their book value as new finance purchases.
       final shownGroups = filterCatalogBatchGroups(groups, query);
+      final chronologicalBatches = sortBatchHistoryByReceiptDate(
+        catalogGroups: shownGroups,
+        financePurchases: shownPurchases,
+      );
       final shownInventory = inventory.where((x) =>
         (x['title'] ?? '').toString().toLowerCase().contains(needle) &&
         (!onlyRestocked || x['restocked_at'] != null)).toList();
@@ -1217,24 +1261,21 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
                 onChanged: (v) => setState(() => onlyRestocked = v ?? false)),
           ],
           if (mode == 'purchases') ...[
-            if (shownGroups.isNotEmpty) ...[
+            if (chronologicalBatches.isNotEmpty) ...[
               const Padding(padding: EdgeInsets.only(bottom: 8),
-                child: Text('Yangi kiritilgan partiyalar',
+                child: Text('Partiyalar — yangidan eskiga',
                   style: TextStyle(fontWeight: FontWeight.w900,
                     fontSize: 16, color: UzbekCustomerColors.navy))),
-              for (final group in shownGroups)
-                _groupTile(group,transports,savedLines),
-              const SizedBox(height: 12),
-            ],
-            if (shownPurchases.isNotEmpty) ...[
-              const Padding(padding: EdgeInsets.only(bottom: 8),
-                child: Text('Moliya bo‘yicha xarid partiyalari',
-                  style: TextStyle(fontWeight: FontWeight.w900,
-                    fontSize: 16, color: UzbekCustomerColors.navy))),
-              for (var i=0;i<shownPurchases.length;i++)
-                _purchaseTile(shownPurchases[i],i,transports,savedLines),
-            ],
-            if (shownGroups.isEmpty && shownPurchases.isEmpty)
+              for (var i = 0; i < chronologicalBatches.length; i++)
+                if (chronologicalBatches[i]['kind'] == 'catalog')
+                  _groupTile(
+                    chronologicalBatches[i]['item'] as Map<String, dynamic>,
+                    transports, savedLines)
+                else
+                  _purchaseTile(
+                    chronologicalBatches[i]['item'] as Map<String, dynamic>,
+                    i, transports, savedLines),
+            ] else
               const Padding(padding: EdgeInsets.all(24),
                 child: Text('Mos partiya yoki xarid yozuvi yo‘q')),
           ],
@@ -1265,7 +1306,8 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
             const Text('Yangi partiyalar',
               style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
             const SizedBox(height: 8),
-            for (final group in groups) _groupTile(group,transports,savedLines),
+            for (final group in filterCatalogBatchGroups(groups, ''))
+              _groupTile(group,transports,savedLines),
             if(unlinkedDates.isNotEmpty) ...[
               const SizedBox(height:12),
               const Text('Eski qayd qilingan partiyalar',

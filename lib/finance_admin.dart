@@ -1120,7 +1120,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
               child: ListTile(
                 key: const ValueKey('open-sep09-finance-batch'),
                 leading: const Icon(Icons.inventory_2_outlined,
-                  color: AppColors.primary),
+                  color: AppColors.navy),
                 title: Text(
                   '${(september09Batch['note'] ?? '09.09.2026 partiyasi')
                     .toString().split(' · ').first} — '

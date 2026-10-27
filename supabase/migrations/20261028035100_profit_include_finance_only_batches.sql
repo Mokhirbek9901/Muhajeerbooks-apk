@@ -106,6 +106,12 @@ begin
           from public.web_batch_imports i
           left join public.finance_expenses f on f.id=i.finance_expense_id
           where i.finance_group_id=fg.id
+        ) + (
+          select coalesce(sum(f.amount),0)
+          from public.web_batch_transport_links tl
+          join public.web_batch_imports i on i.id=tl.batch_import_id
+          join public.finance_expenses f on f.id=tl.finance_expense_id
+          where i.finance_group_id=fg.id
         )
       ) order by fg.batch_date desc,fg.title)
       from public.web_finance_batch_groups fg

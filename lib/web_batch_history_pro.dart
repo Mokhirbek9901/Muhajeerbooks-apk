@@ -59,6 +59,16 @@ Map<String, int>? historicalBatchOutflowEstimate(
   return {'received':received,'outflow':outflow,'remaining':remaining};
 }
 
+/// Consistent one-decimal FIFO estimate label on the closed batch card.
+@visibleForTesting
+String estimatedBatchSoldLabel(Map<String,int> amounts) {
+  final total=amounts['received'] ?? 0;
+  final used=amounts['outflow'] ?? 0;
+  if(total<=0 || used<0 || used>total) return 'Sotuv foizi hozircha aniqlanmadi';
+  return 'Taxminiy sotilgan: $used / $total dona • '
+      '${(used*100.0/total).toStringAsFixed(1)}%';
+}
+
 /// Only confirmed finance purchases are called historical purchase batches.
 /// Current catalog stock and unit costs are NOT treated as received shipments.
 class WebProfessionalBatches extends StatefulWidget {
@@ -477,11 +487,10 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
     }
     final total=x['received']!;
     final used=x['outflow']!;
-    final pct=used*100.0/total;
     return Padding(
       padding:const EdgeInsets.only(top:6),
       child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        Text('Taxminiy sotilgan: $used / $total dona • ${pct.toStringAsFixed(1)}%',
+        Text(estimatedBatchSoldLabel(x),
           style:const TextStyle(fontSize:12,fontWeight:FontWeight.w900,
             color:UzbekCustomerColors.teal)),
         const SizedBox(height:4),

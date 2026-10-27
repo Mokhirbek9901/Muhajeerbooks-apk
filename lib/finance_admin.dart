@@ -896,6 +896,21 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
               onFilter: () => unawaited(_openPeriodFilter()),
               onAddExpense: _addExpense,
             ),
+            if (september09Batch != null) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: ActionChip(
+                  key: const ValueKey('sep09-finance-quick-filter'),
+                  avatar: const Icon(Icons.calendar_month_outlined, size: 18),
+                  label: Text(
+                    '09.09.2026 partiyasi • '
+                    '${_financeWon((september09Batch['amount'] as num?) ?? 0)}',
+                  ),
+                  onPressed: _showSeptember09Batch,
+                ),
+              ),
+            ],
             const SizedBox(height: 20),
           ] else ...[
             Row(

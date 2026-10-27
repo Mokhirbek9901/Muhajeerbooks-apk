@@ -29,7 +29,7 @@ void main() {
     final visible=availableBatchPickerBooks(catalog,
       excludedBookIds:['book-b'],
       excludedTitles:[],
-      query:'daf',
+      query:'dafina',
     );
     expect(visible,isEmpty);
     expect(availableBatchPickerBooks(catalog,

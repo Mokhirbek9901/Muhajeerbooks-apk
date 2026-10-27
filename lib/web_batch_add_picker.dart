@@ -179,7 +179,9 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
           : _money(financeMath.bookDifference!)}. '
         'Bu xarajatlar Moliya tarixida mavjud, qayta yaratilmaydi.';
     final text = isOld
-      ? 'Eski partiyaga $nBooks nomdagi, jami $nQty dona kitob qayd etiladi. '
+      ? 'Eski partiyaga $nBooks nomdagi, jami $nQty dona kitob tekshiriladi. '
+        'Avvaldan shu partiyada bor kitoblar qayta qo‘shilmaydi; '
+        'qolganlari saqlanadi. '
         '$transportNote '
         'Bu tarixiy ma’lumot; ombor va moliyaga qayta qo‘shilmaydi. '
         'Avtomatik narxlar joriy katalog tannarxidir, tarixiy tannarx '
@@ -207,7 +209,7 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
       final pieces = (_existing ?? '').split(':');
       final oldType = pieces.firstOrNull == 'import'
         ? 'old_import' : 'old_group';
-      await Supabase.instance.client.rpc('admin_web_bulk_batch_save',
+      final response = await Supabase.instance.client.rpc('admin_web_bulk_batch_save',
         params: {
           'p_secret': widget.secret,
           'p_data': {
@@ -224,7 +226,38 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
           },
         });
       if (!mounted) return;
-      Navigator.pop(context, true);
+      final result = response is Map
+          ? Map<String, dynamic>.from(response)
+          : <String, dynamic>{};
+      final skipped = (result['skipped_existing'] as num?)?.toInt() ?? 0;
+      if (skipped > 0) {
+        final saved = (result['items'] as num?)?.toInt() ?? 0;
+        final titles = result['skipped_titles'] is List
+            ? (result['skipped_titles'] as List)
+                .map((x) => x.toString()).join(', ')
+            : '';
+        await showDialog<void>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Partiya saqlandi'),
+            content: Text(
+              '$saved ta yangi kitob qo‘shildi. '
+              '$skipped ta kitob partiyada avvaldan mavjud edi '
+              'va uning soni yoki tannarxi o‘zgartirilmadi.'
+              '${titles.isEmpty ? '' : '\n\nMavjud kitoblar: $titles'}'
+              '\n\nUlarning sonini o‘zgartirish kerak bo‘lsa, '
+              'Partiya tarixi bo‘limidan tahrirlang.',
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Tushunarli'),
+              ),
+            ],
+          ),
+        );
+      }
+      if (mounted) Navigator.pop(context, true);
     } catch (error) {
       _message('Saqlashda xato: $error');
     } finally {

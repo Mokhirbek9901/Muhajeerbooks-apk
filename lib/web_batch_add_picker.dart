@@ -65,11 +65,46 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
   @override
   void initState() {
     super.initState();
-    _data = Supabase.instance.client.rpc('admin_web_batch_picker_data',
-      params: {'p_secret': widget.secret})
-      .then((value) => value is Map
-        ? Map<String,dynamic>.from(value)
-        : <String,dynamic>{});
+    _data = Future.wait<dynamic>([
+      Supabase.instance.client.rpc('admin_web_batch_picker_data',
+        params: {'p_secret': widget.secret}),
+      Supabase.instance.client.rpc('admin_web_batch_overview',
+        params: {'p_secret': widget.secret}),
+      Supabase.instance.client.rpc('admin_web_batch_line_list',
+        params: {'p_secret': widget.secret}),
+    ]).then((values) {
+      final data = values[0] is Map
+          ? Map<String,dynamic>.from(values[0] as Map)
+          : <String,dynamic>{};
+      final overview = values[1] is Map
+          ? Map<String,dynamic>.from(values[1] as Map)
+          : <String,dynamic>{};
+      final purchases = _list(overview['purchases']);
+      // Finance groups appear once, not as five individual purchase options.
+      // Map each group to its real 09.09 receipt for legacy-safe inserts.
+      final historical = _list(data['historical']);
+      data['historical'] = [
+        for (final row in historical)
+          if (row['source'] == 'finance_group')
+            () {
+              final members = purchases.where((p) =>
+                p['finance_group_id']?.toString() == row['id'].toString())
+                .toList()..sort((a,b) =>
+                  (a['id'] as num).toInt().compareTo((b['id'] as num).toInt()));
+              final dated = members.where((m) =>
+                m['purchase_date']?.toString() == row['purchase_date']?.toString());
+              return {
+                ...row,
+                'representative_import_id': dated.isNotEmpty
+                    ? dated.first['id'] : (members.isNotEmpty ? members.first['id'] : null),
+                'member_import_ids': members.map((m) => m['id'].toString()).toList(),
+              };
+            }()
+          else row,
+      ];
+      data['saved_lines'] = values[2] is List ? values[2] : [];
+      return data;
+    });
   }
 
   @override
@@ -145,6 +180,20 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
     final nQty = _selected.values.fold<int>(0, (s, x) => s + x.qty);
     final isOld = _mode == 'old';
     final data = await _data;
+    final selectedKey = (_existing ?? '').split(':');
+    final selectedFinanceGroup = selectedKey.firstOrNull == 'finance_group'
+        ? _list(data['historical']).where((row) =>
+            row['source'] == 'finance_group' &&
+            row['id'].toString() == selectedKey.skip(1).join(':'))
+        : <Map<String,dynamic>>[];
+    final targetImportId = selectedFinanceGroup.isNotEmpty
+        ? selectedFinanceGroup.first['representative_import_id']
+        : null;
+    if (_mode == 'old' && selectedKey.firstOrNull == 'finance_group' &&
+        targetImportId == null) {
+      _message('Birlashgan partiyaning asosiy xaridi topilmadi.');
+      return;
+    }
     final transportRows = _list(data['transports']);
     final financeRows = _list(data['finance_options']);
     final chosenFinance = financeRows.where((e)=>
@@ -207,8 +256,9 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
     setState(() => _submitting = true);
     try {
       final pieces = (_existing ?? '').split(':');
-      final oldType = pieces.firstOrNull == 'import'
-        ? 'old_import' : 'old_group';
+      final oldType = pieces.firstOrNull == 'import' ||
+              pieces.firstOrNull == 'finance_group'
+          ? 'old_import' : 'old_group';
       final response = await Supabase.instance.client.rpc('admin_web_bulk_batch_save',
         params: {
           'p_secret': widget.secret,
@@ -217,7 +267,8 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
             if (!isOld) 'title': _title.text.trim(),
             if (!isOld) 'date': DateFormat('yyyy-MM-dd').format(_date),
             if (!isOld) 'note': _note.text.trim(),
-            if (isOld) 'existing_id': pieces.skip(1).join(':'),
+            if (isOld) 'existing_id': pieces.firstOrNull == 'finance_group'
+                ? targetImportId.toString() : pieces.skip(1).join(':'),
             'apply_to_inventory': !isOld && _syncStock,
             'transport_ids': isOld ? _selectedTransportIds.toList() : <String>[],
             if (!isOld) 'finance_expense_ids':
@@ -482,7 +533,9 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
           .fold<int>(0, (sum, t) => sum + ((t['amount'] as num?)?.toInt() ?? 0));
         final listOfExisting = <DropdownMenuItem<String>>[
           for (final row in imported) DropdownMenuItem(
-            value: 'import:${row['id']}',
+            value: row['source'] == 'finance_group'
+                ? 'finance_group:${row['id']}'
+                : 'import:${row['id']}',
             child: Text(
               '${row['purchase_date']} • ${row['title']}',
               overflow: TextOverflow.ellipsis)),
@@ -493,8 +546,20 @@ class _WebBatchMultiAddPageState extends State<WebBatchMultiAddPage> {
               overflow: TextOverflow.ellipsis)),
         ];
         final search = _search.text.trim().toLowerCase();
+        final chosenExisting = imported.where((p) =>
+          _existing == 'finance_group:${p['id']}' &&
+          p['source'] == 'finance_group').toList();
+        final memberIds = chosenExisting.isNotEmpty
+            ? (chosenExisting.first['member_import_ids'] as List? ?? const [])
+                .map((id) => id.toString()).toSet()
+            : <String>{};
+        final savedIds = _list(data['saved_lines']).where((line) =>
+          memberIds.contains((line['batch_import_id'] ?? '').toString()))
+          .map((line) => (line['book_id'] ?? '').toString()).toSet();
         final visible = books.where((b) =>
-          (b['title'] ?? '').toString().toLowerCase().contains(search)).toList();
+          (b['title'] ?? '').toString().toLowerCase().contains(search) &&
+          !(_mode == 'old' && chosenExisting.isNotEmpty &&
+            savedIds.contains((b['id'] ?? '').toString()))).toList();
         final sum = _selected.values.fold<int>(0,(s,e) =>
           s + e.qty * (e.unitCost < 0 ? 0 : e.unitCost));
         final totals=BatchExpenseMath(

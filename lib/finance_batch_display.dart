@@ -19,7 +19,8 @@ List<Map<String, dynamic>> consolidatedFinanceDisplayRows({
 
   final remaining = rows.map((e) => Map<String, dynamic>.from(e)).toList();
   for (final group in groups.values) {
-    if (group.length < 2) continue;
+    // Even one consolidated purchase should merge with its linked transport.
+    // A standalone purchase still remains unchanged because visible < 2.
     final purchaseIds = group
         .map((e) => (e['finance_expense_id'] ?? '').toString())
         .where((id) => id.isNotEmpty && id != 'null')
@@ -50,6 +51,12 @@ List<Map<String, dynamic>> consolidatedFinanceDisplayRows({
     final transportCount = visible.where(
       (e) => (e['category'] ?? '') == 'transport',
     ).length;
+    final originalImportTitle = (group.first['title'] ?? '').toString();
+    final archivedCountMatch = RegExp(r'(\\d+) ta xarid').firstMatch(originalImportTitle);
+    final archivedCount = archivedCountMatch == null
+        ? null : int.tryParse(archivedCountMatch.group(1) ?? '');
+    final displayPurchaseCount = archivedCount != null && archivedCount > purchaseCount
+        ? archivedCount : purchaseCount;
     final title = (group.first['finance_group_title'] ?? 'Birlashgan partiya')
         .toString();
     final date = (group.first['finance_group_date'] ??
@@ -60,7 +67,7 @@ List<Map<String, dynamic>> consolidatedFinanceDisplayRows({
       'category': 'inventory_purchase',
       'expense_date': date,
       'amount': amount,
-      'note': '$title · $purchaseCount ta kitob xaridi'
+      'note': '$title · $displayPurchaseCount ta kitob xaridi'
           '${transportCount > 0 ? " + $transportCount ta transport" : ""}',
       'source': 'system',
       '_consolidated_display_only': true,

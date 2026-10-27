@@ -55,7 +55,7 @@ List<Map<String, dynamic>> consolidatedFinanceDisplayRows({
     final date = (group.first['finance_group_date'] ??
         visible.first['expense_date']).toString();
     remaining.removeWhere((e) => ids.contains((e['id'] ?? '').toString()));
-    remaining.insert(firstIndex.clamp(0, remaining.length), {
+    remaining.insert(firstIndex < remaining.length ? firstIndex : remaining.length, {
       'id': 'finance-display-group:${group.first['finance_group_id']}',
       'category': 'inventory_purchase',
       'expense_date': date,

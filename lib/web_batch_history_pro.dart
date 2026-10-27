@@ -707,7 +707,8 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
       if (!seen.add(groupId)) continue;
       final members = purchases.where(
         (p) => (p['finance_group_id'] ?? '').toString() == groupId,
-      ).toList();
+      ).toList()..sort((a, b) =>
+        _batchNum(a['id']).compareTo(_batchNum(b['id'])));
       final amount = members.fold<int>(0, (sum, m) =>
         sum + _batchNum(m['total_krw']));
       result.add({

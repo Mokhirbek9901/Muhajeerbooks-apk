@@ -319,6 +319,118 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
     onTap:()=>_editSavedBatchLine(line),
   );
 
+  Future<void> _editLinkedFinanceAmount(
+      Map<String,dynamic> group, Map<String,dynamic> expense) async {
+    final expenseId = (expense['id'] ?? '').toString();
+    final groupId = (group['id'] ?? '').toString();
+    if (expenseId.isEmpty || groupId.isEmpty) return;
+    final oldAmount = _batchNum(expense['amount']);
+    final category = (expense['category'] ?? '').toString();
+    final title = category == 'transport'
+        ? 'Transport xarajati' : 'Yangi partiya kitoblar xarajati';
+    final input = TextEditingController(text: oldAmount.toString());
+    String? errorText;
+    final newAmount = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, repaint) => AlertDialog(
+          title: const Text('Moliyadagi xarajatni tahrirlash'),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 390),
+            child: Column(mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text((group['title'] ?? '').toString(),
+                style: const TextStyle(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 8),
+              Text('$title • avvalgi: ${_batchMoney(oldAmount)}'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: input,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: InputDecoration(
+                  labelText: 'To‘g‘ri summa (₩)',
+                  border: const OutlineInputBorder(),
+                  errorText: errorText,
+                ),
+                onChanged: (_) {
+                  if (errorText != null) repaint(() => errorText = null);
+                },
+              ),
+              const SizedBox(height: 10),
+              const Text('Bu o‘zgarish Moliyadagi asl xarajatni ham '
+                'yangilaydi. Kitoblarning tannarxi va ombor soni '
+                'o‘zgarmaydi.', style: TextStyle(fontSize: 12)),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Bekor qilish')),
+            FilledButton(
+              onPressed: () {
+                final parsed = int.tryParse(input.text);
+                if (parsed == null || parsed < 1 || parsed > 1000000000) {
+                  repaint(() => errorText =
+                    '1 dan 1 000 000 000 vongacha kiriting');
+                  return;
+                }
+                Navigator.pop(dialogContext, parsed);
+              },
+              child: const Text('Davom etish'),
+            ),
+          ],
+        ),
+      ),
+    );
+    input.dispose();
+    if (!mounted || newAmount == null || newAmount == oldAmount) return;
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Xarajat summasini tasdiqlang'),
+        content: Text(
+          '$title\n'
+          '${_batchMoney(oldAmount)} → ${_batchMoney(newAmount)}\n\n'
+          'Bu Moliyadagi mavjud yozuvni o‘zgartiradi; '
+          'partiya jami va farqi qayta hisoblanadi. '
+          'Yangi xarajat yaratilmaydi.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Orqaga')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Saqlash')),
+        ],
+      ),
+    );
+    if (accepted != true || !mounted) return;
+    try {
+      await Supabase.instance.client.rpc(
+        'admin_web_batch_update_linked_expense',
+        params: {
+          'p_secret': widget.secret,
+          'p_batch_group_id': groupId,
+          'p_expense_id': expenseId,
+          'p_expected_amount': oldAmount,
+          'p_new_amount': newAmount,
+        },
+      );
+      if (!mounted) return;
+      _refresh();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(
+          'Moliyadagi xarajat yangilandi. Partiya va farq qayta hisoblandi.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Xarajatni o‘zgartirib bo‘lmadi: $error')),
+      );
+      _refresh();
+    }
+  }
+
   Widget _groupTile(Map<String,dynamic> item,
       List<Map<String,dynamic>> transports,
       List<Map<String,dynamic>> savedLines) {
@@ -372,14 +484,22 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
                   fontSize:11.5)),
             ],
             for(final entry in references)
-              Padding(padding:const EdgeInsets.symmetric(vertical:4),
-                child:Text('${entry['date']??''} • '
-                  '${entry['category']=='transport'
-                    ? 'Transport' : 'Yangi partiya kitoblar'} • '
-                  '${_batchMoney(_batchNum(entry['amount']))} • '
-                  '${entry['note']??''}',
-                  style:const TextStyle(fontSize:11.5,
-                    color:UzbekCustomerColors.textMuted))),
+              Padding(padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(children: [
+                  Expanded(child: Text('${entry['date']??''} • '
+                    '${entry['category']=='transport'
+                      ? 'Transport' : 'Yangi partiya kitoblar'} • '
+                    '${_batchMoney(_batchNum(entry['amount']))} • '
+                    '${entry['note']??''}',
+                    style: const TextStyle(fontSize: 11.5,
+                      color: UzbekCustomerColors.textMuted))),
+                  IconButton(
+                    tooltip: 'Moliyadagi xarajat summasini tahrirlash',
+                    icon: const Icon(Icons.edit_outlined,
+                      color: UzbekCustomerColors.teal),
+                    onPressed: () => _editLinkedFinanceAmount(item, entry),
+                  ),
+                ])),
             const Text('Ushbu summalar Moliyada qayta xarajat qilinmagan; '
               'faqat mavjud yozuvlarga havola qilingan.',
               style:TextStyle(fontSize:11,

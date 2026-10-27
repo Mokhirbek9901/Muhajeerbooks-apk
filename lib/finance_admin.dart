@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'design_system.dart';
+import 'finance_batch_display.dart';
 import 'preview_features.dart';
 
 // Keep financial totals, profit terminology, inventory selling value and
@@ -55,6 +56,8 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
   String? customPeriodLabel;
   Map<String, dynamic> report = <String, dynamic>{};
   List<Map<String, dynamic>> expenses = <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> financePurchaseImports = <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> financeTransportRows = <Map<String, dynamic>>[];
   int inventoryStockCost = 0;
   int inventoryStockSellingValue = 0;
   int allTimeSoldCost = 0;
@@ -361,12 +364,24 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
           'admin_finance_report',
           params: {'p_secret': widget.secret, 'p_period': 'all'},
         ),
+        // Optional, read-only group metadata for display. Finance continues
+        // to work if batch reporting is temporarily unavailable.
+        client.rpc('admin_web_batch_overview',
+          params: {'p_secret': widget.secret}).catchError((_) => null),
+        client.rpc('admin_web_transport_overview',
+          params: {'p_secret': widget.secret}).catchError((_) => null),
       ]);
       if (!mounted) return;
       final rawReport = result[0];
       final rawExpenses = result[1];
       final rawBooks = result[2];
       final rawAllReport = result[3];
+      final groupData = result[4] is Map ? result[4] as Map : const {};
+      final transportData = result[5] is Map ? result[5] as Map : const {};
+      List<Map<String, dynamic>> asRows(dynamic value) => value is List
+          ? value.whereType<Map>()
+              .map((r) => Map<String, dynamic>.from(r)).toList()
+          : <Map<String, dynamic>>[];
       final soldCostAll = rawAllReport is Map
           ? ((rawAllReport['cost_of_goods'] as num?)?.round() ?? 0)
           : 0;
@@ -413,6 +428,8 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                   .map((e) => Map<String, dynamic>.from(e))
                   .toList()
             : <Map<String, dynamic>>[];
+        financePurchaseImports = asRows(groupData['purchases']);
+        financeTransportRows = asRows(transportData['transports']);
         inventoryStockCost = stockCost;
         inventoryStockSellingValue = stockSellingValue;
         allTimeSoldCost = soldCostAll;
@@ -769,12 +786,19 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
       });
     }
 
-    rows.sort((a, b) {
+    // Only merge what is currently visible inside the selected period.
+    // No accounting row, date, category total, or sales snapshot is modified.
+    final shown = consolidatedFinanceDisplayRows(
+      rows: rows,
+      purchases: financePurchaseImports,
+      transports: financeTransportRows,
+    );
+    shown.sort((a, b) {
       final ad = _expenseDate(a['expense_date']);
       final bd = _expenseDate(b['expense_date']);
       return bd.compareTo(ad);
     });
-    return rows;
+    return shown;
   }
 
   @override
@@ -1110,7 +1134,12 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                           : 'Admin ilovadan kiritilgan',
                     ].join(' • '),
                   ),
-                  trailing: e['_system'] == true
+                  trailing: e['_consolidated_display_only'] == true
+                      ? const Tooltip(
+                          message: 'Guruhlangan ko‘rinish. Asl xarajatlar saqlangan.',
+                          child: Icon(Icons.layers_outlined),
+                        )
+                      : e['_system'] == true
                       ? const Tooltip(
                           message: 'Avtomatik hisoblangan',
                           child: Icon(Icons.auto_awesome_rounded),

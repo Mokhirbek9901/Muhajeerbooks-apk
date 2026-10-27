@@ -1,11 +1,12 @@
-2026-10-28 internal TestFlight only — unified 09.09.2026 partiyasi
-Publish the same validated Flutter source as the web release to internal TestFlight testers (iPhone/iPad).
-9 September finance-linked group displays ONE 09.09.2026 partiyasi:
-5 historical book purchase expenses, total KRW 987900, plus existing transport KRW 19700;
-total KRW 1007600. All six expenses are dated 2026-09-09 in the database.
-Show this exact group title on Finance, Partiyalar tarixi, and the top shortcut
-on Partiyaga kitob qo'shish, with historic per-book quantity/cost entry.
-Do not recreate finance expenses, add inventory again, or modify prior sales snapshots.
-Preserve the user's real profit reporting and historical data.
-Use GitHub TestFlight workflow signed IPA, marketing version 2.5.20 and unique build number.
-INTERNAL TESTERS ONLY. No public App Store submission and no Play Market publication.
+2026-10-28 Muhajeer Books internal TestFlight update — September finance batch UX.
+Ship the same validated source as web. Finance October view must show a
+navigational shortcut for the 09.09.2026 partiyasi (₩1,007,600),
+without counting September expenses in October totals. On selecting it,
+show the historical September 9 expense rows consolidated as ONE display item.
+Partiyalar tarixi: tapping 'Shu partiyaga kitob qo‘shish' opens the
+existing September finance batch directly (not a new stock receipt).
+Quantity and snapshot cost are entered to this existing group;
+never recreate expenses, duplicate inventory, or rewrite sold-book history.
+Keep App Store marketing version 2.5.20; use a new unique build number.
+Upload signed IPA to INTERNAL TESTFLIGHT testers only.
+Do not initiate public App Store release or Google Play submission.

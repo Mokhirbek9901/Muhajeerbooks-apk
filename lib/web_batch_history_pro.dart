@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app_state.dart';
 import 'web_batch_inline_editor.dart';
+import 'web_batch_add_picker.dart';
 import 'uzbek_customer_style.dart';
 
 String _batchMoney(num value) => '₩${NumberFormat('#,###').format(value.round())}';
@@ -796,6 +797,16 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
     );
   }
 
+  Future<void> _openFinanceGroupBookEntry(String financeGroupId) async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => WebBatchMultiAddPage(
+        secret: widget.secret,
+        initialFinanceGroupId: financeGroupId,
+      )),
+    );
+    if (mounted && saved == true) _refresh();
+  }
+
   Widget _purchaseTile(Map<String, dynamic> item, int index,
       List<Map<String,dynamic>> transports,
       List<Map<String,dynamic>> savedLines) {
@@ -850,6 +861,25 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
           const Divider(height: 16),
           _detail('JAMI — kitoblar + transport', _batchMoney(grandTotal)),
           _detail('Partiya sanasi', _batchDate(bought)),
+          if (grouped) ...[
+            const SizedBox(height: 12),
+            SizedBox(width: double.infinity, child: FilledButton.icon(
+              key: ValueKey('add-books-to-finance-group:${item['finance_group_id']}'),
+              onPressed: () => _openFinanceGroupBookEntry(
+                item['finance_group_id'].toString()),
+              icon: const Icon(Icons.add_circle_outline),
+              label: const Text('Shu partiyaga kitob qo‘shish'),
+            )),
+            const Padding(
+              padding: EdgeInsets.only(top: 6, bottom: 4),
+              child: Text(
+                'Mavjud partiyaga kitob soni va tannarxini kiriting. '
+                'Moliya xarajati va ombor soni takror qo‘shilmaydi.',
+                style: TextStyle(fontSize: 11,
+                  color: UzbekCustomerColors.textMuted),
+              ),
+            ),
+          ],
           if (!grouped && posted != bought)
             _detail('Moliyaga kiritilgan sana', _batchDate(posted)),
           _detail('Manba', isOpeningStock

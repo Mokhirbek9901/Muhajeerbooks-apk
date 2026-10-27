@@ -737,6 +737,14 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
     }
   }
 
+  void _showSeptember09Batch() {
+    setState(() {
+      period = 'range:2026-09-09:2026-09-09';
+      customPeriodLabel = '09.09.2026 partiyasi';
+    });
+    unawaited(_load());
+  }
+
   List<Map<String, dynamic>> _webVisibleExpenseRows() {
     DateTime? start;
     DateTime? end;
@@ -806,6 +814,22 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
     final webVisibleExpenses = _webFinanceUi
         ? _webVisibleExpenseRows()
         : const <Map<String, dynamic>>[];
+    // This navigation preview is NOT an October expense, and it is never
+    // added to totals. It only opens the historical batch's exact day.
+    final september09Batch = _webFinanceUi
+        ? consolidatedFinanceDisplayRows(
+            rows: expenses,
+            purchases: financePurchaseImports,
+            transports: financeTransportRows,
+          ).where((row) =>
+              row['_consolidated_display_only'] == true &&
+              row['expense_date']?.toString() == '2026-09-09'
+          ).firstOrNull
+        : null;
+    final september09AlreadyVisible = september09Batch != null &&
+        webVisibleExpenses.any((row) =>
+          row['id'] == september09Batch['id']);
+
     final webExpenseTotal = webVisibleExpenses.fold<int>(
       0,
       (sum, e) => sum + ((e['amount'] as num?)?.round() ?? 0),
@@ -1091,6 +1115,28 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
             ),
           ],
           const SizedBox(height: 22),
+          if (september09Batch != null && !september09AlreadyVisible) ...[
+            Card(
+              child: ListTile(
+                key: const ValueKey('open-sep09-finance-batch'),
+                leading: const Icon(Icons.inventory_2_outlined,
+                  color: AppColors.primary),
+                title: Text(
+                  '${(september09Batch['note'] ?? '09.09.2026 partiyasi')
+                    .toString().split(' · ').first} — '
+                  '${_financeWon((september09Batch['amount'] as num?) ?? 0)}',
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: const Text(
+                  '9-sentabrdagi birlashtirilgan xarajatlar. '
+                  'Ko‘rish uchun bosing; joriy oy hisobiga qo‘shilmaydi.',
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: _showSeptember09Batch,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           Row(
             children: [
               Expanded(

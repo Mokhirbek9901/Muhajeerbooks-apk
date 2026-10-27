@@ -18,6 +18,13 @@ import 'native_admin_push.dart';
 import 'preview_features.dart';
 import 'customer_session.dart';
 
+/// Professional checkout must not be linked to a shopper's PIN session.
+@visibleForTesting
+String checkoutPinSessionForMode({
+  required bool professional,
+  required String customerSession,
+}) => professional ? '' : customerSession;
+
 String normalizePublisher(String value) {
   final cleaned = value.trim().replaceAll(RegExp(r'\s+'), ' ');
   final key = cleaned.toLowerCase().replaceAll('-', ' ');
@@ -1132,7 +1139,12 @@ class BackendService {
     try {
       final raw = await _customerRpc('customer_release_order', {
         ...pending,
-        'p_session': CustomerSession.token,
+        // A professional order belongs to the admin session, never to a
+        // customer's PIN login that may also be present on this device.
+        'p_session': checkoutPinSessionForMode(
+          professional: professional,
+          customerSession: CustomerSession.token,
+        ),
         'p_admin_token': professional
             ? CustomerSession.professionalToken
             : null,
@@ -3272,7 +3284,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       if (manualSubtotal != null) 'manual_subtotal': manualSubtotal,
     };
     final raw = await _backend!._customerRpc('customer_release_quote', {
-      'p_session': _pinSession ?? '',
+      // Use the same admin identity when obtaining the quote and saving it.
+      'p_session': checkoutPinSessionForMode(
+        professional: professional,
+        customerSession: _pinSession ?? '',
+      ),
       'p_order': request,
       'p_admin_token': professional ? CustomerSession.professionalToken : null,
     });

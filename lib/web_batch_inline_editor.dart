@@ -4,6 +4,31 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'uzbek_customer_style.dart';
 
+@visibleForTesting
+String normalizedBatchBookTitle(String title) => title.toLowerCase()
+    .replaceAll(RegExp(r"[ʻʼ’‘`´]"), "'")
+    .replaceAll(RegExp(r'\s+'), ' ').trim();
+
+/// Filter the picker against the server's saved batch lines, not just the
+/// locally displayed lines. Canonical-title fallback catches legacy aliases.
+@visibleForTesting
+List<Map<String, dynamic>> availableBatchPickerBooks(
+  List<Map<String, dynamic>> catalog, {
+  required Iterable<String> excludedBookIds,
+  required Iterable<String> excludedTitles,
+  String query = '',
+}) {
+  final ids = excludedBookIds.map((x) => x.trim().toLowerCase()).toSet();
+  final titles = excludedTitles.map(normalizedBatchBookTitle).toSet();
+  final needle = normalizedBatchBookTitle(query);
+  return catalog.where((book) {
+    final id = (book['id'] ?? '').toString().trim().toLowerCase();
+    final title = normalizedBatchBookTitle((book['title'] ?? '').toString());
+    return !ids.contains(id) && !titles.contains(title) &&
+        title.contains(needle);
+  }).toList();
+}
+
 /// An existing batch is always edited in-place; nothing is written before Save.
 /// History stays readable with no stepper or removal controls outside edit mode.
 class WebBatchInlineEditor extends StatefulWidget {
@@ -312,13 +337,29 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
     if(!editing)setState(()=>editing=true);
     setState(()=>loadingBooks=true);
     List<Map<String,dynamic>> options=[];
+    List<Map<String,dynamic>> savedInBatch=[];
     try{
-      final data=await Supabase.instance.client.rpc('admin_web_batch_picker_data',
-        params:{'p_secret':widget.secret});
-      if(data is Map && data['books'] is List) {
-        options=(data['books'] as List).whereType<Map>()
-          .map((x)=>Map<String,dynamic>.from(x)).toList();
+      // Always load the latest saved lines for this exact batch, including
+      // additions made from another admin device after this page loaded.
+      final responses=await Future.wait<dynamic>([
+        Supabase.instance.client.rpc('admin_web_batch_picker_data',
+          params:{'p_secret':widget.secret}),
+        Supabase.instance.client.rpc('admin_web_batch_existing_books',
+          params:{
+            'p_secret':widget.secret,
+            'p_kind':widget.kind,
+            'p_key':widget.batchKey,
+          }),
+      ]);
+      final data=responses[0];
+      final recorded=responses[1];
+      if(data is! Map || data['books'] is! List || recorded is! List) {
+        throw StateError('Partiya kitoblarini tekshirib bo‘lmadi');
       }
+      options=(data['books'] as List).whereType<Map>()
+        .map((x)=>Map<String,dynamic>.from(x)).toList();
+      savedInBatch=recorded.whereType<Map>()
+        .map((x)=>Map<String,dynamic>.from(x)).toList();
     }catch(error){
       if(mounted)ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content:Text('Katalogni yuklashda xatolik: '+error.toString())));
@@ -332,8 +373,14 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
       builder:(context)=>_BatchBookPicker(
         catalog:options,
         excluded:{
-          ...widget.lines.map((line)=>line['book_id'].toString()),
+          ...widget.lines.map((line)=>(line['book_id']??'').toString()),
+          ...savedInBatch.map((line)=>(line['book_id']??'').toString()),
           ...added.keys,
+        },
+        excludedTitles:{
+          ...widget.lines.map((line)=>(line['title']??'').toString()),
+          ...savedInBatch.map((line)=>(line['title']??'').toString()),
+          ...added.values.map((line)=>(line['title']??'').toString()),
         },
       ),
     );
@@ -547,17 +594,23 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
 }
 
 class _BatchBookPicker extends StatefulWidget{
-  const _BatchBookPicker({required this.catalog,required this.excluded});
+  const _BatchBookPicker({
+    required this.catalog,required this.excluded,required this.excludedTitles,
+  });
   final List<Map<String,dynamic>> catalog;
   final Set<String> excluded;
+  final Set<String> excludedTitles;
   @override State<_BatchBookPicker> createState()=>_BatchBookPickerState();
 }
 class _BatchBookPickerState extends State<_BatchBookPicker>{
   String query='';
   @override Widget build(BuildContext context){
-    final visible=widget.catalog.where((book)=>
-      (book['title']??'').toString().toLowerCase().contains(query.toLowerCase())
-      && !widget.excluded.contains(book['id'].toString())).toList();
+    final visible=availableBatchPickerBooks(
+      widget.catalog,
+      excludedBookIds:widget.excluded,
+      excludedTitles:widget.excludedTitles,
+      query:query,
+    );
     return SafeArea(child:FractionallySizedBox(heightFactor:.85,
       child:Column(children:[
         Padding(padding:const EdgeInsets.fromLTRB(17,7,17,9),
@@ -571,7 +624,13 @@ class _BatchBookPickerState extends State<_BatchBookPicker>{
                 prefixIcon:Icon(Icons.search_rounded)),
               onChanged:(s)=>setState(()=>query=s)),
           ])),
-        Expanded(child:ListView.builder(
+        if(visible.isEmpty)
+          const Expanded(child:Center(child:Padding(
+            padding:EdgeInsets.all(24),
+            child:Text('Bu partiyada kiritilmagan kitob topilmadi. '
+              'Avval kiritilgan kitoblarni partiya tarixidan tahrirlang.',
+              textAlign:TextAlign.center))))
+        else Expanded(child:ListView.builder(
           itemCount:visible.length,
           itemBuilder:(context,i){
             final b=visible[i];

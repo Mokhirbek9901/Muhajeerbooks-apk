@@ -782,6 +782,13 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
       final needle = query.trim().toLowerCase();
       final shownPurchases = purchases.where((x) =>
         (x['title'] ?? '').toString().toLowerCase().contains(needle)).toList();
+      // Catalog batch groups are saved receipts too, separate from finance.
+      // Never double-count their book value as new finance purchases.
+      final shownGroups = groups.where((x) =>
+        (x['title'] ?? '').toString().toLowerCase().contains(needle) ||
+        (x['batch_date'] ?? '').toString().contains(needle)).toList()
+        ..sort((a,b) => (b['batch_date'] ?? '').toString()
+            .compareTo((a['batch_date'] ?? '').toString()));
       final shownInventory = inventory.where((x) =>
         (x['title'] ?? '').toString().toLowerCase().contains(needle) &&
         (!onlyRestocked || x['restocked_at'] != null)).toList();
@@ -859,7 +866,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(children: [
-              ChoiceChip(label: Text('Partiyalar (${purchases.length})'),
+              ChoiceChip(label: Text('Partiyalar (${purchases.length + groups.length})'),
                 selected: mode == 'purchases',
                 onSelected: (_) => _setMode('purchases')),
               const SizedBox(width: 8),
@@ -901,11 +908,26 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
                 onChanged: (v) => setState(() => onlyRestocked = v ?? false)),
           ],
           if (mode == 'purchases') ...[
-            if (shownPurchases.isEmpty)
+            if (shownGroups.isNotEmpty) ...[
+              const Padding(padding: EdgeInsets.only(bottom: 8),
+                child: Text('Yangi kiritilgan partiyalar',
+                  style: TextStyle(fontWeight: FontWeight.w900,
+                    fontSize: 16, color: UzbekCustomerColors.navy))),
+              for (final group in shownGroups)
+                _groupTile(group,transports,savedLines),
+              const SizedBox(height: 12),
+            ],
+            if (shownPurchases.isNotEmpty) ...[
+              const Padding(padding: EdgeInsets.only(bottom: 8),
+                child: Text('Moliya bo‘yicha xarid partiyalari',
+                  style: TextStyle(fontWeight: FontWeight.w900,
+                    fontSize: 16, color: UzbekCustomerColors.navy))),
+              for (var i=0;i<shownPurchases.length;i++)
+                _purchaseTile(shownPurchases[i],i,transports,savedLines),
+            ],
+            if (shownGroups.isEmpty && shownPurchases.isEmpty)
               const Padding(padding: EdgeInsets.all(24),
-                child: Text('Mos xarid yozuvi yo‘q')),
-            for (var i=0;i<shownPurchases.length;i++)
-              _purchaseTile(shownPurchases[i],i,transports,savedLines),
+                child: Text('Mos partiya yoki xarid yozuvi yo‘q')),
           ],
           if (mode == 'inventory') ...[
             if (shownInventory.isEmpty)

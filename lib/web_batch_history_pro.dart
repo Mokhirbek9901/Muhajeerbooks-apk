@@ -447,6 +447,10 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
     final expensesLinked=_batchNum(item['finance_expense_count']);
     final difference=purchaseExpense-books;
     final references=_items(item['finance_references']);
+    final purchaseReferences = references.where((e) =>
+      e['category'] == 'inventory_purchase').toList();
+    final transportReferences = references.where((e) =>
+      e['category'] == 'transport').toList();
     return Card(margin: const EdgeInsets.only(bottom: 9),
       child: ExpansionTile(
         leading: const Icon(Icons.inventory_2_outlined,
@@ -463,8 +467,28 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
             const Text('Moliyada avval saqlangan xarajatlar',
               style:TextStyle(color:UzbekCustomerColors.navy,
                 fontSize:14,fontWeight:FontWeight.w900)),
-            _detail('Yangi partiya kitoblar',_batchMoney(purchaseExpense)),
-            _detail('Transport',_batchMoney(financeTransport)),
+            Row(children: [
+              Expanded(child: _detail('Yangi partiya kitoblar',
+                _batchMoney(purchaseExpense))),
+              if (purchaseReferences.length == 1)
+                TextButton.icon(
+                  onPressed: () => _editLinkedFinanceAmount(
+                    item, purchaseReferences.single),
+                  icon: const Icon(Icons.edit_outlined, size: 17),
+                  label: const Text('Tahrirlash'),
+                ),
+            ]),
+            Row(children: [
+              Expanded(child: _detail('Transport',
+                _batchMoney(financeTransport))),
+              if (transportReferences.length == 1)
+                IconButton(
+                  tooltip: 'Transport summasini tahrirlash',
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () => _editLinkedFinanceAmount(
+                    item, transportReferences.single),
+                ),
+            ]),
             _detail('Moliyada tanlangan jami',
               _batchMoney(purchaseExpense+financeTransport)),
             const Divider(),

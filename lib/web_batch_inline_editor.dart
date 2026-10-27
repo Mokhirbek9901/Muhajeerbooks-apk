@@ -499,7 +499,8 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
           children:[
             const Text('Partiyadagi kitoblar',style:TextStyle(
               color:ink,fontSize:16,fontWeight:FontWeight.w900)),
-            Text(widget.lines.length.toString()+' xil · '+count.toString()+
+            Text((widget.lines.length+(editing?added.length:0)).toString()+
+                ' xil · '+count.toString()+
                 ' dona'+(editing?' (tahrir)':''),
               style:const TextStyle(fontSize:12,color:Color(0xFF617370))),
           ])),
@@ -587,6 +588,12 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
               child:CircularProgressIndicator(strokeWidth:2))
           :const Icon(Icons.add_circle_outline_rounded),
         label:const Text('Kitob qo‘shish')),
+      if(editing && added.isNotEmpty)
+        Padding(padding:const EdgeInsets.only(top:6),
+          child:Text('${added.length} ta yangi kitob tanlangan. '
+            'Faqat “Saqlash” bosilganda partiyaga yoziladi.',
+            style:const TextStyle(fontSize:11.5,
+              color:Color(0xFF617370)))),
       if(editing) ...[
         const SizedBox(height:9),
         Row(children:[

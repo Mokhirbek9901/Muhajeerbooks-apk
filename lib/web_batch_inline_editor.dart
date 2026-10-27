@@ -377,9 +377,9 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
       if(mounted)setState(()=>loadingBooks=false);
     }
     if(!mounted)return;
-    final chosen=await showModalBottomSheet<Map<String,dynamic>>(
+    final chosen=await showModalBottomSheet<List<Map<String,dynamic>>>(
       context:context,isScrollControlled:true,showDragHandle:true,
-      builder:(context)=>_BatchBookPicker(
+      builder:(context)=>BatchBookMultiPicker(
         catalog:options,
         excluded:{
           ...widget.lines.map((line)=>(line['book_id']??'').toString()),
@@ -393,13 +393,19 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
         },
       ),
     );
-    if(!mounted || chosen==null)return;
-    setState(()=>added[chosen['id'].toString()]={
-      ...chosen,
-      'quantity':1,
-      'unit_cost':_n(chosen['cost_price']),
-      'edited_cost':false,
-      'image_url':chosen['image_url']??chosen['thumbnail_url'],
+    if(!mounted || chosen==null || chosen.isEmpty)return;
+    // Stage every selected book locally. The existing single _save() call
+    // sends all additions in ONE atomic server transaction, never on tap.
+    setState((){
+      for(final book in chosen) {
+        added.putIfAbsent(book['id'].toString(),()=> <String,dynamic>{
+          ...book,
+          'quantity':1,
+          'unit_cost':_n(book['cost_price']),
+          'edited_cost':false,
+          'image_url':book['image_url']??book['thumbnail_url'],
+        });
+      }
     });
   }
 
@@ -493,7 +499,8 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
           children:[
             const Text('Partiyadagi kitoblar',style:TextStyle(
               color:ink,fontSize:16,fontWeight:FontWeight.w900)),
-            Text(widget.lines.length.toString()+' xil · '+count.toString()+
+            Text((widget.lines.length+(editing?added.length:0)).toString()+
+                ' xil · '+count.toString()+
                 ' dona'+(editing?' (tahrir)':''),
               style:const TextStyle(fontSize:12,color:Color(0xFF617370))),
           ])),
@@ -581,6 +588,12 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
               child:CircularProgressIndicator(strokeWidth:2))
           :const Icon(Icons.add_circle_outline_rounded),
         label:const Text('Kitob qo‘shish')),
+      if(editing && added.isNotEmpty)
+        Padding(padding:const EdgeInsets.only(top:6),
+          child:Text('${added.length} ta yangi kitob tanlangan. '
+            'Faqat “Saqlash” bosilganda partiyaga yoziladi.',
+            style:const TextStyle(fontSize:11.5,
+              color:Color(0xFF617370)))),
       if(editing) ...[
         const SizedBox(height:9),
         Row(children:[
@@ -602,17 +615,36 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
   static void _noop(){}
 }
 
-class _BatchBookPicker extends StatefulWidget{
-  const _BatchBookPicker({
-    required this.catalog,required this.excluded,required this.excludedTitles,
+/// Reusable selection sheet: no finance or inventory writes happen here.
+@visibleForTesting
+class BatchBookMultiPicker extends StatefulWidget{
+  const BatchBookMultiPicker({
+    super.key,
+    required this.catalog,
+    required this.excluded,
+    required this.excludedTitles,
   });
   final List<Map<String,dynamic>> catalog;
   final Set<String> excluded;
   final Set<String> excludedTitles;
-  @override State<_BatchBookPicker> createState()=>_BatchBookPickerState();
+  @override State<BatchBookMultiPicker> createState()=>_BatchBookMultiPickerState();
 }
-class _BatchBookPickerState extends State<_BatchBookPicker>{
+class _BatchBookMultiPickerState extends State<BatchBookMultiPicker>{
   String query='';
+  final Map<String,Map<String,dynamic>> selected={};
+
+  void _toggle(Map<String,dynamic> book){
+    final id=(book['id']??'').toString();
+    if(id.isEmpty)return;
+    setState((){
+      if(selected.containsKey(id)){
+        selected.remove(id);
+      }else{
+        selected[id]=book;
+      }
+    });
+  }
+
   @override Widget build(BuildContext context){
     final visible=availableBatchPickerBooks(
       widget.catalog,
@@ -624,35 +656,68 @@ class _BatchBookPickerState extends State<_BatchBookPicker>{
       child:Column(children:[
         Padding(padding:const EdgeInsets.fromLTRB(17,7,17,9),
           child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-            const Text('Partiyaga kitob qo‘shish',
+            const Text('Partiyaga kitoblarni tanlash',
               style:TextStyle(fontSize:20,fontWeight:FontWeight.w900)),
-            const SizedBox(height:6),
-            TextField(autofocus:true,
+            const SizedBox(height:5),
+            const Text('Kitoblarni birma-bir belgilang. Oxirida ularni '
+              'partiyaga qo‘shing, soni va tan narxini kiriting, so‘ng '
+              'bitta “Saqlash” tugmasini bosing.',
+              style:TextStyle(fontSize:12,color:Color(0xFF617370))),
+            const SizedBox(height:10),
+            TextField(
+              key:const ValueKey('batch-multi-picker-search'),
+              autofocus:true,
               decoration:const InputDecoration(
                 hintText:'Kitob nomini qidiring...',
                 prefixIcon:Icon(Icons.search_rounded)),
               onChanged:(s)=>setState(()=>query=s)),
+            const SizedBox(height:7),
+            Text('Tanlangan: ${selected.length} ta kitob',
+              key:const ValueKey('batch-multi-picker-count'),
+              style:const TextStyle(fontWeight:FontWeight.w800,
+                color:Color(0xFF116858))),
           ])),
         if(visible.isEmpty)
           const Expanded(child:Center(child:Padding(
             padding:EdgeInsets.all(24),
-            child:Text('Bu partiyada kiritilmagan kitob topilmadi. '
-              'Avval kiritilgan kitoblarni partiya tarixidan tahrirlang.',
+            child:Text('Yangi kitob topilmadi. Oldin shu partiyaga '
+              'kiritilgan kitoblar ro‘yxatda ko‘rsatilmaydi. '
+              'Tanlangan boshqa kitoblar saqlanib turadi.',
               textAlign:TextAlign.center))))
         else Expanded(child:ListView.builder(
           itemCount:visible.length,
           itemBuilder:(context,i){
             final b=visible[i];
+            final id=(b['id']??'').toString();
+            final chosen=selected.containsKey(id);
             return ListTile(
+              key:ValueKey('batch-picker-book-$id'),
               leading:const Icon(Icons.auto_stories_rounded,color:Colors.teal),
               title:Text((b['title']??'Kitob').toString(),maxLines:2),
               subtitle:Text('Tan narxi: ₩'+
                 NumberFormat('#,###').format(b['cost_price']??0)),
-              trailing:const Icon(Icons.add_circle_outline_rounded),
-              onTap:()=>Navigator.pop(context,b),
+              trailing:Icon(chosen
+                ?Icons.check_circle_rounded
+                :Icons.add_circle_outline_rounded,
+                color:chosen?const Color(0xFF116858):null),
+              selected:chosen,
+              onTap:()=>_toggle(b),
             );
           },
         )),
+        Padding(padding:const EdgeInsets.fromLTRB(15,10,15,12),
+          child:Row(children:[
+            Expanded(child:OutlinedButton(
+              onPressed:()=>Navigator.pop(context),
+              child:const Text('Bekor qilish'))),
+            const SizedBox(width:9),
+            Expanded(flex:2,child:FilledButton.icon(
+              key:const ValueKey('batch-multi-picker-add-selected'),
+              onPressed:selected.isEmpty?null:()=>Navigator.pop(
+                context,selected.values.toList(growable:false)),
+              icon:const Icon(Icons.check_rounded),
+              label:Text('Tanlanganlarni qo‘shish (${selected.length})'))),
+          ])),
       ]),
     ));
   }

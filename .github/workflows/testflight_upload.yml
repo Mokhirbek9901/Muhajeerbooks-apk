@@ -3,7 +3,7 @@ name: Build and Upload iOS to TestFlight
 on:
   workflow_dispatch:
   push:
-    branches: [main, fix/batch-picker-and-professional-6494-20261028]
+    branches: [main]
     paths:
       - '.github/workflows/testflight_upload.yml'
       - '.github/ios-release-trigger'

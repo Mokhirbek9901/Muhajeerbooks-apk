@@ -69,6 +69,42 @@ void main() {
     expect(shown.length, 2);
   });
 
+  test('restored single purchase + original transport appear once', () {
+    final purchases = [
+      <String,dynamic>{
+        'id': 8, 'finance_expense_id': 'books', 'finance_group_id': group,
+        'finance_group_title': '09.09.2026 partiyasi',
+        'finance_group_date': '2026-09-09',
+        'title': '09.09.2026 partiyasi — 5 ta xarid yig‘indisi',
+      }
+    ];
+    final rows = [
+      <String,dynamic>{
+        'id':'books','expense_date':'2026-09-09',
+        'amount':987900,'category':'inventory_purchase',
+      },
+      <String,dynamic>{
+        'id':'transport','expense_date':'2026-09-09',
+        'amount':19700,'category':'transport',
+      },
+    ];
+    final links = [<String,dynamic>{'id':'transport','batch_import_id':8}];
+    final grouped = consolidatedFinanceDisplayRows(
+      rows:rows, purchases:purchases, transports:links,
+    );
+    expect(grouped.length, 1);
+    expect(grouped.single['amount'], 1007600);
+    expect(grouped.single['note'], contains('5 ta kitob xaridi'));
+    expect(grouped.single['_consolidated_display_only'], true);
+    expect(rows.length, 2); // Underlying finance records are untouched.
+    expect(rows.fold<int>(0,(sum,e)=>sum+(e['amount'] as int)),1007600);
+
+    final noTransport = consolidatedFinanceDisplayRows(
+      rows:[rows.first], purchases:purchases, transports:links);
+    expect(noTransport.single['id'],'books');
+    expect(noTransport.single['amount'],987900);
+  });
+
   test('unlinked and missing overview do not fabricate groups', () {
     final shown = consolidatedFinanceDisplayRows(
       rows: source, purchases: [], transports: []);

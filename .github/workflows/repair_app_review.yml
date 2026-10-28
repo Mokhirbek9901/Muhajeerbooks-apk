@@ -1,58 +1,20 @@
-name: Repair Muhajeer App Store Review
+name: Verify App Store owner hold (legacy review disabled)
+
+# The old automatic 1041 submission is retired. This manual diagnostic only
+# reads versions and verifies MANUAL holds; it cannot submit a public review.
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/repair_app_review.yml'
-      - '.github/release_tools/inspect_app_review.rb'
-      - '.github/release_tools/repair_app_review.rb'
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  repair-review:
-    runs-on: ubuntu-latest
+  verify-owner-hold:
+    runs-on: macos-latest
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
-      - name: Configure App Store Connect credentials
+      - name: Verify owner-controlled App Store release
         env:
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import os
-          from pathlib import Path
-          key = os.environ['APP_STORE_CONNECT_PRIVATE_KEY'].strip().replace('\\n','\n') + '\n'
-          assert key.startswith('-----BEGIN PRIVATE KEY-----')
-          path=Path('/tmp/muhajeer-review-key.p8')
-          path.write_text(key)
-          path.chmod(0o600)
-          with open(os.environ['GITHUB_ENV'],'a') as f:
-              f.write('ASC_PRIVATE_KEY_PATH='+str(path)+'\n')
-          PY
-      - name: Find Muhajeer App Store Connect application
-        env:
-          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-        run: ruby .github/scripts/ios/app_store_status.rb preflight
-      - name: Inspect current review submission without changing it
-        env:
-          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-        run: ruby .github/release_tools/inspect_app_review.rb
-      - name: Withdraw outdated submission and submit VALID 1041 build
-        env:
-          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-          IOS_MARKETING_VERSION: '2.5.18'
-          IOS_BUILD_NUMBER: '1041'
-        run: |
-          set -euo pipefail
-          ruby -c .github/release_tools/repair_app_review.rb
-          ruby .github/release_tools/repair_app_review.rb
-      - name: Cleanup API credentials
-        if: always()
-        run: rm -f /tmp/muhajeer-review-key.p8
+        run: ruby .github/release_tools/hold_app_store_versions.rb

@@ -4,6 +4,15 @@ name: Google Play owner-test candidate (never Production)
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/play_release.yml'
+      - 'tools/prepare_android_release_safety.py'
+      - 'tools/run_android_release_smoke.py'
+      - 'integration_test/store_startup_smoke_test.dart'
+      - 'lib/app_startup.dart'
+      - 'lib/main.dart'
+      - 'lib/catalog_resume.dart'
   push:
     branches: [main]
     paths: ['.github/store-test-trigger.json']
@@ -65,6 +74,7 @@ jobs:
             android-release-startup.png
           retention-days: 30
   build:
+    if: ${{ github.ref == 'refs/heads/main' }}
     needs: [android-smoke]
     runs-on: ubuntu-latest
     env:

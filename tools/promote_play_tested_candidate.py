@@ -49,16 +49,19 @@ def plan_production(production, internal):
                   and r.get('versionCodes') == [VERSION] and not r.get('countryTargeting')), None)
     if exact:
         return None
-    preserved = [copy.deepcopy(r) for r in previous if r.get('status') in ('halted', 'draft')
-                 and VERSION not in r.get('versionCodes', [])]
-    release = {'name': '2.5.20 (1190)', 'versionCodes': [VERSION], 'status': 'completed'}
+    if any(r.get('status') == 'draft' and VERSION not in r.get('versionCodes', []) for r in previous):
+        raise ValueError('An unrelated draft exists; leave it untouched for review')
+    # Google updates desired releases, rather than replacing the GET response.
+    # Send only the new completed release; resending a halted fallback alongside
+    # it can cause Google to retain multiple completed releases during validation.
+    release = {'name': internal.get('name', '2.5.20'), 'versionCodes': [VERSION], 'status': 'completed'}
     if internal.get('releaseNotes'):
         release['releaseNotes'] = copy.deepcopy(internal['releaseNotes'])
     else:
         release['releaseNotes'] = [{'language': 'en-US', 'text': 'Fixed startup blank screens. Improved book photo galleries, preorder advance deduction, keyboard dismissal and order validation.'}]
     if 'inAppUpdatePriority' in internal:
         release['inAppUpdatePriority'] = internal['inAppUpdatePriority']
-    return {'track': 'production', 'releases': preserved + [release]}
+    return {'track': 'production', 'releases': [release]}
 
 
 def verify_production(before, after):
@@ -117,12 +120,14 @@ def run(mode, approval_path, evidence_dir, output):
         print('Existing 1190 bundle SHA256:', bundle['sha256'])
         print('Current publishing lifecycle:', json.dumps(report['lifecycle_before']))
         Path(output).write_text(json.dumps(report, indent=2))
-        if mode == 'inspect':
-            print('READ ONLY: inspected the exact 1190 candidate. No track update or commit.')
-            return
         if plan is not None:
             call('PUT', f'{BASE}/{edit}/tracks/production', json=plan)
+            print('Uncommitted Production validation:', json.dumps(call('GET', f'{BASE}/{edit}/tracks/production')))
             call('POST', f'{BASE}/{edit}:validate')
+        if mode == 'inspect':
+            print('DRY RUN: Google validated the exact 1190 release in a disposable edit. No commit or live change.')
+            return
+        if plan is not None:
             call('POST', f'{BASE}/{edit}:commit', params={
                 'changesNotSentForReview': 'false', 'changesInReviewBehavior': 'ERROR_IF_IN_REVIEW'})
             committed = True

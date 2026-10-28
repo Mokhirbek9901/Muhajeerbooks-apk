@@ -16,6 +16,8 @@ jobs:
         run: python3 -m unittest discover -s server/tests -p 'test_native_customer_push.py' -v
       - name: Test admin OpenAI failure handling (mocked, no API charge)
         run: python3 -m unittest discover -s server/tests -p 'test_admin_research_api.py' -v
+      - name: Test compact image storage and duplicate reuse
+        run: node --test server/tests/book_image_storage_policy.test.mjs
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.47.5

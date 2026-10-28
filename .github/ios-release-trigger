@@ -1,10 +1,6 @@
-2026-10-28 internal TestFlight checkout and keyboard fixes.
-Keyboard close action above phone/PIN number pads; dismiss on blank taps,
-drag and Done. Preserve typed names, addresses and receipt selections.
-Single-flight receipt picking with permission-error recovery and retry.
-Preserve prepaid gift recipients through identity/quote checks.
-Validate all checkout controllers, including fields scrolled offscreen.
-Fit the extra-book selector above keyboards on small landscape displays,
-and show its current discounted prices.
-Run ordinary and TestFlight regression tests before publishing matching web
-and INTERNAL iOS TestFlight. No public App Store / Google Play submission.
+2026-10-28 internal TestFlight: show every book photo in catalog/detail/zoom.
+Remove fixed image counts in client and authenticated atomic database writer.
+Admin can keep adding images in the compact horizontal preview.
+Compress each new photo to <=240 KiB and its thumbnail to <=40 KiB;
+never upload originals, reuse identical content-addressed storage objects.
+Web and internal TestFlight only; no public App Store / Google Play submission.

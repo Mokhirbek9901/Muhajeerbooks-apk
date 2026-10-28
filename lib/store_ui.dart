@@ -1,3 +1,4 @@
+import 'catalog_book_gallery.dart';
 import 'customer_form_scaffold.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -4570,7 +4571,7 @@ class BookCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  _BookCover(book: book, sharp: sharpCover),
+                  CatalogBookGallery(key: ValueKey(book.id), book: book, fallback: _BookCover(book: book, sharp: sharpCover)),
                   const Positioned(
                     left: 0,
                     right: 0,
@@ -5889,9 +5890,7 @@ class _BookGalleryState extends State<_BookGallery> {
 
   @override
   Widget build(BuildContext context) {
-    // Show up to two photos to shoppers without removing stored gallery
-    // images or changing what the admin can edit and restore.
-    final images = widget.book.galleryImages.take(2).toList();
+    final images = widget.book.galleryImages;
     final width = widget.desktop ? 300.0 : 235.0;
     final coverHeight = widget.desktop ? 420.0 : 330.0;
     if (images.isEmpty) {

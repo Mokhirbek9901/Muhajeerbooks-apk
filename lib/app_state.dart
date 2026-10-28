@@ -18,6 +18,34 @@ import 'native_admin_push.dart';
 import 'preview_features.dart';
 import 'customer_session.dart';
 
+/// The server expands an empty Gyeongsan pickup address into a display
+/// label. That normalization must not be mistaken for the customer editing
+/// their address after the final quote. Delivery type, name and phone still
+/// have to match exactly; ordinary shipping must use the exact address.
+@visibleForTesting
+bool checkoutQuoteContactMatches({
+  required Map<String,dynamic> quote,
+  required String customerName,
+  required String phone,
+  required String address,
+  required String deliveryType,
+}) {
+  if (quote['customer_name'] != customerName.trim() ||
+      quote['phone'] != phone.trim() ||
+      quote['delivery_type'] != deliveryType) {
+    return false;
+  }
+  final quotedAddress = (quote['address'] ?? '').toString().trim();
+  final submittedAddress = address.trim();
+  if (quotedAddress == submittedAddress) return true;
+  if (deliveryType == '경산 직접수령' &&
+      submittedAddress == '경산 직접수령' &&
+      quotedAddress == '경산 직접수령 (Gyeongsan pickup)') {
+    return true;
+  }
+  return false;
+}
+
 /// Professional checkout must not be linked to a shopper's PIN session.
 @visibleForTesting
 String checkoutPinSessionForMode({
@@ -1187,11 +1215,15 @@ class BackendService {
     if (quote == null || quote['quote_id'] == null)
       throw StateError('To‘lovdan oldin yakuniy summani tekshiring');
     final snapshot = Map<String, dynamic>.from(quote);
-    if (snapshot['customer_name'] != customerName.trim() ||
-        snapshot['phone'] != phone.trim() ||
-        snapshot['address'] != address.trim() ||
-        snapshot['delivery_type'] != deliveryType)
+    if (!checkoutQuoteContactMatches(
+      quote: snapshot,
+      customerName: customerName,
+      phone: phone,
+      address: address,
+      deliveryType: deliveryType,
+    )) {
       throw StateError('Ma’lumotlar o‘zgardi. Yakuniy hisobni qayta oling');
+    }
     final payload = {
       ...snapshot,
       'id': _newOrderUuid(),

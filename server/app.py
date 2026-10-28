@@ -630,9 +630,10 @@ def order_push_event():
             return jsonify(error="Verified admin subscriptions unavailable"),502
         print(f"Verified admin WebPush recipients: {len(subscriptions) if isinstance(subscriptions,list) else 0}",flush=True)
     else:
-        subscriptions=_admin_rpc_call("event_push_subscriptions",{
+        subscriptions=_admin_rpc_call("event_customer_device_webpush",{
             "p_event_secret":supplied,
             "p_phone":phone,
+            "p_order_id":str(body.get("order_id", "")),
         })
         if subscriptions is None:
             return jsonify(error="Subscriptions unavailable"),502

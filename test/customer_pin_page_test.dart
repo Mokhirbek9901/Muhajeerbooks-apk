@@ -53,7 +53,7 @@ void main() {
     state.savedCustomer = {'name': 'Saqlangan Ism', 'phone': '01012345678', 'address': ''};
     await open(tester, state);
     expect(find.text('Saqlangan Ism'), findsOneWidget);
-    expect(find.text('01012345678'), findsOneWidget);
+    expect(tester.widget<TextFormField>(find.byType(TextFormField).at(1)).controller!.text, '01012345678');
     final fields = find.byType(TextFormField);
     await tester.enterText(fields.at(0), 'A');
     await tester.enterText(fields.at(1), '01012');

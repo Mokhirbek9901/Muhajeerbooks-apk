@@ -39,6 +39,12 @@ create table if not exists private.customer_device_receipts (
  path text primary key, device_id uuid not null references private.customer_device_profiles(id)
 );
 create index if not exists customer_device_receipts_device on private.customer_device_receipts(device_id);
+create table if not exists private.customer_device_apns (
+ token text primary key, device_id uuid not null references private.customer_device_profiles(id)
+);
+create index if not exists customer_device_apns_device on private.customer_device_apns(device_id);
+alter table private.customer_device_apns enable row level security;
+revoke all on private.customer_device_apns from public,anon,authenticated;
 create table if not exists private.customer_device_push (
  endpoint text primary key, device_id uuid not null references private.customer_device_profiles(id)
 );
@@ -157,7 +163,7 @@ end $$;
 create or replace function public.customer_device_dispatch(p_device_session text,p_action text,p_params jsonb default '{}')
 returns jsonb language plpgsql security definer set search_path='' as $$
 declare d private.customer_device_profiles:=private.customer_device(p_device_session); p jsonb:=coalesce(p_params,'{}');
- t text; th text; result jsonb; row jsonb; r record; oid uuid; qid uuid; path text; source text; reference text;
+ t text; th text; result jsonb; row jsonb; r record; oid uuid; qid uuid; v_path text; source text; reference text;
  added_device integer:=0; needs_session boolean:=false; compat_install text; instagram text;
 begin
  if jsonb_typeof(p)<>'object' or length(p::text)>100000 then raise exception 'So‘rov juda katta'; end if;
@@ -184,7 +190,7 @@ begin
  if p_action='customer_pin_profile' then return jsonb_build_object('valid',true,'name',d.full_name,'phone',d.display_phone); end if;
  if p_action in ('customer_pin_logout','customer_release_delete_profile') then
   update private.customer_device_profiles set revoked_at=now() where id=d.id;
-  update private.customer_apns_devices set opted_in=false where install_id=d.install_id;
+  update private.customer_apns_devices set opted_in=false where token in(select x.token from private.customer_device_apns x where x.device_id=d.id);
   update public.push_subscriptions set phone='' where endpoint in(select endpoint from private.customer_device_push where device_id=d.id);
   delete from private.customer_device_push where device_id=d.id;
   if p_action='customer_release_delete_profile' then
@@ -223,6 +229,19 @@ begin
  if p_action='customer_release_review_action' and p->>'p_action'='unblock_all' then
   delete from private.release_review_blocks where phone_key='device:'||d.id::text; return 'true';
  end if;
+ if p_action='customer_release_apns' then
+  if p->>'p_install_id' is distinct from d.install_id or coalesce(p->>'p_token','') !~ '^[0-9a-fA-F]{64,200}$' then raise exception 'Qurilma push ma’lumoti noto‘g‘ri'; end if;
+  if coalesce((p->>'p_enabled')::boolean,true) then
+   update private.customer_apns_devices set opted_in=false where token in(select x.token from private.customer_device_apns x where x.device_id=d.id and x.token<>lower(p->>'p_token'));
+   insert into private.customer_apns_devices(token,phone_digits,install_id,opted_in,last_seen_at)
+    values(lower(p->>'p_token'),regexp_replace(d.display_phone,'[^0-9]','','g'),d.install_id,true,now())
+    on conflict(token) do update set phone_digits=excluded.phone_digits,install_id=excluded.install_id,opted_in=true,last_seen_at=now();
+   insert into private.customer_device_apns values(lower(p->>'p_token'),d.id) on conflict(token) do update set device_id=excluded.device_id;
+  else
+   update private.customer_apns_devices set opted_in=false where token=lower(p->>'p_token') and token in(select x.token from private.customer_device_apns x where x.device_id=d.id);
+  end if;
+  return 'true';
+ end if;
  if p_action='customer_release_reviews' then
   select coalesce(jsonb_agg(jsonb_build_object('id',rv.id,'book_id',rv.book_id,'reviewer_name',rv.reviewer_name,
    'rating',rv.rating,'comment',rv.comment,'created_at',rv.created_at) order by rv.created_at desc),'[]') into result
@@ -231,13 +250,13 @@ begin
   return result;
  end if;
  if p_action='customer_release_review_action' then
-  select public._customer_phone_key(o.phone) into path from public.book_reviews rv join public.orders o on o.id=rv.order_id where rv.id=(p->>'p_review_id')::uuid;
-  if path is null then raise exception 'Sharh topilmadi'; end if;
+  select public._customer_phone_key(o.phone) into v_path from public.book_reviews rv join public.orders o on o.id=rv.order_id where rv.id=(p->>'p_review_id')::uuid;
+  if v_path is null then raise exception 'Sharh topilmadi'; end if;
   if p->>'p_action'='report' then
    if length(trim(coalesce(p->>'p_reason',''))) not between 3 and 500 then raise exception 'Shikoyat sababini kiriting'; end if;
    insert into private.release_review_reports(review_id,phone_key,reason) values((p->>'p_review_id')::uuid,'device:'||d.id::text,trim(p->>'p_reason'))
     on conflict(review_id,phone_key) do update set reason=excluded.reason,status='pending';
-  elsif p->>'p_action'='block' then insert into private.release_review_blocks values('device:'||d.id::text,path,now()) on conflict do nothing;
+  elsif p->>'p_action'='block' then insert into private.release_review_blocks values('device:'||d.id::text,v_path,now()) on conflict do nothing;
   elsif p->>'p_action'='unblock_all' then delete from private.release_review_blocks where phone_key='device:'||d.id::text;
   else raise exception 'Amal noto‘g‘ri'; end if; return 'true';
  end if;
@@ -270,8 +289,8 @@ begin
   reference:=case when p_action='customer_release_preorder' then p->>'p_id' else p->>'p_preorder_id' end;
   if not private.customer_device_owns_preorder(d,source,reference) then raise exception 'Bu buyurtma qurilmangizga tegishli emas'; end if;
   if (p_action='customer_release_preorder' and p->>'p_action'='proof') or (p_action='customer_web_preorder_checkout' and p->>'p_action'='proof') then
-   path:=case when p_action='customer_release_preorder' then p->'p_payload'->>'path' else p->>'p_path' end;
-   if not exists(select 1 from private.customer_device_receipts x where x.path=path and x.device_id=d.id) then raise exception 'Chek qurilmangizga tegishli emas'; end if;
+   v_path:=case when p_action='customer_release_preorder' then p->'p_payload'->>'path' else p->>'p_path' end;
+   if not exists(select 1 from private.customer_device_receipts x where x.path=v_path and x.device_id=d.id) then raise exception 'Chek qurilmangizga tegishli emas'; end if;
   end if;
  end if;
  -- Preorder mutations reuse the existing ledger, including avans subtraction.
@@ -300,23 +319,23 @@ begin
   if public._customer_phone_key(p->'p_order'->>'phone')<>d.phone_key then raise exception 'Profil telefonini ishlating'; end if;
  end if;
  if p_action='customer_release_order' then
-  oid:=(p->'p_order'->>'id')::uuid; qid:=(p->>'p_quote_id')::uuid; path:=p->'p_order'->>'payment_proof_path';
+  oid:=(p->'p_order'->>'id')::uuid; qid:=(p->>'p_quote_id')::uuid; v_path:=p->'p_order'->>'payment_proof_path';
   perform pg_advisory_xact_lock(hashtextextended('device-order:'||oid::text,29));
   if exists(select 1 from public.orders where id=oid) and not private.customer_device_owns_order(d,oid) then raise exception 'Buyurtma boshqa qurilmaga tegishli'; end if;
   if not exists(select 1 from private.customer_device_quotes x where x.quote_id=qid and x.device_id=d.id)
-   or not exists(select 1 from private.customer_device_receipts x where x.path=path and x.device_id=d.id) then raise exception 'Hisob yoki chek qurilmangizga tegishli emas'; end if;
+   or not exists(select 1 from private.customer_device_receipts x where x.path=v_path and x.device_id=d.id) then raise exception 'Hisob yoki chek qurilmangizga tegishli emas'; end if;
  end if;
  if p_action='customer_release_receipt' then
-  path:=p->>'p_path';
-  perform pg_advisory_xact_lock(hashtextextended('device-receipt:'||coalesce(path,''),29));
-  if exists(select 1 from private.customer_device_receipts x where x.path=path and x.device_id<>d.id) then raise exception 'Chek boshqa qurilmaga tegishli'; end if;
+  v_path:=p->>'p_path';
+  perform pg_advisory_xact_lock(hashtextextended('device-receipt:'||coalesce(v_path,''),29));
+  if exists(select 1 from private.customer_device_receipts x where x.path=v_path and x.device_id<>d.id) then raise exception 'Chek boshqa qurilmaga tegishli'; end if;
  end if;
  -- Reuse validated price, stock, receipt and advance-ledger routines. The
  -- temporary session/device link exists only inside this transaction and is
  -- removed before returning. It is never sent to the application.
  select 'p_session'=any(proargnames) into needs_session from pg_catalog.pg_proc f join pg_catalog.pg_namespace n on n.oid=f.pronamespace
   where n.nspname='public' and f.proname=p_action;
- needs_session:=coalesce(needs_session,false) or p_action in ('web_preorder_submit','web_preorder_submit_multi');
+ needs_session:=coalesce(needs_session,false) or p_action in ('customer_preorder_submit','web_preorder_submit','web_preorder_submit_multi');
  if needs_session then
   perform pg_advisory_xact_lock(hashtextextended('device-compat:'||d.phone_key||':'||d.install_id,29));
   t:=encode(extensions.gen_random_bytes(32),'hex'); th:=encode(extensions.digest(t,'sha256'),'hex');
@@ -326,7 +345,7 @@ begin
   insert into private.customer_pin_devices(phone_key,install_id) values(d.phone_key,compat_install) on conflict do nothing;
   get diagnostics added_device=row_count;
   if p_action in ('web_preorder_submit','web_preorder_submit_multi') then p:=jsonb_set(p,'{p_request,session}',to_jsonb(t));
-  else p:=p||jsonb_build_object('p_session',t); end if;
+  elsif p_action<>'customer_preorder_submit' then p:=p||jsonb_build_object('p_session',t); end if;
  end if;
  p:=p-'p_proofs';
  result:=private.customer_device_call(p_action,p);
@@ -334,6 +353,8 @@ begin
   insert into private.customer_device_quotes values((result->>'quote_id')::uuid,d.id);
  elsif p_action='customer_release_order' then
   insert into private.customer_device_orders values((result->>'id')::uuid,d.id) on conflict do nothing;
+ elsif p_action='customer_release_apns' then
+  insert into private.customer_device_apns values(lower(p->>'p_token'),d.id) on conflict(token) do update set device_id=excluded.device_id;
  elsif p_action='customer_preorder_submit' then
   insert into private.customer_device_preorders values('native',result->>'id',d.id) on conflict do nothing;
   update public.preorders set instagram_handle=instagram where id=(result->>'id')::bigint;
@@ -341,7 +362,7 @@ begin
   insert into private.customer_device_preorders values('web',result->>'id',d.id) on conflict do nothing;
   update public.web_preorder_requests set instagram_handle=instagram where id=(result->>'id')::uuid;
  elsif p_action='customer_release_receipt' then
-  insert into private.customer_device_receipts values(path,d.id) on conflict do nothing;
+  insert into private.customer_device_receipts values(v_path,d.id) on conflict do nothing;
  end if;
  if needs_session then
   -- The web subscription is bound separately to the durable device, never t.
@@ -413,3 +434,34 @@ begin
 end $$;
 revoke all on function public.admin_customer_preorder_contacts(text) from public,anon,authenticated;
 grant execute on function public.admin_customer_preorder_contacts(text) to service_role;
+
+
+-- Phone numbers route contact, never authorize private notification recipients.
+-- The event server supplies the exact order whose ownership must match.
+create or replace function public.event_customer_device_webpush(p_event_secret text,p_phone text,p_order_id uuid)
+returns table(endpoint text,p256dh text,auth text) language plpgsql security definer set search_path='' as $$
+begin
+ if not exists(select 1 from private.push_event_config where id and event_secret=p_event_secret) then raise exception 'Ruxsat yo‘q'; end if;
+ return query select s.endpoint,s.p256dh,s.auth from public.push_subscriptions s
+  left join private.customer_device_push x on x.endpoint=s.endpoint
+  left join private.customer_device_profiles d on d.id=x.device_id
+  where public._customer_phone_key(s.phone)=public._customer_phone_key(p_phone) and (
+   x.device_id is null
+   or (d.revoked_at is null and private.customer_device_owns_order(d,p_order_id)))
+  order by s.updated_at desc limit 20;
+end $$;
+create or replace function public.event_customer_device_apns(p_event_secret text,p_phone text,p_order_id uuid)
+returns table(token text) language plpgsql security definer set search_path='' as $$
+begin
+ if not exists(select 1 from private.push_event_config where id and event_secret=p_event_secret) then raise exception 'Ruxsat yo‘q'; end if;
+ return query select a.token from private.customer_apns_devices a
+  left join private.customer_device_apns x on x.token=a.token
+  left join private.customer_device_profiles d on d.id=x.device_id
+  where a.opted_in and a.last_seen_at>now()-interval '90 days'
+   and public._customer_phone_key(a.phone_digits)=public._customer_phone_key(p_phone) and (
+    x.device_id is null
+    or (d.revoked_at is null and private.customer_device_owns_order(d,p_order_id)))
+  order by a.last_seen_at desc limit 20;
+end $$;
+revoke all on function public.event_customer_device_webpush(text,text,uuid),public.event_customer_device_apns(text,text,uuid) from public,anon,authenticated;
+grant execute on function public.event_customer_device_webpush(text,text,uuid),public.event_customer_device_apns(text,text,uuid) to service_role;

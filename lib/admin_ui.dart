@@ -7561,6 +7561,40 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
       if (result == null) return;
       customerNote = result.trim();
     }
+    if (status == 'prepared') {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          title: const Text('Buyurtmadagi kitoblar'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final item in order.items)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Text('• ${item['title']} — ${item['quantity']} ta'),
+                  ),
+                const SizedBox(height: 12),
+                const Text('Kitoblar tayyor bo‘lsa, tasdiqlang.'),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialog, false),
+              child: const Text('Ortga'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialog, true),
+              child: const Text('Tayyorlandi'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
     if (status == 'cancelled') {
       final yes = await showDialog<bool>(
         context: context,
@@ -8180,28 +8214,6 @@ class _ProfessionalOrderCard extends StatelessWidget {
                   ],
                 ),
               ),
-            if (webPreviewFeaturesAvailable &&
-                order.preparedAt == null &&
-                (order.status == 'accepted' || order.status == 'paid')) ...[
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (_) => WebPackingPage(
-                        order: order,
-                        secret: api.secret,
-                        onPrepared: () => onStatus('prepared'),
-                      ),
-                    ),
-                  ),
-                  icon: const Icon(Icons.fact_check_outlined),
-                  label: const Text('Qadoqlash tekshiruvi'),
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
             _OrderActions(order: order, onStatus: onStatus),
           ],
         ],
@@ -8241,11 +8253,6 @@ class _OrderActions extends StatelessWidget {
           : Icons.local_shipping_rounded;
     }
 
-    if (webPreviewFeaturesAvailable && primaryStatus == 'prepared') {
-      primaryStatus = null;
-      primaryLabel = null;
-      primaryIcon = null;
-    }
     return Row(
       children: [
         if (primaryStatus != null)

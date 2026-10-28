@@ -249,8 +249,11 @@ class AdminProfitBatchPanel extends StatelessWidget {
             borderRadius:BorderRadius.circular(6),
             color:color,backgroundColor:const Color(0xFFE9EEF5)),
           const SizedBox(height:5),
-          Text('$estimatedSold / $received dona FIFO hisob · '
-            '${_n(group,'estimated_remaining_units')} dona qolgan',
+          Text(group['date_fifo_applied']==true
+            ? '$estimatedSold / $received dona sana bo‘yicha FIFO · '
+              '${_n(group,'estimated_remaining_units')} dona qolgan'
+            : '$estimatedSold / $received dona hisobiy chiqim · '
+              '${_n(group,'estimated_remaining_units')} dona qolgan',
             style:const TextStyle(color:muted,fontSize:11)),
           ],
         ]),

@@ -20,8 +20,19 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    outputs:
+      allowed: ${{ steps.approval.outputs.allowed }}
     steps:
       - uses: actions/checkout@v4
+      - name: Respect the current owner publication hold
+        id: approval
+        run: |
+          python3 - <<'PY_HOLD'
+          import json,os
+          approval=json.load(open('.github/play-production-approval-1190.json'))
+          with open(os.environ['GITHUB_OUTPUT'],'a') as out:
+              out.write('allowed='+str(approval.get('public_release_allowed') is True).lower()+'\n')
+          PY_HOLD
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -29,7 +40,7 @@ jobs:
         run: PYTHONPATH=tools python3 -m unittest discover -s server/tests -p 'test_play_production_promotion.py' -v
   release:
     needs: validate
-    if: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
+    if: ${{ needs.validate.outputs.allowed == 'true' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
     env:

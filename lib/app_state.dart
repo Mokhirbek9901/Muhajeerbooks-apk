@@ -252,16 +252,10 @@ class Book {
     return derived.isNotEmpty ? derived : images[index];
   }
 
-  List<String> get galleryImages {
-    final result = <String>[];
-    for (final raw in [imageUrl, ...imageUrls]) {
-      final url = raw.trim();
-      if (url.isEmpty || result.contains(url)) continue;
-      result.add(url);
-      if (result.length == 20) break;
-    }
-    return result;
-  }
+  List<String> get galleryImages => <String>{
+    for (final raw in [imageUrl, ...imageUrls])
+      if (raw.trim().isNotEmpty) raw.trim(),
+  }.toList();
 
   factory Book.fromMap(Map<String, dynamic> map) => Book(
     id: (map['id'] ?? '').toString(),
@@ -284,7 +278,6 @@ class Book {
     imageUrls: ((map['image_urls'] as List?) ?? const [])
         .map((e) => e.toString().trim())
         .where((e) => e.isNotEmpty)
-        .take(20)
         .toList(),
     isActive: map['is_active'] as bool? ?? true,
     coverType: (map['cover_type'] ?? map['cover'] ?? 'Ko‘rsatilmagan')

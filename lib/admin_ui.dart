@@ -1,3 +1,4 @@
+import 'book_image_optimizer.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
@@ -8,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:local_auth/local_auth.dart';
@@ -112,69 +112,6 @@ class _UploadedBookImage {
   const _UploadedBookImage({required this.url, required this.thumbnailUrl});
   final String url;
   final String thumbnailUrl;
-}
-
-img.Image _resizeWithin(img.Image source, int maxWidth, int maxHeight) {
-  if (source.width <= maxWidth && source.height <= maxHeight) return source;
-  final widthScale = maxWidth / source.width;
-  final heightScale = maxHeight / source.height;
-  final scale = widthScale < heightScale ? widthScale : heightScale;
-  return img.copyResize(
-    source,
-    width: (source.width * scale).round().clamp(1, maxWidth),
-    height: (source.height * scale).round().clamp(1, maxHeight),
-    interpolation: img.Interpolation.cubic,
-  );
-}
-
-Uint8List _encodeJpegTarget(
-  img.Image source, {
-  required int targetBytes,
-  required int startQuality,
-  required int minQuality,
-}) {
-  var quality = startQuality;
-  var bytes = Uint8List.fromList(img.encodeJpg(source, quality: quality));
-  while (bytes.length > targetBytes && quality > minQuality) {
-    quality = (quality - 4).clamp(minQuality, 100);
-    bytes = Uint8List.fromList(img.encodeJpg(source, quality: quality));
-  }
-  return bytes;
-}
-
-Map<String, Uint8List>? _prepareBookImageVariants(Uint8List sourceBytes) {
-  final decoded = img.decodeImage(sourceBytes);
-  if (decoded == null) return null;
-  final oriented = img.bakeOrientation(decoded);
-
-  var fullImage = _resizeWithin(oriented, 1200, 1800);
-  var fullBytes = _encodeJpegTarget(
-    fullImage,
-    targetBytes: 220 * 1024,
-    startQuality: 76,
-    minQuality: 60,
-  );
-  if (fullBytes.length > 280 * 1024) {
-    fullImage = _resizeWithin(fullImage, 1050, 1575);
-    fullBytes = _encodeJpegTarget(
-      fullImage,
-      targetBytes: 240 * 1024,
-      startQuality: 72,
-      minQuality: 58,
-    );
-  }
-
-  // 480px thumbnail stays light enough for the Free-plan catalog, while
-  // remaining crisp on modern 2x/3x phone screens.
-  final thumbImage = _resizeWithin(oriented, 480, 720);
-  final thumbBytes = _encodeJpegTarget(
-    thumbImage,
-    targetBytes: 46 * 1024,
-    startQuality: 78,
-    minQuality: 60,
-  );
-
-  return <String, Uint8List>{'full': fullBytes, 'thumb': thumbBytes};
 }
 
 Map<String, dynamic> _functionResponseMap(dynamic raw) {
@@ -328,6 +265,7 @@ class _AdminApi {
               : book.galleryImages.first,
           'thumbnail_url': book.thumbnailUrl,
           'image_urls': book.galleryImages,
+          'gallery_unlimited': true,
           'is_active': book.isActive,
           'cover': book.coverType,
           'cost_price': book.costPrice,
@@ -350,7 +288,7 @@ class _AdminApi {
     }
 
     final prepared = await compute(
-      _prepareBookImageVariants,
+      prepareBookImageVariants,
       Uint8List.fromList(sourceBytes),
     );
 
@@ -366,24 +304,13 @@ class _AdminApi {
       final base = file.name.replaceFirst(RegExp(r'\.[^.]+$'), '');
       uploadName = 'opt-${base.isEmpty ? 'cover' : base}.jpg';
     } else {
-      if (sourceBytes.length > 7 * 1024 * 1024) {
-        throw StateError(
-          'Bu rasmni optimallashtirib bo‘lmadi. Boshqa JPG/PNG rasm tanlang.',
-        );
-      }
-      uploadBytes = Uint8List.fromList(sourceBytes);
-      final lower = file.name.toLowerCase();
-      contentType = lower.endsWith('.png')
-          ? 'image/png'
-          : lower.endsWith('.webp')
-          ? 'image/webp'
-          : 'image/jpeg';
-      uploadName = file.name;
+      throw StateError('Bu rasmni siqib bo‘lmadi. JPG, PNG yoki WebP rasm tanlang.');
     }
 
     final body = <String, dynamic>{
       'admin_code': secret,
       'file_name': uploadName,
+      'optimized': true,
       'content_type': contentType,
       'data_base64': base64Encode(uploadBytes),
     };
@@ -450,7 +377,7 @@ class _AdminApi {
         }
 
         final prepared = await compute(
-          _prepareBookImageVariants,
+          prepareBookImageVariants,
           Uint8List.fromList(downloaded.bodyBytes),
         );
         if (prepared == null) {
@@ -5317,7 +5244,6 @@ class _BooksAdminState extends State<_BooksAdmin> {
       book.costPrice <= 0 ||
       _invalidImage(book) ||
       _missingAuthor(book) ||
-      (webPreviewFeaturesAvailable && _galleryOverTwo(book)) ||
       _outOfStock(book) ||
       _lowStock(book) ||
       _belowCost(book) ||
@@ -6525,6 +6451,7 @@ class _BookFormState extends State<_BookForm> {
   bool preorderEnabled = false;
   bool saving = false;
   bool uploadingImage = false;
+  int uploadTotal = 0, uploadProcessed = 0;
   bool researchingBook = false;
   List<String> gallery = [];
   String thumbnailUrl = '';
@@ -6746,32 +6673,39 @@ class _BookFormState extends State<_BookForm> {
 
   Future<void> pickAndUploadImages() async {
     if (uploadingImage) return;
-    final slots = 20 - gallery.length;
-    if (slots <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Bitta kitobga maksimal 10 ta rasm qo‘yiladi.'),
-        ),
-      );
-      return;
-    }
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      uploadingImage = true;
+      uploadTotal = 0;
+      uploadProcessed = 0;
+    });
 
     try {
       final picked = await picker.pickMultiImage(
-        imageQuality: 92,
-        maxWidth: 2200,
-        maxHeight: 3000,
+        imageQuality: 85,
+        maxWidth: 1600,
+        maxHeight: 2400,
       );
       if (picked.isEmpty) return;
 
-      final selected = picked.take(slots).toList();
-      setState(() => uploadingImage = true);
+      final selected = picked;
+      if (!mounted) return;
+      setState(() => uploadTotal = selected.length);
       var uploadedCount = 0;
       final errors = <String>[];
 
       // Har bir rasm alohida yuklanadi. Bitta rasmda xato bo‘lsa ham
       // oldin muvaffaqiyatli yuklangan rasmlar yo‘qolib ketmaydi.
+      DateTime? previousUpload;
       for (final file in selected) {
+        if (!mounted) return;
+        // Keep arbitrarily large selections within the existing upload rate.
+        if (previousUpload != null) {
+          final remaining = 2100 - DateTime.now().difference(previousUpload).inMilliseconds;
+          if (remaining > 0) await Future<void>.delayed(Duration(milliseconds: remaining));
+        }
+        if (!mounted) return;
+        previousUpload = DateTime.now();
         try {
           final uploaded = await widget.api.uploadCover(file);
           final url = uploaded.url.trim();
@@ -6784,13 +6718,16 @@ class _BookFormState extends State<_BookForm> {
           if (!mounted) return;
           if (!gallery.contains(url)) {
             setState(() {
-              gallery = [...gallery, url].take(20).toList();
+              gallery = [...gallery, url];
               _syncCoverController();
             });
             uploadedCount++;
           }
         } catch (e) {
           errors.add('${file.name}: $e');
+        } finally {
+          previousUpload = DateTime.now();
+          if (mounted) setState(() => uploadProcessed++);
         }
       }
 
@@ -6801,7 +6738,7 @@ class _BookFormState extends State<_BookForm> {
           SnackBar(
             content: Text(
               errors.isEmpty
-                  ? 'Rasm yuklanmadi.'
+                  ? 'Tanlangan rasmlar avval qo‘shilgan.'
                   : 'Rasm yuklanmadi: ${errors.first}',
             ),
           ),
@@ -7016,7 +6953,6 @@ class _BookFormState extends State<_BookForm> {
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toSet()
-        .take(20)
         .toList();
     final manualCover = image.text.trim();
     if (urls.isEmpty && manualCover.isNotEmpty) urls = [manualCover];
@@ -7216,7 +7152,7 @@ class _BookFormState extends State<_BookForm> {
             const SizedBox(height: 10),
             Center(
               child: FilledButton.tonalIcon(
-                onPressed: uploadingImage || gallery.length >= 20
+                onPressed: uploadingImage
                     ? null
                     : pickAndUploadImages,
                 icon: uploadingImage
@@ -7228,8 +7164,8 @@ class _BookFormState extends State<_BookForm> {
                     : const Icon(Icons.add_photo_alternate_outlined),
                 label: Text(
                   uploadingImage
-                      ? 'Yuklanmoqda...'
-                      : 'Rasmlar tanlash (${gallery.length}/20)',
+                      ? (uploadTotal == 0 ? 'Rasmlar tanlanmoqda...' : 'Yuklanmoqda: $uploadProcessed/$uploadTotal')
+                      : 'Yana rasm qo‘shish (${gallery.length} ta)',
                 ),
               ),
             ),
@@ -7312,7 +7248,7 @@ class _BookFormState extends State<_BookForm> {
             const Padding(
               padding: EdgeInsets.only(top: 8, bottom: 14),
               child: Text(
-                '1-rasm — kitob muqovasi. U ilovada ham, Telegram botda ham asosiy rasm bo‘ladi. Qolgan rasmlar kitob ichini ko‘rsatish uchun. Maksimal 20 ta.',
+                '1-rasm — kitob muqovasi. U ilovada ham, Telegram botda ham asosiy rasm bo‘ladi. Qolgan rasmlar kitob ichini ko‘rsatish uchun. Istalgancha qo‘shing — rasmlar joyni tejash uchun avtomatik siqiladi.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: Colors.black54),
               ),

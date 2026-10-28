@@ -175,6 +175,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
   }
 
   Future<void> pick([_RequestedBook? book]) async {
+    CustomerFormScaffold.dismissKeyboard();
     if (picking || saving) return;
     ScaffoldMessenger.of(context).clearSnackBars();
     setState(() => picking = true);
@@ -299,13 +300,13 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
   Widget build(BuildContext context) => PopScope(
     canPop: allowPop || completed,
     onPopInvokedWithResult: (didPop, result) { if (!didPop) back(); },
-    child: Scaffold(
+    child: CustomerFormScaffold(
     appBar: AppBar(title: const Text('Oldindan buyurtma'),
       leading: IconButton(tooltip: 'Orqaga', icon: const Icon(Icons.arrow_back),
         onPressed: saving || picking || completed ? null : back)),
     body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 680),
       child: loading ? const Center(child: CircularProgressIndicator()) : Form(key: form,
-        child: ListView(padding: const EdgeInsets.all(18), children: [
+        child: ListView(keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag, padding: const EdgeInsets.all(18), children: [
           AppSurface(backgroundColor: const Color(0xFFE5F3ED), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('Taxminiy kelish sanasi', style: TextStyle(fontWeight: FontWeight.w800)),
             Text(config?.arrival.isNotEmpty == true ? config!.arrival : 'Hali belgilanmagan', style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w900)),

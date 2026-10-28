@@ -1188,7 +1188,12 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
                     Expanded(
                       flex: 4,
                       child: _pane(
-                        AdminProfitBatchPanel(groups: batches, lots: lots),
+                        AdminProfitBatchPanel(
+                          groups: batches,
+                          lots: lots,
+                          unmatchedSalesCount:
+                            BookProfitMath.amount(batchData['dated_fifo_unmatched_sales']),
+                        ),
                       ),
                     ),
                   ],
@@ -1202,7 +1207,12 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _pane(AdminProfitBatchPanel(groups: batches, lots: lots)),
+                _pane(AdminProfitBatchPanel(
+                          groups: batches,
+                          lots: lots,
+                          unmatchedSalesCount:
+                            BookProfitMath.amount(batchData['dated_fifo_unmatched_sales']),
+                        )),
               ],
               if (data['activity_error'] != null) ...[
                 const SizedBox(height: 8),

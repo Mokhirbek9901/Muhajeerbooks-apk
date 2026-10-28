@@ -818,6 +818,7 @@ class _AdminApi {
   /// All native preorder states, not just the 100 waiting items in insights.
   /// Read-only, bounded pages; throws instead of silently dropping history.
   Future<List<Map<String, dynamic>>> nativePreordersAll() async {
+    final contacts = await _rpc('admin_customer_preorder_contacts', params: {'p_secret': secret});
     const pageSize = 200;
     final all = <Map<String, dynamic>>[];
     for (var offset = 0; offset < 20000; offset += pageSize) {
@@ -832,6 +833,9 @@ class _AdminApi {
           .whereType<Map>()
           .map((row) => Map<String, dynamic>.from(row))
           .toList();
+      for (final row in page) {
+        if (contacts is Map) row['instagram_handle'] = contacts['native:${row['id']}'] ?? '';
+      }
       all.addAll(page);
       if (page.length < pageSize) return all;
     }
@@ -6386,6 +6390,8 @@ class _PreorderAdminPageState extends State<_PreorderAdminPage> {
                             'Oldindan to‘lov: ${_won((r['deposit_amount'] as num?)?.toInt() ?? 0)}',
                             style: const TextStyle(fontWeight: FontWeight.w800),
                           ),
+                          if ((r['instagram_handle'] ?? '').toString().isNotEmpty)
+                            SelectableText('Instagram: @${r['instagram_handle']}'),
                           if ((r['note'] ?? '').toString().trim().isNotEmpty)
                             Text('Izoh: ${r['note']}'),
                           if ((r['payment_proof_path'] ?? '')

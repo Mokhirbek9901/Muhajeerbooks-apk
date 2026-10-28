@@ -1,3 +1,4 @@
+import 'preorder_instagram.dart';
 import 'store_distribution.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -619,9 +620,13 @@ class BackendService {
       'preorder_arrival_note,preorder_deposit_min,preorder_deposit_max,preorder_price_max,created_at,restocked_at,catalog_pin_rank';
 
   Future<dynamic> _customerRpc(String name, Map<String, dynamic> params) async {
+    final device = CustomerSession.deviceFor(name, params);
     final response = await client.functions.invoke(
       'customer-rpc',
-      body: {'name': name, 'params': params},
+      body: device.isEmpty ? {'name': name, 'params': params} : {
+        'name': 'customer_device_dispatch',
+        'params': {'p_device_session': device, 'p_action': name, 'p_params': params},
+      },
     );
     final raw = response.data;
     Map<String, dynamic> envelope = <String, dynamic>{};
@@ -867,6 +872,7 @@ class BackendService {
     required int depositAmount,
     required String paymentProofPath,
     String note = '',
+    String instagramHandle = '',
   }) async {
     final raw = await _customerRpc('customer_preorder_submit', {
       'p_install_id': installId,
@@ -881,45 +887,11 @@ class BackendService {
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> pinCreate(
-    String name,
-    String phone,
-    String pin,
-    String installId,
-  ) async {
-    final data = await _customerRpc('customer_pin_register', {
-      'p_name': name,
-      'p_phone': phone,
-      'p_pin': pin,
-      'p_install_id': installId,
-    });
-    if (data is! Map) throw StateError('PIN yaratilmadi');
-    final m = Map<String, dynamic>.from(data);
-    if (m['error'] != null) throw StateError('${m['error']}');
-    return m;
-  }
-
-  Future<Map<String, dynamic>> pinLogin(
-    String phone,
-    String pin,
-    String installId,
-  ) async {
-    final data = await _customerRpc('customer_pin_login', {
-      'p_phone': phone,
-      'p_pin': pin,
-      'p_install_id': installId,
-    });
-    if (data is! Map) throw StateError('PIN tekshirilmadi');
-    final m = Map<String, dynamic>.from(data);
-    if (m['error'] != null) throw StateError('${m['error']}');
-    return m;
-  }
-
   Future<Map<String, dynamic>> pinProfile(String token) async {
     final raw = await _customerRpc('customer_pin_profile', {
       'p_session': token,
     });
-    if (raw is! Map) throw StateError('PIN sessiyasi tugagan');
+    if (raw is! Map) throw StateError('Qurilma kirishi tugagan');
     return Map<String, dynamic>.from(raw);
   }
 
@@ -1507,6 +1479,44 @@ class _LocalStore {
     await prefs.setString(_customerAddressKey, address);
   }
 
+  static const _deviceSecretKey = 'muhajeer_customer_device_v1';
+  Future<String?> readDeviceSecret() async => kIsWeb
+      ? (await _prefs).getString(_deviceSecretKey)
+      : _secureStorage.read(key: _deviceSecretKey);
+  Future<void> saveDeviceSecret(String secret) async {
+    if (kIsWeb) {
+      await (await _prefs).setString(_deviceSecretKey, secret);
+    } else {
+      await _secureStorage.write(key: _deviceSecretKey, value: secret);
+    }
+  }
+  static const _pendingDeviceKey = 'muhajeer_customer_device_pending_v1';
+  Future<String?> pendingDeviceSecret(String phone) async {
+    final raw = kIsWeb ? (await _prefs).getString(_pendingDeviceKey)
+        : await _secureStorage.read(key: _pendingDeviceKey);
+    if (raw == null) return null;
+    try {
+      final data = jsonDecode(raw) as Map;
+      return data['phone'] == phone ? data['secret'] as String? : null;
+    } catch (_) { return null; }
+  }
+  Future<void> stageDeviceSecret(String phone, String secret) async {
+    final value = jsonEncode({'phone': phone, 'secret': secret});
+    if (kIsWeb) { await (await _prefs).setString(_pendingDeviceKey, value); }
+    else { await _secureStorage.write(key: _pendingDeviceKey, value: value); }
+  }
+  Future<void> clearPendingDeviceSecret() async {
+    if (kIsWeb) { await (await _prefs).remove(_pendingDeviceKey); }
+    else { await _secureStorage.delete(key: _pendingDeviceKey); }
+  }
+  Future<void> clearDeviceSecret() async {
+    if (kIsWeb) {
+      await (await _prefs).remove(_deviceSecretKey);
+    } else {
+      await _secureStorage.delete(key: _deviceSecretKey);
+    }
+  }
+
   Future<void> savePinSession(String token) async {
     if (kIsWeb) {
       await (await _prefs).setString(_customerPinSessionKey, token);
@@ -2067,127 +2077,132 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     unawaited(refreshPreorderNotices());
   }
 
-  /// Checkout requires a reusable PIN-backed local profile, not an SMS code.
-  /// Existing successful PIN logins stay active until the session expires.
+  /// Contacts are saved once; a strong device credential is managed automatically.
   bool get checkoutIdentityReady =>
       pinSessionActive &&
       (savedCustomer['name'] ?? '').trim().length >= 2 &&
       (savedCustomer['phone'] ?? '').replaceAll(RegExp(r'\D'), '').length >= 9;
 
-  /// Register first, then save locally: an existing phone/PIN must not replace
-  /// the current local identity when account registration fails.
-  Future<void> enrollCustomerWithPin(
-    String name,
-    String phone,
-    String pin,
-  ) async {
-    if (_backend == null)
-      throw StateError('Ro‘yxatdan o‘tish uchun internet kerak');
+  Future<void>? _restoringCustomerDevice;
+  int _customerIdentityEpoch = 0;
+  bool _savingCustomerDevice = false;
+
+  Future<void> restoreCustomerDevice() => _restoringCustomerDevice ??=
+      _restoreCustomerDevice().whenComplete(() => _restoringCustomerDevice = null);
+
+  Future<void> saveCustomerWithoutPin(String name, String phone) async {
+    if (_backend == null) throw StateError('Saqlash uchun internet kerak');
+    if (_savingCustomerDevice) throw StateError('Ma’lumotlar saqlanmoqda');
     final cleanName = name.trim();
     final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
-    if (cleanName.length < 2 ||
-        cleanPhone.length < 9 ||
-        !RegExp(r'^[0-9]{4}$').hasMatch(pin)) {
-      throw StateError('Ism, telefon yoki 4 xonali PINni tekshiring');
+    if (cleanName.length < 2 || cleanName.length > 80 ||
+        cleanPhone.length < 9 || cleanPhone.length > 13) {
+      throw StateError('Ism va telefon raqamini tekshiring');
     }
-    final installId = await _local.installId();
-    final result = await _backend!.pinCreate(
-      cleanName,
-      cleanPhone,
-      pin,
-      installId,
-    );
-    final token = '${result['session'] ?? ''}';
-    if (token.length != 64) throw StateError('PIN ro‘yxati tasdiqlanmadi');
-    await setAuthenticatedCustomer(cleanName, cleanPhone, verified: false);
-    await _local.savePinSession(token);
-    _pinSession = token;
-    unawaited(refreshPinOrderHistory().catchError((_) {}));
-    unawaited(syncPushIdentity(savedCustomerPhone));
-    unawaited(syncNativeCustomerPushIfAllowed());
-    notifyListeners();
-    unawaited(refreshPreorderNotices());
-  }
-
-  Future<void> createPersonalPin(String pin) async {
-    if (_backend == null) throw StateError('Internet kerak');
-    final name = (savedCustomer['name'] ?? '').trim();
-    final phone = (savedCustomer['phone'] ?? '').trim();
-    if (name.length < 2 || phone.isEmpty) {
-      throw StateError('Avval ism va telefonni profilga kiriting');
-    }
-    final id = await _local.installId();
-    final result = await _backend!.pinCreate(name, phone, pin, id);
-    final token = '${result['session'] ?? ''}';
-    if (token.length != 64) throw StateError('Kirish sessiyasi olinmadi');
-    await _local.savePinSession(token);
-    _pinSession = token;
-    unawaited(refreshPinOrderHistory().catchError((_) {}));
-    unawaited(syncPushIdentity(savedCustomerPhone));
-    unawaited(syncNativeCustomerPushIfAllowed());
-    notifyListeners();
-  }
-
-  Future<void> loginPersonalPin(String phone, String pin) async {
-    if (_backend == null) throw StateError('Internet kerak');
-    final id = await _local.installId();
-    final result = await _backend!.pinLogin(phone.trim(), pin, id);
-    final token = '${result['session'] ?? ''}';
-    if (token.length != 64) throw StateError('Kirish sessiyasi olinmadi');
-    final name = '${result['name'] ?? ''}'.trim();
-    final savedPhone = '${result['phone'] ?? ''}'.trim();
-    if (name.isEmpty || savedPhone.isEmpty) throw StateError('Profil olinmadi');
-    // Clear any previously logged-in phone before connecting the NEW token.
-    await setAuthenticatedCustomer(name, savedPhone, verified: false);
-    await _local.savePinSession(token);
-    _pinSession = token;
-    unawaited(refreshPinOrderHistory().catchError((_) {}));
-    unawaited(syncPushIdentity(savedCustomerPhone));
-    unawaited(syncNativeCustomerPushIfAllowed());
-    final restored = await _local.readOrdersAfterPinLogin(savedPhone);
-    if (restored.isNotEmpty) {
-      final ordersById = <String, ShopOrder>{
-        for (final order in _localOrders.where(
-          (o) => _customerPhoneKey(o.phone) == _customerPhoneKey(savedPhone),
-        ))
-          order.id: order,
-        for (final order in restored) order.id: order,
-      };
-      _localOrders
-        ..clear()
-        ..addAll(ordersById.values);
-      await _local.saveOrders(_localOrders);
-    }
-    notifyListeners();
-    unawaited(refreshPreorderNotices());
-    unawaited(refreshCustomerPushMessages());
-  }
-
-  Future<void> _restorePersonalPinQuietly() async {
-    if (_backend == null) return;
+    _savingCustomerDevice = true;
     try {
-      final token = await _local.readPinSession();
-      if (token == null || token.isEmpty) return;
-      final profile = await _backend!.pinProfile(token);
-      if (profile['valid'] != true) throw StateError('Expired PIN session');
-      await setAuthenticatedCustomer(
-        '${profile['name'] ?? ''}',
-        '${profile['phone'] ?? ''}',
-        verified: false,
-      );
+      await restoreCustomerDevice();
+      final epoch = _customerIdentityEpoch;
+      final previous = _pinSession ?? await _local.readPinSession() ?? '';
+      final samePhone = _customerPhoneKey(savedCustomerPhone) ==
+          _customerPhoneKey(cleanPhone);
+      final oldSecret = samePhone ? await _local.readDeviceSecret() : null;
+      final secret = oldSecret ?? await _local.pendingDeviceSecret(cleanPhone) ??
+          _newCustomerDeviceSecret();
+      // A failed switch must leave the current profile's key intact. Pending
+      // keys make retrying a lost response idempotent without exposing history.
+      await _local.stageDeviceSecret(cleanPhone, secret);
+      final result = await _backend!._customerRpc('customer_device_bootstrap', {
+        'p_secret': secret,
+        'p_install_id': await _local.installId(),
+        'p_name': cleanName,
+        'p_phone': cleanPhone,
+        'p_previous_session': samePhone && !CustomerSession.isDevice(previous)
+            ? previous : '',
+      });
+      if (_customerIdentityEpoch != epoch) return;
+      if (result is! Map || result['valid'] != true) {
+        throw StateError('Ma’lumotlar saqlanmadi. Qayta urinib ko‘ring.');
+      }
+      if (!samePhone && savedCustomerPhone.isNotEmpty) await signOutCustomer();
+      await _local.saveDeviceSecret(secret);
+      final token = 'device:$secret';
+      await setAuthenticatedCustomer(cleanName, cleanPhone, verified: false);
+      await _local.savePinSession(token);
+      await _local.clearPendingDeviceSecret();
       _pinSession = token;
+      unawaited(refreshPinOrderHistory().catchError((_) {}));
+      unawaited(syncPushIdentity(savedCustomerPhone));
+      unawaited(syncNativeCustomerPushIfAllowed());
+      unawaited(refreshPreorderNotices());
+      notifyListeners();
+    } finally {
+      _savingCustomerDevice = false;
+    }
+  }
+
+  static String _newCustomerDeviceSecret() {
+    final random = Random.secure();
+    return List.generate(32, (_) => random.nextInt(256)
+        .toRadixString(16).padLeft(2, '0')).join();
+  }
+
+  Future<void> _restorePersonalPinQuietly() => restoreCustomerDevice();
+
+  Future<void> _restoreCustomerDevice() async {
+    if (_backend == null || checkoutIdentityReady) return;
+    final epoch = _customerIdentityEpoch;
+    final previous = await _local.readPinSession() ?? '';
+    if (_customerIdentityEpoch != epoch) return;
+    try {
+      if (CustomerSession.isDevice(previous)) {
+        // Retain a cached device identity through temporary network outages.
+        _pinSession = previous;
+        notifyListeners();
+        final profile = await _backend!.pinProfile(previous);
+        if (_customerIdentityEpoch != epoch) return;
+        if (profile['valid'] != true) { _pinSession = null; return; }
+        await setAuthenticatedCustomer('${profile['name'] ?? ''}',
+          '${profile['phone'] ?? ''}', verified: false);
+        _pinSession = previous;
+      } else {
+        var name = (savedCustomer['name'] ?? '').trim();
+        var phone = savedCustomerPhone;
+        var migrationSession = '';
+        if (RegExp(r'^[a-f0-9]{64}$').hasMatch(previous)) {
+          try {
+            final profile = await _backend!.pinProfile(previous);
+            if (profile['valid'] == true) {
+              name = '${profile['name'] ?? ''}';
+              phone = '${profile['phone'] ?? ''}';
+              migrationSession = previous;
+            }
+          } catch (_) { /* Device-local history still remains available. */ }
+        }
+        if (name.length < 2 || _customerPhoneKey(phone).length < 9) return;
+        final secret = await _local.readDeviceSecret() ?? _newCustomerDeviceSecret();
+        await _local.saveDeviceSecret(secret);
+        final profile = await _backend!._customerRpc('customer_device_bootstrap', {
+          'p_secret': secret, 'p_install_id': await _local.installId(),
+          'p_name': name, 'p_phone': phone,
+          'p_previous_session': migrationSession,
+        });
+        if (_customerIdentityEpoch != epoch || profile is! Map || profile['valid'] != true) return;
+        await setAuthenticatedCustomer(name, phone, verified: false);
+        await _local.savePinSession('device:$secret');
+        _pinSession = 'device:$secret';
+      }
       unawaited(refreshPinOrderHistory().catchError((_) {}));
       unawaited(syncPushIdentity(savedCustomerPhone));
       unawaited(syncNativeCustomerPushIfAllowed());
       notifyListeners();
     } catch (_) {
-      _pinSession = null;
-      await _local.clearPinSession();
-      notifyListeners();
+      // A temporary outage must not erase the existing session or order cache.
     }
   }
 
   Future<void> signOutCustomer() async {
+    _customerIdentityEpoch++;
     final token = _pinSession;
     final oldPhone = savedCustomerPhone;
     final archive = List<ShopOrder>.from(_localOrders);
@@ -2210,6 +2225,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       unawaited(_backend!.pinLogout(token).catchError((_) {}));
     await Future.wait([
       _local.clearPinSession(),
+      _local.clearDeviceSecret(),
+      _local.clearPendingDeviceSecret(),
       _local.clearCustomer(),
       _local.saveOrders(const <ShopOrder>[]),
       _local.saveCustomerNotices(const <Map<String, dynamic>>[]),
@@ -2400,6 +2417,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     required int depositAmount,
     required XFile paymentProof,
     String note = '',
+    String instagramHandle = '',
   }) async {
     if (_backend == null) return 'Oldindan buyurtma uchun internet kerak.';
     if (!checkoutIdentityReady ||
@@ -2407,7 +2425,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         phone.replaceAll(RegExp(r'\D'), '') !=
             (savedCustomer['phone'] ?? '').replaceAll(RegExp(r'\D'), '')) {
       throw StateError(
-        'Avval Mening ma’lumotlarim bo‘limida ism, telefon va PIN bilan kiring',
+        'Avval Mening ma’lumotlarim bo‘limida ism va telefonni saqlang',
       );
     }
     final min = book.preorderDepositMin;
@@ -2493,7 +2511,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     Map<String, dynamic> payload = const {},
   ]) async {
     if (_backend == null || !checkoutIdentityReady)
-      throw StateError('PIN bilan kiring');
+      throw StateError('Avval ma’lumotlaringizni saqlang');
     final source = id.startsWith('native:') ? 'native' : 'web';
     final reference = id.startsWith('native:') ? id.substring(7) : id;
     final value = await _backend!._customerRpc('customer_release_preorder', {
@@ -2530,7 +2548,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     XFile image,
   ) async {
     if (_backend == null || !checkoutIdentityReady)
-      throw StateError('PIN bilan kiring');
+      throw StateError('Avval ma’lumotlaringizni saqlang');
     final path = await _backend!.uploadPaymentProof(image);
     return _releasePreorder(id, 'proof', {'path': path});
   }
@@ -2548,24 +2566,24 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         .toList();
   }
 
-  Future<void> recoverPin(String name, String phone, String note) async {
-    if (_backend == null) throw StateError('Internet kerak');
-    await _backend!._customerRpc('customer_release_recover_pin', {
-      'p_name': name,
-      'p_phone': phone,
-      'p_note': note,
+  Future<void> requestCustomerHistoryRecovery(String note) async {
+    if (_backend == null || !checkoutIdentityReady) {
+      throw StateError('Avval ism va telefonni saqlang');
+    }
+    await _backend!._customerRpc('customer_device_recovery_request', {
+      'p_session': _pinSession, 'p_note': note.trim(),
     });
   }
 
-  Future<void> deleteCustomerProfile(String pin) async {
+  Future<void> deleteCustomerProfile() async {
     if (_backend == null || !checkoutIdentityReady)
-      throw StateError('PIN bilan kiring');
+      throw StateError('Avval ma’lumotlaringizni saqlang');
     final raw = await _backend!._customerRpc(
       'customer_release_delete_profile',
-      {'p_session': _pinSession, 'p_pin': pin},
+      {'p_session': _pinSession},
     );
     if (raw is! Map || raw['deleted'] != true)
-      throw StateError('PIN noto‘g‘ri yoki profil o‘chmadi');
+      throw StateError('Profil o‘chmadi. Qayta urinib ko‘ring.');
     await signOutCustomer();
   }
 
@@ -2575,7 +2593,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     String reason = '',
   }) async {
     if (_backend == null || !checkoutIdentityReady)
-      throw StateError('PIN bilan kiring');
+      throw StateError('Avval ma’lumotlaringizni saqlang');
     await _backend!._customerRpc('customer_release_review_action', {
       'p_session': _pinSession,
       'p_review_id': id,
@@ -3368,7 +3386,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     if (_backend != null && !preserveCustomerProfile) {
       if (!checkoutIdentityReady) {
         throw StateError(
-          'Buyurtma berish uchun Mening ma’lumotlarim bo‘limida ism, telefon va PINni kiriting',
+          'Buyurtma berish uchun Mening ma’lumotlarim bo‘limida ism va telefonni kiriting',
         );
       }
       if (customerName.trim() != (savedCustomer['name'] ?? '').trim() ||
@@ -3606,6 +3624,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         await _backend!._customerRpc('customer_release_link_orders', {
           'p_session': token,
           'p_ids': ids.skip(offset).take(50).toList(),
+          if (CustomerSession.isDevice(token ?? '')) 'p_proofs': {
+            for (final order in _localOrders.where((o) =>
+                ids.skip(offset).take(50).contains(o.id)))
+              order.id: order.paymentProofPath,
+          },
         });
       }
       final raw = await _backend!._customerRpc('customer_release_my_orders', {

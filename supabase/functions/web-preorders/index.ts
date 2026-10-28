@@ -21,7 +21,11 @@ function reply(status: number, body: unknown) {
   } });
 }
 async function rpc(name: string, params: Record<string, unknown> = {}) {
-  const { data, error } = await db.rpc(name, params);
+  const session = String((params.p_request as Record<string, unknown> | undefined)?.session ?? "");
+  const device = /^device:[a-f0-9]{64}$/.test(session) &&
+    ["web_preorder_submit", "web_preorder_submit_multi"].includes(name);
+  const { data, error } = await db.rpc(device ? "customer_device_dispatch" : name,
+    device ? {p_device_session: session, p_action: name, p_params: params} : params);
   if (error) throw new Error(error.message);
   return data;
 }
@@ -47,6 +51,10 @@ Deno.serve(async (req) => {
       if (typeof p.p_secret !== "string" || p.p_secret.length < 1 || p.p_secret.length > 512 ||
           !["settings", "save", "list", "status"].includes(p.p_action)) return reply(403, { ok: false, error: "Ruxsat yo‘q" });
       const data = await rpc("admin_web_preorder_manage", p);
+      if (p.p_action === "list" && Array.isArray(data)) {
+        const contacts = await rpc("admin_customer_preorder_contacts", {p_secret: p.p_secret});
+        for (const row of data) row.instagram_handle = contacts?.["web:" + row.id] ?? "";
+      }
       if (p.p_action === "list" && Array.isArray(data)) {
         const paths: string[] = [...new Set<string>(data.flatMap(row => [row.book_image_path, row.payment_proof_path,
           ...(Array.isArray(row.request_items) ? row.request_items.map((item: any) => item.book_image_path) : [])]).filter(Boolean))];

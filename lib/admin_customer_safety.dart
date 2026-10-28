@@ -21,7 +21,7 @@ class _CustomerSafetyAdminState extends State<_CustomerSafetyAdmin> {
     try {
       final results = await Future.wait([
         widget.api._rpc(
-          'admin_release_recover_pin',
+          'admin_customer_device_recovery',
           params: {'p_secret': widget.api.secret, 'p_action': 'list'},
         ),
         widget.api._rpc(
@@ -68,13 +68,13 @@ class _CustomerSafetyAdminState extends State<_CustomerSafetyAdmin> {
   }
 
   Future<void> reset(Map<String, dynamic> row) async {
-    final pin = TextEditingController();
+    final note = TextEditingController();
     bool verified = false;
     final value = await showDialog<String>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, update) => AlertDialog(
-          title: const Text('PINni admin orqali tiklash'),
+          title: const Text('Eski tarixni yangi qurilmada ochish'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -87,17 +87,16 @@ class _CustomerSafetyAdminState extends State<_CustomerSafetyAdmin> {
                 ),
               ),
               TextField(
-                controller: pin,
-                obscureText: true,
-                keyboardType: TextInputType.number,
-                maxLength: 4,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                controller: note,
+                onChanged: (_) => update(() {}),
+                maxLength: 500,
+                maxLines: 3,
                 decoration: const InputDecoration(
-                  labelText: 'Yangi vaqtinchalik PIN',
+                  labelText: 'Shaxs va buyurtma qanday tekshirildi?',
                 ),
               ),
               const Text(
-                'PINni faqat tasdiqlangan mijozga shaxsan yetkazing. Barcha eski sessiyalar bekor qilinadi.',
+                'Aynan shu qurilmaga eski tarix ochiladi. Boshqa qurilmalardagi kirish bekor qilinadi.',
               ),
             ],
           ),
@@ -107,19 +106,19 @@ class _CustomerSafetyAdminState extends State<_CustomerSafetyAdmin> {
               child: const Text('Hozir emas'),
             ),
             FilledButton(
-              onPressed: verified ? () => Navigator.pop(ctx, pin.text) : null,
-              child: const Text('PINni almashtirish'),
+              onPressed: verified && note.text.trim().length >= 10 ? () => Navigator.pop(ctx, note.text.trim()) : null,
+              child: const Text('Shu qurilmada tarixni tiklash'),
             ),
           ],
         ),
       ),
     );
-    pin.dispose();
+    note.dispose();
     if (value != null && mounted)
-      await act('admin_release_recover_pin', {
-        'p_action': 'reset',
+      await act('admin_customer_device_recovery', {
+        'p_action': 'approve',
         'p_id': row['id'],
-        'p_pin': value,
+        'p_verification_note': value,
       });
   }
 
@@ -142,7 +141,7 @@ class _CustomerSafetyAdminState extends State<_CustomerSafetyAdmin> {
               if (error != null) Text(error!),
               if (busy) const LinearProgressIndicator(),
               const Text(
-                'PIN tiklash so‘rovlari',
+                'Profil tiklash so‘rovlari',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               if (recoveries.isEmpty) const Text('Yangi so‘rov yo‘q'),
@@ -166,7 +165,7 @@ class _CustomerSafetyAdminState extends State<_CustomerSafetyAdmin> {
                             TextButton(
                               onPressed: busy
                                   ? null
-                                  : () => act('admin_release_recover_pin', {
+                                  : () => act('admin_customer_device_recovery', {
                                       'p_action': 'reject',
                                       'p_id': r['id'],
                                     }),

@@ -83,11 +83,12 @@ Map<String, int>? historicalBatchOutflowEstimate(
   };
   var received=0,outflow=0,remaining=0;
   for(final line in lines){
-    // Prefer the batch-line RPC's authoritative per-lot FIFO projection.
-    // The old optional report remains a backwards-compatible fallback.
+    // New date/sale FIFO takes precedence over old stock-based estimates.
+    // If the optional date report fails, leave the old snapshot visible.
+    final dated = byId[(line['id']??'').toString()];
     final hasLocal = line.containsKey('fifo_outflow_units') &&
         line.containsKey('fifo_remaining_units');
-    final lot=hasLocal ? line : byId[(line['id']??'').toString()];
+    final lot = dated ?? (hasLocal ? line : null);
     if(lot==null) return null;
     int? number(dynamic v)=>v is num?v.toInt():int.tryParse((v??'').toString());
     final qty=number(line['quantity']);
@@ -153,8 +154,9 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
         params: {'p_secret': widget.secret}),
       Supabase.instance.client.rpc('admin_web_batch_line_list',
         params: {'p_secret': widget.secret}),
-      // Keep batch history usable if this optional read-only report fails.
-      Supabase.instance.client.rpc('admin_book_profit_batches',
+      // Automatically attribute recorded sold units to eligible batches
+      // by Korea sale date and oldest-remaining receipt; read-only.
+      Supabase.instance.client.rpc('admin_web_batch_date_fifo',
         params: {'p_secret':widget.secret}).catchError((_) => null),
     ]).then((data) {
       final main = data[0] is Map
@@ -531,7 +533,10 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
     return Padding(
       padding:const EdgeInsets.only(top:6),
       child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        Text(estimatedBatchSoldLabel(x),
+        Text(_lotEstimatesLoaded
+            ? 'Sotuv sanasiga ko‘ra FIFO: $used / $total dona • '
+              '${(used*100.0/total).toStringAsFixed(1)}%'
+            : estimatedBatchSoldLabel(x),
           style:const TextStyle(fontSize:12,fontWeight:FontWeight.w900,
             color:UzbekCustomerColors.teal)),
         const SizedBox(height:4),
@@ -541,8 +546,10 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
             minHeight:5,
             backgroundColor:const Color(0xFFE5ECE8),
             color:UzbekCustomerColors.teal)),
-        const Text('FIFO hisobiy — aniq sotuv emas',
-          style:TextStyle(fontSize:10.5,
+        Text(_lotEstimatesLoaded
+            ? 'Eng eski qolgan partiya avval. Noma’lum sotuvlar alohida.'
+            : 'FIFO hisobiy — aniq sotuv emas',
+          style:const TextStyle(fontSize:10.5,
             color:UzbekCustomerColors.textMuted)),
       ]),
     );
@@ -558,21 +565,29 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
     return Padding(
       padding:const EdgeInsets.symmetric(vertical:10),
       child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        const Text('Partiyada sotilganlar (FIFO — taxminiy)',
-          style:TextStyle(fontSize:13,fontWeight:FontWeight.w900,
+        Text(_lotEstimatesLoaded
+            ? 'Sotuv sanasidan avtomatik FIFO hisob'
+            : 'Partiyada sotilganlar (FIFO — taxminiy)',
+          style:const TextStyle(fontSize:13,fontWeight:FontWeight.w900,
             color:UzbekCustomerColors.navy)),
         _detail('Jami kelgan','${x['received']} dona'),
-        _detail('Taxminiy sotilgan','${x['outflow']} dona'),
-        _detail('Taxminiy qolgan','${x['remaining']} dona'),
-        _detail('Taxminiy sotilish foizi',
+        _detail(_lotEstimatesLoaded ? 'FIFO orqali biriktirilgan'
+            : 'Taxminiy sotilgan','${x['outflow']} dona'),
+        _detail(_lotEstimatesLoaded ? 'FIFO bo‘yicha qolgan'
+            : 'Taxminiy qolgan','${x['remaining']} dona'),
+        _detail(_lotEstimatesLoaded ? 'Sana bo‘yicha sotilish foizi'
+            : 'Taxminiy sotilish foizi',
           x['received']==0?'—':
             '${(x['outflow']!*100.0/x['received']!).toStringAsFixed(1)}%'),
-        const Text('Bu aniq sotilgan son emas: hisob joriy ombor '
-          'qoldig‘iga asoslanadi. Qaytarish va qo‘lda tuzatishlar '
-          'ham ta’sir qilishi mumkin. Eski partiyani to‘ldirish '
-          'omborni qayta oshirmaydi va sotilgan kitobni '
-          'ikkinchi marta ayirmaydi.',
-          style:TextStyle(fontSize:11,color:UzbekCustomerColors.textMuted,
+        Text(_lotEstimatesLoaded
+            ? 'Sotuvlar Koreya sanasi bo‘yicha eng eski, o‘sha kuni '
+              'mavjud partiyadan boshlab taqsimlanadi. Eski partiyada '
+              'qoldiq bo‘lsa yangi partiyaga o‘tmaydi. Bu hisob sotuv '
+              'tarixiga asoslangan, lekin yo‘q yoki tanib bo‘lmaydigan '
+              'eski sotuvlar biriktirilmaydi; ombor va Moliya o‘zgarmaydi.'
+            : 'Bu hisob joriy ombor qoldig‘iga asoslangan taxmin. '
+              'Eski partiyani tahrirlash omborni oshirmaydi.',
+          style:const TextStyle(fontSize:11,color:UzbekCustomerColors.textMuted,
             height:1.35)),
       ]),
     );

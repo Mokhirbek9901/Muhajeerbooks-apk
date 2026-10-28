@@ -18,10 +18,13 @@ class AdminProfitBatchPanel extends StatelessWidget {
     super.key,
     required this.groups,
     required this.lots,
+    this.unmatchedSalesCount = 0,
   });
 
   final List<Map<String,dynamic>> groups;
   final List<Map<String,dynamic>> lots;
+  /// Recorded sales without a safe, date-eligible, matching receipt.
+  final int unmatchedSalesCount;
 
   static const navy=Color(0xFF162743);
   static const muted=Color(0xFF708099);

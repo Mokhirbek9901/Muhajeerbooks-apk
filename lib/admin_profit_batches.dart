@@ -309,6 +309,14 @@ class AdminProfitBatchPanel extends StatelessWidget {
         if(i+1<visibleGroups.length&&i<3)
           const Divider(height:1,color:Color(0xFFE8EDF4)),
       ],
+      if(unmatchedSalesCount>0) ...[
+        const SizedBox(height:8),
+        Text('$unmatchedSalesCount ta sotuv uchun ishonchli partiya '
+          'topilmadi (sana, mavjud miqdor yoki kitob nomi mos emas). '
+          'Bu sotuvlar o‘chirilmagan, faqat partiyaga noto‘g‘ri '
+          'biriktirilmagan.',
+          style:const TextStyle(color:muted,fontSize:10.5,height:1.35)),
+      ],
       const SizedBox(height:9),
       Text(groups.any((g)=>g['date_fifo_applied']==true)
           ? 'FIFO sotuv sanasi bilan kelgan sana asosida avtomatik '

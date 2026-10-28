@@ -1482,7 +1482,7 @@ class _LocalStore {
   static const _deviceSecretKey = 'muhajeer_customer_device_v1';
   Future<String?> readDeviceSecret() async => kIsWeb
       ? (await _prefs).getString(_deviceSecretKey)
-      : _secureStorage.read(key: _deviceSecretKey);
+      : await _secureStorage.read(key: _deviceSecretKey);
   Future<void> saveDeviceSecret(String secret) async {
     if (kIsWeb) {
       await (await _prefs).setString(_deviceSecretKey, secret);

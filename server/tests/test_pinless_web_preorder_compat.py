@@ -15,6 +15,18 @@ class PinlessWebPreorderCompatibilityTests(unittest.TestCase):
         self.assertIn('p_preorder_id: p.p_payload.id', SOURCE)
         self.assertIn('balance_proof_url', SOURCE)
 
+    def test_native_preorder_instagram_reaches_device_dispatch(self):
+        app_source = (Path(__file__).resolve().parents[2] /
+                      "lib/app_state.dart").read_text(encoding="utf-8")
+        ui_source = (Path(__file__).resolve().parents[2] /
+                     "lib/store_ui.dart").read_text(encoding="utf-8")
+        self.assertIn("'p_instagram_handle': instagramHandle", app_source)
+        self.assertIn("instagramHandle: instagramHandle,", app_source)
+        self.assertIn(
+            "instagramHandle: normalizePreorderInstagram(preorderInstagram.text)",
+            ui_source,
+        )
+
     def test_admin_still_requires_secret(self):
         self.assertIn('typeof p.p_secret !== "string"', SOURCE)
         self.assertIn('return reply(403', SOURCE)

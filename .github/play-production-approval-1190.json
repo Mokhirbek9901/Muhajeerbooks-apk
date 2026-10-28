@@ -7,11 +7,12 @@
   "candidate_artifact_sha256": "9b301db859d7b9d138d21dc63b1fabb78aa5de719e7b3325e93e39216435e392",
   "ci_run_id": 40678301691,
   "owner_test_passed": true,
-  "public_release_allowed": true,
+  "public_release_allowed": false,
   "scope": "android_only",
-  "owner_instruction": "Android ishladi versiyani barchaga och",
+  "owner_instruction": "iOS hamda Play Marketga chiqarmay tur; avval PINni olib tashlab tuzat",
   "approval_date_seoul": "2026-10-29",
   "ios_public_release_allowed": false,
   "bundle_sha256": "8b649277000964d3b38ed5aebefcfa218263a06dd229aa4841b76220aa422a2d",
-  "publication_attempt": 2
+  "publication_attempt": 2,
+  "hold_date_seoul": "2026-10-29"
 }

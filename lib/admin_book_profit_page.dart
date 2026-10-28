@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'design_system.dart';
 import 'admin_profit_charts.dart';
 import 'admin_profit_batches.dart';
+import 'batch_date_fifo_merge.dart';
 import 'admin_sales_heatmap.dart';
 
 /// Read-only admin report. Completed sales have frozen unit cost and price.
@@ -73,7 +74,21 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
         params: {'p_secret': widget.secret},
       );
       if (response is Map) {
-        combined['batch_data'] = Map<String, dynamic>.from(response);
+        final batchReport = Map<String,dynamic>.from(response);
+        try {
+          final dated = await Supabase.instance.client.rpc(
+            'admin_web_batch_date_fifo',
+            params: {'p_secret':widget.secret},
+          );
+          combined['batch_data'] = dated is Map
+              ? withDatedFifoAllocation(batchReport,
+                  Map<String,dynamic>.from(dated))
+              : batchReport;
+        } catch (_) {
+          // An older server can still show the old estimates without
+          // affecting the recognized book profit, stock, or sales.
+          combined['batch_data'] = batchReport;
+        }
       } else {
         combined['batch_error'] = 'Partiyalar hisoboti mavjud emas.';
       }

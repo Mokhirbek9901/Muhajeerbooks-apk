@@ -174,6 +174,9 @@ void main() {
     await tester.pumpAndSettle();
     final add = find.text('Yana kitob qo‘shish');
     await tester.scrollUntilVisible(add, 150, scrollable: find.byType(Scrollable).first);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(add);
+    await tester.pumpAndSettle();
     await tester.tap(add);
     await tester.pumpAndSettle();
     expect(find.textContaining('15,000'), findsOneWidget);

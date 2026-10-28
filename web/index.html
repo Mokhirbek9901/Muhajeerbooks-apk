@@ -159,7 +159,7 @@
         return Uint8Array.from([...raw].map((ch) => ch.charCodeAt(0)));
       }
 
-      async function syncSubscription(subscription, phone = '') {
+      async function syncSubscription(subscription, phone = '', session = '') {
         const data = subscription.toJSON();
         if (!data.endpoint || !data.keys?.p256dh || !data.keys?.auth) return false;
         const response = await fetch('/supabase/functions/v1/customer-rpc', {

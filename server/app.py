@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import hmac
 import io
 import os
 import time
@@ -26,7 +27,7 @@ def _limited(ip):
 
 @app.get("/health")
 def health():
-    return jsonify(ok=True, ai=bool(os.getenv("OPENAI_API_KEY")), ai_research_revision="20261025b")
+    return jsonify(ok=True, ai=bool(os.getenv("OPENAI_API_KEY")), ai_research_revision="20261025b", push_revision="20261029a")
 
 @app.post("/api/ai-story-background")
 def ai_story_background():
@@ -610,17 +611,18 @@ def order_push_event():
     body=request.get_json(silent=True) or {}
     supplied=str(request.headers.get("X-Muhajeer-Push-Secret","")).strip()
     expected=os.getenv("ORDER_PUSH_SECRET","").strip()
-    if not expected or supplied != expected:
+    if not expected or not hmac.compare_digest(supplied, expected):
         return jsonify(error="Unauthorized"),401
 
     phone=str(body.get("phone","")).strip()[:40]
     event=str(body.get("event","")).strip().lower()
-    if event not in ("submitted","accepted","shipping","review_reminder","admin_new_order"):
+    if event not in ("submitted","accepted","shipping","review_reminder","admin_new_order","admin_test"):
         return jsonify(error="Invalid event"),400
-    if event != "admin_new_order" and len(phone)<8:
+    is_admin_event = event in ("admin_new_order", "admin_test")
+    if not is_admin_event and len(phone)<8:
         return jsonify(error="Invalid event"),400
 
-    if event == "admin_new_order":
+    if is_admin_event:
         # Private order details MUST go only to devices enrolled with a
         # verified admin secret, never to a customer matching an admin phone.
         subscriptions=_admin_rpc_call("event_admin_order_push_subscriptions",{
@@ -664,7 +666,15 @@ def order_push_event():
       if title: receipt_parts.append(f"{title} ×{qty}")
     total_text=f"₩{total:,}" if total>0 else ""
 
-    if event=="admin_new_order":
+    if event=="admin_test":
+      # A diagnostic can reach only the existing verified administrator devices.
+      # It never creates an order, writes customer inboxes or broadcasts.
+      notifications=[{
+        "title":"Muhajeer Books • Push sinovi",
+        "body":"Bu texnik sinov xabari. Yangi buyurtma emas.",
+        "tag":"muhajeer-admin-push-test",
+      }]
+    elif event=="admin_new_order":
       notifications=[{
         "title":"Yangi buyurtma tushdi 🛒",
         "body":(
@@ -719,7 +729,7 @@ def order_push_event():
     # Transactional xabarni in-app Bildirishnomalar tarixiga ham yozamiz.
     # Web Push yo'qolsa ham mijoz ilovaga kirganda chek/status xabarini ko'radi.
     for note in notifications:
-      if event in ("shipping", "review_reminder", "admin_new_order"):
+      if event in ("shipping", "review_reminder", "admin_new_order", "admin_test"):
         # Durable in-app message is already recorded by the order/cron
         # transaction, avoiding a duplicate notification row.
         continue
@@ -733,7 +743,7 @@ def order_push_event():
       })
 
     # Admin APNs is independent of Web Push (browser subscription).
-    native_result = _send_admin_apns_order_event(supplied,notifications[0],body) if event=="admin_new_order" else send_customer_apns_order_event(supplied, phone, notifications, body, _admin_rpc_call)
+    native_result = _send_admin_apns_order_event(supplied,notifications[0],body) if is_admin_event else send_customer_apns_order_event(supplied, phone, notifications, body, _admin_rpc_call)
 
     import json
     success=0
@@ -750,8 +760,8 @@ def order_push_event():
       payload=json.dumps({
         "title":note["title"],
         "body":note["body"],
-        "url":"/?open=admin_orders" if event=="admin_new_order" else (order_target if exact_order_link else "/?open=notifications"),
-        "open_inbox":event!="admin_new_order" and not exact_order_link,
+        "url":"/?open=admin_orders" if is_admin_event else (order_target if exact_order_link else "/?open=notifications"),
+        "open_inbox":not is_admin_event and not exact_order_link,
         "tag":note["tag"],
         "icon":"/icons/Icon-192.png",
         "badge":"/icons/Icon-192.png",

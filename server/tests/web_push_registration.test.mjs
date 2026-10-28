@@ -39,3 +39,23 @@ test('verified session reaches the phone-linking RPC without exposing a claimed 
   assert.equal(requests[0].params.p_session, 'session-for-test');
   assert.equal('p_phone' in requests[0].params, false);
 });
+
+test('permission refresh preserves verified identity and sign-out clears it', async () => {
+  const {window, requests} = browser();
+  await window.muhajeerSyncPushPhone('ignored', 'session-for-test');
+  await window.muhajeerEnablePush();
+  assert.equal(requests[1].name, 'customer_release_push_subscribe');
+  assert.equal(requests[1].params.p_session, 'session-for-test');
+  await window.muhajeerSyncPushPhone('', '');
+  await window.muhajeerEnablePush();
+  assert.equal(requests[2].name, 'customer_push_subscribe');
+  assert.equal(requests[3].name, 'customer_push_subscribe');
+  assert.equal('p_session' in requests[3].params, false);
+});
+
+test('overlapping startup and login persist in order', async () => {
+  const {window, requests} = browser();
+  await Promise.all([window.muhajeerEnablePush(), window.muhajeerSyncPushPhone('ignored', 'session-for-test')]);
+  assert.equal(requests.at(-1).name, 'customer_release_push_subscribe');
+  assert.equal(requests.at(-1).params.p_session, 'session-for-test');
+});

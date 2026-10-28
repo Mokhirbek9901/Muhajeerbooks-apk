@@ -151,6 +151,10 @@
     (() => {
       const vapidPublicKey = 'BNmOtGaBLl4SW8Q_kRrbrTALuoDB5sOJbgCC-Z4bwy5yyAr4BncgXGh6OHP4ylmIyU4NMrsjHSIhWf0Eityf0fo';
       const publishableKey = 'sb_publishable_5lDr_sw4bu8g3x8LCVzp4g_sHSTMBiO';
+      // Keep verified identity in memory only. Permission refreshes must not
+      // overwrite an authenticated subscription with an anonymous one.
+      let customerPushSession = '';
+      let subscriptionSyncQueue = Promise.resolve();
 
       function base64UrlToUint8Array(value) {
         const padding = '='.repeat((4 - value.length % 4) % 4);
@@ -159,7 +163,13 @@
         return Uint8Array.from([...raw].map((ch) => ch.charCodeAt(0)));
       }
 
-      async function syncSubscription(subscription, phone = '', session = '') {
+      function syncSubscription(subscription, phone = '', session = customerPushSession) {
+        const result = subscriptionSyncQueue.then(() => persistSubscription(subscription, session));
+        subscriptionSyncQueue = result.catch(() => false);
+        return result;
+      }
+
+      async function persistSubscription(subscription, session) {
         const data = subscription.toJSON();
         if (!data.endpoint || !data.keys?.p256dh || !data.keys?.auth) return false;
         const response = await fetch('/supabase/functions/v1/customer-rpc', {
@@ -246,6 +256,9 @@
       }
 
       window.muhajeerSyncPushPhone = async (phone = '', session = '') => {
+        // Also remember identity before permission/subscription exists, so a
+        // later permission grant is linked to this verified session.
+        customerPushSession = session;
         try {
           if (!window.muhajeerPushSupported() || Notification.permission !== 'granted') return false;
           const registration = await navigator.serviceWorker.register('/push-sw.js', { scope: '/' });

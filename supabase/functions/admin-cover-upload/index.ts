@@ -118,7 +118,7 @@ Deno.serve(async (req: Request) => {
         cacheControl: "31536000",
         upsert: false,
       });
-      if (thumbError) return json(origin, { error: "Kichik rasm yuklanmadi" }, 500);
+      if (thumbError && !isDuplicateStorageError(thumbError)) return json(origin, { error: "Kichik rasm yuklanmadi" }, 500);
       const { data: thumbData } = supabase.storage.from("book-covers").getPublicUrl(thumbPath);
       return json(origin, { url: thumbData.publicUrl, thumbnail_url: thumbData.publicUrl, path: thumbPath });
     }

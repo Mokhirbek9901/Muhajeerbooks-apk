@@ -411,6 +411,15 @@ bool _isSupportedCustomerPhone(String raw) {
   return digits.length == 11 && digits.startsWith('010');
 }
 
+/// Customer checkout always offers proof upload without first tapping a
+/// server-quote button. Prepaid orders continue to require saved delivery.
+@visibleForTesting
+bool checkoutProofSectionVisible({
+  required bool isPrepaid,
+  required bool prepaidDeliveryReady,
+  required bool professionalMode,
+}) => !professionalMode && (!isPrepaid || prepaidDeliveryReady);
+
 String isGyeongsanPickupAddress(String rawAddress, String deliveryType) {
   final value = rawAddress.trim();
   if (deliveryType == '경산 직접수령' && value.isEmpty) {
@@ -7207,6 +7216,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   late final TextEditingController address;
   String delivery = '택배';
   bool saving = false;
+  bool sendingOrder = false;
   bool paymentDone = false;
   XFile? paymentProof;
   Map<String, dynamic>? serverQuote;
@@ -7606,10 +7616,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
       prepaid?['delivery_type'] == delivery &&
       prepaid?['delivery_address'] ==
           isGyeongsanPickupAddress(address.text, delivery);
-  Future<void> _prepareFinalQuote() async {
-    if (saving) return;
-    if (!professionalMode && !await _requireCustomerProfile()) return;
-    if (!mounted || formKey.currentState?.validate() != true) return;
+  Future<bool> _prepareFinalQuote() async {
+    if (saving) return false;
+    if (!professionalMode && !await _requireCustomerProfile()) return false;
+    if (!mounted || formKey.currentState?.validate() != true) return false;
     if (isPrepaid) {
       final old = (prepaid?['amount_due'] as num?)?.toInt();
       final next = await _savePrepaidAddress();
@@ -7622,7 +7632,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
           }
         });
       }
-      return;
+      return next != null;
     }
     setState(() => saving = true);
     try {
@@ -7641,17 +7651,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
         note: orderNote.text,
         paymentStatus: professionalPaymentStatus,
       );
-      if (mounted)
-        setState(() {
-          serverQuote = q;
-          quotedKey = key;
-          paymentDone = false;
-          paymentProof = null;
-        });
+      if (!mounted) return false;
+      // Choosing a receipt must not be undone by an automatic quote refresh.
+      // A real amount change is still confirmed server-side at submission.
+      setState(() {
+        serverQuote = q;
+        quotedKey = key;
+      });
+      return true;
     } catch (e) {
       if (mounted)
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Hisob olinmadi: $e')));
+      return false;
     } finally {
       if (mounted) setState(() => saving = false);
     }
@@ -7670,7 +7682,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     if (file == null || !mounted) return;
     setState(() {
       paymentProof = file;
-      if (webPreviewFeaturesAvailable) paymentDone = true;
+      paymentDone = true;
     });
   }
 
@@ -8092,15 +8104,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
               ),
             ),
             const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: saving ? null : _prepareFinalQuote,
-              icon: const Icon(Icons.calculate_outlined),
-              label: Text(
-                isPrepaid
-                    ? 'Manzil va pochta hisobini saqlash'
-                    : 'Yakuniy summani serverdan tekshirish',
+            if (isPrepaid)
+              OutlinedButton.icon(
+                onPressed: saving ? null : () => _prepareFinalQuote(),
+                icon: const Icon(Icons.save_outlined),
+                label: const Text('Manzil va pochta hisobini saqlash'),
               ),
-            ),
             if (!isPrepaid && quoteReady)
               Card(
                 child: Padding(
@@ -8133,8 +8142,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   ),
                 ),
               ),
-            if (!professionalMode &&
-                (isPrepaid ? prepaidDeliveryReady : quoteReady)) ...[
+            if (checkoutProofSectionVisible(
+              isPrepaid: isPrepaid,
+              prepaidDeliveryReady: prepaidDeliveryReady,
+              professionalMode: professionalMode,
+            )) ...[
               const SizedBox(height: 22),
               const _CheckoutStepHeader(number: '3', title: 'To‘lov va chek'),
               const SizedBox(height: 8),
@@ -8162,8 +8174,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           ),
                       ],
                       if ((!isPrepaid || prepaidCanEdit) &&
-                          webPreviewFeaturesAvailable &&
-                          !paymentDone) ...[
+                          paymentProof == null) ...[
                         const Text(
                           'To‘lov qilgan bo‘lsangiz, chekni tanlang.',
                           style: TextStyle(fontWeight: FontWeight.w800),
@@ -8179,37 +8190,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         ),
                       ],
                       if ((!isPrepaid || prepaidCanEdit) &&
-                          !webPreviewFeaturesAvailable)
-                        SwitchListTile.adaptive(
-                          contentPadding: EdgeInsets.zero,
-                          value: paymentDone,
-                          onChanged: (v) => setState(() {
-                            paymentDone = v;
-                            if (!v) paymentProof = null;
-                          }),
-                          title: const Text(
-                            'To‘lovni amalga oshirdim',
-                            style: TextStyle(fontWeight: FontWeight.w900),
-                          ),
-                          subtitle: const Text(
-                            'To‘lov qilgan bo‘lsangiz, chek skrinshotini yuboring.',
-                          ),
-                        ),
-                      if ((!isPrepaid || prepaidCanEdit) && paymentDone) ...[
+                          paymentProof != null) ...[
                         const Divider(height: 20),
-                        if (paymentProof == null)
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              onPressed: _pickPaymentProof,
-                              icon: const Icon(
-                                Icons.add_photo_alternate_outlined,
-                              ),
-                              label: const Text('Chek skrinshotini tanlash'),
-                            ),
-                          )
-                        else
-                          Container(
+                        Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: const Color(0xFFEAF7EF),
@@ -8241,8 +8224,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                   icon: const Icon(Icons.edit_outlined),
                                 ),
                                 IconButton(
-                                  onPressed: () =>
-                                      setState(() => paymentProof = null),
+                                  onPressed: () => setState(() {
+                                    paymentProof = null;
+                                    paymentDone = false;
+                                  }),
                                   tooltip: 'Olib tashlash',
                                   icon: const Icon(Icons.close_rounded),
                                 ),
@@ -8411,7 +8396,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               SizedBox(
                 height: 52,
                 child: FilledButton.icon(
-                  onPressed: saving || state.cartLines.isEmpty
+                  onPressed: saving || sendingOrder || state.cartLines.isEmpty
                       ? null
                       : () => _submit(state, deliveryFee),
                   icon: saving
@@ -8422,7 +8407,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         )
                       : const Icon(Icons.send_rounded),
                   label: Text(
-                    saving ? 'Yuborilmoqda...' : 'Buyurtmani yuborish',
+                    saving || sendingOrder
+                        ? 'Tekshirilmoqda...' : 'Buyurtmani yuborish',
                   ),
                 ),
               )
@@ -8466,9 +8452,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Future<void> _copyAccount() async {
-    if (isPrepaid ? !prepaidDeliveryReady : !quoteReady) {
+    if (isPrepaid && !prepaidDeliveryReady) {
       await _prepareFinalQuote();
-      return;
+      if (!mounted || !prepaidDeliveryReady) return;
     }
     await Clipboard.setData(const ClipboardData(text: AppState.bankAccount));
     if (!mounted) return;
@@ -8478,16 +8464,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Future<void> _submit(AppState state, int deliveryFee) async {
+    if (saving || sendingOrder) return;
     if (isPrepaid) {
       await _submitPrepaid();
       return;
     }
     if (!professionalMode && !await _requireCustomerProfile()) return;
     if (!mounted || !formKey.currentState!.validate()) return;
-    if (!quoteReady) {
-      await _prepareFinalQuote();
-      return;
-    }
     if (!professionalMode && (!paymentDone || paymentProof == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -8503,8 +8486,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
       // To‘lov holati admin tomonidan aniq belgilanadi.
     }
 
-    setState(() => saving = true);
+    setState(() => sendingOrder = true);
     try {
+      // The quote is obtained automatically when the customer submits.
+      // The selected receipt must survive this server-side validation.
+      if (!quoteReady) {
+        final ready = await _prepareFinalQuote();
+        if (!mounted || !ready || !quoteReady) return;
+      }
+      setState(() => saving = true);
       final proof = paymentProof;
       final orderId = await state.placeOrder(
         customerName: name.text,
@@ -8584,7 +8574,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Xatolik: $e')));
     } finally {
-      if (mounted) setState(() => saving = false);
+      if (mounted) setState(() {
+        saving = false;
+        sendingOrder = false;
+      });
     }
   }
 }

@@ -686,6 +686,14 @@ class _AdminApi {
         .toList();
   }
 
+  Future<bool> deletePushMessage(String id) async {
+    final result = await _rpc(
+      'admin_push_message_delete',
+      params: {'p_secret': secret, 'p_id': id},
+    );
+    return result == true;
+  }
+
   Future<List<ShopOrder>> orders() async {
     final data = await _rpc('admin_list_orders', params: {'p_secret': secret});
     return (data as List)
@@ -2305,6 +2313,35 @@ class _PushNotificationAdminState extends State<_PushNotificationAdmin> {
     }
   }
 
+  Future<void> _deleteMessage(Map<String, dynamic> row) async {
+    final id = (row['id'] ?? '').toString();
+    if (id.isEmpty) return;
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Xabarnomani o‘chirish'),
+        content: const Text('Bu xabar barcha mijozlarning ilovadagi xabarlar tarixidan olib tashlanadi. Davom etilsinmi?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Yo‘q')),
+          FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('O‘chirish')),
+        ],
+      ),
+    );
+    if (yes != true) return;
+    try {
+      final deleted = await widget.api.deletePushMessage(id);
+      if (!mounted) return;
+      if (deleted) await _loadHistory();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(deleted ? 'Xabarnoma o‘chirildi.' : 'Xabar topilmadi.')),
+      );
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('O‘chirishda xatolik: $e')),
+      );
+    }
+  }
+
   String _date(dynamic raw) {
     final d = DateTime.tryParse(raw?.toString() ?? '')?.toLocal();
     if (d == null) return '';
@@ -2534,6 +2571,11 @@ class _PushNotificationAdminState extends State<_PushNotificationAdmin> {
                         ),
                       ),
                       const SizedBox(width: 8),
+                      IconButton(
+                        tooltip: 'Xabarni o‘chirish',
+                        onPressed: () => _deleteMessage(row),
+                        icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+                      ),
                       Text(
                         _date(row['sent_at']),
                         style: const TextStyle(

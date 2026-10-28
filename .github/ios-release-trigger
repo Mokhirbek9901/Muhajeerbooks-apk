@@ -1,11 +1,13 @@
-2026-10-28 internal TestFlight update — existing batch multi-select books.
-Inside a saved batch, tap "Kitob qo‘shish" only once.
-Select multiple different book titles across searches in one picker,
-then tap "Tanlanganlarni qo‘shish", edit each item's quantity and unit cost,
-and finally tap a single "Saqlash" for one atomic historical batch update.
-Already recorded books in the selected batch must never show as new choices,
-including title aliases, books saved by another admin device, or locally staged
-additions. Keep existing unit-price snapshots, finance, sales, profits and
-live inventory unaffected until explicit Save; the historical receipt records
-must not restock current inventory or create duplicate expenses.
-Ship web + internal TestFlight only, no public App Store/Play Store release.
+2026-10-28 internal TestFlight only — automatic chronological FIFO allocation.
+New read-only RPC admin_web_batch_date_fifo:
+For each book, assign recorded sales in sale-date order to the oldest
+available batch with receipt_date <= Korea sale_date. Continue consuming
+the remaining older batch after a newer batch arrives; only then move to new.
+Date-based FIFO automatically covers in-app, Telegram and Instagram sales
+from the shared sales_log; historical legacy sales contribute count only.
+Ambiguous book names and sales that lack eligible received stock remain
+unmatched, not falsely attributed. Do not modify orders, recognized sale
+unit prices/cost snapshots, physical stock, cash income or finance expenses.
+Show date-based FIFO on Partiyalar tarixi and Partiyalar bo‘yicha foyda.
+Keep potential future profit distinct from realized known-price batch margin.
+Web + internal TestFlight only; do not submit public App Store or Play Market.

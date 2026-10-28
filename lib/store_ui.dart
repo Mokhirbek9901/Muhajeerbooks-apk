@@ -7376,9 +7376,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     fontSize: 20, fontWeight: FontWeight.w800,
                   )),
                   const SizedBox(height: 12),
-                  TextField(
+                  TextFormField(
+                    initialValue: query,
                     textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => CustomerFormScaffold.dismissKeyboard(),
+                    onFieldSubmitted: (_) => CustomerFormScaffold.dismissKeyboard(),
                     onChanged: (v) => update(() => query = v),
                     decoration: InputDecoration(
                       labelText: 'Kitob qidirish',

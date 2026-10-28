@@ -1,6 +1,9 @@
 name: Hold tested App Store candidate for owner approval
 
 on:
+  push:
+    branches: [main]
+    paths: ['.github/store-test-trigger.json']
   workflow_run:
     workflows: ['Build and Upload iOS to TestFlight']
     types: [completed]
@@ -15,6 +18,17 @@ permissions:
   actions: read
 
 jobs:
+  hold-existing:
+    if: ${{ github.event_name == 'push' }}
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Immediately hold unreleased App Store versions for the owner
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: ruby .github/release_tools/hold_app_store_versions.rb
   prepare:
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
     runs-on: macos-latest

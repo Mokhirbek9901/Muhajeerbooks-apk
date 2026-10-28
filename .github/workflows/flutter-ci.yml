@@ -25,6 +25,8 @@ jobs:
           ruby-version: '3.3'
       - name: Check manual App Store preparation and public-release guard
         run: |
+          ruby -c .github/release_tools/app_store_client.rb
+          ruby -c .github/release_tools/hold_app_store_versions.rb
           ruby -c .github/release_tools/prepare_app_store_release.rb
           ruby -c .github/release_tools/submit_app_store_update.rb
           ruby -c .github/release_tools/repair_app_review.rb

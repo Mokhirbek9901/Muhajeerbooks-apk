@@ -63,7 +63,7 @@ jobs:
           arch: x86_64
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none -memory 2048
-          script: flutter test integration_test/store_startup_smoke_test.dart --release --dart-define=DEVICE_SMOKE_TEST=true --dart-define=ANALYTICS_TEST_BUILD=true --dart-define=PLAY_STORE_BUILD=true --dart-define=STORE_FEATURES=true --timeout=10m
+          script: flutter test integration_test/store_startup_smoke_test.dart -d emulator-5554 --release --dart-define=DEVICE_SMOKE_TEST=true --dart-define=ANALYTICS_TEST_BUILD=true --dart-define=PLAY_STORE_BUILD=true --dart-define=STORE_FEATURES=true --timeout=10m
   build:
     needs: [android-smoke]
     runs-on: ubuntu-latest

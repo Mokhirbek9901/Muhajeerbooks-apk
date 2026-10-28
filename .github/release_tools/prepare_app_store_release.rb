@@ -37,7 +37,8 @@ version_id = version.fetch('id')
 state = version.dig('attributes','appStoreState') || version.dig('attributes','appVersionState')
 abort "Refusing to modify a live or noneditable version: #{state}" unless unreleased.include?(state)
 request(:patch, "/v1/appStoreVersions/#{version_id}", body: { data: { type: 'appStoreVersions', id: version_id, attributes: { releaseType: 'MANUAL' } } })
-already_attached = version.dig('relationships','build','data','id') == build.fetch('id')
+attached = request(:get, "/v1/appStoreVersions/#{version_id}/relationships/build")['data']
+already_attached = attached && attached['id'] == build.fetch('id')
 if %w[WAITING_FOR_REVIEW IN_REVIEW].include?(state) && !already_attached
   submissions = request(:get, "/v1/apps/#{app_id}/reviewSubmissions", query: { 'limit' => 100, 'include' => 'appStoreVersionForReview' }).fetch('data')
   active = submissions.select { |s| %w[WAITING_FOR_REVIEW IN_REVIEW UNRESOLVED_ISSUES].include?(s.dig('attributes','state')) }
@@ -78,7 +79,14 @@ if editable.include?(state)
 end
 verified = request(:get, "/v1/appStoreVersions/#{version_id}", query: { 'fields[appStoreVersions]' => fields }).fetch('data')
 abort 'Manual release hold was not verified' unless verified.dig('attributes','releaseType') == 'MANUAL'
-abort 'The exact tested build was not attached' unless verified.dig('relationships','build','data','id') == build.fetch('id')
+attachment_deadline = Time.now + 60
+loop do
+  attached = request(:get, "/v1/appStoreVersions/#{version_id}/relationships/build")['data']
+  break if attached && attached['id'] == build.fetch('id')
+  abort 'The exact tested build was not attached' if Time.now >= attachment_deadline
+  sleep 3
+end
+puts "VERIFIED exact App Store build relationship: #{attached.fetch('id')}"
 evidence = { version: TARGET_VERSION, build_number: TARGET_BUILD, app_store_version_id: version_id, build_id: build.fetch('id'), release_type: 'MANUAL', app_store_state: verified.dig('attributes','appStoreState'), new_review_submitted: false, public_release_allowed: false, owner_test_approval: 'pending' }
 File.write("#{ENV.fetch('RUNNER_TEMP')}/app-store-candidate.json", JSON.pretty_generate(evidence))
 puts "VERIFIED: #{TARGET_VERSION} (#{TARGET_BUILD}) attached to a MANUAL App Store draft. No new review submission or public release performed. Owner test approval pending."

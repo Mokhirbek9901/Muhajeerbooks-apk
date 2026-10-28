@@ -455,8 +455,8 @@ def send_push_notification():
         return jsonify(error="Sarlavha va xabar matnini kiriting."),400
 
     private_key=os.getenv("VAPID_PRIVATE_KEY","").strip()
-    if not private_key:
-        return jsonify(error="Push server sozlanmagan."),503
+    # Web VAPID and native iOS APNs are independent delivery channels.
+    # Missing web credentials must not block native iOS broadcasts.
 
     subscriptions=_admin_rpc_call("admin_push_subscriptions",{"p_secret":supplied})
     if subscriptions is None:
@@ -512,7 +512,7 @@ def send_push_notification():
     success=0
     failure=0
     with ThreadPoolExecutor(max_workers=8) as pool:
-      futures=[pool.submit(deliver,row) for row in subscriptions if isinstance(row,dict)]
+      futures=[pool.submit(deliver,row) for row in subscriptions if isinstance(row,dict)] if private_key else []
       for future in as_completed(futures):
         if future.result(): success+=1
         else: failure+=1

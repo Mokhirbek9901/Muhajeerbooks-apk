@@ -1,5 +1,4 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2.57.4";
+import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 
 import { contentStamp, isDuplicateStorageError, optimizedUploadError } from "./storage_policy.mjs";
 
@@ -170,4 +169,3 @@ Deno.serve(async (req: Request) => {
     return json(origin, { error: "Rasm yuklashda server xatosi" }, 500);
   }
 });
-

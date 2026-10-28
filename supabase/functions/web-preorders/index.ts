@@ -49,7 +49,19 @@ Deno.serve(async (req) => {
     }
     if (body.action === "admin") {
       if (typeof p.p_secret !== "string" || p.p_secret.length < 1 || p.p_secret.length > 512 ||
-          !["settings", "save", "list", "status"].includes(p.p_action)) return reply(403, { ok: false, error: "Ruxsat yo‘q" });
+          !["settings", "save", "list", "status", "checkout_detail", "checkout_confirm"].includes(p.p_action)) return reply(403, { ok: false, error: "Ruxsat yo‘q" });
+      if (p.p_action === "checkout_detail" || p.p_action === "checkout_confirm") {
+        if (!uuid.test(p.p_payload?.id)) throw new Error("Zakaz identifikatori noto‘g‘ri.");
+        const action = p.p_action === "checkout_detail"
+          ? "admin_web_preorder_checkout_detail"
+          : "admin_web_preorder_checkout_confirm";
+        const data = await rpc(action, {p_secret: p.p_secret, p_preorder_id: p.p_payload.id});
+        if (p.p_action === "checkout_detail" && data?.balance_proof_path) {
+          const result = await db.storage.from("payment-receipts").createSignedUrl(data.balance_proof_path, 900);
+          data.balance_proof_url = result.data?.signedUrl ?? "";
+        }
+        return reply(200, { ok: true, data });
+      }
       const data = await rpc("admin_web_preorder_manage", p);
       if (p.p_action === "list" && Array.isArray(data)) {
         const contacts = await rpc("admin_customer_preorder_contacts", {p_secret: p.p_secret});

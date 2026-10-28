@@ -20,9 +20,12 @@ permissions:
 jobs:
   hold-existing:
     if: ${{ github.event_name == 'push' }}
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
       - name: Immediately hold unreleased App Store versions for the owner
         env:
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
@@ -31,12 +34,15 @@ jobs:
         run: ruby .github/release_tools/hold_app_store_versions.rb
   prepare:
     if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
       - name: Load the exact verified test build
         env:
           GH_TOKEN: ${{ github.token }}

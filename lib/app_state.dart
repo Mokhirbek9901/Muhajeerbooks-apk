@@ -883,6 +883,8 @@ class BackendService {
       'p_deposit_amount': depositAmount,
       'p_payment_proof_path': paymentProofPath,
       'p_note': note,
+      if (CustomerSession.isDevice(CustomerSession.token))
+        'p_instagram_handle': instagramHandle,
     });
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
@@ -2448,6 +2450,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       depositAmount: depositAmount,
       paymentProofPath: proofPath,
       note: note,
+      instagramHandle: instagramHandle,
     );
     // Use the preorder contact for in-app arrival notices, but do NOT
     // grant verified-customer status without authentication.

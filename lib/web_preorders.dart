@@ -1,3 +1,4 @@
+import 'customer_form_scaffold.dart';
 import 'business_time.dart';
 import 'customer_session.dart';
 
@@ -491,6 +492,7 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
   }
 
   Future<void> _pick(bool receipt) async {
+    CustomerFormScaffold.dismissKeyboard();
     if (busy) return;
     ScaffoldMessenger.of(context).clearSnackBars();
     setState(() => picking = true);
@@ -693,7 +695,7 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) _back();
       },
-      child: Scaffold(
+      child: CustomerFormScaffold(
         appBar: AppBar(
           title: const Text('Oldindan buyurtma'),
           leading: IconButton(
@@ -709,7 +711,7 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
                 ? const Center(child: CircularProgressIndicator())
                 : Form(
                     key: form,
-                    child: ListView(
+                    child: ListView(keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                       padding: const EdgeInsets.all(18),
                       children: [
                         AppSurface(

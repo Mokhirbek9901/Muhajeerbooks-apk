@@ -1,3 +1,4 @@
+import 'customer_form_scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -48,6 +49,7 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
   }
 
   Future<void> submit() async {
+    CustomerFormScaffold.dismissKeyboard();
     if (busy || formKey.currentState?.validate() != true) return;
     setState(() => busy = true);
     try {
@@ -91,12 +93,12 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
     if (state.checkoutIdentityReady) {
       final savedName = (state.savedCustomer['name'] ?? '').trim();
       final savedPhone = (state.savedCustomer['phone'] ?? '').trim();
-      return Scaffold(
+      return CustomerFormScaffold(
         appBar: AppBar(title: const Text('Mening ma’lumotlarim')),
         body: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 460),
-            child: ListView(
+            child: ListView(keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               shrinkWrap: true,
               padding: const EdgeInsets.all(22),
               children: [
@@ -191,14 +193,14 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
         ),
       );
     }
-    return Scaffold(
+    return CustomerFormScaffold(
       appBar: AppBar(title: const Text('Mening ma’lumotlarim')),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 460),
           child: Form(
             key: formKey,
-            child: ListView(
+            child: ListView(keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               shrinkWrap: true,
               padding: const EdgeInsets.all(22),
               children: [
@@ -227,6 +229,7 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
                 if (creating) ...[
                   TextFormField(
                     controller: name,
+                    textInputAction: TextInputAction.next,
                     textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(
                       labelText: 'Ism',
@@ -254,6 +257,7 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
                 ] else
                   TextFormField(
                     controller: phone,
+                    textInputAction: TextInputAction.next,
                     keyboardType: TextInputType.phone,
                     decoration: const InputDecoration(
                       labelText: 'Telefon raqami',
@@ -270,6 +274,10 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: pin,
+                  textInputAction: creating ? TextInputAction.next : TextInputAction.done,
+                  onFieldSubmitted: (_) {
+                    if (!creating) submit();
+                  },
                   obscureText: true,
                   enableSuggestions: false,
                   autocorrect: false,
@@ -289,6 +297,8 @@ class _CustomerPinPageState extends State<CustomerPinPage> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: confirm,
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) => submit(),
                     obscureText: true,
                     enableSuggestions: false,
                     autocorrect: false,

@@ -1,3 +1,4 @@
+import 'customer_form_scaffold.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -7194,7 +7195,10 @@ class _DiscountShippingWarning extends StatelessWidget {
 }
 
 class CheckoutPage extends StatefulWidget {
-  const CheckoutPage({super.key, this.preorderId});
+  const CheckoutPage({super.key, this.preorderId, this.pickProof});
+
+  @visibleForTesting
+  final Future<XFile?> Function()? pickProof;
 
   /// If set, use this SAME checkout for the existing prepaid order.
   /// Do not combine it with the unrelated user's standard cart.
@@ -7217,6 +7221,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   String delivery = '택배';
   bool saving = false;
   bool sendingOrder = false;
+  bool pickingProof = false;
   bool paymentDone = false;
   XFile? paymentProof;
   Map<String, dynamic>? serverQuote;
@@ -7263,6 +7268,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       if (Navigator.of(context).canPop()) Navigator.of(context).pop();
       return false;
     }
+    if (isPrepaid) return true;
     final saved = context.read<AppState>().savedCustomer;
     final savedName = (saved['name'] ?? '').trim();
     final savedPhone = (saved['phone'] ?? '').replaceAll(RegExp(r'\D'), '');
@@ -7340,78 +7346,98 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Future<void> _choosePrepaidBook() async {
+    CustomerFormScaffold.dismissKeyboard();
     final original = (prepaid?['book_id'] ?? '').toString();
-    final books = context
-        .read<AppState>()
-        .books
-        .where(
-          (b) => b.isActive && b.stock > 0 && b.price > 0 && b.id != original,
-        )
-        .toList();
+    final books = context.read<AppState>().books.where(
+      (b) => b.isActive && b.stock > 0 && b.price > 0 && b.id != original,
+    ).toList();
     String query = '';
     final chosen = await showModalBottomSheet<Book>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (sheet) => StatefulBuilder(
-        builder: (sheet, update) {
-          final matching = books
-              .where((b) => b.title.toLowerCase().contains(query.toLowerCase()))
-              .toList();
-          return SafeArea(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                8,
-                16,
-                MediaQuery.viewInsetsOf(sheet).bottom + 12,
-              ),
-              child: SizedBox(
-                height: MediaQuery.sizeOf(sheet).height * .68,
-                child: Column(
-                  children: [
-                    const Text(
-                      'Yana kitob qo‘shish',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
+      builder: (sheet) => StatefulBuilder(builder: (sheet, update) {
+        final matching = books.where(
+          (b) => b.title.toLowerCase().contains(query.toLowerCase()),
+        ).toList();
+        final height = MediaQuery.sizeOf(sheet).height;
+        final inset = MediaQuery.viewInsetsOf(sheet).bottom;
+        return SafeArea(child: Padding(
+          padding: EdgeInsets.fromLTRB(16, 8, 16, inset + 12),
+          child: SizedBox(
+            height: (height - inset - MediaQuery.paddingOf(sheet).vertical - 56)
+                .clamp(0.0, height * .68).toDouble(),
+            child: ListView.builder(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              itemCount: matching.length + 1,
+              itemBuilder: (_, i) {
+                if (i == 0) return Column(children: [
+                  const Text('Yana kitob qo‘shish', style: TextStyle(
+                    fontSize: 20, fontWeight: FontWeight.w800,
+                  )),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    initialValue: query,
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) => CustomerFormScaffold.dismissKeyboard(),
+                    onChanged: (v) => update(() => query = v),
+                    decoration: InputDecoration(
+                      labelText: 'Kitob qidirish',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: IconButton(
+                        tooltip: 'Klaviaturani yopish',
+                        onPressed: CustomerFormScaffold.dismissKeyboard,
+                        icon: const Icon(Icons.keyboard_hide_outlined),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      onChanged: (v) => update(() => query = v),
-                      decoration: const InputDecoration(
-                        labelText: 'Kitob qidirish',
-                        prefixIcon: Icon(Icons.search),
-                      ),
-                    ),
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: matching.length,
-                        itemBuilder: (_, i) => ListTile(
-                          title: Text(matching[i].title),
-                          subtitle: Text(
-                            '${won(matching[i].price)} • ${matching[i].stock} ta',
-                          ),
-                          trailing: const Icon(Icons.add_circle_outline),
-                          onTap: () => Navigator.pop(sheet, matching[i]),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+                  ),
+                  if (matching.isEmpty) const Padding(
+                    padding: EdgeInsets.all(16), child: Text('Kitob topilmadi'),
+                  ),
+                ]);
+                final book = matching[i - 1];
+                return ListTile(
+                  title: Text(book.title),
+                  subtitle: Text('${won(book.currentPrice)} • ${book.stock} ta'),
+                  trailing: const Icon(Icons.add_circle_outline),
+                  onTap: () {
+                    CustomerFormScaffold.dismissKeyboard();
+                    Navigator.pop(sheet, book);
+                  },
+                );
+              },
             ),
-          );
-        },
-      ),
+          ),
+        ));
+      }),
     );
     if (chosen != null && mounted) await _changePrepaidBook(chosen.id, 1);
   }
 
+  bool _validateCheckout() {
+    String? error;
+    if (name.text.trim().length < 2) {
+      error = 'Ismingizni kiriting';
+    } else if (professionalMode
+        ? !_professionalPhoneOk(phone.text)
+        : !_isSupportedCustomerPhone(phone.text)) {
+      error = 'Telefon raqamini to‘liq kiriting';
+    } else if (delivery == '택배' && address.text.trim().length < 8) {
+      error = 'To‘liq manzilni kiriting';
+    } else if (professionalMode && (int.tryParse(manualPrice.text) ?? 0) <= 0) {
+      error = 'Yakuniy narxni kiriting';
+    }
+    final fieldsValid = formKey.currentState?.validate() ?? false;
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      return false;
+    }
+    return fieldsValid;
+  }
+
   Future<Map<String, dynamic>?> _savePrepaidAddress() async {
     final id = widget.preorderId;
-    if (id == null || !mounted || formKey.currentState?.validate() != true)
+    if (id == null || !mounted || !_validateCheckout())
       return null;
     setState(() => saving = true);
     try {
@@ -7435,73 +7461,80 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Future<void> _submitPrepaid() async {
-    // Validate PIN identity without overwriting delivery recipient inputs.
-    if (!await ensureCustomerCheckoutIdentity(context) || !mounted) return;
-    if (formKey.currentState?.validate() != true) return;
-    if (!prepaidDeliveryReady) {
-      await _prepareFinalQuote();
-      return;
-    }
-    final previous = prepaid;
-    if (previous == null ||
-        previous['status'] != 'arrived' ||
-        previous['price_ready'] != true)
-      return;
-    final updated = await _savePrepaidAddress();
-    if (updated == null || !mounted) return;
-    final paymentState = (updated['payment_state'] ?? '').toString();
-    final due = (updated['amount_due'] as num?)?.toInt() ?? 0;
-    if (paymentState == 'requested' && due > 0) {
-      if (paymentProof == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Qolgan to‘lov chekini tanlang.')),
-        );
+    if (sendingOrder || saving || pickingProof) return;
+    CustomerFormScaffold.dismissKeyboard();
+    setState(() => sendingOrder = true);
+    try {
+      // Validate PIN identity without overwriting delivery recipient inputs.
+      if (!await ensureCustomerCheckoutIdentity(context) || !mounted) return;
+      if (!_validateCheckout()) return;
+      if (!prepaidDeliveryReady) {
+        await _prepareFinalQuote();
         return;
       }
-      setState(() => saving = true);
-      try {
-        await context.read<AppState>().submitWebPreorderRemainingPayment(
-          widget.preorderId!,
-          paymentProof!,
-        );
-        if (mounted) {
-          await _refreshPrepaid();
-          if (mounted)
-            showDialog<void>(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: const Text('Buyurtma yuborildi'),
-                content: const Text(
-                  'Oldingi avans chegirildi. '
-                  'Qolgan to‘lov cheki va yetkazish manzili shu eski zakazga '
-                  'biriktirildi. Admin tekshiradi.',
-                ),
-                actions: [
-                  FilledButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Tushunarli'),
-                  ),
-                ],
-              ),
-            );
-        }
-      } catch (error) {
-        if (mounted)
+      final previous = prepaid;
+      if (previous == null ||
+          previous['status'] != 'arrived' ||
+          previous['price_ready'] != true)
+        return;
+      final updated = await _savePrepaidAddress();
+      if (updated == null || !mounted) return;
+      final paymentState = (updated['payment_state'] ?? '').toString();
+      final due = (updated['amount_due'] as num?)?.toInt() ?? 0;
+      if (paymentState == 'requested' && due > 0) {
+        if (paymentProof == null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('To‘lov cheki yuborilmadi: $error')),
+            const SnackBar(content: Text('Qolgan to‘lov chekini tanlang.')),
           );
-      } finally {
-        if (mounted) setState(() => saving = false);
-      }
-    } else {
-      // Already submitted: do not upload a second receipt or create an order.
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Manzil saqlandi. Buyurtma va oldingi chek o‘zgarmadi ✅',
+          return;
+        }
+        setState(() => saving = true);
+        try {
+          await context.read<AppState>().submitWebPreorderRemainingPayment(
+            widget.preorderId!,
+            paymentProof!,
+          );
+          if (mounted) {
+            await _refreshPrepaid();
+            if (mounted)
+              showDialog<void>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Buyurtma yuborildi'),
+                  content: const Text(
+                    'Oldingi avans chegirildi. '
+                    'Qolgan to‘lov cheki va yetkazish manzili shu eski zakazga '
+                    'biriktirildi. Admin tekshiradi.',
+                  ),
+                  actions: [
+                    FilledButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Tushunarli'),
+                    ),
+                  ],
+                ),
+              );
+          }
+        } catch (error) {
+          if (mounted)
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('To‘lov cheki yuborilmadi: $error')),
+            );
+        } finally {
+          if (mounted) setState(() => saving = false);
+        }
+      } else {
+        // Already submitted: do not upload a second receipt or create an order.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Manzil saqlandi. Buyurtma va oldingi chek o‘zgarmadi ✅',
+            ),
           ),
-        ),
-      );
+        );
+      }
+    } finally {
+      if (mounted) setState(() => sendingOrder = false);
     }
   }
 
@@ -7617,9 +7650,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
       prepaid?['delivery_address'] ==
           isGyeongsanPickupAddress(address.text, delivery);
   Future<bool> _prepareFinalQuote() async {
+    CustomerFormScaffold.dismissKeyboard();
     if (saving) return false;
     if (!professionalMode && !await _requireCustomerProfile()) return false;
-    if (!mounted || formKey.currentState?.validate() != true) return false;
+    if (!mounted || !_validateCheckout()) return false;
     if (isPrepaid) {
       final old = (prepaid?['amount_due'] as num?)?.toInt();
       final next = await _savePrepaidAddress();
@@ -7670,20 +7704,32 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Future<void> _pickPaymentProof() async {
-    // To‘lov skrinshotini tanlash paytida avtomatik yengillashtiramiz.
-    // Matn o‘qiladigan darajada qoladi, lekin odatiy telefon skrinshotlari
-    // 7 MB yuklash limitidan ancha past bo‘lib qoladi.
-    final file = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 76,
-      maxWidth: 1440,
-      maxHeight: 2400,
-    );
-    if (file == null || !mounted) return;
-    setState(() {
-      paymentProof = file;
-      paymentDone = true;
-    });
+    if (pickingProof || saving || sendingOrder) return;
+    CustomerFormScaffold.dismissKeyboard();
+    setState(() => pickingProof = true);
+    try {
+      final file = widget.pickProof != null
+          ? await widget.pickProof!()
+          : await picker.pickImage(
+              source: ImageSource.gallery,
+              imageQuality: 76,
+              maxWidth: 1440,
+              maxHeight: 2400,
+            );
+      if (file == null || !mounted) return;
+      setState(() {
+        paymentProof = file;
+        paymentDone = true;
+      });
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Chekni tanlab bo‘lmadi. Qayta urinib ko‘ring.'),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => pickingProof = false);
+    }
   }
 
   @override
@@ -7738,13 +7784,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
     if (isPrepaid &&
         (prepaidLoading || prepaid == null) &&
         prepaidError == null) {
-      return Scaffold(
+      return CustomerFormScaffold(
         appBar: AppBar(title: const Text('Buyurtmani rasmiylashtirish')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
     if (isPrepaid && prepaidError != null) {
-      return Scaffold(
+      return CustomerFormScaffold(
         appBar: AppBar(title: const Text('Buyurtmani rasmiylashtirish')),
         body: Center(
           child: Padding(
@@ -7768,7 +7814,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
     if (isPrepaid &&
         (prepaid?['status'] != 'arrived' || prepaid?['price_ready'] != true)) {
-      return Scaffold(
+      return CustomerFormScaffold(
         appBar: AppBar(title: const Text('Buyurtmani rasmiylashtirish')),
         body: Center(
           child: Padding(
@@ -7784,7 +7830,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       );
     }
 
-    return Scaffold(
+    return CustomerFormScaffold(
       backgroundColor: UzbekCustomerColors.background,
       appBar: AppBar(
         backgroundColor: UzbekCustomerColors.background,
@@ -7794,6 +7840,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       body: Form(
         key: formKey,
         child: ListView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
           children: [
             if (canShowProfessionalMode)
@@ -7896,6 +7943,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: address,
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => CustomerFormScaffold.dismissKeyboard(),
                       maxLines: 3,
                       decoration: InputDecoration(
                         labelText: isGyeongsanPickup
@@ -7922,6 +7971,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         alignment: Alignment.centerRight,
                         child: OutlinedButton.icon(
                           onPressed: () async {
+                            CustomerFormScaffold.dismissKeyboard();
                             final picked = await Navigator.push<String>(
                               context,
                               MaterialPageRoute<String>(
@@ -8149,6 +8199,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             )) ...[
               const SizedBox(height: 22),
               const _CheckoutStepHeader(number: '3', title: 'To‘lov va chek'),
+              if (pickingProof) const LinearProgressIndicator(),
               const SizedBox(height: 8),
               _PaymentCard(onCopy: _copyAccount),
               const SizedBox(height: 10),
@@ -8383,7 +8434,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               SizedBox(
                 height: 52,
                 child: FilledButton.icon(
-                  onPressed: saving || prepaidLoading ? null : _submitPrepaid,
+                  onPressed: saving || sendingOrder || pickingProof || prepaidLoading ? null : _submitPrepaid,
                   icon: const Icon(Icons.send_rounded),
                   label: Text(
                     prepaidCanEdit && prepaidDue > 0
@@ -8396,7 +8447,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               SizedBox(
                 height: 52,
                 child: FilledButton.icon(
-                  onPressed: saving || sendingOrder || state.cartLines.isEmpty
+                  onPressed: saving || sendingOrder || pickingProof || state.cartLines.isEmpty
                       ? null
                       : () => _submit(state, deliveryFee),
                   icon: saving
@@ -8464,30 +8515,31 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Future<void> _submit(AppState state, int deliveryFee) async {
-    if (saving || sendingOrder) return;
+    if (saving || sendingOrder || pickingProof) return;
+    CustomerFormScaffold.dismissKeyboard();
     if (isPrepaid) {
       await _submitPrepaid();
       return;
     }
-    if (!professionalMode && !await _requireCustomerProfile()) return;
-    if (!mounted || !formKey.currentState!.validate()) return;
-    if (!professionalMode && (!paymentDone || paymentProof == null)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('To‘lov qilgan bo‘lsangiz, chek skrinshotini tanlang.'),
-        ),
-      );
-      return;
-    }
-    if (professionalMode &&
-        professionalPaymentStatus == 'paid' &&
-        paymentProof == null) {
-      // Instagram/Telegramdan kelgan zakasni tez kiritishda chek majburiy emas.
-      // To‘lov holati admin tomonidan aniq belgilanadi.
-    }
-
     setState(() => sendingOrder = true);
     try {
+      if (!professionalMode && !await _requireCustomerProfile()) return;
+      if (!mounted || !_validateCheckout()) return;
+      if (!professionalMode && (!paymentDone || paymentProof == null)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('To‘lov qilgan bo‘lsangiz, chek skrinshotini tanlang.'),
+          ),
+        );
+        return;
+      }
+      if (professionalMode &&
+          professionalPaymentStatus == 'paid' &&
+          paymentProof == null) {
+        // Instagram/Telegramdan kelgan zakasni tez kiritishda chek majburiy emas.
+        // To‘lov holati admin tomonidan aniq belgilanadi.
+      }
+
       // The quote is obtained automatically when the customer submits.
       // The selected receipt must survive this server-side validation.
       if (!quoteReady) {

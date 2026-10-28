@@ -12,5 +12,6 @@
   "owner_instruction": "Android ishladi versiyani barchaga och",
   "approval_date_seoul": "2026-10-29",
   "ios_public_release_allowed": false,
-  "bundle_sha256": "8b649277000964d3b38ed5aebefcfa218263a06dd229aa4841b76220aa422a2d"
+  "bundle_sha256": "8b649277000964d3b38ed5aebefcfa218263a06dd229aa4841b76220aa422a2d",
+  "publication_attempt": 2
 }

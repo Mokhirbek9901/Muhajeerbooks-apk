@@ -30,19 +30,23 @@ class PromotionTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 find_internal([{'track': 'internal', 'releases': [release]}])
 
-    def test_full_rollout_preserves_halted_and_draft_without_mutating_input(self):
+    def test_full_rollout_never_reactivates_halted_and_does_not_mutate_input(self):
         halted = {'versionCodes': ['1188'], 'status': 'halted', 'userFraction': 0.1}
-        draft = {'versionCodes': ['1300'], 'status': 'draft'}
-        production = {'track': 'production', 'releases': [halted, draft, {'versionCodes': ['1186'], 'status': 'completed'}]}
+        production = {'track': 'production', 'releases': [halted, {'versionCodes': ['1186'], 'status': 'completed'}]}
         before = copy.deepcopy(production)
         plan = plan_production(production, self.internal)
         self.assertEqual(production, before)
-        self.assertEqual(plan['releases'][:2], [halted, draft])
+        self.assertEqual(len(plan['releases']), 1)
+        self.assertNotIn(halted, plan['releases'])
         self.assertEqual(plan['releases'][-1]['versionCodes'], ['1190'])
         self.assertEqual(plan['releases'][-1]['status'], 'completed')
         self.assertNotIn('countryTargeting', plan['releases'][-1])
         self.assertNotIn('userFraction', plan['releases'][-1])
         verify_production(before, plan)
+
+    def test_unrelated_draft_is_not_implicitly_submitted(self):
+        with self.assertRaises(ValueError):
+            plan_production({'releases': [{'versionCodes': ['1300'], 'status': 'draft'}]}, self.internal)
 
     def test_newer_public_release_is_not_downgraded(self):
         for status in ['completed', 'inProgress']:

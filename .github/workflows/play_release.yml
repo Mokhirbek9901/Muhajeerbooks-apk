@@ -1,15 +1,6 @@
 name: Google Play owner-test candidate (never Production)
 
-# Builds an App Bundle signed with the Play upload key.
-#
-# One-time setup: add the repository secret ANDROID_KEYSTORE_PASSWORD
-# (at least 16 characters). On the first run the upload key is generated,
-# encrypted with that password and committed to .github/signing/, so every
-# later run signs with the same key. Keep the password safe: without it the
-# encrypted key cannot be opened.
-#
-# Runs started by a push (feature branches) never create the real key; without
-# it they only check that a signed release bundle builds, using a throwaway key.
+# Reuses the existing Play upload key. Only internal testers receive the candidate.
 
 on:
   workflow_dispatch:
@@ -85,36 +76,10 @@ jobs:
           test -n "$KEYSTORE_SECRET" || { echo 'Existing Android upload key password is missing'; exit 1; }
           test -f "$ENC_KEYSTORE" || { echo 'Existing encrypted upload key is missing; refusing to rotate it'; exit 1; }
           KS="$RUNNER_TEMP/upload-keystore.jks"
-          DNAME="CN=Muhajeer Books, O=Muhajeer Books, L=Gyeongsan, C=KR"
-          if [ -z "$KEYSTORE_SECRET" ] && [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            echo "::error::ANDROID_KEYSTORE_PASSWORD secret qo'shilmagan. Settings → Secrets and variables → Actions orqali qo'shing."
-            exit 1
-          fi
-          # The real key is only created by a manual run; other runs without it just test the build.
-          if [ -z "$KEYSTORE_SECRET" ] || { [ ! -f "$ENC_KEYSTORE" ] && [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; }; then
-            echo "::warning::Test build: vaqtinchalik kalit ishlatiladi. Bu AAB Play Market'ga yuklanmaydi."
-            PASS="test-$(openssl rand -hex 16)"
-            keytool -genkeypair -noprompt -keystore "$KS" -storetype PKCS12 -alias upload \
-              -keyalg RSA -keysize 4096 -validity 10000 -storepass "$PASS" -keypass "$PASS" -dname "$DNAME"
-            echo "mode=test" >> "$GITHUB_OUTPUT"
-          else
-            PASS="$KEYSTORE_SECRET"
-            if [ "${#PASS}" -lt 16 ]; then
-              echo "::error::ANDROID_KEYSTORE_PASSWORD kamida 16 belgidan iborat bo'lishi kerak."
-              exit 1
-            fi
-            if [ -f "$ENC_KEYSTORE" ]; then
-              openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -in "$ENC_KEYSTORE" -out "$KS" -pass env:KEYSTORE_SECRET
-              echo "new_key=false" >> "$GITHUB_OUTPUT"
-            else
-              keytool -genkeypair -noprompt -keystore "$KS" -storetype PKCS12 -alias upload \
-                -keyalg RSA -keysize 4096 -validity 10000 -storepass "$PASS" -keypass "$PASS" -dname "$DNAME"
-              mkdir -p "$(dirname "$ENC_KEYSTORE")"
-              openssl enc -aes-256-cbc -salt -pbkdf2 -iter 600000 -in "$KS" -out "$ENC_KEYSTORE" -pass env:KEYSTORE_SECRET
-              echo "new_key=true" >> "$GITHUB_OUTPUT"
-            fi
-            echo "mode=release" >> "$GITHUB_OUTPUT"
-          fi
+          PASS="$KEYSTORE_SECRET"
+          test "${#PASS}" -ge 16 || { echo 'Existing key password must have at least 16 characters'; exit 1; }
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -in "$ENC_KEYSTORE" -out "$KS" -pass env:KEYSTORE_SECRET
+          echo "mode=release" >> "$GITHUB_OUTPUT"
           echo "::add-mask::$PASS"
           {
             echo "ANDROID_KEYSTORE_PATH=$KS"

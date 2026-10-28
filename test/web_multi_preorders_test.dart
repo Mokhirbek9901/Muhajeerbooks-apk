@@ -159,8 +159,8 @@ void main() {
     for (var i = 1; i <= 2; i++) {
       await reveal(tester, find.widgetWithText(TextFormField, '$i-kitob nomi'));
       await tester.enterText(find.widgetWithText(TextFormField, '$i-kitob nomi'), 'Kitob $i');
-      await reveal(tester, find.text('Kitob rasmini yuklash').last);
-      await tester.tap(find.text('Kitob rasmini yuklash').last);
+      await reveal(tester, find.text('Kitob rasmini yuklash'));
+      await tester.tap(find.text('Kitob rasmini yuklash'));
       await tester.pumpAndSettle();
       if (i == 1) {
         await reveal(tester, find.text('Yana kitob qo‘shish'));

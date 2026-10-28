@@ -1,7 +1,7 @@
 name: muhajeerbooks
 description: Muhajeer Books — Koreyadagi o'zbek kitob do'koni
 publish_to: "none"
-version: 2.5.19+24
+version: 2.5.20+24
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -27,6 +27,8 @@ dependencies:
   image: ^4.3.0
 
 dev_dependencies:
+  integration_test:
+    sdk: flutter
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0

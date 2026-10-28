@@ -26,26 +26,33 @@ class CatalogResume extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void setAdminPanelActive(bool value) => _adminPanelActive = value;
-  late SharedPreferences _prefs;
+  SharedPreferences? _prefs;
+  bool _observing = false;
 
   static bool expired(DateTime leftAt, DateTime now) =>
       now.difference(leftAt) > timeout;
 
   Future<void> initialize() async {
+    try {
     _prefs = await SharedPreferences.getInstance();
-    final saved = _prefs.getInt(awayKey);
+    final saved = _prefs!.getInt(awayKey);
     if (saved == null ||
         expired(DateTime.fromMillisecondsSinceEpoch(saved), _now())) {
       await _clearSavedScroll();
     }
-    await _prefs.remove(awayKey);
-    WidgetsBinding.instance.addObserver(this);
+    await _prefs!.remove(awayKey);
+    } catch (_) { _prefs = null; }
+    if (!_observing) {
+      _observing = true;
+      WidgetsBinding.instance.addObserver(this);
+    }
   }
 
   Future<void> _clearSavedScroll() async {
-    final keys = _prefs.getKeys().where((key) => key.startsWith('scroll:')).toList();
+    if (_prefs == null) return;
+    final keys = _prefs!.getKeys().where((key) => key.startsWith('scroll:')).toList();
     if (keys.isEmpty) return;
-    await Future.wait(keys.map(_prefs.remove));
+    await Future.wait(keys.map(_prefs!.remove));
   }
 
   @override
@@ -54,17 +61,17 @@ class CatalogResume extends ChangeNotifier with WidgetsBindingObserver {
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
       _awayAt ??= _now();
-      unawaited(_prefs.setInt(awayKey, _awayAt!.millisecondsSinceEpoch));
+      unawaited(_prefs?.setInt(awayKey, _awayAt!.millisecondsSinceEpoch).catchError((_) => false));
     } else if (state == AppLifecycleState.resumed) {
       final leftAt = _awayAt;
       _awayAt = null;
-      unawaited(_prefs.remove(awayKey));
+      unawaited(_prefs?.remove(awayKey).catchError((_) => false));
       if (leftAt != null &&
           expired(leftAt, _now()) &&
           !_adminPanelActive) {
         // Notify synchronously so a pending scroll restore cannot win the race.
         notifyListeners();
-        unawaited(_clearSavedScroll());
+        unawaited(_clearSavedScroll().catchError((_) {}));
       }
     }
   }

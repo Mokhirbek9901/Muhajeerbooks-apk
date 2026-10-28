@@ -754,7 +754,7 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
                             label: const Text('Yangilash'),
                           ),
                         ] else ...[
-                          if (iosTestFlightPreview) ...[
+                          if (iosTestFlightPreview || nativeStoreFeaturesEnabled) ...[
                             const PurchasePriceNotice(),
                             const SizedBox(height: 12),
                           ],

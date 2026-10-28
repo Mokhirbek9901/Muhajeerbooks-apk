@@ -53,13 +53,13 @@ Widget app(Widget child) => ChangeNotifierProvider(
 );
 
 void main() {
-  test('TestFlight preview is limited to iOS and never enables Android', () {
+  test('preorders require the explicit store flag on Android', () {
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
-    expect(webPreordersAvailable, kIsWeb);
+    expect(webPreordersAvailable, kIsWeb || const bool.fromEnvironment('STORE_FEATURES'));
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
     expect(webPreordersAvailable,
-        kIsWeb || const bool.fromEnvironment('TESTFLIGHT_PREVIEW'));
+        kIsWeb || const bool.fromEnvironment('TESTFLIGHT_PREVIEW') || const bool.fromEnvironment('STORE_FEATURES'));
   });
   test(
     'missing arrival date fails closed and deposits multiply by quantity',

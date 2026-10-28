@@ -31,7 +31,7 @@ void main() {
   tearDown(() => debugDefaultTargetPlatformOverride = null);
 
   testWidgets('iOS preview retains the currency explanation from cart through checkout', (tester) async {
-    if (!const bool.fromEnvironment('TESTFLIGHT_PREVIEW')) return;
+    if (!const bool.fromEnvironment('TESTFLIGHT_PREVIEW') && !const bool.fromEnvironment('STORE_FEATURES')) return;
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -65,10 +65,11 @@ void main() {
     }
   });
 
-  test('web preview is limited to explicit iOS TestFlight builds', () {
+  test('full features require web, explicit TestFlight or explicit store flag', () {
     for (final platform in TargetPlatform.values) {
       debugDefaultTargetPlatformOverride = platform;
       expect(webPreviewFeaturesAvailable, kIsWeb ||
+          const bool.fromEnvironment('STORE_FEATURES') ||
           (platform == TargetPlatform.iOS &&
               const bool.fromEnvironment('TESTFLIGHT_PREVIEW')));
     }
@@ -83,7 +84,7 @@ void main() {
       child: MaterialApp(home: WebPreorderPage(api: PreviewPreorders())),
     ));
     await tester.pumpAndSettle();
-    final preview = kIsWeb || const bool.fromEnvironment('TESTFLIGHT_PREVIEW');
+    final preview = kIsWeb || const bool.fromEnvironment('TESTFLIGHT_PREVIEW') || const bool.fromEnvironment('STORE_FEATURES');
     expect(find.byType(WebMultiPreorderPage), preview ? findsOneWidget : findsNothing);
     if (preview) {
       await tester.scrollUntilVisible(find.text('Yana kitob qo‘shish'), 250,

@@ -16,8 +16,21 @@ jobs:
         run: python3 -m unittest discover -s server/tests -p 'test_native_customer_push.py' -v
       - name: Test admin OpenAI failure handling (mocked, no API charge)
         run: python3 -m unittest discover -s server/tests -p 'test_admin_research_api.py' -v
+      - name: Check Android release configuration regression
+        run: python3 -m unittest discover -s server/tests -p 'test_android_release_safety.py' -v
       - name: Test compact image storage and duplicate reuse
         run: node --test server/tests/book_image_storage_policy.test.mjs
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Check manual App Store preparation and public-release guard
+        run: |
+          ruby -c .github/release_tools/app_store_client.rb
+          ruby -c .github/release_tools/hold_app_store_versions.rb
+          ruby -c .github/release_tools/prepare_app_store_release.rb
+          ruby -c .github/release_tools/submit_app_store_update.rb
+          ruby -c .github/release_tools/repair_app_review.rb
+          python3 -m unittest discover -s server/tests -p 'test_store_release_gates.py' -v
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.47.5
@@ -30,6 +43,8 @@ jobs:
       - run: flutter test
       - name: Verify iOS TestFlight full web preview
         run: flutter test --dart-define=TESTFLIGHT_PREVIEW=true --dart-define=APP_STORE_BUILD=true
+      - name: Verify full Android and App Store candidate features
+        run: flutter test --dart-define=STORE_FEATURES=true --dart-define=PLAY_STORE_BUILD=true
       - name: Verify Korea order timestamps and day boundaries
         env:
           TZ: Asia/Seoul

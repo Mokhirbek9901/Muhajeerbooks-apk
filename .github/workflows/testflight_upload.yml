@@ -89,7 +89,7 @@ jobs:
           set -euo pipefail
           flutter pub get
           flutter analyze --no-fatal-warnings --no-fatal-infos
-          flutter test --dart-define=TESTFLIGHT_PREVIEW=true --dart-define=APP_STORE_BUILD=true
+          flutter test --dart-define=STORE_FEATURES=true --dart-define=APP_STORE_BUILD=true
           TZ=Asia/Seoul flutter test test/order_time_test.dart --dart-define=REQUIRE_KOREA_TIME=true
 
       - name: Install dependencies and configure manual signing
@@ -111,7 +111,7 @@ jobs:
             --build-number="$IOS_BUILD_NUMBER" \
             --dart-define=APP_BUILD_NUMBER="$IOS_BUILD_NUMBER" \
             --dart-define=APP_STORE_BUILD=true \
-            --dart-define=TESTFLIGHT_PREVIEW=true \
+            --dart-define=STORE_FEATURES=true \
             --dart-define=SUPABASE_URL="$SUPABASE_URL" \
             --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
             --export-options-plist="$RUNNER_TEMP/signing/ExportOptions.plist" \

@@ -12,6 +12,10 @@ TARGET_VERSION = ENV.fetch('IOS_MARKETING_VERSION')
 TARGET_BUILD = ENV.fetch('IOS_BUILD_NUMBER')
 APP_ID = ENV.fetch('ASC_APP_ID')
 
+unless ENV['OWNER_APPROVED_PUBLIC_RELEASE'] == "#{TARGET_VERSION}(#{TARGET_BUILD})"
+  abort 'Public review/release is blocked: the owner must test and approve this exact version/build first.'
+end
+
 def jwt_token
   encode = ->(data) { Base64.urlsafe_encode64(data, padding: false) }
   now = Time.now.to_i
@@ -57,7 +61,7 @@ unless version
   created = asc(:post, '/v1/appStoreVersions', body: {
     data: { type: 'appStoreVersions',
             attributes: { platform: 'IOS', versionString: TARGET_VERSION,
-                          releaseType: 'AFTER_APPROVAL' },
+                          releaseType: 'MANUAL' },
             relationships: { app: { data: { type: 'apps', id: APP_ID } } } }
   })
   version = created.fetch('data')

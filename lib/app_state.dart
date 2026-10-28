@@ -1,3 +1,4 @@
+import 'store_distribution.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
@@ -1930,7 +1931,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       const testFlightBuild = bool.fromEnvironment('TESTFLIGHT_PREVIEW');
       // TestFlight sets APP_STORE_BUILD for feature parity, but those
       // installations are testers rather than public App Store customers.
-      final platform = kIsWeb
+      final detectedIos = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS &&
+          const bool.fromEnvironment('STORE_FEATURES') && !testFlightBuild
+          ? await iosInstallationPlatform() : null;
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS &&
+          const bool.fromEnvironment('STORE_FEATURES') && !testFlightBuild && detectedIos == null) return;
+      final platform = detectedIos ?? (kIsWeb
           ? 'web'
           : (defaultTargetPlatform == TargetPlatform.iOS && testFlightBuild)
           ? 'ios_testflight'
@@ -1938,7 +1944,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           ? 'android_play'
           : (defaultTargetPlatform == TargetPlatform.iOS && appStoreBuild)
           ? 'ios_app_store'
-          : defaultTargetPlatform.name;
+          : defaultTargetPlatform.name);
       await _backend?.registerInstallation(
         id,
         platform,

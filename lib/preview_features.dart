@@ -8,4 +8,7 @@ bool get iosTestFlightPreview => !kIsWeb &&
     defaultTargetPlatform == TargetPlatform.iOS &&
     const bool.fromEnvironment('TESTFLIGHT_PREVIEW');
 
-bool get webPreviewFeaturesAvailable => kIsWeb || iosTestFlightPreview;
+bool get nativeStoreFeaturesEnabled => !kIsWeb &&
+    const bool.fromEnvironment('STORE_FEATURES');
+
+bool get webPreviewFeaturesAvailable => kIsWeb || iosTestFlightPreview || nativeStoreFeaturesEnabled;

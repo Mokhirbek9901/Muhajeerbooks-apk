@@ -1,26 +1,67 @@
-name: Prepare App Store Release
+name: Hold tested App Store candidate for owner approval
 
 on:
   push:
     branches: [main]
-    paths:
-      - '.github/workflows/app_store_release_prepare.yml'
+    paths: ['.github/store-test-trigger.json']
+  workflow_run:
+    workflows: ['Build and Upload iOS to TestFlight']
+    types: [completed]
   workflow_dispatch:
+    inputs:
+      testflight_run_id:
+        description: Successful TestFlight workflow run containing the exact candidate
+        required: true
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
+  hold-existing:
+    if: ${{ github.event_name == 'push' }}
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Immediately hold unreleased App Store versions for the owner
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: ruby .github/release_tools/hold_app_store_versions.rb
   prepare:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
     runs-on: macos-latest
     timeout-minutes: 15
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Update App Store version and attach tested build
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - name: Load the exact verified test build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TEST_RUN: ${{ github.event.workflow_run.id || inputs.testflight_run_id }}
+        run: |
+          gh run download "$TEST_RUN" --repo "$GITHUB_REPOSITORY" --name ios-release-diagnostics --dir "$RUNNER_TEMP/testflight-evidence"
+          python3 - <<'PY'
+          from pathlib import Path
+          import os,json
+          files=list((Path(os.environ['RUNNER_TEMP'])/'testflight-evidence').rglob('testflight-result.json'))
+          assert len(files)==1, 'Missing verified TestFlight result'
+          result=json.loads(files[0].read_text())
+          assert result['processing_state']=='VALID' and result['internal_build_state']=='IN_BETA_TESTING'
+          with open(os.environ['GITHUB_ENV'],'a') as f:
+              f.write('IOS_MARKETING_VERSION='+result['version']+'\n')
+              f.write('IOS_BUILD_NUMBER='+result['build_number']+'\n')
+          PY
+      - name: Prepare manual draft, never submit or release it
         env:
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
         run: ruby .github/release_tools/prepare_app_store_release.rb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-store-owner-test-candidate
+          path: ${{ runner.temp }}/app-store-candidate.json
+          retention-days: 30

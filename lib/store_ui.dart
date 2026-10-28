@@ -7235,7 +7235,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   void initState() {
     super.initState();
     final saved = context.read<AppState>().savedCustomer;
-    if (iosTestFlightPreview)
+    if (iosTestFlightPreview || nativeStoreFeaturesEnabled)
       unawaited(context.read<AppState>().refreshStoreNotice());
     name = TextEditingController(text: saved['name'] ?? '');
     final savedPhone = (saved['phone'] ?? '').replaceAll(RegExp(r'\D'), '');
@@ -7887,7 +7887,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             ],
             const SizedBox(height: 12),
             const _EmergencyNoticeBanner(compact: true),
-            if (iosTestFlightPreview && !professionalMode) ...[
+            if ((iosTestFlightPreview || nativeStoreFeaturesEnabled) && !professionalMode) ...[
               const SizedBox(height: 12),
               const PurchasePriceNotice(),
             ],
@@ -8665,7 +8665,7 @@ class _CheckoutStepHeader extends StatelessWidget {
         ),
       ),
       const SizedBox(width: 10),
-      if (iosTestFlightPreview)
+      if (iosTestFlightPreview || nativeStoreFeaturesEnabled)
         Expanded(
           child: Text(title, style: Theme.of(context).textTheme.titleLarge),
         )
@@ -9242,7 +9242,7 @@ class _WebMyProfilePage extends StatelessWidget {
                             : 'PIN bilan kirish',
                       ),
                     ),
-                    if (iosTestFlightPreview) ...[
+                    if (iosTestFlightPreview || nativeStoreFeaturesEnabled) ...[
                       const SizedBox(height: 10),
                       const Text(
                         'TestFlight • build ${String.fromEnvironment('APP_BUILD_NUMBER', defaultValue: 'sinov')}',

@@ -317,7 +317,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
             Text(error ?? 'Oldindan buyurtma qabuli hozircha yopiq. Avans yubormang.'),
             OutlinedButton.icon(onPressed: _reload, icon: const Icon(Icons.refresh), label: const Text('Yangilash')),
           ] else ...[
-            if (iosTestFlightPreview) ...[
+            if (iosTestFlightPreview || nativeStoreFeaturesEnabled) ...[
               const PurchasePriceNotice(),
               const SizedBox(height: 12),
             ],

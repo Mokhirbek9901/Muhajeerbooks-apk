@@ -3,7 +3,7 @@ name: Hold tested App Store candidate for owner approval
 on:
   push:
     branches: [main]
-    paths: ['.github/store-test-trigger.json']
+    paths: ['.github/store-test-trigger.json', '.github/ios-candidate-hold-trigger.json']
   workflow_run:
     workflows: ['Build and Upload iOS to TestFlight']
     types: [completed]
@@ -30,18 +30,30 @@ jobs:
           APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
         run: ruby .github/release_tools/hold_app_store_versions.rb
   prepare:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
     runs-on: macos-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.sha }}
       - name: Load the exact verified test build
         env:
           GH_TOKEN: ${{ github.token }}
           TEST_RUN: ${{ github.event.workflow_run.id || inputs.testflight_run_id }}
         run: |
+          if [ -z "$TEST_RUN" ]; then
+            TEST_RUN="$(python3 -c 'import json;print(json.load(open(".github/ios-candidate-hold-trigger.json"))["testflight_run_id"])')"
+          fi
+          export TEST_RUN
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$TEST_RUN" > "$RUNNER_TEMP/testflight-run.json"
+          python3 - <<'PY_RUN'
+          import json,os
+          from pathlib import Path
+          run=json.loads((Path(os.environ['RUNNER_TEMP'])/'testflight-run.json').read_text())
+          assert run['conclusion']=='success' and run['head_branch']=='main'
+          assert run['path']=='.github/workflows/testflight_upload.yml'
+          PY_RUN
           gh run download "$TEST_RUN" --repo "$GITHUB_REPOSITORY" --name ios-release-diagnostics --dir "$RUNNER_TEMP/testflight-evidence"
           python3 - <<'PY'
           from pathlib import Path
@@ -49,11 +61,19 @@ jobs:
           files=list((Path(os.environ['RUNNER_TEMP'])/'testflight-evidence').rglob('testflight-result.json'))
           assert len(files)==1, 'Missing verified TestFlight result'
           result=json.loads(files[0].read_text())
-          assert result['processing_state']=='VALID' and result['internal_build_state']=='IN_BETA_TESTING'
+          assert result['processing_state']=='VALID' # Recheck current beta detail below
           with open(os.environ['GITHUB_ENV'],'a') as f:
               f.write('IOS_MARKETING_VERSION='+result['version']+'\n')
               f.write('IOS_BUILD_NUMBER='+result['build_number']+'\n')
+              f.write('ASC_APP_ID='+result['app_id']+'\n')
+              f.write('ASC_BUILD_ID='+result['build_id']+'\n')
           PY
+      - name: Verify exact TestFlight candidate is available to existing testers
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: ruby .github/release_tools/verify_testflight_candidate.rb
       - name: Prepare manual draft, never submit or release it
         env:
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}

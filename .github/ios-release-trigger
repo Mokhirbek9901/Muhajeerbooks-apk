@@ -1,13 +1,10 @@
-2026-10-28 internal TestFlight fix — Gyeongsan self-pickup checkout.
-Frontend commit 9314128dcc12c0214982290387737138ea69a372.
-Repair server-canonical pickup address comparison:
-a blank optional pickup address becomes "경산 직접수령 (Gyeongsan pickup)"
-on the server and must not be treated as a changed customer address.
-Keep customer name, phone, delivery method and courier address validation strict.
-Remove the manual "Yakuniy summani serverdan tekshirish" button for normal
-checkout. Show the payment-proof picker immediately in regular checkout.
-Retrieve the protected server quote automatically on "Buyurtmani yuborish"
-without erasing an already-selected receipt. Preserve receipt security,
-checkout idempotency, inventory reservation, and price validation.
-Web and INTERNAL iOS TestFlight only. Do not submit public App Store or
-Google Play releases for this fix.
+2026-10-28 internal TestFlight checkout and keyboard fixes.
+Keyboard close action above phone/PIN number pads; dismiss on blank taps,
+drag and Done. Preserve typed names, addresses and receipt selections.
+Single-flight receipt picking with permission-error recovery and retry.
+Preserve prepaid gift recipients through identity/quote checks.
+Validate all checkout controllers, including fields scrolled offscreen.
+Fit the extra-book selector above keyboards on small landscape displays,
+and show its current discounted prices.
+Run ordinary and TestFlight regression tests before publishing matching web
+and INTERNAL iOS TestFlight. No public App Store / Google Play submission.

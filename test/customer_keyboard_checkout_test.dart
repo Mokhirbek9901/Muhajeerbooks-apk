@@ -13,6 +13,11 @@ class _CheckoutState extends AppState {
   _CheckoutState() : super(backendConfigured: false) {
     savedCustomer = {'name': 'Test Owner', 'phone': '01012345678', 'address': ''};
   }
+  @override
+  List<Book> get books => [Book.fromMap({
+    'id': 'extra', 'title': 'Discounted book', 'price': 20000,
+    'stock': 5, 'discount_percent': 25,
+  })];
   int saves = 0;
   String recipient = '';
   String recipientPhone = '';
@@ -141,4 +146,41 @@ void main() {
     expect(state.saves, 0);
     expect(find.text('To‘liq manzilni kiriting'), findsWidgets);
   });
+  testWidgets('checkout Done closes multiline address keyboard and retains draft', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(ChangeNotifierProvider<AppState>.value(value: _CheckoutState(),
+      child: const MaterialApp(home: CheckoutPage()),
+    ));
+    await tester.pumpAndSettle();
+    final address = find.widgetWithText(TextFormField, 'Manzil');
+    await tester.enterText(address, 'Test street 123, room 8');
+    expect(tester.testTextInput.isVisible, isTrue);
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(tester.testTextInput.isVisible, isFalse);
+    expect(find.text('Test street 123, room 8'), findsOneWidget);
+  });
+
+  testWidgets('prepaid book picker fits keyboard on small landscape screen', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(660, 390);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpWidget(ChangeNotifierProvider<AppState>.value(value: _CheckoutState(),
+      child: const MaterialApp(home: CheckoutPage(preorderId: 'test')),
+    ));
+    await tester.pumpAndSettle();
+    final add = find.text('Yana kitob qo‘shish');
+    await tester.scrollUntilVisible(add, 150, scrollable: find.byType(Scrollable).first);
+    await tester.tap(add);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('15,000'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextField, 'Kitob qidirish'));
+    tester.view.viewInsets = const FakeViewPadding(bottom: 220);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
 }

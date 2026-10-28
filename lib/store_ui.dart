@@ -7366,7 +7366,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
           padding: EdgeInsets.fromLTRB(16, 8, 16, inset + 12),
           child: SizedBox(
             height: (height - inset - MediaQuery.paddingOf(sheet).vertical - 56)
-                .clamp(0.0, height * .68),
+                .clamp(0.0, height * .68).toDouble(),
             child: ListView.builder(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               itemCount: matching.length + 1,
@@ -7464,74 +7464,74 @@ class _CheckoutPageState extends State<CheckoutPage> {
     CustomerFormScaffold.dismissKeyboard();
     setState(() => sendingOrder = true);
     try {
-    // Validate PIN identity without overwriting delivery recipient inputs.
-    if (!await ensureCustomerCheckoutIdentity(context) || !mounted) return;
-    if (!_validateCheckout()) return;
-    if (!prepaidDeliveryReady) {
-      await _prepareFinalQuote();
-      return;
-    }
-    final previous = prepaid;
-    if (previous == null ||
-        previous['status'] != 'arrived' ||
-        previous['price_ready'] != true)
-      return;
-    final updated = await _savePrepaidAddress();
-    if (updated == null || !mounted) return;
-    final paymentState = (updated['payment_state'] ?? '').toString();
-    final due = (updated['amount_due'] as num?)?.toInt() ?? 0;
-    if (paymentState == 'requested' && due > 0) {
-      if (paymentProof == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Qolgan to‘lov chekini tanlang.')),
-        );
+      // Validate PIN identity without overwriting delivery recipient inputs.
+      if (!await ensureCustomerCheckoutIdentity(context) || !mounted) return;
+      if (!_validateCheckout()) return;
+      if (!prepaidDeliveryReady) {
+        await _prepareFinalQuote();
         return;
       }
-      setState(() => saving = true);
-      try {
-        await context.read<AppState>().submitWebPreorderRemainingPayment(
-          widget.preorderId!,
-          paymentProof!,
-        );
-        if (mounted) {
-          await _refreshPrepaid();
-          if (mounted)
-            showDialog<void>(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: const Text('Buyurtma yuborildi'),
-                content: const Text(
-                  'Oldingi avans chegirildi. '
-                  'Qolgan to‘lov cheki va yetkazish manzili shu eski zakazga '
-                  'biriktirildi. Admin tekshiradi.',
-                ),
-                actions: [
-                  FilledButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Tushunarli'),
-                  ),
-                ],
-              ),
-            );
-        }
-      } catch (error) {
-        if (mounted)
+      final previous = prepaid;
+      if (previous == null ||
+          previous['status'] != 'arrived' ||
+          previous['price_ready'] != true)
+        return;
+      final updated = await _savePrepaidAddress();
+      if (updated == null || !mounted) return;
+      final paymentState = (updated['payment_state'] ?? '').toString();
+      final due = (updated['amount_due'] as num?)?.toInt() ?? 0;
+      if (paymentState == 'requested' && due > 0) {
+        if (paymentProof == null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('To‘lov cheki yuborilmadi: $error')),
+            const SnackBar(content: Text('Qolgan to‘lov chekini tanlang.')),
           );
-      } finally {
-        if (mounted) setState(() => saving = false);
-      }
-    } else {
-      // Already submitted: do not upload a second receipt or create an order.
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Manzil saqlandi. Buyurtma va oldingi chek o‘zgarmadi ✅',
+          return;
+        }
+        setState(() => saving = true);
+        try {
+          await context.read<AppState>().submitWebPreorderRemainingPayment(
+            widget.preorderId!,
+            paymentProof!,
+          );
+          if (mounted) {
+            await _refreshPrepaid();
+            if (mounted)
+              showDialog<void>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Buyurtma yuborildi'),
+                  content: const Text(
+                    'Oldingi avans chegirildi. '
+                    'Qolgan to‘lov cheki va yetkazish manzili shu eski zakazga '
+                    'biriktirildi. Admin tekshiradi.',
+                  ),
+                  actions: [
+                    FilledButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Tushunarli'),
+                    ),
+                  ],
+                ),
+              );
+          }
+        } catch (error) {
+          if (mounted)
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('To‘lov cheki yuborilmadi: $error')),
+            );
+        } finally {
+          if (mounted) setState(() => saving = false);
+        }
+      } else {
+        // Already submitted: do not upload a second receipt or create an order.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Manzil saqlandi. Buyurtma va oldingi chek o‘zgarmadi ✅',
+            ),
           ),
-        ),
-      );
-    }
+        );
+      }
     } finally {
       if (mounted) setState(() => sendingOrder = false);
     }
@@ -7838,7 +7838,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       ),
       body: Form(
         key: formKey,
-        child: ListView(keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        child: ListView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
           children: [
             if (canShowProfessionalMode)
@@ -8521,22 +8522,22 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
     setState(() => sendingOrder = true);
     try {
-    if (!professionalMode && !await _requireCustomerProfile()) return;
-    if (!mounted || !_validateCheckout()) return;
-    if (!professionalMode && (!paymentDone || paymentProof == null)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('To‘lov qilgan bo‘lsangiz, chek skrinshotini tanlang.'),
-        ),
-      );
-      return;
-    }
-    if (professionalMode &&
-        professionalPaymentStatus == 'paid' &&
-        paymentProof == null) {
-      // Instagram/Telegramdan kelgan zakasni tez kiritishda chek majburiy emas.
-      // To‘lov holati admin tomonidan aniq belgilanadi.
-    }
+      if (!professionalMode && !await _requireCustomerProfile()) return;
+      if (!mounted || !_validateCheckout()) return;
+      if (!professionalMode && (!paymentDone || paymentProof == null)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('To‘lov qilgan bo‘lsangiz, chek skrinshotini tanlang.'),
+          ),
+        );
+        return;
+      }
+      if (professionalMode &&
+          professionalPaymentStatus == 'paid' &&
+          paymentProof == null) {
+        // Instagram/Telegramdan kelgan zakasni tez kiritishda chek majburiy emas.
+        // To‘lov holati admin tomonidan aniq belgilanadi.
+      }
 
       // The quote is obtained automatically when the customer submits.
       // The selected receipt must survive this server-side validation.

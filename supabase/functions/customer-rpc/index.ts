@@ -49,6 +49,20 @@ const allowed = new Set([
 
 const rate = new Map<string, { n: number; until: number }>();
 const professionalRate = new Map<string, { n: number; until: number }>();
+// Public-store builds released before customer PIN setup still use the
+// legacy order RPC. Limit these extra PIN-less submissions independently.
+const legacyCheckoutRate = new Map<string, { n: number; until: number }>();
+function legacyCheckoutAllowed(k: string, cap: number, windowMs: number): boolean {
+  const now=Date.now();
+  const current=legacyCheckoutRate.get(k);
+  if (!current || now >= current.until) {
+    legacyCheckoutRate.set(k,{n:1,until:now+windowMs});
+    return true;
+  }
+  if (current.n >= cap) return false;
+  current.n++;
+  return true;
+}
 const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function headers(origin: string) {
@@ -254,6 +268,15 @@ Deno.serve(async (req) => {
     }
     const invalid = validate(name, params);
     if (invalid) return out(origin, 400, { ok: false, error: invalid });
+    if (name === "customer_order_submit") {
+      const legacy = params.p_order as Record<string, unknown>;
+      const phone = String(legacy.phone ?? "").replace(/[^0-9]/g, "");
+      if (!legacyCheckoutAllowed("ip:"+key(req), 20, 10 * 60_000) ||
+          !legacyCheckoutAllowed("phone:"+phone, 8, 10 * 60_000)) {
+        return out(origin, 429, { ok:false,
+          error:"Juda ko‘p buyurtma urinishi. Birozdan keyin qayta urinib ko‘ring." });
+      }
+    }
 
     const { data, error } = await db.rpc(name, params);
     if (error) {

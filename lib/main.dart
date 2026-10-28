@@ -1,3 +1,4 @@
+import 'app_startup.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -28,7 +29,6 @@ import 'store_ui.dart';
 // saqlanadi, live baza esa AppState ichida fon rejimida yangilanadi.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final catalogResumeInit = CatalogResume.instance.initialize();
 
   const definedSupabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
   const liveSupabaseUrl = 'https://rytfhjvhjxnbhgitowho.supabase.co';
@@ -43,22 +43,19 @@ Future<void> main() async {
   final backendConfigured =
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
 
-  if (backendConfigured) {
-    await Future.wait([
-      catalogResumeInit,
-      Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey),
-    ]);
-
-    // Eski admin/auth sessiyasi storefrontni bloklamasin, lekin tarmoqdagi
-    // signOut javobini kutib app startini sekinlashtirmaymiz.
-    if (Supabase.instance.client.auth.currentSession != null) {
-      unawaited(Supabase.instance.client.auth.signOut().catchError((_) {}));
-    }
-  } else {
-    await catalogResumeInit;
-  }
-
-  runApp(MuhajeerBooksApp(backendConfigured: backendConfigured));
+  runApp(AppStartup(
+    initialize: () async {
+      await Future.wait([
+        CatalogResume.instance.initialize(),
+        if (backendConfigured)
+          Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey),
+      ]);
+      if (backendConfigured && Supabase.instance.client.auth.currentSession != null) {
+        unawaited(Supabase.instance.client.auth.signOut().catchError((_) {}));
+      }
+    },
+    app: MuhajeerBooksApp(backendConfigured: backendConfigured),
+  ));
 }
 
 class MuhajeerBooksApp extends StatelessWidget {
@@ -248,6 +245,7 @@ class _NotificationPermissionGateState
   }
 
   Future<void> _checkNotificationPermission() async {
+    if (const bool.fromEnvironment('DEVICE_SMOKE_TEST')) return;
     if (_checkedThisLaunch || !_isMobile || !mounted) return;
     _checkedThisLaunch = true;
 

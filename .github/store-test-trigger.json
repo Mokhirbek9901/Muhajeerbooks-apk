@@ -1,0 +1,8 @@
+{
+  "candidate": "MB-STORE-20261028",
+  "purpose": "owner tests latest full version before both stores release",
+  "android_track": "internal",
+  "app_store_release": "MANUAL",
+  "owner_approved_public_release": false,
+  "public_release_allowed": false
+}

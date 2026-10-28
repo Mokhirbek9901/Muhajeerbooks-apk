@@ -65,10 +65,11 @@ void main() {
     }
   });
 
-  test('web preview is limited to explicit iOS TestFlight builds', () {
+  test('full features require web, explicit TestFlight or explicit store flag', () {
     for (final platform in TargetPlatform.values) {
       debugDefaultTargetPlatformOverride = platform;
       expect(webPreviewFeaturesAvailable, kIsWeb ||
+          const bool.fromEnvironment('STORE_FEATURES') ||
           (platform == TargetPlatform.iOS &&
               const bool.fromEnvironment('TESTFLIGHT_PREVIEW')));
     }

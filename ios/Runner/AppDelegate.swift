@@ -1,6 +1,7 @@
 import Flutter
 import UIKit
 import UserNotifications
+import StoreKit
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -26,6 +27,24 @@ import UserNotifications
     )
     pushChannel = channel
     channel.setMethodCallHandler { [weak self] call, result in
+      if call.method == "getStoreDistribution" {
+        if #available(iOS 18.0, *) {
+          Task {
+            var distribution = "unknown"
+            if let verification = try? await AppTransaction.shared,
+               case .verified(let transaction) = verification {
+              if transaction.environment == .production { distribution = "production" }
+              else if transaction.environment == .sandbox { distribution = "sandbox" }
+            }
+            let resolved = distribution
+            DispatchQueue.main.async { result(resolved) }
+          }
+        } else {
+          let receipt = Bundle.main.appStoreReceiptURL?.lastPathComponent
+          result(receipt == "sandboxReceipt" ? "sandbox" : receipt == "receipt" ? "production" : "unknown")
+        }
+        return
+      }
       if call.method == "getPendingAdminOrder" {
         result(self?.pendingAdminOrder ?? false); self?.pendingAdminOrder = false; return
       }

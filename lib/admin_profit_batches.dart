@@ -86,11 +86,21 @@ class AdminProfitBatchPanel extends StatelessWidget {
             ' · '+_n(group,'purchased_units').toString()+' dona',
             style:const TextStyle(color:muted,fontSize:12)),
           const SizedBox(height:7),
-          _line('Ombor bo‘yicha hisobiy chiqim (FIFO)',
+          _line(group['date_fifo_applied']==true
+              ? 'Sotuv sanalari bo‘yicha FIFO'
+              : 'Ombor bo‘yicha hisobiy chiqim (FIFO)',
             _n(group,'estimated_sold_units').toString()+' / '+
             _n(group,'purchased_units').toString()+' dona'),
-          _line('FIFO chiqim foizi (taxminiy)',
+          _line('FIFO bo‘yicha sotilish foizi',
             _soldRate(group).toStringAsFixed(0)+'%'),
+          if(group['date_fifo_applied']==true) ...[
+            _line('Narxi ma’lum sotuvlar',
+              _n(group,'dated_order_sales_units').toString()+' dona'),
+            _line('Eski tarixdan biriktirilgan',
+              _n(group,'dated_legacy_sales_units').toString()+' dona'),
+            _line('Shu partiya tannarxi bilan yalpi foyda (narxi ma’lum)',
+              _won(_n(group,'dated_order_gross_profit'))),
+          ],
           const SizedBox(height:12),
           Container(
             padding:const EdgeInsets.all(13),
@@ -119,7 +129,9 @@ class AdminProfitBatchPanel extends StatelessWidget {
               style:const TextStyle(color:navy,fontWeight:FontWeight.w800)),
             const SizedBox(height:5),
             _line('Kelgan',_n(item,'quantity').toString()+' dona'),
-            _line('Hisobiy chiqim (FIFO)',
+            _line(item['date_fifo_applied']==true
+                ? 'Sotuv sanasi bo‘yicha FIFO'
+                : 'Hisobiy chiqim (FIFO)',
               _n(item,'estimated_sold_units').toString()+' dona'),
             _line('O‘sha partiyadagi tan narxi',
               _won(_n(item,'unit_cost'))),
@@ -129,13 +141,15 @@ class AdminProfitBatchPanel extends StatelessWidget {
               :_won(_n(item,'projected_profit'))),
           ],
           const SizedBox(height:15),
-          const Text('Eslatma: hisobiy chiqim hozirgi ombor qoldig‘ini '
-            'avval yangi, keyin eski partiyalarga taqsimlaydi. '
-            'Sotuv eng eski qoldig‘i bor partiyadan ayrilgandek '
-            'hisoblanadi. Oldingi ombor tuzatishlari, qaytarishlar '
-            'va band qilingan buyurtmalar sabab bu aniq sotuv '
-            'soni emas; faqat FIFO hisobiy bahodir.',
-            style:TextStyle(color:muted,fontSize:11.5,height:1.45)),
+          Text(group['date_fifo_applied']==true
+              ? 'Sotuvlar kelgan partiya sanasi va sotilgan sanaga qarab '
+                'ketma-ket biriktiriladi: avval eski partiyadagi qoldiq '
+                'tugaydi. Tarixiy sotuvda narx bo‘lmasa, foyda to‘liq '
+                'hisoblanmaydi. Ombor, haqiqiy sotuv va Moliya '
+                'yozuvlari o‘zgartirilmaydi.'
+              : 'FIFO hisobiy chiqimi hozirgi ombor qoldig‘idan taxmin '
+                'qilinadi; bu tasdiqlangan sotuv emas.',
+            style:const TextStyle(color:muted,fontSize:11.5,height:1.45)),
         ]),
       )),
     );
@@ -218,8 +232,10 @@ class AdminProfitBatchPanel extends StatelessWidget {
           ] else ...[
           const SizedBox(height:11),
           Row(children:[
-            const Expanded(child:Text('FIFO chiqimi (hisobiy)',
-              style:TextStyle(color:navy,fontSize:11,
+            Expanded(child:Text(group['date_fifo_applied']==true
+                ? 'Sotuv sanasi bo‘yicha FIFO'
+                : 'FIFO chiqimi (hisobiy)',
+              style:const TextStyle(color:navy,fontSize:11,
                 fontWeight:FontWeight.w700))),
             Text('${percent.toStringAsFixed(0)}%',
               style:TextStyle(color:color,fontWeight:FontWeight.w800,
@@ -230,7 +246,7 @@ class AdminProfitBatchPanel extends StatelessWidget {
             borderRadius:BorderRadius.circular(6),
             color:color,backgroundColor:const Color(0xFFE9EEF5)),
           const SizedBox(height:5),
-          Text('$estimatedSold / $received dona hisobiy chiqim · '
+          Text('$estimatedSold / $received dona FIFO hisob · '
             '${_n(group,'estimated_remaining_units')} dona qolgan',
             style:const TextStyle(color:muted,fontSize:11)),
           ],
@@ -291,12 +307,15 @@ class AdminProfitBatchPanel extends StatelessWidget {
           const Divider(height:1,color:Color(0xFFE8EDF4)),
       ],
       const SizedBox(height:9),
-      const Text('FIFO chiqimi — hozirgi ombor qoldig‘i va kelgan '
-        'partiya sonlaridan hisoblanadi: eng eski qolgan partiyadan '
-        'birinchi ayriladi. Bu tasdiqlangan sotuv emas: zaxira, '
-        'qaytarish va qo‘lda qoldiq tuzatishlari ham ta’sir qilishi '
-        'mumkin. Foyda ulushi sotilish foizi emas.',
-        style:TextStyle(color:muted,fontSize:10.5,height:1.35)),
+      Text(groups.any((g)=>g['date_fifo_applied']==true)
+          ? 'FIFO sotuv sanasi bilan kelgan sana asosida avtomatik '
+            'taqsimlanadi. Eski qoldiq tugamaguncha yangi partiyadan '
+            'ayrilmaydi. Noma’lum kitob va eski narxsiz sotuvlar '
+            'foyda hisobini cheklashi mumkin. Foyda ulushi sotilish '
+            'foizi emas.'
+          : 'FIFO hozirgi ombor qoldig‘i bo‘yicha taxmin; '
+            'aniq sotuv emas. Foyda ulushi sotilish foizi emas.',
+        style:const TextStyle(color:muted,fontSize:10.5,height:1.35)),
     ]);
   }
 }

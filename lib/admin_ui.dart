@@ -686,6 +686,14 @@ class _AdminApi {
         .toList();
   }
 
+  Future<bool> deletePushMessage(String id) async {
+    final result = await _rpc(
+      'admin_push_message_delete',
+      params: {'p_secret': secret, 'p_id': id},
+    );
+    return result == true;
+  }
+
   Future<List<ShopOrder>> orders() async {
     final data = await _rpc('admin_list_orders', params: {'p_secret': secret});
     return (data as List)
@@ -818,6 +826,7 @@ class _AdminApi {
   /// All native preorder states, not just the 100 waiting items in insights.
   /// Read-only, bounded pages; throws instead of silently dropping history.
   Future<List<Map<String, dynamic>>> nativePreordersAll() async {
+    final contacts = await _rpc('admin_customer_preorder_contacts', params: {'p_secret': secret});
     const pageSize = 200;
     final all = <Map<String, dynamic>>[];
     for (var offset = 0; offset < 20000; offset += pageSize) {
@@ -832,6 +841,9 @@ class _AdminApi {
           .whereType<Map>()
           .map((row) => Map<String, dynamic>.from(row))
           .toList();
+      for (final row in page) {
+        if (contacts is Map) row['instagram_handle'] = contacts['native:${row['id']}'] ?? '';
+      }
       all.addAll(page);
       if (page.length < pageSize) return all;
     }
@@ -2301,6 +2313,35 @@ class _PushNotificationAdminState extends State<_PushNotificationAdmin> {
     }
   }
 
+  Future<void> _deleteMessage(Map<String, dynamic> row) async {
+    final id = (row['id'] ?? '').toString();
+    if (id.isEmpty) return;
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Xabarnomani o‘chirish'),
+        content: const Text('Bu xabar barcha mijozlarning ilovadagi xabarlar tarixidan olib tashlanadi. Davom etilsinmi?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Yo‘q')),
+          FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('O‘chirish')),
+        ],
+      ),
+    );
+    if (yes != true) return;
+    try {
+      final deleted = await widget.api.deletePushMessage(id);
+      if (!mounted) return;
+      if (deleted) await _loadHistory();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(deleted ? 'Xabarnoma o‘chirildi.' : 'Xabar topilmadi.')),
+      );
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('O‘chirishda xatolik: $e')),
+      );
+    }
+  }
+
   String _date(dynamic raw) {
     final d = DateTime.tryParse(raw?.toString() ?? '')?.toLocal();
     if (d == null) return '';
@@ -2530,6 +2571,11 @@ class _PushNotificationAdminState extends State<_PushNotificationAdmin> {
                         ),
                       ),
                       const SizedBox(width: 8),
+                      IconButton(
+                        tooltip: 'Xabarni o‘chirish',
+                        onPressed: () => _deleteMessage(row),
+                        icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+                      ),
                       Text(
                         _date(row['sent_at']),
                         style: const TextStyle(
@@ -6386,6 +6432,8 @@ class _PreorderAdminPageState extends State<_PreorderAdminPage> {
                             'Oldindan to‘lov: ${_won((r['deposit_amount'] as num?)?.toInt() ?? 0)}',
                             style: const TextStyle(fontWeight: FontWeight.w800),
                           ),
+                          if ((r['instagram_handle'] ?? '').toString().isNotEmpty)
+                            SelectableText('Instagram: @${r['instagram_handle']}'),
                           if ((r['note'] ?? '').toString().trim().isNotEmpty)
                             Text('Izoh: ${r['note']}'),
                           if ((r['payment_proof_path'] ?? '')
@@ -7555,6 +7603,40 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
       if (result == null) return;
       customerNote = result.trim();
     }
+    if (status == 'prepared') {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          title: const Text('Buyurtmadagi kitoblar'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final item in order.items)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Text('• ${item['title']} — ${item['quantity']} ta'),
+                  ),
+                const SizedBox(height: 12),
+                const Text('Kitoblar tayyor bo‘lsa, tasdiqlang.'),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialog, false),
+              child: const Text('Ortga'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialog, true),
+              child: const Text('Tayyorlandi'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
     if (status == 'cancelled') {
       final yes = await showDialog<bool>(
         context: context,
@@ -8174,28 +8256,6 @@ class _ProfessionalOrderCard extends StatelessWidget {
                   ],
                 ),
               ),
-            if (webPreviewFeaturesAvailable &&
-                order.preparedAt == null &&
-                (order.status == 'accepted' || order.status == 'paid')) ...[
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (_) => WebPackingPage(
-                        order: order,
-                        secret: api.secret,
-                        onPrepared: () => onStatus('prepared'),
-                      ),
-                    ),
-                  ),
-                  icon: const Icon(Icons.fact_check_outlined),
-                  label: const Text('Qadoqlash tekshiruvi'),
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
             _OrderActions(order: order, onStatus: onStatus),
           ],
         ],
@@ -8235,11 +8295,6 @@ class _OrderActions extends StatelessWidget {
           : Icons.local_shipping_rounded;
     }
 
-    if (webPreviewFeaturesAvailable && primaryStatus == 'prepared') {
-      primaryStatus = null;
-      primaryLabel = null;
-      primaryIcon = null;
-    }
     return Row(
       children: [
         if (primaryStatus != null)

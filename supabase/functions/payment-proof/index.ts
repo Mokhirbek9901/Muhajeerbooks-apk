@@ -97,7 +97,13 @@ Deno.serve(async (req: Request) => {
         cacheControl: "3600",
       });
       if (error) return json(origin, { error: "Chek yuklanmadi" }, 400);
-      if (typeof body.session === "string" && /^[a-f0-9]{64}$/.test(body.session)) {
+      if (typeof body.session === "string" && /^device:[a-f0-9]{64}$/.test(body.session)) {
+        const claim = await supabase.rpc("customer_device_dispatch", {
+          p_device_session: body.session, p_action: "customer_release_receipt",
+          p_params: {p_path: path},
+        });
+        if (claim.error) return json(origin, {error: "Qurilma kirishi yoki chek bog‘lanishi tasdiqlanmadi"}, 403);
+      } else if (typeof body.session === "string" && /^[a-f0-9]{64}$/.test(body.session)) {
         const claim=await supabase.rpc("customer_release_receipt",{p_session:body.session,p_path:path});
         if(claim.error) return json(origin,{error:"PIN sessiyasi yoki chek bog‘lanishi tasdiqlanmadi"},403);
       }

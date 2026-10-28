@@ -13,6 +13,10 @@ on:
       - 'lib/app_startup.dart'
       - 'lib/main.dart'
       - 'lib/catalog_resume.dart'
+      - 'lib/customer_session.dart'
+      - 'lib/customer_pin_page.dart'
+      - 'lib/preorder_instagram.dart'
+      - 'supabase/migrations/20261028171922_customer_pinless_device_access.sql'
   push:
     branches: [main]
     paths: ['.github/store-test-trigger.json']

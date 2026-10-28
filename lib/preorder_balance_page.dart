@@ -251,8 +251,8 @@ class _CustomerPreorderBalancesPageState
                   ),
                   const SizedBox(height: 12),
                   const Text(
-                    'Oldingi telefon raqamingiz va PIN bilan kirsangiz, '
-                    'oldindan zakazlaringiz ko‘rinadi.',
+                    'Ism va telefoningizni saqlang. Boshqa telefondagi '
+                    'buyurtmalarni do‘kon orqali xavfsiz tiklash mumkin.',
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
@@ -293,7 +293,7 @@ class _CustomerPreorderBalancesPageState
                   child: Padding(
                     padding: EdgeInsets.all(24),
                     child: Text(
-                      'Bu qurilmadan zakaz topilmadi. Boshqa telefoningizdagi buyurtmalar uchun Profil → Shaxsiy PIN orqali kiring.',
+                      'Bu qurilmada zakaz topilmadi. Boshqa telefondagi buyurtmalarni tiklash uchun Mening ma’lumotlarim bo‘limidan so‘rov yuboring.',
                     ),
                   ),
                 );

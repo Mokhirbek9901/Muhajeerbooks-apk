@@ -18,6 +18,8 @@ jobs:
         run: python3 -m unittest discover -s server/tests -p 'test_admin_research_api.py' -v
       - name: Check Android release configuration regression
         run: python3 -m unittest discover -s server/tests -p 'test_android_release_safety.py' -v
+      - name: Protect PINless web and legacy admin preorder actions
+        run: python3 -m unittest discover -s server/tests -p 'test_pinless_web_preorder_compat.py' -v
       - name: Test compact image storage and duplicate reuse
         run: node --test server/tests/book_image_storage_policy.test.mjs
       - uses: ruby/setup-ruby@v1

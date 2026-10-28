@@ -6,6 +6,7 @@ const db = createClient(url, serviceKey, { auth: { persistSession: false } });
 
 const origins = new Set(["https://muhajeer-books-live-production.up.railway.app","https://muhajeer-books-render-preview.onrender.com"]);
 const allowed = new Set([
+  "customer_device_bootstrap", "customer_device_dispatch",
   "customer_release_preorder","customer_release_preorders","customer_release_link_orders","customer_release_my_orders","customer_release_quote","customer_release_order","customer_release_inbox","customer_release_push_subscribe","customer_release_receipt","customer_release_apns","customer_release_recover_pin","customer_release_delete_profile","customer_release_reviews","customer_release_review_action","customer_release_professional_login",
   "customer_catalog_delta",
   "customer_store_notice",
@@ -108,7 +109,17 @@ function textParam(v: unknown, max: number) {
   return typeof v === "string" && v.trim().length > 0 && v.length <= max;
 }
 function validate(name: string, p: Record<string, unknown>): string | null {
-  if (name.startsWith("customer_release_")) {
+  if (name === "customer_device_bootstrap") {
+    if (typeof p.p_secret !== "string" || !/^[a-f0-9]{64}$/.test(p.p_secret) ||
+        !textParam(p.p_install_id, 120) || String(p.p_install_id).length < 12 ||
+        !textParam(p.p_name, 80) || String(p.p_name).trim().length < 2 ||
+        !textParam(p.p_phone, 32) || typeof p.p_previous_session !== "string" ||
+        (p.p_previous_session !== "" && !/^[a-f0-9]{64}$/.test(p.p_previous_session))) return "Invalid contact details";
+  } else if (name === "customer_device_dispatch") {
+    if (typeof p.p_device_session !== "string" || !/^device:[a-f0-9]{64}$/.test(p.p_device_session) ||
+        !textParam(p.p_action, 100) || !p.p_params || typeof p.p_params !== "object" ||
+        Array.isArray(p.p_params) || JSON.stringify(p).length > 100000) return "Invalid device request";
+  } else if (name.startsWith("customer_release_")) {
     if (name !== "customer_release_recover_pin" && name !== "customer_release_professional_login" && name !== "customer_release_reviews" &&
         !(name === "customer_release_quote" || name === "customer_release_order") &&
         (typeof p.p_session !== "string" || !/^[a-f0-9]{64}$/.test(p.p_session))) return "PIN session required";
@@ -265,6 +276,10 @@ Deno.serve(async (req) => {
     if ((name === "customer_pin_login" || name === "customer_pin_register") &&
         !professionalRateOk("profile-pin:" + key(req))) {
       return out(origin, 429, { ok: false, error: "Too many PIN attempts. Try later." });
+    }
+    if (name === "customer_device_bootstrap" &&
+        !professionalRateOk("device-profile:" + key(req))) {
+      return out(origin, 429, {ok: false, error: "Biroz kutib, qayta urining."});
     }
     const invalid = validate(name, params);
     if (invalid) return out(origin, 400, { ok: false, error: invalid });

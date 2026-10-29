@@ -180,8 +180,12 @@
             'Authorization': 'Bearer ' + publishableKey
           },
           body: JSON.stringify({
-            name: session ? 'customer_release_push_subscribe' : 'customer_push_subscribe',
-            params: {
+            name: /^device:[a-f0-9]{64}$/.test(session) ? 'customer_device_dispatch' : (session ? 'customer_release_push_subscribe' : 'customer_push_subscribe'),
+            params: /^device:[a-f0-9]{64}$/.test(session) ? {
+              p_device_session: session, p_action: 'customer_release_push_subscribe',
+              p_params: {p_endpoint: data.endpoint, p_p256dh: data.keys.p256dh,
+                p_auth: data.keys.auth, p_user_agent: navigator.userAgent || ''}
+            } : {
               p_endpoint: data.endpoint,
               p_p256dh: data.keys.p256dh,
               p_auth: data.keys.auth,

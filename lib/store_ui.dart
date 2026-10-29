@@ -1,3 +1,4 @@
+import 'preorder_instagram.dart';
 import 'catalog_book_gallery.dart';
 import 'customer_form_scaffold.dart';
 import 'dart:async';
@@ -903,6 +904,7 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
   late final TextEditingController phone;
   late final TextEditingController amount;
   final note = TextEditingController();
+  final preorderInstagram = TextEditingController();
   XFile? proof;
   bool saving = false;
 
@@ -940,6 +942,7 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
     phone.dispose();
     amount.dispose();
     note.dispose();
+    preorderInstagram.dispose();
     super.dispose();
   }
 
@@ -973,7 +976,12 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
 
   Future<void> submit() async {
     if (!await _requireCustomerProfile()) return;
-    if (!mounted || !formKey.currentState!.validate()) return;
+    CustomerFormScaffold.dismissKeyboard();
+    if (saving || !mounted || !formKey.currentState!.validate()) return;
+    if (!validPreorderInstagram(preorderInstagram.text)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Instagram username kiriting: @username')));
+      return;
+    }
     if (proof == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Oldindan to‘lov chekini tanlang.')),
@@ -992,6 +1000,7 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
         depositAmount: value,
         paymentProof: proof!,
         note: note.text.trim(),
+        instagramHandle: normalizePreorderInstagram(preorderInstagram.text),
       );
       if (!mounted) return;
       await showDialog<void>(
@@ -1004,7 +1013,7 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
           ),
           title: const Text('Oldindan buyurtma qabul qilindi'),
           content: Text(
-            '$message\n\nKitob kelganda shu telefon raqamiga xabar beramiz. Yakuniy narx ham kitob kelganda aniq bo‘ladi.',
+            '$message\n\nKitob kelganda Instagram orqali siz bilan bog‘lanamiz. Yakuniy narx ham kitob kelganda aniq bo‘ladi.',
             textAlign: TextAlign.center,
           ),
           actions: [
@@ -1163,7 +1172,7 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
                 labelText: 'Telefon raqam',
                 hintText: '01024338600',
                 helperText:
-                    'Kitob kelganda shu telefon raqamiga xabar beramiz.',
+                    'Kitob kelganda Instagram orqali siz bilan bog‘lanamiz.',
               ),
               validator: (v) => !_isSupportedCustomerPhone(v ?? '')
                   ? 'Koreya 010 raqamini to‘liq kiriting'
@@ -1222,7 +1231,7 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
             _PaymentCard(onCopy: copyAccount),
             const SizedBox(height: 12),
             OutlinedButton.icon(
-              onPressed: pickProof,
+              onPressed: saving ? null : pickProof,
               icon: Icon(
                 proof == null
                     ? Icons.add_photo_alternate_outlined
@@ -1234,6 +1243,8 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
                     : 'Chek tanlandi: ${proof!.name}',
               ),
             ),
+            const SizedBox(height: 16),
+            PreorderInstagramField(controller: preorderInstagram, enabled: !saving),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: saving ? null : submit,
@@ -7464,7 +7475,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     CustomerFormScaffold.dismissKeyboard();
     setState(() => sendingOrder = true);
     try {
-      // Validate PIN identity without overwriting delivery recipient inputs.
+      // Validate device identity without overwriting delivery recipient inputs.
       if (!await ensureCustomerCheckoutIdentity(context) || !mounted) return;
       if (!_validateCheckout()) return;
       if (!prepaidDeliveryReady) {
@@ -8830,7 +8841,7 @@ class ProfilePage extends StatelessWidget {
                     'Shu telefondagi ism, telefon, manzil, '
                     'savatcha va buyurtmalar tarixi tozalanadi. '
                     'Serverdagi buyurtmalar o‘chmaydi: qayta '
-                    'kirish uchun eski telefon raqamingiz va PIN kerak.',
+                    'ochish uchun do‘konga murojaat qiling.',
                   ),
                   actions: [
                     TextButton(
@@ -8850,7 +8861,7 @@ class ProfilePage extends StatelessWidget {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text(
-                    'Profildan chiqildi. Qayta kirish uchun PINni kiriting.',
+                    'Profildan chiqildi. Yangi buyurtma uchun ma’lumotlaringizni kiriting.',
                   ),
                 ),
               );
@@ -8992,8 +9003,8 @@ class ProfilePage extends StatelessWidget {
                   ),
                   subtitle: Text(
                     state.checkoutIdentityReady
-                        ? 'Ism, telefon va PIN saqlangan • buyurtmaga tayyor'
-                        : 'Ism, telefon va PIN • SMSsiz ro‘yxatdan o‘tish',
+                        ? 'Ism va telefon saqlangan • buyurtmaga tayyor'
+                        : 'Ism va telefon • buyurtma ma’lumotlari',
                   ),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => Navigator.push(
@@ -9172,7 +9183,7 @@ class _WebMyProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    // First-time customers fill name, phone and PIN immediately from
+    // Customers save name and phone immediately from
     // Mening ma’lumotlarim, without another nested menu.
     if (state.backendConfigured && !state.checkoutIdentityReady) {
       return const CustomerPinPage();
@@ -9237,9 +9248,7 @@ class _WebMyProfilePage extends StatelessWidget {
                       onPressed: () => _editProfile(context),
                       icon: const Icon(Icons.edit_outlined, size: 18),
                       label: Text(
-                        state.pinSessionActive
-                            ? 'Shaxsiy PIN: ••••  •  PIN sozlamalari'
-                            : 'PIN bilan kirish',
+                        'Ma’lumotlarni tahrirlash',
                       ),
                     ),
                     if (iosTestFlightPreview || nativeStoreFeaturesEnabled) ...[
@@ -9263,16 +9272,13 @@ class _WebMyProfilePage extends StatelessWidget {
                     Text(
                       state.checkoutIdentityReady
                           ? 'Profilingiz buyurtmalarga tayyor'
-                          : 'Buyurtma berish uchun ism, telefon va PINni kiriting.',
+                          : 'Buyurtma berish uchun ism va telefonni kiriting.',
                       style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      state.pinSessionActive
-                          ? 'Shaxsiy PIN: •••• (maxfiy saqlanadi). Boshqa telefonda '
-                                'telefon raqami va PIN bilan kirasiz.'
-                          : 'SMS talab qilinmaydi. Oldin profil yaratgan bo‘lsangiz '
-                                'PIN bilan kiring. Yangi qurilmada raqam va PIN kerak bo‘ladi.',
+                      'Ma’lumotlar shu qurilmada saqlanadi. Boshqa telefondagi '
+                          'buyurtmalarni tiklash uchun do‘konga murojaat qiling.',
                     ),
                   ],
                 ),

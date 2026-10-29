@@ -1,0 +1,47 @@
+name: Read-only owner store status
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/owner_store_status.yml'
+      - '.github/release_tools/inspect_app_store_state.rb'
+      - 'tools/play_candidate.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  google-play-status:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 -m pip install --quiet google-auth requests
+      - name: Read current tracks using a temporary uncommitted edit
+        env:
+          PLAY_TRACK: internal
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: python3 tools/play_candidate.py inspect
+      - uses: actions/upload-artifact@v4
+        with:
+          name: read-only-google-play-state
+          path: ${{ runner.temp }}/play-store-state.json
+  app-store-status:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: GET current App Store and TestFlight states
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: ruby .github/release_tools/inspect_app_store_state.rb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: read-only-app-store-state
+          path: ${{ runner.temp }}/app-store-state.json

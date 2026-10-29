@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 import native_android_push as fcm
 
-KEY = json.dumps({'type':'service_account','project_id':'muhajeer-test',
+KEY = json.dumps({'type':'service_account','project_id':'muhajeer-books-push',
                   'client_email':'sender@example.invalid',
                   'private_key':'-----BEGIN PRIVATE KEY-----\ntest'})
 TOKEN = 'A_test-FCM_token:'+'b'*60
@@ -22,6 +22,12 @@ class AndroidPushTests(unittest.TestCase):
         self.assertFalse(result['configured'])
         self.assertEqual(result['sent'],0)
         rpc.assert_not_called()
+
+    def test_wrong_firebase_project_is_not_enabled(self):
+        wrong = json.loads(KEY)
+        wrong['project_id'] = 'unrelated-project'
+        with patch.dict(os.environ, {'FIREBASE_SERVICE_ACCOUNT_JSON': json.dumps(wrong)}):
+            self.assertFalse(fcm.fcm_configured())
 
     def test_bad_credentials_and_lookup_are_not_success(self):
         with patch.dict(os.environ,{'FIREBASE_SERVICE_ACCOUNT_JSON':'not json'}):
@@ -37,8 +43,8 @@ class AndroidPushTests(unittest.TestCase):
             result=fcm.send_android_order_event('event','01000000000',
                 {'title':'private title','body':'private amount'},
                 {'event':'shipping','order_id':'order-id','total':999},rpc)
-        rpc.assert_called_once_with('event_native_fcm_for_phone',
-            {'p_event_secret':'event','p_phone':'01000000000'})
+        rpc.assert_called_once_with('event_native_fcm_for_order',
+            {'p_event_secret':'event','p_phone':'01000000000','p_order_id':'order-id'})
         self.assertEqual(result['devices'],1)
         self.assertEqual(result['sent'],1)
         args=send.call_args.args

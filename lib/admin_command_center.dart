@@ -1545,7 +1545,7 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
       ),
       _AdminMenuAction(
         'Profil tiklash va sharhlar',
-        'PIN tiklash so‘rovlari va sharh shikoyatlari',
+        'Profil tiklash so‘rovlari va sharh shikoyatlari',
         Icons.admin_panel_settings_outlined,
         (ctx) => _pushPage(ctx, _CustomerSafetyAdmin(api: widget.api)),
       ),

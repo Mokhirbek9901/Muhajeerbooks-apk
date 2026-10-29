@@ -5,7 +5,7 @@ Flutter method channel. iOS retains its independent production APNs integration.
 
 ## Firebase configuration
 
-1. Use the Firebase project associated with Muhajeer Books. Register the existing
+1. Use the dedicated Firebase project `muhajeer-books-push`. Register the existing
    Android application ID `com.muhajeerbooks.app`; do not change its package or signing key.
 2. Save that Android application's public `google-services.json` as
    `config/firebase-android.json`. This file must not contain a service account.
@@ -14,6 +14,13 @@ Flutter method channel. iOS retains its independent production APNs integration.
    for `muhajeer-books-live`. Never commit or include that private JSON in an APK.
 4. The sender project ID comes from that service account. It must match the Android
    configuration's project. No legacy FCM server key is used.
+5. The Android config loader rejects JSON credentials and configs from other Firebase
+   projects. Only the Firebase-generated **public** `google-services.json` for
+   `com.muhajeerbooks.app` may be committed at `config/firebase-android.json`.
+6. Before activating customer FCM for PIN-less installations, migrate the
+   `customer_release_fcm` registration and recipient lookups from legacy
+   `customer_pin_sessions` to the existing, device-scoped customer sessions.
+   Do **not** authorize subscriptions using an unverified phone number alone.
 
 `tools/prepare_android_fcm.py` runs after the analytics and biometric preparation
 scripts. It adds the FCM dependency, non-exported messaging service, monochrome

@@ -1,0 +1,267 @@
+name: Android 2.5.20 TestFlight 2130 parity - gated production release
+on:
+  push:
+    branches: [release/android-ios-2130-parity-20261030]
+    paths: ['.github/workflows/play_ios2130_parity_release.yml']
+permissions:
+  contents: read
+jobs:
+  android-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [28, 35]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.7'
+          channel: stable
+          cache: true
+      - name: Configure safe Android release test
+        run: |
+          flutter create . --platforms=android --project-name muhajeerbooks --org com.muhajeerbooks
+          flutter pub get
+          python3 tools/prepare_android_testlab_analytics.py
+          python3 tools/prepare_android_biometrics.py
+          python3 tools/prepare_android_release_safety.py
+          python3 tools/prepare_android_fcm.py --require-config
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Release startup and order safety on Android API ${{ matrix.api }}
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none -memory 2048
+          script: python3 tools/run_android_release_smoke.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: parity-android-smoke-api-${{ matrix.api }}
+          path: |
+            android-release-startup.log
+            android-release-startup.png
+          if-no-files-found: ignore
+          retention-days: 30
+  build:
+    needs: [android-smoke]
+    runs-on: ubuntu-latest
+    env:
+      ENC_KEYSTORE: .github/signing/upload-keystore.jks.enc
+      KEYSTORE_SECRET: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+      # Only the preflight helper uses the internal track; the upload is explicit and guarded.
+      PLAY_TRACK: internal
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare upload key
+        id: key
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_SECRET" || { echo 'Existing Android upload key password is missing'; exit 1; }
+          test -f "$ENC_KEYSTORE" || { echo 'Existing encrypted upload key is missing; refusing to rotate it'; exit 1; }
+          KS="$RUNNER_TEMP/upload-keystore.jks"
+          PASS="$KEYSTORE_SECRET"
+          test "${#PASS}" -ge 16 || { echo 'Existing key password must have at least 16 characters'; exit 1; }
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -in "$ENC_KEYSTORE" -out "$KS" -pass env:KEYSTORE_SECRET
+          echo "mode=release" >> "$GITHUB_OUTPUT"
+          echo "::add-mask::$PASS"
+          {
+            echo "ANDROID_KEYSTORE_PATH=$KS"
+            echo "ANDROID_KEYSTORE_PASS=$PASS"
+          } >> "$GITHUB_ENV"
+          keytool -list -v -keystore "$KS" -storepass "$PASS" -alias upload | grep -E "SHA1:|SHA256:" || true
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.7'
+          channel: stable
+          cache: true
+
+      - name: Create Android platform files
+        run: flutter create . --platforms=android --project-name muhajeerbooks --org com.muhajeerbooks
+
+      - run: flutter pub get
+
+      - name: Configure Android release signing and package
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('android/app/build.gradle.kts')
+          s = p.read_text(encoding='utf-8')
+          s = re.sub(r'applicationId\s*=\s*"[^"]+"', 'applicationId = "com.muhajeerbooks.app"', s)
+          signing = (
+              '    signingConfigs {\n'
+              '        create("upload") {\n'
+              '            storeFile = file(System.getenv("ANDROID_KEYSTORE_PATH"))\n'
+              '            storePassword = System.getenv("ANDROID_KEYSTORE_PASS")\n'
+              '            keyAlias = "upload"\n'
+              '            keyPassword = System.getenv("ANDROID_KEYSTORE_PASS")\n'
+              '        }\n'
+              '    }\n\n'
+              '    buildTypes {'
+          )
+          if s.count('    buildTypes {') != 1:
+              raise SystemExit('buildTypes block not found')
+          s = s.replace('    buildTypes {', signing, 1)
+          debug = 'signingConfig = signingConfigs.getByName("debug")'
+          if debug not in s:
+              raise SystemExit('debug signing line not found')
+          s = s.replace(debug, 'signingConfig = signingConfigs.getByName("upload")', 1)
+          p.write_text(s, encoding='utf-8')
+
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          m = manifest.read_text(encoding='utf-8')
+          permissions = [
+              'android.permission.INTERNET',
+              'android.permission.POST_NOTIFICATIONS',
+          ]
+          for permission in permissions:
+              if permission not in m:
+                  m = m.replace(
+                      '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
+                      f'<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="{permission}" />',
+                      1,
+                  )
+          m = re.sub(r'android:label="[^"]*"', 'android:label="Muhajeer Books"', m, count=1)
+          manifest.write_text(m, encoding='utf-8')
+          PY
+
+      - name: Ignore Firebase Test Lab in device analytics
+        run: python3 tools/prepare_android_testlab_analytics.py
+
+      - name: Prepare Android biometrics
+        run: python3 tools/prepare_android_biometrics.py
+
+      - name: Enforce Android release startup safety
+        run: |
+          python3 tools/prepare_android_release_safety.py
+          python3 tools/prepare_android_fcm.py --require-config
+
+      - name: Apply official Muhajeer launcher icon
+        run: |
+          sudo apt-get -qq update
+          sudo apt-get -qq install -y imagemagick
+          for spec in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+            density="${spec%%:*}"; size="${spec##*:}"; dir="android/app/src/main/res/mipmap-${density}"
+            convert assets/images/muhajeer_logo.jpg -resize "${size}x${size}^" -gravity center -extent "${size}x${size}" "$dir/ic_launcher.png"
+          done
+
+      - name: Reserve fresh version code; read Production state before any upload
+        run: |
+          python3 -m pip install --quiet google-auth==2.62.0 requests==2.32.5
+          python3 tools/play_candidate.py preflight
+
+      - name: Build signed App Bundle
+        run: |
+          BUILD_NUMBER="$PLAY_BUILD_NUMBER"
+          flutter build appbundle --release \
+            --build-name="$(cat .github/ios-marketing-version)" \
+            --build-number="$BUILD_NUMBER" \
+            --dart-define=STORE_FEATURES=true \
+            --dart-define=PLAY_STORE_BUILD=true \
+            --dart-define=PLAY_STORE_URL="https://play.google.com/store/apps/details?id=com.muhajeerbooks.app" \
+            --dart-define=APP_BUILD_NUMBER="$BUILD_NUMBER" \
+            --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
+            --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
+
+      - name: Verify bundle signature
+        run: |
+          AAB=build/app/outputs/bundle/release/app-release.aab
+          jarsigner -verify "$AAB" | tail -1
+          keytool -printcert -jarfile "$AAB" | grep -E "Owner:|SHA256:"
+          if keytool -printcert -jarfile "$AAB" | grep -q "CN=Android Debug"; then
+            echo "::error::Bundle debug kalit bilan imzolangan."
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: steps.key.outputs.mode == 'release'
+        with:
+          name: muhajeer-books-play-fcm-signed-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 30
+
+      - name: Validate exact iOS 2130 packing parity in the Android source
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('lib/admin_ui.dart').read_text()
+          assert "label: const Text('Qadoqlash tekshiruvi')" in s
+          assert "if (webPreviewFeaturesAvailable && primaryStatus == 'prepared')" in s
+          assert "WebPackingPage(" in s and "onPrepared: () => onStatus('prepared')" in s
+          assert Path('.github/ios-marketing-version').read_text().strip()=='2.5.20'
+          print('TestFlight 2130 order packing parity and 2.5.20 version confirmed.')
+          PY
+      - name: Verify only approved next Production release is possible
+        run: |
+          python3 tools/play_candidate.py inspect > /dev/null
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])
+          tracks=json.loads((root/'play-store-state.json').read_text())['tracks']
+          target=int(os.environ['PLAY_BUILD_NUMBER'])
+          production=next(x for x in tracks if x.get('track')=='production')
+          active=[r for r in production.get('releases',[]) if r.get('status') in ('completed','inProgress')]
+          assert active, 'No baseline Production release to protect'
+          assert any('1191' in r.get('versionCodes',[]) for r in active), 'Unexpected Production baseline'
+          assert all(int(c)<target for r in active for c in r.get('versionCodes',[])), 'Target is not newer than Production'
+          assert not any(str(target) in r.get('versionCodes',[]) for t in tracks for r in t.get('releases',[])), 'Version code already used in a release'
+          (root/'ios2130-parity-before.json').write_text(json.dumps(tracks,indent=2))
+          print('Production 1191 protected; newly built version code:',target)
+          PY
+      - name: Upload signed and smoke-tested Android 2.5.20 to Google Play Production
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.muhajeerbooks.app
+          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          track: production
+          status: completed
+          releaseName: '2.5.20 TestFlight 2130 parity'
+          changesNotSentForReview: false
+      - name: Confirm Google accepted the fresh Production version and testing tracks stayed unchanged
+        run: |
+          python3 tools/play_candidate.py inspect > /dev/null
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])
+          before=json.loads((root/'ios2130-parity-before.json').read_text())
+          after=json.loads((root/'play-store-state.json').read_text())['tracks']
+          code=str(os.environ['PLAY_BUILD_NUMBER'])
+          production=next(t for t in after if t.get('track')=='production')
+          assert any(r.get('status')=='completed' and code in r.get('versionCodes',[]) for r in production.get('releases',[])), 'Google did not confirm Production update'
+          other=lambda ts:sorted([x for x in ts if x['track']!='production'],key=lambda x:x['track'])
+          assert other(before)==other(after), 'Testing track unexpectedly modified'
+          result={'version':'2.5.20','version_code':code,'source_sha':os.environ['GITHUB_SHA'],'ios_testflight_reference':'2.5.20 (2130)','production_status':'completed','testing_tracks_unchanged':True,'firebase_sender_still_requires_configuration':True}
+          (root/'ios2130-parity-release-result.json').write_text(json.dumps(result,indent=2))
+          print('GOOGLE_PLAY_ACCEPTED_IOS2130_PARITY',json.dumps(result))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-ios2130-parity-release-result
+          path: ${{ runner.temp }}/ios2130-parity-release-result.json
+          if-no-files-found: ignore
+          retention-days: 30

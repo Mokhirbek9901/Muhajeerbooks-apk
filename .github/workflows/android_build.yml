@@ -5,6 +5,9 @@ name: Unified Web + Android APK
 
 on:
   workflow_dispatch:
+  push:
+    branches: [build/android-fcm-device-test-20261030]
+    paths: ['.github/workflows/android_build.yml']
 
 permissions:
   contents: read
@@ -16,7 +19,7 @@ concurrency:
 jobs:
   build:
     # A [web-only] main commit must never create/publish native releases.
-    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[web-only]') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/build/android-fcm-device-test-20261030' || !contains(github.event.head_commit.message, '[web-only]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

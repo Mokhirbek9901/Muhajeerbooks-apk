@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from native_customer_push import send_customer_apns_order_event, send_customer_apns_broadcast
+from native_customer_push import send_customer_apns_order_event, send_customer_apns_broadcast, send_customer_apns_test
 
 
 class NativeCustomerPushTest(unittest.TestCase):
@@ -141,6 +141,24 @@ class NativeCustomerPushTest(unittest.TestCase):
                 "wrong-admin", "Hi", "Hello", lambda *args: None)
         self.assertTrue(result["lookup_error"])
         self.assertEqual(result["sent"], 0)
+
+    def test_customer_test_uses_event_authorized_customer_lookup_and_fixed_public_text(self):
+        rpc = Mock(return_value=[{'token':'a'*64}])
+        posts = []
+        class Client:
+            def __init__(self, **kwargs): pass
+            def __enter__(self): return self
+            def __exit__(self, *_): return False
+            def post(self, url, json, headers):
+                posts.append(json)
+                return types.SimpleNamespace(status_code=200)
+        with patch.dict(os.environ, {'APPLE_APNS_KEY_ID':'key','APPLE_APNS_PRIVATE_KEY':'mock-private-key'}), patch.dict(sys.modules, {'jwt':types.SimpleNamespace(encode=lambda *a,**k:'signed'), 'httpx':types.SimpleNamespace(Client=Client)}):
+            result = send_customer_apns_test('event-secret', rpc)
+        rpc.assert_called_once_with('event_customer_apns_test_recipients', {'p_event_secret':'event-secret'})
+        self.assertEqual(result['sent'], 1)
+        self.assertEqual(posts[0]['kind'], 'customer_broadcast')
+        self.assertIn('Mijoz push sinovi', posts[0]['aps']['alert']['title'])
+        self.assertNotIn('order_id', posts[0])
 
 if __name__ == "__main__":
     unittest.main()

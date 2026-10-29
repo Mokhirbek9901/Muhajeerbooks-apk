@@ -12,8 +12,8 @@ from pywebpush import webpush, WebPushException
 from flask import Flask, jsonify, request, Response
 
 from preorder_delivery import register_preorder_routes
-from native_customer_push import send_customer_apns_order_event, send_customer_apns_broadcast
-from native_android_push import fcm_configured, send_android_order_event, send_android_broadcast
+from native_customer_push import send_customer_apns_order_event, send_customer_apns_broadcast, send_customer_apns_test
+from native_android_push import fcm_configured, send_android_order_event, send_android_broadcast, send_android_customer_test
 
 app = Flask(__name__)
 register_preorder_routes(app, webpush)
@@ -629,6 +629,15 @@ def order_push_event():
 
     phone=str(body.get("phone","")).strip()[:40]
     event=str(body.get("event","")).strip().lower()
+    if event == "customer_test":
+        # Uses the existing server event credential. The text and audience are
+        # fixed; no admin recipients, web broadcast, order or inbox writes.
+        ios = send_customer_apns_test(supplied, _admin_rpc_call)
+        android = send_android_customer_test(supplied, _admin_rpc_call)
+        return jsonify(ok=True, test=True, audience="customers",
+                       sent=ios["sent"]+android["sent"],
+                       failed=ios["failed"]+android["failed"],
+                       apns=ios, android=android)
     if event not in ("submitted","accepted","shipping","review_reminder","admin_new_order","admin_test"):
         return jsonify(error="Invalid event"),400
     is_admin_event = event in ("admin_new_order", "admin_test")

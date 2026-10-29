@@ -85,5 +85,14 @@ class AndroidPushTests(unittest.TestCase):
         with patch.object(fcm,'_session',return_value=(session,'https://fcm.googleapis.com/test')):
             self.assertFalse(fcm._send(TOKEN,'Hello','Test',{},'tag'))
 
+    def test_customer_test_targets_only_authenticated_opted_in_customer_lookup(self):
+        rpc = Mock(return_value=[{'token':TOKEN}])
+        with patch.dict(os.environ, {'FIREBASE_SERVICE_ACCOUNT_JSON':KEY}), patch.object(fcm, '_send', return_value=True) as send:
+            result = fcm.send_android_customer_test('event-secret', rpc)
+        rpc.assert_called_once_with('event_customer_fcm_test_recipients', {'p_event_secret':'event-secret'})
+        self.assertEqual(result['sent'], 1)
+        self.assertIn('Mijoz push sinovi', send.call_args.args[1])
+        self.assertEqual(send.call_args.args[3], {'kind':'customer_broadcast'})
+
 
 if __name__=='__main__': unittest.main()

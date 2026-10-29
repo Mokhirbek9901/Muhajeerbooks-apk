@@ -45,9 +45,35 @@ class PushGatewayTests(unittest.TestCase):
         with patch.dict(os.environ, {'ORDER_PUSH_SECRET': 'test-secret'}), patch.object(gateway, '_admin_rpc_call', return_value=[]) as rpc, patch.object(gateway, 'send_customer_apns_order_event', return_value={'configured': False}) as customer, patch.object(gateway, '_send_admin_apns_order_event') as admin:
             response = self.client.post('/api/push/order-event', json={'event': 'shipping', 'phone': '01000000000'}, headers={'X-Muhajeer-Push-Secret': 'test-secret'})
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(rpc.call_args.args[0], 'event_push_subscriptions')
+        self.assertEqual(rpc.call_args.args[0], 'event_customer_device_webpush')
         customer.assert_called_once()
         admin.assert_not_called()
+
+    def test_customer_diagnostic_requires_server_event_authentication(self):
+        with patch.object(gateway, 'send_customer_apns_test') as ios, patch.object(gateway, 'send_android_customer_test') as android:
+            for expected, supplied in [('test-secret', ''), ('test-secret', 'wrong'), ('', '')]:
+                with patch.dict(os.environ, {'ORDER_PUSH_SECRET': expected}):
+                    response = self.client.post('/api/push/order-event', json={'event':'customer_test'}, headers={'X-Muhajeer-Push-Secret':supplied})
+                self.assertEqual(response.status_code, 401)
+            ios.assert_not_called()
+            android.assert_not_called()
+
+    def test_customer_diagnostic_never_sends_admin_or_web_or_writes_order_inbox(self):
+        ios_result = {'configured':True, 'devices':1, 'sent':1, 'failed':0}
+        android_result = {'configured':False, 'devices':0, 'sent':0, 'failed':0}
+        with patch.dict(os.environ, {'ORDER_PUSH_SECRET':'test-secret'}), patch.object(gateway, 'send_customer_apns_test', return_value=ios_result) as ios, patch.object(gateway, 'send_android_customer_test', return_value=android_result) as android, patch.object(gateway, '_admin_rpc_call') as rpc, patch.object(gateway, '_send_admin_apns_order_event') as admin, patch.object(gateway, 'send_customer_apns_order_event') as order, patch.object(gateway, 'webpush') as web:
+            response = self.client.post('/api/push/order-event', json={'event':'customer_test', 'phone':'01012345678', 'order_id':'private-order', 'title':'ignore this', 'message':'private data'}, headers={'X-Muhajeer-Push-Secret':'test-secret'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()['audience'], 'customers')
+        self.assertEqual(response.get_json()['sent'], 1)
+        ios.assert_called_once()
+        android.assert_called_once()
+        self.assertIs(ios.call_args.args[1], rpc)
+        self.assertIs(android.call_args.args[1], rpc)
+        self.assertEqual(ios.call_args.args[0], 'test-secret')
+        self.assertEqual(android.call_args.args[0], 'test-secret')
+        for operation in (rpc, admin, order, web):
+            operation.assert_not_called()
 
 
 if __name__ == '__main__':

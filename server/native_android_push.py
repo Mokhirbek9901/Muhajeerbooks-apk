@@ -5,6 +5,7 @@ import os
 import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from push_test_message import CUSTOMER_PUSH_TEST_TITLE, CUSTOMER_PUSH_TEST_BODY
 
 _local = threading.local()
 _TOKEN = re.compile(r"^[A-Za-z0-9:_-]{40,4096}$")
@@ -105,3 +106,9 @@ def send_android_broadcast(admin_secret, title, message, message_id, rpc):
     return _deliver(rpc, "admin_native_fcm_devices", {"p_secret": admin_secret},
                     title, message, {"kind": "customer_broadcast", "message_id": message_id},
                     f"muhajeer-{message_id}")
+
+
+def send_android_customer_test(event_secret, rpc):
+    return _deliver(rpc, "event_customer_fcm_test_recipients", {"p_event_secret": event_secret},
+                    CUSTOMER_PUSH_TEST_TITLE, CUSTOMER_PUSH_TEST_BODY,
+                    {"kind": "customer_broadcast"}, "muhajeer-customer-push-test")

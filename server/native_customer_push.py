@@ -6,6 +6,7 @@ No credentials or device tokens are logged.
 """
 import os
 import time
+from push_test_message import CUSTOMER_PUSH_TEST_TITLE, CUSTOMER_PUSH_TEST_BODY
 
 
 def send_customer_apns_order_event(event_secret, phone, notifications, order, rpc):
@@ -92,12 +93,23 @@ def send_customer_apns_broadcast(admin_secret, title, message, rpc):
     Recipient enumeration requires a verified admin secret at the database.
     No customer identity, addresses or order details go to other devices.
     """
+    return _send_customer_apns_announcement(admin_secret, title, message, rpc,
+        "admin_release_apns_broadcast_recipients", "p_secret")
+
+
+def send_customer_apns_test(event_secret, rpc):
+    return _send_customer_apns_announcement(event_secret,
+        CUSTOMER_PUSH_TEST_TITLE, CUSTOMER_PUSH_TEST_BODY, rpc,
+        "event_customer_apns_test_recipients", "p_event_secret")
+
+
+def _send_customer_apns_announcement(secret, title, message, rpc, operation, secret_field):
     key_id = os.getenv("APPLE_APNS_KEY_ID", "").strip()
     team_id = os.getenv("APPLE_APNS_TEAM_ID", "8HJA5K2BQJ").strip()
     key = os.getenv("APPLE_APNS_PRIVATE_KEY", "").strip().replace("\\n", "\n")
     if not (key_id and team_id and key):
         return {"configured": False, "devices": 0, "sent": 0, "failed": 0}
-    recipients = rpc("admin_release_apns_broadcast_recipients", {"p_secret": admin_secret})
+    recipients = rpc(operation, {secret_field: secret})
     if not isinstance(recipients, list):
         return {"configured": True, "devices": 0, "sent": 0, "failed": 0, "lookup_error": True}
     tokens = list(dict.fromkeys(str(row.get("token", "")).lower()

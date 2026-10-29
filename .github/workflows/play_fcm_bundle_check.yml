@@ -1,0 +1,174 @@
+name: Build Play FCM bundle (no upload)
+on:
+  push:
+    branches: [build/play-fcm-candidate-20261030]
+    paths: ['.github/workflows/play_fcm_bundle_check.yml']
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      ENC_KEYSTORE: .github/signing/upload-keystore.jks.enc
+      KEYSTORE_SECRET: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+      # Production is intentionally unavailable until device validation is reviewed.
+      # Web commits cannot trigger this workflow; repository variables cannot
+      # silently redirect this build to Production.
+      PLAY_TRACK: internal
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare upload key
+        id: key
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_SECRET" || { echo 'Existing Android upload key password is missing'; exit 1; }
+          test -f "$ENC_KEYSTORE" || { echo 'Existing encrypted upload key is missing; refusing to rotate it'; exit 1; }
+          KS="$RUNNER_TEMP/upload-keystore.jks"
+          PASS="$KEYSTORE_SECRET"
+          test "${#PASS}" -ge 16 || { echo 'Existing key password must have at least 16 characters'; exit 1; }
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -in "$ENC_KEYSTORE" -out "$KS" -pass env:KEYSTORE_SECRET
+          echo "mode=release" >> "$GITHUB_OUTPUT"
+          echo "::add-mask::$PASS"
+          {
+            echo "ANDROID_KEYSTORE_PATH=$KS"
+            echo "ANDROID_KEYSTORE_PASS=$PASS"
+          } >> "$GITHUB_ENV"
+          keytool -list -v -keystore "$KS" -storepass "$PASS" -alias upload | grep -E "SHA1:|SHA256:" || true
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.7'
+          channel: stable
+          cache: true
+
+      - name: Create Android platform files
+        run: flutter create . --platforms=android --project-name muhajeerbooks --org com.muhajeerbooks
+
+      - run: flutter pub get
+
+      - name: Configure Android release signing and package
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('android/app/build.gradle.kts')
+          s = p.read_text(encoding='utf-8')
+          s = re.sub(r'applicationId\s*=\s*"[^"]+"', 'applicationId = "com.muhajeerbooks.app"', s)
+          signing = (
+              '    signingConfigs {\n'
+              '        create("upload") {\n'
+              '            storeFile = file(System.getenv("ANDROID_KEYSTORE_PATH"))\n'
+              '            storePassword = System.getenv("ANDROID_KEYSTORE_PASS")\n'
+              '            keyAlias = "upload"\n'
+              '            keyPassword = System.getenv("ANDROID_KEYSTORE_PASS")\n'
+              '        }\n'
+              '    }\n\n'
+              '    buildTypes {'
+          )
+          if s.count('    buildTypes {') != 1:
+              raise SystemExit('buildTypes block not found')
+          s = s.replace('    buildTypes {', signing, 1)
+          debug = 'signingConfig = signingConfigs.getByName("debug")'
+          if debug not in s:
+              raise SystemExit('debug signing line not found')
+          s = s.replace(debug, 'signingConfig = signingConfigs.getByName("upload")', 1)
+          p.write_text(s, encoding='utf-8')
+
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          m = manifest.read_text(encoding='utf-8')
+          permissions = [
+              'android.permission.INTERNET',
+              'android.permission.POST_NOTIFICATIONS',
+          ]
+          for permission in permissions:
+              if permission not in m:
+                  m = m.replace(
+                      '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
+                      f'<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="{permission}" />',
+                      1,
+                  )
+          m = re.sub(r'android:label="[^"]*"', 'android:label="Muhajeer Books"', m, count=1)
+          manifest.write_text(m, encoding='utf-8')
+          PY
+
+      - name: Ignore Firebase Test Lab in device analytics
+        run: python3 tools/prepare_android_testlab_analytics.py
+
+      - name: Prepare Android biometrics
+        run: python3 tools/prepare_android_biometrics.py
+
+      - name: Enforce Android release startup safety
+        run: |
+          python3 tools/prepare_android_release_safety.py
+          python3 tools/prepare_android_fcm.py --require-config
+
+      - name: Apply official Muhajeer launcher icon
+        run: |
+          sudo apt-get -qq update
+          sudo apt-get -qq install -y imagemagick
+          for spec in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+            density="${spec%%:*}"; size="${spec##*:}"; dir="android/app/src/main/res/mipmap-${density}"
+            convert assets/images/muhajeer_logo.jpg -resize "${size}x${size}^" -gravity center -extent "${size}x${size}" "$dir/ic_launcher.png"
+          done
+
+      - name: Select a newer internal code and record Production state
+        run: |
+          python3 -m pip install --quiet google-auth==2.62.0 requests==2.32.5
+          python3 tools/play_candidate.py preflight
+
+      - name: Build signed App Bundle
+        run: |
+          BUILD_NUMBER="$PLAY_BUILD_NUMBER"
+          flutter build appbundle --release \
+            --build-name="$(cat .github/ios-marketing-version)" \
+            --build-number="$BUILD_NUMBER" \
+            --dart-define=STORE_FEATURES=true \
+            --dart-define=PLAY_STORE_BUILD=true \
+            --dart-define=PLAY_STORE_URL="https://play.google.com/store/apps/details?id=com.muhajeerbooks.app" \
+            --dart-define=APP_BUILD_NUMBER="$BUILD_NUMBER" \
+            --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
+            --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
+
+      - name: Verify bundle signature
+        run: |
+          AAB=build/app/outputs/bundle/release/app-release.aab
+          jarsigner -verify "$AAB" | tail -1
+          keytool -printcert -jarfile "$AAB" | grep -E "Owner:|SHA256:"
+          if keytool -printcert -jarfile "$AAB" | grep -q "CN=Android Debug"; then
+            echo "::error::Bundle debug kalit bilan imzolangan."
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: steps.key.outputs.mode == 'release'
+        with:
+          name: muhajeer-books-play-fcm-signed-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 30
+
+      - name: Verify Production is unchanged and record unpublished candidate
+        run: |
+          python3 tools/play_candidate.py inspect > /dev/null
+          python3 - <<'PYCODE'
+          import json, os, sys
+          from pathlib import Path
+          sys.path.insert(0, 'tools')
+          from play_candidate import production_state
+          root=Path(os.environ['RUNNER_TEMP'])
+          assert json.loads(json.dumps(production_state(json.loads((root/'play-store-state.json').read_text())['tracks']))) == json.loads((root/'play-production-before.json').read_text())
+          evidence={'package':'com.muhajeerbooks.app','version_code':os.environ['PLAY_BUILD_NUMBER'],'source':os.environ['GITHUB_SHA'],'firebase_project':'muhajeer-books-push','store_features':True,'play_store_build':True,'production_unchanged':True,'uploaded_to_play':False}
+          (root/'play-fcm-candidate.json').write_text(json.dumps(evidence,indent=2))
+          print(json.dumps(evidence,indent=2))
+          PYCODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: play-fcm-candidate-evidence
+          path: ${{ runner.temp }}/play-fcm-candidate.json
+          retention-days: 30

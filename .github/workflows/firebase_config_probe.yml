@@ -1,0 +1,81 @@
+name: Read-only Firebase configuration probe (no publication)
+on:
+  push:
+    branches: [fix/android-fcm-config-safety-20261029]
+    paths: ['.github/workflows/firebase_config_probe.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 -m pip install --quiet google-auth==2.62.0 requests==2.32.5
+      - name: Attempt authorized read using the existing Google account credential
+        env:
+          EXISTING_GOOGLE_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          python3 - <<'PY'
+          import base64, json, os, re
+          from pathlib import Path
+          from google.oauth2 import service_account
+          from google.auth.transport.requests import AuthorizedSession
+          project = 'muhajeer-books-push'
+          package = 'com.muhajeerbooks.app'
+          report = {'project': project, 'package': package, 'public_config_saved': False}
+          out = Path(os.environ['RUNNER_TEMP']) / 'firebase-read-only'
+          out.mkdir()
+          def get(session, url, key):
+              response = session.get(url, timeout=20)
+              report[key + '_http'] = response.status_code
+              if response.status_code != 200:
+                  try:
+                      error = response.json().get('error', {})
+                      report[key + '_status'] = error.get('status', 'UNKNOWN')
+                      report[key + '_reasons'] = [x.get('reason') for x in error.get('details', []) if isinstance(x, dict) and re.fullmatch(r'[A-Z_]{1,80}', str(x.get('reason', '')))]
+                  except ValueError:
+                      pass
+                  return None
+              return response.json()
+          try:
+              raw = os.environ.get('EXISTING_GOOGLE_JSON', '')
+              report['existing_credential_present'] = bool(raw.strip())
+              if raw.strip():
+                  info = json.loads(raw)
+                  report['credential_project_matches'] = info.get('project_id') == project
+                  info['token_uri'] = 'https://oauth2.googleapis.com/token'
+                  credentials = service_account.Credentials.from_service_account_info(info, scopes=['https://www.googleapis.com/auth/cloud-platform'])
+                  session = AuthorizedSession(credentials)
+                  apps = get(session, f'https://firebase.googleapis.com/v1beta1/projects/{project}/androidApps?pageSize=100', 'android_apps')
+                  if apps:
+                      matches = [a for a in apps.get('apps', []) if a.get('packageName') == package and a.get('state', 'ACTIVE') == 'ACTIVE']
+                      report['matching_android_apps'] = len(matches)
+                      if len(matches) == 1 and re.fullmatch(r'projects/[A-Za-z0-9-]+/androidApps/[A-Za-z0-9:_-]+', matches[0].get('name', '')):
+                          payload = get(session, 'https://firebase.googleapis.com/v1beta1/' + matches[0]['name'] + '/config', 'android_config')
+                          if payload:
+                              config = json.loads(base64.b64decode(payload['configFileContents']))
+                              if any(k in config for k in ('private_key', 'client_email', 'private_key_id')) or config.get('type') == 'service_account':
+                                  raise ValueError('Private configuration rejected')
+                              if config.get('project_info', {}).get('project_id') != project or not any(c.get('client_info', {}).get('android_client_info', {}).get('package_name') == package for c in config.get('client', [])):
+                                  raise ValueError('Wrong public app configuration')
+                              (out / 'google-services.json').write_text(json.dumps(config, indent=2))
+                              report['public_config_saved'] = True
+                              number = str(config['project_info']['project_number'])
+                              if number.isdigit():
+                                  state = get(session, f'https://serviceusage.googleapis.com/v1/projects/{number}/services/fcm.googleapis.com', 'fcm_api')
+                                  if state:
+                                      report['fcm_api_state'] = state.get('state')
+          except Exception as error:
+              # Never print exceptions, response bodies, identities or credentials.
+              report['error_type'] = type(error).__name__
+          (out / 'report.json').write_text(json.dumps(report, indent=2))
+          print(json.dumps(report, indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firebase-public-config-and-status
+          path: ${{ runner.temp }}/firebase-read-only/
+          retention-days: 3

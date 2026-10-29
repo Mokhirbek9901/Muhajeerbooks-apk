@@ -34,6 +34,7 @@ jobs:
                   info['token_uri'] = 'https://oauth2.googleapis.com/token'
                   credential = service_account.Credentials.from_service_account_info(
                       info, scopes=['https://www.googleapis.com/auth/cloud-platform.read-only'])
+                  credential = credential.with_quota_project('muhajeer-books-push')
                   session = AuthorizedSession(credential)
                   response = session.post(
                       'https://cloudresourcemanager.googleapis.com/v1/projects/muhajeer-books-push:testIamPermissions',

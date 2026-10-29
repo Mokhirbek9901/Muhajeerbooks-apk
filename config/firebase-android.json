@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "411608456634",
+    "project_id": "muhajeer-books-push",
+    "storage_bucket": "muhajeer-books-push.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:411608456634:android:df6aace32944b918d25183",
+        "android_client_info": {
+          "package_name": "com.muhajeerbooks.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAri3vb3lKMPcXVRd-RJlx_cltYZoKHo1s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -83,5 +83,8 @@ App Store, TestFlight or publication workflows without the owner's approval.
   dedicated least-privilege sender account/key. Real-device delivery remains
   unverified and blocked until that credential is securely configured.
 - PR #114 integrates the PIN-less work from PR #113 with the newer Android FCM
-  and serialized web subscription persistence. It remains a draft until the
-  configuration and device-delivery checks are complete.
+  and serialized web subscription persistence. It is merged into `main` with a `[web-only]` release hold. TestFlight upload
+  now requires explicit manual dispatch. The exact-order FCM admin gateway is
+  deployed as version 38, and real HTTP tests confirm event-secret validation.
+  Dedicated sender credentials and real-device delivery remain blocked by the
+  Google Cloud IAM availability issue above.

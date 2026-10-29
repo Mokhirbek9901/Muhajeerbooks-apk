@@ -1,0 +1,105 @@
+name: Owner-approved Android FCM 1191 upload
+on:
+  push:
+    branches: [release/owner-android-push-1191-20261030]
+    paths: ['.github/workflows/upload_android_fcm_1191.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: owner-android-fcm-1191
+  cancel-in-progress: false
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+      PLAY_TRACK: internal
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify immutable signed candidate and successful CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/$GITHUB_REPOSITORY/actions/runs/40957109728 > "$RUNNER_TEMP/run.json"
+          gh api repos/$GITHUB_REPOSITORY/actions/runs/40957109728/artifacts > "$RUNNER_TEMP/artifacts.json"
+          gh api repos/$GITHUB_REPOSITORY/actions/runs/40956814628 > "$RUNNER_TEMP/ci.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ['RUNNER_TEMP'])
+          r=json.loads((p/'run.json').read_text())
+          assert r['conclusion']=='success' and r['head_sha']=='c8a5f132c7e9a21292bbeb8a801f8d36de44a7d4'
+          c=json.loads((p/'ci.json').read_text())
+          assert c['conclusion']=='success' and c['head_sha']=='70a10b37e1446ac7e8a90749438ca14745e11d15'
+          a=next(x for x in json.loads((p/'artifacts.json').read_text())['artifacts'] if x['id']==12935000641)
+          assert not a['expired'] and a['digest']=='sha256:93dfd7d2d7d3b8b1cc47aeb4b34ed3c318679aea1ea3b7e3c42b0980e0ee3cb1'
+          print('Exact signed 1191 candidate and successful client CI verified.')
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          name: muhajeer-books-play-fcm-signed-aab
+          run-id: 40957109728
+          github-token: ${{ github.token }}
+          path: candidate
+      - run: python3 -m pip install --quiet google-auth==2.62.0 requests==2.32.5
+      - name: Protect existing Production releases
+        id: preflight
+        run: |
+          python3 tools/play_candidate.py inspect > /dev/null
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])
+          tracks=json.loads((root/'play-store-state.json').read_text())['tracks']
+          production=next(t for t in tracks if t['track']=='production')
+          for r in production.get('releases',[]):
+              if r.get('status') in ('completed','inProgress'):
+                  assert all(int(c)<=1191 for c in r.get('versionCodes',[])), 'Newer public release exists'
+              assert r.get('status')!='draft', 'Existing Production draft needs review'
+          already=any(r.get('status')=='completed' and r.get('versionCodes')==['1191'] for r in production.get('releases',[]))
+          (root/'android-1191-before.json').write_text(json.dumps(tracks))
+          with open(os.environ['GITHUB_OUTPUT'],'a') as out:
+              out.write('upload='+str(not already).lower()+'\n')
+          print('Android-only publication requested by owner; existing tracks inspected.')
+          PY
+      - name: Upload approved Android 1191 to Google Play
+        if: steps.preflight.outputs.upload == 'true'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.muhajeerbooks.app
+          releaseFiles: candidate/**/*.aab
+          track: production
+          status: completed
+          releaseName: '2.5.20 Android FCM'
+          changesNotSentForReview: false
+      - name: Confirm Google accepted 1191 and preserve testing tracks
+        run: |
+          python3 tools/play_candidate.py inspect > /dev/null
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])
+          before=json.loads((root/'android-1191-before.json').read_text())
+          after=json.loads((root/'play-store-state.json').read_text())['tracks']
+          p=next(t for t in after if t['track']=='production')
+          assert any(r.get('status')=='completed' and r.get('versionCodes')==['1191'] for r in p.get('releases',[])), 'Google has not confirmed Production 1191'
+          other=lambda ts:sorted([t for t in ts if t['track']!='production'],key=lambda t:t['track'])
+          assert other(before)==other(after), 'Unexpected testing-track change'
+          halted={c for t in before if t['track']=='production' for r in t.get('releases',[]) if r.get('status')=='halted' for c in r.get('versionCodes',[])}
+          assert not any(halted.intersection(r.get('versionCodes',[])) for r in p.get('releases',[]) if r.get('status') in ('completed','inProgress'))
+          evidence={'version_code':'1191','package':'com.muhajeerbooks.app','production':p,'testing_tracks_unchanged':True,'firebase_sender_still_required':True}
+          (root/'android-1191-upload.json').write_text(json.dumps(evidence,indent=2))
+          print('GOOGLE_PLAY_ACCEPTED_ANDROID_1191; Firebase sender configuration remains required.')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-1191-upload-result
+          path: ${{ runner.temp }}/android-1191-upload.json
+          retention-days: 30

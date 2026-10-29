@@ -8,6 +8,7 @@ on:
 
 jobs:
   build-aab:
+    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[web-only]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -48,7 +49,9 @@ jobs:
         run: python3 tools/prepare_android_testlab_analytics.py
 
       - name: Enforce Android release startup safety
-        run: python3 tools/prepare_android_release_safety.py
+        run: |
+          python3 tools/prepare_android_release_safety.py
+          python3 tools/prepare_android_fcm.py --require-config
 
       - name: Apply official Muhajeer launcher icon
         run: |

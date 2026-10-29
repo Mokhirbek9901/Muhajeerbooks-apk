@@ -13,6 +13,7 @@ from flask import Flask, jsonify, request, Response
 
 from preorder_delivery import register_preorder_routes
 from native_customer_push import send_customer_apns_order_event, send_customer_apns_broadcast
+from native_android_push import fcm_configured, send_android_order_event, send_android_broadcast
 
 app = Flask(__name__)
 register_preorder_routes(app, webpush)
@@ -521,19 +522,23 @@ def send_push_notification():
     # iOS announcements are public marketing notices; never relay an
     # individual customer's order details through this broadcast route.
     ios = send_customer_apns_broadcast(supplied, title, message, _admin_rpc_call)
+    android = send_android_broadcast(supplied, title, message, str(message_id), _admin_rpc_call)
     _admin_rpc_call("admin_push_message_finish",{
       "p_secret":supplied,
       "p_id":str(message_id),
-      "p_success":success+ios["sent"],
-      "p_failure":failure+ios["failed"],
+      "p_success":success+ios["sent"]+android["sent"],
+      "p_failure":failure+ios["failed"]+android["failed"],
     })
     return jsonify(
       ok=True, id=str(message_id),
-      total=len(subscriptions)+ios["devices"],
-      success=success+ios["sent"], failure=failure+ios["failed"],
+      total=len(subscriptions)+ios["devices"]+android["devices"],
+      success=success+ios["sent"]+android["sent"], failure=failure+ios["failed"]+android["failed"],
       web_total=len(subscriptions), web_success=success, web_failure=failure,
       ios_total=ios["devices"], ios_success=ios["sent"], ios_failure=ios["failed"],
       ios_configured=ios["configured"], ios_lookup_error=ios.get("lookup_error",False),
+      android_total=android["devices"], android_success=android["sent"],
+      android_failure=android["failed"], android_configured=android["configured"],
+      android_lookup_error=android.get("lookup_error",False),
     )
 
 
@@ -604,6 +609,14 @@ def admin_apns_status():
     configured=all(os.getenv(name,"").strip() for name in
                    ("APPLE_APNS_KEY_ID","APPLE_APNS_PRIVATE_KEY"))
     return jsonify(ok=True,configured=bool(configured))
+
+
+@app.post("/api/push/fcm-status")
+def admin_fcm_status():
+    body=request.get_json(silent=True) or {}
+    if not _verify_admin_code(str(body.get("admin_code", "")).strip()):
+        return jsonify(error="Unauthorized"),401
+    return jsonify(ok=True,configured=fcm_configured())
 
 
 @app.post("/api/push/order-event")
@@ -744,6 +757,7 @@ def order_push_event():
 
     # Admin APNs is independent of Web Push (browser subscription).
     native_result = _send_admin_apns_order_event(supplied,notifications[0],body) if is_admin_event else send_customer_apns_order_event(supplied, phone, notifications, body, _admin_rpc_call)
+    android_result = send_android_order_event(supplied, phone, notifications[0], body, _admin_rpc_call)
 
     import json
     success=0
@@ -784,7 +798,8 @@ def order_push_event():
         except Exception as exc:
           print(f"Order WebPush failed error={type(exc).__name__}",flush=True)
           failure+=1
-    return jsonify(ok=True,subscriptions=len(subscriptions),sent=success,failed=failure,apns=native_result)
+    return jsonify(ok=True,subscriptions=len(subscriptions),sent=success,failed=failure,
+                   apns=native_result,android=android_result)
 
 
 def _verify_admin_code(code):

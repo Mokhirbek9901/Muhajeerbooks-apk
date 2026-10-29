@@ -144,7 +144,7 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
   String _status = 'checking';
   bool _busy = false;
   bool get _nativeIosPreview =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS &&
+      !kIsWeb && (defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.android) &&
       true; // Native push toggle must stay visible in App Store and TestFlight.
 
   @override
@@ -202,7 +202,7 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
         await _checkStatus();
         if (mounted && _status == 'native_allowed') {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('iPhone ruxsati faol. Push yetib borishi qurilmada tekshiriladi.'),
+            content: Text('Telefon ruxsati faol. Push yetib borishi qurilmada tekshiriladi.'),
           ));
         }
       } finally {
@@ -252,7 +252,7 @@ class _WebCustomerSettingsPageState extends State<WebCustomerSettingsPage> {
     final enabled = _status == 'enabled' || _status == 'native_allowed';
     final available = (kIsWeb && pushNotificationsSupported) || _nativeIosPreview;
     final statusLabel = _status == 'checking' ? 'Holat tekshirilmoqda…'
-      : _status == 'native_allowed' ? 'iPhone ruxsati berilgan (serverga ulanishni tekshiring)'
+      : _status == 'native_allowed' ? 'Telefon ruxsati berilgan (serverga ulanishni tekshiring)'
       : enabled ? 'Bildirishnomalar faol'
       : _status == 'blocked' ? 'Bildirishnoma ruxsati bloklangan'
       : available ? 'Hozircha yoqilmagan'

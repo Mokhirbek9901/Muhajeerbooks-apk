@@ -16,6 +16,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'push_notifications.dart';
 import 'owner_story_access.dart';
 import 'native_admin_push.dart';
+import 'native_android_push.dart';
 import 'preview_features.dart';
 import 'customer_session.dart';
 
@@ -1963,7 +1964,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   /// Does not request permission, block the storefront, or send messages.
   Future<void> syncNativeCustomerPushIfAllowed() async {
     if (kIsWeb ||
-        defaultTargetPlatform != TargetPlatform.iOS ||
+        (defaultTargetPlatform != TargetPlatform.iOS && !NativeAndroidPush.supported) ||
         const bool.fromEnvironment('ANALYTICS_TEST_BUILD'))
       return;
     final backend = _backend;
@@ -1972,13 +1973,17 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     final session = _pinSession;
     try {
       if (!(await Permission.notification.status).isGranted) return;
-      final token = await NativeAdminPush.requestDeviceToken().timeout(
+      if (NativeAndroidPush.supported && await _runningInFirebaseTestLab()) return;
+      final token = await (NativeAndroidPush.supported
+          ? NativeAndroidPush.deviceToken()
+          : NativeAdminPush.requestDeviceToken()).timeout(
         const Duration(seconds: 20),
       );
       if (token.isEmpty) return;
       final id = await _local.installId();
       if (session != _pinSession) return;
-      await backend._customerRpc('customer_release_apns', {
+      await backend._customerRpc(NativeAndroidPush.supported
+          ? 'customer_release_fcm' : 'customer_release_apns', {
         'p_session': session,
         'p_token': token,
         'p_install_id': id,
@@ -2013,7 +2018,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       await _local.clearPinSession();
     } catch (_) {}
     if (token != null && _backend != null) {
-      unawaited(_backend!.pinLogout(token).catchError((_) {}));
+      unawaited(_endCustomerSession(token).catchError((_) {}));
     }
     _localOrders.clear();
     _customerNotices.clear();
@@ -2022,6 +2027,24 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       _local.saveCustomerNotices(const <Map<String, dynamic>>[]),
     ]);
     notifyListeners();
+  }
+
+  Future<void> _endCustomerSession(String session) async {
+    final backend = _backend;
+    if (backend == null) return;
+    try {
+      if (NativeAndroidPush.supported) {
+        await backend._customerRpc('customer_release_fcm', {
+          'p_session': session,
+          'p_token': '',
+          'p_install_id': await _local.installId(),
+          'p_enabled': false,
+        });
+      }
+    } finally {
+      // Recipient lookup also checks this session, closing registration/logout races.
+      await backend.pinLogout(session);
+    }
   }
 
   Future<void> setAuthenticatedCustomer(
@@ -2207,7 +2230,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
     unawaited(syncPushIdentity(''));
     if (token != null && _backend != null)
-      unawaited(_backend!.pinLogout(token).catchError((_) {}));
+      unawaited(_endCustomerSession(token).catchError((_) {}));
     await Future.wait([
       _local.clearPinSession(),
       _local.clearCustomer(),
@@ -2908,6 +2931,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      unawaited(syncNativeCustomerPushIfAllowed());
       unawaited(refreshStoreNotice());
       unawaited(refreshCustomerPushMessages());
       unawaited(refreshPreorderNotices());

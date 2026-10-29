@@ -12,6 +12,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -29,6 +30,7 @@ import 'catalog_resume.dart';
 import 'admin_resume_session.dart';
 import 'push_notifications.dart';
 import 'native_admin_push.dart';
+import 'native_android_push.dart';
 import 'uzbek_customer_style.dart';
 import 'web_admin_upgrades.dart';
 import 'web_preorders.dart';
@@ -166,6 +168,15 @@ class _AdminApi {
     }
     final data = jsonDecode(response.body);
     return data is Map && data['configured'] == true;
+  }
+
+  Future<bool> registerAndroidPushDevice(String token) async {
+    await _rpc('admin_register_native_fcm', params: {'p_secret': secret, 'p_token': token});
+    final response = await http.post(_serverUri('/api/push/fcm-status'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'admin_code': secret})).timeout(const Duration(seconds: 20));
+    if (response.statusCode != 200) throw StateError('Push serverini tekshirib bo‘lmadi.');
+    return _functionResponseMap(jsonDecode(response.body))['configured'] == true;
   }
 
   Future<void> registerAdminPushDevice(String endpoint) async {
@@ -1508,6 +1519,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
   bool _liveRefreshInFlight = false;
   bool _adminPushBusy = false;
   bool _adminPushConfigured = false;
+  StreamSubscription<void>? _androidPushTokens;
   final _homeKey = GlobalKey<_AdminCommandCenterState>();
   final _booksKey = GlobalKey<_BooksAdminState>();
   final _inventoryKey = GlobalKey<_InventoryAdminState>();
@@ -1547,7 +1559,12 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
     _loadedTabs.add(tab);
     api = _AdminApi(widget.secret);
     WidgetsBinding.instance.addObserver(this);
-    if (kIsWeb || NativeAdminPush.supported) {
+    if (NativeAndroidPush.supported) {
+      _androidPushTokens = NativeAndroidPush.tokenChanges.listen((_) {
+        if (mounted) unawaited(_setupAdminPush(requestPermission: false));
+      });
+    }
+    if (kIsWeb || NativeAdminPush.supported || NativeAndroidPush.supported) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_setupAdminPush(requestPermission: false));
       });
@@ -1591,6 +1608,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
                   ? '✅ Ushbu qurilmada admin bildirishnomalari faol.'
                   : ios
                   ? 'iPhone uchun tizim ruxsati va serverda Apple APNs kaliti kerak. Bu sozlanmaguncha push kelmaydi.'
+                  : NativeAndroidPush.supported
+                  ? 'Telefon bildirishnomalariga ruxsat berib, qurilmangizni faollashtiring.'
                   : 'Brauzer ruxsatini berib, ushbu qurilmani admin uchun faollashtiring.',
               style: const TextStyle(fontSize: 12.5),
             ),
@@ -1625,10 +1644,30 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
   }
 
   Future<void> _setupAdminPush({required bool requestPermission}) async {
-    if ((!kIsWeb && !NativeAdminPush.supported) || !mounted || _adminPushBusy)
+    if ((!kIsWeb && !NativeAdminPush.supported && !NativeAndroidPush.supported) || !mounted || _adminPushBusy)
       return;
     setState(() => _adminPushBusy = true);
     try {
+      if (NativeAndroidPush.supported) {
+        var permission = await Permission.notification.status;
+        if (!permission.isGranted && requestPermission) {
+          permission = await Permission.notification.request();
+        }
+        if (!permission.isGranted) {
+          if (requestPermission) throw StateError('Telefon sozlamalaridan bildirishnomaga ruxsat bering.');
+          return;
+        }
+        final token = await NativeAndroidPush.deviceToken().timeout(const Duration(seconds: 20));
+        if (token.isEmpty) return;
+        final ready = await api.registerAndroidPushDevice(token);
+        if (!mounted) return;
+        setState(() => _adminPushConfigured = ready);
+        if (requestPermission) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(ready ? '✅ Admin bildirishnomalari ulandi.'
+            : 'Telefon ro‘yxatdan o‘tdi. Xabar xizmati hali tayyor emas.'),
+        ));
+        return;
+      }
       if (NativeAdminPush.supported) {
         // Only an authenticated administrator can associate an iPhone with
         // private order notifications; ordinary customers cannot enroll.
@@ -1734,6 +1773,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
   @override
   void dispose() {
     CatalogResume.instance.setAdminPanelActive(false);
+    unawaited(_androidPushTokens?.cancel());
     if (_lastLifecycleState == AppLifecycleState.resumed) {
       // Foydalanuvchi adminni ataylab yopsa keyingi refreshda qayta ochilmasin.
       unawaited(AdminResumeSession.clear());
@@ -1754,6 +1794,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
       return;
     }
     if (state != AppLifecycleState.resumed) return;
+
+    if (NativeAndroidPush.supported) unawaited(_setupAdminPush(requestPermission: false));
 
     final leftAt = _awayAt;
     _awayAt = null;

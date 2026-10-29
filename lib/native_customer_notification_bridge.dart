@@ -8,8 +8,9 @@ import 'app_state.dart';
 import 'admin_resume_session.dart';
 import 'admin_ui.dart' show AdminGatePage, AdminDashboardPage;
 import 'native_admin_push.dart';
+import 'native_android_push.dart';
 import 'customer_pin_page.dart';
-import 'store_ui.dart' show MyOrdersPage;
+import 'store_ui.dart' show MyOrdersPage, CustomerNotificationsPage;
 
 class NativeCustomerNotificationBridge extends StatefulWidget {
   const NativeCustomerNotificationBridge({
@@ -28,9 +29,26 @@ class _NativeCustomerNotificationBridgeState
     extends State<NativeCustomerNotificationBridge> {
   static const channel = MethodChannel('muhajeerbooks/admin_apns');
   bool opening = false;
+  StreamSubscription<void>? _androidTokens;
+  StreamSubscription<Map<String, String>>? _androidTaps;
   @override
   void initState() {
     super.initState();
+    if (NativeAndroidPush.supported) {
+      _androidTokens = NativeAndroidPush.tokenChanges.listen((_) {
+        if (mounted) unawaited(context.read<AppState>().syncNativeCustomerPushIfAllowed());
+      });
+      _androidTaps = NativeAndroidPush.notificationTaps.listen((message) {
+        unawaited(_openAndroidMessage(message));
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        try {
+          final message = await NativeAndroidPush.pendingNotification();
+          if (message != null && mounted) await _openAndroidMessage(message);
+        } catch (_) {}
+      });
+      return;
+    }
     if (!NativeAdminPush.supported) return;
     channel.setMethodCallHandler((call) async {
       if (call.method == 'adminOrderTapped')
@@ -52,6 +70,24 @@ class _NativeCustomerNotificationBridgeState
         if (id != null && id.isNotEmpty) await open(id);
       } catch (_) {}
     });
+  }
+
+  Future<void> _openAndroidMessage(Map<String, String> message) async {
+    if (!mounted) return;
+    if (message['kind'] == 'admin_new_order') {
+      await openAdminOrders();
+    } else if (message['kind'] == 'customer_order') {
+      await open(message['order_id'] ?? '');
+    } else if (message['kind'] == 'customer_broadcast' && !opening) {
+      final nav = widget.navigatorKey.currentState;
+      if (nav == null) return;
+      opening = true;
+      try {
+        await nav.push(MaterialPageRoute<void>(builder: (_) => const CustomerNotificationsPage()));
+      } finally {
+        opening = false;
+      }
+    }
   }
 
   Future<void> openAdminOrders() async {
@@ -96,6 +132,8 @@ class _NativeCustomerNotificationBridgeState
 
   @override
   void dispose() {
+    unawaited(_androidTokens?.cancel());
+    unawaited(_androidTaps?.cancel());
     if (NativeAdminPush.supported) channel.setMethodCallHandler(null);
     super.dispose();
   }

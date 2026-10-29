@@ -2,7 +2,7 @@ name: Flutter CI
 
 on:
   push:
-    branches: [main, feature/store-app-v2, fix/mb2108-all-approved-20261027, fix/batch-picker-and-professional-6494-20261028]
+    branches: [main, feature/store-app-v2, fix/mb2108-all-approved-20261027, fix/batch-picker-and-professional-6494-20261028, fix/android-fcm-20261029]
   pull_request:
 
 jobs:
@@ -11,7 +11,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check Python API syntax
-        run: python3 -m py_compile server/app.py server/preorder_delivery.py server/native_customer_push.py
+        run: python3 -m py_compile server/app.py server/preorder_delivery.py server/native_customer_push.py server/native_android_push.py tools/prepare_android_fcm.py
+      - name: Test Android FCM routing and native host generation
+        run: |
+          python3 -m unittest discover -s server/tests -p 'test_native_android_push.py' -v
+          python3 -m unittest discover -s server/tests -p 'test_android_fcm_prepare.py' -v
       - name: Test private customer/admin APNs routing (mocked)
         run: python3 -m unittest discover -s server/tests -p 'test_native_customer_push.py' -v
       - name: Test admin OpenAI failure handling (mocked, no API charge)

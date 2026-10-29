@@ -50,6 +50,7 @@ jobs:
           python3 tools/prepare_android_testlab_analytics.py
           python3 tools/prepare_android_biometrics.py
           python3 tools/prepare_android_release_safety.py
+          python3 tools/prepare_android_fcm.py --require-config
       - name: Enable emulator hardware acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -174,7 +175,9 @@ jobs:
         run: python3 tools/prepare_android_biometrics.py
 
       - name: Enforce Android release startup safety
-        run: python3 tools/prepare_android_release_safety.py
+        run: |
+          python3 tools/prepare_android_release_safety.py
+          python3 tools/prepare_android_fcm.py --require-config
 
       - name: Apply official Muhajeer launcher icon
         run: |

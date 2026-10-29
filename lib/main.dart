@@ -295,6 +295,9 @@ class _NotificationPermissionGateState
                 return;
               }
               final result = await Permission.notification.request();
+              if (result.isGranted && mounted) {
+                unawaited(context.read<AppState>().syncNativeCustomerPushIfAllowed());
+              }
               if (result.isPermanentlyDenied) {
                 await openAppSettings();
               }

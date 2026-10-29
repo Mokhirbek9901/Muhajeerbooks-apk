@@ -30,6 +30,11 @@ def main(mode):
     edit = call('POST',BASE,json={})['id']
     try:
         tracks=call('GET',f'{BASE}/{edit}/tracks').get('tracks',[])
+        if mode=='inspect':
+            evidence={'tracks':tracks,'read_only':True,'source':os.environ['GITHUB_SHA']}
+            (Path(os.environ['RUNNER_TEMP'])/'play-store-state.json').write_text(json.dumps(evidence,indent=2))
+            print(json.dumps(evidence,indent=2))
+            return
         snapshot=Path(os.environ['RUNNER_TEMP'])/'play-production-before.json'
         if mode=='preflight':
             snapshot.write_text(json.dumps(production_state(tracks)))

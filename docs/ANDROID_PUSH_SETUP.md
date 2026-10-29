@@ -5,7 +5,7 @@ Flutter method channel. iOS retains its independent production APNs integration.
 
 ## Firebase configuration
 
-1. Use the Firebase project associated with Muhajeer Books. Register the existing
+1. Use the dedicated Firebase project `muhajeer-books-push`. Register the existing
    Android application ID `com.muhajeerbooks.app`; do not change its package or signing key.
 2. Save that Android application's public `google-services.json` as
    `config/firebase-android.json`. This file must not contain a service account.
@@ -14,6 +14,24 @@ Flutter method channel. iOS retains its independent production APNs integration.
    for `muhajeer-books-live`. Never commit or include that private JSON in an APK.
 4. The sender project ID comes from that service account. It must match the Android
    configuration's project. No legacy FCM server key is used.
+5. The Android config loader rejects JSON credentials and configs from other Firebase
+   projects. Only the Firebase-generated **public** `google-services.json` for
+   `com.muhajeerbooks.app` may be committed at `config/firebase-android.json`.
+6. PIN-less customers register directly with `customer_release_fcm` using their
+   durable `device:` credential. The Edge gateway validates the credential format;
+   SQL checks its hash, active profile and exact installation. Do not wrap this
+   operation in a short-lived PIN compatibility session.
+7. For a sender limited strictly to messaging, create a project custom IAM role
+   containing only `cloudmessaging.messages.create`, and bind it to a dedicated
+   service account. Enable `fcm.googleapis.com`. Do not grant Owner, Editor,
+   Firebase Admin, database access, or change the billing plan.
+8. If the Work browser cannot sign in, an authorized project owner can use their
+   already signed-in phone/computer browser to download the **Android public**
+   `google-services.json`. That public app config may be shared for validation.
+   The private sender JSON must go directly to Railway's
+   `FIREBASE_SERVICE_ACCOUNT_JSON`, never chat, GitHub, an artifact or an APK.
+   These steps still require authorized access to the Google project; no alternate
+   transport bypasses that requirement.
 
 `tools/prepare_android_fcm.py` runs after the analytics and biometric preparation
 scripts. It adds the FCM dependency, non-exported messaging service, monochrome
@@ -23,10 +41,13 @@ SDK stays uninitialized when configuration is absent; store build preparation us
 
 ## Identity and privacy
 
-- Token registration uses `customer_release_fcm` with the current PIN session and
-  installation ID. It does not trust a customer-supplied phone number.
+- Token registration uses `customer_release_fcm` with the active device credential
+  and installation ID (older valid PIN sessions remain compatible). It does not trust a customer-supplied phone number.
 - Customer recipients must have opted in and still have the matching active session.
-  Sign-out removes customer push authorization; token refresh re-enrolls on app resume.
+  Order events additionally require ownership of that exact order; a second
+  device with the same contact phone cannot receive it.
+  Sign-out revokes the profile and clears its FCM authorization through a database
+  trigger; token refresh re-enrolls on app resume.
 - Admin registration requires the existing verified admin secret. Admin order details
   are never sent through the customer broadcast lookup.
 - Customer order lock-screen messages contain generic status text, with an opaque
@@ -44,3 +65,23 @@ Android tokens are not lowercased and the Android bridge is not used on iOS.
 An existing installed APK cannot acquire this native SDK from a server update.
 A new signed APK is required for a real Android device test. Do not trigger Play,
 App Store, TestFlight or publication workflows without the owner's approval.
+
+
+## Verification on 2026-10-30 (Korea time)
+
+- Live database migration and rollback-only device/ownership/token-rotation/logout
+  SQL integration test passed. Synthetic orders, receipts and inventory changes
+  were rolled back. Customer RPC version 29 preserves JWT verification.
+- Local mocked Python and web push regression tests passed. Android/Flutter
+  checks run on PR #114 without publishing to any store.
+- Railway was Online/SUCCESS and answered HTTP 200. The genuine Firebase Android configuration is committed and its generated
+  resources were checked against project number `411608456634` and package
+  `com.muhajeerbooks.app`. Firebase Console confirms FCM HTTP v1 is Enabled
+  and the project remains on the no-cost Spark plan. No Firebase sender
+  variable exists in Railway. Google Cloud IAM and embedded Cloud Shell both
+  show Site Unavailable in the current Work browser, blocking creation of the
+  dedicated least-privilege sender account/key. Real-device delivery remains
+  unverified and blocked until that credential is securely configured.
+- PR #114 integrates the PIN-less work from PR #113 with the newer Android FCM
+  and serialized web subscription persistence. It remains a draft until the
+  configuration and device-delivery checks are complete.

@@ -14,8 +14,9 @@ def send_customer_apns_order_event(event_secret, phone, notifications, order, rp
     key = os.getenv("APPLE_APNS_PRIVATE_KEY", "").strip().replace("\\n", "\n")
     if not (key_id and team_id and key):
         return {"configured": False, "devices": 0, "sent": 0, "failed": 0}
-    recipients = rpc("event_customer_apns_for_phone", {
+    recipients = rpc("event_customer_device_apns", {
         "p_event_secret": event_secret, "p_phone": phone,
+        "p_order_id": str(order.get("order_id", "")),
     })
     if not isinstance(recipients, list):
         return {"configured": True, "devices": 0, "sent": 0,

@@ -2,7 +2,7 @@ name: Flutter CI
 
 on:
   push:
-    branches: [main, feature/store-app-v2, fix/mb2108-all-approved-20261027, fix/batch-picker-and-professional-6494-20261028, fix/android-fcm-20261029]
+    branches: [main, feature/store-app-v2, fix/mb2108-all-approved-20261027, fix/batch-picker-and-professional-6494-20261028, fix/android-fcm-20261029, fix/android-fcm-config-safety-20261029]
   pull_request:
 
 jobs:
@@ -22,6 +22,8 @@ jobs:
         run: python3 -m unittest discover -s server/tests -p 'test_admin_research_api.py' -v
       - name: Check Android release configuration regression
         run: python3 -m unittest discover -s server/tests -p 'test_android_release_safety.py' -v
+      - name: Protect PINless web and legacy admin preorder actions
+        run: python3 -m unittest discover -s server/tests -p 'test_pinless_web_preorder_compat.py' -v
       - name: Test compact image storage and duplicate reuse
         run: node --test server/tests/book_image_storage_policy.test.mjs
       - uses: ruby/setup-ruby@v1

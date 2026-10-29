@@ -209,6 +209,8 @@ void main() {
     final api = LinkedApi();
     await mount(tester, api, createState: BrokenProfileStorage.new);
     await pay(tester);
+    await reveal(tester, find.widgetWithText(TextFormField, 'Instagram username (majburiy)'));
+    await tester.enterText(find.widgetWithText(TextFormField, 'Instagram username (majburiy)'), '@test_reader');
     await reveal(tester, find.text(submitLabel));
     await tester.tap(find.text(submitLabel));
     await tester.pumpAndSettle();
@@ -217,6 +219,7 @@ void main() {
     expect(find.text('Oldindan buyurtma yuborildi'), findsOneWidget);
     expect(api.request!['book_id'], api.settings.bookId);
     expect(api.request!['deposit_amount'], 5000);
+    expect(api.request!['instagram_handle'], 'test_reader');
     expect(tester.takeException(), isNull);
     final button = tester.widget<FilledButton>(find.widgetWithText(FilledButton, submitLabel));
     expect(button.onPressed, isNull);
@@ -231,6 +234,8 @@ void main() {
     final api = LinkedApi()..fail = true;
     await mount(tester, api, createState: BrokenProfileStorage.new);
     await pay(tester);
+    await reveal(tester, find.widgetWithText(TextFormField, 'Instagram username (majburiy)'));
+    await tester.enterText(find.widgetWithText(TextFormField, 'Instagram username (majburiy)'), '@test_reader');
     await reveal(tester, find.text(submitLabel));
     await tester.tap(find.text(submitLabel));
     await tester.pumpAndSettle();

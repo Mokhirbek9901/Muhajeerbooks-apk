@@ -21,7 +21,11 @@ function reply(status: number, body: unknown) {
   } });
 }
 async function rpc(name: string, params: Record<string, unknown> = {}) {
-  const { data, error } = await db.rpc(name, params);
+  const session = String((params.p_request as Record<string, unknown> | undefined)?.session ?? "");
+  const device = /^device:[a-f0-9]{64}$/.test(session) &&
+    ["web_preorder_submit", "web_preorder_submit_multi"].includes(name);
+  const { data, error } = await db.rpc(device ? "customer_device_dispatch" : name,
+    device ? {p_device_session: session, p_action: name, p_params: params} : params);
   if (error) throw new Error(error.message);
   return data;
 }
@@ -45,8 +49,24 @@ Deno.serve(async (req) => {
     }
     if (body.action === "admin") {
       if (typeof p.p_secret !== "string" || p.p_secret.length < 1 || p.p_secret.length > 512 ||
-          !["settings", "save", "list", "status"].includes(p.p_action)) return reply(403, { ok: false, error: "Ruxsat yo‘q" });
+          !["settings", "save", "list", "status", "checkout_detail", "checkout_confirm"].includes(p.p_action)) return reply(403, { ok: false, error: "Ruxsat yo‘q" });
+      if (p.p_action === "checkout_detail" || p.p_action === "checkout_confirm") {
+        if (!uuid.test(p.p_payload?.id)) throw new Error("Zakaz identifikatori noto‘g‘ri.");
+        const action = p.p_action === "checkout_detail"
+          ? "admin_web_preorder_checkout_detail"
+          : "admin_web_preorder_checkout_confirm";
+        const data = await rpc(action, {p_secret: p.p_secret, p_preorder_id: p.p_payload.id});
+        if (p.p_action === "checkout_detail" && data?.balance_proof_path) {
+          const result = await db.storage.from("payment-receipts").createSignedUrl(data.balance_proof_path, 900);
+          data.balance_proof_url = result.data?.signedUrl ?? "";
+        }
+        return reply(200, { ok: true, data });
+      }
       const data = await rpc("admin_web_preorder_manage", p);
+      if (p.p_action === "list" && Array.isArray(data)) {
+        const contacts = await rpc("admin_customer_preorder_contacts", {p_secret: p.p_secret});
+        for (const row of data) row.instagram_handle = contacts?.["web:" + row.id] ?? "";
+      }
       if (p.p_action === "list" && Array.isArray(data)) {
         const paths: string[] = [...new Set<string>(data.flatMap(row => [row.book_image_path, row.payment_proof_path,
           ...(Array.isArray(row.request_items) ? row.request_items.map((item: any) => item.book_image_path) : [])]).filter(Boolean))];

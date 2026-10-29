@@ -192,6 +192,8 @@ void main() {
     await tester.tap(find.text('Qaytarish'));
     await tester.pumpAndSettle();
     expect(find.text('Chekni almashtirish'), findsOneWidget);
+    await reveal(tester, find.widgetWithText(TextFormField, 'Instagram username (majburiy)'));
+    await tester.enterText(find.widgetWithText(TextFormField, 'Instagram username (majburiy)'), '@test_reader');
     await reveal(tester, find.text('Avans yubordim — buyurtma berish'));
     await tester.tap(find.text('Avans yubordim — buyurtma berish'));
     await tester.pumpAndSettle();
@@ -205,6 +207,7 @@ void main() {
     expect(api.uploads, 3);
     expect(api.attempts, 2);
     expect(api.request!['id'], id);
+    expect(api.request!['instagram_handle'], 'test_reader');
     expect(find.text('Oldindan buyurtma yuborildi'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());

@@ -20,6 +20,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
   late final api = widget.api ?? WebPreorderApi();
   final form = GlobalKey<FormState>();
   final name = TextEditingController(), phone = TextEditingController();
+  final instagram = TextEditingController();
   final books = <_RequestedBook>[_RequestedBook()];
   late final String id;
   WebPreorderConfig? config;
@@ -67,6 +68,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
 
   @override
   void dispose() {
+    instagram.dispose();
     name.dispose(); phone.dispose();
     for (final b in books) { b.title.dispose(); }
     super.dispose();
@@ -235,6 +237,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
   Future<void> submit() async {
     if (saving || picking || completed || !await _requireProfile()) return;
     if (!mounted || !validateDetails()) return;
+    if (!validPreorderInstagram(instagram.text)) { message('Instagram username kiriting: @username'); return; }
     if (proof == null) { message('Jami avans uchun to‘lov chekini yuklang.'); return; }
     setState(() => saving = true);
     try {
@@ -247,7 +250,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
       final preorderInstallId = await context.read<AppState>().preorderInstallationId();
       await api.call('submit_multi', {'p_request': {
         'id': id, 'install_id': preorderInstallId, 'customer_name': name.text.trim(), 'phone': phone.text.trim(),
-        'revision': c.revision, 'deposit_amount': total, 'payment_proof_path': proofPath,
+        'revision': c.revision, 'deposit_amount': total, 'payment_proof_path': proofPath, 'instagram_handle': normalizePreorderInstagram(instagram.text),
         'items': [for (final b in books) {'book_title': b.title.text.trim(), 'book_image_path': b.path, 'quantity': b.quantity}],
       }});
       if (!mounted) return;
@@ -354,6 +357,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
                 label: Text(proof == null ? 'Avans chekini yuklash' : 'Chekni almashtirish')),
               if (proof != null) TextButton(onPressed: saving || picking || completed ? null : () => cancelImage(null),
                 child: const Text('Chekni bekor qilish')),
+              PreorderInstagramField(controller: instagram, enabled: !saving && !picking && !completed),
               FilledButton(onPressed: saving || picking || completed ? null : submit,
                 child: Text(saving ? 'Yuborilmoqda…' : 'Avans yubordim — buyurtma berish')),
               TextButton(onPressed: saving || picking || completed ? null : () => setState(() => payment = false), child: const Text('Ma’lumotlarni tahrirlash')),

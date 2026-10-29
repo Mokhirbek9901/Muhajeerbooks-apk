@@ -14,7 +14,7 @@ def fcm_configured():
     try:
         value = json.loads(os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "{}"))
         return (value.get("type") == "service_account"
-                and bool(value.get("project_id"))
+                and value.get("project_id") == "muhajeer-books-push"
                 and bool(value.get("client_email"))
                 and str(value.get("private_key", "")).startswith("-----BEGIN PRIVATE KEY-----"))
     except (ValueError, TypeError, AttributeError):
@@ -29,7 +29,7 @@ def _session():
     if getattr(_local, "fingerprint", None) != fingerprint:
         info = json.loads(raw)
         project = info["project_id"]
-        if not re.fullmatch(r"[a-z][a-z0-9-]{4,62}", project):
+        if project != "muhajeer-books-push":
             raise ValueError("Invalid Firebase project")
         # Never use a credential-supplied token URI or API hostname.
         info["token_uri"] = "https://oauth2.googleapis.com/token"
@@ -84,8 +84,9 @@ def send_android_order_event(event_secret, phone, notification, order, rpc):
         operation, params = "event_admin_native_fcm", {"p_event_secret": event_secret}
         title, message = notification["title"], notification["body"]
     else:
-        operation, params = "event_native_fcm_for_phone", {
+        operation, params = "event_native_fcm_for_order", {
             "p_event_secret": event_secret, "p_phone": phone,
+            "p_order_id": order.get("order_id"),
         }
         # Private order details remain behind the app's customer session.
         title, message = {

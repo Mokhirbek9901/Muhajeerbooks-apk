@@ -1,7 +1,7 @@
 name: Android push compile check (no publication)
 on:
   push:
-    branches: [main, fix/android-fcm-20261029]
+    branches: [main, fix/android-fcm-20261029, fix/android-fcm-config-safety-20261029]
     paths:
       - 'tools/android_push/**'
       - 'tools/prepare_android_fcm.py'
@@ -10,7 +10,7 @@ on:
       - 'config/firebase-android.json'
       - '.github/workflows/android_push_check.yml'
   pull_request:
-    paths: ['tools/android_push/**', 'tools/prepare_android_fcm.py', 'lib/native_android_push.dart']
+    paths: ['tools/android_push/**', 'tools/prepare_android_fcm.py', 'lib/native_android_push.dart', 'lib/app_state.dart', 'lib/customer_session.dart', '.github/workflows/android_push_check.yml']
 permissions:
   contents: read
 jobs:

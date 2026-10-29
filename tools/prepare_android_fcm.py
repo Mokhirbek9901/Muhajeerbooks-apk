@@ -85,7 +85,17 @@ dependencies {{
     values=main/'res/values/muhajeer_firebase.xml'
     if config.exists():
         data=json.loads(config.read_text())
+        # Only the public Android app configuration belongs in this repository.
+        # Never accept a private Google service-account JSON as app config.
+        if not isinstance(data, dict) or any(
+            key in data for key in ('private_key', 'private_key_id', 'client_email')
+        ) or data.get('type') == 'service_account':
+            raise ValueError('Private service-account credentials are not Android app config')
         project=data['project_info']
+        if project.get('project_id') != 'muhajeer-books-push':
+            raise ValueError('Firebase project must be muhajeer-books-push')
+        if not str(project.get('project_number', '')).isdigit():
+            raise ValueError('Firebase project number is missing or invalid')
         client=next(c for c in data['client'] if c['client_info']['android_client_info']['package_name']=='com.muhajeerbooks.app')
         resources=ET.Element('resources')
         for name,value in {

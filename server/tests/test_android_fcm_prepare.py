@@ -53,12 +53,32 @@ class MainActivity : FlutterFragmentActivity() {
         def client(package,app):
             return {'client_info':{'android_client_info':{'package_name':package},'mobilesdk_app_id':app},
                     'api_key':[{'current_key':'public-api-key'}]}
-        self.config.write_text(json.dumps({'project_info':{'project_number':'123','project_id':'books-test'},
+        self.config.write_text(json.dumps({'project_info':{'project_number':'123','project_id':'muhajeer-books-push'},
             'client':[client('wrong.app','wrong-id'),client('com.muhajeerbooks.app','right-id')]}))
         fcm.configure(self.root,self.config,require_config=True)
         strings={x.get('name'):x.text for x in ET.parse(self.main/'res/values/muhajeer_firebase.xml').getroot()}
         self.assertEqual(strings['google_app_id'],'right-id')
         self.assertEqual(strings['gcm_defaultSenderId'],'123')
+
+
+    def test_rejects_wrong_firebase_project(self):
+        self.config.write_text(json.dumps({'project_info':{
+            'project_number':'123','project_id':'unrelated-project'},'client':[]}))
+        with self.assertRaisesRegex(ValueError,'Firebase project must be'):
+            fcm.configure(self.root,self.config,require_config=True)
+
+    def test_never_accepts_service_account_as_android_config(self):
+        self.config.write_text(json.dumps({'type':'service_account',
+            'project_id':'muhajeer-books-push','private_key':'placeholder'}))
+        with self.assertRaisesRegex(ValueError,'Private service-account'):
+            fcm.configure(self.root,self.config,require_config=True)
+
+    def test_rejects_missing_project_number(self):
+        self.config.write_text(json.dumps({'project_info':{
+            'project_id':'muhajeer-books-push'},'client':[]}))
+        with self.assertRaisesRegex(ValueError,'project number'):
+            fcm.configure(self.root,self.config,require_config=True)
+
 
 
 if __name__=='__main__': unittest.main()

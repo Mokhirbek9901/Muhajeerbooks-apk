@@ -10,6 +10,14 @@ spec=importlib.util.spec_from_file_location('play_candidate',ROOT/'tools/play_ca
 module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
 
 class ReleaseGateTests(unittest.TestCase):
+    def test_testflight_upload_has_no_automatic_trigger(self):
+        workflow = (ROOT/'.github/workflows/testflight_upload.yml').read_text()
+        events = workflow.split('on:\n', 1)[1].split('\npermissions:', 1)[0]
+        self.assertIn('workflow_dispatch:', events)
+        self.assertNotIn('push:', events)
+        self.assertNotIn('pull_request:', events)
+        self.assertNotIn('workflow_run:', events)
+
     def test_google_production_is_rejected_before_loading_credentials(self):
         with patch.dict(os.environ,PLAY_TRACK='production'):
             with self.assertRaisesRegex(SystemExit,'Production is blocked'):

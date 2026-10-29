@@ -6,18 +6,21 @@ on:
       - '.github/release_tools/inspect_app_store_state.rb'
       - 'tools/play_candidate.py'
   workflow_dispatch:
+  push:
+    branches: [inspect/customer-push-store-versions-20261030]
+    paths: ['.github/workflows/owner_store_status.yml']
 permissions:
   contents: read
 jobs:
   google-play-status:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/inspect/customer-push-store-versions-20261030' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python3 -m pip install --quiet google-auth requests
+      - run: python3 -m pip install --quiet google-auth==2.62.0 requests==2.32.5
       - name: Read current tracks using a temporary uncommitted edit
         env:
           PLAY_TRACK: internal
@@ -28,7 +31,7 @@ jobs:
           name: read-only-google-play-state
           path: ${{ runner.temp }}/play-store-state.json
   app-store-status:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/inspect/customer-push-store-versions-20261030' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

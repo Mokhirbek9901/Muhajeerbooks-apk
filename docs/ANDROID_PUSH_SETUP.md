@@ -74,9 +74,14 @@ App Store, TestFlight or publication workflows without the owner's approval.
   were rolled back. Customer RPC version 29 preserves JWT verification.
 - Local mocked Python and web push regression tests passed. Android/Flutter
   checks run on PR #114 without publishing to any store.
-- Railway was Online/SUCCESS and answered HTTP 200. No Firebase sender variable
-  exists. The real public Android config, HTTP v1 enablement, sender IAM/key and
-  real-device delivery remain unverified and block activation.
+- Railway was Online/SUCCESS and answered HTTP 200. The genuine Firebase Android configuration is committed and its generated
+  resources were checked against project number `411608456634` and package
+  `com.muhajeerbooks.app`. Firebase Console confirms FCM HTTP v1 is Enabled
+  and the project remains on the no-cost Spark plan. No Firebase sender
+  variable exists in Railway. Google Cloud IAM and embedded Cloud Shell both
+  show Site Unavailable in the current Work browser, blocking creation of the
+  dedicated least-privilege sender account/key. Real-device delivery remains
+  unverified and blocked until that credential is securely configured.
 - PR #114 integrates the PIN-less work from PR #113 with the newer Android FCM
   and serialized web subscription persistence. It remains a draft until the
   configuration and device-delivery checks are complete.

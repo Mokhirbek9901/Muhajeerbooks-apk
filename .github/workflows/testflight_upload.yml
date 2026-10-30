@@ -3,7 +3,7 @@ name: Build and Upload iOS to TestFlight
 on:
   workflow_dispatch:
   push:
-    branches: [testflight/active-preorder-count-20261030]
+    branches: [testflight/shipped-tracking-after-dispatch-20261030]
     paths: ['.github/workflows/testflight_upload.yml']
 
 permissions:
@@ -104,6 +104,25 @@ jobs:
           print('Verified only active preorders count toward the home tile.')
           print('Verified simple prepared button and targeted preorder notification routes.')
           PY
+      - name: Verify only future app shipments without tracking enter the new home tile
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          state=Path('lib/app_state.dart').read_text()
+          admin=Path('lib/admin_command_center.dart').read_text()
+          orders=Path('lib/admin_ui.dart').read_text()
+          assert 'isNewAppShippedWithoutTracking(ShopOrder order)' in state
+          assert "order.status == 'shipping'" in state
+          assert 'order.isApp' in state and '!order.enteredByAdmin' in state
+          assert 'newDispatchTrackingOrderCutoff' in state
+          assert "orders.where(_adminPreparedOrNeedsTracking).length" in admin
+          assert "_openOrderMetric('Jo‘natishga tayyor', 'prepared_or_tracking')" in admin
+          assert "'prepared_or_tracking' => _adminPreparedOrNeedsTracking(o)" in orders
+          print('Dashboard tracking reminder and clicked list use same safe predicate.')
+          PY
+          flutter pub get
+          flutter test test/new_app_tracking_after_shipping_test.dart
       - name: Validate current web features and TestFlight preview
         run: |
           set -euo pipefail

@@ -3,7 +3,7 @@ name: Build and Upload iOS to TestFlight
 on:
   workflow_dispatch:
   push:
-    branches: [testflight/admin-preorder-contact-20261030]
+    branches: [testflight/preorder-push-simple-prepared-20261030]
     paths: ['.github/workflows/testflight_upload.yml']
 
 permissions:

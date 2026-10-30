@@ -874,6 +874,7 @@ class BackendService {
     required String paymentProofPath,
     String note = '',
     String instagramHandle = '',
+    String contactPlatform = 'instagram',
   }) async {
     final raw = await _customerRpc('customer_preorder_submit', {
       'p_install_id': installId,
@@ -886,6 +887,8 @@ class BackendService {
       'p_note': note,
       if (CustomerSession.isDevice(CustomerSession.token))
         'p_instagram_handle': instagramHandle,
+      if (CustomerSession.isDevice(CustomerSession.token))
+        'p_contact_platform': contactPlatform,
     });
     return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
   }
@@ -2443,6 +2446,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     required XFile paymentProof,
     String note = '',
     String instagramHandle = '',
+    String contactPlatform = 'instagram',
   }) async {
     if (_backend == null) return 'Oldindan buyurtma uchun internet kerak.';
     if (!checkoutIdentityReady ||
@@ -2474,6 +2478,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       paymentProofPath: proofPath,
       note: note,
       instagramHandle: instagramHandle,
+      contactPlatform: contactPlatform,
     );
     // Use the preorder contact for in-app arrival notices, but do NOT
     // grant verified-customer status without authentication.

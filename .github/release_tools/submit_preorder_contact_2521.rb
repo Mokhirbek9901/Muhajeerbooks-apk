@@ -103,25 +103,22 @@ end
 
 version = versions.find { |v| v.dig('attributes', 'versionString') == TARGET_VERSION }
 unless version
-  # Only one unreleased iOS version is allowed. When the superseded version
-  # remains as an editable draft, remove it after Apple's review cancellation.
-  if old
-    previous = asc(:get, "/v1/appStoreVersions/#{old.fetch('id')}")
-    previous_state = previous.dig('data','attributes','appStoreState')
-    if %w[PREPARE_FOR_SUBMISSION DEVELOPER_REJECTED REJECTED READY_FOR_REVIEW].include?(previous_state)
-      asc(:delete, "/v1/appStoreVersions/#{old.fetch('id')}")
-      puts "Removed superseded 2.5.20 draft (#{previous_state}) to open 2.5.21 review."
-    end
-  end
-  # Creating an update copies released-version metadata and screenshots.
-  created = asc(:post, '/v1/appStoreVersions', body: {
-    data: { type: 'appStoreVersions',
-            attributes: { platform: 'IOS', versionString: TARGET_VERSION,
-                          releaseType: 'AFTER_APPROVAL' },
-            relationships: { app: { data: { type: 'apps', id: APP_ID } } } }
-  })
-  version = created.fetch('data')
-  puts "Created App Store update #{TARGET_VERSION}."
+  # Apple retains old uploaded binaries: appStoreVersions cannot be deleted
+  # once the platform has builds. Rename the canceled, editable 2.5.20
+  # draft itself rather than trying to create a second version.
+  abort 'Missing previously submitted 2.5.20 App Store version' unless old
+  old_state = asc(:get, "/v1/appStoreVersions/#{old.fetch('id')}")
+               .dig('data', 'attributes', 'appStoreState')
+  abort "Previous App Store version is not editable (#{old_state})" unless
+    %w[PREPARE_FOR_SUBMISSION DEVELOPER_REJECTED REJECTED READY_FOR_REVIEW].include?(old_state)
+  updated = asc(:patch, "/v1/appStoreVersions/#{old.fetch('id')}",
+    body: { data: { type: 'appStoreVersions', id: old.fetch('id'),
+                    attributes: { versionString: TARGET_VERSION,
+                                  releaseType: 'AFTER_APPROVAL' } } })
+  version = updated.fetch('data')
+  abort 'Version number update was not accepted by Apple' unless
+    version.dig('attributes', 'versionString') == TARGET_VERSION
+  puts "Retitled existing editable App Store draft 2.5.20 -> #{TARGET_VERSION}."
 end
 version_id = version.fetch('id')
 state = version.dig('attributes', 'appStoreState') ||

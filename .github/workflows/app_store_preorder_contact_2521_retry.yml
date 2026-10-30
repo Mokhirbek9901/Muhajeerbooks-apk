@@ -1,0 +1,103 @@
+name: Fix and submit tested 2.5.21 (2131) App Store version
+on:
+  push:
+    branches: [release/preorder-contact-2521-20261030]
+    paths: ['.github/workflows/app_store_preorder_contact_2521_retry.yml']
+permissions:
+  actions: read
+  contents: read
+concurrency:
+  group: submit-muhajeer-preorder-2521-apple
+  cancel-in-progress: false
+
+jobs:
+  wait-testflight-then-submit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    env:
+      TESTFLIGHT_RUN_ID: '40986213057'
+      TESTED_IOS_HEAD_SHA: 'e299d7cf5ff1193f782101e0ec0fdbc09a354d5f'
+      ASC_APP_ID: '6817641775'
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Verify App Store submission source syntax
+        run: ruby -c .github/release_tools/submit_preorder_contact_2521.rb
+      - name: Require the exact already-triggered signed TestFlight run to succeed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 240); do
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$TESTFLIGHT_RUN_ID" > "$RUNNER_TEMP/testflight-run.json"
+            state=$(python3 -c 'import json,os;print(json.load(open(os.environ["RUNNER_TEMP"]+"/testflight-run.json"))["status"])')
+            [ "$state" = completed ] && break
+            echo "TestFlight $TESTFLIGHT_RUN_ID: $state; check $attempt/240"
+            sleep 15
+          done
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          run=json.loads((Path(os.environ['RUNNER_TEMP'])/'testflight-run.json').read_text())
+          assert run['status']=='completed' and run['conclusion']=='success', 'TestFlight validation/upload not successful: '+str(run['conclusion'])
+          assert run['head_sha']==os.environ['TESTED_IOS_HEAD_SHA'], 'Unexpected source SHA'
+          assert run['head_branch']=='release/preorder-contact-2521-20261030', 'Unexpected source branch'
+          assert run['path']=='.github/workflows/testflight_upload.yml','Unexpected TestFlight workflow'
+          print('Signed TestFlight build validated; exact source:',run['head_sha'])
+          PY
+      - name: Load the validated existing 2.5.21 TestFlight build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download "$TESTFLIGHT_RUN_ID" --repo "$GITHUB_REPOSITORY" --name ios-release-diagnostics --dir "$RUNNER_TEMP/ios-result"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          files=list((Path(os.environ['RUNNER_TEMP'])/'ios-result').rglob('testflight-result.json'))
+          assert len(files)==1,'One TestFlight diagnostics JSON required'
+          data=json.loads(files[0].read_text())
+          assert data.get('processing_state')=='VALID', 'Apple did not finish processing'
+          assert data.get('version')=='2.5.21', 'Not marketing version 2.5.21'
+          assert str(data.get('app_id'))=='6817641775','Wrong Apple app ID'
+          build=str(data.get('build_number',''))
+          assert build.isdigit() and int(build)>2130, 'Unexpected TestFlight build number'
+          with open(os.environ['GITHUB_ENV'],'a') as fp:
+              fp.write('IOS_MARKETING_VERSION=2.5.21\n')
+              fp.write('IOS_BUILD_NUMBER='+build+'\n')
+              fp.write('OWNER_APPROVED_PUBLIC_RELEASE=2.5.21('+build+')\n')
+          print('Validated already-tested signed TestFlight build: 2.5.21 ('+build+')')
+          PY
+      - name: Create temporary App Store authentication key
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          for name in ('APP_STORE_CONNECT_KEY_ID','APP_STORE_CONNECT_ISSUER_ID','APP_STORE_CONNECT_PRIVATE_KEY'):
+              assert os.environ.get(name,'').strip(), 'Missing '+name
+          path=Path(os.environ['RUNNER_TEMP'])/'asc-preorder2521.p8'
+          path.write_text(os.environ['APP_STORE_CONNECT_PRIVATE_KEY'].strip().replace('\\n','\n')+'\n')
+          path.chmod(0o600)
+          with open(os.environ['GITHUB_ENV'],'a') as fp: fp.write('ASC_PRIVATE_KEY_PATH='+str(path)+'\n')
+          PY
+      - name: Replace superseded pending review with validated 2.5.21 and submit to Apple
+        run: ruby .github/release_tools/submit_preorder_contact_2521.rb
+      - name: Verify Apple review and auto-release rule
+        run: |
+          ruby -I.github/release_tools -rapp_store_client -e '
+            list=AppStoreClient.request(:get,"/v1/apps/6817641775/appStoreVersions",query:{"limit"=>100,"fields[appStoreVersions]"=>"platform,versionString,appStoreState,releaseType"}).fetch("data")
+            v=list.find{|a|a.dig("attributes","platform")=="IOS" && a.dig("attributes","versionString")=="2.5.21"} or abort "Missing new App Store version"
+            abort "Approval-only release not configured" unless v.dig("attributes","releaseType")=="AFTER_APPROVAL"
+            bid=AppStoreClient.request(:get,"/v1/appStoreVersions/#{v.fetch("id")}/relationships/build").fetch("data").fetch("id")
+            build=AppStoreClient.request(:get,"/v1/builds/#{bid}").fetch("data")
+            abort "Unexpected attached iOS build" unless build.dig("attributes","version")==ENV.fetch("IOS_BUILD_NUMBER")
+            puts "VERIFIED_APPSTORE_2521 state=#{v.dig("attributes","appStoreState")} build=#{ENV.fetch("IOS_BUILD_NUMBER")} release_after_approval=true"
+          '
+      - name: Remove short-lived Apple credential
+        if: always()
+        run: rm -f "$RUNNER_TEMP/asc-preorder2521.p8"

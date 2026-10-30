@@ -100,8 +100,8 @@ class PreorderContactField extends StatelessWidget {
           decoration: InputDecoration(
             labelText: '$name username (majburiy)',
             hintText: '@username',
-            helperText: 'Kitob kelganda $name orqali siz bilan bog‘lanamiz.',
-            helperMaxLines: 2,
+            helperText: 'Kitob kelganda siz kiritgan $name profilingizga xabar beramiz.\nBuyurtma holatini Profil → Oldindan buyurtmalar bo‘limida kuzatishingiz mumkin.',
+            helperMaxLines: 4,
           ),
           validator: (value) => validPreorderContact(value ?? '', platform)
               ? null

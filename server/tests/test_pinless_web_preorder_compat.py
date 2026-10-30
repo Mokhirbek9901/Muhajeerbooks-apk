@@ -23,9 +23,11 @@ class PinlessWebPreorderCompatibilityTests(unittest.TestCase):
         self.assertIn("'p_instagram_handle': instagramHandle", app_source)
         self.assertIn("instagramHandle: instagramHandle,", app_source)
         self.assertIn(
-            "instagramHandle: normalizePreorderInstagram(preorderInstagram.text)",
+            "instagramHandle: normalizePreorderContact(preorderInstagram.text)",
             ui_source,
         )
+        self.assertIn("contactPlatform: preorderContactPlatform.name", ui_source)
+        self.assertIn("'p_contact_platform': contactPlatform", app_source)
 
     def test_admin_still_requires_secret(self):
         self.assertIn('typeof p.p_secret !== "string"', SOURCE)

@@ -1469,18 +1469,18 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
     }
   }
 
-  Future<void> _openBusinessTools(BuildContext sectionContext) async {
+  Future<void> _openBatchHistory(BuildContext sectionContext) async {
     try {
       final books = await widget.api.books();
       if (!sectionContext.mounted) return;
       _pushPage(
         sectionContext,
-        WebAdminToolsPage(secret: widget.api.secret, books: books),
+        WebAdminBatchHistoryPage(secret: widget.api.secret, books: books),
       );
     } catch (e) {
       if (sectionContext.mounted) {
         ScaffoldMessenger.of(sectionContext).showSnackBar(
-          SnackBar(content: Text('Biznes asboblari yuklanmadi: $e')),
+          SnackBar(content: Text('Partiyalar tarixi yuklanmadi: $e')),
         );
       }
     }
@@ -1492,22 +1492,16 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
     if (!mounted) return;
     final actions = <_AdminMenuAction>[
       _AdminMenuAction(
-        'Pochta zakaslari',
-        'Manzil, jo‘natmalar va tracking',
-        Icons.local_shipping_outlined,
-        (ctx) => _pushPage(
-          ctx,
-          Scaffold(
-            appBar: AppBar(title: const Text('Pochta zakaslari')),
-            body: _ShippingQueueAdmin(api: widget.api),
-          ),
-        ),
-      ),
-      _AdminMenuAction(
         'Kitoblar foydasi',
         'Sotilgan paytdagi tan narx va o‘zgarmas foyda tarixi',
         Icons.bar_chart_rounded,
         (ctx) => _pushPage(ctx, AdminBookProfitPage(secret: widget.api.secret)),
+      ),
+      _AdminMenuAction(
+        'Partiyalar tarixi',
+        'Partiyalar, xaridlar, ombor va tannarx hisoblari',
+        Icons.receipt_long_outlined,
+        (ctx) => unawaited(_openBatchHistory(ctx)),
       ),
       _AdminMenuAction(
         'Ombor va qoldiqlar',
@@ -1522,18 +1516,17 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
         (ctx) => unawaited(_openSoldoutBooks(ctx)),
       ),
       _AdminMenuAction(
+        'Tugaganlarni oldindan sotuvga chiqarish',
+        'Kitob tanlash, kelish sanasi, avans va hammasini yopish',
+        Icons.event_available_outlined,
+        (ctx) => _pushPage(ctx, _SoldoutPreorderBulkPage(api: widget.api)),
+      ),
+      _AdminMenuAction(
         'Katalog tartibi',
         'Mijozlar ko‘radigan kitoblarni tartiblash',
         Icons.vertical_align_top_rounded,
         (ctx) => _pushPage(ctx, _CatalogPinsAdminPage(api: widget.api)),
       ),
-      if (_enhancedAdminUi)
-        _AdminMenuAction(
-          'Biznes asboblari',
-          'Tan narx, partiyalar va taqqoslash',
-          Icons.calculate_outlined,
-          (ctx) => unawaited(_openBusinessTools(ctx)),
-        ),
       _AdminMenuAction(
         'Oldindan zakaslar',
         'Qabul, avans, qolgan to‘lov va jo‘natish',
@@ -1710,11 +1703,6 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
                   spacing: 10,
                   runSpacing: 10,
                   children: [
-                    FilledButton.tonalIcon(
-                      onPressed: widget.onPushSettings,
-                      icon: const Icon(Icons.notifications_active_outlined),
-                      label: const Text('Admin pushni yoqish'),
-                    ),
                     OutlinedButton.icon(
                       onPressed: () => _pushPage(
                         context,
@@ -1783,6 +1771,18 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
                         Icons.inventory_outlined,
                         () => unawaited(
                           _openOrderMetric('Jo‘natishga tayyor', 'prepared_or_tracking'),
+                        ),
+                      ),
+                      (
+                        'Pochta zakaslari',
+                        'Manzil va tracking',
+                        Icons.local_shipping_outlined,
+                        () => _pushPage(
+                          context,
+                          Scaffold(
+                            appBar: AppBar(title: const Text('Pochta zakaslari')),
+                            body: _ShippingQueueAdmin(api: widget.api),
+                          ),
                         ),
                       ),
                       (

@@ -190,6 +190,29 @@ class WebAdminToolsPage extends StatelessWidget {
   );
 }
 
+/// Batch history is a first-class administration page. Other business tool
+/// tabs are intentionally not part of this navigation destination.
+class WebAdminBatchHistoryPage extends StatelessWidget {
+  const WebAdminBatchHistoryPage({
+    super.key,
+    required this.secret,
+    required this.books,
+  });
+
+  final String secret;
+  final List<Book> books;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: UzbekCustomerColors.background,
+    appBar: AppBar(
+      title: const Text('Partiyalar tarixi'),
+      backgroundColor: UzbekCustomerColors.background,
+    ),
+    body: _WebBatchesPanel(secret: secret, books: books),
+  );
+}
+
 class _WebPriceCalculator extends StatefulWidget {
   const _WebPriceCalculator();
   @override

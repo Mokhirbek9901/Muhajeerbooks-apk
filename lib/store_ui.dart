@@ -1015,7 +1015,7 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
           ),
           title: const Text('Oldindan buyurtma qabul qilindi'),
           content: Text(
-            '$message\n\nKitob kelganda ${preorderContactName(preorderContactPlatform)} orqali siz bilan bog‘lanamiz. Yakuniy narx ham kitob kelganda aniq bo‘ladi.',
+            '$message\n\nKitob kelganda siz kiritgan ${preorderContactName(preorderContactPlatform)} profilingizga xabar beramiz.\n\nBuyurtma holatini Profil → Oldindan buyurtmalar bo‘limida kuzatishingiz mumkin.\n\nYakuniy narx kitob kelganda aniqlanadi.',
             textAlign: TextAlign.center,
           ),
           actions: [

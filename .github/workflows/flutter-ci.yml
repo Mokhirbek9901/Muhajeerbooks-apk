@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check Python API syntax
-        run: python3 -m py_compile server/app.py server/preorder_delivery.py server/native_customer_push.py server/native_android_push.py tools/prepare_android_fcm.py
+        run: python3 -m py_compile server/app.py server/preorder_delivery.py server/preorder_native_push.py server/native_customer_push.py server/native_android_push.py tools/prepare_android_fcm.py
       - name: Test Android FCM routing and native host generation
         run: |
           python3 -m unittest discover -s server/tests -p 'test_native_android_push.py' -v
@@ -24,6 +24,11 @@ jobs:
         run: python3 -m unittest discover -s server/tests -p 'test_android_release_safety.py' -v
       - name: Protect PINless web and legacy admin preorder actions
         run: python3 -m unittest discover -s server/tests -p 'test_pinless_web_preorder_compat.py' -v
+      - name: Test preorder APNs/FCM private delivery and old web push compatibility
+        run: |
+          python3 -m pip install --quiet flask==3.1.2 requests==2.32.5
+          python3 -m unittest discover -s server/tests -p 'test_preorder_delivery.py' -v
+          python3 -m unittest discover -s server/tests -p 'test_preorder_native_push.py' -v
       - name: Test compact image storage and duplicate reuse
         run: node --test server/tests/book_image_storage_policy.test.mjs
       - uses: ruby/setup-ruby@v1

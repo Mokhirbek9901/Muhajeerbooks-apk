@@ -1362,22 +1362,16 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
     // endpoint must not silently be counted as zero customer orders.
     int? preorderCount;
     try {
-      final insight = await widget.api.merchandisingInsights().timeout(
-        const Duration(seconds: 4),
-      );
-      final nativeRows = insight['preorders'] as List?;
-      if (nativeRows != null) {
-        if (webPreordersAvailable) {
-          final webRows = await WebPreorderApi()
-              .admin(widget.api.secret, 'list')
-              .timeout(const Duration(seconds: 4));
-          if (webRows is List)
-            preorderCount = nativeRows.length + webRows.length;
-        } else {
-          preorderCount = nativeRows.length;
-        }
-      }
+      // Server counts both native and web reservations and excludes all
+      // cancelled rows. Insights intentionally contains waiting-only native
+      // records, so its length is NOT a reliable active-order count.
+      final count = await widget.api._rpc(
+        'admin_active_preorder_count',
+        params: {'p_secret': widget.api.secret},
+      ).timeout(const Duration(seconds: 7));
+      preorderCount = (count as num).toInt();
     } catch (_) {
+      // Never display a stale or misleading order count as zero.
       preorderCount = null;
     }
     return _AdminHomeData(

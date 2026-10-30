@@ -43,9 +43,12 @@ Deno.serve(async (req) => {
       if (!uuid.test(p.book_id)) throw new Error("Kitob identifikatori noto‘g‘ri.");
       return reply(200, { ok: true, data: await rpc("web_preorder_book_config", { p_book_id: p.book_id }) });
     }
-    if (body.action === "delivery") {
-      // Internal worker authentication is checked in SQL before any event/recipient is returned.
-      return reply(200, { ok: true, data: await rpc("web_preorder_delivery", p) });
+    if (body.action === "delivery" || body.action === "delivery_native" || body.action === "delivery_recipients") {
+      // No tokens or event data are exposed without the internal push-event secret.
+      const action = body.action === "delivery" ? "web_preorder_delivery"
+        : body.action === "delivery_native" ? "native_preorder_delivery"
+        : "event_preorder_native_recipients";
+      return reply(200, { ok: true, data: await rpc(action, p) });
     }
     if (body.action === "admin") {
       if (typeof p.p_secret !== "string" || p.p_secret.length < 1 || p.p_secret.length > 512 ||

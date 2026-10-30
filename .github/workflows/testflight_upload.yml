@@ -78,6 +78,25 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Verify direct prepared button and native preorder push routing
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          admin=Path('lib/admin_ui.dart').read_text()
+          bridge=Path('lib/native_customer_notification_bridge.dart').read_text()
+          swift=Path('ios/Runner/AppDelegate.swift').read_text()
+          assert "await widget.api.updateOrderStatus(" in admin
+          assert "onStatus(primaryStatus!)" in admin and "primaryStatus = 'prepared'" not in admin
+          assert "if (webPreviewFeaturesAvailable && primaryStatus == 'prepared')" not in admin
+          assert "builder: (_) => WebPackingPage(" not in admin
+          assert "label: const Text('Qadoqlash tekshiruvi')" not in admin
+          assert 'openAdminPreorders()' in bridge and 'openPreorders(String id)' in bridge
+          assert "kind'] == 'admin_preorder'" in bridge and "kind'] == 'customer_preorder'" in bridge
+          assert 'adminPreorderTapped' in swift and 'customerPreorderTapped' in swift
+          assert bridge.count("Future<void> openAdminOrders() async") == 1
+          assert bridge.count("Future<void> openPreorders(String id) async") == 1
+          print('Verified simple prepared button and targeted preorder notification routes.')
+          PY
       - name: Validate current web features and TestFlight preview
         run: |
           set -euo pipefail

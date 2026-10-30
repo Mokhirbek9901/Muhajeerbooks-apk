@@ -1,0 +1,5 @@
+Request: TestFlight-only internal iOS testing build
+Requested by owner: 2026-10-31 (Asia/Seoul)
+Scope: admin menu changes, push history deletion, emergency notice improvements, selected sold-out preorder manager.
+Do not publish to App Store production, Play Market or web.
+Validation gate: .github/workflows/testflight_upload.yml runs flutter analyze and tests before signing and uploading.

@@ -853,7 +853,9 @@ class _AdminApi {
           .map((row) => Map<String, dynamic>.from(row))
           .toList();
       for (final row in page) {
-        if (contacts is Map) row['instagram_handle'] = contacts['native:${row['id']}'] ?? '';
+        if ((row['instagram_handle'] ?? '').toString().trim().isEmpty && contacts is Map) {
+          row['instagram_handle'] = contacts['native:${row['id']}'] ?? '';
+        }
       }
       all.addAll(page);
       if (page.length < pageSize) return all;

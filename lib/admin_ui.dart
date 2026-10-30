@@ -8300,28 +8300,6 @@ class _ProfessionalOrderCard extends StatelessWidget {
                   ],
                 ),
               ),
-            if (webPreviewFeaturesAvailable &&
-                order.preparedAt == null &&
-                (order.status == 'accepted' || order.status == 'paid')) ...[
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (_) => WebPackingPage(
-                        order: order,
-                        secret: api.secret,
-                        onPrepared: () => onStatus('prepared'),
-                      ),
-                    ),
-                  ),
-                  icon: const Icon(Icons.fact_check_outlined),
-                  label: const Text('Qadoqlash tekshiruvi'),
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
             _OrderActions(order: order, onStatus: onStatus),
           ],
         ],
@@ -8361,11 +8339,6 @@ class _OrderActions extends StatelessWidget {
           : Icons.local_shipping_rounded;
     }
 
-    if (webPreviewFeaturesAvailable && primaryStatus == 'prepared') {
-      primaryStatus = null;
-      primaryLabel = null;
-      primaryIcon = null;
-    }
     return Row(
       children: [
         if (primaryStatus != null)

@@ -10,6 +10,8 @@ import StoreKit
   private var pushChannel: FlutterMethodChannel?
   private var pendingCustomerOrder: String?
   private var pendingAdminOrder = false
+  private var pendingAdminPreorder = false
+  private var pendingCustomerPreorder: String?
 
   override func application(
     _ application: UIApplication,
@@ -47,6 +49,12 @@ import StoreKit
       }
       if call.method == "getPendingAdminOrder" {
         result(self?.pendingAdminOrder ?? false); self?.pendingAdminOrder = false; return
+      }
+      if call.method == "getPendingAdminPreorder" {
+        result(self?.pendingAdminPreorder ?? false); self?.pendingAdminPreorder = false; return
+      }
+      if call.method == "getPendingCustomerPreorder" {
+        result(self?.pendingCustomerPreorder); self?.pendingCustomerPreorder = nil; return
       }
       if call.method == "getPendingCustomerOrder" {
         result(self?.pendingCustomerOrder); self?.pendingCustomerOrder = nil; return
@@ -114,6 +122,19 @@ import StoreKit
     withCompletionHandler completionHandler: @escaping () -> Void
   ) {
     let info = response.notification.request.content.userInfo
+    if info["kind"] as? String == "admin_preorder" {
+      pendingAdminPreorder = true
+      pushChannel?.invokeMethod("adminPreorderTapped", arguments: nil)
+      completionHandler()
+      return
+    }
+    if info["kind"] as? String == "customer_preorder",
+       let preorderId = info["preorder_id"] as? String {
+      pendingCustomerPreorder = preorderId
+      pushChannel?.invokeMethod("customerPreorderTapped", arguments: preorderId)
+      completionHandler()
+      return
+    }
     if info["kind"] as? String == "admin_new_order" {
       pendingAdminOrder = true
       pushChannel?.invokeMethod("adminOrderTapped", arguments: nil)

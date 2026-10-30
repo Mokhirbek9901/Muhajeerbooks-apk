@@ -50,7 +50,7 @@ class WebTodayWork extends StatelessWidget {
           ActionChip(avatar: const Icon(Icons.notifications_active_outlined, size: 17),
             label: Text('Yangi buyurtmalar: $newOrders'), onPressed: () => openTab(3)),
           ActionChip(avatar: const Icon(Icons.inventory_2_outlined, size: 17),
-            label: Text('Qadoqlash: $waiting'), onPressed: () => openTab(3)),
+            label: Text('Tayyorlash kerak: $waiting'), onPressed: () => openTab(3)),
           ActionChip(avatar: const Icon(Icons.local_shipping_outlined, size: 17),
             label: Text('Jo‘natishga tayyor: $prepared'),
             onPressed: () => openTab(3)),

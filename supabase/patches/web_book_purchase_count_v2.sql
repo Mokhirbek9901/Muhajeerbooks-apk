@@ -24,6 +24,10 @@ revoke all on function public.purchase_title_key_v2(text) from public, anon, aut
 create or replace function public.purchase_title_match_key_v2(v text)
 returns text language sql immutable set search_path = '' as $fn$
   select case public.purchase_title_key_v2(v)
+    when 'tajvidli' then 'quroni karim tajvidli mushaf'
+    when 'tajvidli musxaf' then 'quroni karim tajvidli mushaf'
+    when 'tajvidli mushxaf' then 'quroni karim tajvidli mushaf'
+    when 'tajvidli mushaf' then 'quroni karim tajvidli mushaf'
     when 'er xotinga' then 'er xotinga nasihat'
     when 'er xotinga n' then 'er xotinga nasihat'
     when 'fotimaning' then 'fotimaning bolasi'

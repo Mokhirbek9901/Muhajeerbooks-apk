@@ -679,7 +679,7 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
         builder: (ctx) => AlertDialog(
           title: const Text('Oldindan buyurtma yuborildi'),
           content: Text(
-            'Buyurtma: ${id.substring(0, 8)}\nAvans cheki administrator tomonidan tekshiriladi.\nTaxminiy kelishi: ${c.arrival}\nKitob kelganda ${preorderContactName(contactPlatform)} orqali siz bilan bog‘lanamiz. Holat ilovada ham ko‘rinadi.',
+            'Buyurtma: ${id.substring(0, 8)}\nAvans cheki administrator tomonidan tekshiriladi.\nTaxminiy kelishi: ${c.arrival}\nKitob kelganda siz kiritgan ${preorderContactName(contactPlatform)} profilingizga xabar beramiz.\n\nBuyurtma holatini Profil → Oldindan buyurtmalar bo‘limida kuzatishingiz mumkin.',
           ),
           actions: [
             FilledButton(

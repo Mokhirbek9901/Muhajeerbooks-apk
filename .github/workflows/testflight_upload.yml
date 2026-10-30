@@ -2,6 +2,9 @@ name: Build and Upload iOS to TestFlight
 
 on:
   workflow_dispatch:
+  push:
+    branches: [release/preorder-contact-2521-20261030]
+    paths: ['.github/workflows/testflight_upload.yml']
 
 permissions:
   actions: read

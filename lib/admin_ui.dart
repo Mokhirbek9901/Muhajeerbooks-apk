@@ -38,6 +38,7 @@ import 'preview_features.dart';
 
 part 'admin_command_center.dart';
 part 'admin_customer_safety.dart';
+part 'admin_soldout_bulk.dart';
 
 String _formRequestUuid() {
   final b = List.generate(16, (_) => Random.secure().nextInt(256));
@@ -214,6 +215,19 @@ class _AdminApi {
       params: {'p_secret': secret, 'p_enabled': enabled},
     );
     return Map<String, dynamic>.from(value as Map);
+  }
+
+  /// Atomically manages only individually selected sold-out books. Stock and
+  /// existing customer preorder records remain unchanged.
+  Future<Map<String, dynamic>> soldoutPreorderBulk({
+    String mode = 'list',
+    List<Map<String, dynamic>> rows = const [],
+  }) async {
+    final data = await _rpc(
+      'admin_soldout_preorder_bulk',
+      params: {'p_secret': secret, 'p_mode': mode, 'p_rows': rows},
+    );
+    return Map<String, dynamic>.from(data as Map);
   }
 
   Future<void> setCatalogPins(List<String> ids) async {

@@ -1,5 +1,0 @@
-Owner-approved TestFlight-only upload retry, 2026-10-31 Asia/Seoul.
-Source branch: main.
-Apple rejected marketing 2.5.20, approved version was 2.5.21.
-Corrected TestFlight marketing version: 2.5.22.
-The one-time workflow verifies and uploads only to TestFlight, never public App Store.

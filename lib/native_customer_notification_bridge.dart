@@ -6,11 +6,12 @@ import 'package:provider/provider.dart';
 
 import 'app_state.dart';
 import 'admin_resume_session.dart';
-import 'admin_ui.dart' show AdminGatePage, AdminDashboardPage;
+import 'admin_ui.dart' show AdminGatePage, AdminDashboardPage, AdminPreorderInboxPage;
 import 'native_admin_push.dart';
 import 'native_android_push.dart';
 import 'customer_pin_page.dart';
 import 'store_ui.dart' show MyOrdersPage, CustomerNotificationsPage;
+import 'preorder_balance_page.dart' show CustomerPreorderBalancesPage;
 
 class NativeCustomerNotificationBridge extends StatefulWidget {
   const NativeCustomerNotificationBridge({
@@ -55,6 +56,10 @@ class _NativeCustomerNotificationBridgeState
         await openAdminOrders();
       if (call.method == 'customerOrderTapped')
         await open('${call.arguments ?? ''}');
+      if (call.method == 'adminPreorderTapped')
+        await openAdminPreorders();
+      if (call.method == 'customerPreorderTapped')
+        await openPreorders('${call.arguments ?? ''}');
       if (call.method == 'tokenUpdated' && mounted)
         unawaited(context.read<AppState>().syncNativeCustomerPushIfAllowed());
     });
@@ -69,12 +74,24 @@ class _NativeCustomerNotificationBridgeState
         );
         if (id != null && id.isNotEmpty) await open(id);
       } catch (_) {}
+      try {
+        final pending = await channel.invokeMethod<bool>('getPendingAdminPreorder');
+        if (pending == true && mounted) await openAdminPreorders();
+      } catch (_) {}
+      try {
+        final id = await channel.invokeMethod<String>('getPendingCustomerPreorder');
+        if (id != null && id.isNotEmpty) await openPreorders(id);
+      } catch (_) {}
     });
   }
 
   Future<void> _openAndroidMessage(Map<String, String> message) async {
     if (!mounted) return;
-    if (message['kind'] == 'admin_new_order') {
+    if (message['kind'] == 'admin_preorder') {
+      await openAdminPreorders();
+    } else if (message['kind'] == 'customer_preorder') {
+      await openPreorders(message['preorder_id'] ?? '');
+    } else if (message['kind'] == 'admin_new_order') {
       await openAdminOrders();
     } else if (message['kind'] == 'customer_order') {
       await open(message['order_id'] ?? '');
@@ -87,6 +104,146 @@ class _NativeCustomerNotificationBridgeState
       } finally {
         opening = false;
       }
+    }
+  }
+
+  Future<void> openAdminPreorders() async {
+    if (opening || !mounted) return;
+    opening = true;
+    try {
+      final nav = widget.navigatorKey.currentState;
+      if (nav == null) return;
+      final snapshot = await AdminResumeSession.restore();
+      if (!mounted) return;
+      await nav.push(MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'mb:admin-push-preorders'),
+        builder: (_) => snapshot == null
+            ? const AdminGatePage()
+            : AdminPreorderInboxPage(secret: snapshot.secret),
+      ));
+    } finally {
+      opening = false;
+    }
+  }
+
+  Future<void> openPreorders(String id) async {
+    if (opening || !mounted ||
+        !(RegExp(r'^[0-9]+
+    if (opening || !mounted) return;
+    opening = true;
+    try {
+      final nav = widget.navigatorKey.currentState;
+      if (nav == null) return;
+      final snapshot = await AdminResumeSession.restore();
+      if (!mounted) return;
+      await nav.push(MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'mb:admin-push-orders'),
+        builder: (_) => snapshot == null
+            ? const AdminGatePage()
+            : AdminDashboardPage(secret: snapshot.secret, initialTab: 3),
+      ));
+    } finally {
+      opening = false;
+    }
+  }
+
+  Future<void> open(String id) async {
+    if (opening || !mounted || !RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(id))
+      return;
+    opening = true;
+    try {
+      final nav = widget.navigatorKey.currentState;
+      final ctx = nav?.overlay?.context;
+      if (nav == null || ctx == null) return;
+      if (!await ensureCustomerCheckoutIdentity(ctx) || !mounted) return;
+      await context.read<AppState>().refreshPinOrderHistory();
+      if (mounted)
+        await nav.push(
+          MaterialPageRoute<void>(
+            builder: (_) => MyOrdersPage(focusOrderId: id),
+          ),
+        );
+    } finally {
+      opening = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    unawaited(_androidTokens?.cancel());
+    unawaited(_androidTaps?.cancel());
+    if (NativeAdminPush.supported) channel.setMethodCallHandler(null);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+).hasMatch(id) ||
+          RegExp(r'^[0-9a-fA-F-]{36}
+    if (opening || !mounted) return;
+    opening = true;
+    try {
+      final nav = widget.navigatorKey.currentState;
+      if (nav == null) return;
+      final snapshot = await AdminResumeSession.restore();
+      if (!mounted) return;
+      await nav.push(MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'mb:admin-push-orders'),
+        builder: (_) => snapshot == null
+            ? const AdminGatePage()
+            : AdminDashboardPage(secret: snapshot.secret, initialTab: 3),
+      ));
+    } finally {
+      opening = false;
+    }
+  }
+
+  Future<void> open(String id) async {
+    if (opening || !mounted || !RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(id))
+      return;
+    opening = true;
+    try {
+      final nav = widget.navigatorKey.currentState;
+      final ctx = nav?.overlay?.context;
+      if (nav == null || ctx == null) return;
+      if (!await ensureCustomerCheckoutIdentity(ctx) || !mounted) return;
+      await context.read<AppState>().refreshPinOrderHistory();
+      if (mounted)
+        await nav.push(
+          MaterialPageRoute<void>(
+            builder: (_) => MyOrdersPage(focusOrderId: id),
+          ),
+        );
+    } finally {
+      opening = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    unawaited(_androidTokens?.cancel());
+    unawaited(_androidTaps?.cancel());
+    if (NativeAdminPush.supported) channel.setMethodCallHandler(null);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+).hasMatch(id))) return;
+    opening = true;
+    try {
+      final nav = widget.navigatorKey.currentState;
+      final ctx = nav?.overlay?.context;
+      if (nav == null || ctx == null) return;
+      if (!await ensureCustomerCheckoutIdentity(ctx) || !mounted) return;
+      await nav.push(MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'mb:customer-push-preorders'),
+        builder: (_) => CustomerPreorderBalancesPage(focusPreorderId: id),
+      ));
+    } finally {
+      opening = false;
     }
   }
 

@@ -268,7 +268,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
       if (!mounted) return;
       await showDialog<void>(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
         title: const Text('Oldindan buyurtma yuborildi'),
-        content: Text('${books.length} turdagi kitob • $quantity dona\nJami avans: ${webPreorderMoney(total)}\nTaxminiy kelishi: ${c.arrival}\nBuyurtma: ${id.substring(0,8)}\n\nAdministrator chekni tekshiradi. Qabul qilish, bekor qilish va kitoblar kelishi haqida Bildirishnomalar bo‘limiga xabar keladi.'),
+        content: Text('${books.length} turdagi kitob • $quantity dona\nJami avans: ${webPreorderMoney(total)}\nTaxminiy kelishi: ${c.arrival}\nBuyurtma: ${id.substring(0,8)}\n\nAdministrator chekni tekshiradi. Kitob kelganda siz kiritgan ${preorderContactName(contactPlatform)} profilingizga xabar beramiz.\n\nBuyurtma holatini Profil → Oldindan buyurtmalar bo‘limida kuzatishingiz mumkin.'),
         actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Tushunarli'))],
       ));
       if (mounted) Navigator.pop(context);

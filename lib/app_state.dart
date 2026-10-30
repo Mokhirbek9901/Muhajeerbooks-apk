@@ -610,6 +610,26 @@ class ShopOrder {
   );
 }
 
+
+/// This new admin dashboard reminder starts with orders placed after the
+/// owner's 30 Oct 2026 request (19:55:36 Korea time). Historical app orders
+/// must never be imported into the new reminder automatically.
+final DateTime newDispatchTrackingOrderCutoff =
+    DateTime.utc(2026, 10, 30, 10, 55, 36);
+
+/// Only app-placed courier orders enter the reminder AFTER 'Jo‘natildi'.
+/// Instagram/Telegram, staff-entered, pickup and earlier orders are excluded.
+bool isNewAppShippedWithoutTracking(ShopOrder order) {
+  final method = order.deliveryType.toLowerCase();
+  return order.isApp &&
+      !order.enteredByAdmin &&
+      order.status == 'shipping' &&
+      !method.contains('pickup') &&
+      !method.contains('직접수령') &&
+      order.trackingNumber.trim().isEmpty &&
+      !order.createdAt.toUtc().isBefore(newDispatchTrackingOrderCutoff);
+}
+
 class CustomerRequestRejected implements Exception {
   CustomerRequestRejected(this.message);
   final String message;

@@ -74,6 +74,9 @@ def register_preorder_routes(app, send_push):
         native_recipient_count = 0
         try:
             # The event is read from the database, never from the request body.
+            # Legacy outbox claim responses lack the reference until migration.
+            if not event.get('reference'):
+                raise ValueError('Preorder event lacks reference')
             native_recipients = preorder_rpc({
                 'p_event_secret': supplied,
                 'p_source': 'web',

@@ -6475,7 +6475,7 @@ class _PreorderAdminPageState extends State<_PreorderAdminPage> {
                             style: const TextStyle(fontWeight: FontWeight.w800),
                           ),
                           if ((r['instagram_handle'] ?? '').toString().isNotEmpty)
-                            SelectableText('Instagram: @${r['instagram_handle']}'),
+                            SelectableText('${r['contact_platform'] == 'telegram' ? 'Telegram' : 'Instagram'}: @${r['instagram_handle']}'),
                           if ((r['note'] ?? '').toString().trim().isNotEmpty)
                             Text('Izoh: ${r['note']}'),
                           if ((r['payment_proof_path'] ?? '')

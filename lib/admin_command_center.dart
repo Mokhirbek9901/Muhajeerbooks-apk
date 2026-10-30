@@ -160,6 +160,15 @@ class _AdminSectionPage extends StatelessWidget {
   );
 }
 
+/// Public target for verified admin preorder push taps.
+class AdminPreorderInboxPage extends StatelessWidget {
+  const AdminPreorderInboxPage({super.key, required this.secret});
+  final String secret;
+
+  @override
+  Widget build(BuildContext context) => _CombinedPreorderPage(api: _AdminApi(secret));
+}
+
 /// One read-only timeline for BOTH native and web advance reservations.
 /// Administrative actions remain in their corresponding established screens.
 class _CombinedPreorderPage extends StatefulWidget {

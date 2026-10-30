@@ -21,6 +21,11 @@ bool _adminPreparedForDispatch(ShopOrder order) =>
     (order.status == 'accepted' || order.status == 'paid') &&
     order.preparedAt != null;
 
+/// Use the same new-shipment tracking predicate for the tile and its list.
+bool _adminPreparedOrNeedsTracking(ShopOrder order) =>
+    _adminPreparedForDispatch(order) ||
+    isNewAppShippedWithoutTracking(order);
+
 bool _adminRecognizedTodaySale(ShopOrder order, DateTime now) {
   final sold = order.recognizedSaleAt;
   if (sold == null) return false;
@@ -1362,7 +1367,7 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
     )) as num).toInt();
     final newOrders = orders.where((order) => order.status == 'new').length;
     final acceptedOrders = orders.where(_adminAwaitingPreparation).length;
-    final preparedOrders = orders.where(_adminPreparedForDispatch).length;
+    final preparedOrders = orders.where(_adminPreparedOrNeedsTracking).length;
     final soldOutCount = books
         .where((book) => book.isActive && book.stock == 0)
         .length;
@@ -1785,7 +1790,7 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
                         '${data.preparedOrders} ta',
                         Icons.inventory_outlined,
                         () => unawaited(
-                          _openOrderMetric('Jo‘natishga tayyor', 'prepared'),
+                          _openOrderMetric('Jo‘natishga tayyor', 'prepared_or_tracking'),
                         ),
                       ),
                       (

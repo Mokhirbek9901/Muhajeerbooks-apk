@@ -72,26 +72,23 @@ def register_preorder_routes(app, send_push):
         delivered = [key for key in results if key is not None]
         failed = len(results) - len(delivered)
         native_recipient_count = 0
-        try:
-            # The event is read from the database, never from the request body.
-            # Legacy outbox claim responses lack the reference until migration.
-            if not event.get('reference'):
-                raise ValueError('Preorder event lacks reference')
-            native_recipients = preorder_rpc({
-                'p_event_secret': supplied,
-                'p_source': 'web',
-                'p_reference': str(event['reference']),
-                'p_audience': event['audience'],
-            }, action='delivery_recipients')
-            extra, native_recipient_count, native_failed = send_preorder_native(
-                {**event, 'source': 'web'}, native_recipients)
-            delivered += extra
-            failed += native_failed
-        except Exception as exc:
-            # Keep the existing Web Push/in-app notification available if
-            # native push infrastructure is temporarily unavailable.
-            print("Preorder native push:", type(exc).__name__, flush=True)
-            failed += 1
+        if event.get('reference'):
+            try:
+                # Audience and order reference come from the authenticated
+                # outbox claim, never a caller-supplied device or phone.
+                native_recipients = preorder_rpc({
+                    'p_event_secret': supplied,
+                    'p_source': 'web',
+                    'p_reference': str(event['reference']),
+                    'p_audience': event['audience'],
+                }, action='delivery_recipients')
+                extra, native_recipient_count, native_failed = send_preorder_native(
+                    {**event, 'source': 'web'}, native_recipients)
+                delivered += extra
+                failed += native_failed
+            except Exception as exc:
+                print("Preorder native push:", type(exc).__name__, flush=True)
+                failed += 1
         try:
             preorder_rpc({**params, 'p_result': {
                 'claim_token': event['claim_token'], 'delivered_keys': delivered,

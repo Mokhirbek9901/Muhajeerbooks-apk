@@ -2177,11 +2177,20 @@ class _EmergencyNoticeAdminState extends State<_EmergencyNoticeAdmin> {
         message: message.text.trim(),
         enabled: enabled,
       );
+      // Do not show success before the persisted state is verified.
+      final stored = await widget.api.storeNotice();
+      if (stored['enabled'] != enabled ||
+          (stored['message'] ?? '').toString().trim() != message.text.trim()) {
+        throw StateError('Saqlangan e’lon serverdan tasdiqlanmadi.');
+      }
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Muhim xabar saqlandi ✅')));
-      unawaited(context.read<AppState>().refreshStoreNotice());
+      await context.read<AppState>().refreshStoreNotice();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(enabled
+            ? 'E’lon mijozlar uchun yoqildi ✅'
+            : 'E’lon saqlandi, hozir mijozlarga ko‘rsatilmaydi.')),
+      );
     } catch (e) {
       if (mounted)
         ScaffoldMessenger.of(context)
@@ -2244,6 +2253,28 @@ class _EmergencyNoticeAdminState extends State<_EmergencyNoticeAdmin> {
           title: 'Muhim xabar',
           subtitle: 'Favqulodda holat, bayram yoki yetkazib berishdagi o‘zgarishni mijozlarga ko‘rsating.',
         ),
+        const SizedBox(height: 12),
+        AppSurface(
+          backgroundColor: const Color(0xFFE9F4F0),
+          child: Row(
+            children: [
+              Icon(
+                enabled ? Icons.visibility_rounded : Icons.visibility_off_outlined,
+                color: AppColors.success,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  enabled
+                      ? 'E’lon faol: mijozlar katalog va buyurtma vaqtida ko‘radi.'
+                      : 'Hozir faol e’lon yo‘q. Bu push emas: xabarni yozing, '
+                          '“Xabarni ko‘rsatish”ni yoqing va saqlang.',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 16),
         AppSurface(
           child: Column(
@@ -2258,7 +2289,7 @@ class _EmergencyNoticeAdminState extends State<_EmergencyNoticeAdmin> {
                   style: TextStyle(fontWeight: FontWeight.w900),
                 ),
                 subtitle: const Text(
-                  'Yoqilsa katalogda va buyurtma berishda ko‘rinadi.',
+                  'Push yubormaydi. Ilovadagi do‘kon e’loni sifatida ko‘rinadi.',
                 ),
               ),
               const SizedBox(height: 10),
@@ -2279,6 +2310,40 @@ class _EmergencyNoticeAdminState extends State<_EmergencyNoticeAdmin> {
                 decoration: const InputDecoration(
                   labelText: 'Xabar matni',
                   hintText: 'Masalan: Chuseok sababli yetkazib berish...',
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Mijozga shunday ko‘rinadi:',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 6),
+              AnimatedBuilder(
+                animation: Listenable.merge([title, message]),
+                builder: (context, _) => Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF1F2),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFF3A6AD)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title.text.trim().isEmpty
+                            ? 'MUHIM MA’LUMOT' : title.text.trim(),
+                        style: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        message.text.trim().isEmpty
+                            ? 'Bu yerda yozgan e’loningiz ko‘rinadi.'
+                            : message.text.trim(),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 14),
@@ -2343,6 +2408,8 @@ class _PushNotificationAdminState extends State<_PushNotificationAdmin> {
   final message = TextEditingController();
   bool sending = false;
   bool loadingHistory = true;
+  String? historyError;
+  final Set<String> deletingIds = <String>{};
   List<Map<String, dynamic>> history = [];
 
   @override
@@ -2359,21 +2426,31 @@ class _PushNotificationAdminState extends State<_PushNotificationAdmin> {
   }
 
   Future<void> _loadHistory() async {
+    if (mounted) setState(() {
+      loadingHistory = true;
+      historyError = null;
+    });
     try {
       final rows = await widget.api.pushHistory();
-      if (mounted)
+      if (mounted) {
         setState(() {
           history = rows;
           loadingHistory = false;
         });
-    } catch (_) {
-      if (mounted) setState(() => loadingHistory = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          loadingHistory = false;
+          historyError = e.toString();
+        });
+      }
     }
   }
 
   Future<void> _deleteMessage(Map<String, dynamic> row) async {
     final id = (row['id'] ?? '').toString();
-    if (id.isEmpty) return;
+    if (id.isEmpty || deletingIds.contains(id)) return;
     final yes = await showDialog<bool>(
       context: context,
       builder: (dialog) => AlertDialog(
@@ -2385,18 +2462,33 @@ class _PushNotificationAdminState extends State<_PushNotificationAdmin> {
         ],
       ),
     );
-    if (yes != true) return;
+    if (yes != true || !mounted) return;
+    setState(() => deletingIds.add(id));
     try {
       final deleted = await widget.api.deletePushMessage(id);
       if (!mounted) return;
-      if (deleted) await _loadHistory();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(deleted ? 'Xabarnoma o‘chirildi.' : 'Xabar topilmadi.')),
-      );
+      if (deleted) {
+        // Show the result immediately; a refresh verifies the server history.
+        setState(() => history.removeWhere((entry) => '${entry['id']}' == id));
+        await _loadHistory();
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(deleted
+                ? 'Xabar mijozlarning ilova tarixidan olib tashlandi.'
+                : 'Xabar topilmadi yoki allaqachon o‘chirilgan.'),
+          ),
+        );
+      }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('O‘chirishda xatolik: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('O‘chirishda xatolik: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => deletingIds.remove(id));
     }
   }
 
@@ -2598,6 +2690,19 @@ class _PushNotificationAdminState extends State<_PushNotificationAdmin> {
             child: CircularProgressIndicator(),
           ),
         )
+      else if (historyError != null)
+        AppSurface(
+          child: Column(
+            children: [
+              Text('Xabarlar tarixi yuklanmadi: $historyError'),
+              TextButton.icon(
+                onPressed: _loadHistory,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Qayta urinish'),
+              ),
+            ],
+          ),
+        )
       else if (history.isEmpty)
         const AppSurface(
           child: Text(
@@ -2631,8 +2736,11 @@ class _PushNotificationAdminState extends State<_PushNotificationAdmin> {
                       const SizedBox(width: 8),
                       IconButton(
                         tooltip: 'Xabarni o‘chirish',
-                        onPressed: () => _deleteMessage(row),
-                        icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+                        onPressed: deletingIds.contains('${row['id']}')
+                            ? null : () => _deleteMessage(row),
+                        icon: deletingIds.contains('${row['id']}')
+                            ? const Icon(Icons.hourglass_top_rounded)
+                            : const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
                       ),
                       Text(
                         _date(row['sent_at']),

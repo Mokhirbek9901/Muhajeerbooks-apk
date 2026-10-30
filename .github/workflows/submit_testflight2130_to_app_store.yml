@@ -1,0 +1,90 @@
+name: Submit owner-tested TestFlight 2130 to App Store
+on:
+  push:
+    branches: [fix/pinless-customer-20261029]
+    paths:
+      - '.github/workflows/submit_testflight2130_to_app_store.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: submit-muhajeer-ios-2130-once
+  cancel-in-progress: false
+
+jobs:
+  submit-tested-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+      ASC_APP_ID: '6817641775'
+      IOS_MARKETING_VERSION: '2.5.20'
+      IOS_BUILD_NUMBER: '2130'
+      OWNER_APPROVED_PUBLIC_RELEASE: '2.5.20(2130)'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Verify this is the exact owner-tested TestFlight source and not a new build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/$GITHUB_REPOSITORY/actions/runs/40766007967 --jq '{conclusion,head_sha,head_branch}' > "$RUNNER_TEMP/tested-source.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          data=json.loads((Path(os.environ['RUNNER_TEMP'])/'tested-source.json').read_text())
+          assert data['conclusion']=='success', 'Tested IPA workflow did not succeed'
+          assert data['head_sha']=='531473604ebde77d59aa5caa9c26dc71d03ed76d', 'Unexpected original tested commit'
+          assert data['head_branch']=='fix/pinless-customer-20261029', 'Unexpected original TestFlight branch'
+          print('Verified existing TestFlight IPA 2.5.20 (2130); no rebuild.')
+          PY
+      - name: Prepare App Store API credentials
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          for key in ('APP_STORE_CONNECT_KEY_ID','APP_STORE_CONNECT_ISSUER_ID','APP_STORE_CONNECT_PRIVATE_KEY'):
+              assert os.environ.get(key, '').strip(), f'Missing {key}'
+          path=Path(os.environ['RUNNER_TEMP'])/'asc-owner-approved-2130.p8'
+          path.write_text(os.environ['APP_STORE_CONNECT_PRIVATE_KEY'].strip().replace('\\n','\n')+'\n')
+          path.chmod(0o600)
+          with open(os.environ['GITHUB_ENV'],'a') as f:
+              f.write(f'ASC_PRIVATE_KEY_PATH={path}\n')
+          PY
+      - name: Confirm 2130 is the latest eligible iOS TestFlight build
+        run: |
+          set -euo pipefail
+          ruby -I.github/release_tools -rapp_store_client -e '
+            x=AppStoreClient.request(:get,"/v1/builds",query:{"filter[app]"=>"6817641775","sort"=>"-uploadedDate","limit"=>30,"include"=>"preReleaseVersion"})
+            valid=x.fetch("data").select{|b|b.dig("attributes","processingState")=="VALID"}
+            abort "No processed iOS build" if valid.empty?
+            first=valid.first
+            pre=x.fetch("included",[]).find{|p|p["id"]==first.dig("relationships","preReleaseVersion","data","id")}
+            abort "Latest VALID build differs from approved iOS 2.5.20 (2130)" unless first.dig("attributes","version")=="2130" && pre && pre.dig("attributes","version")=="2.5.20"
+            puts "Latest valid TestFlight build verified: 2.5.20 (2130)"
+          '
+      - name: Submit existing TestFlight 2130 to App Review with automatic publish after Apple approval
+        run: ruby .github/release_tools/submit_approved_testflight2130.rb
+      - name: Verify submitted build and automatic release setting
+        run: |
+          ruby -I.github/release_tools -rapp_store_client -e '
+            vers=AppStoreClient.request(:get,"/v1/apps/6817641775/appStoreVersions",query:{"limit"=>100,"fields[appStoreVersions]"=>"platform,versionString,appStoreState,releaseType,build"}).fetch("data")
+            v=vers.find{|x|x.dig("attributes","platform")=="IOS"&&x.dig("attributes","versionString")=="2.5.20"} or abort "Missing 2.5.20"
+            abort "Approval-only public release not enabled" unless v.dig("attributes","releaseType")=="AFTER_APPROVAL"
+            b=AppStoreClient.request(:get,"/v1/appStoreVersions/#{v.fetch("id")}/relationships/build").fetch("data")
+            a=AppStoreClient.request(:get,"/v1/builds/#{b.fetch("id")}").fetch("data")
+            abort "Wrong selected TestFlight build" unless a.dig("attributes","version")=="2130"
+            puts "VERIFIED_PUBLIC_APPSTORE_UPDATE iOS=2.5.20 build=2130 state=#{v.dig("attributes","appStoreState")} publish_after_approval=true"
+          '
+      - name: Remove short-lived App Store key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/asc-owner-approved-2130.p8"

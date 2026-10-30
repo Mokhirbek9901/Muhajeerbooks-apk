@@ -12,7 +12,11 @@ begin
     array['Tunda xibsni kutib', 'Tunda hibsni kutib'],
     array['Puls psixologiyasi', 'Pul psixologiyasi yoxud boylik, ochko‘zlik va baxt haqida eskirmas saboqlar'],
     array['Chumolilar saltanati', '🐜Chumolilar saltanati'],
-    array['Til  sayqali', 'Til sayqali']
+    array['Til  sayqali', 'Til sayqali'],
+    array['Tajvidli mushxaf', 'Qur’oni Karim — Tajvidli Mushaf'],
+    array['Tajvidli musxaf', 'Qur’oni Karim — Tajvidli Mushaf'],
+    array['Tajvidli', 'Qur’oni Karim — Tajvidli Mushaf'],
+    array['Tajvidli mushaf', 'Qur’oni Karim — Tajvidli Mushaf']
   ] loop
     if public.purchase_title_match_key_v2(pair[1]) <> public.purchase_title_key_v2(pair[2]) then
       raise exception 'Title variant mismatch: %',pair;
@@ -25,7 +29,8 @@ begin
     array['Savdogarlar ustozi','Haqiqiy omad kaliti yoxud Savdogarlar ustozi: 1-qism'],
     array['Yashamoq sokinlik istar','Yashamoq'],
     array['Yuksalish san’ati','Yuksalish strategiyasi'],
-    array['Islom psixologiyasi','Pul psixologiyasi']
+    array['Islom psixologiyasi','Pul psixologiyasi'],
+    array['Tajvidsiz Qur’oni Karim', 'Qur’oni Karim — Tajvidli Mushaf']
   ] loop
     if public.purchase_title_match_key_v2(pair[1]) = public.purchase_title_match_key_v2(pair[2]) then
       raise exception 'Different books/parts were merged: %',pair;

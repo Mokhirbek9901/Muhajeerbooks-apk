@@ -905,6 +905,7 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
   late final TextEditingController amount;
   final note = TextEditingController();
   final preorderInstagram = TextEditingController();
+  PreorderContactPlatform preorderContactPlatform = PreorderContactPlatform.instagram;
   XFile? proof;
   bool saving = false;
 
@@ -978,8 +979,8 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
     if (!await _requireCustomerProfile()) return;
     CustomerFormScaffold.dismissKeyboard();
     if (saving || !mounted || !formKey.currentState!.validate()) return;
-    if (!validPreorderInstagram(preorderInstagram.text)) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Instagram username kiriting: @username')));
+    if (!validPreorderContact(preorderInstagram.text, preorderContactPlatform)) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${preorderContactName(preorderContactPlatform)} username kiriting: @username')));
       return;
     }
     if (proof == null) {
@@ -1000,7 +1001,8 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
         depositAmount: value,
         paymentProof: proof!,
         note: note.text.trim(),
-        instagramHandle: normalizePreorderInstagram(preorderInstagram.text),
+        instagramHandle: normalizePreorderContact(preorderInstagram.text),
+        contactPlatform: preorderContactPlatform.name,
       );
       if (!mounted) return;
       await showDialog<void>(
@@ -1013,7 +1015,7 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
           ),
           title: const Text('Oldindan buyurtma qabul qilindi'),
           content: Text(
-            '$message\n\nKitob kelganda Instagram orqali siz bilan bog‘lanamiz. Yakuniy narx ham kitob kelganda aniq bo‘ladi.',
+            '$message\n\nKitob kelganda siz kiritgan ${preorderContactName(preorderContactPlatform)} profilingizga xabar beramiz.\n\nBuyurtma holatini Profil → Oldindan buyurtmalar bo‘limida kuzatishingiz mumkin.\n\nYakuniy narx kitob kelganda aniqlanadi.',
             textAlign: TextAlign.center,
           ),
           actions: [
@@ -1172,7 +1174,7 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
                 labelText: 'Telefon raqam',
                 hintText: '01024338600',
                 helperText:
-                    'Kitob kelganda Instagram orqali siz bilan bog‘lanamiz.',
+                    'Kitob kelganda tanlangan aloqa tarmog‘i orqali siz bilan bog‘lanamiz.',
               ),
               validator: (v) => !_isSupportedCustomerPhone(v ?? '')
                   ? 'Koreya 010 raqamini to‘liq kiriting'
@@ -1244,7 +1246,12 @@ class _PreorderCheckoutPageState extends State<_PreorderCheckoutPage> {
               ),
             ),
             const SizedBox(height: 16),
-            PreorderInstagramField(controller: preorderInstagram, enabled: !saving),
+            PreorderContactField(
+              controller: preorderInstagram,
+              platform: preorderContactPlatform,
+              onPlatformChanged: (value) => setState(() => preorderContactPlatform = value),
+              enabled: !saving,
+            ),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: saving ? null : submit,

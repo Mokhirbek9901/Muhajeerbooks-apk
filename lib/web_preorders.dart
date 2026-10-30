@@ -313,6 +313,7 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
       phone = TextEditingController(),
       advance = TextEditingController(),
       instagram = TextEditingController();
+  PreorderContactPlatform contactPlatform = PreorderContactPlatform.instagram;
   late final String id;
   WebPreorderConfig? config;
   Uint8List? bookImage, proofImage;
@@ -610,8 +611,8 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
   Future<void> _submit() async {
     if (busy || !await _requireProfile()) return;
     if (!mounted || !_validateDetails()) return;
-    if (!validPreorderInstagram(instagram.text)) {
-      _message('Instagram username kiriting: @username');
+    if (!validPreorderContact(instagram.text, contactPlatform)) {
+      _message('${preorderContactName(contactPlatform)} username kiriting: @username');
       return;
     }
     if (proofImage == null) {
@@ -647,7 +648,8 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
           'quantity': quantity,
           'book_image_path': bookPath ?? '',
           'payment_proof_path': proofPath,
-          'instagram_handle': normalizePreorderInstagram(instagram.text),
+          'instagram_handle': normalizePreorderContact(instagram.text),
+          'contact_platform': contactPlatform.name,
           'deposit_amount': c.total(quantity, int.tryParse(advance.text)),
           'revision': c.revision,
         },
@@ -677,7 +679,7 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
         builder: (ctx) => AlertDialog(
           title: const Text('Oldindan buyurtma yuborildi'),
           content: Text(
-            'Buyurtma: ${id.substring(0, 8)}\nAvans cheki administrator tomonidan tekshiriladi.\nTaxminiy kelishi: ${c.arrival}\nKitob kelganda Instagram orqali siz bilan bog‘lanamiz. Holat ilovada ham ko‘rinadi.',
+            'Buyurtma: ${id.substring(0, 8)}\nAvans cheki administrator tomonidan tekshiriladi.\nTaxminiy kelishi: ${c.arrival}\nKitob kelganda siz kiritgan ${preorderContactName(contactPlatform)} profilingizga xabar beramiz.\n\nBuyurtma holatini Profil → Oldindan buyurtmalar bo‘limida kuzatishingiz mumkin.',
           ),
           actions: [
             FilledButton(
@@ -1073,7 +1075,12 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
                                     : () => _removeImage(true),
                                 child: const Text('Chekni bekor qilish'),
                               ),
-                            PreorderInstagramField(controller: instagram, enabled: !busy),
+                            PreorderContactField(
+                              controller: instagram,
+                              platform: contactPlatform,
+                              onPlatformChanged: (value) => setState(() => contactPlatform = value),
+                              enabled: !busy,
+                            ),
                             const SizedBox(height: 12),
                             FilledButton(
                               onPressed: busy ? null : _submit,
@@ -1827,7 +1834,7 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
                                               '${r['customer_name']}\n${r['phone']}',
                                             ),
                                             if ((r['instagram_handle'] ?? '').toString().isNotEmpty)
-                                              SelectableText('Instagram: @${r['instagram_handle']}'),
+                                              SelectableText('${r['contact_platform'] == 'telegram' ? 'Telegram' : 'Instagram'}: @${r['instagram_handle']}'),
                                             Text(
                                               'Yuborilgan: ${webPreorderTime(r['created_at'])}',
                                             ),

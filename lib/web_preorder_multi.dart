@@ -21,6 +21,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
   final form = GlobalKey<FormState>();
   final name = TextEditingController(), phone = TextEditingController();
   final instagram = TextEditingController();
+  PreorderContactPlatform contactPlatform = PreorderContactPlatform.instagram;
   final books = <_RequestedBook>[_RequestedBook()];
   late final String id;
   WebPreorderConfig? config;
@@ -237,7 +238,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
   Future<void> submit() async {
     if (saving || picking || completed || !await _requireProfile()) return;
     if (!mounted || !validateDetails()) return;
-    if (!validPreorderInstagram(instagram.text)) { message('Instagram username kiriting: @username'); return; }
+    if (!validPreorderContact(instagram.text, contactPlatform)) { message('${preorderContactName(contactPlatform)} username kiriting: @username'); return; }
     if (proof == null) { message('Jami avans uchun to‘lov chekini yuklang.'); return; }
     setState(() => saving = true);
     try {
@@ -250,7 +251,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
       final preorderInstallId = await context.read<AppState>().preorderInstallationId();
       await api.call('submit_multi', {'p_request': {
         'id': id, 'install_id': preorderInstallId, 'customer_name': name.text.trim(), 'phone': phone.text.trim(),
-        'revision': c.revision, 'deposit_amount': total, 'payment_proof_path': proofPath, 'instagram_handle': normalizePreorderInstagram(instagram.text),
+        'revision': c.revision, 'deposit_amount': total, 'payment_proof_path': proofPath, 'instagram_handle': normalizePreorderContact(instagram.text), 'contact_platform': contactPlatform.name,
         'items': [for (final b in books) {'book_title': b.title.text.trim(), 'book_image_path': b.path, 'quantity': b.quantity}],
       }});
       if (!mounted) return;
@@ -267,7 +268,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
       if (!mounted) return;
       await showDialog<void>(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
         title: const Text('Oldindan buyurtma yuborildi'),
-        content: Text('${books.length} turdagi kitob • $quantity dona\nJami avans: ${webPreorderMoney(total)}\nTaxminiy kelishi: ${c.arrival}\nBuyurtma: ${id.substring(0,8)}\n\nAdministrator chekni tekshiradi. Qabul qilish, bekor qilish va kitoblar kelishi haqida Bildirishnomalar bo‘limiga xabar keladi.'),
+        content: Text('${books.length} turdagi kitob • $quantity dona\nJami avans: ${webPreorderMoney(total)}\nTaxminiy kelishi: ${c.arrival}\nBuyurtma: ${id.substring(0,8)}\n\nAdministrator chekni tekshiradi. Kitob kelganda siz kiritgan ${preorderContactName(contactPlatform)} profilingizga xabar beramiz.\n\nBuyurtma holatini Profil → Oldindan buyurtmalar bo‘limida kuzatishingiz mumkin.'),
         actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Tushunarli'))],
       ));
       if (mounted) Navigator.pop(context);
@@ -357,7 +358,9 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
                 label: Text(proof == null ? 'Avans chekini yuklash' : 'Chekni almashtirish')),
               if (proof != null) TextButton(onPressed: saving || picking || completed ? null : () => cancelImage(null),
                 child: const Text('Chekni bekor qilish')),
-              PreorderInstagramField(controller: instagram, enabled: !saving && !picking && !completed),
+              PreorderContactField(controller: instagram, platform: contactPlatform,
+                onPlatformChanged: (value) => setState(() => contactPlatform = value),
+                enabled: !saving && !picking && !completed),
               FilledButton(onPressed: saving || picking || completed ? null : submit,
                 child: Text(saving ? 'Yuborilmoqda…' : 'Avans yubordim — buyurtma berish')),
               TextButton(onPressed: saving || picking || completed ? null : () => setState(() => payment = false), child: const Text('Ma’lumotlarni tahrirlash')),

@@ -1,5 +1,15 @@
 part of 'admin_ui.dart';
 
+String _combinedPreorderContact(Map<String, dynamic> row) {
+  final raw = '${row['instagram_handle'] ?? ''}'.trim();
+  if (raw.isEmpty) return '';
+  final handle = raw.replaceFirst(RegExp(r'^@'), '');
+  final platform = '${row['contact_platform'] ?? 'instagram'}'.toLowerCase() == 'telegram'
+      ? 'Telegram'
+      : 'Instagram';
+  return '$platform: @$handle';
+}
+
 /// Shared definitions for the dashboard cards and order-list filters. Counts
 /// and drill-downs must include exactly the same orders, without modifying
 /// order status, inventory, or sales data.
@@ -373,6 +383,7 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
                       }[status] ??
                       status;
                   final phone = '${row['phone'] ?? ''}'.trim();
+                  final contact = _combinedPreorderContact(row);
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 9),
                     child: Card(
@@ -394,7 +405,8 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
                         subtitle: Text(
                           '${row['customer_name'] ?? 'Mijoz'} • Avans ${_won(price)}\n'
                           '${phone.isNotEmpty ? 'Tel: $phone • ' : ''}'
-                          '${web ? 'Web zakaz' : 'Ilova zakazi'} • $statusText',
+                          '${web ? 'Web zakaz' : 'Ilova zakazi'} • $statusText'
+                          '${contact.isEmpty ? '' : '\n$contact'}',
                         ),
                         isThreeLine: true,
                         trailing: const Icon(Icons.chevron_right_rounded),
@@ -810,6 +822,18 @@ class _CombinedPreorderDetailPageState
                 Text(
                   '${d['customer_name']} • ${d['phone']}\nHolat: ${d['status']} • To‘lov: ${d['payment_state']}',
                 ),
+                if (_combinedPreorderContact(widget.record).isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8, bottom: 10),
+                    child: SelectableText(
+                      _combinedPreorderContact(widget.record),
+                      style: const TextStyle(
+                        color: AppColors.navy,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
                 for (final raw in (d['items'] as List?) ?? const [])
                   ListTile(
                     contentPadding: EdgeInsets.zero,

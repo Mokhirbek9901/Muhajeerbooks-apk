@@ -8,12 +8,13 @@ from concurrent.futures import ThreadPoolExecutor
 
 import requests
 from flask import jsonify, request
+from preorder_native_push import send_preorder_native
 
 
-def preorder_rpc(params):
+def preorder_rpc(params, action='delivery'):
     url = os.getenv('SUPABASE_URL', 'https://rytfhjvhjxnbhgitowho.supabase.co').rstrip('/')
     response = requests.post(url + '/functions/v1/web-preorders',
-                             json={'action': 'delivery', 'params': params}, timeout=25)
+                             json={'action': action, 'params': params}, timeout=25)
     response.raise_for_status()
     result = response.json()
     if not isinstance(result, dict) or result.get('ok') is not True:
@@ -70,12 +71,66 @@ def register_preorder_routes(app, send_push):
             results = list(pool.map(deliver, subscriptions))
         delivered = [key for key in results if key is not None]
         failed = len(results) - len(delivered)
+        native_recipient_count = 0
+        try:
+            # The event is read from the database, never from the request body.
+            native_recipients = preorder_rpc({
+                'p_event_secret': supplied,
+                'p_source': 'web',
+                'p_reference': str(event['reference']),
+                'p_audience': event['audience'],
+            }, action='delivery_recipients')
+            extra, native_recipient_count, native_failed = send_preorder_native(
+                {**event, 'source': 'web'}, native_recipients)
+            delivered += extra
+            failed += native_failed
+        except Exception as exc:
+            # Keep the existing Web Push/in-app notification available if
+            # native push infrastructure is temporarily unavailable.
+            print("Preorder native push:", type(exc).__name__, flush=True)
+            failed += 1
         try:
             preorder_rpc({**params, 'p_result': {
                 'claim_token': event['claim_token'], 'delivered_keys': delivered,
-                'failed': failed, 'recipients': len(subscriptions),
+                'failed': failed, 'recipients': len(subscriptions) + native_recipient_count,
                 'error': 'Push qayta yuborish navbatida' if failed else '',
             }})
         except Exception:
             return jsonify(error='Delivery receipt unavailable'), 502
         return jsonify(ok=True, sent=len(delivered), failed=failed)
+
+    @app.post('/api/push/native-preorder-event')
+    def native_preorder_event():
+        expected = os.getenv('ORDER_PUSH_SECRET', '').strip()
+        supplied = request.headers.get('X-Muhajeer-Push-Secret', '').strip()
+        if not expected or not hmac.compare_digest(expected, supplied):
+            return jsonify(error='Unauthorized'), 401
+        data = request.get_json(silent=True) or {}
+        try:
+            event_id = str(uuid.UUID(str(data.get('event_id', ''))))
+        except (ValueError, TypeError):
+            return jsonify(error='Invalid event'), 400
+        params = {'p_secret': supplied, 'p_event_id': event_id}
+        try:
+            event = preorder_rpc(params, action='delivery_native')
+            if event.get('skip'):
+                return jsonify(ok=True, skipped=True)
+            recipients = preorder_rpc({
+                'p_event_secret': supplied,
+                'p_source': 'native',
+                'p_reference': str(event['reference']),
+                'p_audience': event['audience'],
+            }, action='delivery_recipients')
+            delivered, attempted, failed = send_preorder_native(
+                {**event, 'source': 'native'}, recipients)
+            preorder_rpc({**params, 'p_result': {
+                'claim_token': event['claim_token'],
+                'delivered_keys': delivered, 'failed': failed,
+                'recipients': attempted,
+                'error': 'Native push retry pending' if failed else '',
+            }}, action='delivery_native')
+            return jsonify(ok=True, sent=len(delivered), failed=failed)
+        except Exception as exc:
+            print("Native preorder delivery:", type(exc).__name__, flush=True)
+            return jsonify(error='Native preorder notification unavailable'), 502
+

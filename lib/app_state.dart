@@ -466,6 +466,7 @@ class ShopOrder {
     required this.total,
     required this.status,
     this.source = 'app',
+    this.enteredByAdmin = false,
     this.displayOrderNumber = 0,
     required this.items,
     required this.createdAt,
@@ -489,6 +490,7 @@ class ShopOrder {
   final int total;
   final String status;
   final String source;
+  final bool enteredByAdmin;
   final int displayOrderNumber;
   final List<Map<String, dynamic>> items;
   final DateTime createdAt;
@@ -523,6 +525,7 @@ class ShopOrder {
     total: (map['total'] as num?)?.toInt() ?? 0,
     status: (map['status'] ?? 'new').toString(),
     source: (map['source'] ?? 'app').toString(),
+    enteredByAdmin: map['entered_by_admin'] == true,
     displayOrderNumber: (map['display_order_number'] as num?)?.toInt() ?? 0,
     items: ((map['items'] as List?) ?? const [])
         .map((e) => Map<String, dynamic>.from(e as Map))
@@ -556,6 +559,7 @@ class ShopOrder {
     'total': total,
     'status': status,
     'source': source,
+    'entered_by_admin': enteredByAdmin,
     'display_order_number': displayOrderNumber,
     'items': items,
     'created_at': createdAt.toUtc().toIso8601String(),
@@ -572,6 +576,7 @@ class ShopOrder {
   ShopOrder copyWith({
     String? status,
     String? source,
+    bool? enteredByAdmin,
     String? paymentProofPath,
     DateTime? paymentSubmittedAt,
     bool? stockReserved,
@@ -590,6 +595,7 @@ class ShopOrder {
     total: total,
     status: status ?? this.status,
     source: source ?? this.source,
+    enteredByAdmin: enteredByAdmin ?? this.enteredByAdmin,
     displayOrderNumber: displayOrderNumber,
     items: items,
     createdAt: createdAt,
@@ -602,6 +608,26 @@ class ShopOrder {
     preparedAt: preparedAt ?? this.preparedAt,
     recognizedSaleAt: recognizedSaleAt,
   );
+}
+
+
+/// This new admin dashboard reminder starts with orders placed after the
+/// owner's 30 Oct 2026 request (19:55:36 Korea time). Historical app orders
+/// must never be imported into the new reminder automatically.
+final DateTime newDispatchTrackingOrderCutoff =
+    DateTime.utc(2026, 10, 30, 10, 55, 36);
+
+/// Only app-placed courier orders enter the reminder AFTER 'Jo‘natildi'.
+/// Instagram/Telegram, staff-entered, pickup and earlier orders are excluded.
+bool isNewAppShippedWithoutTracking(ShopOrder order) {
+  final method = order.deliveryType.toLowerCase();
+  return order.isApp &&
+      !order.enteredByAdmin &&
+      order.status == 'shipping' &&
+      !method.contains('pickup') &&
+      !method.contains('직접수령') &&
+      order.trackingNumber.trim().isEmpty &&
+      !order.createdAt.toUtc().isBefore(newDispatchTrackingOrderCutoff);
 }
 
 class CustomerRequestRejected implements Exception {

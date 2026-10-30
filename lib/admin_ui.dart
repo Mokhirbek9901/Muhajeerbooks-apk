@@ -7757,6 +7757,8 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
             'yesterday' => o.status != 'cancelled' && orderDay == yesterday,
             'accepted' => _adminAwaitingPreparation(o),
             'prepared' => _adminPreparedForDispatch(o),
+            'prepared_or_tracking' => _adminPreparedOrNeedsTracking(o),
+            'tracking_missing' => _requiresAppShipmentTracking(o),
             _ => o.status == filter,
           };
           final matchQuery =
@@ -7888,6 +7890,13 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
                           _OrderFilterChip(
                             label: 'Tayyorlandi',
                             value: 'prepared',
+                            selected: filter,
+                            onTap: (v) => setState(() => filter = v),
+                          ),
+                        if (_enhancedAdminUi && filter == 'prepared_or_tracking')
+                          _OrderFilterChip(
+                            label: 'Tayyor / tracking yo‘q',
+                            value: 'prepared_or_tracking',
                             selected: filter,
                             onTap: (v) => setState(() => filter = v),
                           ),

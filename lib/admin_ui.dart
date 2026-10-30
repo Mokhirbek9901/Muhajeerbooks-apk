@@ -38,7 +38,6 @@ import 'preview_features.dart';
 
 part 'admin_command_center.dart';
 part 'admin_customer_safety.dart';
-part 'soldout_preorder_bulk_admin.dart';
 part 'admin_soldout_bulk.dart';
 
 String _formRequestUuid() {

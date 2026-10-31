@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import 'app_state.dart';
+import 'preorder_partial_customer_page.dart';
 import 'customer_pin_page.dart';
 import 'store_ui.dart' show CheckoutPage;
 import 'design_system.dart';
@@ -356,14 +357,34 @@ class _CustomerPreorderBalancesPageState
         trailing: isContactOnly
             ? const Icon(Icons.lock_outline)
             : const Icon(Icons.chevron_right),
-        onTap: isContactOnly
-            ? null
-            : () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => CheckoutPage(preorderId: ref),
-                ),
-              ).then((_) => refresh()),
+        onTap: isContactOnly ? null : () async {
+          try {
+            if (isWeb) {
+              final partial = await context.read<AppState>()
+                  .webPartialPreorder(ref, 'detail');
+              if (!mounted) return;
+              final hasPartial = ((partial['batches'] as List?) ?? const [])
+                  .whereType<Map>()
+                  .any((b) => b['status'] != 'cancelled');
+              if (hasPartial) {
+                await Navigator.push<void>(context, MaterialPageRoute<void>(
+                  builder: (_) => CustomerPartialPreorderPage(
+                    preorderId: ref, initialDetail: partial),
+                ));
+                if (mounted) await refresh();
+                return;
+              }
+            }
+            if (!mounted) return;
+            await Navigator.push<void>(context, MaterialPageRoute<void>(
+              builder: (_) => CheckoutPage(preorderId: ref),
+            ));
+            if (mounted) await refresh();
+          } catch (e) {
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Zakas ochilmadi: $e')));
+          }
+        },
       ),
     );
   }

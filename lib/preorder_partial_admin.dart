@@ -31,7 +31,7 @@ class _PartialPreorderAdminPageState extends State<_PartialPreorderAdminPage> {
 
   Future<Map<String, dynamic>> rpc(String action,
       [Map<String, dynamic> payload = const {}]) async {
-    final result = await widget.api._rpc('admin_web_preorder_partial', params: {
+    final result = await widget.api.client.rpc('admin_web_preorder_partial', params: {
       'p_secret': widget.api.secret,
       'p_id': widget.preorderId,
       'p_action': action,

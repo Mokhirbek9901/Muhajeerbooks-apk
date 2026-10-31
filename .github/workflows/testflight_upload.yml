@@ -4,9 +4,11 @@ on:
   workflow_dispatch:
   # One-off iOS TestFlight preview branch; no production web/Android deployment.
   push:
-    branches: [ios-preorder-partial-choice-20261101]
+    branches: [ios-book-related-no-reviews-20261101]
     paths:
       - 'lib/admin_command_center.dart'
+      - 'lib/store_ui.dart'
+      - 'lib/book_related_sections.dart'
       - 'lib/preorder_partial_admin.dart'
       - 'lib/preorder_partial_customer_page.dart'
       - 'lib/preorder_balance_page.dart'

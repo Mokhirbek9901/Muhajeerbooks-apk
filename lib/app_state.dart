@@ -2581,6 +2581,42 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     return Map<String, dynamic>.from(value as Map);
   }
 
+  /// Isolated, customer-authorized, server-accounted partial preorder waves.
+  /// Direct RPC avoids changing the legacy customer gateway for installed apps.
+  Future<Map<String, dynamic>> webPartialPreorder(
+    String preorderId,
+    String action, [
+    Map<String, dynamic> payload = const {},
+  ]) async {
+    if (_backend == null || !checkoutIdentityReady || _pinSession == null) {
+      throw StateError('Avval ism va telefoningiz bilan kiring');
+    }
+    final token = _pinSession!;
+    final result = await _backend!.client.rpc(
+      'customer_web_preorder_partial',
+      params: {
+        'p_session': token,
+        'p_id': preorderId,
+        'p_action': action,
+        'p_payload': payload,
+      },
+    );
+    if (token != _pinSession) throw StateError('Profil o‘zgargan, qayta kiring');
+    if (result is! Map) throw StateError('Qisman zakas hisobi olinmadi');
+    return Map<String, dynamic>.from(result);
+  }
+
+  Future<Map<String, dynamic>> submitWebPartialPreorderProof(
+    String preorderId,
+    XFile image,
+  ) async {
+    if (_backend == null || !checkoutIdentityReady) {
+      throw StateError('Avval profilga kiring');
+    }
+    final path = await _backend!.uploadPaymentProof(image);
+    return webPartialPreorder(preorderId, 'proof', {'path': path});
+  }
+
   Future<Map<String, dynamic>> webPreorderInvoice(String id) =>
       _releasePreorder(id, 'detail');
   Future<Map<String, dynamic>> saveWebPreorderDelivery(

@@ -80,8 +80,7 @@ begin
   update private.release_preorder_lines set held=0 where source=p_source and reference=p_id;
  else raise exception 'Amal noto‘g‘ri'; end if;
  return private.release_preorder_detail(p_source,p_id);
-end $function$
-
+end $function$;
 
 create or replace function private.web_partial_cancel_guard() returns trigger
 language plpgsql security definer set search_path='' as $$

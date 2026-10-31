@@ -823,7 +823,7 @@ class _CombinedPreorderDetailPageState
     final direct = '${item['book_image_url'] ?? ''}'.trim();
     if (direct.startsWith('https://')) return direct;
     // Single-title legacy web orders keep their signed image on the record.
-    if (_requestedBooks(data ?? const {}).length == 1) {
+    if (_requestedBooks(data ?? const <String, dynamic>{}).length == 1) {
       final signed = '${widget.record['book_image_url'] ?? ''}'.trim();
       if (signed.startsWith('https://')) return signed;
     }

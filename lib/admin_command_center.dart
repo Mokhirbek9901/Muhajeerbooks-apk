@@ -1052,10 +1052,30 @@ class _CombinedPreorderDetailPageState
                         onPressed: saving ? null : _batch,
                         child: const Text('Kelgan partiyani kiritish'),
                       ),
-                      FilledButton(
-                        onPressed: saving ? null : _invoice,
-                        child: const Text('Yakuniy narx • kitob keldi'),
-                      ),
+                      if (source == 'web' &&
+                          ((d['request_items'] as List?)?.length ?? 0) > 1 &&
+                          d['price_ready'] != true)
+                        FilledButton.icon(
+                          icon: const Icon(Icons.fact_check_outlined),
+                          onPressed: saving ? null : () async {
+                            await Navigator.push<void>(
+                              context,
+                              MaterialPageRoute<void>(
+                                builder: (_) => _PartialPreorderAdminPage(
+                                  api: widget.api,
+                                  preorderId: reference,
+                                ),
+                              ),
+                            );
+                            if (mounted) await _load();
+                          },
+                          label: const Text('Kelgan kitoblarni alohida belgilash'),
+                        )
+                      else
+                        FilledButton(
+                          onPressed: saving ? null : _invoice,
+                          child: const Text('Yakuniy narx • kitob keldi'),
+                        ),
                     ],
                     if (d['price_ready'] == true &&
                         d['payment_state'] != 'cancelled' &&

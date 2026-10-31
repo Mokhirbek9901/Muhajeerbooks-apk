@@ -1040,7 +1040,8 @@ class _CombinedPreorderDetailPageState
                         onPressed: saving ? null : () => _proof(true),
                         child: const Text('Qolgan to‘lov cheki'),
                       ),
-                    if (d['status'] == 'waiting' || d['status'] == 'contacted')
+                    if (d['partial_active'] != true &&
+                        (d['status'] == 'waiting' || d['status'] == 'contacted'))
                       FilledButton(
                         onPressed: saving
                             ? null
@@ -1087,7 +1088,8 @@ class _CombinedPreorderDetailPageState
                           'To‘lovni tasdiqlash • jo‘natishga o‘tkazish',
                         ),
                       ),
-                    if (d['status'] != 'cancelled' &&
+                    if (d['partial_active'] != true &&
+                        d['status'] != 'cancelled' &&
                         d['converted_order_id'] == null)
                       TextButton(
                         onPressed: saving ? null : _cancel,

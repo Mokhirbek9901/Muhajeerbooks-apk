@@ -166,6 +166,7 @@ class _AdminSectionPage extends StatelessWidget {
   );
 }
 
+/// TestFlight: multi-title partial arrivals are accounted in an isolated ledger.
 /// One read-only timeline for BOTH native and web advance reservations.
 /// Administrative actions remain in their corresponding established screens.
 class _CombinedPreorderPage extends StatefulWidget {

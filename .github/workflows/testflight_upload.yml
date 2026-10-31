@@ -2,6 +2,11 @@ name: Build and Upload iOS to TestFlight
 
 on:
   workflow_dispatch:
+  # One-off iOS TestFlight preview branch; no production web/Android deployment.
+  push:
+    branches: [ios-preorder-items-images-20261031]
+    paths:
+      - 'lib/admin_command_center.dart'
 
 permissions:
   actions: read

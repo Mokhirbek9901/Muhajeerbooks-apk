@@ -4,9 +4,14 @@ on:
   workflow_dispatch:
   # One-off iOS TestFlight preview branch; no production web/Android deployment.
   push:
-    branches: [ios-preorder-items-images-20261031]
+    branches: [ios-preorder-partial-choice-20261101]
     paths:
       - 'lib/admin_command_center.dart'
+      - 'lib/preorder_partial_admin.dart'
+      - 'lib/preorder_partial_customer_page.dart'
+      - 'lib/preorder_balance_page.dart'
+      - 'lib/app_state.dart'
+      - 'lib/admin_ui.dart'
 
 permissions:
   actions: read

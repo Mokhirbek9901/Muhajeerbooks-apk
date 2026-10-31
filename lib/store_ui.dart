@@ -5199,6 +5199,7 @@ class BookDetailPage extends StatelessWidget {
                         : Column(
                             children: [cover, const SizedBox(height: 26), info],
                           ),
+                    // Discover related catalog books for every detail page.
                     const SizedBox(height: 26),
                     _BookRelatedSections(book: b),
                   ],

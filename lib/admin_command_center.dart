@@ -796,9 +796,131 @@ class _CombinedPreorderDetailPageState
     }
   }
 
+
+  // A multi-book request remains a list in request_items until its final
+  // prices are approved. The invoice's "items" list is EMPTY at that stage.
+  // Never replace the original request with its "+ N turdagi kitob" title.
+  List<Map<String, dynamic>> _requestedBooks(Map<String, dynamic> detail) {
+    final fromDetail = (detail['request_items'] as List?) ?? const [];
+    final fromList = (widget.record['request_items'] as List?) ?? const [];
+    final raw = fromDetail.isNotEmpty ? fromDetail : fromList;
+    return raw
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  // The admin list returns short-lived, server-signed URLs for each private
+  // uploaded cover. Match on storage path, not the book title or row position.
+  String _requestedBookImage(Map<String, dynamic> item) {
+    final path = '${item['book_image_path'] ?? ''}'.trim();
+    for (final raw in (widget.record['request_items'] as List?) ?? const []) {
+      if (raw is! Map || path.isEmpty ||
+          '${raw['book_image_path'] ?? ''}' != path) continue;
+      final signed = '${raw['book_image_url'] ?? ''}'.trim();
+      if (signed.startsWith('https://')) return signed;
+    }
+    final direct = '${item['book_image_url'] ?? ''}'.trim();
+    if (direct.startsWith('https://')) return direct;
+    // Single-title legacy web orders keep their signed image on the record.
+    if (_requestedBooks(data ?? const {}).length == 1) {
+      final signed = '${widget.record['book_image_url'] ?? ''}'.trim();
+      if (signed.startsWith('https://')) return signed;
+    }
+    return '';
+  }
+
+  void _showRequestedBookImage(String title, String url) {
+    if (url.isEmpty) return;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog(
+        child: SizedBox(
+          width: MediaQuery.sizeOf(ctx).width * .9,
+          height: MediaQuery.sizeOf(ctx).height * .7,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w800)),
+              ),
+              Expanded(
+                child: InteractiveViewer(
+                  child: Image.network(url, fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) =>
+                        const Center(child: Text('Rasm ochilmadi. Sahifani yangilang.'))),
+                ),
+              ),
+              TextButton(onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Yopish')),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _requestedBookCard(Map<String, dynamic> book, int index) {
+    final title = '${book['book_title'] ?? book['title'] ?? 'Kitob'}';
+    final quantity = (book['quantity'] as num?)?.toInt() ?? 1;
+    final url = _requestedBookImage(book);
+    final placeholder = Container(
+      width: 68,
+      height: 90,
+      color: const Color(0xFFEAF1EE),
+      alignment: Alignment.center,
+      child: const Icon(Icons.menu_book_outlined, color: AppColors.navy),
+    );
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            InkWell(
+              onTap: url.isEmpty ? null : () => _showRequestedBookImage(title, url),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: url.isEmpty ? placeholder : Image.network(
+                  url,
+                  width: 68,
+                  height: 90,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => placeholder,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${index + 1}. $title',
+                      style: const TextStyle(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 5),
+                  Text('Miqdor: $quantity dona'),
+                  if (url.isNotEmpty)
+                    const Text('Rasmni kattalashtirish uchun bosing',
+                        style: TextStyle(fontSize: 11, color: AppColors.muted)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final d = data;
+    final requestedBooks =
+        d == null ? <Map<String, dynamic>>[] : _requestedBooks(d);
+    final requestedUnits = requestedBooks.fold<int>(
+        0, (sum, book) => sum + ((book['quantity'] as num?)?.toInt() ?? 1));
     return Scaffold(
       appBar: AppBar(
         title: const Text('Oldindan zakas hisobi'),
@@ -839,6 +961,35 @@ class _CombinedPreorderDetailPageState
                         fontSize: 16,
                       ),
                     ),
+                  ),
+                if (requestedBooks.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'Buyurtmadagi barcha kitoblar '
+                    '(${requestedBooks.length} tur, $requestedUnits dona)',
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  for (var i = 0; i < requestedBooks.length; i++)
+                    _requestedBookCard(requestedBooks[i], i),
+                  if ((d['items'] as List?)?.isEmpty ?? true)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 10),
+                      child: Text(
+                        'Yakuniy narx hali belgilanmagan. Yuqorida mijoz '
+                        'yuborgan barcha kitoblar ko‘rsatilgan.',
+                        style: TextStyle(fontSize: 12, color: AppColors.muted),
+                      ),
+                    ),
+                ],
+                if ((d['items'] as List?)?.isNotEmpty ?? false)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 12),
+                    child: Text('Yakuniy hisobdagi kitoblar',
+                        style: TextStyle(fontWeight: FontWeight.w800)),
                   ),
                 for (final raw in (d['items'] as List?) ?? const [])
                   ListTile(

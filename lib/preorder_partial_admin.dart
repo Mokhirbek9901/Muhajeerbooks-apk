@@ -53,6 +53,33 @@ class _PartialPreorderAdminPageState extends State<_PartialPreorderAdminPage> {
     refresh();
   }
 
+  /// Offer an exact catalogue match automatically; ambiguous titles still
+  /// require an explicit selection to avoid reserving the wrong inventory.
+  void syncEntries(Map<String, dynamic> response, List<Book> all) {
+    entries.clear();
+    for (final raw in (response['items'] as List?) ?? const []) {
+      if (raw is! Map) continue;
+      final qty = (raw['remaining_quantity'] as num?)?.toInt() ?? 0;
+      final idx = (raw['index'] as num?)?.toInt();
+      if (qty <= 0 || idx == null) continue;
+      final entry = _PartialBookEntry(idx, qty);
+      final id = '${raw['book_id'] ?? ''}';
+      final title = '${raw['book_title'] ?? raw['title'] ?? ''}'.trim().toLowerCase();
+      final exactId = all.where((b) =>
+          b.isActive && b.stock > 0 && b.currentPrice > 0 && b.id == id)
+          .toList();
+      final exactTitle = all.where((b) =>
+          b.isActive && b.stock > 0 && b.currentPrice > 0 &&
+          b.title.trim().toLowerCase() == title).toList();
+      final matches = exactId.isNotEmpty ? exactId : exactTitle;
+      if (matches.length == 1) {
+        entry.book = matches.single;
+        entry.price = matches.single.currentPrice;
+      }
+      entries[idx] = entry;
+    }
+  }
+
   Future<void> refresh() async {
     if (busy) return;
     setState(() => busy = true);
@@ -61,14 +88,7 @@ class _PartialPreorderAdminPageState extends State<_PartialPreorderAdminPage> {
       if (!mounted) return;
       final response = Map<String, dynamic>.from(results[0] as Map);
       final all = (results[1] as List).whereType<Book>().toList();
-      final remaining = ((response['items'] as List?) ?? const [])
-        .whereType<Map>().where((x) => ((x['remaining_quantity'] as num?)?.toInt() ?? 0) > 0);
-      entries.clear();
-      for (final item in remaining) {
-        final idx = (item['index'] as num).toInt();
-        final qty = (item['remaining_quantity'] as num).toInt();
-        entries[idx] = _PartialBookEntry(idx, qty);
-      }
+      syncEntries(response, all);
       setState(() { detail = response; catalog = all; error = null; });
     } catch (e) {
       if (mounted) setState(() => error = '$e');
@@ -121,10 +141,13 @@ class _PartialPreorderAdminPageState extends State<_PartialPreorderAdminPage> {
     try {
       final next=await rpc(action,payload);
       if (!mounted) return;
-      setState(()=>detail=next);
       if (action=='prepare' || action=='cancel_prepare' || action=='confirm') {
         final nextCatalog=await widget.api.books();
-        if (mounted) setState(()=>catalog=nextCatalog);
+        if (!mounted) return;
+        syncEntries(next, nextCatalog);
+        setState(() { detail = next; catalog = nextCatalog; });
+      } else {
+        setState(() => detail = next);
       }
     } catch(e) {
       if(mounted) ScaffoldMessenger.of(context)
@@ -264,7 +287,7 @@ class _PartialPreorderAdminPageState extends State<_PartialPreorderAdminPage> {
         if(current.isEmpty && d['closed']!=true) ...[
           const Text('Kelgan kitoblarni tanlang',
             style:TextStyle(fontWeight:FontWeight.w900,fontSize:18)),
-          const Text('52 ta bo‘lsa ham, faqat yetib kelgan kitoblarni belgilang. '
+          const Text('Faqat yetib kelgan kitoblarni belgilang. '
             'Rasmni bosib kattalashtirish mumkin.'),
           const SizedBox(height:8),
           for(final raw in originals) ...[
@@ -316,7 +339,7 @@ class _PartialPreorderAdminPageState extends State<_PartialPreorderAdminPage> {
                           initialValue:'${e.quantity}',
                           keyboardType:TextInputType.number,
                           decoration:const InputDecoration(labelText:'Kelgan soni'),
-                          onChanged:(v)=>e.quantity=int.tryParse(v)??0,
+                          onChanged:(v)=>setState(()=>e.quantity=int.tryParse(v)??0),
                         )),
                         const SizedBox(width:12),
                         Expanded(child:TextFormField(
@@ -324,7 +347,7 @@ class _PartialPreorderAdminPageState extends State<_PartialPreorderAdminPage> {
                           initialValue:'${e.price}',
                           keyboardType:TextInputType.number,
                           decoration:const InputDecoration(labelText:'Bitta narxi ₩'),
-                          onChanged:(v)=>e.price=int.tryParse(v)??0,
+                          onChanged:(v)=>setState(()=>e.price=int.tryParse(v)??0),
                         )),
                       ]),
                     ],

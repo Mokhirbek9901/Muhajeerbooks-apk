@@ -1,6 +1,0 @@
-TestFlight-only validation and upload requested for scoped October 10 batch manual cost rule.
-The October 10, 2026 finance import ID 7 uses only explicit manually confirmed unit costs for reconciliation.
-All other finance imports, August baseline, catalog groups and historical lots retain prior full unit-cost comparisons.
-Do not change finance expenses, stock, sales, orders or existing batch prices.
-iOS marketing version 2.5.22 with a new unique internal build number.
-Do not submit to public App Store or Play Market and do not release web.

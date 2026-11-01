@@ -862,6 +862,57 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
     if (mounted && saved == true) _refresh();
   }
 
+  // The initial balance is a real, pre-existing finance import with saved
+  // receipt lines. Give it a prominent edit entry instead of making the owner
+  // scroll past dozens of records to reach the inline editor.
+  // Editing uses the same authenticated, optimistic-locking batch RPC; since
+  // inventory_applied=false, it does not post stock or finance again.
+  Future<void> _openOpeningStockEditor({
+    required String importId,
+    required String title,
+    required List<Map<String, dynamic>> lines,
+  }) async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (pageContext) => Scaffold(
+          backgroundColor: UzbekCustomerColors.background,
+          appBar: AppBar(
+            title: const Text('Boshlang‘ich qoldiq kitoblari'),
+            backgroundColor: UzbekCustomerColors.background,
+          ),
+          body: ListView(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 32),
+            children: [
+              Text(title, style: const TextStyle(
+                fontWeight: FontWeight.w900, fontSize: 18,
+                color: UzbekCustomerColors.navy)),
+              const SizedBox(height: 8),
+              const Text(
+                'Bu tarixiy partiyada kitoblarning dona soni va '
+                'o‘sha partiyadagi tannarxini o‘zgartiring. '
+                'Kitob qo‘shish yoki noto‘g‘risini olib tashlash ham mumkin. '
+                'Barcha o‘zgarishlar faqat “Saqlash” bosilganda yoziladi. '
+                'Moliya xarajati, hozirgi ombor va eski sotuvlar o‘zgarmaydi.',
+                style: TextStyle(
+                  color: UzbekCustomerColors.textMuted,
+                  fontSize: 12, height: 1.45)),
+              const SizedBox(height: 16),
+              WebBatchInlineEditor(
+                key: ValueKey('opening-stock-editor:$importId'),
+                secret: widget.secret,
+                kind: 'import',
+                batchKey: importId,
+                lines: lines,
+                onSaved: () => Navigator.of(pageContext).pop(true),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (mounted && saved == true) _refresh();
+  }
+
   Widget _purchaseTile(Map<String, dynamic> item, int index,
       List<Map<String,dynamic>> transports,
       List<Map<String,dynamic>> savedLines) {
@@ -916,6 +967,29 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
           const Divider(height: 16),
           _detail('JAMI — kitoblar + transport', _batchMoney(grandTotal)),
           _detail('Partiya sanasi', _batchDate(bought)),
+          if (isOpeningStock) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                key: const ValueKey('opening-stock-edit-books'),
+                onPressed: () => _openOpeningStockEditor(
+                  importId: (item['id'] ?? '').toString(),
+                  title: title,
+                  lines: matchedLines,
+                ),
+                icon: const Icon(Icons.edit_note_rounded),
+                label: const Text('Kitoblarni tahrirlash'),
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              '52 ta yoki undan ko‘p kitob bo‘lsa ham, tahrirlash '
+              'alohida sahifada ochiladi. Moliya va ombor qayta yozilmaydi.',
+              style: TextStyle(fontSize: 11,
+                color: UzbekCustomerColors.textMuted),
+            ),
+          ],
           if (grouped) ...[
             const SizedBox(height: 12),
             SizedBox(width: double.infinity, child: FilledButton.icon(
@@ -984,7 +1058,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
                   ).toList(),
                   onSaved:_refresh),
               ]
-          else
+          else if (!isOpeningStock)
             WebBatchInlineEditor(
               key:ValueKey('import:'+item['id'].toString()),
               secret:widget.secret,kind:'import',

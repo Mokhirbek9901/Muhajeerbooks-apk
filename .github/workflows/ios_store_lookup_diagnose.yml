@@ -1,0 +1,39 @@
+name: Read-only iOS public update diagnostics
+on:
+  push:
+    branches: [fix-ios-update-check-build-20261102]
+    paths: ['.github/workflows/ios_store_lookup_diagnose.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Compare App Store Connect release state and actual iTunes lookup by storefront
+        run: |
+          ruby .github/release_tools/inspect_app_store_state.rb
+          python3 - <<'PY'
+          import json, urllib.request, urllib.parse
+          app_id="6817641775"
+          for country in ("kr","us","uz"):
+            url=f"https://itunes.apple.com/lookup?id={app_id}&country={country}&_={__import__('time').time_ns()}"
+            try:
+              req=urllib.request.Request(url,headers={"User-Agent":"MuhajeerBooks-UpdateAudit/1.0","Cache-Control":"no-cache"})
+              with urllib.request.urlopen(req,timeout=14) as res:
+                data=json.loads(res.read())
+              info=data.get("results",[{}])
+              first=info[0] if info else {}
+              print("ITUNES",country,json.dumps({"resultCount":data.get("resultCount"),"version":first.get("version"),"bundleId":first.get("bundleId"),"minimumOsVersion":first.get("minimumOsVersion"),"trackViewUrl":first.get("trackViewUrl")}))
+            except Exception as exc:
+              print("ITUNES_ERROR",country,type(exc).__name__,str(exc)[:180])
+          PY

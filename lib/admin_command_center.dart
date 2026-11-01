@@ -82,14 +82,14 @@ bool _adminPreparedForDispatch(ShopOrder order) =>
     customers.add(phone.length >= 8 ? phone : fallback);
     final quantity = row['quantity'];
     if (quantity is num) {
-      books += quantity.toInt().clamp(0, 1000000);
+      books += quantity.toInt().clamp(0, 1000000).toInt();
     } else {
       final children = row['request_items'];
       if (children is List) {
         for (final item in children) {
           if (item is Map) {
             final q = int.tryParse('${item['quantity'] ?? 0}') ?? 0;
-            books += q.clamp(0, 1000000);
+            books += q.clamp(0, 1000000).toInt();
           }
         }
       }

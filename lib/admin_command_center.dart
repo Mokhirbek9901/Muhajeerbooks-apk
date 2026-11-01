@@ -10,6 +10,51 @@ String _combinedPreorderContact(Map<String, dynamic> row) {
   return '$platform: @$handle';
 }
 
+/// The administrator's preorder list contains both native (catalog-linked)
+/// and web (uploaded image) reservations. Do not confuse private Storage
+/// object paths with displayable URLs. Web paths are signed by web-preorders.
+@visibleForTesting
+String preorderCoverUrl(Map<String, dynamic> row,
+    Map<String, String> catalogCovers) {
+  for (final key in ['_cover_image_url', 'book_image_url']) {
+    final url = (row[key] ?? '').toString().trim();
+    if (url.startsWith('https://')) return url;
+  }
+  final items = row['request_items'];
+  if (items is List) {
+    for (final item in items) {
+      if (item is! Map) continue;
+      final url = (item['book_image_url'] ?? '').toString().trim();
+      if (url.startsWith('https://')) return url;
+      final id = (item['book_id'] ?? '').toString();
+      if (catalogCovers.containsKey(id)) return catalogCovers[id]!;
+    }
+  }
+  final id = (row['book_id'] ?? '').toString();
+  return catalogCovers[id] ?? '';
+}
+
+class _PreorderBookCover extends StatelessWidget {
+  const _PreorderBookCover({required this.url, this.width=54, this.height=72});
+  final String url;
+  final double width, height;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(9),
+    child: Container(
+      width: width, height: height,
+      color: const Color(0xFFEAF4F1),
+      child: url.startsWith('https://')
+        ? Image.network(url,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => const Icon(
+              Icons.menu_book_outlined, color: AppColors.navy))
+        : const Icon(Icons.menu_book_outlined, color: AppColors.navy),
+    ),
+  );
+}
+
 /// Shared definitions for the dashboard cards and order-list filters. Counts
 /// and drill-downs must include exactly the same orders, without modifying
 /// order status, inventory, or sales data.
@@ -242,6 +287,26 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
         errors.add('Web oldindan zakazlari to‘liq yuklanmadi: $e');
       }
     }
+    // A native preorder only carries a book ID; its cover comes from the
+    // catalog. Web uploads use temporary signed URLs from the web-preorders
+    // endpoint. Resolve these without editing the stored preorder records.
+    try {
+      final books = await widget.api.books();
+      final covers = <String, String>{
+        for (final book in books)
+          book.id: book.previewImageUrl.trim().isNotEmpty
+              ? book.previewImageUrl.trim()
+              : book.imageUrl.trim(),
+      };
+      for (final row in rows) {
+        row['_cover_image_url'] = preorderCoverUrl(row, covers);
+      }
+    } catch (_) {
+      // A catalog outage must not hide existing preorder records.
+      for (final row in rows) {
+        row['_cover_image_url'] = preorderCoverUrl(row, const {});
+      }
+    }
     rows.sort((a, b) {
       final ad = DateTime.tryParse('${a['created_at'] ?? ''}');
       final bd = DateTime.tryParse('${b['created_at'] ?? ''}');
@@ -402,6 +467,9 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 13,
                           vertical: 8,
+                        ),
+                        leading: _PreorderBookCover(
+                          url: '${row['_cover_image_url'] ?? ''}',
                         ),
                         title: Text(
                           title,
@@ -818,6 +886,13 @@ class _CombinedPreorderDetailPageState
           : ListView(
               padding: const EdgeInsets.all(20),
               children: [
+                Center(
+                  child: _PreorderBookCover(
+                    url: '${widget.record['_cover_image_url'] ?? ''}',
+                    width: 135, height: 174,
+                  ),
+                ),
+                const SizedBox(height: 12),
                 Text(
                   '${d['title'] ?? d['book_title'] ?? 'Kitob'}',
                   style: const TextStyle(

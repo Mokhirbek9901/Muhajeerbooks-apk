@@ -55,6 +55,110 @@ class _PreorderBookCover extends StatelessWidget {
   );
 }
 
+/// Normalize display-only rows for the original preorder receipt design.
+/// The stored request_items list is the source of truth for multi-book orders;
+/// price/inventory/order data is never updated by this presentation.
+@visibleForTesting
+List<Map<String, dynamic>> preorderDetailDisplayItems(
+  Map<String, dynamic> detail,
+  Map<String, dynamic> record,
+) {
+  final recordItems = record['request_items'];
+  final detailItems = detail['request_items'];
+  final requested = recordItems is List && recordItems.isNotEmpty
+      ? recordItems
+      : detailItems is List && detailItems.isNotEmpty
+          ? detailItems
+          : const [];
+  final rows = <Map<String, dynamic>>[];
+  for (final raw in requested) {
+    if (raw is! Map) continue;
+    final item = Map<String, dynamic>.from(raw);
+    final qty = int.tryParse('${item['quantity'] ?? 1}') ?? 1;
+    rows.add({
+      'title': '${item['book_title'] ?? item['title'] ?? 'Kitob'}',
+      'quantity': qty,
+      'image_url': '${item['book_image_url'] ?? ''}',
+    });
+  }
+  if (rows.isNotEmpty) {
+    if (rows.length == 1 &&
+        !'${rows.first['image_url']}'.startsWith('https://')) {
+      rows.first['image_url'] = preorderCoverUrl(record, const {});
+    }
+    return rows;
+  }
+  // Invoiced native orders may contain several item lines but no web
+  // request_items. Keep all their titles and quantities visible.
+  final billed = detail['items'];
+  if (billed is List && billed.isNotEmpty) {
+    for (final raw in billed) {
+      if (raw is! Map) continue;
+      rows.add({
+        'title': '${raw['title'] ?? raw['book_title'] ?? 'Kitob'}',
+        'quantity': int.tryParse('${raw['quantity'] ?? 1}') ?? 1,
+        'image_url': billed.length == 1
+            ? preorderCoverUrl(record, const {})
+            : '${raw['book_image_url'] ?? ''}',
+      });
+    }
+  }
+  if (rows.isNotEmpty) return rows;
+  return [{
+    'title': '${detail['title'] ?? detail['book_title'] ??
+                 record['title'] ?? record['book_title'] ?? 'Kitob'}',
+    'quantity': int.tryParse('${detail['quantity'] ??
+               record['quantity'] ?? 1}') ?? 1,
+    'image_url': preorderCoverUrl(record, const {}),
+  }];
+}
+
+/// Full-screen image preview for the historical tap-to-enlarge receipt.
+Future<void> _showPreorderCoverFullSize(BuildContext context, String url) async {
+  if (!url.startsWith('https://')) return;
+  await showDialog<void>(
+    context: context,
+    builder: (dialog) => Dialog(
+      insetPadding: const EdgeInsets.all(12),
+      backgroundColor: Colors.black,
+      child: Stack(
+        children: [
+          SizedBox(
+            width: double.infinity,
+            height: MediaQuery.sizeOf(dialog).height * .78,
+            child: InteractiveViewer(
+              minScale: 0.8,
+              maxScale: 4,
+              child: Center(
+                child: Image.network(
+                  url,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Text(
+                    'Rasm ochilmadi',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 8, top: 8,
+            child: IconButton(
+              tooltip: 'Yopish',
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0xB0000000),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.pop(dialog),
+              icon: const Icon(Icons.close_rounded),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 /// Shared definitions for the dashboard cards and order-list filters. Counts
 /// and drill-downs must include exactly the same orders, without modifying
 /// order status, inventory, or sales data.
@@ -923,13 +1027,6 @@ class _CombinedPreorderDetailPageState
           : ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                Center(
-                  child: _PreorderBookCover(
-                    url: '${widget.record['_cover_image_url'] ?? ''}',
-                    width: 135, height: 174,
-                  ),
-                ),
-                const SizedBox(height: 12),
                 Text(
                   '${d['title'] ?? d['book_title'] ?? 'Kitob'}',
                   style: const TextStyle(
@@ -940,41 +1037,6 @@ class _CombinedPreorderDetailPageState
                 Text(
                   '${d['customer_name']} • ${d['phone']}\nHolat: ${d['status']} • To‘lov: ${d['payment_state']}',
                 ),
-                // Multi-book web preorder covers are signed on the admin list
-                // response. Display every requested title/photo, not just the
-                // first thumbnail. Do not expose private object paths.
-                if (widget.record['request_items'] is List &&
-                    (widget.record['request_items'] as List).length > 1) ...[
-                  const SizedBox(height: 14),
-                  const Text('Buyurtma qilingan kitoblarning rasmlari',
-                    style: TextStyle(fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 10,
-                    children: [
-                      for (final entry in widget.record['request_items'] as List)
-                        if (entry is Map)
-                          SizedBox(
-                            width: 104,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _PreorderBookCover(
-                                  url: '${entry['book_image_url'] ?? ''}',
-                                  width: 96, height: 112,
-                                ),
-                                const SizedBox(height: 3),
-                                Text('${entry['book_title'] ?? 'Kitob'}',
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 11)),
-                              ],
-                            ),
-                          ),
-                    ],
-                  ),
-                ],
                 if (_combinedPreorderContact(widget.record).isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 8, bottom: 10),
@@ -987,15 +1049,70 @@ class _CombinedPreorderDetailPageState
                       ),
                     ),
                   ),
-                for (final raw in (d['items'] as List?) ?? const [])
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text('${(raw as Map)['title']}'),
-                    subtitle: Text(
-                      '${raw['quantity']} × ${_won((raw['unit_price'] as num).toInt())}',
+                // Restore the previous vertical book cards: cover on the
+                // left, numbered title and quantity on the right. Each image
+                // opens the same zoomable preview the owner had previously.
+                ...preorderDetailDisplayItems(d, widget.record)
+                    .asMap().entries.map((entry) {
+                  final item = entry.value;
+                  final cover = '${item['image_url'] ?? ''}';
+                  final canPreview = cover.startsWith('https://');
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 9),
+                    elevation: 0,
+                    color: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(23),
+                      side: const BorderSide(color: AppColors.border),
                     ),
-                    trailing: Text('Band: ${raw['held']}'),
-                  ),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: canPreview
+                          ? () => _showPreorderCoverFullSize(context, cover)
+                          : null,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 10),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            _PreorderBookCover(
+                              url: cover, width: 67, height: 91),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${entry.key + 1}. ${item['title']}',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w900,
+                                      color: AppColors.navy,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'Miqdor: ${item['quantity']} dona',
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    canPreview
+                                      ? 'Rasmni kattalashtirish uchun bosing'
+                                      : 'Kitob muqovasi mavjud emas',
+                                    style: const TextStyle(
+                                      fontSize: 12, color: AppColors.muted),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
                 const Divider(),
                 Text(
                   'Kitob va pochta: ${_won(((d['base_total'] as num?)?.toInt() ?? 0) + ((d['extra_total'] as num?)?.toInt() ?? 0))}',

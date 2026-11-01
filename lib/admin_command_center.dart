@@ -66,6 +66,38 @@ bool _adminPreparedForDispatch(ShopOrder order) =>
     (order.status == 'accepted' || order.status == 'paid') &&
     order.preparedAt != null;
 
+/// Dashboard and filtered preorder list both count distinct customers and
+/// the sum of actual ordered units, never merely the number of request rows.
+@visibleForTesting
+({int people, int books, int requests}) preorderRowCounts(
+    Iterable<Map<String, dynamic>> rows) {
+  final customers = <String>{};
+  var books = 0;
+  var requests = 0;
+  for (final row in rows) {
+    requests++;
+    final phone = (row['phone'] ?? '').toString()
+        .replaceAll(RegExp(r'[^0-9]'), '');
+    final fallback = '${row['_origin'] ?? 'native'}:${row['id'] ?? requests}';
+    customers.add(phone.length >= 8 ? phone : fallback);
+    final quantity = row['quantity'];
+    if (quantity is num) {
+      books += quantity.toInt().clamp(0, 1000000);
+    } else {
+      final children = row['request_items'];
+      if (children is List) {
+        for (final item in children) {
+          if (item is Map) {
+            final q = int.tryParse('${item['quantity'] ?? 0}') ?? 0;
+            books += q.clamp(0, 1000000);
+          }
+        }
+      }
+    }
+  }
+  return (people: customers.length, books: books, requests: requests);
+}
+
 /// Keep already prepared orders and newly shipped app parcels waiting for
 /// their tracking number on the SAME dashboard tile and filtered list.
 bool _adminPreparedOrNeedsTracking(ShopOrder order) =>
@@ -367,6 +399,7 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
             _ => status != 'cancelled',
           };
         }).toList();
+        final totals = preorderRowCounts(rows);
         return RefreshIndicator(
           onRefresh: () async {
             final next = await _load();
@@ -377,13 +410,15 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 35),
             children: [
               Text(
-                '${rows.length} ta ${statusFilter == 'cancelled' ? 'bekor qilingan' : 'oldindan buyurtma'}',
+                '${totals.people} kishi · ${totals.books} ta kitob',
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
                   color: AppColors.navy,
                 ),
               ),
+              Text('${totals.requests} ta ${statusFilter == 'cancelled' ? 'bekor qilingan' : 'faol'} zakaz yozuvi',
+                style: const TextStyle(fontSize: 12, color: AppColors.muted)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 7,

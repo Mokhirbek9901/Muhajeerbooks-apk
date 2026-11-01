@@ -1,0 +1,6 @@
+Owner continuation: Muhajeer Books iOS TestFlight-only admin partiya cost comparison update, 2026-11-01.
+Confirmed the separate purchase ₩827,840 and transport ₩363,000 expenses.
+Display only explicitly manually confirmed batch-specific costs, track unconfirmed catalog prefill separately, don't show a misleading final difference.
+Allow confirming a price even when equal to suggested catalog unit cost, protected by admin RPC.
+Preserve existing finance expenses, stock, orders, sales and historical lot prices.
+Use iOS 2.5.22 marketing with new unique internal build number; do not release to public App Store, Play Market or production web.

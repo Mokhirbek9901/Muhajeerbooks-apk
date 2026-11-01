@@ -104,7 +104,8 @@ class _AdminHomeData {
     required this.acceptedOrders,
     required this.preparedOrders,
     required this.soldOutCount,
-    this.preorderCount,
+    this.preorderPeople,
+    this.preorderBooks,
   });
   final List<Book> books;
   final List<ShopOrder> orders;
@@ -113,7 +114,8 @@ class _AdminHomeData {
   final int acceptedOrders;
   final int preparedOrders;
   final int soldOutCount;
-  final int? preorderCount;
+  final int? preorderPeople;
+  final int? preorderBooks;
 }
 
 class _AdminMenuAction {
@@ -1439,21 +1441,22 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
         .where((book) => book.isActive && book.stock == 0)
         .length;
 
-    // The metric is shown only when every relevant source answers. A failed
-    // endpoint must not silently be counted as zero customer orders.
-    int? preorderCount;
+    // Server counts unique customers (normalized phone across sources) and
+    // booked units separately. Hide both counts if either cannot be verified.
+    // This read-only endpoint excludes cancelled and admin-hidden records.
+    int? preorderPeople;
+    int? preorderBooks;
     try {
-      // Server counts both native and web reservations and excludes all
-      // cancelled rows. Insights intentionally contains waiting-only native
-      // records, so its length is NOT a reliable active-order count.
-      final count = await widget.api._rpc(
-        'admin_active_preorder_count',
+      final raw = await widget.api._rpc(
+        'admin_active_preorder_summary',
         params: {'p_secret': widget.api.secret},
       ).timeout(const Duration(seconds: 7));
-      preorderCount = (count as num).toInt();
+      final counts = Map<String, dynamic>.from(raw as Map);
+      preorderPeople = (counts['people'] as num).toInt();
+      preorderBooks = (counts['books'] as num).toInt();
     } catch (_) {
-      // Never display a stale or misleading order count as zero.
-      preorderCount = null;
+      preorderPeople = null;
+      preorderBooks = null;
     }
     return _AdminHomeData(
       books: books,
@@ -1463,7 +1466,8 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
       acceptedOrders: acceptedOrders,
       preparedOrders: preparedOrders,
       soldOutCount: soldOutCount,
-      preorderCount: preorderCount,
+      preorderPeople: preorderPeople,
+      preorderBooks: preorderBooks,
     );
   }
 
@@ -1868,9 +1872,9 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
                       ),
                       (
                         'Oldindan zakazlar',
-                        data.preorderCount == null
+                        data.preorderPeople == null || data.preorderBooks == null
                             ? '—'
-                            : '${data.preorderCount} ta',
+                            : '${data.preorderPeople} kishi · ${data.preorderBooks} ta kitob',
                         Icons.event_available_outlined,
                         () => unawaited(_openPreorderMetric()),
                       ),

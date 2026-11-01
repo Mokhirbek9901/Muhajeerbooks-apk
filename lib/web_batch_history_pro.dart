@@ -49,6 +49,15 @@ Map<String, int> manualBatchCostBreakdown(
   };
 }
 
+/// Only the finance-import receipt for the 2026-10-10 purchase uses
+/// explicitly confirmed costs; all other batches retain full saved-cost math.
+@visibleForTesting
+bool isOctober10ManualCostBatch(Map<String, dynamic> item) =>
+    (item['id'] ?? '').toString() == '7' &&
+    item['source'] == 'finance_record' &&
+    (item['purchase_date'] ?? '').toString().startsWith('2026-10-10') &&
+    !(item['members'] is List && (item['members'] as List).isNotEmpty);
+
 /// A saved catalog batch must remain visible in the main Partiyalar list,
 /// even when it has no separate finance expense or import record.
 @visibleForTesting
@@ -839,9 +848,12 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
     required int purchaseExpense,
     required int transportExpense,
     required List<Map<String,dynamic>> lines,
+    required bool manualCostOnly,
   }) {
     final summary = manualBatchCostBreakdown(lines);
-    final entered = summary['confirmed_cost']!;
+    final entered = manualCostOnly ? summary['confirmed_cost']!
+        : lines.fold<int>(0,(total,line)=>
+            total+_batchNum(line['quantity'])*_batchNum(line['unit_cost']));
     final qty = summary['total_qty']!;
     final confirmedQty = summary['confirmed_qty']!;
     final missingNames = summary['pending_names']!;
@@ -871,9 +883,10 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
         _detail('Moliyadagi jami xarajat',
           _batchMoney(purchaseExpense+transportExpense)),
         const SizedBox(height:8),
-        _detail('Qo‘lda tasdiqlangan tan narx ($confirmedQty / $qty dona)',
-          _batchMoney(entered)),
-        if (missingNames > 0) ...[
+        if (manualCostOnly) ...[
+          _detail('Qo‘lda tasdiqlangan tan narx ($confirmedQty / $qty dona)',
+            _batchMoney(entered)),
+          if (missingNames > 0) ...[
           const SizedBox(height: 6),
           _detail('Tan narxi tasdiqlanmagan',
             '$missingNames nom, $missingQty dona'),
@@ -904,6 +917,28 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
             style: TextStyle(fontSize: 11.5,
               fontWeight: FontWeight.w700,
               color: UzbekCustomerColors.textMuted, height: 1.35)),
+        ] else ...[
+          _detail('Bu partiyaga kiritilgan kitoblar tan narxi ($qty dona)',
+            _batchMoney(entered)),
+          if (lines.isNotEmpty) ...[
+            const Divider(),
+            _detail('Farq: kitob xarajati − kiritilgan tan narx',
+              differenceText),
+            Text(difference == 0
+              ? 'Kitob xarajati va ro‘yxatdagi kitoblarning tan narxi teng.'
+              : difference < 0
+                ? 'Ro‘yxatdagi kitoblarning tan narxi Moliyadagi '
+                  'kitob xarajatidan katta. Son va narxlarni tekshiring.'
+                : 'Moliyadagi kitob xarajati ro‘yxatdagi tan narxdan '
+                  'katta. Kiritilmagan kitoblar yoki boshqa xarajatlarni tekshiring.',
+              style: const TextStyle(fontSize: 11.5,
+                color: UzbekCustomerColors.textMuted,height:1.35)),
+          ] else
+            const Text('Partiyadagi kitoblar hali kiritilmagan; '
+              'farqni hisoblash uchun kitoblarni belgilang.',
+              style: TextStyle(color: UzbekCustomerColors.textMuted,
+                fontSize: 11.5)),
+        ],
         const SizedBox(height:8),
         const Text('Bu faqat taqqoslash: Moliya xarajatlari, sotuv foydasi '
           'va ombor qoldig‘i o‘zgartirilmaydi.',
@@ -930,6 +965,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
     required String importId,
     required String title,
     required bool isOpeningStock,
+    required bool manualCostOnly,
     required List<Map<String, dynamic>> lines,
   }) async {
     final saved = await Navigator.of(context).push<bool>(
@@ -966,6 +1002,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
                 batchKey: importId,
                 lines: lines,
                 startInEditMode: true,
+                manualCostOnly: manualCostOnly,
                 onSaved: () => Navigator.of(pageContext).pop(true),
               ),
             ],
@@ -992,6 +1029,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
     final bookCost = _batchNum(item['total_krw']);
     final verified = item['item_breakdown_verified'] == true;
     final isOpeningStock = item['source'] == 'opening_stock_baseline';
+    final manualCostOnly = isOctober10ManualCostBatch(item);
     final posted = item['posted_date']?.toString();
     final bought = item['purchase_date']?.toString();
     final linked = transports.where((t) =>
@@ -1042,6 +1080,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
                   importId: (item['id'] ?? '').toString(),
                   title: title,
                   isOpeningStock: isOpeningStock,
+                  manualCostOnly: manualCostOnly,
                   lines: matchedLines,
                 ),
                 icon: const Icon(Icons.edit_note_rounded),
@@ -1099,7 +1138,8 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
           _savedBatchFinanceComparison(
             purchaseExpense:bookCost,
             transportExpense:shipping,
-            lines:matchedLines),
+            lines:matchedLines,
+            manualCostOnly: manualCostOnly),
           const SizedBox(height:12),
           Text('Bu partiyaga kiritilgan: ${matchedLines.length} nomdagi kitob, $matchedQty dona',
             style:const TextStyle(fontWeight:FontWeight.w800)),

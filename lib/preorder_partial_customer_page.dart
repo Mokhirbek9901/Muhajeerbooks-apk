@@ -48,6 +48,23 @@ class _CustomerPartialPreorderPageState extends State<CustomerPartialPreorderPag
     super.dispose();
   }
 
+  int _qty(dynamic rows) {
+    var total = 0;
+    for (final raw in (rows as List?) ?? const []) {
+      if (raw is Map) total += (raw['quantity'] as num?)?.toInt() ?? 0;
+    }
+    return total;
+  }
+
+  int _arrivedQty(Map<String, dynamic> wave) => _qty(wave['items']);
+
+  int _previewDeposit(Map<String, dynamic> wave) {
+    final remaining = (detail['deposit_remaining'] as num?)?.toInt() ?? 0;
+    if (choice == 'all') return remaining;
+    final perCopy = (detail['deposit_per_book'] as num?)?.toInt() ?? 0;
+    return (perCopy * _arrivedQty(wave)).clamp(0, remaining).toInt();
+  }
+
   List<Map<String, dynamic>> get waves => ((detail['batches'] as List?) ?? const [])
       .whereType<Map>().map((v) => Map<String, dynamic>.from(v)).toList();
   Map<String, dynamic>? get active {
@@ -151,10 +168,13 @@ class _CustomerPartialPreorderPageState extends State<CustomerPartialPreorderPag
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(state == 'completed' ? 'Topshirishga o‘tkazilgan kitoblar'
-             : state == 'prepared' ? 'Kelgan kitoblaringiz'
+             : state == 'prepared' ? 'Buyurtmangizdagi kitoblar keldi'
              : state == 'proof_submitted' ? 'To‘lov tekshirilmoqda'
              : 'Kelgan kitoblar uchun yakuniy hisob',
             style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+          Text('Buyurtma qilingan ${_qty(detail['original_items'])} donadan '
+               '${_arrivedQty(w)} donasi keldi.',
+               style: const TextStyle(fontWeight: FontWeight.w700)),
           const SizedBox(height: 10),
           for (final item in books(w))
             ListTile(
@@ -189,6 +209,19 @@ class _CustomerPartialPreorderPageState extends State<CustomerPartialPreorderPag
               onChanged: saving ? null : (v) => setState(() => choice = v ?? choice),
             ),
             const SizedBox(height: 8),
+            Text('Tanlangan variant bo‘yicha avans: '
+              '${money(_previewDeposit(w))}',
+              style:const TextStyle(fontWeight:FontWeight.w800)),
+            Text('Kelgan kitoblar uchun: ${money(w['subtotal'])}',
+              style:const TextStyle(fontWeight:FontWeight.w700)),
+            Text('Qoladigan avans: '
+              '${money(((detail['deposit_remaining'] as num?)?.toInt() ?? 0) - _previewDeposit(w))}',
+              style:const TextStyle(fontWeight:FontWeight.w700)),
+            Text('Kitoblar uchun qoladigan to‘lov '
+              '(yetkazishsiz): '
+              '${money((((w['subtotal'] as num?)?.toInt() ?? 0) - _previewDeposit(w)).clamp(0, 99999999999))}',
+              style:const TextStyle(fontWeight:FontWeight.w700)),
+            const SizedBox(height: 12),
             TextField(controller:name, decoration:const InputDecoration(labelText:'Qabul qiluvchi ism')),
             TextField(controller:phone, keyboardType:TextInputType.phone,
                 decoration:const InputDecoration(labelText:'Telefon raqami')),
@@ -249,6 +282,11 @@ class _CustomerPartialPreorderPageState extends State<CustomerPartialPreorderPag
         IconButton(onPressed:saving?null:reload,icon:const Icon(Icons.refresh))]),
       body: ListView(padding:const EdgeInsets.fromLTRB(16,16,16,40),children:[
         if (saving) const LinearProgressIndicator(),
+        Text('Oldindan buyurtmangiz',
+          style:const TextStyle(fontSize:21,fontWeight:FontWeight.w900)),
+        Text('Jami buyurtma: ${_qty(detail['original_items'])} dona kitob',
+          style:const TextStyle(fontWeight:FontWeight.w700)),
+        const SizedBox(height:8),
         Text('Umumiy to‘langan avans: ${money(detail['deposit_amount'])}',
            style:const TextStyle(fontWeight:FontWeight.w900,fontSize:17)),
         Text('Hali ishlatilmagan avans: ${money(detail['deposit_remaining'])}'),

@@ -34,6 +34,26 @@ String preorderCoverUrl(Map<String, dynamic> row,
   return catalogCovers[id] ?? '';
 }
 
+/// Never hide partial-arrival selection just because invoice detail omitted
+/// request_items. The original signed-image record remains authoritative.
+@visibleForTesting
+bool canSelectPartialPreorderArrivals(
+  Map<String, dynamic> detail,
+  Map<String, dynamic> record,
+  String source,
+) {
+  if (source != 'web' || detail['status'] == 'cancelled') return false;
+  if (detail['price_ready'] == true && detail['partial_active'] != true) {
+    return false;
+  }
+  final recordItems = record['request_items'];
+  final detailItems = detail['request_items'];
+  final len = recordItems is List && recordItems.isNotEmpty
+      ? recordItems.length
+      : detailItems is List ? detailItems.length : 0;
+  return len > 1 || detail['partial_active'] == true;
+}
+
 class _PreorderBookCover extends StatelessWidget {
   const _PreorderBookCover({required this.url, this.width=54, this.height=72});
   final String url;
@@ -1063,10 +1083,7 @@ class _CombinedPreorderDetailPageState
                       ),
                     ),
                   ),
-                if (source == 'web' &&
-                    preorderDetailDisplayItems(d, widget.record).length > 1 &&
-                    d['status'] != 'cancelled' &&
-                    (d['price_ready'] != true || d['partial_active'] == true)) ...[
+                if (canSelectPartialPreorderArrivals(d, widget.record, source)) ...[
                   const SizedBox(height: 14),
                   FilledButton.icon(
                     key: const Key('open-partial-arrivals'),
@@ -1203,8 +1220,7 @@ class _CombinedPreorderDetailPageState
                         onPressed: saving ? null : _batch,
                         child: const Text('Kelgan partiyani kiritish'),
                       ),
-                      if (source != 'web' ||
-                          preorderDetailDisplayItems(d, widget.record).length <= 1)
+                      if (!canSelectPartialPreorderArrivals(d, widget.record, source))
                         FilledButton(
                           onPressed: saving ? null : _invoice,
                           child: const Text('Yakuniy narx • kitob keldi'),

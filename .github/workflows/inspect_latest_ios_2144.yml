@@ -1,0 +1,27 @@
+name: Inspect iOS 2144 App Store review
+on:
+  push:
+    branches: [ios-book-related-no-reviews-20261101]
+    paths: ['.github/workflows/inspect_latest_ios_2144.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Inspect current Apple build and review submissions without changing them
+        run: ruby .github/release_tools/inspect_latest_ios_2144.rb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-2144-review-inspection
+          path: ${{ runner.temp }}/ios-review-inspection.json

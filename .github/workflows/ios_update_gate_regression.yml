@@ -1,0 +1,27 @@
+name: Verify iOS public build update prompt
+on:
+  push:
+    branches: [fix-ios-update-check-build-20261102]
+    paths: ['.github/workflows/ios_update_gate_regression.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ios-update-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: true
+      - name: Resolve Flutter dependencies
+        run: flutter pub get
+      - name: Analyze iOS App Store update detection
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings lib/app_update_gate.dart lib/ios_update_version.dart
+      - name: Test public builds, older installs and TestFlight downgrade prevention
+        run: flutter test test/ios_update_version_test.dart
+      - name: Verify TestFlight and App Store install detection
+        run: flutter test test/store_distribution_test.dart

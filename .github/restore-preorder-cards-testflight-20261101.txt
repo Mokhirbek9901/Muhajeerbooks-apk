@@ -1,7 +1,0 @@
-Owner-requested TestFlight-only preorder receipt UI restoration, 2026-11-01.
-Return to original vertical order item cards: thumbnail on left, numbered title and quantity on right, tap to zoom cover.
-Remove new separate photo grid in detail page; preserve all request_items photos, total books and existing financial / deposit controls.
-Keep admin preorder management, stock, customer records, payments, and order state unchanged.
-Flutter analyze and automated tests are required before signing/upload.
-iOS marketing 2.5.22, unique build number.
-No public App Store, Play Store, or web release.

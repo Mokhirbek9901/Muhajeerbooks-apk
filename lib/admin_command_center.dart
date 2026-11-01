@@ -677,6 +677,20 @@ class _CombinedPreorderDetailPageState
     _load();
   }
 
+  // Opens the partial selection without replacing the original cover cards.
+  Future<void> _openPartialBookSelection(Map<String, dynamic> detail) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => _PartialPreorderAdminPage(
+          api: widget.api,
+          preorderId: reference,
+          requestCards: preorderDetailDisplayItems(detail, widget.record),
+        ),
+      ),
+    );
+    if (mounted) await _load();
+  }
+
   Future<void> _load() async {
     try {
       final next = await widget.api.releasePreorder(
@@ -1049,6 +1063,28 @@ class _CombinedPreorderDetailPageState
                       ),
                     ),
                   ),
+                if (source == 'web' &&
+                    preorderDetailDisplayItems(d, widget.record).length > 1 &&
+                    d['status'] != 'cancelled' &&
+                    (d['price_ready'] != true || d['partial_active'] == true)) ...[
+                  const SizedBox(height: 14),
+                  FilledButton.icon(
+                    key: const Key('open-partial-arrivals'),
+                    onPressed: saving ? null : () => _openPartialBookSelection(d),
+                    icon: const Icon(Icons.fact_check_outlined),
+                    label: Text(
+                      d['partial_active'] == true
+                          ? 'Kelgan kitoblar va avans hisobini ko‘rish'
+                          : 'Kelgan kitoblarni tanlash • Shular keldi',
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  const Text(
+                    'Kitoblarni alohida tanlang. Pastdagi rasmli kartochkalar '
+                    'o‘z holicha saqlanadi.',
+                    style: TextStyle(fontSize: 12, color: AppColors.muted),
+                  ),
+                ],
                 // Restore the previous vertical book cards: cover on the
                 // left, numbered title and quantity on the right. Each image
                 // opens the same zoomable preview the owner had previously.
@@ -1152,25 +1188,30 @@ class _CombinedPreorderDetailPageState
                         onPressed: saving ? null : () => _proof(true),
                         child: const Text('Qolgan to‘lov cheki'),
                       ),
-                    if (d['status'] == 'waiting' || d['status'] == 'contacted')
+                    if (d['partial_active'] != true &&
+                        (d['status'] == 'waiting' || d['status'] == 'contacted'))
                       FilledButton(
                         onPressed: saving
                             ? null
                             : () => _act('status', {'status': 'accepted'}),
                         child: const Text('Qabul qilish'),
                       ),
-                    if (d['payment_state'] == 'requested' &&
+                    if (d['partial_active'] != true &&
+                        d['payment_state'] == 'requested' &&
                         d['status'] != 'cancelled') ...[
                       OutlinedButton(
                         onPressed: saving ? null : _batch,
                         child: const Text('Kelgan partiyani kiritish'),
                       ),
-                      FilledButton(
-                        onPressed: saving ? null : _invoice,
-                        child: const Text('Yakuniy narx • kitob keldi'),
-                      ),
+                      if (source != 'web' ||
+                          preorderDetailDisplayItems(d, widget.record).length <= 1)
+                        FilledButton(
+                          onPressed: saving ? null : _invoice,
+                          child: const Text('Yakuniy narx • kitob keldi'),
+                        ),
                     ],
-                    if (d['price_ready'] == true &&
+                    if (d['partial_active'] != true &&
+                        d['price_ready'] == true &&
                         d['payment_state'] != 'cancelled' &&
                         d['converted_order_id'] == null)
                       FilledButton(
@@ -1179,7 +1220,8 @@ class _CombinedPreorderDetailPageState
                           'To‘lovni tasdiqlash • jo‘natishga o‘tkazish',
                         ),
                       ),
-                    if (d['status'] != 'cancelled' &&
+                    if (d['partial_active'] != true &&
+                        d['status'] != 'cancelled' &&
                         d['converted_order_id'] == null)
                       TextButton(
                         onPressed: saving ? null : _cancel,

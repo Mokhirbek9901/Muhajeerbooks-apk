@@ -31,6 +31,19 @@ List<Map<String, dynamic>> filterCatalogBatchGroups(
         .compareTo((a['batch_date'] ?? '').toString()));
 }
 
+/// A real finance import (including the opening balance) has an editable
+/// saved receipt. Catalog/combined groups use their own separate editor.
+/// Do not invent import IDs for finance-group summary rows.
+@visibleForTesting
+bool hasDirectFinanceImportEditor(Map<String, dynamic> item) {
+  final source = item['source'];
+  final members = item['members'];
+  final grouped = members is List && members.isNotEmpty;
+  return !grouped &&
+      (source == 'opening_stock_baseline' || source == 'finance_record') &&
+      int.tryParse((item['id'] ?? '').toString()) != null;
+}
+
 /// One chronological list for catalog batches and finance purchase batches.
 /// Sorting affects presentation only: no finance, stock, cost, or sales writes.
 /// The receipt date (batch_date / purchase_date) is used, not created_at.
@@ -969,8 +982,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
           const Divider(height: 16),
           _detail('JAMI — kitoblar + transport', _batchMoney(grandTotal)),
           _detail('Partiya sanasi', _batchDate(bought)),
-          if (!grouped && (isOpeningStock ||
-              item['source'] == 'finance_record')) ...[
+          if (hasDirectFinanceImportEditor(item)) ...[
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,

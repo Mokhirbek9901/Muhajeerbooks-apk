@@ -22,3 +22,25 @@ jobs:
         run: |
           python3 -m pip install --quiet google-auth requests
           python3 tools/play_candidate.py inspect
+      - name: Check Google Play public publishing lifecycle
+        run: |
+          python3 - <<'PY'
+          import json,os
+          from google.oauth2 import service_account
+          from google.auth.transport.requests import AuthorizedSession
+          creds=service_account.Credentials.from_service_account_info(
+              json.loads(os.environ["PLAY_SERVICE_ACCOUNT_JSON"]),
+              scopes=["https://www.googleapis.com/auth/androidpublisher"])
+          u="https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.muhajeerbooks.app/tracks/production/releases"
+          r=AuthorizedSession(creds).get(u,timeout=60)
+          print("Lifecycle HTTP:",r.status_code)
+          if r.ok:
+              for item in r.json().get("releases",[]):
+                  print("PUBLIC_LIFECYCLE:",json.dumps({
+                      "state":item.get("releaseLifecycleState"),
+                      "versionCodes":[v.get("versionCode") for v in item.get("activeArtifacts",[])],
+                      "name":item.get("name")},ensure_ascii=False))
+          else:
+              print("Lifecycle unavailable; production track is still the release source.")
+          PY
+

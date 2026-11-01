@@ -6,6 +6,32 @@ void main() {
     'book-1': 'https://example.com/catalog-cover.jpg',
   };
 
+  test('5 people with 50+4 books shows 5 customers, 54 books', () {
+    final rows = <Map<String,dynamic>>[
+      {'id':1, '_origin':'native','phone':'01011110001','quantity':50},
+      {'id':2, '_origin':'web','phone':'01011110002','quantity':1},
+      {'id':3, '_origin':'web','phone':'01011110003','quantity':1},
+      {'id':4, '_origin':'web','phone':'01011110004','quantity':1},
+      {'id':5, '_origin':'web','phone':'01011110005','quantity':1},
+    ];
+    final result = preorderRowCounts(rows);
+    expect(result.people, 5);
+    expect(result.requests, 5);
+    expect(result.books, 54);
+  });
+
+  test('same customer across native/web requests counted once', () {
+    final rows = <Map<String,dynamic>>[
+      {'id':1,'_origin':'native','phone':'010-1234-5678','quantity':2},
+      {'id':'w2','_origin':'web','phone':'01012345678','quantity':3},
+      {'id':'w3','_origin':'web','phone':'','quantity':4},
+    ];
+    final result = preorderRowCounts(rows);
+    expect(result.people, 2);
+    expect(result.requests, 3);
+    expect(result.books, 9);
+  });
+
   test('native preorder uses linked catalog book image', () {
     expect(preorderCoverUrl({'_origin': 'native', 'book_id':'book-1'}, catalog),
       'https://example.com/catalog-cover.jpg');

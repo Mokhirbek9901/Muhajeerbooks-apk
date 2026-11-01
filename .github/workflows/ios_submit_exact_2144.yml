@@ -1,0 +1,66 @@
+name: Submit exact verified iOS 2144 to App Review
+on:
+  push:
+    branches: [ios-book-related-no-reviews-20261101]
+    paths: ['.github/workflows/ios_submit_exact_2144.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: owner-submitted-ios-2144
+  cancel-in-progress: false
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+      OWNER_APPROVED_IOS_PUBLIC_UPDATE: com.muhajeerbooks.app:2.5.22:2144
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Validate exact TestFlight run, code, tests and signed IPA
+        run: |
+          gh api repos/$GITHUB_REPOSITORY/actions/runs/41243920541 > "$RUNNER_TEMP/ios-build-run.json"
+          gh api repos/$GITHUB_REPOSITORY/actions/runs/41243920541/jobs > "$RUNNER_TEMP/ios-build-jobs.json"
+          gh api repos/$GITHUB_REPOSITORY/actions/runs/41243920541/artifacts > "$RUNNER_TEMP/ios-build-artifacts.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          temp=Path(os.environ["RUNNER_TEMP"])
+          run=json.loads((temp/"ios-build-run.json").read_text())
+          assert run["conclusion"]=="success"
+          assert run["head_sha"]=="aed3ec2d005b711096dbbd39ceb0f5b49d51298b"
+          assert run["head_branch"]=="ios-book-related-no-reviews-20261101"
+          assert run["run_number"]==144
+          assert run["path"]==".github/workflows/testflight_upload.yml"
+          jobs=json.loads((temp/"ios-build-jobs.json").read_text())["jobs"]
+          critical=[
+            "Validate current web features and TestFlight preview",
+            "Build signed iPhone and iPad IPA",
+            "Verify exported IPA signature and device support",
+            "Upload to App Store Connect / TestFlight",
+            "Verify uploaded build in TestFlight"]
+          assert all(any(s["name"]==name and s["conclusion"]=="success"
+            for j in jobs for s in j["steps"]) for name in critical), "Incomplete iOS validation"
+          artifacts=json.loads((temp/"ios-build-artifacts.json").read_text())["artifacts"]
+          candidate=next(a for a in artifacts if a["name"]=="muhajeer-books-ios-signed-ipa")
+          assert not candidate["expired"]
+          assert candidate["digest"]=="sha256:efad75cf3155bece2bde59981de64af47aca42448ac427ff85f449b1c988d8b9"
+          print("VERIFIED: immutable 2.5.22 build 2144 from fully successful signed TestFlight run.")
+          PY
+      - name: Send only TestFlight 2144 to Apple App Review (no rebuilding)
+        run: ruby .github/release_tools/submit_exact_ios_2144.rb
+      - name: Save Apple submission result even on validation error
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-app-review-2144-result
+          path: ${{ runner.temp }}/ios-public-2144-result.json
+          retention-days: 90

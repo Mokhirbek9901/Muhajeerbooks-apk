@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'remote_config.dart';
+import 'ios_update_version.dart';
 
 const int _currentApkBuild = int.fromEnvironment(
   'APP_BUILD_NUMBER',
@@ -118,33 +119,68 @@ class _AppUpdateGateState extends State<AppUpdateGate>
 
   Future<void> _checkIosAppStore(RemoteConfigStore remote) async {
     final package = await PackageInfo.fromPlatform();
-    final currentVersion = package.version.trim();
-    if (currentVersion.isEmpty) return;
+    final installedVersion = package.version.trim();
+    final installedBuild = int.tryParse(package.buildNumber.trim()) ?? 0;
+    if (installedVersion.isEmpty) return;
 
-    final response = await http
-        .get(Uri.parse(_iosLookupUrl))
-        .timeout(const Duration(seconds: 7));
-    if (response.statusCode != 200) return;
+    // Verified by the release operator only after Apple reports READY_FOR_SALE.
+    // This also handles same-marketing-version App Store build updates.
+    final approvedVersion = remote.stringValue(
+      'release.ios_published_version',
+      fallback: '',
+    ).trim();
+    final approvedBuild = remote.intValue(
+      'release.ios_published_build',
+      fallback: 0,
+    );
 
-    final decoded = jsonDecode(response.body);
-    if (decoded is! Map) return;
-    final results = decoded['results'];
-    if (results is! List || results.isEmpty || results.first is! Map) return;
+    // Apple's public lookup is the primary source for marketing versions.
+    // If it is temporarily unreachable, the last server-verified release
+    // still allows older installed versions to reach the update screen.
+    var lookupVersion = '';
+    try {
+      final response = await http
+          .get(Uri.parse(_iosLookupUrl),
+              headers: const {'Cache-Control': 'no-cache'})
+          .timeout(const Duration(seconds: 7));
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map) {
+          final results = decoded['results'];
+          if (results is List && results.isNotEmpty && results.first is Map) {
+            final result = Map<String, dynamic>.from(results.first as Map);
+            if (result['bundleId'] == 'com.muhajeerbooks.app') {
+              lookupVersion = '${result['version'] ?? ''}'.trim();
+            }
+          }
+        }
+      }
+    } catch (_) {
+      // The verified release config remains available if Apple is offline.
+    }
 
-    final storeVersion =
-        Map<String, dynamic>.from(results.first as Map)['version']
-            ?.toString()
-            .trim() ??
-        '';
-    if (storeVersion.isEmpty ||
-        !_isVersionNewer(storeVersion, currentVersion) ||
+    var publishedVersion = approvedVersion;
+    if (lookupVersion.isNotEmpty &&
+        (publishedVersion.isEmpty ||
+            compareIosMarketingVersions(lookupVersion, publishedVersion) > 0)) {
+      publishedVersion = lookupVersion;
+    }
+    // The build number applies only to its exact published marketing version.
+    final publishedBuild =
+        publishedVersion == approvedVersion ? approvedBuild : 0;
+    if (!iosPublishedUpdateAvailable(
+          installedVersion: installedVersion,
+          installedBuild: installedBuild,
+          publishedVersion: publishedVersion,
+          publishedBuild: publishedBuild,
+        ) ||
         !mounted) {
       return;
     }
 
     await _showMandatoryUpdate(
       remote: remote,
-      version: storeVersion,
+      version: publishedVersion,
       url: remote.stringValue(
         'release.ios_store_url',
         fallback: _appStoreUrl,
@@ -211,27 +247,6 @@ class _AppUpdateGateState extends State<AppUpdateGate>
       url: downloadUrl,
       storeName: 'yangilanish sahifasi',
     );
-  }
-
-  bool _isVersionNewer(String remote, String current) {
-    List<int> parts(String value) {
-      final clean = value.split(RegExp(r'[-+]')).first;
-      return clean
-          .split('.')
-          .map((part) => int.tryParse(part) ?? 0)
-          .toList();
-    }
-
-    final a = parts(remote);
-    final b = parts(current);
-    final length = a.length > b.length ? a.length : b.length;
-    for (var i = 0; i < length; i++) {
-      final left = i < a.length ? a[i] : 0;
-      final right = i < b.length ? b[i] : 0;
-      if (left > right) return true;
-      if (left < right) return false;
-    }
-    return false;
   }
 
   Future<void> _showMandatoryUpdate({

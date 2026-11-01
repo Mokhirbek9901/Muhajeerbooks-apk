@@ -2581,6 +2581,44 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     return Map<String, dynamic>.from(value as Map);
   }
 
+  /// Customer-owned partial preorder: server holds all deposit accounting.
+  /// Uses the existing PIN-less device session; other devices cannot claim it.
+  Future<Map<String, dynamic>> webPartialPreorder(
+    String preorderId,
+    String action, [
+    Map<String, dynamic> payload = const {},
+  ]) async {
+    if (_backend == null || !checkoutIdentityReady || _pinSession == null) {
+      throw StateError('Avval profilga kirib, ma’lumotlaringizni saqlang');
+    }
+    final session = _pinSession!;
+    final value = await _backend!.client.rpc(
+      'customer_web_preorder_partial',
+      params: {
+        'p_session': session,
+        'p_id': preorderId,
+        'p_action': action,
+        'p_payload': payload,
+      },
+    );
+    if (session != _pinSession) {
+      throw StateError('Profil o‘zgargan. Iltimos, qayta kiring.');
+    }
+    if (value is! Map) throw StateError('Oldindan zakas hisobi topilmadi');
+    return Map<String, dynamic>.from(value);
+  }
+
+  Future<Map<String, dynamic>> submitWebPartialPreorderProof(
+    String preorderId,
+    XFile image,
+  ) async {
+    if (_backend == null || !checkoutIdentityReady) {
+      throw StateError('Avval profil ma’lumotlarini saqlang');
+    }
+    final path = await _backend!.uploadPaymentProof(image);
+    return webPartialPreorder(preorderId, 'proof', {'path': path});
+  }
+
   Future<Map<String, dynamic>> webPreorderInvoice(String id) =>
       _releasePreorder(id, 'detail');
   Future<Map<String, dynamic>> saveWebPreorderDelivery(

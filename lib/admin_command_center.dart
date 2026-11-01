@@ -905,6 +905,41 @@ class _CombinedPreorderDetailPageState
                 Text(
                   '${d['customer_name']} • ${d['phone']}\nHolat: ${d['status']} • To‘lov: ${d['payment_state']}',
                 ),
+                // Multi-book web preorder covers are signed on the admin list
+                // response. Display every requested title/photo, not just the
+                // first thumbnail. Do not expose private object paths.
+                if (widget.record['request_items'] is List &&
+                    (widget.record['request_items'] as List).length > 1) ...[
+                  const SizedBox(height: 14),
+                  const Text('Buyurtma qilingan kitoblarning rasmlari',
+                    style: TextStyle(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 10,
+                    children: [
+                      for (final entry in widget.record['request_items'] as List)
+                        if (entry is Map)
+                          SizedBox(
+                            width: 104,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _PreorderBookCover(
+                                  url: '${entry['book_image_url'] ?? ''}',
+                                  width: 96, height: 112,
+                                ),
+                                const SizedBox(height: 3),
+                                Text('${entry['book_title'] ?? 'Kitob'}',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                    ],
+                  ),
+                ],
                 if (_combinedPreorderContact(widget.record).isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 8, bottom: 10),
@@ -1874,7 +1909,7 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
                         'Oldindan zakazlar',
                         data.preorderPeople == null || data.preorderBooks == null
                             ? '—'
-                            : '${data.preorderPeople} kishi · ${data.preorderBooks} ta kitob',
+                            : '${data.preorderPeople} kishi\n${data.preorderBooks} ta kitob',
                         Icons.event_available_outlined,
                         () => unawaited(_openPreorderMetric()),
                       ),
@@ -1935,10 +1970,12 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
                                       const SizedBox(height: 5),
                                       Text(
                                         metrics[i].$2,
-                                        maxLines: 1,
+                                        maxLines: metrics[i].$1 == 'Oldindan zakazlar' ? 2 : 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 18,
+                                        style: TextStyle(
+                                          fontSize: metrics[i].$1 == 'Oldindan zakazlar'
+                                              ? 15 : 18,
+                                          height: 1.08,
                                           fontWeight: FontWeight.w900,
                                           color: AppColors.navy,
                                         ),

@@ -1,0 +1,93 @@
+name: Submit verified iOS 2.5.23 (17003) to App Review
+on:
+  push:
+    branches: [ios-server-update-prompt-20261102]
+    paths: ['.github/workflows/ios_submit_exact_17003.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: submit-ios-public-17003
+  cancel-in-progress: false
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+      OWNER_APPROVED_IOS_PUBLIC_UPDATE: com.muhajeerbooks.app:2.5.23:17003
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Validate approved exact source and immutable signed TestFlight artifact
+        run: |
+          set -euo pipefail
+          gh api repos/$GITHUB_REPOSITORY/actions/runs/41353265829 > "$RUNNER_TEMP/ios-build-run.json"
+          gh api repos/$GITHUB_REPOSITORY/actions/runs/41353265829/jobs > "$RUNNER_TEMP/ios-build-jobs.json"
+          gh api repos/$GITHUB_REPOSITORY/actions/runs/41353265829/artifacts > "$RUNNER_TEMP/ios-build-artifacts.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          tmp = Path(os.environ["RUNNER_TEMP"])
+          run = json.loads((tmp/"ios-build-run.json").read_text())
+          assert run["conclusion"] == "success"
+          assert run["head_sha"] == "b4349843199ee9d08b4ab953a881905a67777579"
+          assert run["head_branch"] == "ios-server-update-prompt-20261102"
+          assert run["run_number"] == 147
+          assert run["path"] == ".github/workflows/testflight_upload.yml"
+          jobs = json.loads((tmp/"ios-build-jobs.json").read_text())["jobs"]
+          mandatory = [
+            "Validate current web features and TestFlight preview",
+            "Build signed iPhone and iPad IPA",
+            "Verify exported IPA signature and device support",
+            "Upload to App Store Connect / TestFlight",
+            "Verify uploaded build in TestFlight"
+          ]
+          assert all(any(s["name"] == name and s["conclusion"] == "success"
+            for j in jobs for s in j["steps"]) for name in mandatory)
+          artifacts = json.loads((tmp/"ios-build-artifacts.json").read_text())["artifacts"]
+          ipa = next(a for a in artifacts if a["name"] == "muhajeer-books-ios-signed-ipa")
+          assert not ipa["expired"]
+          assert ipa["digest"] == "sha256:f46051c4d1633c10354364affe92906adec1af5d8d5b3eb977eb7b43b1e9b84a"
+          assert Path(".github/ios-marketing-version").read_text().strip() == "2.5.23"
+          code = Path("lib/app_update_gate.dart").read_text()
+          assert "iosPublishedUpdateAvailable" in code
+          assert "release.ios_published_version" in code and "release.ios_published_build" in code
+          assert "--dart-define=APP_STORE_BUILD=true" in Path(".github/workflows/testflight_upload.yml").read_text()
+          assert "canSelectPartialPreorderArrivals" in Path("lib/admin_command_center.dart").read_text()
+          print("VERIFIED: exactly reviewed, signed iOS 2.5.23 (17003), full TestFlight QA and version-check source")
+          PY
+      - name: Reconfirm latest valid TestFlight binary and no competing submission
+        run: |
+          set -euo pipefail
+          ruby .github/release_tools/inspect_latest_ios_17003.rb
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"app-review-candidate-17003.json"
+          x=json.loads(p.read_text())
+          assert x["newer"] is None, "A newer TestFlight build exists; abort owner-selected release"
+          assert x["candidate"]["id"] == "1cd78854-823b-48a5-a002-d9b0d3ac682d"
+          assert x["candidate"]["version"] == "2.5.23"
+          assert x["candidate"]["build"] == "17003"
+          assert not any(s["state"] in ("WAITING_FOR_REVIEW","IN_REVIEW")
+            for s in x["submissions"]), "Another Apple review is pending"
+          print("VERIFIED: selected candidate remains the newest TestFlight binary")
+          PY
+      - name: Submit exactly this TestFlight build to Apple App Review
+        run: ruby .github/release_tools/submit_exact_ios_17003.rb
+      - name: Save Apple submission evidence regardless of failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-public-2_5_23-build-17003-result
+          path: |
+            ${{ runner.temp }}/app-review-candidate-17003.json
+            ${{ runner.temp }}/ios-public-17003-result.json
+          retention-days: 90

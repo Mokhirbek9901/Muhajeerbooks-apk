@@ -16,6 +16,39 @@ String _batchDate(dynamic value) {
   return parsed == null ? raw.substring(0, 10) : DateFormat('dd.MM.yyyy').format(parsed);
 }
 
+/// The finance reconciliation must only use historical receipt prices that
+/// an admin explicitly entered or confirmed, never catalog prefill estimates.
+/// No data is mutated by this projection.
+@visibleForTesting
+Map<String, int> manualBatchCostBreakdown(
+    List<Map<String, dynamic>> lines) {
+  var totalQty = 0;
+  var confirmedQty = 0;
+  var confirmedNames = 0;
+  var confirmedCost = 0;
+  var missingNames = 0;
+  for (final line in lines) {
+    final qty = _batchNum(line['quantity']);
+    totalQty += qty;
+    if (line['cost_origin'] == 'manual') {
+      confirmedNames++;
+      confirmedQty += qty;
+      confirmedCost += qty * _batchNum(line['unit_cost']);
+    } else {
+      missingNames++;
+    }
+  }
+  return {
+    'total_qty': totalQty,
+    'total_names': lines.length,
+    'confirmed_qty': confirmedQty,
+    'confirmed_names': confirmedNames,
+    'confirmed_cost': confirmedCost,
+    'pending_qty': totalQty - confirmedQty,
+    'pending_names': missingNames,
+  };
+}
+
 /// A saved catalog batch must remain visible in the main Partiyalar list,
 /// even when it has no separate finance expense or import record.
 @visibleForTesting
@@ -807,14 +840,16 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
     required int transportExpense,
     required List<Map<String,dynamic>> lines,
   }) {
-    final entered=lines.fold<int>(0,(total,line)=>
-      total+_batchNum(line['quantity'])*_batchNum(line['unit_cost']));
-    final qty=lines.fold<int>(0,(total,line)=>
-      total+_batchNum(line['quantity']));
-    final difference=purchaseExpense-entered;
-    final known=lines.isNotEmpty;
-    final differenceText=(difference<0?'−':'')+
-      _batchMoney(difference.abs());
+    final summary = manualBatchCostBreakdown(lines);
+    final entered = summary['confirmed_cost']!;
+    final qty = summary['total_qty']!;
+    final confirmedQty = summary['confirmed_qty']!;
+    final missingNames = summary['pending_names']!;
+    final missingQty = summary['pending_qty']!;
+    final complete = lines.isNotEmpty && missingNames == 0;
+    final difference = purchaseExpense - entered;
+    final differenceText = (difference < 0 ? '−' : '') +
+        _batchMoney(difference.abs());
     return Container(
       margin:const EdgeInsets.fromLTRB(0,14,0,12),
       padding:const EdgeInsets.all(13),
@@ -836,26 +871,39 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
         _detail('Moliyadagi jami xarajat',
           _batchMoney(purchaseExpense+transportExpense)),
         const SizedBox(height:8),
-        _detail('Bu partiyaga kiritilgan kitoblar tan narxi ($qty dona)',
+        _detail('Qo‘lda tasdiqlangan tan narx ($confirmedQty / $qty dona)',
           _batchMoney(entered)),
-        if(known)...[
-          const Divider(),
-          _detail('Farq: kitob xarajati − kiritilgan tan narx',
+        if (missingNames > 0) ...[
+          const SizedBox(height: 6),
+          _detail('Tan narxi tasdiqlanmagan',
+            '$missingNames nom, $missingQty dona'),
+          const Text(
+            'Katalogdan avtomatik olingan tan narxlar bu hisobga '
+            'qo‘shilmadi. Partiyadagi “Kitoblarni tahrirlash” '
+            'orqali har bir narxni qo‘lda kiriting yoki tasdiqlang.',
+            style: TextStyle(fontSize: 11.5,
+              color: UzbekCustomerColors.textMuted, height: 1.35)),
+        ],
+        const Divider(),
+        if (complete) ...[
+          _detail('Farq: kitob xarajati − tasdiqlangan tan narx',
             differenceText),
-          Text(difference==0
-            ? 'Kitob xarajati va ro‘yxatdagi kitoblarning tan narxi teng.'
-            : difference<0
-              ? 'Ro‘yxatdagi kitoblarning tan narxi Moliyadagi '
-                'kitob xarajatidan katta. Son va narxlarni tekshiring.'
-              : 'Moliyadagi kitob xarajati ro‘yxatdagi tan narxdan '
-                'katta. Kiritilmagan kitoblar yoki boshqa xarajatlarni tekshiring.',
-            style:const TextStyle(fontSize:11.5,
-              color:UzbekCustomerColors.textMuted,height:1.35)),
+          Text(difference == 0
+            ? 'Kitob xarajati va qo‘lda tasdiqlangan tan narxlar teng.'
+            : difference < 0
+              ? 'Qo‘lda tasdiqlangan tan narxlar Moliyadagi kitob '
+                'xarajatidan katta. Son va narxlarni tekshiring.'
+              : 'Moliyadagi kitob xarajati qo‘lda tasdiqlangan '
+                'tan narxlardan katta. Kiritilmagan xarajatlarni tekshiring.',
+            style: const TextStyle(fontSize: 11.5,
+              color: UzbekCustomerColors.textMuted, height: 1.35)),
         ] else
-          const Text('Partiyadagi kitoblar hali kiritilmagan; '
-            'farqni hisoblash uchun kitoblarni belgilang.',
-            style:TextStyle(color:UzbekCustomerColors.textMuted,
-              fontSize:11.5)),
+          const Text(
+            'Farq hozircha hisoblanmaydi: barcha kitoblarning '
+            'tan narxi qo‘lda tasdiqlanmagan.',
+            style: TextStyle(fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: UzbekCustomerColors.textMuted, height: 1.35)),
         const SizedBox(height:8),
         const Text('Bu faqat taqqoslash: Moliya xarajatlari, sotuv foydasi '
           'va ombor qoldig‘i o‘zgartirilmaydi.',

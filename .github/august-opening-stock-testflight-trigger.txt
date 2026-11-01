@@ -1,0 +1,4 @@
+Explicit owner request: add August opening-stock batch edit controls to Muhajeer Books iOS TestFlight.
+Feature: direct edit of import 6, 52 historical book lines, quantities, unit costs, add/remove without modifying actual inventory, finance ledger or completed sales.
+Marketing: 2.5.22; one-time workflow build number above previously uploaded 2144.
+Do NOT publish to App Store production, Android Play Market, or the web.

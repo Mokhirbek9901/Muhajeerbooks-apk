@@ -3,7 +3,7 @@ name: Build and Upload iOS to TestFlight
 on:
   workflow_dispatch:
   push:
-    branches: [fix-ios-preorder-52-partial-20261101]
+    branches: [fix-ios-preorder-52-partial-20261101, ios-server-update-prompt-20261102]
     paths:
       - '.github/workflows/testflight_upload.yml'
       - 'lib/admin_command_center.dart'
@@ -13,6 +13,10 @@ on:
       - 'lib/admin_ui.dart'
       - 'lib/app_state.dart'
       - 'test/preorder_admin_cover_test.dart'
+      - 'lib/app_update_gate.dart'
+      - 'lib/ios_update_version.dart'
+      - 'test/ios_update_version_test.dart'
+      - '.github/ios-marketing-version'
 
 permissions:
   actions: read

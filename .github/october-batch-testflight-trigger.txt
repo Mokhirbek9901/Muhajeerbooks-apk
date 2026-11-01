@@ -1,6 +1,0 @@
-Owner-requested October 10 2026 finance-purchase batch editor repair.
-The saved finance import ID 7 has 26 titles and 127 received units.
-Add a direct 'Kitoblarni tahrirlash' button and reuse the authenticated atomic receipt editor.
-August opening-stock import 6 remains supported. No initial inventory or finance write.
-Marketing version 2.5.22, new unique TestFlight build number.
-TestFlight ONLY; do not submit for App Store Review or publish to Play Market/web.

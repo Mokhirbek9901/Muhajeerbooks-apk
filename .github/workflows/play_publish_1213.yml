@@ -1,0 +1,57 @@
+name: Promote exact Android 1213 to Google Play Production
+on:
+  push:
+    branches: [android-testflight-sync-20261101]
+    paths: ['.github/workflows/play_publish_1213.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: muhajeer-play-production-1213
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+      OWNER_APPROVED_EXACT_RELEASE: com.muhajeerbooks.app:2.5.22:1213
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify exact signed release source and both emulator test jobs
+        run: |
+          gh api repos/$GITHUB_REPOSITORY/actions/runs/41245216198 > "$RUNNER_TEMP/release-run.json"
+          gh api repos/$GITHUB_REPOSITORY/actions/runs/41245216198/jobs > "$RUNNER_TEMP/release-jobs.json"
+          gh api repos/$GITHUB_REPOSITORY/actions/runs/41245216198/artifacts > "$RUNNER_TEMP/release-artifacts.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          temp=Path(os.environ["RUNNER_TEMP"])
+          run=json.loads((temp/"release-run.json").read_text())
+          assert run["conclusion"]=="success", "Android release run failed"
+          assert run["head_sha"]=="4ba3ca8678312c095e42115f0c3dcf6ceeb858ed", "Unrecognized Android source"
+          assert run["head_branch"]=="android-testflight-sync-20261101"
+          jobs=json.loads((temp/"release-jobs.json").read_text())["jobs"]
+          for name in ("android-smoke (28)","android-smoke (35)","build"):
+              assert any(j["name"]==name and j["conclusion"]=="success" for j in jobs), name
+          art=json.loads((temp/"release-artifacts.json").read_text())["artifacts"]
+          a=next(a for a in art if a["name"]=="muhajeer-books-play-signed-aab-213")
+          assert not a["expired"] and a["digest"]=="sha256:7798911babb50b1487bb78d0b63e20d0036909ce5f7df64161d0cc39f6feb53d"
+          print("VERIFIED: exact source, both Android smoke tests and signed AAB provenance")
+          PY
+      - name: Submit only the verified Play 1213 candidate to Production
+        run: |
+          python3 -m pip install --quiet google-auth requests
+          python3 tools/promote_play_1213_verified.py
+      - name: Save public release verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: google-play-public-1213-result
+          path: ${{ runner.temp }}/play-public-1213.json
+          retention-days: 90

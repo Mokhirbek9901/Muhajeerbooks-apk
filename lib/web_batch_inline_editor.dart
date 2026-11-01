@@ -40,8 +40,10 @@ class WebBatchInlineEditor extends StatefulWidget {
     required this.lines,
     required this.onSaved,
     this.startInEditMode = false,
+    this.manualCostOnly = false,
   });
   final bool startInEditMode;
+  final bool manualCostOnly;
   final String secret;
   final String kind;
   final String batchKey;
@@ -109,7 +111,8 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
   bool get changed=>widget.lines.any((line)=>
     counts[_n(line['id'])]!=_n(line['quantity']) ||
     unitCosts[_n(line['id'])]!=_n(line['unit_cost']) ||
-    manuallyConfirmedCosts.contains(_n(line['id']))) || added.isNotEmpty;
+    (widget.manualCostOnly &&
+      manuallyConfirmedCosts.contains(_n(line['id'])))) || added.isNotEmpty;
 
   void _cancel(){
     setState((){
@@ -256,7 +259,7 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
                     initial:cost,
                     onPrice:(n)=>setState((){
                       unitCosts[id]=n;
-                      manuallyConfirmedCosts.add(id);
+                      if(widget.manualCostOnly) manuallyConfirmedCosts.add(id);
                     })),
                   style:TextButton.styleFrom(
                     padding:EdgeInsets.zero,
@@ -265,17 +268,19 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
                     alignment:Alignment.centerLeft),
                   icon:const Icon(Icons.edit_outlined,size:13),
                   label:Text(
-                    (line['cost_origin']=='manual' ||
-                     manuallyConfirmedCosts.contains(id)
-                       ? 'Tasdiqlangan tan narx: '
-                       : 'Tan narxni tasdiqlang: ') + _won(cost),
+                    (widget.manualCostOnly
+                      ? (line['cost_origin']=='manual' ||
+                         manuallyConfirmedCosts.contains(id)
+                        ? 'Tasdiqlangan tan narx: '
+                        : 'Tan narxni tasdiqlang: ')
+                      : 'Tan narx: ') + _won(cost),
                     style:const TextStyle(fontSize:11.5)))
               else ...[
                 Text('$value dona · 1 dona ${_won(cost)}',
                   maxLines:2,
                   style:const TextStyle(fontSize:11.5,
                     color:Color(0xFF657471))),
-                if(line['cost_origin']!='manual')
+                if(widget.manualCostOnly && line['cost_origin']!='manual')
                   const Text('Katalogdan olingan, qo‘lda tasdiqlanmagan',
                     style:TextStyle(fontSize:11,color:Color(0xFF9F713B))),
                 if(line['fifo_outflow_units'] is num && value>0)
@@ -455,15 +460,17 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
         for(final line in widget.lines)
           if(counts[_n(line['id'])]!=_n(line['quantity']) ||
              unitCosts[_n(line['id'])]!=_n(line['unit_cost']) ||
-             manuallyConfirmedCosts.contains(_n(line['id'])))
+             (widget.manualCostOnly &&
+                manuallyConfirmedCosts.contains(_n(line['id']))))
             {
               'id':_n(line['id']),
               'expected_quantity':_n(line['quantity']),
               'quantity':counts[_n(line['id'])],
               'expected_unit_cost':_n(line['unit_cost']),
               'unit_cost':unitCosts[_n(line['id'])],
-              'confirm_manual_cost':
-                manuallyConfirmedCosts.contains(_n(line['id'])),
+              if (widget.manualCostOnly)
+                'confirm_manual_cost':
+                    manuallyConfirmedCosts.contains(_n(line['id'])),
             },
       ];
       final additions=<Map<String,dynamic>>[
@@ -504,25 +511,27 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
       (editing?(counts[_n(line['id'])]??_n(line['quantity'])):
       _n(line['quantity'])))+
       (editing?added.values.fold<int>(0,(sum,b)=>sum+_n(b['quantity'])):0);
-    // The running total is explicitly confirmed cost only; catalogue
-    // suggestions are never silently counted as part of the finance total.
+    // Only the 2026-10-10 finance import uses manual-confirmation totals.
+    // Every other batch retains the previous full unit-cost calculation.
     final originalCost=widget.lines.fold<int>(0,(total,line)=>
-      total+(line['cost_origin']=='manual'
+      total+(!widget.manualCostOnly || line['cost_origin']=='manual'
         ? _n(line['quantity'])*_n(line['unit_cost']) : 0));
     final draftCost=widget.lines.fold<int>(0,(total,line){
       final id=_n(line['id']);
-      return total+((line['cost_origin']=='manual' ||
-        manuallyConfirmedCosts.contains(id))
+      return total+(!widget.manualCostOnly ||
+        line['cost_origin']=='manual' || manuallyConfirmedCosts.contains(id)
           ? (counts[id]??_n(line['quantity']))*(unitCosts[id]??_n(line['unit_cost']))
           : 0);
     })+added.values.fold<int>(0,(total,line)=>
-      total+(line['edited_cost']==true
+      total+(!widget.manualCostOnly || line['edited_cost']==true
         ? _n(line['quantity'])*_n(line['unit_cost']):0));
-    final unconfirmedCount=widget.lines.where((line)=>
-      line['cost_origin']!='manual' &&
-      !manuallyConfirmedCosts.contains(_n(line['id'])) &&
-      (counts[_n(line['id'])]??_n(line['quantity']))>0).length+
-      added.values.where((line)=>line['edited_cost']!=true).length;
+    final unconfirmedCount=widget.manualCostOnly
+      ? widget.lines.where((line)=>
+          line['cost_origin']!='manual' &&
+          !manuallyConfirmedCosts.contains(_n(line['id'])) &&
+          (counts[_n(line['id'])]??_n(line['quantity']))>0).length+
+        added.values.where((line)=>line['edited_cost']!=true).length
+      : 0;
     final term=_normalizeTitle(_bookSearch.text);
     final filtered=widget.lines.where((book)=>_matchesBook(book,term)).toList();
     final filteredAdded=added.values.where(
@@ -595,8 +604,10 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
             color:const Color(0xFFEAF6F0),
             borderRadius:BorderRadius.circular(12)),
           child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-            const Text('Qo‘lda tasdiqlangan tan narx — saqlanmagan hisob',
-              style:TextStyle(color:ink,fontWeight:FontWeight.w800,
+            Text(widget.manualCostOnly
+              ? 'Qo‘lda tasdiqlangan tan narx — saqlanmagan hisob'
+              : 'Partiya tan narxi — saqlanmagan hisob',
+              style:const TextStyle(color:ink,fontWeight:FontWeight.w800,
                 fontSize:12)),
             const SizedBox(height:5),
             Text(_won(draftCost),style:const TextStyle(

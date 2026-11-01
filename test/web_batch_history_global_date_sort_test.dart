@@ -23,6 +23,25 @@ void main() {
     },
   ];
 
+  test('Manual-only cost mode applies exclusively to October 10 import 7', () {
+    expect(isOctober10ManualCostBatch({
+      'id': 7,'source':'finance_record','purchase_date':'2026-10-10',
+    }),isTrue);
+    expect(isOctober10ManualCostBatch({
+      'id': 6,'source':'opening_stock_baseline','purchase_date':'2026-08-01',
+    }),isFalse);
+    expect(isOctober10ManualCostBatch({
+      'id': 8,'source':'finance_record','purchase_date':'2026-10-10',
+    }),isFalse);
+    expect(isOctober10ManualCostBatch({
+      'id': 7,'source':'finance_record','purchase_date':'2026-10-11',
+    }),isFalse);
+    expect(isOctober10ManualCostBatch({
+      'id': 7,'source':'finance_group','purchase_date':'2026-10-10',
+      'members':[{'id':7}],
+    }),isFalse);
+  });
+
   test('Finance comparison ignores catalog prefill and counts only manual prices', () {
     final source = <Map<String, dynamic>>[
       {'quantity': 15, 'unit_cost': 13745, 'cost_origin': 'catalog_prefill'},

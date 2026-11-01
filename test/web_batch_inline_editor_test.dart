@@ -21,6 +21,12 @@ void main(){
         secret:'test',kind:'import',batchKey:'6',lines:history,
         onSaved:(){},
       )))));
+  Widget octoberApp()=>MaterialApp(home:Scaffold(
+    body:SingleChildScrollView(child:Padding(
+      padding:const EdgeInsets.all(12),child:WebBatchInlineEditor(
+        secret:'test',kind:'import',batchKey:'7',lines:history,
+        manualCostOnly:true,onSaved:(){},
+      )))));
 
   testWidgets('Hide plus-minus, removal and Save before edit mode', (tester)async{
     await tester.pumpWidget(app());
@@ -86,16 +92,16 @@ void main(){
     await tester.pumpWidget(app());
     await tester.tap(find.text('Tahrirlash'));
     await tester.pumpAndSettle();
-    expect(find.text('₩0'),findsOneWidget);
+    expect(find.text('₩130,672'),findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('edit-batch-cost-123')));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('batch-unit-cost-input')),'7900');
     await tester.tap(find.text('Tasdiqlash'));
     await tester.pumpAndSettle();
-    expect(find.text('Tasdiqlangan tan narx: ₩7,900'),findsOneWidget);
-    expect(find.text('₩79,000'),findsOneWidget);
-    expect(find.textContaining('O‘zgarish: +₩79,000'),findsOneWidget);
+    expect(find.text('Tan narx: ₩7,900'),findsOneWidget);
+    expect(find.text('₩140,672'),findsOneWidget);
+    expect(find.textContaining('O‘zgarish: +₩10,000'),findsOneWidget);
     await tester.ensureVisible(find.text('Bekor qilish'));
     await tester.tap(find.text('Bekor qilish'));
     await tester.pumpAndSettle();
@@ -121,12 +127,12 @@ void main(){
     expect(find.byKey(const ValueKey('batch-draft-cost-summary')), findsOneWidget);
     expect(find.text('Kitob qo‘shish'), findsOneWidget);
     // No edits are persisted until the explicit Save action is used.
-    expect(find.text('₩0'), findsOneWidget);
+    expect(find.text('₩130,672'), findsOneWidget);
   });
 
   testWidgets('Confirming unchanged catalog price makes it manually approved',
     (tester) async {
-    await tester.pumpWidget(app());
+    await tester.pumpWidget(octoberApp());
     await tester.tap(find.text('Tahrirlash'));
     await tester.pumpAndSettle();
     expect(find.text('₩0'), findsOneWidget);

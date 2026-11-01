@@ -39,7 +39,9 @@ class WebBatchInlineEditor extends StatefulWidget {
     required this.batchKey,
     required this.lines,
     required this.onSaved,
+    this.startInEditMode = false,
   });
+  final bool startInEditMode;
   final String secret;
   final String kind;
   final String batchKey;
@@ -71,6 +73,7 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
   @override
   void initState(){
     super.initState();
+    editing=widget.startInEditMode;
     _reset();
   }
 
@@ -464,9 +467,11 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
         editing=false;
         // Server response will replace old quantities via onSaved().
       });
-      widget.onSaved();
+      // onSaved may pop a dedicated edit page. Report success first to avoid
+      // looking up ScaffoldMessenger with a deactivated context.
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content:Text('Partiya saqlandi. Takroriy kirim qo‘shilmadi.')));
+      widget.onSaved();
     }catch(error){
       if(mounted)ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content:Text('Saqlashda xatolik: '+error.toString())));

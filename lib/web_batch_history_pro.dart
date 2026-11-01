@@ -862,14 +862,13 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
     if (mounted && saved == true) _refresh();
   }
 
-  // The initial balance is a real, pre-existing finance import with saved
-  // receipt lines. Give it a prominent edit entry instead of making the owner
-  // scroll past dozens of records to reach the inline editor.
-  // Editing uses the same authenticated, optimistic-locking batch RPC; since
-  // inventory_applied=false, it does not post stock or finance again.
-  Future<void> _openOpeningStockEditor({
+  // Both opening-stock and ordinary finance-import receipts can be edited
+  // without entering another purchase or modifying existing finance/stock.
+  // The authenticated batch RPC checks the old quantities and unit costs.
+  Future<void> _openFinanceImportEditor({
     required String importId,
     required String title,
+    required bool isOpeningStock,
     required List<Map<String, dynamic>> lines,
   }) async {
     final saved = await Navigator.of(context).push<bool>(
@@ -877,7 +876,9 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
         builder: (pageContext) => Scaffold(
           backgroundColor: UzbekCustomerColors.background,
           appBar: AppBar(
-            title: const Text('Boshlang‘ich qoldiq kitoblari'),
+            title: Text(isOpeningStock
+                ? 'Boshlang‘ich qoldiq kitoblari'
+                : 'Partiyadagi kitoblarni tahrirlash'),
             backgroundColor: UzbekCustomerColors.background,
           ),
           body: ListView(
@@ -888,17 +889,17 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
                 color: UzbekCustomerColors.navy)),
               const SizedBox(height: 8),
               const Text(
-                'Bu tarixiy partiyada kitoblarning dona soni va '
-                'o‘sha partiyadagi tannarxini o‘zgartiring. '
-                'Kitob qo‘shish yoki noto‘g‘risini olib tashlash ham mumkin. '
-                'Barcha o‘zgarishlar faqat “Saqlash” bosilganda yoziladi. '
-                'Moliya xarajati, hozirgi ombor va eski sotuvlar o‘zgarmaydi.',
+                'Kitobning shu partiyadagi soni va tan narxini tahrirlang. '
+                'Yangi kitob qo‘shish yoki noto‘g‘ri kitobni olib tashlash '
+                'ham mumkin. O‘zgarishlar faqat “Saqlash” bosilganda '
+                'yoziladi. Moliyadagi xarajat, hozirgi ombor qoldig‘i '
+                'va oldingi sotuvlar o‘zgartirilmaydi.',
                 style: TextStyle(
                   color: UzbekCustomerColors.textMuted,
                   fontSize: 12, height: 1.45)),
               const SizedBox(height: 16),
               WebBatchInlineEditor(
-                key: ValueKey('opening-stock-editor:$importId'),
+                key: ValueKey('finance-import-editor:$importId'),
                 secret: widget.secret,
                 kind: 'import',
                 batchKey: importId,
@@ -968,15 +969,19 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
           const Divider(height: 16),
           _detail('JAMI — kitoblar + transport', _batchMoney(grandTotal)),
           _detail('Partiya sanasi', _batchDate(bought)),
-          if (isOpeningStock) ...[
+          if (!grouped && (isOpeningStock ||
+              item['source'] == 'finance_record')) ...[
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                key: const ValueKey('opening-stock-edit-books'),
-                onPressed: () => _openOpeningStockEditor(
+                key: ValueKey(isOpeningStock
+                    ? 'opening-stock-edit-books'
+                    : 'finance-import-edit-books:${item['id']}'),
+                onPressed: () => _openFinanceImportEditor(
                   importId: (item['id'] ?? '').toString(),
                   title: title,
+                  isOpeningStock: isOpeningStock,
                   lines: matchedLines,
                 ),
                 icon: const Icon(Icons.edit_note_rounded),
@@ -985,8 +990,9 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
             ),
             const SizedBox(height: 4),
             const Text(
-              '52 ta yoki undan ko‘p kitob bo‘lsa ham, tahrirlash '
-              'alohida sahifada ochiladi. Moliya va ombor qayta yozilmaydi.',
+              'Kitoblar soni va shu partiyadagi tan narxini '
+              'alohida sahifada tahrirlash mumkin. '
+              'Moliya va ombor qayta yozilmaydi.',
               style: TextStyle(fontSize: 11,
                 color: UzbekCustomerColors.textMuted),
             ),
@@ -1059,12 +1065,6 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
                   ).toList(),
                   onSaved:_refresh),
               ]
-          else if (!isOpeningStock)
-            WebBatchInlineEditor(
-              key:ValueKey('import:'+item['id'].toString()),
-              secret:widget.secret,kind:'import',
-              batchKey:item['id'].toString(),
-              lines:matchedLines,onSaved:_refresh),
           if (linked.isNotEmpty) ...[
             const SizedBox(height: 12),
             const Align(

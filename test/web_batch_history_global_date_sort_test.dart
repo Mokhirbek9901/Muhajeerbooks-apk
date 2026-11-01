@@ -23,6 +23,28 @@ void main() {
     },
   ];
 
+  test('August and October finance imports both allow direct safe edits', () {
+    expect(hasDirectFinanceImportEditor({
+      'id': 6, 'source': 'opening_stock_baseline',
+      'purchase_date': '2026-08-01',
+    }), isTrue);
+    expect(hasDirectFinanceImportEditor({
+      'id': 7, 'source': 'finance_record',
+      'purchase_date': '2026-10-10',
+    }), isTrue);
+    expect(hasDirectFinanceImportEditor({
+      'id': 'finance_group:abc', 'source': 'finance_group',
+      'members': [{'id': 7}, {'id': 8}],
+    }), isFalse);
+    expect(hasDirectFinanceImportEditor({
+      'id': 9, 'source': 'finance_record',
+      'members': [{'id': 9}, {'id': 10}],
+    }), isFalse);
+    expect(hasDirectFinanceImportEditor({
+      'id': 'invalid', 'source': 'finance_record',
+    }), isFalse);
+  });
+
   test('mixed sources sort by incoming batch date, not by source section', () {
     final entries = sortBatchHistoryByReceiptDate(
       catalogGroups: catalog, financePurchases: purchases);

@@ -22,6 +22,24 @@ jobs:
       - name: Compare App Store Connect release state and actual iTunes lookup by storefront
         run: |
           ruby .github/release_tools/inspect_app_store_state.rb
+          ruby -rjson -e '
+            require_relative ".github/release_tools/app_store_client"
+            app_id="6817641775"
+            versions=AppStoreClient.request(:get,"/v1/apps/#{app_id}/appStoreVersions",
+              query: {"limit"=>50,"fields[appStoreVersions]"=>"versionString,platform,appStoreState,build,releaseType"}).fetch("data")
+            version=versions.find{|v| v.dig("attributes","platform")=="IOS" &&
+              v.dig("attributes","versionString")=="2.5.22"}
+            abort "No target published version" unless version
+            relationship=AppStoreClient.request(:get,
+              "/v1/appStoreVersions/#{version.fetch("id")}/relationships/build")["data"]
+            abort "App Store version has no attached build" unless relationship
+            build=AppStoreClient.request(:get,"/v1/builds/#{relationship.fetch("id")}").fetch("data")
+            puts "PUBLIC_IOS_BUILD " + JSON.generate({
+              "version"=>version.dig("attributes","versionString"),
+              "state"=>version.dig("attributes","appStoreState"),
+              "build"=>build.dig("attributes","version"),
+              "processing"=>build.dig("attributes","processingState")})
+          '
           python3 - <<'PY'
           import json, urllib.request, urllib.parse
           app_id="6817641775"

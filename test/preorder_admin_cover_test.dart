@@ -32,6 +32,47 @@ void main() {
     expect(result.books, 9);
   });
 
+  test('52 requested titles preserve covers and the select-arrivals action', () {
+    final items = List.generate(52, (i) => <String, dynamic>{
+      'book_title': 'Kitob ${i + 1}',
+      'quantity': 1,
+      'book_image_url': 'https://example.com/cover-${i + 1}.jpg',
+    });
+    final record = <String, dynamic>{
+      '_origin': 'web',
+      'request_items': items,
+    };
+    final invoice = <String, dynamic>{
+      'status': 'accepted',
+      'payment_state': 'requested',
+      'price_ready': false,
+      // Invoice intentionally omits request_items.
+      'items': [{'title': '52 ta kitob', 'quantity': 52}],
+    };
+    expect(canSelectPartialPreorderArrivals(invoice, record, 'web'), isTrue);
+    final cards = preorderDetailDisplayItems(invoice, record);
+    expect(cards, hasLength(52));
+    expect(cards.first['image_url'], 'https://example.com/cover-1.jpg');
+    expect(cards.last['image_url'], 'https://example.com/cover-52.jpg');
+    expect(cards.last['title'], 'Kitob 52');
+  });
+
+  test('partial arrival action is blocked for cancelled and native preorders', () {
+    const record = <String, dynamic>{'request_items':[
+      {'book_title': 'A', 'quantity': 1},
+      {'book_title': 'B', 'quantity': 2},
+    ]};
+    expect(canSelectPartialPreorderArrivals(
+      {'status': 'cancelled'}, record, 'web'), isFalse);
+    expect(canSelectPartialPreorderArrivals(
+      {'status': 'accepted'}, record, 'native'), isFalse);
+    expect(canSelectPartialPreorderArrivals(
+      {'status': 'accepted', 'price_ready': true}, record, 'web'), isFalse);
+    expect(canSelectPartialPreorderArrivals(
+      {'status': 'accepted', 'price_ready': true,'partial_active':true},
+      record, 'web'), isTrue);
+  });
+
   test('old receipt shows one vertical row per requested book with its photo', () {
     const pictures = <String>[
       'https://example.com/v1.jpg',

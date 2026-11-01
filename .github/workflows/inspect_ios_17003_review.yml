@@ -1,0 +1,28 @@
+name: Inspect verified iOS 2.5.23 candidate for App Store
+on:
+  push:
+    branches: [ios-server-update-prompt-20261102]
+    paths: ['.github/workflows/inspect_ios_17003_review.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Inspect exact public app and latest TestFlight uploads
+        run: ruby .github/release_tools/inspect_latest_ios_17003.rb
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apple-17003-preflight
+          path: ${{ runner.temp }}/app-review-candidate-17003.json

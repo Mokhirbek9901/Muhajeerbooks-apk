@@ -59,6 +59,9 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
   bool editing=false,saving=false,loadingBooks=false;
   Map<int,int> counts={};
   Map<int,int> unitCosts={};
+  // A manual confirmation is meaningful even when the numeric price is
+  // identical to the auto-suggested catalog cost.
+  final Set<int> manuallyConfirmedCosts=<int>{};
   final Map<String,Map<String,dynamic>> added={};
   final TextEditingController _bookSearch=TextEditingController();
 
@@ -100,11 +103,13 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
       for(final line in widget.lines) _n(line['id']):_n(line['unit_cost'])
     };
     added.clear();
+    manuallyConfirmedCosts.clear();
   }
 
   bool get changed=>widget.lines.any((line)=>
     counts[_n(line['id'])]!=_n(line['quantity']) ||
-    unitCosts[_n(line['id'])]!=_n(line['unit_cost'])) || added.isNotEmpty;
+    unitCosts[_n(line['id'])]!=_n(line['unit_cost']) ||
+    manuallyConfirmedCosts.contains(_n(line['id']))) || added.isNotEmpty;
 
   void _cancel(){
     setState((){
@@ -249,20 +254,30 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
                   onPressed:saving?null:()=>_editUnitCost(
                     title:(line['title']??'Kitob').toString(),
                     initial:cost,
-                    onPrice:(n)=>setState(()=>unitCosts[id]=n)),
+                    onPrice:(n)=>setState((){
+                      unitCosts[id]=n;
+                      manuallyConfirmedCosts.add(id);
+                    })),
                   style:TextButton.styleFrom(
                     padding:EdgeInsets.zero,
                     visualDensity:VisualDensity.compact,
                     tapTargetSize:MaterialTapTargetSize.shrinkWrap,
                     alignment:Alignment.centerLeft),
                   icon:const Icon(Icons.edit_outlined,size:13),
-                  label:Text('Tan narx: '+_won(cost),
+                  label:Text(
+                    (line['cost_origin']=='manual' ||
+                     manuallyConfirmedCosts.contains(id)
+                       ? 'Tasdiqlangan tan narx: '
+                       : 'Tan narxni tasdiqlang: ') + _won(cost),
                     style:const TextStyle(fontSize:11.5)))
               else ...[
                 Text('$value dona · 1 dona ${_won(cost)}',
                   maxLines:2,
                   style:const TextStyle(fontSize:11.5,
                     color:Color(0xFF657471))),
+                if(line['cost_origin']!='manual')
+                  const Text('Katalogdan olingan, qo‘lda tasdiqlanmagan',
+                    style:TextStyle(fontSize:11,color:Color(0xFF9F713B))),
                 if(line['fifo_outflow_units'] is num && value>0)
                   Text(
                     'Taxminiy sotilgan: ${_n(line['fifo_outflow_units'])} / '
@@ -439,13 +454,16 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
       final changes=<Map<String,dynamic>>[
         for(final line in widget.lines)
           if(counts[_n(line['id'])]!=_n(line['quantity']) ||
-             unitCosts[_n(line['id'])]!=_n(line['unit_cost']))
+             unitCosts[_n(line['id'])]!=_n(line['unit_cost']) ||
+             manuallyConfirmedCosts.contains(_n(line['id'])))
             {
               'id':_n(line['id']),
               'expected_quantity':_n(line['quantity']),
               'quantity':counts[_n(line['id'])],
               'expected_unit_cost':_n(line['unit_cost']),
               'unit_cost':unitCosts[_n(line['id'])],
+              'confirm_manual_cost':
+                manuallyConfirmedCosts.contains(_n(line['id'])),
             },
       ];
       final additions=<Map<String,dynamic>>[
@@ -486,14 +504,25 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
       (editing?(counts[_n(line['id'])]??_n(line['quantity'])):
       _n(line['quantity'])))+
       (editing?added.values.fold<int>(0,(sum,b)=>sum+_n(b['quantity'])):0);
-    // Every saved and newly selected book counts, even if search hides it.
+    // The running total is explicitly confirmed cost only; catalogue
+    // suggestions are never silently counted as part of the finance total.
     final originalCost=widget.lines.fold<int>(0,(total,line)=>
-      total+_n(line['quantity'])*_n(line['unit_cost']));
-    final draftCost=widget.lines.fold<int>(0,(total,line)=>
-      total+(counts[_n(line['id'])]??_n(line['quantity']))*
-        (unitCosts[_n(line['id'])]??_n(line['unit_cost'])))+
-      added.values.fold<int>(0,(total,line)=>
-        total+_n(line['quantity'])*_n(line['unit_cost']));
+      total+(line['cost_origin']=='manual'
+        ? _n(line['quantity'])*_n(line['unit_cost']) : 0));
+    final draftCost=widget.lines.fold<int>(0,(total,line){
+      final id=_n(line['id']);
+      return total+((line['cost_origin']=='manual' ||
+        manuallyConfirmedCosts.contains(id))
+          ? (counts[id]??_n(line['quantity']))*(unitCosts[id]??_n(line['unit_cost']))
+          : 0);
+    })+added.values.fold<int>(0,(total,line)=>
+      total+(line['edited_cost']==true
+        ? _n(line['quantity'])*_n(line['unit_cost']):0));
+    final unconfirmedCount=widget.lines.where((line)=>
+      line['cost_origin']!='manual' &&
+      !manuallyConfirmedCosts.contains(_n(line['id'])) &&
+      (counts[_n(line['id'])]??_n(line['quantity']))>0).length+
+      added.values.where((line)=>line['edited_cost']!=true).length;
     final term=_normalizeTitle(_bookSearch.text);
     final filtered=widget.lines.where((book)=>_matchesBook(book,term)).toList();
     final filteredAdded=added.values.where(
@@ -566,7 +595,7 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
             color:const Color(0xFFEAF6F0),
             borderRadius:BorderRadius.circular(12)),
           child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-            const Text('Partiya tan narxi — saqlanmagan hisob',
+            const Text('Qo‘lda tasdiqlangan tan narx — saqlanmagan hisob',
               style:TextStyle(color:ink,fontWeight:FontWeight.w800,
                 fontSize:12)),
             const SizedBox(height:5),
@@ -578,6 +607,10 @@ class _WebBatchInlineEditorState extends State<WebBatchInlineEditor> {
               style:const TextStyle(fontSize:11.5,
                 color:Color(0xFF617370))),
             const SizedBox(height:6),
+            if(unconfirmedCount>0)
+              Text('$unconfirmedCount nomdagi kitob tan narxi hali '
+                'qo‘lda tasdiqlanmagan. Katalog narxlari hisobga kirmaydi.',
+                style:const TextStyle(fontSize:11.5,color:Color(0xFF9F713B))),
             const Text('Yuqoridagi Moliya taqqoslash kartasi '
               '“Saqlash”dan so‘ng yangilanadi.',
               style:TextStyle(fontSize:11,

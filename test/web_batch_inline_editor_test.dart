@@ -103,6 +103,27 @@ void main(){
     expect(find.byKey(const ValueKey('batch-draft-cost-summary')),findsNothing);
   });
 
+  testWidgets('Opening stock editor starts in edit mode without writing to stock', (tester) async {
+    await tester.pumpWidget(MaterialApp(home: Scaffold(
+      body: SingleChildScrollView(child: WebBatchInlineEditor(
+        key: const ValueKey('opening-stock-editor:6'),
+        secret: 'test',
+        kind: 'import',
+        batchKey: '6',
+        startInEditMode: true,
+        lines: history,
+        onSaved: () {},
+      )),
+    )));
+    expect(find.text('Tahrirlash rejimi'), findsOneWidget);
+    expect(find.text('2 xil · 14 dona (tahrir)'), findsOneWidget);
+    expect(find.text('Saqlash'), findsOneWidget);
+    expect(find.byKey(const ValueKey('batch-draft-cost-summary')), findsOneWidget);
+    expect(find.text('Kitob qo‘shish'), findsOneWidget);
+    // No edits are persisted until the explicit Save action is used.
+    expect(find.text('₩130,672'), findsOneWidget);
+  });
+
   testWidgets('Steppers appear only after edit, cancel leaves saved count',
     (tester)async{
     await tester.pumpWidget(app());

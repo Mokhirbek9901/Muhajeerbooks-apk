@@ -1,0 +1,24 @@
+name: Inspect Play tracks for owner (read-only)
+on:
+  push:
+    branches: [android-testflight-sync-20261101]
+    paths: ['.github/workflows/play_tracks_readonly.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tracks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+      PLAY_TRACK: internal
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Inspect Google Play internal and production tracks (no writes)
+        run: |
+          python3 -m pip install --quiet google-auth requests
+          python3 tools/play_candidate.py inspect

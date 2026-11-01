@@ -1076,7 +1076,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
                     l['batch_import_id']?.toString()==member['id'].toString()
                   ).toList(),
                   onSaved:_refresh),
-              ]
+              ],
           if (linked.isNotEmpty) ...[
             const SizedBox(height: 12),
             const Align(

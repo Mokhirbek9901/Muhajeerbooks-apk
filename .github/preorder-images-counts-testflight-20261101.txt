@@ -1,8 +1,0 @@
-Owner-requested iOS TestFlight-only hotfix on 2026-11-01.
-Restore images for native preorders from catalog and signed web uploads.
-Display each book photo on multi-book preorder details.
-Dashboard and preorder list: distinct customer count and total book quantity.
-Cancelled or admin-hidden records excluded from dashboard summary.
-No preorder, order, stock, payment, deposit, status or customer data mutations.
-Run Flutter tests and iOS checks, then upload only to TestFlight.
-Do not release to public App Store, Android, or web.

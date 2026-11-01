@@ -23,6 +23,35 @@ void main() {
     },
   ];
 
+  test('Finance comparison ignores catalog prefill and counts only manual prices', () {
+    final source = <Map<String, dynamic>>[
+      {'quantity': 15, 'unit_cost': 13745, 'cost_origin': 'catalog_prefill'},
+      {'quantity': 10, 'unit_cost': 6900, 'cost_origin': 'catalog_prefill'},
+      {'quantity': 1, 'unit_cost': 13284, 'cost_origin': 'manual'},
+    ];
+    final result = manualBatchCostBreakdown(source);
+    expect(result['total_qty'], 26);
+    expect(result['total_names'], 3);
+    expect(result['confirmed_cost'], 13284);
+    expect(result['confirmed_qty'], 1);
+    expect(result['confirmed_names'], 1);
+    expect(result['pending_qty'], 25);
+    expect(result['pending_names'], 2);
+    // Unverified catalog prices must not create a misleading purchase gap.
+    expect(result['confirmed_cost'], isNot(206175 + 69000 + 13284));
+  });
+
+  test('Complete manually entered lot has zero unconfirmed records', () {
+    final result = manualBatchCostBreakdown([
+      {'quantity': 3, 'unit_cost': 9000, 'cost_origin': 'manual'},
+      {'quantity': 2, 'unit_cost': 5000, 'cost_origin': 'manual'},
+    ]);
+    expect(result['confirmed_cost'], 37000);
+    expect(result['confirmed_qty'], 5);
+    expect(result['pending_names'], 0);
+    expect(result['pending_qty'], 0);
+  });
+
   test('August and October finance imports both allow direct safe edits', () {
     expect(hasDirectFinanceImportEditor({
       'id': 6, 'source': 'opening_stock_baseline',

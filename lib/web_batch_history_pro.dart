@@ -903,6 +903,7 @@ class _WebProfessionalBatchesState extends State<WebProfessionalBatches> {
                 kind: 'import',
                 batchKey: importId,
                 lines: lines,
+                startInEditMode: true,
                 onSaved: () => Navigator.of(pageContext).pop(true),
               ),
             ],

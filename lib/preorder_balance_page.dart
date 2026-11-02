@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import 'app_state.dart';
+import 'customer_web_preorder_partial_page.dart';
 import 'customer_pin_page.dart';
 import 'store_ui.dart' show CheckoutPage;
 import 'design_system.dart';
@@ -334,13 +335,39 @@ class _CustomerPreorderBalancesPageState
     if (mounted) await refresh();
   }
 
+  /// Open the previous checkout untouched for full deliveries.
+  /// Partial deliveries are routed to the dedicated customer-owned form.
+  Future<void> _openPreorderDetails(Map<String,dynamic> record) async {
+    final isWeb=record['source']=='web';
+    final id=(record['id']??'').toString();
+    if(isWeb){
+      try {
+        final detail=await context.read<AppState>().webPreorderPartial(id,'detail');
+        if(!mounted)return;
+        final batches=detail['batches'];
+        if(batches is List && batches.any((x)=>x is Map &&
+            x['status']!='cancelled')) {
+          await Navigator.of(context).push(MaterialPageRoute<void>(
+            builder:(_)=>CustomerWebPreorderPartialPage(preorderId:id)));
+          if(mounted)await refresh();
+          return;
+        }
+      } catch(e) {
+        if(mounted)ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content:Text('Qisman zakas tekshirilmadi: $e')));
+        return;
+      }
+    }
+    if(!mounted)return;
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder:(_)=>CheckoutPage(preorderId:isWeb?id:'native:$id')));
+    if(mounted)await refresh();
+  }
+
   Widget _invoiceCard(Map<String, dynamic> record) {
     final status = '${record['status'] ?? ''}';
     final isContactOnly = record['ownership'] == 'contact';
     final isWeb = record['source'] == 'web';
-    final ref = record['source'] == 'native'
-        ? 'native:${record['id']}'
-        : '${record['id']}';
     return Card(
       child: ListTile(
         title: Text('${record['title'] ?? record['book_title'] ?? 'Kitob'}'),
@@ -356,14 +383,7 @@ class _CustomerPreorderBalancesPageState
         trailing: isContactOnly
             ? const Icon(Icons.lock_outline)
             : const Icon(Icons.chevron_right),
-        onTap: isContactOnly
-            ? null
-            : () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => CheckoutPage(preorderId: ref),
-                ),
-              ).then((_) => refresh()),
+        onTap: isContactOnly ? null : () => _openPreorderDetails(record),
       ),
     );
   }

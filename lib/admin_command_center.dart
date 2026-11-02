@@ -472,6 +472,15 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
         overrides['${x['source']}:${x['order_id']}:${x['item_index']}'] =
             (x['display_title'] ?? '').toString();
       }
+      final imageOverrides = <String, String>{};
+      for (final raw in (data['image_overrides'] as List? ?? const [])) {
+        if (raw is! Map) continue;
+        final x = Map<String, dynamic>.from(raw);
+        final url = (x['image_url'] ?? '').toString();
+        if (url.startsWith('https://')) {
+          imageOverrides['${x['source']}:${x['order_id']}:${x['item_index']}'] = url;
+        }
+      }
       for(final row in rows) {
         final origin=(row['_origin'] ?? 'native').toString();
         final root='$origin:${row['id']}';
@@ -483,6 +492,14 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
             if(replacement!=null && replacement.isNotEmpty){
               items[index]['book_title']=replacement;
             }
+            final image=imageOverrides['$root:$index'];
+            if(image!=null)items[index]['book_image_url']=image;
+          }
+          if (items.isNotEmpty && items.first is Map) {
+            final cover=(items.first as Map)['book_image_url'];
+            if (cover is String && cover.startsWith('https://')) {
+              row['_cover_image_url']=cover;
+            }
           }
           if(items.length==1 && items[0] is Map){
             row['book_title']=(items[0] as Map)['book_title'];
@@ -493,6 +510,11 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
           final value=overrides['$root:0'];
           if(value!=null && value.isNotEmpty){
             row[origin=='web'?'book_title':'title']=value;
+          }
+          final image=imageOverrides['$root:0'];
+          if(image!=null) {
+            row['_cover_image_url']=image;
+            row['book_image_url']=image;
           }
         }
       }
@@ -863,6 +885,105 @@ class _CombinedPreorderDetailPageState
             .showSnackBar(SnackBar(content: Text('Saqlanmadi: $e')));
     } finally {
       if (mounted) setState(() => saving = false);
+    }
+  }
+
+  /// Edits display metadata for exactly one preorder item, not the
+  /// customer request, payment, reservation, quantity or catalog record.
+  Future<void> _editBook(int index, Map<String, dynamic> item) async {
+    if (saving) return;
+    final title = TextEditingController(text: '${item['title'] ?? 'Kitob'}');
+    var coverUrl = '${item['image_url'] ?? ''}';
+    var uploading = false;
+    final saved = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, update) => AlertDialog(
+          title: const Text('Kitobni tahrirlash'),
+          scrollable: true,
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            _PreorderBookCover(url: coverUrl,width:152,height:205),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: uploading ? null : () async {
+                final picked = await ImagePicker().pickImage(
+                  source: ImageSource.gallery,imageQuality:85);
+                if (picked == null || !ctx.mounted) return;
+                update(() => uploading = true);
+                try {
+                  final result = await widget.api.uploadCover(picked);
+                  if (ctx.mounted) update(() => coverUrl = result.url);
+                } catch (e) {
+                  if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(content: Text('Rasm yuklanmadi: $e')));
+                } finally {
+                  if (ctx.mounted) update(() => uploading = false);
+                }
+              },
+              icon: const Icon(Icons.photo_library_outlined),
+              label: Text(uploading?'Rasm yuklanmoqda...':'Rasmni almashtirish'),
+            ),
+            TextField(controller:title,maxLength:240,
+              decoration:const InputDecoration(labelText:'Kitob nomi')),
+            const Text('Faqat admin ko‘rinishidagi nom va rasm yangilanadi. '
+              'Mijoz buyurtmasi, avans va ombor o‘zgarmaydi.',
+              style:TextStyle(fontSize:12)),
+          ]),
+          actions:[
+            TextButton(onPressed:uploading?null:()=>Navigator.pop(ctx,false),
+              child:const Text('Bekor qilish')),
+            FilledButton(onPressed:uploading?null:()=>Navigator.pop(ctx,true),
+              child:const Text('Saqlash')),
+          ],
+        ),
+      ),
+    );
+    final newTitle=title.text.trim();
+    title.dispose();
+    if(saved!=true || !mounted)return;
+    if(newTitle.isEmpty){
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content:Text('Kitob nomini kiriting.')));return;
+    }
+    setState(()=>saving=true);
+    try {
+      await widget.api._rpc('admin_preorder_supplier', params:{
+        'p_secret':widget.api.secret,'p_action':'set_book',
+        'p_payload':{
+          'source':source,'order_id':reference,'item_index':index,
+          'title':newTitle,'image_url':coverUrl.startsWith('https://')
+            ? coverUrl : '',
+        },
+      });
+      if (!mounted) return;
+      setState(() {
+        final rawItems=widget.record['request_items'];
+        if (source=='web' && rawItems is List &&
+            index < rawItems.length && rawItems[index] is Map) {
+          final target=rawItems[index] as Map;
+          target['book_title']=newTitle;
+          target['book_image_url']=coverUrl;
+          if (index==0) widget.record['_cover_image_url']=coverUrl;
+          if (rawItems.length==1) widget.record['book_title']=newTitle;
+          else if (index==0) {
+            widget.record['book_title']=
+                '$newTitle + ${rawItems.length-1} turdagi kitob';
+          }
+        } else {
+          widget.record[source=='web'?'book_title':'title']=newTitle;
+          widget.record['_cover_image_url']=coverUrl;
+          widget.record['book_image_url']=coverUrl;
+        }
+        if (data != null && source=='native') data!['title']=newTitle;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content:Text('Kitob nomi va rasmi saqlandi. Asl zakas o‘zgarmadi.')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text('Kitob saqlanmadi: $e')));
+    } finally {
+      if (mounted) setState(()=>saving=false);
     }
   }
 
@@ -1259,6 +1380,12 @@ class _CombinedPreorderDetailPageState
                                   ),
                                 ],
                               ),
+                            ),
+                            IconButton(
+                              tooltip: 'Kitob nomi va rasmini tahrirlash',
+                              onPressed: saving ? null :
+                                () => _editBook(entry.key, item),
+                              icon: const Icon(Icons.edit_outlined),
                             ),
                           ],
                         ),

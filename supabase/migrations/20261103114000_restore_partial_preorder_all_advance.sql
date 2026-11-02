@@ -386,5 +386,4 @@ begin
       set status='proof_submitted',proof_path=path,updated_at=now() where id=b.id;
  else raise exception 'Amal noto‘g‘ri'; end if;
  return private.web_preorder_partial_detail(p_id);
-end $function$
-
+end $function$;

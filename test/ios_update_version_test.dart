@@ -60,4 +60,19 @@ void main() {
       publishedVersion: '2.5.23', publishedBuild: 17003), isFalse);
   });
 
+  test('TestFlight checks latest verified beta and not the public release', () {
+    expect(iosPublishedUpdateAvailable(
+      installedVersion:'2.5.24', installedBuild:30004,
+      publishedVersion:'2.5.24', publishedBuild:30006),isTrue);
+    expect(iosPublishedUpdateAvailable(
+      installedVersion:'2.5.24', installedBuild:30006,
+      publishedVersion:'2.5.24', publishedBuild:30006),isFalse);
+    expect(iosPublishedUpdateAvailable(
+      installedVersion:'2.5.24', installedBuild:30006,
+      publishedVersion:'2.5.23', publishedBuild:17003),isFalse);
+    expect(iosPublishedUpdateAvailable(
+      installedVersion:'2.5.24', installedBuild:30007,
+      publishedVersion:'2.5.24', publishedBuild:30006),isFalse);
+  });
+
 }

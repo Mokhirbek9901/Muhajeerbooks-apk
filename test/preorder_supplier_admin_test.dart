@@ -1,3 +1,4 @@
+import 'dart:ui' show Rect;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:muhajeerbooks/admin_ui.dart';
 
@@ -75,6 +76,30 @@ void main() {
     expect(result.first['quantity'],3);
     expect(result.first['requested'],3);
     expect(orders.last['quantity'],20);
+  });
+
+  test('vertical export image keeps titles separate from quantity', () {
+    // A 6-cover page has 3 columns and 2 rows. A long, wrapped title
+    // must not overlap its "1 dona" quantity label, including page 8/9.
+    for (final layout in [2, 3, 4]) {
+      final bounds = layout == 4
+          ? const Rect.fromLTWH(34, 776, 304, 525)
+          : layout == 3
+              ? const Rect.fromLTWH(132, 235, 736, 1035)
+              : const Rect.fromLTWH(36, 237, 454, 1010);
+      final areas = supplierExportVerticalAreas(bounds, layout);
+      expect(areas.cover.top, greaterThan(bounds.top));
+      expect(areas.cover.height, greaterThan(0));
+      expect(areas.cover.bottom, lessThan(areas.title.top));
+      expect(areas.title.height, greaterThanOrEqualTo(54));
+      expect(areas.title.bottom, lessThan(areas.quantity.top));
+      expect(areas.quantity.bottom, lessThan(bounds.bottom));
+    }
+    expect(
+      () => supplierExportVerticalAreas(
+        const Rect.fromLTWH(0, 0, 304, 525), 6),
+      throwsArgumentError,
+    );
   });
 
   test('three new formats export six books per image', () {

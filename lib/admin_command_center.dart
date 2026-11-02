@@ -1585,6 +1585,38 @@ class _CombinedPreorderDetailPageState
                     ),
                   );
                 }),
+                if(source=='web' && partialData!=null &&
+                    (partialData!['batches'] as List? ?? const []).isNotEmpty)
+                  Padding(padding:const EdgeInsets.symmetric(vertical:12),
+                    child:Builder(builder:(_){
+                      final batches=partialData!['batches'] as List;
+                      final active=batches.whereType<Map>().where((x)=>
+                        x['status']!='cancelled').toList();
+                      if(active.isEmpty)return const SizedBox.shrink();
+                      final batch=active.last;
+                      final status='${batch['status']??''}';
+                      final lines=batch['items'] as List? ?? const [];
+                      final due=(batch['amount_due'] as num?)?.toInt()??0;
+                      return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                        const Text('Qisman kelgan kitoblar',
+                          style:TextStyle(fontWeight:FontWeight.w900,fontSize:18)),
+                        for(final x in lines)if(x is Map)
+                          Text('• ${x['requested_title']??x['title']} — ${x['quantity']} dona'),
+                        Text('Qisman holat: $status'),
+                        if(status=='awaiting_payment'||status=='proof_submitted')
+                          Text('Avans: −${_won((batch['deposit_applied'] as num?)?.toInt()??0)}'
+                            ' • Qolgan: ${_won(due)}'),
+                        if(status=='prepared')
+                          TextButton(onPressed:saving?null:()=>_partialAction('cancel_prepare'),
+                            child:const Text('Qisman tayyorlashni bekor qilish')),
+                        if(status=='proof_submitted' ||
+                            (status=='awaiting_payment' && due==0))
+                          FilledButton(onPressed:saving?null:()=>_partialAction('confirm'),
+                            child:const Text('To‘lovni tasdiqlash • faqat kelganlarni jo‘natish')),
+                        if(status=='awaiting_payment' && due>0)
+                          const Text('Mijozning qolgan to‘lov chekini kuting.'),
+                      ]);
+                    })),
                 const Divider(),
                 Text(
                   'Kitob va pochta: ${_won(((d['base_total'] as num?)?.toInt() ?? 0) + ((d['extra_total'] as num?)?.toInt() ?? 0))}',

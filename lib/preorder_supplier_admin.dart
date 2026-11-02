@@ -100,6 +100,24 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
   late List<_SupplierLine> lines;
   final nameController = TextEditingController();
   final searchController = TextEditingController();
+  final Map<String,TextEditingController> quantityControllers = {};
+  TextEditingController _quantityController(_SupplierLine line) =>
+      quantityControllers.putIfAbsent(line.key,
+        () => TextEditingController(text:line.quantity.toString()));
+
+  void _discardQuantityControllers() {
+    for (final controller in quantityControllers.values) {
+      controller.dispose();
+    }
+    quantityControllers.clear();
+  }
+
+  void _changeQuantity(_SupplierLine line,int change) {
+    setState(() {
+      line.quantity=(line.quantity+change).clamp(0,10000).toInt();
+      _quantityController(line).text=line.quantity.toString();
+    });
+  }
   List<Map<String, dynamic>> drafts = [];
   String? draftId;
   bool loading = true;
@@ -118,6 +136,7 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
   void dispose() {
     nameController.dispose();
     searchController.dispose();
+    _discardQuantityControllers();
     super.dispose();
   }
 
@@ -151,6 +170,7 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
   }
 
   void _newDraft() {
+    _discardQuantityControllers();
     setState(() {
       draftId = null;
       nameController.text = 'O‘zbekistonga kitob buyurtmasi';
@@ -160,6 +180,7 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
   }
 
   void _openDraft(Map<String, dynamic> draft) {
+    _discardQuantityControllers();
     final fresh = {
       for (final row in supplierSourceRows(widget.orders))
         (row['source_ref'] ?? '').toString(): (row['image_url'] ?? '').toString()
@@ -237,6 +258,7 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
       'Mijozlarning asl zakazlari o‘chirilmaydi. '
       'Saqlashni bossangiz ushbu bo‘sh ro‘yxat saqlanadi.',
       'Tozalash')) return;
+    _discardQuantityControllers();
     if (mounted) setState(() => lines.clear());
   }
 
@@ -596,15 +618,19 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
                     icon:const Icon(Icons.edit_outlined),onPressed:busy?null:()=>_editLine(line)),
                   IconButton(tooltip:'Qatorni ro‘yxatdan olib tashlash',
                     icon:const Icon(Icons.close),
-                    onPressed:busy?null:()=>setState(()=>lines.remove(line))),
+                    onPressed:busy?null:()=>setState((){
+                      quantityControllers.remove(line.key)?.dispose();
+                      lines.remove(line);
+                    })),
                 ]),
                 Row(mainAxisAlignment:MainAxisAlignment.end,children:[
                   const Text('Olinadi: '),
-                  IconButton(tooltip:'Kamaytirish',onPressed:busy?null:()=>setState((){
-                    if(line.quantity>0)line.quantity--;
-                  }),icon:const Icon(Icons.remove_circle_outline)),
+                  IconButton(tooltip:'Kamaytirish',onPressed:busy?null:
+                    ()=>_changeQuantity(line,-1),
+                    icon:const Icon(Icons.remove_circle_outline)),
                   SizedBox(width:80,child:TextFormField(
-                    key:ValueKey(line.key),initialValue:'${line.quantity}',
+                    key:ValueKey(line.key),
+                    controller:_quantityController(line),
                     keyboardType:TextInputType.number,
                     textAlign:TextAlign.center,
                     decoration:const InputDecoration(isDense:true),
@@ -612,9 +638,9 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
                       setState(()=>line.quantity=n);
                     }},
                   )),
-                  IconButton(tooltip:'Ko‘paytirish',onPressed:busy?null:()=>setState((){
-                    if(line.quantity<10000)line.quantity++;
-                  }),icon:const Icon(Icons.add_circle_outline)),
+                  IconButton(tooltip:'Ko‘paytirish',onPressed:busy?null:
+                    ()=>_changeQuantity(line,1),
+                    icon:const Icon(Icons.add_circle_outline)),
                 ]),
               ]))),
           const SizedBox(height:10),

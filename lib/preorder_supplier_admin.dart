@@ -56,11 +56,10 @@ List<Map<String, dynamic>> supplierSourceRows(
       if (name.isEmpty) continue;
       final publisher = (x['_publisher'] ?? order['_publisher'] ?? '')
           .toString().trim();
-      final bookId = (x['book_id'] ?? order['book_id'] ?? '').toString();
       // Publisher keeps editions separate even with identical short titles.
       final normalizedTitle = name.toLowerCase()
           .replaceAll(RegExp(r'[‘’ʼʻ`´]'), "'")
-          .replaceAll(RegExp(r'\\s+'), ' ').trim();
+          .replaceAll(RegExp(r'\s+'), ' ').trim();
       // Group the same name from web and native, even if one has a book_id.
       // Keep explicitly different publishers separate to avoid mixing editions.
       final key = 'title:$normalizedTitle|${publisher.toLowerCase()}';
@@ -89,6 +88,16 @@ List<Map<String, dynamic>> supplierSourceRows(
   }
   return grouped.values.toList()
     ..sort((a, b) => (a['title'] as String).compareTo(b['title'] as String));
+}
+
+/// The three newer export formats use six books per image.
+@visibleForTesting
+int supplierExportBooksPerPage(int layout) {
+  if (layout == 1) return 5;
+  if (layout == 2) return 2;
+  if (layout == 3) return 1;
+  if (layout >= 4 && layout <= 6) return 6;
+  throw ArgumentError.value(layout, 'layout', 'Unknown export layout');
 }
 
 class _PreorderSupplierPage extends StatefulWidget {
@@ -512,16 +521,6 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
     } catch (_) { return null; }
   }
 
-  // The first three original variants remain available. The last three
-  // deliberately place exactly six titles on each export image.
-  @visibleForTesting
-  static int booksPerExportPage(int layout) {
-    if (layout == 2) return 2;
-    if (layout == 3) return 1;
-    if (layout == 1) return 5;
-    return 6;
-  }
-
   Future<void> _drawExportCard(Canvas canvas, _SupplierLine line, int number,
     Rect bounds, int layout) async {
     final isCoverOnly = layout == 3 || layout == 4;
@@ -537,7 +536,6 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
           bounds.width - 28, isCoverOnly ? bounds.height - 65 : bounds.height - 104);
     final cover = await _cover(line.imageUrl);
     if (cover != null) {
-      final ratio = cover.width / cover.height;
       final fit = BoxFit.contain;
       final sizes = applyBoxFit(fit, Size(cover.width.toDouble(),
           cover.height.toDouble()), coverRect.size);
@@ -586,7 +584,7 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
     final pages = <Uint8List>[];
     const width=1000.0;
     const height=1400.0;
-    final perPage=booksPerExportPage(layout);
+    final perPage=supplierExportBooksPerPage(layout);
     final count=(chosen.length/perPage).ceil();
     for (var page=0;page<count;page++) {
       final slice=chosen.skip(page*perPage).take(perPage).toList();

@@ -2,10 +2,6 @@ name: Build and Upload iOS to TestFlight
 
 on:
   workflow_dispatch:
-  # Temporary single-branch trigger for this owner-approved TestFlight update.
-  push:
-    branches:
-      - testflight/preorder-six-formats-20261102
 
 permissions:
   actions: read

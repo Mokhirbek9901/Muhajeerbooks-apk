@@ -164,6 +164,21 @@ class AdminSalesHeatmap extends StatelessWidget {
                               ?const Color(0x0E25516F):
                               const Color(0xFFD9E2ED)),
                           ),
+                          alignment:Alignment.center,
+                          // Keep the original heatmap and colors. Show the
+                          // actual number of copies sold in each reported day.
+                          // Padding dates outside the report stay empty.
+                          child:active
+                            ?Text('$count',
+                              textAlign:TextAlign.center,
+                              maxLines:1,
+                              style:TextStyle(
+                                color:count>=10?Colors.white:ink,
+                                fontSize:(cellSize*0.42).clamp(12.0,18.0),
+                                fontWeight:FontWeight.w900,
+                                height:1.0,
+                              ))
+                            :null,
                         ),
                       ),
                     ),

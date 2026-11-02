@@ -1179,7 +1179,9 @@ class _CombinedPreorderDetailPageState
               padding: const EdgeInsets.all(20),
               children: [
                 Text(
-                  '${d['title'] ?? d['book_title'] ?? 'Kitob'}',
+                  '${source == 'native'
+                    ? (widget.record['title'] ?? d['title'] ?? 'Kitob')
+                    : (widget.record['book_title'] ?? d['book_title'] ?? 'Kitob')}',
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,

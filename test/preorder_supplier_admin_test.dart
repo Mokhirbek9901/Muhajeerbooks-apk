@@ -61,4 +61,26 @@ void main() {
     expect(result.length,2);
     expect(result.fold<int>(0,(sum,r)=>sum+r['quantity'] as int),2);
   });
+  test('same named native and web orders merge without mixing other editions', () {
+    final orders = <Map<String,dynamic>>[
+      {'_origin':'native','id':1,'status':'accepted',
+       'book_id':'catalog-1','title':'Bormisan?','quantity':1},
+      {'_origin':'web','id':'a','status':'waiting',
+       'book_title':' Bormisan? ','quantity':2},
+      {'_origin':'web','id':'b','status':'cancelled',
+       'book_title':'Bormisan?','quantity':20},
+    ];
+    final result = supplierSourceRows(orders);
+    expect(result,hasLength(1));
+    expect(result.first['quantity'],3);
+    expect(result.first['requested'],3);
+    expect(orders.last['quantity'],20);
+  });
+
+  test('three new formats export six books per image', () {
+    expect([for (var i=1;i<=6;i++) supplierExportBooksPerPage(i)],
+      [5,2,1,6,6,6]);
+    expect(() => supplierExportBooksPerPage(9),throwsArgumentError);
+  });
+
 }

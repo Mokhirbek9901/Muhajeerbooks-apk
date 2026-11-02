@@ -35,7 +35,15 @@ Uint8List _boundedJpeg(img.Image source, int limit, int quality) {
 
 /// Only compressed display/thumbnail variants are sent; originals stay local.
 Map<String, Uint8List>? prepareBookImageVariants(Uint8List sourceBytes) {
-  final decoded = img.decodeImage(sourceBytes);
+  img.Image? decoded;
+  try {
+    decoded = img.decodeImage(sourceBytes);
+  } on RangeError {
+    // Some image codecs throw instead of returning null for truncated files.
+    return null;
+  } on FormatException {
+    return null;
+  }
   if (decoded == null) return null;
   final oriented = img.bakeOrientation(decoded);
   return {

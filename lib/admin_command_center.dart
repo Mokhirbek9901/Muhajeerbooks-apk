@@ -1055,6 +1055,130 @@ class _CombinedPreorderDetailPageState
     }
   }
 
+  Future<void> _partialAction(String action,
+      [Map<String,dynamic> payload=const {}]) async {
+    if(saving)return;
+    setState(()=>saving=true);
+    try {
+      final result=await widget.api.partialPreorder(reference,action,payload);
+      if(mounted)setState(()=>partialData=result);
+      await _load();
+      if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content:Text(action=='prepare'?'Kelgan kitoblar belgilandi. '
+            'Mijozga xabar navbatga qo‘yildi.':
+          action=='confirm'?'Kelgan kitoblar jo‘natishga tasdiqlandi.':
+          'Tanlov bekor qilindi, ombor miqdori qaytarildi.')));
+    }catch(e){
+      if(mounted)ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text('Qisman hisob saqlanmadi: $e')));
+    }finally{if(mounted)setState(()=>saving=false);}
+  }
+
+  Future<void> _selectPartialArrival() async {
+    if(saving || source!='web' || partialData==null)return;
+    final rows=<Map<String,dynamic>>[
+      for(final raw in partialData!['items'] as List? ?? const [])
+        if(raw is Map && ((raw['remaining_quantity'] as num?)?.toInt()??0)>0)
+          Map<String,dynamic>.from(raw),
+    ];
+    if(rows.isEmpty)return;
+    final catalog=await widget.api.books();
+    if(!mounted)return;
+    final selected=<int,Map<String,dynamic>>{};
+    final result=await showDialog<List<Map<String,dynamic>>>(
+      context:context,
+      builder:(ctx)=>StatefulBuilder(builder:(ctx,update)=>AlertDialog(
+        title:const Text('Kelgan kitoblarni tanlang'),
+        content:SizedBox(width:510,height:MediaQuery.sizeOf(ctx).height*.68,
+          child:Column(children:[
+            const Text('Faqat kelganlarini belgilang. '
+              'Katalogdagi kitob, kelgan dona va yakuniy narxni kiriting.'),
+            Expanded(child:ListView.builder(itemCount:rows.length,itemBuilder:(_,i){
+              final row=rows[i];
+              final index=(row['index'] as num).toInt();
+              final max=(row['remaining_quantity'] as num).toInt();
+              final chosen=selected[index];
+              return Card(child:Padding(padding:const EdgeInsets.all(9),
+                child:Column(children:[
+                  CheckboxListTile(contentPadding:EdgeInsets.zero,
+                    title:Text("${index+1}. ${row['book_title']??'Kitob'}"),
+                    subtitle:Text('Qolgan: $max dona'),
+                    value:chosen!=null,
+                    onChanged:(v)=>update((){
+                      if(v==true){selected[index]={
+                        'index':index,'quantity':max,'unit_price':0,'book_id':null,
+                      };}else{selected.remove(index);}
+                    })),
+                  if(chosen!=null)...[
+                    OutlinedButton.icon(icon:const Icon(Icons.menu_book_outlined),
+                      label:Text(chosen['catalog_title']?.toString() ??
+                        'Katalog kitobini tanlash'),
+                      onPressed:()async {
+                        final book=await _book(catalog);
+                        if(book!=null && ctx.mounted)update((){
+                          chosen['book_id']=book.id;
+                          chosen['catalog_title']=book.title;
+                          chosen['unit_price']=book.currentPrice;
+                        });
+                      }),
+                    Row(children:[
+                      Expanded(child:TextFormField(
+                        key:ValueKey('partial-q-$index'),
+                        initialValue:'$max',keyboardType:TextInputType.number,
+                        decoration:const InputDecoration(labelText:'Kelgan dona'),
+                        onChanged:(v)=>chosen['quantity']=int.tryParse(v)??0)),
+                      const SizedBox(width:10),
+                      Expanded(child:TextFormField(
+                        key:ValueKey('partial-p-$index-${chosen['book_id']}'),
+                        initialValue:'${chosen['unit_price']??0}',
+                        keyboardType:TextInputType.number,
+                        decoration:const InputDecoration(labelText:'Narx ₩/dona'),
+                        onChanged:(v)=>chosen['unit_price']=int.tryParse(v)??0)),
+                    ]),
+                  ],
+                ])));
+            })),
+            Text('Tanlangan: ${selected.length} turdagi kitob'),
+          ])),
+        actions:[
+          TextButton(onPressed:()=>Navigator.pop(ctx),
+            child:const Text('Hozir emas')),
+          FilledButton(onPressed:selected.isEmpty?null:(){
+            final items=selected.values.toList();
+            if(items.any((x)=>x['book_id']==null ||
+                (x['quantity'] as int)<1 ||
+                (x['quantity'] as int)>
+                    (rows.firstWhere((v)=>v['index']==x['index'])
+                        ['remaining_quantity'] as num).toInt() ||
+                (x['unit_price'] as int)<1)){
+              ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                content:Text('Katalog, miqdor va narxni tekshiring.')));
+              return;
+            }
+            Navigator.pop(ctx,items);
+          },child:const Text('Tanlangan kitoblar')),
+        ],
+      )),
+    );
+    if(result==null||!mounted)return;
+    final qty=result.fold<int>(0,(v,x)=>v+(x['quantity'] as int));
+    final ok=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
+      title:const Text('Mijozga xabar yuborilsinmi?'),
+      content:Text('$qty dona kelgan kitob tanlandi. '
+        'Boshqa kitoblar topilmagani va keyin qayta zakaz qilish mumkinligi '
+        'mijozga aytiladi. Barcha avans kelgan kitoblar hisobiga ishlatiladi. '
+        'Tanlangan kitoblar omborda band qilinadi.'),
+      actions:[
+        TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Yo‘q')),
+        FilledButton(onPressed:()=>Navigator.pop(ctx,true),
+          child:const Text('Tasdiqlash va xabar yuborish')),
+      ],
+    ));
+    if(ok==true && mounted)await _partialAction('prepare',{
+      'items':result,'apply_all':true,
+    });
+  }
+
   Future<Book?> _book(List<Book> books) async {
     var query = '';
     return showModalBottomSheet<Book>(

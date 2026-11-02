@@ -65,4 +65,19 @@ void main(){
     expect(tester.takeException(),isNull);
   });
 
+  testWidgets('missing historical sale prices show unknown, not zero',
+      (tester) async {
+    final group=<String,dynamic>{
+      'group_key':'g','title':'Eski partiya',
+      'date':'2026-09-09','purchased_units':4,
+      'estimated_sold_units':2,'projected_profit':40000,
+      'book_titles':1,'date_fifo_applied':false,
+    };
+    await tester.pumpWidget(MaterialApp(home:Scaffold(
+      body:AdminProfitBatchPanel(groups:[group],lots:const []))));
+    expect(find.text('₩40,000'),findsOneWidget);
+    expect(find.text('Hozirgacha: —'),findsOneWidget);
+    expect(tester.takeException(),isNull);
+  });
+
 }

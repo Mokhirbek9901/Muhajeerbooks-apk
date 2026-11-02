@@ -1,0 +1,7 @@
+Owner explicitly requested TestFlight-only deploy of Muhajeer Books supplier exporter.
+Date: 2026-11-02 KST. Version 2.5.24. Unique TestFlight build number.
+Features: preorder title edits saved separately; supply drafts and history;
+custom quantities; catalog and upload covers; PDF, PNG, JPG, XLSX and TXT/share.
+Security: preserve ALL customer orders, deposits, amounts, status, stock and history.
+Gate: Flutter analyze, Flutter tests, iOS signing and TestFlight upload only.
+DO NOT submit for App Store public release or Play Market/web distribution.

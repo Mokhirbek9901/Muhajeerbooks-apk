@@ -126,4 +126,51 @@ void main() {
       'book_image_url':'/private/not-signed.jpg',
     },catalog),isEmpty);
   });
+  test('expired web signed images refresh without touching book metadata', () {
+    final old={
+      '_origin':'web','id':'preorder-1','book_title':'Collection',
+      'request_items':[
+        {'book_title':'Original A','quantity':3,
+          'book_image_url':'https://site/storage/v1/object/sign/a?token=old'},
+        {'book_title':'Original B','quantity':2,'book_image_url':''},
+      ],
+    };
+    final current={
+      'id':'preorder-1','request_items':[
+        {'book_title':'Server A','book_image_url':'https://site/storage/v1/object/sign/a?token=new'},
+        {'book_title':'Server B','book_image_url':'https://site/storage/v1/object/sign/b?token=new'},
+      ],
+    };
+    applyFreshPreorderCovers(old,current);
+    final items=old['request_items'] as List;
+    expect(items[0]['book_image_url'],contains('token=new'));
+    expect(items[1]['book_image_url'],contains('token=new'));
+    expect(items.map((x)=>x['book_title']).toList(),['Original A','Original B']);
+    expect(items.map((x)=>x['quantity']).toList(),[3,2]);
+  });
+
+  test('manual public cover survives refreshing a signed private cover', () {
+    final original={
+      '_origin':'web','id':'preorder-2',
+      'request_items':[
+        {'book_title':'Book','quantity':1,
+         'book_image_url':'https://example.com/storage/v1/object/public/book-covers/covers/custom.jpg'},
+      ],
+    };
+    applyFreshPreorderCovers(original,{
+      'id':'preorder-2','request_items':[
+        {'book_image_url':'https://example.com/storage/v1/object/sign/x?token=new'},
+      ],
+    });
+    expect((original['request_items'] as List).first['book_image_url'],
+      contains('/object/public/book-covers/'));
+    applyFreshPreorderCovers(original,{
+      'id':'wrong-order','request_items':[
+        {'book_image_url':'https://example.com/storage/v1/object/sign/x?token=bad'},
+      ],
+    });
+    expect((original['request_items'] as List).first['book_image_url'],
+      contains('/object/public/book-covers/'));
+  });
+
 }

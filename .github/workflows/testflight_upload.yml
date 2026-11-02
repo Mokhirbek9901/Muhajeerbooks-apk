@@ -2,6 +2,10 @@ name: Build and Upload iOS to TestFlight
 
 on:
   workflow_dispatch:
+  # One-time owner-requested TestFlight Shular keldi button fix.
+  push:
+    branches:
+      - testflight/partial-arrival-full-deposit-20261103
 
 permissions:
   actions: read

@@ -6,7 +6,7 @@ class _SupplierLine {
   _SupplierLine({
     required this.key, required this.sourceRef, required this.title,
     required this.publisher, required this.imageUrl, required this.requested,
-    required this.quantity, this.selected = true,
+    required this.quantity, this.selected = true, this.imageCustomized = false,
   });
   final String key;
   final String sourceRef;
@@ -16,11 +16,13 @@ class _SupplierLine {
   int requested;
   int quantity;
   bool selected;
+  bool imageCustomized;
 
   Map<String, dynamic> toJson() => {
     'item_key': key, 'source_ref': sourceRef, 'title': title,
     'publisher': publisher, 'image_url': imageUrl,
     'requested': requested, 'quantity': quantity, 'selected': selected,
+    'image_customized': imageCustomized,
   };
 
   factory _SupplierLine.fromJson(Map<String, dynamic> row) => _SupplierLine(
@@ -32,6 +34,7 @@ class _SupplierLine {
     requested: (row['requested'] as num?)?.toInt() ?? 0,
     quantity: (row['quantity'] as num?)?.toInt() ?? 0,
     selected: row['selected'] != false,
+    imageCustomized: row['image_customized'] == true,
   );
 }
 
@@ -204,7 +207,8 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
       final line = _SupplierLine.fromJson(Map<String, dynamic>.from(raw));
       // A private signed cover URL may have expired since the draft was
       // saved. Replace it with a newly resolved URL for this session.
-      if ((fresh[line.sourceRef] ?? '').startsWith('https://')) {
+      if (!line.imageCustomized &&
+          (fresh[line.sourceRef] ?? '').startsWith('https://')) {
         line.imageUrl = fresh[line.sourceRef]!;
       }
       restored.add(line);
@@ -329,6 +333,7 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
       setState(() {
         line.title = title.text.trim();
         line.publisher = publisher.text.trim();
+        if (coverUrl != line.imageUrl) line.imageCustomized = true;
         line.imageUrl = coverUrl;
       });
     }

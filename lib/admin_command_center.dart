@@ -436,14 +436,68 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
               ? book.previewImageUrl.trim()
               : book.imageUrl.trim(),
       };
+      final publishers = <String, String>{
+        for (final book in books) book.id: book.publisher,
+      };
       for (final row in rows) {
         row['_cover_image_url'] = preorderCoverUrl(row, covers);
+        row['_publisher'] = publishers[(row['book_id'] ?? '').toString()] ?? '';
+        if (row['request_items'] is List) {
+          for (final item in row['request_items'] as List) {
+            if (item is Map) {
+              item['_publisher'] = publishers[(item['book_id'] ?? '').toString()] ?? '';
+            }
+          }
+        }
       }
     } catch (_) {
       // A catalog outage must not hide existing preorder records.
       for (final row in rows) {
         row['_cover_image_url'] = preorderCoverUrl(row, const {});
       }
+    }
+    // Read-only view of separate admin title overrides. Customer originals
+    // remain unchanged in the customer preorder tables.
+    try {
+      final data = Map<String, dynamic>.from(
+        await widget.api._rpc('admin_preorder_supplier',params:{
+          'p_secret':widget.api.secret,'p_action':'list',
+          'p_payload':<String,dynamic>{},
+        }) as Map,
+      );
+      final overrides = <String, String>{};
+      for(final raw in (data['overrides'] as List? ?? const [])) {
+        if(raw is! Map) continue;
+        final x=Map<String,dynamic>.from(raw);
+        overrides['${x['source']}:${x['order_id']}:${x['item_index']}'] =
+            (x['display_title'] ?? '').toString();
+      }
+      for(final row in rows) {
+        final origin=(row['_origin'] ?? 'native').toString();
+        final root='$origin:${row['id']}';
+        final items=row['request_items'];
+        if(origin=='web' && items is List && items.isNotEmpty) {
+          for(var index=0;index<items.length;index++){
+            if(items[index] is! Map)continue;
+            final replacement=overrides['$root:$index'];
+            if(replacement!=null && replacement.isNotEmpty){
+              items[index]['book_title']=replacement;
+            }
+          }
+          if(items.length==1 && items[0] is Map){
+            row['book_title']=(items[0] as Map)['book_title'];
+          }else if(items[0] is Map){
+            row['book_title']='${(items[0] as Map)['book_title']} + ${items.length-1} turdagi kitob';
+          }
+        }else{
+          final value=overrides['$root:0'];
+          if(value!=null && value.isNotEmpty){
+            row[origin=='web'?'book_title':'title']=value;
+          }
+        }
+      }
+    } catch (e) {
+      errors.add('Nom tuzatishlari olinmadi: $e');
     }
     rows.sort((a, b) {
       final ad = DateTime.tryParse('${a['created_at'] ?? ''}');

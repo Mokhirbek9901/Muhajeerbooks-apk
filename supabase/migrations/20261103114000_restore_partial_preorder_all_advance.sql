@@ -90,8 +90,7 @@ begin
   update private.release_preorder_lines set held=0 where source=p_source and reference=p_id;
  else raise exception 'Amal noto‘g‘ri'; end if;
  return private.release_preorder_detail(p_source,p_id);
-end $function$
-
+end $function$;
 
 CREATE OR REPLACE FUNCTION public.customer_release_preorder(p_session text, p_source text, p_id text, p_action text DEFAULT 'detail'::text, p_payload jsonb DEFAULT '{}'::jsonb)
  RETURNS jsonb
@@ -150,8 +149,7 @@ begin
   update private.release_preorder_invoices set balance_proof_path=receipt_path,submitted_amount=amount_due,payment_state='proof_submitted',revision=revision+1,updated_at=now() where source=p_source and reference=p_id;
  else raise exception 'Noto‘g‘ri amal'; end if;
  return private.release_preorder_detail(p_source,p_id);
-end $function$
-
+end $function$;
 
 CREATE OR REPLACE FUNCTION public.admin_web_preorder_partial(p_secret text, p_id uuid, p_action text DEFAULT 'detail'::text, p_payload jsonb DEFAULT '{}'::jsonb)
  RETURNS jsonb
@@ -295,8 +293,7 @@ begin
     'Qisman buyurtmangiz to‘lovi tekshirildi va jo‘natishga tayyorlanmoqda.','preorder_balance');
  else raise exception 'Amal noto‘g‘ri'; end if;
  return private.web_preorder_partial_detail(p_id);
-end $function$
-
+end $function$;
 
 CREATE OR REPLACE FUNCTION public.customer_web_preorder_partial(p_session text, p_id uuid, p_action text DEFAULT 'detail'::text, p_payload jsonb DEFAULT '{}'::jsonb)
  RETURNS jsonb

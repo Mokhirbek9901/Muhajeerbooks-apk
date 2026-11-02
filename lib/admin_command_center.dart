@@ -875,6 +875,8 @@ class _CombinedPreorderDetailPage extends StatefulWidget {
 class _CombinedPreorderDetailPageState
     extends State<_CombinedPreorderDetailPage> {
   Map<String, dynamic>? data;
+  Map<String,dynamic>? partialData;
+  String? partialLoadError;
   bool saving = false;
   String? error;
   String get source =>
@@ -918,9 +920,17 @@ class _CombinedPreorderDetailPageState
         // Preorder details and payments remain accessible during
         // transient image-signing problems; admin can press Refresh.
       }
+      Map<String,dynamic>? partial;
+      String? partialFailure;
+      if(source=='web') {
+        try {partial=await widget.api.partialPreorder(reference,'detail');}
+        catch(e){partialFailure='$e';}
+      }
       if (mounted)
         setState(() {
           data = next;
+          partialData=partial;
+          partialLoadError=partialFailure;
           error = null;
         });
     } catch (e) {
@@ -1046,6 +1056,130 @@ class _CombinedPreorderDetailPageState
     } finally {
       if (mounted) setState(()=>saving=false);
     }
+  }
+
+  Future<void> _partialAction(String action,
+      [Map<String,dynamic> payload=const {}]) async {
+    if(saving)return;
+    setState(()=>saving=true);
+    try {
+      final result=await widget.api.partialPreorder(reference,action,payload);
+      if(mounted)setState(()=>partialData=result);
+      await _load();
+      if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content:Text(action=='prepare'?'Kelgan kitoblar belgilandi. '
+            'Mijozga xabar navbatga qo‘yildi.':
+          action=='confirm'?'Kelgan kitoblar jo‘natishga tasdiqlandi.':
+          'Tanlov bekor qilindi, ombor miqdori qaytarildi.')));
+    }catch(e){
+      if(mounted)ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text('Qisman hisob saqlanmadi: $e')));
+    }finally{if(mounted)setState(()=>saving=false);}
+  }
+
+  Future<void> _selectPartialArrival() async {
+    if(saving || source!='web' || partialData==null)return;
+    final rows=<Map<String,dynamic>>[
+      for(final raw in partialData!['items'] as List? ?? const [])
+        if(raw is Map && ((raw['remaining_quantity'] as num?)?.toInt()??0)>0)
+          Map<String,dynamic>.from(raw),
+    ];
+    if(rows.isEmpty)return;
+    final catalog=await widget.api.books();
+    if(!mounted)return;
+    final selected=<int,Map<String,dynamic>>{};
+    final result=await showDialog<List<Map<String,dynamic>>>(
+      context:context,
+      builder:(ctx)=>StatefulBuilder(builder:(ctx,update)=>AlertDialog(
+        title:const Text('Kelgan kitoblarni tanlang'),
+        content:SizedBox(width:510,height:MediaQuery.sizeOf(ctx).height*.68,
+          child:Column(children:[
+            const Text('Faqat kelganlarini belgilang. '
+              'Katalogdagi kitob, kelgan dona va yakuniy narxni kiriting.'),
+            Expanded(child:ListView.builder(itemCount:rows.length,itemBuilder:(_,i){
+              final row=rows[i];
+              final index=(row['index'] as num).toInt();
+              final max=(row['remaining_quantity'] as num).toInt();
+              final chosen=selected[index];
+              return Card(child:Padding(padding:const EdgeInsets.all(9),
+                child:Column(children:[
+                  CheckboxListTile(contentPadding:EdgeInsets.zero,
+                    title:Text("${index+1}. ${row['book_title']??'Kitob'}"),
+                    subtitle:Text('Qolgan: $max dona'),
+                    value:chosen!=null,
+                    onChanged:(v)=>update((){
+                      if(v==true){selected[index]={
+                        'index':index,'quantity':max,'unit_price':0,'book_id':null,
+                      };}else{selected.remove(index);}
+                    })),
+                  if(chosen!=null)...[
+                    OutlinedButton.icon(icon:const Icon(Icons.menu_book_outlined),
+                      label:Text(chosen['catalog_title']?.toString() ??
+                        'Katalog kitobini tanlash'),
+                      onPressed:()async {
+                        final book=await _book(catalog);
+                        if(book!=null && ctx.mounted)update((){
+                          chosen['book_id']=book.id;
+                          chosen['catalog_title']=book.title;
+                          chosen['unit_price']=book.currentPrice;
+                        });
+                      }),
+                    Row(children:[
+                      Expanded(child:TextFormField(
+                        key:ValueKey('partial-q-$index'),
+                        initialValue:'$max',keyboardType:TextInputType.number,
+                        decoration:const InputDecoration(labelText:'Kelgan dona'),
+                        onChanged:(v)=>chosen['quantity']=int.tryParse(v)??0)),
+                      const SizedBox(width:10),
+                      Expanded(child:TextFormField(
+                        key:ValueKey('partial-p-$index-${chosen['book_id']}'),
+                        initialValue:'${chosen['unit_price']??0}',
+                        keyboardType:TextInputType.number,
+                        decoration:const InputDecoration(labelText:'Narx ₩/dona'),
+                        onChanged:(v)=>chosen['unit_price']=int.tryParse(v)??0)),
+                    ]),
+                  ],
+                ])));
+            })),
+            Text('Tanlangan: ${selected.length} turdagi kitob'),
+          ])),
+        actions:[
+          TextButton(onPressed:()=>Navigator.pop(ctx),
+            child:const Text('Hozir emas')),
+          FilledButton(onPressed:selected.isEmpty?null:(){
+            final items=selected.values.toList();
+            if(items.any((x)=>x['book_id']==null ||
+                (x['quantity'] as int)<1 ||
+                (x['quantity'] as int)>
+                    (rows.firstWhere((v)=>v['index']==x['index'])
+                        ['remaining_quantity'] as num).toInt() ||
+                (x['unit_price'] as int)<1)){
+              ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                content:Text('Katalog, miqdor va narxni tekshiring.')));
+              return;
+            }
+            Navigator.pop(ctx,items);
+          },child:const Text('Tanlangan kitoblar')),
+        ],
+      )),
+    );
+    if(result==null||!mounted)return;
+    final qty=result.fold<int>(0,(v,x)=>v+(x['quantity'] as int));
+    final ok=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
+      title:const Text('Mijozga xabar yuborilsinmi?'),
+      content:Text('$qty dona kelgan kitob tanlandi. '
+        'Boshqa kitoblar topilmagani va keyin qayta zakaz qilish mumkinligi '
+        'mijozga aytiladi. Barcha avans kelgan kitoblar hisobiga ishlatiladi. '
+        'Tanlangan kitoblar omborda band qilinadi.'),
+      actions:[
+        TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Yo‘q')),
+        FilledButton(onPressed:()=>Navigator.pop(ctx,true),
+          child:const Text('Tasdiqlash va xabar yuborish')),
+      ],
+    ));
+    if(ok==true && mounted)await _partialAction('prepare',{
+      'items':result,'apply_all':true,
+    });
   }
 
   Future<Book?> _book(List<Book> books) async {
@@ -1341,6 +1475,23 @@ class _CombinedPreorderDetailPageState
   @override
   Widget build(BuildContext context) {
     final d = data;
+    // The public preorder record contains the request_items. Never hide
+    // "Shular keldi" merely because the optional partial API is loading.
+    final orderItems = d?['request_items'] is List
+        ? d!['request_items'] as List
+        : widget.record['request_items'] is List
+            ? widget.record['request_items'] as List : const [];
+    final multiWebPreorder = source=='web' && orderItems.length>1;
+    final batches = partialData?['batches'] is List
+        ? partialData!['batches'] as List : const [];
+    final hasPartialBatch = batches.whereType<Map>().any(
+        (batch)=>batch['status']!='cancelled');
+    final canSelectPartial = multiWebPreorder &&
+        d?['payment_state']=='requested' &&
+        d?['price_ready']!=true &&
+        d?['status']!='cancelled' &&
+        d?['converted_order_id']==null &&
+        partialData!=null && !hasPartialBatch;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Oldindan zakas hisobi'),
@@ -1384,6 +1535,46 @@ class _CombinedPreorderDetailPageState
                       ),
                     ),
                   ),
+                if (multiWebPreorder) Padding(
+                  padding:const EdgeInsets.symmetric(vertical:12),
+                  child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,
+                    children:[
+                      FilledButton.icon(
+                        key:const ValueKey('preorder-arrived-select-button'),
+                        onPressed:saving || !canSelectPartial
+                          ? null : _selectPartialArrival,
+                        icon:const Icon(Icons.checklist_outlined),
+                        label:const Text('Shular keldi • kitoblarni tanlash'),
+                      ),
+                      const SizedBox(height:5),
+                      if(partialData==null)...[
+                        const Text('Qisman kelish holati yuklanmadi. '
+                          'Ma’lumotlarni qayta tekshiring.',
+                          style:TextStyle(fontSize:12,color:AppColors.muted)),
+                        TextButton.icon(
+                          onPressed:saving?null:_load,
+                          icon:const Icon(Icons.refresh),
+                          label:const Text('Qayta yuklash')),
+                        if(partialLoadError!=null)
+                          Text('Xatolik: $partialLoadError',
+                            style:const TextStyle(
+                              color:AppColors.muted,fontSize:11)),
+                      ]else if(hasPartialBatch)
+                        const Text('Bu zakaz uchun qisman jo‘natma '
+                          'allaqachon tayyorlangan. Holati pastda ko‘rsatiladi.',
+                          style:TextStyle(fontSize:12,color:AppColors.muted))
+                      else if(!canSelectPartial)
+                        const Text('Avvalgi yakuniy hisob yoki holat sabab '
+                          'hozir tanlash mumkin emas.',
+                          style:TextStyle(fontSize:12,color:AppColors.muted))
+                      else
+                        const Text('Kelgan kitoblarni belgilab, '
+                          'miqdori va narxini tasdiqlang. '
+                          'Tanlanmagan kitoblar jo‘natilmaydi.',
+                          style:TextStyle(fontSize:12,color:AppColors.muted)),
+                    ],
+                  ),
+                ),
                 // Restore the previous vertical book cards: cover on the
                 // left, numbered title and quantity on the right. Each image
                 // opens the same zoomable preview the owner had previously.
@@ -1454,6 +1645,38 @@ class _CombinedPreorderDetailPageState
                     ),
                   );
                 }),
+                if(source=='web' && partialData!=null &&
+                    (partialData!['batches'] as List? ?? const []).isNotEmpty)
+                  Padding(padding:const EdgeInsets.symmetric(vertical:12),
+                    child:Builder(builder:(_){
+                      final batches=partialData!['batches'] as List;
+                      final active=batches.whereType<Map>().where((x)=>
+                        x['status']!='cancelled').toList();
+                      if(active.isEmpty)return const SizedBox.shrink();
+                      final batch=active.last;
+                      final status='${batch['status']??''}';
+                      final lines=batch['items'] as List? ?? const [];
+                      final due=(batch['amount_due'] as num?)?.toInt()??0;
+                      return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                        const Text('Qisman kelgan kitoblar',
+                          style:TextStyle(fontWeight:FontWeight.w900,fontSize:18)),
+                        for(final x in lines)if(x is Map)
+                          Text('• ${x['requested_title']??x['title']} — ${x['quantity']} dona'),
+                        Text('Qisman holat: $status'),
+                        if(status=='awaiting_payment'||status=='proof_submitted')
+                          Text('Avans: −${_won((batch['deposit_applied'] as num?)?.toInt()??0)}'
+                            ' • Qolgan: ${_won(due)}'),
+                        if(status=='prepared')
+                          TextButton(onPressed:saving?null:()=>_partialAction('cancel_prepare'),
+                            child:const Text('Qisman tayyorlashni bekor qilish')),
+                        if(status=='proof_submitted' ||
+                            (status=='awaiting_payment' && due==0))
+                          FilledButton(onPressed:saving?null:()=>_partialAction('confirm'),
+                            child:const Text('To‘lovni tasdiqlash • faqat kelganlarni jo‘natish')),
+                        if(status=='awaiting_payment' && due>0)
+                          const Text('Mijozning qolgan to‘lov chekini kuting.'),
+                      ]);
+                    })),
                 const Divider(),
                 Text(
                   'Kitob va pochta: ${_won(((d['base_total'] as num?)?.toInt() ?? 0) + ((d['extra_total'] as num?)?.toInt() ?? 0))}',
@@ -1501,7 +1724,10 @@ class _CombinedPreorderDetailPageState
                         child: const Text('Qabul qilish'),
                       ),
                     if (d['payment_state'] == 'requested' &&
-                        d['status'] != 'cancelled') ...[
+                        d['status'] != 'cancelled' &&
+                        d['partial_active']!=true &&
+                        (partialData?['batches'] as List? ?? const [])
+                          .whereType<Map>().every((v)=>v['status']=='cancelled')) ...[
                       OutlinedButton(
                         onPressed: saving ? null : _batch,
                         child: const Text('Kelgan partiyani kiritish'),
@@ -1521,7 +1747,8 @@ class _CombinedPreorderDetailPageState
                         ),
                       ),
                     if (d['status'] != 'cancelled' &&
-                        d['converted_order_id'] == null)
+                        d['converted_order_id'] == null &&
+                        d['partial_active'] != true)
                       TextButton(
                         onPressed: saving ? null : _cancel,
                         child: const Text('Zakasni bekor qilish'),

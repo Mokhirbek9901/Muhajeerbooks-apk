@@ -264,6 +264,13 @@ class _AdminApi {
     return Map<String, dynamic>.from(raw as Map);
   }
 
+  /// Existing admin-only partial arrival backend, routed through the
+  /// already authenticated release preorder endpoint.
+  Future<Map<String,dynamic>> partialPreorder(
+      String reference, String action,
+      [Map<String,dynamic> payload=const {}]) =>
+    releasePreorder('web',reference,'partial_$action',payload);
+
   Future<void> saveBook(
     Book book, {
     int? expectedStock,

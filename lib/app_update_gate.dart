@@ -49,6 +49,7 @@ class _AppUpdateGateState extends State<AppUpdateGate>
   bool _checking = false;
   bool _dialogOpen = false;
   DateTime? _lastCheck;
+  Timer? _periodicUpdateCheck;
 
   bool get _isAndroid =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
@@ -62,6 +63,11 @@ class _AppUpdateGateState extends State<AppUpdateGate>
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_checkForUpdate(force: true));
+    });
+    // Public releases can appear while the app remains open. Keep
+    // rechecking without requiring customers to restart the app.
+    _periodicUpdateCheck = Timer.periodic(const Duration(minutes: 15), (_) {
+      if (mounted) unawaited(_checkForUpdate(force: true));
     });
   }
 
@@ -88,7 +94,15 @@ class _AppUpdateGateState extends State<AppUpdateGate>
     _lastCheck = now;
     try {
       final remote = context.read<RemoteConfigStore>();
-      await remote.refresh();
+      // RemoteConfigStore may already be fetching on app launch. Its
+      // refresh() returns immediately in that case, leaving old cached
+      // release info behind. Wait briefly for the in-flight fetch.
+      for (var attempt = 0; attempt < 20 && remote.isRefreshing; attempt++) {
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+      }
+      if (!mounted) return;
+      await remote.refresh(force: true);
+      if (!mounted) return;
 
       if (!remote.boolValue(
         'release.force_update_enabled',
@@ -310,6 +324,7 @@ class _AppUpdateGateState extends State<AppUpdateGate>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _periodicUpdateCheck?.cancel();
     super.dispose();
   }
 

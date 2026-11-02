@@ -34,6 +34,42 @@ String preorderCoverUrl(Map<String, dynamic> row,
   return catalogCovers[id] ?? '';
 }
 
+/// Replace expiring private upload links with fresh admin-signed URLs.
+/// Only mutates a detached display copy; never updates the customer order.
+@visibleForTesting
+void applyFreshPreorderCovers(
+  Map<String,dynamic> record, Map<String,dynamic> refreshed,
+) {
+  if ('${record['id']}' != '${refreshed['id']}' ||
+      record['_origin']!='web') return;
+  bool permanent(String url) =>
+      url.contains('/storage/v1/object/public/book-covers/');
+  final currentItems=record['request_items'];
+  final latestItems=refreshed['request_items'];
+  if (currentItems is List && currentItems.isNotEmpty &&
+      latestItems is List && latestItems.length==currentItems.length) {
+    for(var i=0;i<currentItems.length;i++) {
+      if(currentItems[i] is! Map || latestItems[i] is! Map) continue;
+      final old=(currentItems[i]['book_image_url']??'').toString();
+      final fresh=(latestItems[i]['book_image_url']??'').toString();
+      if(!permanent(old) && fresh.startsWith('https://')) {
+        currentItems[i]['book_image_url']=fresh;
+      }
+    }
+    if(currentItems.first is Map) {
+      final first=(currentItems.first as Map)['book_image_url']?.toString()??'';
+      if(first.startsWith('https://')) record['_cover_image_url']=first;
+    }
+  } else {
+    final old=(record['book_image_url']??'').toString();
+    final fresh=(refreshed['book_image_url']??'').toString();
+    if(!permanent(old) && fresh.startsWith('https://')) {
+      record['book_image_url']=fresh;
+      record['_cover_image_url']=fresh;
+    }
+  }
+}
+
 class _PreorderBookCover extends StatelessWidget {
   const _PreorderBookCover({required this.url, this.width=54, this.height=72});
   final String url;
@@ -850,6 +886,25 @@ class _CombinedPreorderDetailPageState
     _load();
   }
 
+  Future<void> _refreshWebCovers() async {
+    if (source!='web') return;
+    // Do not reuse 15-minute Storage signatures from the list page.
+    const pageSize=200;
+    for(var offset=0;offset<20000;offset+=pageSize) {
+      final results=await WebPreorderApi().admin(widget.api.secret,'list',{
+        'limit':pageSize,'offset':offset,
+      });
+      if(results is! List) break;
+      for(final raw in results) {
+        if(raw is! Map || '${raw['id']}'!=reference) continue;
+        applyFreshPreorderCovers(widget.record,
+            Map<String,dynamic>.from(raw));
+        return;
+      }
+      if(results.length<pageSize) break;
+    }
+  }
+
   Future<void> _load() async {
     try {
       final next = await widget.api.releasePreorder(
@@ -857,6 +912,12 @@ class _CombinedPreorderDetailPageState
         reference,
         'detail',
       );
+      try {
+        await _refreshWebCovers();
+      } catch (_) {
+        // Preorder details and payments remain accessible during
+        // transient image-signing problems; admin can press Refresh.
+      }
       if (mounted)
         setState(() {
           data = next;

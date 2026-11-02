@@ -876,6 +876,7 @@ class _CombinedPreorderDetailPageState
     extends State<_CombinedPreorderDetailPage> {
   Map<String, dynamic>? data;
   Map<String,dynamic>? partialData;
+  String? partialLoadError;
   bool saving = false;
   String? error;
   String get source =>
@@ -920,14 +921,16 @@ class _CombinedPreorderDetailPageState
         // transient image-signing problems; admin can press Refresh.
       }
       Map<String,dynamic>? partial;
+      String? partialFailure;
       if(source=='web') {
         try {partial=await widget.api.partialPreorder(reference,'detail');}
-        catch(_){ /* Leave existing order view usable on backend outage. */ }
+        catch(e){partialFailure='$e';}
       }
       if (mounted)
         setState(() {
           data = next;
           partialData=partial;
+          partialLoadError=partialFailure;
           error = null;
         });
     } catch (e) {
@@ -1472,6 +1475,23 @@ class _CombinedPreorderDetailPageState
   @override
   Widget build(BuildContext context) {
     final d = data;
+    // The public preorder record contains the request_items. Never hide
+    // "Shular keldi" merely because the optional partial API is loading.
+    final orderItems = d?['request_items'] is List
+        ? d!['request_items'] as List
+        : widget.record['request_items'] is List
+            ? widget.record['request_items'] as List : const [];
+    final multiWebPreorder = source=='web' && orderItems.length>1;
+    final batches = partialData?['batches'] is List
+        ? partialData!['batches'] as List : const [];
+    final hasPartialBatch = batches.whereType<Map>().any(
+        (batch)=>batch['status']!='cancelled');
+    final canSelectPartial = multiWebPreorder &&
+        d?['payment_state']=='requested' &&
+        d?['price_ready']!=true &&
+        d?['status']!='cancelled' &&
+        d?['converted_order_id']==null &&
+        partialData!=null && !hasPartialBatch;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Oldindan zakas hisobi'),
@@ -1515,6 +1535,46 @@ class _CombinedPreorderDetailPageState
                       ),
                     ),
                   ),
+                if (multiWebPreorder) Padding(
+                  padding:const EdgeInsets.symmetric(vertical:12),
+                  child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,
+                    children:[
+                      FilledButton.icon(
+                        key:const ValueKey('preorder-arrived-select-button'),
+                        onPressed:saving || !canSelectPartial
+                          ? null : _selectPartialArrival,
+                        icon:const Icon(Icons.checklist_outlined),
+                        label:const Text('Shular keldi • kitoblarni tanlash'),
+                      ),
+                      const SizedBox(height:5),
+                      if(partialData==null)...[
+                        const Text('Qisman kelish holati yuklanmadi. '
+                          'Ma’lumotlarni qayta tekshiring.',
+                          style:TextStyle(fontSize:12,color:AppColors.muted)),
+                        TextButton.icon(
+                          onPressed:saving?null:_load,
+                          icon:const Icon(Icons.refresh),
+                          label:const Text('Qayta yuklash')),
+                        if(partialLoadError!=null)
+                          Text('Xatolik: $partialLoadError',
+                            style:const TextStyle(
+                              color:AppColors.muted,fontSize:11)),
+                      ]else if(hasPartialBatch)
+                        const Text('Bu zakaz uchun qisman jo‘natma '
+                          'allaqachon tayyorlangan. Holati pastda ko‘rsatiladi.',
+                          style:TextStyle(fontSize:12,color:AppColors.muted))
+                      else if(!canSelectPartial)
+                        const Text('Avvalgi yakuniy hisob yoki holat sabab '
+                          'hozir tanlash mumkin emas.',
+                          style:TextStyle(fontSize:12,color:AppColors.muted))
+                      else
+                        const Text('Kelgan kitoblarni belgilab, '
+                          'miqdori va narxini tasdiqlang. '
+                          'Tanlanmagan kitoblar jo‘natilmaydi.',
+                          style:TextStyle(fontSize:12,color:AppColors.muted)),
+                    ],
+                  ),
+                ),
                 // Restore the previous vertical book cards: cover on the
                 // left, numbered title and quantity on the right. Each image
                 // opens the same zoomable preview the owner had previously.
@@ -1663,18 +1723,6 @@ class _CombinedPreorderDetailPageState
                             : () => _act('status', {'status': 'accepted'}),
                         child: const Text('Qabul qilish'),
                       ),
-                    if(source=='web' &&
-                        (d['request_items'] as List? ?? const []).length>1 &&
-                        d['payment_state']=='requested' &&
-                        d['price_ready']!=true &&
-                        d['status']!='cancelled' &&
-                        partialData!=null &&
-                        (partialData!['batches'] as List? ?? const [])
-                          .whereType<Map>().every((v)=>v['status']=='cancelled'))
-                      FilledButton.icon(
-                        onPressed:saving?null:_selectPartialArrival,
-                        icon:const Icon(Icons.checklist_outlined),
-                        label:const Text('Qisman keldi • kitoblarni tanlash')),
                     if (d['payment_state'] == 'requested' &&
                         d['status'] != 'cancelled' &&
                         d['partial_active']!=true &&

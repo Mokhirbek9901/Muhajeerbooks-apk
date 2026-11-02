@@ -509,6 +509,74 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
     return (rows: rows, errors: errors);
   }
 
+  /// Persists a separate admin-only title; it never changes the customer
+  /// preorder, stock reservation, deposit, quantity, or fulfillment state.
+  Future<void> _editPreorderTitle(Map<String,dynamic> row) async {
+    final web=row['_origin']=='web';
+    final rawItems=web && row['request_items'] is List
+        ? row['request_items'] as List : const <dynamic>[];
+    var index=0;
+    if(rawItems.length>1){
+      final picked=await showModalBottomSheet<int>(context:context,
+        showDragHandle:true,builder:(ctx)=>SafeArea(child:ListView(
+          shrinkWrap:true,children:[
+            const ListTile(title:Text('Nomini tahrirlaydigan kitobni tanlang')),
+            for(var i=0;i<rawItems.length;i++)
+              ListTile(
+                title:Text(rawItems[i] is Map
+                    ? (rawItems[i]['book_title']??'Kitob').toString():'Kitob'),
+                onTap:()=>Navigator.pop(ctx,i),
+              )
+          ],
+        )));
+      if(picked==null || !mounted)return;
+      index=picked;
+    }
+    final title=(web
+        ? (rawItems.isNotEmpty && rawItems[index] is Map
+            ? rawItems[index]['book_title'] : row['book_title'])
+        : row['title'])?.toString() ?? '';
+    final controller=TextEditingController(text:title);
+    final saved=await showDialog<bool>(context:context,builder:(ctx)=>
+      AlertDialog(
+        title:const Text('Oldindan zakaz kitob nomini tahrirlash'),
+        content:Column(mainAxisSize:MainAxisSize.min,children:[
+          TextField(controller:controller,maxLength:240,
+            decoration:const InputDecoration(labelText:'Ko‘rinadigan kitob nomi')),
+          const Text('Nom admin ro‘yxati va jo‘natma tayyorlashda '
+            'saqlanadi. Mijozning asl zakazi, avansi va ombori o‘zgarmaydi.',
+            style:TextStyle(fontSize:12)),
+        ]),
+        actions:[
+          TextButton(onPressed:()=>Navigator.pop(ctx,false),
+            child:const Text('Bekor')),
+          FilledButton(onPressed:()=>Navigator.pop(ctx,true),
+            child:const Text('Nomni saqlash')),
+        ],
+      ));
+    final value=controller.text.trim();
+    controller.dispose();
+    if(saved!=true||!mounted)return;
+    if(value.isEmpty){
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content:Text('Kitob nomi bo‘sh bo‘lmasin.')));return;
+    }
+    try{
+      await widget.api._rpc('admin_preorder_supplier',params:{
+        'p_secret':widget.api.secret,'p_action':'set_title',
+        'p_payload':{'source':web?'web':'native',
+          'order_id':'${row['id']}','item_index':index,'title':value},
+      });
+      if(!mounted)return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content:Text('Kitob nomi saqlandi. Buyurtma va avans o‘zgarmadi.')));
+      setState(()=>future=_load());
+    }catch(e){
+      if(mounted)ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text('Nom saqlanmadi: $e')));
+    }
+  }
+
   Future<void> _openRecord(Map<String, dynamic> row) async {
     // Open this order, not the global preorder configuration page.
     await Navigator.of(context).push(
@@ -528,6 +596,22 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
     appBar: AppBar(
       title: const Text('Oldindan zakazlar'),
       actions: [
+        IconButton(
+          tooltip: 'O‘zbekistonga jo‘natma tayyorlash',
+          icon: const Icon(Icons.inventory_2_outlined),
+          onPressed: () async {
+            final loaded=await future;
+            if (!mounted) return;
+            if (loaded.errors.isNotEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content:Text('Avval barcha zakazlar to‘liq yuklansin.')));
+              return;
+            }
+            Navigator.of(context).push(MaterialPageRoute(
+              builder:(_)=>_PreorderSupplierPage(
+                api:widget.api,orders:loaded.rows)));
+          },
+        ),
         IconButton(
           tooltip: 'Yangilash',
           icon: const Icon(Icons.refresh),
@@ -601,6 +685,15 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
               const Text(
                 'Barchasi faqat faol zakazlar. Bekor qilinganlar alohida bo‘limda. Ilova va web sanaga ko‘ra birlashtirilgan.',
                 style: TextStyle(color: AppColors.muted, fontSize: 12),
+              ),
+              const SizedBox(height: 8),
+              FilledButton.icon(
+                onPressed: data.errors.isNotEmpty ? null : () =>
+                  Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => _PreorderSupplierPage(
+                      api:widget.api, orders:data.rows))),
+                icon: const Icon(Icons.local_shipping_outlined),
+                label: const Text('O‘zbekistonga kitob zakaz ro‘yxati'),
               ),
               const SizedBox(height: 8),
               if (data.errors.isNotEmpty)
@@ -678,7 +771,11 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
                           '${contact.isEmpty ? '' : '\n$contact'}',
                         ),
                         isThreeLine: true,
-                        trailing: const Icon(Icons.chevron_right_rounded),
+                        trailing: IconButton(
+                          tooltip: 'Kitob nomini doimiy tahrirlash',
+                          icon: const Icon(Icons.edit_outlined),
+                          onPressed: () => _editPreorderTitle(row),
+                        ),
                         onTap: () => _openRecord(row),
                       ),
                     ),

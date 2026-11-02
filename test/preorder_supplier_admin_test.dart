@@ -108,4 +108,14 @@ void main() {
     expect(() => supplierExportBooksPerPage(9),throwsArgumentError);
   });
 
+  test('temporary signed cover is refreshed even in a customized old draft', () {
+    const old='https://site/storage/v1/object/sign/web-preorder-assets/path?token=old';
+    const fresh='https://site/storage/v1/object/sign/web-preorder-assets/path?token=new';
+    expect(supplierIsTemporarySignedCover(old),isTrue);
+    expect(supplierRestoredCoverUrl(old,fresh,customized:true),fresh);
+    expect(supplierRestoredCoverUrl(old,'',customized:true),isEmpty);
+    const permanent='https://site/storage/v1/object/public/book-covers/covers/custom.jpg';
+    expect(supplierRestoredCoverUrl(permanent,fresh,customized:true),permanent);
+  });
+
 }

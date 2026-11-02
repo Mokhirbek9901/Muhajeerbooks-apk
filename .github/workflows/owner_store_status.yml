@@ -45,3 +45,4 @@ jobs:
         with:
           name: read-only-app-store-state
           path: ${{ runner.temp }}/app-store-state.json
+# Read-only public version audit for November 3, 2026.

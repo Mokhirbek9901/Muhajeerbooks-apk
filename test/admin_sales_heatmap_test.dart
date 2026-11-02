@@ -36,4 +36,28 @@ void main() {
     expect(find.text('Ko‘p'),findsOneWidget);
     expect(tester.takeException(),isNull);
   });
+  testWidgets('cells show real daily counts, with zero and outside days different',
+      (tester) async {
+    final days=<Map<String,dynamic>>[
+      for (var n=1;n<=30;n++)
+        {
+          'date':'2026-10-${n.toString().padLeft(2,'0')}',
+          'sold':n==7?12:n==15?4:0,
+          'revenue':0,'profit':0,
+        },
+    ];
+    await tester.pumpWidget(MaterialApp(home:Scaffold(
+      body:SingleChildScrollView(child:Padding(
+        padding:const EdgeInsets.all(12),
+        child:AdminSalesHeatmap(days:days,totalSold:16,activeDays:2),
+      )),
+    )));
+    expect(find.text('12'),findsOneWidget);
+    expect(find.text('4'),findsOneWidget);
+    expect(find.text('0'),findsNWidgets(28));
+    expect(find.text('16 dona'),findsOneWidget);
+    expect(find.text('2 / 30'),findsOneWidget);
+    expect(tester.takeException(),isNull);
+  });
+
 }

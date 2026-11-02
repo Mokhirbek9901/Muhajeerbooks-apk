@@ -2,10 +2,6 @@ name: Build and Upload iOS to TestFlight
 
 on:
   workflow_dispatch:
-  # One-time TestFlight candidate preserving preorder features and fixing store update prompts.
-  push:
-    branches:
-      - testflight/preorder-six-formats-20261102
 
 permissions:
   actions: read

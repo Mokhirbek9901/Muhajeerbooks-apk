@@ -2,6 +2,10 @@ name: Build and Upload iOS to TestFlight
 
 on:
   workflow_dispatch:
+  # One-time owner-requested TestFlight preorder cover recovery build.
+  push:
+    branches:
+      - testflight/preorder-six-formats-20261102
 
 permissions:
   actions: read

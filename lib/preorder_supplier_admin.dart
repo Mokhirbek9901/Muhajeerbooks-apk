@@ -331,12 +331,22 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
     return out.toString();
   }
 
+  Rect get _shareAnchor {
+    // UIActivityViewController requires an origin on iPad.
+    final render=context.findRenderObject();
+    if(render is RenderBox) {
+      return render.localToGlobal(Offset.zero) & render.size;
+    }
+    return const Rect.fromLTWH(0,0,1,1);
+  }
+
   Future<void> _shareData(List<int> bytes, String type, String suffix) async {
     final id = DateTime.now().millisecondsSinceEpoch;
     await SharePlus.instance.share(ShareParams(
       files: [XFile.fromData(Uint8List.fromList(bytes), mimeType: type)],
       fileNameOverrides: ['Muhajeer_kitoblar_$id.$suffix'],
       title: nameController.text.trim(),
+      sharePositionOrigin: _shareAnchor,
     ));
   }
 
@@ -349,7 +359,8 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
     setState(() => busy = true);
     try {
       if (format == 'text') {
-        await SharePlus.instance.share(ShareParams(text: _textExport()));
+        await SharePlus.instance.share(ShareParams(
+          text: _textExport(),sharePositionOrigin:_shareAnchor));
       } else if (format == 'copy') {
         await Clipboard.setData(ClipboardData(text: _textExport()));
         _message('Kitoblar ro‘yxati nusxalandi.');
@@ -409,6 +420,7 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
           await SharePlus.instance.share(ShareParams(
             files: files, fileNameOverrides: names,
             title: nameController.text.trim(),
+            sharePositionOrigin: _shareAnchor,
           ));
         }
       }

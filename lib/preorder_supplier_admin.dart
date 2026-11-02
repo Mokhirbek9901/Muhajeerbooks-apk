@@ -58,9 +58,12 @@ List<Map<String, dynamic>> supplierSourceRows(
           .toString().trim();
       final bookId = (x['book_id'] ?? order['book_id'] ?? '').toString();
       // Publisher keeps editions separate even with identical short titles.
-      final key = bookId.isNotEmpty
-          ? 'catalog:$bookId'
-          : 'title:${name.toLowerCase()}|${publisher.toLowerCase()}';
+      final normalizedTitle = name.toLowerCase()
+          .replaceAll(RegExp(r'[‘’ʼʻ`´]'), "'")
+          .replaceAll(RegExp(r'\\s+'), ' ').trim();
+      // Group the same name from web and native, even if one has a book_id.
+      // Keep explicitly different publishers separate to avoid mixing editions.
+      final key = 'title:$normalizedTitle|${publisher.toLowerCase()}';
       final qty = (x['quantity'] as num?)?.toInt() ??
           (order['quantity'] as num?)?.toInt() ?? 1;
       final cover = (x['book_image_url'] ??
@@ -122,6 +125,7 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
   String? draftId;
   bool loading = true;
   bool busy = false;
+  int exportLayout = 4; // Default: six visible covers per image.
 
   @override
   void initState() {
@@ -265,29 +269,58 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
   Future<void> _editLine(_SupplierLine line) async {
     final title = TextEditingController(text: line.title);
     final publisher = TextEditingController(text: line.publisher);
+    var coverUrl = line.imageUrl;
+    var uploading = false;
     final result = await showDialog<bool>(
-      context: context, builder: (ctx) => AlertDialog(
-        title: const Text('Jo‘natma kitobini tahrirlash'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(controller: title, maxLength: 240,
-            decoration: const InputDecoration(labelText: 'Kitob nomi')),
-          TextField(controller: publisher, maxLength: 160,
-            decoration: const InputDecoration(labelText: 'Nashriyot')),
-          const Text('Bu faqat ta’minot ro‘yxatini o‘zgartiradi. '
-            'Asl oldindan zakaz nomini alohida tahrirlash mumkin.',
-            style: TextStyle(fontSize: 12)),
-        ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Bekor')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Saqlash')),
-        ],
-      ));
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, update) => AlertDialog(
+          title: const Text('Kitobni tahrirlash'),
+          scrollable: true,
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            _PreorderBookCover(url: coverUrl, width: 152, height: 205),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: uploading ? null : () async {
+                final picked = await ImagePicker().pickImage(
+                  source: ImageSource.gallery, imageQuality: 85);
+                if (picked == null || !ctx.mounted) return;
+                update(() => uploading = true);
+                try {
+                  final uploaded = await widget.api.uploadCover(picked);
+                  if (ctx.mounted) update(() => coverUrl = uploaded.url);
+                } catch (e) {
+                  if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(content: Text('Rasm yuklanmadi: $e')));
+                } finally {
+                  if (ctx.mounted) update(() => uploading = false);
+                }
+              },
+              icon: const Icon(Icons.photo_library_outlined),
+              label: Text(uploading ? 'Rasm yuklanmoqda...' : 'Rasmni almashtirish'),
+            ),
+            TextField(controller: title, maxLength: 240,
+              decoration: const InputDecoration(labelText: 'Kitob nomi')),
+            TextField(controller: publisher, maxLength: 160,
+              decoration: const InputDecoration(labelText: 'Nashriyot')),
+            const Text('Faqat O‘zbekistonga yuboriladigan ro‘yxat tahrirlanadi. '
+                'Mijozning asl zakazi, avansi va ombor o‘zgarmaydi.',
+                style: TextStyle(fontSize: 12)),
+          ]),
+          actions: [
+            TextButton(onPressed: uploading ? null : () => Navigator.pop(ctx, false),
+              child: const Text('Bekor qilish')),
+            FilledButton(onPressed: uploading ? null : () => Navigator.pop(ctx, true),
+              child: const Text('Saqlash')),
+          ],
+        ),
+      ),
+    );
     if (mounted && result == true && title.text.trim().isNotEmpty) {
       setState(() {
         line.title = title.text.trim();
         line.publisher = publisher.text.trim();
+        line.imageUrl = coverUrl;
       });
     }
     title.dispose();
@@ -415,7 +448,7 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           'xlsx');
       } else {
-        final pages = await _renderPages();
+        final pages = await _renderPages(exportLayout);
         if (format == 'pdf') {
           final pdf = pw.Document(compress: true);
           for (final png in pages) {
@@ -479,17 +512,84 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
     } catch (_) { return null; }
   }
 
-  /// A4-friendly 1000x1400 pages; covers and Uzbek text rendered by Flutter
-  /// itself, avoiding missing PDF font glyphs. Seven books per page prevents
-  /// iOS canvas texture-size overflows for even very long supplier lists.
-  Future<List<Uint8List>> _renderPages() async {
+  // The first three original variants remain available. The last three
+  // deliberately place exactly six titles on each export image.
+  @visibleForTesting
+  static int booksPerExportPage(int layout) {
+    if (layout == 2) return 2;
+    if (layout == 3) return 1;
+    if (layout == 1) return 5;
+    return 6;
+  }
+
+  Future<void> _drawExportCard(Canvas canvas, _SupplierLine line, int number,
+    Rect bounds, int layout) async {
+    final isCoverOnly = layout == 3 || layout == 4;
+    final compact = layout == 6;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bounds, const Radius.circular(17)),
+      Paint()..color = Colors.white);
+    final horizontal = layout == 1 || layout == 5 || compact;
+    final coverRect = horizontal
+      ? Rect.fromLTWH(bounds.left + 12, bounds.top + 11,
+          layout == 5 ? 144 : (compact ? 119 : 143), bounds.height - 22)
+      : Rect.fromLTWH(bounds.left + 14, bounds.top + 12,
+          bounds.width - 28, isCoverOnly ? bounds.height - 65 : bounds.height - 104);
+    final cover = await _cover(line.imageUrl);
+    if (cover != null) {
+      final ratio = cover.width / cover.height;
+      final fit = BoxFit.contain;
+      final sizes = applyBoxFit(fit, Size(cover.width.toDouble(),
+          cover.height.toDouble()), coverRect.size);
+      final source = Alignment.center.inscribe(sizes.source,
+          Rect.fromLTWH(0, 0, cover.width.toDouble(), cover.height.toDouble()));
+      final destination = Alignment.center.inscribe(sizes.destination, coverRect);
+      canvas.drawImageRect(cover, source, destination,
+        Paint()..filterQuality = FilterQuality.high);
+      cover.dispose();
+    } else {
+      canvas.drawRRect(RRect.fromRectAndRadius(coverRect,
+        const Radius.circular(10)), Paint()..color=const Color(0xFFE7F0ED));
+      _drawText(canvas, 'KITOB', Offset(coverRect.left + 12,
+        coverRect.center.dy - 14), coverRect.width - 24, size: 24);
+    }
+    if (horizontal) {
+      final textLeft = coverRect.right + 14;
+      final remaining = bounds.right - textLeft - 14;
+      _drawText(canvas, '$number. ${line.title}', Offset(textLeft,bounds.top+18),
+        remaining, size: layout == 5 ? 24 : 26,
+        weight: FontWeight.w800, lines: 3);
+      if (layout != 6) {
+        _drawText(canvas,
+          line.publisher.isEmpty ? 'Nashriyot ko‘rsatilmagan' : line.publisher,
+          Offset(textLeft,bounds.top+bounds.height-73), remaining,
+          size: 18, color: const Color(0xFF72817C));
+      }
+      _drawText(canvas,'${line.quantity} dona',
+        Offset(textLeft,bounds.bottom-46), remaining,
+        size:22, weight:FontWeight.w900, lines:1,
+        color:const Color(0xFF075F5A));
+    } else {
+      _drawText(canvas, '$number. ${line.title}',
+        Offset(bounds.left+14,coverRect.bottom+10), bounds.width-28,
+        size: layout==3 ? 28 : 20, weight:FontWeight.w800,
+        lines:layout == 3 ? 2 : 1);
+      _drawText(canvas, '${line.quantity} dona',
+        Offset(bounds.left+14,bounds.bottom-31),bounds.width-28,
+        size:layout==3 ? 22 : 19,weight:FontWeight.w900,
+        color:const Color(0xFF075F5A),lines:1);
+    }
+  }
+
+  Future<List<Uint8List>> _renderPages(int layout) async {
     final chosen = selected;
     final pages = <Uint8List>[];
     const width=1000.0;
     const height=1400.0;
-    final count = (chosen.length / 7).ceil();
-    for (var page=0; page<count; page++) {
-      final slice = chosen.skip(page*7).take(7).toList();
+    final perPage=booksPerExportPage(layout);
+    final count=(chosen.length/perPage).ceil();
+    for (var page=0;page<count;page++) {
+      final slice=chosen.skip(page*perPage).take(perPage).toList();
       final recorder=ui.PictureRecorder();
       final canvas=Canvas(recorder);
       canvas.drawRect(const Rect.fromLTWH(0,0,width,height),
@@ -500,42 +600,33 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
         size:40,weight:FontWeight.w900,color:Colors.white);
       _drawText(canvas,nameController.text.trim(),const Offset(44,81),900,
         size:24,color:Colors.white);
-      final totalRequested = chosen.fold<int>(0,(a,b)=>a+b.requested);
+      final totalRequested=chosen.fold<int>(0,(a,b)=>a+b.requested);
       _drawText(canvas,
         '${chosen.length} nom  •  Jami $total dona  •  Mijoz zakazi $totalRequested dona',
         const Offset(44,167),930,size:24,weight:FontWeight.w700);
-      var y=215.0;
-      for (var i=0; i<slice.length; i++) {
-        final line=slice[i];
-        canvas.drawRRect(RRect.fromRectAndRadius(
-          Rect.fromLTWH(35,y,930,146),const Radius.circular(14)),
-          Paint()..color=Colors.white);
-        final cover=await _cover(line.imageUrl);
-        if (cover!=null) {
-          canvas.drawImageRect(cover,
-            Rect.fromLTWH(0,0,cover.width.toDouble(),cover.height.toDouble()),
-            Rect.fromLTWH(48,y+9,96,126),Paint()..filterQuality=FilterQuality.high);
-          cover.dispose();
+      for (var i=0;i<slice.length;i++) {
+        Rect bounds;
+        if (layout == 2) {
+          bounds=Rect.fromLTWH(36+i*470.0,237,454,1010);
+        } else if (layout == 3) {
+          bounds=const Rect.fromLTWH(132,235,736,1035);
+        } else if (layout == 4) {
+          bounds=Rect.fromLTWH(34+(i%3)*321.0,235+(i~/3)*541.0,304,525);
+        } else if (layout == 5) {
+          bounds=Rect.fromLTWH(35+(i%2)*472.0,238+(i~/2)*365.0,456,347);
         } else {
-          canvas.drawRect(Rect.fromLTWH(48,y+9,96,126),
-            Paint()..color=const Color(0xFFE7F0ED));
-          _drawText(canvas,'KITOB',Offset(56,y+61),83,size:18);
+          final rowHeight=layout==1 ? 210.0 : 176.0;
+          final gap=layout==1 ? 10.0 : 8.0;
+          bounds=Rect.fromLTWH(35,237+i*(rowHeight+gap),930,rowHeight);
         }
-        _drawText(canvas,'${page*7+i+1}. ${line.title}',
-          Offset(165,y+14),630,size:27,weight:FontWeight.w800);
-        _drawText(canvas,
-          line.publisher.isEmpty?'Nashriyot ko‘rsatilmagan':line.publisher,
-          Offset(165,y+79),630,size:20,color:const Color(0xFF72817C));
-        _drawText(canvas,'${line.quantity} dona',
-          Offset(816,y+54),133,size:22,weight:FontWeight.w900,
-          color:const Color(0xFF075F5A),lines:1);
-        y+=155;
+        await _drawExportCard(canvas,slice[i],page*perPage+i+1,bounds,layout);
       }
       canvas.drawRect(const Rect.fromLTWH(0,1345,1000,55),
         Paint()..color=const Color(0xFFE6ECE8));
       _drawText(canvas,'Faqat do‘konga buyurtma ro‘yxati • Mijoz ma’lumotlari yo‘q',
         const Offset(38,1354),830,size:19);
-      _drawText(canvas,'${page+1}/$count',const Offset(920,1354),64,size:18);
+      _drawText(canvas,'${page+1}/$count',
+        const Offset(920,1354),64,size:18);
       final picture=recorder.endRecording();
       final bitmap=await picture.toImage(width.toInt(),height.toInt());
       picture.dispose();
@@ -663,6 +754,22 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
           const Text('Do‘konga yuborish formati',
             style:TextStyle(fontWeight:FontWeight.w900,fontSize:16)),
           const SizedBox(height:8),
+          const Text('Rasm dizaynini tanlang (PNG / JPG / PDF):'),
+          const SizedBox(height: 6),
+          Wrap(spacing: 7,runSpacing: 7,children: [
+            for(final layout in const [
+              (1,'1. Katta ro‘yxat • 5 ta'),
+              (2,'2. Ikki katta muqova'),
+              (3,'3. Juda katta rasm'),
+              (4,'4. 6 ta • 3×2 muqova'),
+              (5,'5. 6 ta • katta kartalar'),
+              (6,'6. 6 ta • ixcham ro‘yxat'),
+            ]) ChoiceChip(
+              label:Text(layout.$2), selected:exportLayout==layout.$1,
+              onSelected:busy?null:(_)=>setState(()=>exportLayout=layout.$1),
+            ),
+          ]),
+          const SizedBox(height: 8),
           Wrap(spacing:8,runSpacing:8,children:[
             for(final option in const [
               ('pdf','PDF',Icons.picture_as_pdf_outlined),

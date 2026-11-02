@@ -42,4 +42,22 @@ void main() {
     expect(compareIosMarketingVersions('2.5.10', '2.5.9'), 1);
     expect(compareIosMarketingVersions('2.5.22', '2.5.22+2144'), 0);
   });
+  test('verified public 2.5.23 prompts old 2.5.22 installs', () {
+    expect(iosPublishedUpdateAvailable(
+      installedVersion: '2.5.22', installedBuild: 2144,
+      publishedVersion: '2.5.23', publishedBuild: 17003), isTrue);
+  });
+
+  test('up-to-date public release does not prompt itself', () {
+    expect(iosPublishedUpdateAvailable(
+      installedVersion: '2.5.23', installedBuild: 17003,
+      publishedVersion: '2.5.23', publishedBuild: 17003), isFalse);
+  });
+
+  test('higher TestFlight never gets sent to an older public release', () {
+    expect(iosPublishedUpdateAvailable(
+      installedVersion: '2.5.24', installedBuild: 30004,
+      publishedVersion: '2.5.23', publishedBuild: 17003), isFalse);
+  });
+
 }

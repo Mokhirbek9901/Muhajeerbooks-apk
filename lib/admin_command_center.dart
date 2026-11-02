@@ -875,6 +875,7 @@ class _CombinedPreorderDetailPage extends StatefulWidget {
 class _CombinedPreorderDetailPageState
     extends State<_CombinedPreorderDetailPage> {
   Map<String, dynamic>? data;
+  Map<String,dynamic>? partialData;
   bool saving = false;
   String? error;
   String get source =>
@@ -918,9 +919,15 @@ class _CombinedPreorderDetailPageState
         // Preorder details and payments remain accessible during
         // transient image-signing problems; admin can press Refresh.
       }
+      Map<String,dynamic>? partial;
+      if(source=='web') {
+        try {partial=await widget.api.partialPreorder(reference,'detail');}
+        catch(_){ /* Leave existing order view usable on backend outage. */ }
+      }
       if (mounted)
         setState(() {
           data = next;
+          partialData=partial;
           error = null;
         });
     } catch (e) {
@@ -1500,8 +1507,23 @@ class _CombinedPreorderDetailPageState
                             : () => _act('status', {'status': 'accepted'}),
                         child: const Text('Qabul qilish'),
                       ),
+                    if(source=='web' &&
+                        (d['request_items'] as List? ?? const []).length>1 &&
+                        d['payment_state']=='requested' &&
+                        d['price_ready']!=true &&
+                        d['status']!='cancelled' &&
+                        partialData!=null &&
+                        (partialData!['batches'] as List? ?? const [])
+                          .whereType<Map>().every((v)=>v['status']=='cancelled'))
+                      FilledButton.icon(
+                        onPressed:saving?null:_selectPartialArrival,
+                        icon:const Icon(Icons.checklist_outlined),
+                        label:const Text('Qisman keldi • kitoblarni tanlash')),
                     if (d['payment_state'] == 'requested' &&
-                        d['status'] != 'cancelled') ...[
+                        d['status'] != 'cancelled' &&
+                        d['partial_active']!=true &&
+                        (partialData?['batches'] as List? ?? const [])
+                          .whereType<Map>().every((v)=>v['status']=='cancelled')) ...[
                       OutlinedButton(
                         onPressed: saving ? null : _batch,
                         child: const Text('Kelgan partiyani kiritish'),
@@ -1521,7 +1543,8 @@ class _CombinedPreorderDetailPageState
                         ),
                       ),
                     if (d['status'] != 'cancelled' &&
-                        d['converted_order_id'] == null)
+                        d['converted_order_id'] == null &&
+                        d['partial_active'] != true)
                       TextButton(
                         onPressed: saving ? null : _cancel,
                         child: const Text('Zakasni bekor qilish'),

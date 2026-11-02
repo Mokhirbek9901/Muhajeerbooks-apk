@@ -1,0 +1,107 @@
+name: Submit exact approved TestFlight build 30006 to App Store
+
+on:
+  push:
+    branches:
+      - release/verified-ios-2-5-24-30006
+    paths:
+      - .github/workflows/submit_exact_30006.yml
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: muhajeer-appstore-exact-30006
+  cancel-in-progress: false
+
+jobs:
+  submit-exact-tested-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      IOS_MARKETING_VERSION: '2.5.24'
+      IOS_BUILD_NUMBER: '30006'
+      OWNER_APPROVED_PUBLIC_RELEASE: '2.5.24(30006)'
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
+      - name: Verify exact signed and processed TestFlight build, never rebuild
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/"$GITHUB_REPOSITORY"/actions/runs/41518385146 > "$RUNNER_TEMP/candidate-run.json"
+          gh run download 41518385146 --repo "$GITHUB_REPOSITORY" \
+            --name ios-release-diagnostics --dir "$RUNNER_TEMP/testflight-evidence"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          run=json.loads((Path(os.environ["RUNNER_TEMP"])/"candidate-run.json").read_text())
+          assert run["conclusion"]=="success" and run["status"]=="completed"
+          assert run["head_sha"]=="349978b102fa97aff3882d3654b1d41d1cdb18de"
+          assert run["head_branch"]=="testflight/heatmap-daily-counts-20261103"
+          assert run["path"]==".github/workflows/testflight_upload.yml"
+          files=list((Path(os.environ["RUNNER_TEMP"])/"testflight-evidence").rglob("testflight-result.json"))
+          assert len(files)==1, "Signed test evidence unavailable"
+          result=json.loads(files[0].read_text())
+          assert result["version"]=="2.5.24"
+          assert str(result["build_number"])=="30006"
+          assert result["build_id"]=="d30160c7-c81c-49cd-a83f-077369530c25"
+          assert result["processing_state"]=="VALID"
+          assert result["internal_build_state"]=="IN_BETA_TESTING"
+          assert int(result["automatic_internal_groups"])>=1
+          with open(os.environ["GITHUB_ENV"],"a") as out:
+              out.write("ASC_APP_ID="+str(result["app_id"])+"\n")
+              out.write("EXPECTED_ASC_BUILD_ID="+str(result["build_id"])+"\n")
+          print("Verified exactly the already tested VALID 2.5.24 (30006); no new build.")
+          PY
+
+      - name: Setup temporary App Store API key for this job only
+        run: |
+          ruby -e 's=ENV.fetch("APP_STORE_CONNECT_PRIVATE_KEY").strip.gsub("\\n","\n")+"\n"; abort "invalid App Store key" unless s.start_with?("-----BEGIN PRIVATE KEY-----"); File.write(ENV.fetch("RUNNER_TEMP")+"/asc.p8",s)'
+          echo "ASC_PRIVATE_KEY_PATH=$RUNNER_TEMP/asc.p8" >> "$GITHUB_ENV"
+
+      - name: Verify app identity and existing public release, do not overwrite another review
+        run: |
+          ruby -I .github/release_tools <<'RUBY'
+          require_relative './.github/release_tools/app_store_client'
+          api=AppStoreClient
+          app=api.request(:get,"/v1/apps/#{ENV.fetch('ASC_APP_ID')}").fetch('data')
+          abort 'Unexpected App Store bundle' unless app.dig('attributes','bundleId')=='com.muhajeerbooks.app'
+          vs=api.request(:get,"/v1/apps/#{app.fetch('id')}/appStoreVersions",
+            query:{'limit'=>100, 'fields[appStoreVersions]'=>'platform,versionString,appStoreState,releaseType,build'}).fetch('data')
+          ios=vs.select{|v|v.dig('attributes','platform')=='IOS'}
+          ios.each{|v|puts "iOS #{v.dig('attributes','versionString')}: #{v.dig('attributes','appStoreState')}"}
+          live=ios.select{|v|v.dig('attributes','appStoreState')=='READY_FOR_SALE'}
+          abort 'Version 2.5.24 already released; refusing duplicate submission' if live.any?{|v|v.dig('attributes','versionString')=='2.5.24'}
+          abort 'Newer version already live' if live.any?{|v|(v.dig('attributes','versionString').split('.').map(&:to_i) <=> [2,5,24])==1}
+          target=ios.find{|v|v.dig('attributes','versionString')=='2.5.24'}
+          if target && %w[WAITING_FOR_REVIEW IN_REVIEW].include?(target.dig('attributes','appStoreState'))
+            id=api.request(:get,"/v1/appStoreVersions/#{target.fetch('id')}/relationships/build")['data']&.dig('id')
+            abort 'Another build in review; refusing to cancel it' unless id==ENV.fetch('EXPECTED_ASC_BUILD_ID')
+          end
+          all=api.request(:get,'/v1/builds',query:{
+            'filter[app]'=>app.fetch('id'),'filter[version]'=>'30006','include'=>'preReleaseVersion','limit'=>30})
+          valid=all.fetch('data').any?{|b|b.fetch('id')==ENV.fetch('EXPECTED_ASC_BUILD_ID') && b.dig('attributes','processingState')=='VALID'}
+          abort 'Apple no longer lists the exact build as VALID' unless valid
+          puts 'App identity, live version and exact build verified.'
+          RUBY
+
+      - name: Submit exactly 2.5.24 (30006) to App Review; release after approval
+        run: ruby .github/release_tools/submit_app_store_update.rb
+
+      - name: Read back App Store submission state
+        if: success()
+        run: ruby .github/release_tools/inspect_app_store_state.rb
+
+      - name: Retire temporary signing/API key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/asc.p8"

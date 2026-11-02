@@ -29,4 +29,40 @@ void main(){
     expect(find.text('O‘sha partiyadagi tan narxi'),findsOneWidget);
     expect(find.textContaining('hali haqiqiy olingan foyda emas'),findsOneWidget);
   });
+  test('actual FIFO margin is unknown without sales allocation, never projected', () {
+    expect(recognizedFifoBatchGrossProfit({
+      'projected_profit':149594,'estimated_sold_units':0,
+    }),isNull);
+    expect(recognizedFifoBatchGrossProfit({
+      'date_fifo_applied':true,'dated_order_gross_profit':212000,
+      'projected_profit':557705,'dated_order_sales_units':33,
+    }),212000);
+    expect(recognizedFifoBatchGrossProfit({
+      'date_fifo_applied':true,'dated_order_gross_profit':-1000,
+      'projected_profit':7000,
+    }),-1000);
+    expect(recognizedFifoBatchGrossProfit({
+      'date_fifo_applied':true,'dated_legacy_sales_units':22,
+      'projected_profit':805143,
+    }),isNull);
+  });
+
+  testWidgets('chosen first layout shows expected and to-date amounts separately',
+      (tester) async {
+    final groups=<Map<String,dynamic>>[{
+      'group_key':'g1','title':'25.10.2026',
+      'date':'2026-10-25','purchased_units':87,
+      'estimated_sold_units':33,'estimated_remaining_units':54,
+      'book_titles':30,'projected_profit':557705,
+      'date_fifo_applied':true,'dated_order_gross_profit':212000,
+      'dated_order_sales_units':33,
+    }];
+    await tester.pumpWidget(MaterialApp(home:Scaffold(body:SingleChildScrollView(
+      child:AdminProfitBatchPanel(groups:groups,lots:const [])))));
+    expect(find.text('₩557,705'),findsOneWidget);
+    expect(find.text('Hozirgacha: ₩212,000'),findsOneWidget);
+    expect(find.text('Foyda ulushi: 100%'),findsOneWidget);
+    expect(tester.takeException(),isNull);
+  });
+
 }

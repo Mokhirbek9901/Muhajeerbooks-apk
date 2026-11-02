@@ -103,6 +103,36 @@ int supplierExportBooksPerPage(int layout) {
   throw ArgumentError.value(layout, 'layout', 'Unknown export layout');
 }
 
+/// Exact, non-overlapping areas for the cover, title and quantity in
+/// vertical export cards. Reserve two full title lines above the quantity.
+/// All dimensions are in export-image logical pixels.
+@visibleForTesting
+({Rect cover, Rect title, Rect quantity}) supplierExportVerticalAreas(
+  Rect bounds, int layout,
+) {
+  if (layout != 2 && layout != 3 && layout != 4) {
+    throw ArgumentError.value(layout, 'layout', 'Not a vertical export layout');
+  }
+  const horizontalInset = 14.0;
+  const verticalGap = 10.0;
+  final textWidth = bounds.width - 2 * horizontalInset;
+  final titleHeight = layout == 3 ? 72.0 : 54.0;
+  final quantity = Rect.fromLTWH(
+    bounds.left + horizontalInset, bounds.bottom - 43,
+    textWidth, 30,
+  );
+  final title = Rect.fromLTWH(
+    bounds.left + horizontalInset, quantity.top - verticalGap - titleHeight,
+    textWidth, titleHeight,
+  );
+  final coverTop = bounds.top + 12;
+  final cover = Rect.fromLTWH(
+    bounds.left + horizontalInset, coverTop,
+    textWidth, title.top - verticalGap - coverTop,
+  );
+  return (cover: cover, title: title, quantity: quantity);
+}
+
 class _PreorderSupplierPage extends StatefulWidget {
   const _PreorderSupplierPage({required this.api, required this.orders});
   final _AdminApi api;
@@ -528,17 +558,17 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
 
   Future<void> _drawExportCard(Canvas canvas, _SupplierLine line, int number,
     Rect bounds, int layout) async {
-    final isCoverOnly = layout == 3 || layout == 4;
     final compact = layout == 6;
     canvas.drawRRect(
       RRect.fromRectAndRadius(bounds, const Radius.circular(17)),
       Paint()..color = Colors.white);
     final horizontal = layout == 1 || layout == 5 || compact;
+    final verticalAreas = horizontal
+        ? null : supplierExportVerticalAreas(bounds, layout);
     final coverRect = horizontal
       ? Rect.fromLTWH(bounds.left + 12, bounds.top + 11,
           layout == 5 ? 144 : (compact ? 119 : 143), bounds.height - 22)
-      : Rect.fromLTWH(bounds.left + 14, bounds.top + 12,
-          bounds.width - 28, isCoverOnly ? bounds.height - 65 : bounds.height - 104);
+      : verticalAreas!.cover;
     final cover = await _cover(line.imageUrl);
     if (cover != null) {
       final fit = BoxFit.contain;
@@ -573,12 +603,15 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
         size:22, weight:FontWeight.w900, lines:1,
         color:const Color(0xFF075F5A));
     } else {
+      // The two-line title and quantity use distinct reserved rectangles.
+      // Earlier code painted the quantity over the last line of the title
+      // in the six-cover (3x2) export format.
+      final areas = verticalAreas!;
       _drawText(canvas, '$number. ${line.title}',
-        Offset(bounds.left+14,coverRect.bottom+10), bounds.width-28,
-        size: layout==3 ? 28 : 20, weight:FontWeight.w800,
-        lines:layout == 3 ? 2 : 1);
+        areas.title.topLeft, areas.title.width,
+        size: layout==3 ? 28 : 20, weight:FontWeight.w800, lines:2);
       _drawText(canvas, '${line.quantity} dona',
-        Offset(bounds.left+14,bounds.bottom-31),bounds.width-28,
+        areas.quantity.topLeft, areas.quantity.width,
         size:layout==3 ? 22 : 19,weight:FontWeight.w900,
         color:const Color(0xFF075F5A),lines:1);
     }

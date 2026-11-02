@@ -2,10 +2,6 @@ name: Build and Upload iOS to TestFlight
 
 on:
   workflow_dispatch:
-  # One-time owner-selected daily-sales heatmap TestFlight candidate.
-  push:
-    branches:
-      - testflight/heatmap-daily-counts-20261103
 
 permissions:
   actions: read

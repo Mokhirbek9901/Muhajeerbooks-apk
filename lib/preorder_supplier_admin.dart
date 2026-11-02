@@ -133,6 +133,25 @@ int supplierExportBooksPerPage(int layout) {
   return (cover: cover, title: title, quantity: quantity);
 }
 
+/// Web-preorder photos are supplied with 15-minute Storage signatures;
+/// these links must be refreshed rather than persisted as permanent covers.
+@visibleForTesting
+bool supplierIsTemporarySignedCover(String url) {
+  final uri=Uri.tryParse(url);
+  return uri?.scheme=='https' &&
+    uri!.path.contains('/storage/v1/object/sign/');
+}
+
+@visibleForTesting
+String supplierRestoredCoverUrl(String saved,String fresh,
+    {required bool customized}) {
+  if (customized && saved.startsWith('https://') &&
+      !supplierIsTemporarySignedCover(saved)) return saved;
+  if (fresh.startsWith('https://')) return fresh;
+  // Never leave an expired token in the saved draft.
+  return supplierIsTemporarySignedCover(saved) ? '' : saved;
+}
+
 class _PreorderSupplierPage extends StatefulWidget {
   const _PreorderSupplierPage({required this.api, required this.orders});
   final _AdminApi api;
@@ -235,11 +254,13 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
     for (final raw in draft['lines'] as List? ?? const []) {
       if (raw is! Map) continue;
       final line = _SupplierLine.fromJson(Map<String, dynamic>.from(raw));
-      // A private signed cover URL may have expired since the draft was
-      // saved. Replace it with a newly resolved URL for this session.
-      if (!line.imageCustomized &&
-          (fresh[line.sourceRef] ?? '').startsWith('https://')) {
-        line.imageUrl = fresh[line.sourceRef]!;
+      // Always refresh temporary private Storage signatures, even when an
+      // older draft marked one as customized. Preserve true public edits.
+      line.imageUrl=supplierRestoredCoverUrl(line.imageUrl,
+          fresh[line.sourceRef] ?? '',customized:line.imageCustomized);
+      if (supplierIsTemporarySignedCover(
+          (raw as Map)['image_url']?.toString() ?? '')) {
+        line.imageCustomized=false;
       }
       restored.add(line);
     }
@@ -449,6 +470,63 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
     ));
   }
 
+  /// Obtain fresh, admin-authenticated 15-minute signed URLs immediately
+  /// before rendering. Existing titles, quantities, deposits and orders are
+  /// not modified. A missing URL fails closed rather than exporting blank art.
+  Future<void> _refreshSupplierCovers() async {
+    final needed=<String>{};
+    for (final line in selected) {
+      if (line.sourceRef.startsWith('web:') &&
+          (!line.imageCustomized ||
+           supplierIsTemporarySignedCover(line.imageUrl))) {
+        final parts=line.sourceRef.split(':');
+        if (parts.length>=3) needed.add(parts[1]);
+      }
+    }
+    if (needed.isEmpty) return;
+    final fresh=<String,String>{};
+    const size=200;
+    final pending=Set<String>.from(needed);
+    for (var offset=0;offset<20000 && pending.isNotEmpty;offset+=size) {
+      final result=await WebPreorderApi().admin(widget.api.secret,'list',{
+        'limit':size,'offset':offset,
+      });
+      if (result is! List) throw StateError('Rasm havolalarini yangilab bo‘lmadi.');
+      for (final raw in result) {
+        if (raw is! Map) continue;
+        final id=(raw['id']??'').toString();
+        if (!pending.contains(id)) continue;
+        final items=raw['request_items'];
+        if (items is List && items.isNotEmpty) {
+          for (var i=0;i<items.length;i++) {
+            if (items[i] is Map) {
+              final url=(items[i]['book_image_url']??'').toString();
+              if(url.startsWith('https://'))fresh['web:$id:$i']=url;
+            }
+          }
+        } else {
+          final url=(raw['book_image_url']??'').toString();
+          if(url.startsWith('https://'))fresh['web:$id:0']=url;
+        }
+        pending.remove(id);
+      }
+      if (result.length<size) break;
+    }
+    for (final line in selected) {
+      if (!line.sourceRef.startsWith('web:')) continue;
+      if (line.imageCustomized &&
+          !supplierIsTemporarySignedCover(line.imageUrl)) continue;
+      final url=fresh[line.sourceRef];
+      if (url==null || !url.startsWith('https://')) {
+        throw StateError('${line.title} rasmini qayta olishning imkoni bo‘lmadi. '
+          'Ro‘yxatni yangilab qayta urinib ko‘ring.');
+      }
+      line.imageUrl=url;
+      line.imageCustomized=false;
+    }
+    if (mounted) setState(() {});
+  }
+
   Future<void> _export(String format) async {
     if (busy) return;
     if (selected.isEmpty) {
@@ -492,6 +570,8 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           'xlsx');
       } else {
+        // Signed URLs are valid for 15 minutes. Render only with fresh ones.
+        await _refreshSupplierCovers();
         final pages = await _renderPages(exportLayout);
         if (format == 'pdf') {
           final pdf = pw.Document(compress: true);

@@ -425,7 +425,7 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
     final painter = TextPainter(
       text: TextSpan(text:text, style:TextStyle(
         fontSize:size, fontWeight:weight, color:color)),
-      textDirection: TextDirection.ltr,
+      textDirection: ui.TextDirection.ltr,
       maxLines:lines, ellipsis:'…',
     )..layout(maxWidth:width);
     painter.paint(canvas, point);

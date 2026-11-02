@@ -12,6 +12,10 @@ TARGET_VERSION = ENV.fetch('IOS_MARKETING_VERSION')
 TARGET_BUILD = ENV.fetch('IOS_BUILD_NUMBER')
 APP_ID = ENV.fetch('ASC_APP_ID')
 
+# Release only the owner-approved, already-TestFlight-verified build.
+abort 'Unexpected marketing version' unless TARGET_VERSION == '2.5.24'
+abort 'Unexpected iOS build' unless TARGET_BUILD == '30006'
+
 unless ENV['OWNER_APPROVED_PUBLIC_RELEASE'] == "#{TARGET_VERSION}(#{TARGET_BUILD})"
   abort 'Public review/release is blocked: the owner must test and approve this exact version/build first.'
 end
@@ -50,6 +54,9 @@ def asc(method, path, query: nil, body: nil)
   abort "App Store Connect #{method.to_s.upcase} #{path} (HTTP #{result.code}): #{details}"
 end
 
+app = asc(:get, "/v1/apps/#{APP_ID}").fetch('data')
+abort 'Not the Muhajeer Books app' unless app.dig('attributes','bundleId') == BUNDLE_ID
+
 versions = asc(:get, "/v1/apps/#{APP_ID}/appStoreVersions",
                query: { 'limit' => 100, 'fields[appStoreVersions]' =>
                  'platform,versionString,appStoreState,appVersionState,build' }).fetch('data')
@@ -61,7 +68,7 @@ unless version
   created = asc(:post, '/v1/appStoreVersions', body: {
     data: { type: 'appStoreVersions',
             attributes: { platform: 'IOS', versionString: TARGET_VERSION,
-                          releaseType: 'MANUAL' },
+                          releaseType: 'AFTER_APPROVAL' },
             relationships: { app: { data: { type: 'apps', id: APP_ID } } } }
   })
   version = created.fetch('data')
@@ -72,6 +79,12 @@ state = version.dig('attributes', 'appStoreState') ||
         version.dig('attributes', 'appVersionState')
 abort "Version #{TARGET_VERSION} is not editable (#{state})" unless
   %w[PREPARE_FOR_SUBMISSION DEVELOPER_REJECTED REJECTED READY_FOR_REVIEW WAITING_FOR_REVIEW IN_REVIEW].include?(state)
+if %w[PREPARE_FOR_SUBMISSION DEVELOPER_REJECTED REJECTED READY_FOR_REVIEW].include?(state)
+  asc(:patch, "/v1/appStoreVersions/#{version_id}",
+      body: { data: { type: 'appStoreVersions', id: version_id,
+          attributes: { releaseType: 'AFTER_APPROVAL' } } })
+  puts 'Release set to AFTER_APPROVAL: publish only after Apple approves.'
+end
 builds = asc(:get, '/v1/builds', query: {
   'filter[app]' => APP_ID, 'filter[version]' => TARGET_BUILD,
   'include' => 'preReleaseVersion', 'limit' => 30
@@ -139,8 +152,16 @@ puts "Attached validated iOS build #{TARGET_BUILD} to version #{TARGET_VERSION}.
 # An update needs release notes for the existing locales.
 locales = asc(:get, "/v1/appStoreVersions/#{version_id}/appStoreVersionLocalizations",
               query: { 'limit' => 50 }).fetch('data')
-release_notes = "Improved notification settings explain updates about new and restocked books, order confirmations, shipping, and review reminders. Admin tools now better handle new orders, multi-book purchase batches, transport costs, and financial history. Improved privacy-policy contact options, catalog performance, and stability."
+# Release notes reflect the exact 2.5.24 (30006) TestFlight build.
+notes = {
+  'uz' => 'Sotuv faolligi jadvalida har bir kunning sotilgan kitoblari soni ko‘rinadi. Partiyalar bo‘yicha kutilayotgan va hozirgacha hisoblangan foyda alohida ko‘rsatiladi. Oldindan buyurtmalar uchun kitob rasmlari va ro‘yxat eksporti yaxshilandi. Yangilanishni tekshirish yanada ishonchli.',
+  'ru' => 'Количество проданных книг по дням в статистике за 30 дней. Ожидаемая и полученная прибыль по партиям показаны отдельно. Улучшены фото, списки и экспорт предзаказов, а также проверка обновлений и стабильность.',
+  'ko' => '최근 30일 판매 활동의 날짜별 판매 권수를 표시합니다. 입고 배치별 예상 이익과 현재까지의 이익을 구분해 표시합니다. 예약 주문 이미지, 목록 내보내기, 업데이트 확인 및 안정성을 개선했습니다.',
+  'en' => 'Daily book-sale counts are now shown in the 30-day activity chart. Projected and realized batch profits are separated. Improved preorder images, export layouts, update checks and reliability.'
+}
 locales.each do |loc|
+  locale = loc.dig('attributes','locale').to_s.downcase
+  release_notes = notes.find { |key, _| locale.start_with?(key) }&.last || notes['en']
   asc(:patch, "/v1/appStoreVersionLocalizations/#{loc.fetch('id')}",
       body: { data: { type: 'appStoreVersionLocalizations', id: loc.fetch('id'),
                      attributes: { whatsNew: release_notes } } })

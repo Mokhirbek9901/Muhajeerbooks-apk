@@ -13,6 +13,17 @@ List<Map<String,dynamic>> sortedProfitBatchGroups(
 
 /// Purchase lot margin projections. This does NOT attribute old sales to lots.
 /// Recorded sales use their immutable purchase-price snapshots elsewhere.
+/// Profit attributed to dated FIFO sales with known sale prices only.
+/// Missing legacy/imported values are not treated as zero.
+@visibleForTesting
+int? recognizedFifoBatchGrossProfit(Map<String,dynamic> group) {
+  if (group['date_fifo_applied'] != true ||
+      group['missing_lot_details'] == true) return null;
+  final value=group['dated_order_gross_profit'];
+  if (value is num) return value.round();
+  return int.tryParse((value??'').toString());
+}
+
 class AdminProfitBatchPanel extends StatelessWidget {
   const AdminProfitBatchPanel({
     super.key,
@@ -96,6 +107,10 @@ class AdminProfitBatchPanel extends StatelessWidget {
             _n(group,'purchased_units').toString()+' dona'),
           _line('FIFO bo‘yicha sotilish foizi',
             _soldRate(group).toStringAsFixed(0)+'%'),
+          _line('Hozirgacha (narxi ma’lum FIFO sotuvlari)',
+            recognizedFifoBatchGrossProfit(group)==null
+              ? 'Aniqlanmagan'
+              : _won(recognizedFifoBatchGrossProfit(group)!)),
           if(group['date_fifo_applied']==true) ...[
             _line('Narxi ma’lum sotuvlar',
               _n(group,'dated_order_sales_units').toString()+' dona'),
@@ -184,6 +199,7 @@ class AdminProfitBatchPanel extends StatelessWidget {
     final estimatedSold=_n(group,'estimated_sold_units').clamp(0,received>0?received:0);
     final percent=_soldRate(group);
     final color=palette[index%palette.length];
+    final earned=recognizedFifoBatchGrossProfit(group);
     return InkWell(
       borderRadius:BorderRadius.circular(12),
       onTap:()=>_showGroupDetails(context,group),
@@ -216,15 +232,27 @@ class AdminProfitBatchPanel extends StatelessWidget {
               ],
             )),
             const SizedBox(width:8),
-            Column(crossAxisAlignment:CrossAxisAlignment.end,children:[
-              Text(incomplete?'Hisoblanmagan':_won(amount),
-                style:TextStyle(color:incomplete?muted:green,
-                  fontWeight:FontWeight.w900,fontSize:13)),
-              const SizedBox(height:3),
-              Text(incomplete?'Kitoblar kiritilmagan'
-                  :'Foyda ulushi: ${(share*100).round()}%',
-                style:const TextStyle(color:muted,fontSize:10)),
-            ]),
+            ConstrainedBox(
+              constraints:const BoxConstraints(maxWidth:165),
+              child:Column(crossAxisAlignment:CrossAxisAlignment.end,children:[
+                Text(incomplete?'Hisoblanmagan':_won(amount),
+                  maxLines:1,overflow:TextOverflow.ellipsis,
+                  style:TextStyle(color:incomplete?muted:green,
+                    fontWeight:FontWeight.w900,fontSize:13)),
+                const SizedBox(height:3),
+                Text(incomplete?'Kitoblar kiritilmagan'
+                    :'Hozirgacha: ${earned==null?'—':_won(earned)}',
+                  maxLines:1,overflow:TextOverflow.ellipsis,
+                  style:const TextStyle(color:navy,
+                    fontWeight:FontWeight.w700,fontSize:10.5)),
+                if(!incomplete) ...[
+                  const SizedBox(height:2),
+                  Text('Foyda ulushi: ${(share*100).round()}%',
+                    maxLines:1,
+                    style:const TextStyle(color:muted,fontSize:9.5)),
+                ],
+              ]),
+            ),
             const Icon(Icons.chevron_right_rounded,color:muted,size:17),
           ]),
           if (incomplete) ...[
@@ -321,6 +349,12 @@ class AdminProfitBatchPanel extends StatelessWidget {
           style:const TextStyle(color:muted,fontSize:10.5,height:1.35)),
       ],
       const SizedBox(height:9),
+      const Text('Hozirgacha: faqat sanasi FIFO bo‘yicha moslangan va '
+          'sotuv narxi ma’lum buyurtmalarning yalpi foydasi. '
+          'Tarixiy narxi noma’lum sotuvlar kiritilmaydi; '
+          'bu yakuniy sof foyda emas.',
+        style:TextStyle(color:muted,fontSize:10.5,height:1.35)),
+      const SizedBox(height:5),
       Text(groups.any((g)=>g['date_fifo_applied']==true)
           ? 'FIFO sotuv sanasi bilan kelgan sana asosida avtomatik '
             'taqsimlanadi. Eski qoldiq tugamaguncha yangi partiyadan '

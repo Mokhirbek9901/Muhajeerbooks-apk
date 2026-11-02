@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'remote_config.dart';
 import 'ios_update_version.dart';
+import 'store_distribution.dart';
 
 const int _currentApkBuild = int.fromEnvironment(
   'APP_BUILD_NUMBER',
@@ -112,7 +113,15 @@ class _AppUpdateGateState extends State<AppUpdateGate>
       }
 
       if (_isIos && _appStoreBuild) {
-        await _checkIosAppStore(remote);
+        // iOS TestFlight binaries use APP_STORE_BUILD=true as well. Never
+        // compare a beta install to the public App Store release.
+        final distribution = await iosInstallationPlatform();
+        if (!mounted) return;
+        if (distribution == 'ios_testflight') {
+          await _checkIosTestFlight(remote);
+        } else {
+          await _checkIosAppStore(remote);
+        }
         return;
       }
 
@@ -129,6 +138,42 @@ class _AppUpdateGateState extends State<AppUpdateGate>
     } finally {
       _checking = false;
     }
+  }
+
+  /// Check only the latest validated, internally distributed TestFlight
+  /// build recorded by the release operator. No guessed build numbers:
+  /// a beta must be available in TestFlight before remote config is updated.
+  Future<void> _checkIosTestFlight(RemoteConfigStore remote) async {
+    final info = await PackageInfo.fromPlatform();
+    final currentVersion = info.version.trim();
+    final currentBuild = int.tryParse(info.buildNumber.trim()) ?? 0;
+    final betaVersion = remote.stringValue(
+      'release.ios_testflight_version', fallback: '',
+    ).trim();
+    final betaBuild = remote.intValue(
+      'release.ios_testflight_build', fallback: 0,
+    );
+    if (betaBuild <= 0 || betaVersion.isEmpty || !mounted) return;
+    if (!iosPublishedUpdateAvailable(
+      installedVersion: currentVersion,
+      installedBuild: currentBuild,
+      publishedVersion: betaVersion,
+      publishedBuild: betaBuild,
+    )) return;
+
+    await _showMandatoryUpdate(
+      remote: remote,
+      version: betaVersion,
+      url: remote.stringValue(
+        'release.ios_testflight_url',
+        fallback: 'https://testflight.apple.com/',
+      ),
+      storeName: 'TestFlight',
+      buttonOverride: 'TestFlight’da yangilash',
+      messageOverride: 'Muhajeer Books uchun yangi sinov versiyasi bor. '
+          'TestFlight ilovasini ochib, Muhajeer Books yonidagi '
+          '“Update / Yangilash” tugmasini bosing.',
+    );
   }
 
   Future<void> _checkIosAppStore(RemoteConfigStore remote) async {
@@ -268,6 +313,8 @@ class _AppUpdateGateState extends State<AppUpdateGate>
     required String version,
     required String url,
     required String storeName,
+    String? buttonOverride,
+    String? messageOverride,
   }) async {
     if (_dialogOpen || !mounted || url.trim().isEmpty) return;
     _dialogOpen = true;
@@ -276,13 +323,13 @@ class _AppUpdateGateState extends State<AppUpdateGate>
       'release.update_title',
       fallback: 'Yangilanish kerak',
     );
-    final body = remote.stringValue(
+    final body = messageOverride ?? remote.stringValue(
       'release.update_message',
       fallback:
           'Muhajeer Books yangilandi. Ilovadan foydalanishni davom ettirish '
           'uchun so‘nggi versiyani o‘rnating.',
     );
-    final button = remote.stringValue(
+    final button = buttonOverride ?? remote.stringValue(
       'release.update_button',
       fallback: 'Yangilash',
     );

@@ -2,6 +2,10 @@ name: Build and Upload iOS to TestFlight
 
 on:
   workflow_dispatch:
+  # One-time owner-requested update prompt test build; no public release.
+  push:
+    branches:
+      - fix/ios-update-first-launch-check-20261103
 
 permissions:
   actions: read

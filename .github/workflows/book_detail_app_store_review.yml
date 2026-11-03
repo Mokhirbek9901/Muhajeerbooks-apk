@@ -1,0 +1,107 @@
+name: Submit fixed book-detail build to App Review (manual public release)
+
+on:
+  push:
+    branches:
+      - testflight/restore-book-detail-recommendations-20261103
+    paths:
+      - '.github/release-book-detail-submit-trigger.json'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  submit-reviewed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Validate owner-requested exact tested candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,subprocess
+          from pathlib import Path
+          trigger=json.loads(Path('.github/release-book-detail-submit-trigger.json').read_text())
+          assert trigger['approved_version_build']=='2.5.24(30008)', 'Exact owner-approval marker missing'
+          assert trigger['public_release']=='MANUAL', 'No automatic release permitted'
+          run_id=int(trigger['testflight_run_id'])
+          run=json.loads(subprocess.check_output(
+            ['gh','api',f"repos/{os.environ['REPO']}/actions/runs/{run_id}"],text=True))
+          assert run['status']=='completed' and run['conclusion']=='success'
+          assert run['head_branch']=='testflight/restore-book-detail-recommendations-20261103'
+          assert run['head_sha']==trigger['testflight_head_sha']
+          assert run['path']=='.github/workflows/testflight_upload.yml'
+          Path(os.environ['RUNNER_TEMP'],'release_run').write_text(str(run_id))
+          print("Verified exact owner-requested TestFlight run",run_id)
+          PY
+          RUN_ID="$(cat "$RUNNER_TEMP/release_run")"
+          mkdir -p "$RUNNER_TEMP/verified-beta"
+          gh run download "$RUN_ID" --repo "$REPO" --name ios-release-diagnostics --dir "$RUNNER_TEMP/verified-beta"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          files=list((Path(os.environ['RUNNER_TEMP'])/'verified-beta').rglob('testflight-result.json'))
+          assert len(files)==1
+          data=json.loads(files[0].read_text())
+          assert data['version']=='2.5.24' and str(data['build_number'])=='30008'
+          assert data['processing_state']=='VALID'
+          with open(os.environ['GITHUB_ENV'],'a') as env:
+              env.write('IOS_MARKETING_VERSION=2.5.24\n')
+              env.write('IOS_BUILD_NUMBER=30008\n')
+              env.write('ASC_APP_ID='+data['app_id']+'\n')
+              env.write('ASC_BUILD_ID='+data['build_id']+'\n')
+              env.write('OWNER_APPROVED_PUBLIC_RELEASE=2.5.24(30008)\n')
+          PY
+      - name: Prepare secure temporary App Store Connect authentication
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          key=os.environ['APP_STORE_CONNECT_PRIVATE_KEY'].strip().replace('\\n','\n')+'\n'
+          assert key.startswith('-----BEGIN PRIVATE KEY-----')
+          dest=Path(os.environ['RUNNER_TEMP'])/'owner-asc-key.p8'
+          dest.write_text(key)
+          dest.chmod(0o600)
+          with open(os.environ['GITHUB_ENV'],'a') as env:
+              env.write('ASC_PRIVATE_KEY_PATH='+str(dest)+'\n')
+          PY
+      - name: Verify exact TestFlight build is still internally available
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: ruby .github/release_tools/verify_testflight_candidate.rb
+      - name: Submit fixed iOS build for Apple review, public release remains MANUAL
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: ruby .github/release_tools/submit_app_store_update.rb
+      - name: Verify manual release hold remains enabled
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          ruby -r './.github/release_tools/app_store_client' -e '
+            versions=AppStoreClient.request(:get,"/v1/apps/#{ENV.fetch("ASC_APP_ID")}/appStoreVersions",query:{"limit"=>100}).fetch("data")
+            entry=versions.find{|v| v.dig("attributes","platform")=="IOS" && v.dig("attributes","versionString")=="2.5.24"}
+            abort "2.5.24 not found" unless entry
+            current=AppStoreClient.request(:get,"/v1/appStoreVersions/#{entry.fetch("id")}").fetch("data")
+            abort "App Store release is not MANUAL" unless current.dig("attributes","releaseType")=="MANUAL"
+            puts "VERIFIED fixed 2.5.24 build sent to review with MANUAL release hold: #{current.dig("attributes","appStoreState")}"
+          '
+      - name: Remove temporary Apple signing credential
+        if: always()
+        run: rm -f "$RUNNER_TEMP/owner-asc-key.p8"

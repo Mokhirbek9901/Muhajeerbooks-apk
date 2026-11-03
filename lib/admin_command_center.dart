@@ -1352,10 +1352,13 @@ class _CombinedPreorderDetailPageState
                               final b = await _book(books);
                               if (b != null && ctx.mounted) {
                                 update(() {
+                                  final currentPrice =
+                                      (lines[i]['unit_price'] as num?)?.toInt() ?? 0;
                                   lines[i].addAll({
                                     'book_id': b.id,
                                     'title': b.title,
-                                    'unit_price': b.currentPrice,
+                                    'unit_price': currentPrice > 0
+                                        ? currentPrice : b.currentPrice,
                                   });
                                   validationError = null;
                                 });
@@ -1435,13 +1438,44 @@ class _CombinedPreorderDetailPageState
               child: const Text('Hozir emas'),
             ),
             FilledButton(
-              onPressed: () {
+              onPressed: () async {
+                FocusScope.of(ctx).unfocus();
+                final missing = lines.indexWhere(
+                  (line) => '${line['book_id'] ?? ''}'.trim().isEmpty,
+                );
+                if (missing >= 0) {
+                  update(() => validationError = preorderInvoiceValidationError(
+                    lines,
+                    requestedQuantity: (d['quantity'] as num?)?.toInt(),
+                  ));
+                  if (books.isEmpty) {
+                    update(() => validationError =
+                      'Katalogda kitob yo‘q. Avval katalogga kitob qo‘shing.');
+                    return;
+                  }
+                  // When the administrator taps Save before linking a book,
+                  // open the actual catalog picker instead of ignoring the tap.
+                  final selected = await _book(books);
+                  if (selected != null && ctx.mounted) {
+                    update(() {
+                      final currentPrice =
+                          (lines[missing]['unit_price'] as num?)?.toInt() ?? 0;
+                      lines[missing].addAll({
+                        'book_id': selected.id,
+                        'title': selected.title,
+                        'unit_price': currentPrice > 0
+                            ? currentPrice : selected.currentPrice,
+                      });
+                      validationError = null;
+                    });
+                  }
+                  return;
+                }
                 final problem = preorderInvoiceValidationError(
                   lines,
                   requestedQuantity: (d['quantity'] as num?)?.toInt(),
                 );
                 if (problem != null) {
-                  FocusScope.of(ctx).unfocus();
                   update(() => validationError = problem);
                   return;
                 }

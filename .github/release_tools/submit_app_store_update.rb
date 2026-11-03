@@ -139,8 +139,17 @@ puts "Attached validated iOS build #{TARGET_BUILD} to version #{TARGET_VERSION}.
 # An update needs release notes for the existing locales.
 locales = asc(:get, "/v1/appStoreVersions/#{version_id}/appStoreVersionLocalizations",
               query: { 'limit' => 50 }).fetch('data')
-release_notes = "Improved notification settings explain updates about new and restocked books, order confirmations, shipping, and review reminders. Admin tools now better handle new orders, multi-book purchase batches, transport costs, and financial history. Improved privacy-policy contact options, catalog performance, and stability."
 locales.each do |loc|
+  locale = loc.dig('attributes','locale').to_s
+  release_notes = if locale.start_with?('ko')
+    '도서 상세 화면에 같은 작가의 다른 책과 비슷한 도서를 다시 표시합니다. 도서 리뷰 작성 화면을 제거하고, 예약 주문과 앱 안정성을 개선했습니다.'
+  elsif locale.start_with?('ru')
+    'В карточке книги снова доступны другие книги автора и похожие издания. Убран блок написания отзывов, улучшены предзаказы и стабильность.'
+  elsif locale.start_with?('uz')
+    'Kitob sahifasida yozuvchining boshqa kitoblari va o‘xshash kitoblar qaytdi. Sharh yozish bo‘limi olib tashlandi. Oldindan zakazlar va barqarorlik yaxshilandi.'
+  else
+    'Restored other books by the author and similar books on the product page. Removed the review form and improved preorder reliability and stability.'
+  end
   asc(:patch, "/v1/appStoreVersionLocalizations/#{loc.fetch('id')}",
       body: { data: { type: 'appStoreVersionLocalizations', id: loc.fetch('id'),
                      attributes: { whatsNew: release_notes } } })

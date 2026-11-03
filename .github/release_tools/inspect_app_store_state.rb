@@ -8,3 +8,8 @@ evidence = {read_only: true, versions: versions, recent_builds: builds}
 File.write("#{ENV.fetch('RUNNER_TEMP')}/app-store-state.json", JSON.pretty_generate(evidence))
 versions.each { |v| puts v.fetch('attributes').inspect }
 builds.fetch('data').each { |b| puts b.fetch('attributes').inspect }
+
+# Public versions, not TestFlight, are the sole source of forced-update versioning.
+public_releases = versions.select { |v| v.dig('attributes','platform') == 'IOS' && v.dig('attributes','appStoreState') == 'READY_FOR_SALE' }
+latest_public = public_releases.max_by { |v| v.dig('attributes','versionString').to_s.split('.').map(&:to_i) }
+puts "PUBLIC_IOS_VERSION=#{latest_public&.dig('attributes','versionString')}"

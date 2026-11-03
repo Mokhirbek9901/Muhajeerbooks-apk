@@ -2,10 +2,6 @@ name: Build and Upload iOS to TestFlight
 
 on:
   workflow_dispatch:
-  # One-time tested catalog-selection invoice save fix for TestFlight.
-  push:
-    branches:
-      - fix/preorder-invoice-save-feedback-20261103
 
 permissions:
   actions: read

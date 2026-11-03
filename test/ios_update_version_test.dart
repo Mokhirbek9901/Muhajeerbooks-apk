@@ -38,6 +38,18 @@ void main() {
       publishedVersion: '2.5.22', publishedBuild: 9999), isFalse);
   });
 
+  test('published App Store 2.5.24 forces 2.5.23 but not current 2.5.24', () {
+    expect(iosPublishedUpdateAvailable(
+      installedVersion: '2.5.23', installedBuild: 17003,
+      publishedVersion: '2.5.24', publishedBuild: 0), isTrue);
+    expect(iosPublishedUpdateAvailable(
+      installedVersion: '2.5.24', installedBuild: 30008,
+      publishedVersion: '2.5.24', publishedBuild: 0), isFalse);
+    expect(iosPublishedUpdateAvailable(
+      installedVersion: '2.5.25', installedBuild: 30011,
+      publishedVersion: '2.5.24', publishedBuild: 0), isFalse);
+  });
+
   test('release version numeric segments, not lexicographical', () {
     expect(compareIosMarketingVersions('2.5.10', '2.5.9'), 1);
     expect(compareIosMarketingVersions('2.5.22', '2.5.22+2144'), 0);

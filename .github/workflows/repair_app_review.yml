@@ -4,6 +4,10 @@ name: Verify App Store owner hold (legacy review disabled)
 # reads versions and verifies MANUAL holds; it cannot submit a public review.
 on:
   workflow_dispatch:
+  # One-time safety hold for review-queued iOS 2.5.24 before regression fix.
+  push:
+    branches:
+      - testflight/restore-book-detail-recommendations-20261103
 permissions:
   contents: read
 jobs:

@@ -1,0 +1,84 @@
+name: Prepare tested book-detail App Store draft (manual release only)
+
+on:
+  push:
+    branches:
+      - testflight/restore-book-detail-recommendations-20261103
+    paths:
+      - '.github/release-book-detail-draft-trigger.json'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  safe-draft:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Verify exact already-tested TestFlight workflow and candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,subprocess
+          from pathlib import Path
+          trigger=json.loads(Path('.github/release-book-detail-draft-trigger.json').read_text())
+          run_id=int(trigger['testflight_run_id'])
+          sha=trigger['testflight_head_sha']
+          run=json.loads(subprocess.check_output(
+            ['gh','api',f"repos/{os.environ['REPO']}/actions/runs/{run_id}"],text=True))
+          assert run['conclusion']=='success' and run['status']=='completed'
+          assert run['head_branch']=='testflight/restore-book-detail-recommendations-20261103'
+          assert run['head_sha']==sha, 'TestFlight source SHA changed'
+          assert run['path']=='.github/workflows/testflight_upload.yml'
+          assert run['name']=='Build and Upload iOS to TestFlight'
+          Path(os.environ['RUNNER_TEMP'],'validated_run').write_text(str(run_id))
+          print(f"Validated processed TestFlight run {run_id} from {sha}")
+          PY
+          RUN_ID="$(cat "$RUNNER_TEMP/validated_run")"
+          mkdir -p "$RUNNER_TEMP/testflight-evidence"
+          gh run download "$RUN_ID" --repo "$REPO" --name ios-release-diagnostics --dir "$RUNNER_TEMP/testflight-evidence"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          files=list((Path(os.environ['RUNNER_TEMP'])/'testflight-evidence').rglob('testflight-result.json'))
+          assert len(files)==1, 'Exact TestFlight evidence missing'
+          data=json.loads(files[0].read_text())
+          assert data['processing_state']=='VALID'
+          assert data['version']=='2.5.24'
+          assert int(data['build_number'])>30007, 'Old build is not the fixed candidate'
+          for key in ('app_id','build_id'):
+              assert data[key]
+          with open(os.environ['GITHUB_ENV'],'a') as env:
+              env.write('IOS_MARKETING_VERSION='+data['version']+'\n')
+              env.write('IOS_BUILD_NUMBER='+str(data['build_number'])+'\n')
+              env.write('ASC_APP_ID='+data['app_id']+'\n')
+              env.write('ASC_BUILD_ID='+data['build_id']+'\n')
+          print("Verified exact VALID iOS 2.5.24 TestFlight candidate",data['build_number'])
+          PY
+      - name: Verify tested build belongs to internal TestFlight group
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: ruby .github/release_tools/verify_testflight_candidate.rb
+      - name: Attach verified fixed build to MANUAL App Store draft only
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: ruby .github/release_tools/prepare_app_store_release.rb
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: book-detail-app-store-draft-evidence
+          path: ${{ runner.temp }}/app-store-candidate.json
+          retention-days: 30

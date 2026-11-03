@@ -66,13 +66,13 @@ if editable.include?(state)
   locales.each do |locale|
     language = locale.dig('attributes','locale').to_s
     notes = if language.start_with?('ru')
-      'Все фотографии книг в каталоге, улучшенная загрузка изображений и оформление предзаказов с вычетом аванса. Исправлены закрытие клавиатуры и ошибки запуска. Улучшена стабильность приложения.'
+      'В карточке книги снова доступны другие книги автора и похожие издания. Раздел написания отзывов убран, оформление предзаказов и стабильность улучшены.'
     elsif language.start_with?('ko')
-      '도서의 모든 사진을 볼 수 있으며 이미지 업로드를 개선했습니다. 예약 주문의 선불금 공제, 키보드 닫기 및 앱 시작 오류를 수정하고 안정성을 개선했습니다.'
+      '도서 상세 화면에서 작가의 다른 책과 비슷한 도서를 다시 볼 수 있습니다. 리뷰 작성 영역을 제거하고 예약 주문 및 앱 안정성을 개선했습니다.'
     elsif language.start_with?('uz')
-      'Kitoblarning barcha rasmlari, qulay rasm yuklash, avans ayiriladigan oldindan buyurtmalar. Klaviaturani yopish va ilovani ishga tushirish yaxshilandi.'
+      'Kitob sahifasida yozuvchining boshqa kitoblari va shunga o‘xshash kitoblar tiklandi. Sharh yozish bo‘limi olib tashlandi. Oldindan zakazlar yaxshilandi.'
     else
-      'Browse every book photo with improved image uploads. Preorders correctly deduct paid advances. Improved keyboard dismissal, order validation, startup recovery and overall stability.'
+      'Restored author and similar book recommendations on book pages, removed the review form, and improved preorder reliability and stability.'
     end
     request(:patch, "/v1/appStoreVersionLocalizations/#{locale.fetch('id')}", body: { data: { type: 'appStoreVersionLocalizations', id: locale.fetch('id'), attributes: { whatsNew: notes } } })
   end

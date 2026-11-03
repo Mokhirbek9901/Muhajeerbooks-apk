@@ -1,5 +1,41 @@
 part of 'admin_ui.dart';
 
+@visibleForTesting
+String? preorderInvoiceValidationError(
+  List<Map<String, dynamic>> lines, {
+  int? requestedQuantity,
+}) {
+  if (lines.isEmpty) return 'Kamida bitta kitobni tanlang.';
+  var quantitySum = 0;
+  for (var i = 0; i < lines.length; i++) {
+    final line = lines[i];
+    final title = '${line['title'] ?? 'Kitob'}';
+    final id = '${line['book_id'] ?? ''}'.trim();
+    if (id.isEmpty || id == 'null') {
+      return '${i + 1}-kitob ($title): yuqoridagi qidiruv belgisini '
+          'bosib, katalogdagi kitobni tanlang. Faqat narx yozish yetarli emas.';
+    }
+    final qty = (line['quantity'] as num?)?.toInt() ?? 0;
+    if (qty < 1 || qty > 200) {
+      return '${i + 1}-kitob ($title): miqdor 1 dan 200 gacha bo‘lishi kerak.';
+    }
+    final price = (line['unit_price'] as num?)?.toInt() ?? 0;
+    if (price < 1 || price > 10000000) {
+      return '${i + 1}-kitob ($title): bitta kitob narxini to‘g‘ri kiriting.';
+    }
+    quantitySum += qty;
+  }
+  if (requestedQuantity != null &&
+      requestedQuantity > 0 &&
+      quantitySum != requestedQuantity) {
+    return 'Tanlangan kitoblar miqdori $quantitySum dona. '
+        'Mijozning buyurtmasida $requestedQuantity dona bor. '
+        'Faqat bir qismi kelgan bo‘lsa, “Shular keldi” orqali belgilang.';
+  }
+  return null;
+}
+
+
 String _combinedPreorderContact(Map<String, dynamic> row) {
   final raw = '${row['instagram_handle'] ?? ''}'.trim();
   if (raw.isEmpty) return '';
@@ -949,7 +985,15 @@ class _CombinedPreorderDetailPageState
         ...payload,
         if (data?['revision'] != null) 'revision': data!['revision'],
       });
-      if (mounted) setState(() => data = next);
+      if (mounted) {
+        setState(() => data = next);
+        if (action == 'invoice') {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Yakuniy hisob saqlandi. Mijozga bildirishnoma '
+                'yuborish navbatiga qo‘shildi.'),
+          ));
+        }
+      }
     } catch (e) {
       if (mounted)
         ScaffoldMessenger.of(context)
@@ -1260,6 +1304,7 @@ class _CombinedPreorderDetailPageState
       });
     }
     var note = '${d['admin_note'] ?? ''}';
+    String? validationError;
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -1275,6 +1320,12 @@ class _CombinedPreorderDetailPageState
                   const Text(
                     'Har bir so‘rovni katalogdagi kitobga bog‘lang. Omborga kelgan partiyani oldindan kiriting. Avans umumiy hisobdan bir marta ayiriladi.',
                   ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Muhim: “Katalog kitobini tanlang” yozuviga bosing. '
+                    'Faqat miqdor va narxni kiritish bilan xabar yuborilmaydi.',
+                    style: TextStyle(fontSize: 12, color: AppColors.muted),
+                  ),
                   for (var i = 0; i < lines.length; i++)
                     Padding(
                       padding: const EdgeInsets.only(top: 16),
@@ -1285,20 +1336,33 @@ class _CombinedPreorderDetailPageState
                             title: Text('${lines[i]['title'] ?? 'Kitob'}'),
                             subtitle: Text(
                               lines[i]['book_id'] == null
-                                  ? 'Katalog kitobini tanlang'
+                                  ? 'Katalog kitobini tanlang (majburiy)'
                                   : 'Katalogga bog‘langan',
+                              style: TextStyle(
+                                color: lines[i]['book_id'] == null
+                                    ? Colors.red.shade700 : AppColors.muted,
+                                fontWeight: lines[i]['book_id'] == null
+                                    ? FontWeight.w700 : FontWeight.normal,
+                              ),
                             ),
-                            trailing: const Icon(Icons.search),
+                            trailing: Icon(Icons.search,
+                              color: lines[i]['book_id'] == null
+                                  ? Colors.red.shade700 : AppColors.navy),
                             onTap: () async {
                               final b = await _book(books);
-                              if (b != null && ctx.mounted)
-                                update(
-                                  () => lines[i].addAll({
+                              if (b != null && ctx.mounted) {
+                                update(() {
+                                  final currentPrice =
+                                      (lines[i]['unit_price'] as num?)?.toInt() ?? 0;
+                                  lines[i].addAll({
                                     'book_id': b.id,
                                     'title': b.title,
-                                    'unit_price': b.currentPrice,
-                                  }),
-                                );
+                                    'unit_price': currentPrice > 0
+                                        ? currentPrice : b.currentPrice,
+                                  });
+                                  validationError = null;
+                                });
+                              }
                             },
                           ),
                           Row(
@@ -1357,19 +1421,64 @@ class _CombinedPreorderDetailPageState
             ),
           ),
           actions: [
+            if (validationError != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  validationError!,
+                  style: TextStyle(
+                    color: Colors.red.shade700,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
             TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: const Text('Hozir emas'),
             ),
             FilledButton(
-              onPressed: () {
-                if (lines.any(
-                  (l) =>
-                      l['book_id'] == null ||
-                      ((l['quantity'] as num?)?.toInt() ?? 0) < 1 ||
-                      ((l['unit_price'] as num?)?.toInt() ?? 0) < 1,
-                ))
+              onPressed: () async {
+                FocusScope.of(ctx).unfocus();
+                final missing = lines.indexWhere(
+                  (line) => '${line['book_id'] ?? ''}'.trim().isEmpty,
+                );
+                if (missing >= 0) {
+                  update(() => validationError = preorderInvoiceValidationError(
+                    lines,
+                    requestedQuantity: (d['quantity'] as num?)?.toInt(),
+                  ));
+                  if (books.isEmpty) {
+                    update(() => validationError =
+                      'Katalogda kitob yo‘q. Avval katalogga kitob qo‘shing.');
+                    return;
+                  }
+                  // When the administrator taps Save before linking a book,
+                  // open the actual catalog picker instead of ignoring the tap.
+                  final selected = await _book(books);
+                  if (selected != null && ctx.mounted) {
+                    update(() {
+                      final currentPrice =
+                          (lines[missing]['unit_price'] as num?)?.toInt() ?? 0;
+                      lines[missing].addAll({
+                        'book_id': selected.id,
+                        'title': selected.title,
+                        'unit_price': currentPrice > 0
+                            ? currentPrice : selected.currentPrice,
+                      });
+                      validationError = null;
+                    });
+                  }
                   return;
+                }
+                final problem = preorderInvoiceValidationError(
+                  lines,
+                  requestedQuantity: (d['quantity'] as num?)?.toInt(),
+                );
+                if (problem != null) {
+                  update(() => validationError = problem);
+                  return;
+                }
                 Navigator.pop(ctx, {'items': lines, 'note': note});
               },
               child: const Text('Saqlash • kitob keldi'),

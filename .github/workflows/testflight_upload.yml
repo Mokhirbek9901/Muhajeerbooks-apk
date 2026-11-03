@@ -2,6 +2,10 @@ name: Build and Upload iOS to TestFlight
 
 on:
   workflow_dispatch:
+  # One-off owner-approved book-detail recovery TestFlight candidate.
+  push:
+    branches:
+      - testflight/restore-book-detail-recommendations-20261103
 
 permissions:
   actions: read

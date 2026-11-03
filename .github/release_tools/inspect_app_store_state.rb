@@ -8,3 +8,5 @@ evidence = {read_only: true, versions: versions, recent_builds: builds}
 File.write("#{ENV.fetch('RUNNER_TEMP')}/app-store-state.json", JSON.pretty_generate(evidence))
 versions.each { |v| puts v.fetch('attributes').inspect }
 builds.fetch('data').each { |b| puts b.fetch('attributes').inspect }
+
+# Read-only pre-release audit (book-detail restoration candidate, 2026-11-03).

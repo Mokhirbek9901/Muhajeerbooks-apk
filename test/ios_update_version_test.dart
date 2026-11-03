@@ -60,4 +60,17 @@ void main() {
       publishedVersion: '2.5.23', publishedBuild: 17003), isFalse);
   });
 
+  test('App Store 2.5.24 shows update to installed public 2.5.23', () {
+    expect(iosPublishedUpdateAvailable(
+      installedVersion: '2.5.23', installedBuild: 17003,
+      publishedVersion: '2.5.24', publishedBuild: 30008), isTrue);
+  });
+
+  test('public 2.5.24 does not ask same build to update', () {
+    expect(iosPublishedUpdateAvailable(
+      installedVersion: '2.5.24', installedBuild: 30008,
+      publishedVersion: '2.5.24', publishedBuild: 30008), isFalse);
+  });
+
+
 }

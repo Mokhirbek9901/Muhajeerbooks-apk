@@ -1,8 +1,9 @@
 {
-  "candidate": "MB-STORE-20261028",
-  "purpose": "owner tests latest full version before both stores release",
+  "candidate": "MB-PREORDER-SAFE-RPC-20261103",
+  "purpose": "Internal owner test of preorder 42501 secure gateway and readable preorder invoice card",
   "android_track": "internal",
   "app_store_release": "MANUAL",
   "owner_approved_public_release": false,
-  "public_release_allowed": false
+  "public_release_allowed": false,
+  "fix_commit": "6b4e64ad8d14198657ad363ec77f9d2bff2a22f1"
 }

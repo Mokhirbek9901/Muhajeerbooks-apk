@@ -1,0 +1,8 @@
+{
+  "testflight_run_id": 41568365462,
+  "testflight_head_sha": "03f728ce30726ba2d6fc2832a509e12482732603",
+  "approved_version_build": "2.5.24(30008)",
+  "public_release": "MANUAL",
+  "review_submission_requested_by_owner": true,
+  "reason": "Restore author and similar book recommendations, remove review form; App Store submission after validated TestFlight"
+}

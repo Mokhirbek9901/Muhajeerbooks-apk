@@ -345,12 +345,12 @@ class _CustomerPreorderBalancesPageState
       child: ListTile(
         title: Text('${record['title'] ?? record['book_title'] ?? 'Kitob'}'),
         subtitle: Text(
-          '${isWeb ? 'Web oldindan zakaz\\n' : ''}'
-          'Holat: ${status == 'arrived' ? 'Kitob keldi' : status}\\n'
+          '${isWeb ? 'Web oldindan zakaz\n' : ''}'
+          'Holat: ${status == 'arrived' ? 'Kitob keldi' : status}\n'
           'Avans: ${won((record['deposit_credit'] as num?)?.toInt() ?? 0)}'
-          '\\nQolgan to‘lov: ${won((record['amount_due'] as num?)?.toInt() ?? 0)}'
-          '\\nQaytariladigan pul: ${won((record['refund_due'] as num?)?.toInt() ?? 0)}'
-          '${isContactOnly ? '\\nBu zakaz profil ma’lumotlari bilan topildi. To‘lovni davom ettirish uchun asl qurilmada oching yoki admin bilan bog‘laning.' : ''}',
+          '\nQolgan to‘lov: ${won((record['amount_due'] as num?)?.toInt() ?? 0)}'
+          '\nQaytariladigan pul: ${won((record['refund_due'] as num?)?.toInt() ?? 0)}'
+          '${isContactOnly ? '\nBu zakaz profil ma’lumotlari bilan topildi. To‘lovni davom ettirish uchun asl qurilmada oching yoki admin bilan bog‘laning.' : ''}',
         ),
         isThreeLine: true,
         trailing: isContactOnly

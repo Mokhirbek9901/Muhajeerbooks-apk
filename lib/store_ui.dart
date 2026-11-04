@@ -5197,10 +5197,10 @@ class BookDetailPage extends StatelessWidget {
                         : Column(
                             children: [cover, const SizedBox(height: 26), info],
                           ),
-                    if (_webOrPlayCustomer) ...[
-                      const SizedBox(height: 22),
-                      _WebBookReviews(book: b),
-                    ],
+                    // Required catalog sections on iOS, Android and web:
+                    // never gate them on stock, preview flags or reviews.
+                    const SizedBox(height: 24),
+                    _BookRelatedRecommendations(book: b),
                     if (b.stock <= 0 && _webOrPlayCustomer) ...[
                       const SizedBox(height: 24),
                       _SimilarAvailableBooks(book: b),
@@ -5419,6 +5419,128 @@ class BookDetailPage extends StatelessWidget {
 
 /// Recommend only available books in the same genre or by the same
 /// author. Never promise inventory for a title with zero stock.
+/// Both catalog recommendation sections must be visible on every platform
+/// irrespective of the selected book's stock or the preview feature flags.
+class _BookRelatedRecommendations extends StatelessWidget {
+  const _BookRelatedRecommendations({required this.book});
+  final Book book;
+
+  @override
+  Widget build(BuildContext context) {
+    final currentBooks = context.watch<AppState>().books
+        .where((candidate) => candidate.isActive && candidate.id != book.id)
+        .toList();
+    final author = book.author.trim().toLowerCase();
+    final category = book.category.trim().toLowerCase();
+    final authorBooks = author.isEmpty || author == 'ko‘rsatilmagan'
+        ? <Book>[]
+        : currentBooks.where((candidate) =>
+            candidate.author.trim().toLowerCase() == author).toList();
+    final similarBooks = category.isEmpty
+        ? <Book>[]
+        : currentBooks.where((candidate) =>
+            candidate.category.trim().toLowerCase() == category &&
+            candidate.author.trim().toLowerCase() != author).toList();
+
+    void prioritySort(List<Book> books) {
+      books.sort((a, b) {
+        final aAvailable = a.stock > 0 ? 1 : 0;
+        final bAvailable = b.stock > 0 ? 1 : 0;
+        if (aAvailable != bAvailable) {
+          return bAvailable.compareTo(aAvailable);
+        }
+        return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+      });
+    }
+    prioritySort(authorBooks);
+    prioritySort(similarBooks);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _BookRecommendationSection(
+          title: 'Yozuvchining boshqa kitoblari',
+          books: authorBooks,
+          emptyText: 'Bu yozuvchining boshqa kitoblari hozircha katalogda yo‘q.',
+        ),
+        const SizedBox(height: 20),
+        _BookRecommendationSection(
+          title: 'Shunga o‘xshash kitoblar',
+          books: similarBooks,
+          emptyText: 'Shu yo‘nalishdagi boshqa kitoblar hozircha katalogda yo‘q.',
+        ),
+      ],
+    );
+  }
+}
+
+class _BookRecommendationSection extends StatelessWidget {
+  const _BookRecommendationSection({
+    required this.title,
+    required this.books,
+    required this.emptyText,
+  });
+  final String title;
+  final List<Book> books;
+  final String emptyText;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(title, style: const TextStyle(
+        fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.navy)),
+      const SizedBox(height: 12),
+      if (books.isEmpty)
+        Text(emptyText, style: const TextStyle(
+          color: AppColors.muted, fontSize: 12)),
+      if (books.isNotEmpty)
+        SizedBox(
+          height: 179,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: books.length > 10 ? 10 : books.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final item = books[index];
+              return SizedBox(
+                width: 124,
+                child: InkWell(
+                  onTap: () => _openBookDetail(context, item),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: _BookCover(book: item),
+                      )),
+                      const SizedBox(height: 5),
+                      Text(item.title,
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 11.5,
+                          fontWeight: FontWeight.w800)),
+                      Text(
+                        item.stock > 0
+                            ? won(item.currentPrice)
+                            : item.preorderEnabled
+                                ? 'Oldindan buyurtma'
+                                : 'Hozir mavjud emas',
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 10.5, color: AppColors.success),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+    ],
+  );
+}
+
 class _SimilarAvailableBooks extends StatelessWidget {
   const _SimilarAvailableBooks({required this.book});
   final Book book;
@@ -5507,376 +5629,6 @@ class _SimilarAvailableBooks extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _WebBookReviews extends StatefulWidget {
-  const _WebBookReviews({required this.book});
-  final Book book;
-
-  @override
-  State<_WebBookReviews> createState() => _WebBookReviewsState();
-}
-
-class _WebBookReviewsState extends State<_WebBookReviews> {
-  late Future<List<BookReview>> future;
-
-  Future<void> moderate(BookReview review, String action) async {
-    if (!await ensureCustomerCheckoutIdentity(context) || !mounted) return;
-    var reason = '';
-    if (action == 'report') {
-      final input = TextEditingController();
-      final text = await showDialog<String>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Sharh ustidan shikoyat'),
-          content: TextField(
-            controller: input,
-            maxLength: 500,
-            maxLines: 3,
-            decoration: const InputDecoration(labelText: 'Sabab'),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Hozir emas'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, input.text.trim()),
-              child: const Text('Yuborish'),
-            ),
-          ],
-        ),
-      );
-      input.dispose();
-      if (text == null || text.length < 3) return;
-      reason = text;
-    }
-    if (!mounted) return;
-    try {
-      await context.read<AppState>().reviewAction(
-        review.id,
-        action,
-        reason: reason,
-      );
-      if (mounted) {
-        setState(
-          () => future = context.read<AppState>().bookReviews(widget.book.id),
-        );
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              action == 'block'
-                  ? 'Muallif sharhlari siz uchun yashirildi'
-                  : 'Shikoyat adminga yuborildi',
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    future = context.read<AppState>().bookReviews(widget.book.id);
-  }
-
-  void _reload() {
-    if (!mounted) return;
-    setState(
-      () => future = context.read<AppState>().bookReviews(widget.book.id),
-    );
-  }
-
-  Future<void> _writeReview() async {
-    final state = context.read<AppState>();
-    final phone = (state.savedCustomer['phone'] ?? '').trim();
-    if (phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Avval Mening bo‘limida telefon raqamingizni saqlang.'),
-        ),
-      );
-      return;
-    }
-
-    final orders = await state.customerOrdersByPhone(phone);
-    ShopOrder? verifiedOrder;
-    for (final order in orders) {
-      if (!const {'accepted', 'paid', 'shipping'}.contains(order.status))
-        continue;
-      final hasBook = order.items.any(
-        (item) =>
-            (item['book_id'] ?? item['id'] ?? '').toString() == widget.book.id,
-      );
-      if (hasBook) {
-        verifiedOrder = order;
-        break;
-      }
-    }
-
-    if (!mounted) return;
-    if (verifiedOrder == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Sharhni faqat shu kitobni sotib olgan mijoz qoldira oladi.',
-          ),
-        ),
-      );
-      return;
-    }
-
-    final comment = TextEditingController();
-    var rating = 5;
-    final submitted = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          title: Text(widget.book.title),
-          content: SizedBox(
-            width: 460,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Kitobga baho bering',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(
-                    5,
-                    (index) => IconButton(
-                      tooltip: '${index + 1} yulduz',
-                      onPressed: () => setDialogState(() => rating = index + 1),
-                      icon: Icon(
-                        index < rating
-                            ? Icons.star_rounded
-                            : Icons.star_border_rounded,
-                        color: const Color(0xFFF59E0B),
-                        size: 31,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: comment,
-                  maxLines: 4,
-                  maxLength: 600,
-                  decoration: const InputDecoration(
-                    labelText: 'Sharhingiz',
-                    hintText: 'Kitob sizga qanday taassurot qoldirdi?',
-                    alignLabelWithHint: true,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Bekor qilish'),
-            ),
-            FilledButton.icon(
-              onPressed: () {
-                if (comment.text.trim().length < 2) return;
-                Navigator.pop(dialogContext, true);
-              },
-              icon: const Icon(Icons.send_rounded),
-              label: const Text('Yuborish'),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (submitted != true || !mounted) {
-      comment.dispose();
-      return;
-    }
-
-    try {
-      await state.submitBookReview(
-        orderId: verifiedOrder.id,
-        phone: phone,
-        bookId: widget.book.id,
-        rating: rating,
-        comment: comment.text,
-      );
-      if (!mounted) return;
-      _reload();
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Sharhingiz saqlandi ✅')));
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Sharh saqlanmadi: $e')));
-      }
-    } finally {
-      comment.dispose();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<BookReview>>(
-      future: future,
-      builder: (context, snapshot) {
-        final reviews = snapshot.data ?? const <BookReview>[];
-        final average = reviews.isEmpty
-            ? 0.0
-            : reviews.fold<int>(0, (sum, item) => sum + item.rating) /
-                  reviews.length;
-        return AppSurface(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Kitob bahosi va sharhlar',
-                      style: TextStyle(
-                        fontSize: 21,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  FilledButton.tonalIcon(
-                    onPressed: _writeReview,
-                    icon: const Icon(Icons.rate_review_outlined),
-                    label: const Text('Sharh qoldirish'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              if (reviews.isEmpty &&
-                  snapshot.connectionState == ConnectionState.waiting)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(18),
-                    child: CircularProgressIndicator(),
-                  ),
-                )
-              else if (reviews.isEmpty)
-                const Text(
-                  'Hali sharh yo‘q. Ushbu kitobni sotib olgan mijoz birinchi bo‘lib baho qoldirishi mumkin.',
-                  style: TextStyle(color: AppColors.muted, height: 1.45),
-                )
-              else ...[
-                Row(
-                  children: [
-                    Text(
-                      average.toStringAsFixed(1),
-                      style: const TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.navy,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Icon(
-                      Icons.star_rounded,
-                      color: Color(0xFFF59E0B),
-                      size: 30,
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      '${reviews.length} ta baho',
-                      style: const TextStyle(
-                        color: AppColors.muted,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-                const Divider(height: 26),
-                ...reviews
-                    .take(12)
-                    .map(
-                      (review) => Padding(
-                        padding: const EdgeInsets.only(bottom: 14),
-                        child: Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceSoft,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppColors.border),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      review.reviewerName,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                  ),
-                                  PopupMenuButton<String>(
-                                    tooltip: 'Sharh amallari',
-                                    onSelected: (v) => moderate(review, v),
-                                    itemBuilder: (_) => const [
-                                      PopupMenuItem(
-                                        value: 'report',
-                                        child: Text('Shikoyat qilish'),
-                                      ),
-                                      PopupMenuItem(
-                                        value: 'block',
-                                        child: Text('Muallifni bloklash'),
-                                      ),
-                                    ],
-                                  ),
-                                  const AppInfoPill(
-                                    icon: Icons.verified_rounded,
-                                    label: 'Tasdiqlangan xaridor',
-                                    foreground: AppColors.success,
-                                    background: AppColors.successSoft,
-                                    border: Color(0xFFCDEAD7),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 7),
-                              Row(
-                                children: List.generate(
-                                  5,
-                                  (index) => Icon(
-                                    index < review.rating
-                                        ? Icons.star_rounded
-                                        : Icons.star_border_rounded,
-                                    size: 18,
-                                    color: const Color(0xFFF59E0B),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 7),
-                              Text(
-                                review.comment,
-                                style: const TextStyle(height: 1.45),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-              ],
-            ],
-          ),
-        );
-      },
     );
   }
 }
@@ -9504,111 +9256,6 @@ class MyOrdersPage extends StatefulWidget {
 
 class _MyOrdersPageState extends State<MyOrdersPage> {
   late Future<List<ShopOrder>> future;
-  final Set<String> _reviewedBookKeys = <String>{};
-
-  Future<void> _reviewPurchasedBook(
-    ShopOrder order,
-    Map<String, dynamic> item,
-  ) async {
-    final bookId = (item['book_id'] ?? item['id'] ?? '').toString();
-    final phone = (context.read<AppState>().savedCustomer['phone'] ?? '')
-        .trim();
-    if (bookId.length != 36 || phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tasdiqlangan kitob va telefon raqami kerak.'),
-        ),
-      );
-      return;
-    }
-    var rating = 5;
-    final controller = TextEditingController();
-    final title = (item['title'] ?? 'Kitob').toString();
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, refresh) => AlertDialog(
-          title: const Text('Kitob haqida fikr bildiring'),
-          content: SizedBox(
-            width: 420,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(
-                      5,
-                      (i) => IconButton(
-                        tooltip: '${i + 1} yulduz',
-                        onPressed: () => refresh(() => rating = i + 1),
-                        icon: Icon(
-                          i < rating
-                              ? Icons.star_rounded
-                              : Icons.star_border_rounded,
-                          color: const Color(0xFFF59E0B),
-                        ),
-                      ),
-                    ),
-                  ),
-                  TextField(
-                    controller: controller,
-                    maxLines: 3,
-                    maxLength: 600,
-                    decoration: const InputDecoration(
-                      labelText: 'Sharhingiz',
-                      hintText: 'Kitob sizga yoqdimi?',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Bekor qilish'),
-            ),
-            FilledButton(
-              onPressed: () {
-                if (controller.text.trim().length < 2) return;
-                Navigator.pop(ctx, true);
-              },
-              child: const Text('Yuborish'),
-            ),
-          ],
-        ),
-      ),
-    );
-    final comment = controller.text.trim();
-    controller.dispose();
-    if (confirmed != true || !mounted) return;
-    try {
-      await context.read<AppState>().submitBookReview(
-        orderId: order.id,
-        phone: phone,
-        bookId: bookId,
-        rating: rating,
-        comment: comment,
-      );
-      if (!mounted) return;
-      setState(() => _reviewedBookKeys.add('${order.id}:$bookId'));
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Fikringiz uchun rahmat! ✅')),
-      );
-    } catch (error) {
-      if (mounted)
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Fikr yuborilmadi: $error')));
-    }
-  }
-
   @override
   void initState() {
     super.initState();
@@ -9759,33 +9406,12 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
               subtitle: 'Buyurtma berganingizdan keyin uning holati va tarixi shu yerda ko‘rinadi.',
             );
           }
-          final reviewsFeatureEnabled = _remoteFlag(
-            context,
-            'features.reviews_enabled',
-            listen: true,
-          );
-          final reviewReminders = context
-              .watch<AppState>()
-              .customerNotices
-              .where((n) => n['kind'] == 'review_reminder')
-              .toList();
           return ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 6, 16, 28),
             itemCount: orders.length,
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (_, i) {
               final order = orders[i];
-              final requestReview =
-                  reviewsFeatureEnabled &&
-                  order.isApp &&
-                  (order.status == 'shipping' || order.status == 'done') &&
-                  reviewReminders.any(
-                    (n) =>
-                        n['order_id']?.toString() == order.id ||
-                        (order.displayOrderNumber > 0 &&
-                            n['order_number']?.toString() ==
-                                '${order.displayOrderNumber}'),
-                  );
               return AppSurface(
                 padding: const EdgeInsets.all(15),
                 child: Column(
@@ -9907,69 +9533,6 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                         order.trackingNumber.trim().isNotEmpty) ...[
                       const SizedBox(height: 10),
                       _WebOrderTrackingCard(order: order),
-                    ],
-                    if (requestReview) ...[
-                      const SizedBox(height: 12),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: UzbekCustomerColors.goldSoft,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              '⭐ Kitob haqida fikr bildiring',
-                              style: TextStyle(fontWeight: FontWeight.w900),
-                            ),
-                            const SizedBox(height: 5),
-                            const Text(
-                              'Kitoblar sizga yoqdimi? Baho va sharh qoldiring.',
-                            ),
-                            const SizedBox(height: 8),
-                            ...order.items
-                                .where(
-                                  (item) =>
-                                      (item['book_id'] ?? item['id'] ?? '')
-                                          .toString()
-                                          .length ==
-                                      36,
-                                )
-                                .map((item) {
-                                  final bookId = (item['book_id'] ?? item['id'])
-                                      .toString();
-                                  final sent = _reviewedBookKeys.contains(
-                                    '${order.id}:$bookId',
-                                  );
-                                  return Padding(
-                                    padding: const EdgeInsets.only(top: 5),
-                                    child: OutlinedButton.icon(
-                                      onPressed: sent
-                                          ? null
-                                          : () => _reviewPurchasedBook(
-                                              order,
-                                              item,
-                                            ),
-                                      icon: Icon(
-                                        sent
-                                            ? Icons.check_circle
-                                            : Icons.rate_review_outlined,
-                                      ),
-                                      label: Text(
-                                        sent
-                                            ? 'Fikr yuborildi'
-                                            : '${item['title'] ?? 'Kitob'} — baholash',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  );
-                                }),
-                          ],
-                        ),
-                      ),
                     ],
                     if (order.status == 'paid' ||
                         order.status == 'shipping' ||

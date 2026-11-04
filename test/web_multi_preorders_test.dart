@@ -48,6 +48,44 @@ Future<void> mount(WidgetTester tester, MultiApi api) async {
 }
 
 void main() {
+  testWidgets('Owner availability notice blocks advance until explicitly read', (tester) async {
+    final api = MultiApi()
+      ..settings = const WebPreorderConfig(
+        enabled: true,
+        arrival: '2026.11.17 ~ 2026.11.21',
+        deposit: 5000,
+        customerNotice: 'Ayrim kitoblarni topib bo‘lmasligi mumkin.',
+      );
+    await mount(tester, api);
+    await reveal(tester, find.byKey(const Key('preorder_customer_notice_visible')));
+    expect(find.text('Ayrim kitoblarni topib bo‘lmasligi mumkin.'), findsOneWidget);
+    await reveal(tester, find.widgetWithText(TextFormField, '1-kitob nomi'));
+    await tester.enterText(
+      find.widgetWithText(TextFormField, '1-kitob nomi'), 'Mening kitobim');
+    await reveal(tester, find.text('Kitob rasmini yuklash'));
+    await tester.tap(find.text('Kitob rasmini yuklash'));
+    await tester.pumpAndSettle();
+    await reveal(tester, find.widgetWithText(TextFormField, 'Ismingiz'));
+    await tester.enterText(find.widgetWithText(TextFormField, 'Ismingiz'), 'Test');
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Telefon raqam'), '01000000000');
+    await reveal(tester, find.text('Shartlarni ko‘rdim — to‘lovga o‘tish'));
+    await tester.tap(find.text('Shartlarni ko‘rdim — to‘lovga o‘tish'));
+    await tester.pumpAndSettle();
+    expect(find.text('Bank o‘tkazmasi'), findsNothing);
+    expect(find.textContaining('Muhim izohni o‘qib'), findsOneWidget);
+    await reveal(tester, find.byKey(const Key('preorder_notice_acknowledgement')));
+    await tester.tap(find.byKey(const Key('preorder_notice_acknowledgement')));
+    await tester.pumpAndSettle();
+    await reveal(tester, find.text('Shartlarni ko‘rdim — to‘lovga o‘tish'));
+    await tester.tap(find.text('Shartlarni ko‘rdim — to‘lovga o‘tish'));
+    await tester.pumpAndSettle();
+    await reveal(tester, find.text('Bank o‘tkazmasi'));
+    expect(find.text('Bank o‘tkazmasi'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('five book types remain independent and total advance includes every book', (tester) async {
     final api = MultiApi();
     await mount(tester, api);

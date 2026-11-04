@@ -44,6 +44,7 @@ class WebPreorderConfig {
     this.arrival = '',
     this.arrivalStart = '',
     this.arrivalEnd = '',
+    this.customerNotice = '',
     this.deposit = 5000,
     this.batchQuantity = 0,
     this.revision = 1,
@@ -64,12 +65,13 @@ class WebPreorderConfig {
         arrival: (data['arrival_note'] ?? '').toString(),
         arrivalStart: (data['arrival_start'] ?? '').toString(),
         arrivalEnd: (data['arrival_end'] ?? '').toString(),
+        customerNotice: (data['customer_notice'] ?? '').toString(),
         deposit: (data['deposit_amount'] as num?)?.toInt() ?? 5000,
         batchQuantity: (data['batch_quantity'] as num?)?.toInt() ?? 0,
         revision: (data['revision'] as num?)?.toInt() ?? 1,
       );
   final bool enabled;
-  final String arrival, arrivalStart, arrivalEnd;
+  final String arrival, arrivalStart, arrivalEnd, customerNotice;
   final String bookId, bookTitle, bookImageUrl, termsToken;
   final int? depositMax;
   final int deposit, batchQuantity, revision;
@@ -1134,7 +1136,8 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
   final arrivalFrom = TextEditingController(),
       arrivalTo = TextEditingController(),
       deposit = TextEditingController(),
-      batch = TextEditingController();
+      batch = TextEditingController(),
+      customerNoticeEditor = TextEditingController();
   WebPreorderConfig? config;
   Future<dynamic>? requests;
   String? error;
@@ -1154,6 +1157,7 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
     arrivalTo.dispose();
     deposit.dispose();
     batch.dispose();
+    customerNoticeEditor.dispose();
     super.dispose();
   }
 
@@ -1177,6 +1181,7 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
             : (singleDate ? c.arrival : '');
         deposit.text = '${c.deposit}';
         batch.text = '${c.batchQuantity}';
+        customerNoticeEditor.text = c.customerNotice;
         error = null;
         requests = api.admin(widget.secret, 'list');
         hasMore = true;
@@ -1234,6 +1239,7 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
         },
         'deposit_amount': int.parse(deposit.text),
         'batch_quantity': int.parse(batch.text),
+        'customer_notice': customerNoticeEditor.text.trim(),
         'revision': config!.revision,
       });
       await _load();
@@ -1698,6 +1704,21 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
                     const SizedBox(height: 8),
                     const Text('Mijoz ikkala sanani avans to‘lashdan oldin ko‘radi.',
                       style: TextStyle(fontSize: 12, color: Colors.black54)),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      key: const Key('preorder_customer_notice_admin'),
+                      controller: customerNoticeEditor,
+                      minLines: 2,
+                      maxLines: 4,
+                      maxLength: 600,
+                      decoration: const InputDecoration(
+                        labelText: 'Mijoz uchun muhim izoh (ixtiyoriy)',
+                        hintText: 'Masalan: ayrim kitoblarni topib bo‘lmasligi mumkin.',
+                        prefixIcon: Icon(Icons.info_outline_rounded),
+                        border: OutlineInputBorder(),
+                        helperText: 'Mijoz avansga o‘tishdan oldin o‘qib tasdiqlaydi.',
+                      ),
+                    ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: deposit,

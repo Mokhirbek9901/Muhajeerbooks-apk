@@ -1,0 +1,11 @@
+{
+  "release_type": "TestFlight internal only",
+  "variant": "3 - red compact warning note beside admin order customer name",
+  "user_approved": true,
+  "source_feature_pr": 139,
+  "feature_head_sha": "a6de51d934faa1f2351a0dd2af95f0cd2c2e617c",
+  "marketing_version": "2.5.25",
+  "public_app_store_release_allowed": false,
+  "google_play_release_allowed": false,
+  "expected_behavior": "Private admin note shown on collapsed order card without customer exposure"
+}

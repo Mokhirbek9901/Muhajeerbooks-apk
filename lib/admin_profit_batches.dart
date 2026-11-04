@@ -209,6 +209,8 @@ class AdminProfitBatchPanel extends StatelessWidget {
     int index,int positiveTotal,{bool compact=false}) {
     final incomplete=group['missing_lot_details']==true;
     final amount=_n(group,'projected_profit');
+    final share=positiveTotal>0&&amount>0
+      ?(amount/positiveTotal).clamp(0.0,1.0):0.0;
     final received=_n(group,'purchased_units');
     final estimatedSold=_n(group,'estimated_sold_units')
         .clamp(0,received>0?received:0);
@@ -293,6 +295,12 @@ class AdminProfitBatchPanel extends StatelessWidget {
                 valueColor:green),
             ]),
           ),
+          if (!incomplete) ...[
+            const SizedBox(height:4),
+            Align(alignment:Alignment.centerRight,
+              child:Text('Foyda ulushi: ${(share*100).round()}%',
+                style:const TextStyle(color:muted,fontSize:10))),
+          ],
           if (incomplete) ...[
             const SizedBox(height:11),
             Text('Moliyada: ${_won(_n(group,'finance_recorded_cost'))} · '

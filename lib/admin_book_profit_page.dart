@@ -10,6 +10,7 @@ import 'admin_profit_charts.dart';
 import 'admin_profit_batches.dart';
 import 'batch_date_fifo_merge.dart';
 import 'admin_sales_heatmap.dart';
+import 'admin_sales_heatmap_navigation.dart';
 
 /// Read-only admin report. Completed sales have frozen unit cost and price.
 class AdminBookProfitPage extends StatefulWidget {
@@ -109,6 +110,22 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
       combined['activity_error'] = error.toString();
     }
     return combined;
+  }
+
+  /// Query admin's date-range sales view, never modify sale records.
+  Future<Map<String, dynamic>> _fetchActivityRange(
+    DateTime from, DateTime to,
+  ) async {
+    final result = await Supabase.instance.client.rpc(
+      'admin_book_sales_activity_range',
+      params: {
+        'p_secret': widget.secret,
+        'p_from': DateFormat('yyyy-MM-dd').format(from),
+        'p_to': DateFormat('yyyy-MM-dd').format(to),
+      },
+    );
+    if (result is! Map) throw StateError('Savdo tarixi javobi noto‘g‘ri.');
+    return Map<String, dynamic>.from(result);
   }
 
   Future<void> _reload() async {
@@ -1177,10 +1194,9 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
                     Expanded(
                       flex: 7,
                       child: _pane(
-                        AdminSalesHeatmap(
+                        AdminSalesHeatmapNavigator(
                           days: activityDays,
-                          totalSold: _n(activity, 'total_sold'),
-                          activeDays: _n(activity, 'active_days'),
+                                                    loadRange: _fetchActivityRange,
                         ),
                       ),
                     ),
@@ -1200,10 +1216,9 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
                 )
               else ...[
                 _pane(
-                  AdminSalesHeatmap(
+                  AdminSalesHeatmapNavigator(
                     days: activityDays,
-                    totalSold: _n(activity, 'total_sold'),
-                    activeDays: _n(activity, 'active_days'),
+                                        loadRange: _fetchActivityRange,
                   ),
                 ),
                 const SizedBox(height: 12),

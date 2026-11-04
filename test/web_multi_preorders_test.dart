@@ -120,6 +120,34 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('new catalog-free request must read and confirm admin notice before payment',
+      (tester) async {
+    final api = MultiApi()
+      ..settings = const WebPreorderConfig(
+        enabled: true,
+        arrival: '2026.11.07 ~ 2026.11.14',
+        deposit: 5000,
+        customerNotice: 'Ba’zi kitoblarni topish imkoni bo‘lmasligi mumkin.',
+      );
+    await mount(tester, api);
+    expect(find.textContaining('Ba’zi kitoblarni topish'), findsOneWidget);
+    await reveal(tester, find.text('Shartlarni ko‘rdim — to‘lovga o‘tish'));
+    await tester.tap(find.text('Shartlarni ko‘rdim — to‘lovga o‘tish'));
+    await tester.pumpAndSettle();
+    expect(find.text('Avval ogohlantirishni o‘qing va tasdiqlang.'),
+        findsOneWidget);
+    expect(find.text('Bank o‘tkazmasi'), findsNothing);
+    await reveal(tester, find.byKey(const Key('preorder_customer_notice_ack')));
+    await tester.tap(find.byKey(const Key('preorder_customer_notice_ack')));
+    await tester.pumpAndSettle();
+    await reveal(tester, find.text('Shartlarni ko‘rdim — to‘lovga o‘tish'));
+    await tester.tap(find.text('Shartlarni ko‘rdim — to‘lovga o‘tish'));
+    await tester.pumpAndSettle();
+    expect(find.text('1-kitob nomini kiriting.'), findsOneWidget);
+    expect(find.text('Bank o‘tkazmasi'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('an empty title scrolled out of view still blocks payment', (tester) async {
     final api = MultiApi();
     await mount(tester, api);

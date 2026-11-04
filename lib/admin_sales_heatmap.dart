@@ -91,11 +91,11 @@ class AdminSalesHeatmap extends StatelessWidget {
     ]..sort((a,b)=>a['date'].toString().compareTo(b['date'].toString()));
 
     if(sorted.isEmpty){
-      return const Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
         if(showHeading) Text(title,style:const TextStyle(
           color:ink,fontSize:17,fontWeight:FontWeight.w900)),
-        SizedBox(height:15),
-        SizedBox(height:175,child:Center(child:Text(
+        const SizedBox(height:15),
+        const SizedBox(height:175,child:Center(child:Text(
           'Sotuv faolligi yuklanmadi.',style:TextStyle(color:muted)))),
       ]);
     }

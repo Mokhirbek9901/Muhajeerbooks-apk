@@ -89,7 +89,7 @@ void main(){
       body:SingleChildScrollView(child:AdminProfitBatchPanel(
         groups:groups,lots:const [])))));
     expect(find.text('Hozirgacha olingan foyda'),findsNWidgets(2));
-    expect(find.text('—'),findsNWidgets(7));
+    expect(find.text('—'),findsNWidgets(5));
     expect(find.text('Hisoblanmagan'),findsOneWidget);
     expect(find.textContaining('aniq hisoblab bo‘lmaydi'),findsOneWidget);
     expect(find.text('Kitoblari kiritilmagan'),findsOneWidget);

@@ -8,5 +8,10 @@
   "preserve_other_features": true,
   "app_store_release": false,
   "database_migration": false,
-  "workflow": ".github/workflows/testflight_profit_summary_three_cards_once.yml"
+  "workflow": ".github/workflows/testflight_profit_summary_three_cards_once.yml",
+  "preserved_existing_labels": [
+    "Foyda ulushi",
+    "Hisoblanmagan"
+  ],
+  "retry_for_regressions_fixed": true
 }

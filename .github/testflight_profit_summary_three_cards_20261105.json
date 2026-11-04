@@ -11,7 +11,9 @@
   "workflow": ".github/workflows/testflight_profit_summary_three_cards_once.yml",
   "preserved_existing_labels": [
     "Foyda ulushi",
-    "Hisoblanmagan"
+    "Hisoblanmagan",
+    "Kitoblar kiritilmagan"
   ],
-  "retry_for_regressions_fixed": true
+  "retry_for_regressions_fixed": true,
+  "version_note": "Preserve every original row indicator and new three-metric cards"
 }

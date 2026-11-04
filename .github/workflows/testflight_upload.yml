@@ -2,12 +2,6 @@ name: Build and Upload iOS to TestFlight
 
 on:
   workflow_dispatch:
-  # One approved TestFlight-only build for the selected historical heatmap.
-  # Only the exact one-time request file can trigger this push path.
-  push:
-    branches: [main]
-    paths:
-      - '.github/testflight-request-sales-heatmap-c-20261105.json'
 
 permissions:
   actions: read

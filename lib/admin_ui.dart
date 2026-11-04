@@ -25,6 +25,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'admin_order_private_note_badge.dart';
 import 'admin_session.dart';
 import 'business_time.dart';
 import 'admin_book_profit_page.dart';
@@ -8345,13 +8346,34 @@ class _ProfessionalOrderCard extends StatelessWidget {
         title: Row(
           children: [
             Expanded(
-              child: Text(
-                order.customerName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w900),
+              child: LayoutBuilder(
+                builder: (context, space) => Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: space.maxWidth),
+                      child: Text(
+                        order.customerName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                    // Variant 3: the note is visible beside/below the name,
+                    // even when the order card is collapsed. It exists only
+                    // in this admin widget and never enters customer models.
+                    if (privateNotesReady && privateNote.trim().isNotEmpty)
+                      ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: space.maxWidth),
+                        child: AdminOrderPrivateNoteBadge(note: privateNote),
+                      ),
+                  ],
+                ),
               ),
             ),
+            const SizedBox(width: 6),
             _AdminOrderStatusChip(
               status:
                   _enhancedAdminUi &&

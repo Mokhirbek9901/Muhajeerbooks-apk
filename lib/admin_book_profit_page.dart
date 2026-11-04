@@ -1196,7 +1196,7 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
                       child: _pane(
                         AdminSalesHeatmapNavigator(
                           days: activityDays,
-                                                    loadRange: _fetchActivityRange,
+                          loadRange: _fetchActivityRange,
                         ),
                       ),
                     ),
@@ -1218,7 +1218,7 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
                 _pane(
                   AdminSalesHeatmapNavigator(
                     days: activityDays,
-                                        loadRange: _fetchActivityRange,
+                    loadRange: _fetchActivityRange,
                   ),
                 ),
                 const SizedBox(height: 12),

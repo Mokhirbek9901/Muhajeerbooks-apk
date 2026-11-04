@@ -302,6 +302,10 @@ class AdminProfitBatchPanel extends StatelessWidget {
                 style:const TextStyle(color:muted,fontSize:10))),
           ],
           if (incomplete) ...[
+            const SizedBox(height:4),
+            const Align(alignment:Alignment.centerRight,
+              child:Text('Kitoblar kiritilmagan',
+                style:TextStyle(color:muted,fontSize:10))),
             const SizedBox(height:11),
             Text('Moliyada: ${_won(_n(group,'finance_recorded_cost'))} · '
               'Foydani hisoblash uchun partiyadagi kitoblarni kiriting.',

@@ -205,6 +205,49 @@ class AdminProfitBatchPanel extends StatelessWidget {
     ),
   );
 
+  // Additional read-only revenue tile. Existing metrics stay unchanged.
+  Widget _batchRevenueMetric({
+    required String possible,
+    required String sold,
+    required String soldLabel,
+  }) => Expanded(
+    child:Padding(
+      padding:const EdgeInsets.symmetric(horizontal:3,vertical:9),
+      child:Column(mainAxisSize:MainAxisSize.min,children:[
+        Container(
+          padding:const EdgeInsets.all(5),
+          decoration:BoxDecoration(
+            color:const Color(0xFF8647CD).withValues(alpha:.09),
+            borderRadius:BorderRadius.circular(9)),
+          child:const Icon(Icons.shopping_cart_outlined,
+            size:18,color:Color(0xFF8647CD))),
+        const SizedBox(height:6),
+        const SizedBox(height:31,child:Center(child:Text(
+          'Jami sotuv summasi',
+          maxLines:2,overflow:TextOverflow.ellipsis,
+          textAlign:TextAlign.center,
+          style:TextStyle(color:navy,fontSize:10,height:1.2)))),
+        const SizedBox(height:5),
+        SizedBox(width:double.infinity,child:FittedBox(
+          fit:BoxFit.scaleDown,
+          child:Text(possible,style:const TextStyle(
+            color:Color(0xFF7439BB),fontSize:16,
+            fontWeight:FontWeight.w900)))),
+        const SizedBox(height:5),
+        Container(
+          width:double.infinity,
+          padding:const EdgeInsets.symmetric(horizontal:3,vertical:4),
+          decoration:BoxDecoration(
+            color:const Color(0xFFEBEAF4),
+            borderRadius:BorderRadius.circular(8)),
+          child:FittedBox(fit:BoxFit.scaleDown,
+            child:Text('$soldLabel: $sold',
+              maxLines:1,style:const TextStyle(
+                color:navy,fontSize:9.5,fontWeight:FontWeight.w600)))),
+      ]),
+    ),
+  );
+
   Widget _groupRow(BuildContext context,Map<String,dynamic> group,
     int index,int positiveTotal,{bool compact=false}) {
     final incomplete=group['missing_lot_details']==true;
@@ -231,6 +274,22 @@ class AdminProfitBatchPanel extends StatelessWidget {
         : group['projected_profit']!=null ? _won(amount) : '—';
     final realizedProfit=canShowRealized
         ? _won(_n(group,'dated_order_gross_profit')) : '—';
+
+    // All receipts at current prices, not an extrapolation from FIFO %.
+    final groupLots=_groupLots(group);
+    final pricedLots=!incomplete && groupLots.isNotEmpty &&
+        groupLots.every((l)=>_n(l,'quantity')>0 && _n(l,'sale_price')>0);
+    final possibleRevenue=pricedLots
+        ? _won(groupLots.fold<int>(0,(total,l)=>total+
+            _n(l,'quantity')*_n(l,'sale_price'))) : '—';
+
+    // Actual known receipts use existing date-FIFO purchase-lot mapping.
+    // Missing historic sale prices must not be replaced with estimated cash.
+    final soldRevenue=dated && group['dated_order_revenue']!=null &&
+            (pricedSales>0 || unknownPriceSales==0)
+        ? _won(_n(group,'dated_order_revenue')) : '—';
+    final soldLabel=unknownPriceSales>0 && pricedSales>0
+        ? 'Sotilgani (ma’lum)' : 'Sotilgani';
 
     return InkWell(
       borderRadius:BorderRadius.circular(12),
@@ -293,6 +352,11 @@ class AdminProfitBatchPanel extends StatelessWidget {
                 icon:Icons.monetization_on_outlined,
                 iconColor:const Color(0xFFEAA01E),
                 valueColor:green),
+              Container(width:1,height:78,color:const Color(0xFFD6E5E3)),
+              _batchRevenueMetric(
+                possible:possibleRevenue,
+                sold:soldRevenue,
+                soldLabel:soldLabel),
             ]),
           ),
           if (!incomplete) ...[

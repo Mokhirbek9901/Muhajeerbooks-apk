@@ -9154,111 +9154,6 @@ class MyOrdersPage extends StatefulWidget {
 
 class _MyOrdersPageState extends State<MyOrdersPage> {
   late Future<List<ShopOrder>> future;
-  final Set<String> _reviewedBookKeys = <String>{};
-
-  Future<void> _reviewPurchasedBook(
-    ShopOrder order,
-    Map<String, dynamic> item,
-  ) async {
-    final bookId = (item['book_id'] ?? item['id'] ?? '').toString();
-    final phone = (context.read<AppState>().savedCustomer['phone'] ?? '')
-        .trim();
-    if (bookId.length != 36 || phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tasdiqlangan kitob va telefon raqami kerak.'),
-        ),
-      );
-      return;
-    }
-    var rating = 5;
-    final controller = TextEditingController();
-    final title = (item['title'] ?? 'Kitob').toString();
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, refresh) => AlertDialog(
-          title: const Text('Kitob haqida fikr bildiring'),
-          content: SizedBox(
-            width: 420,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(
-                      5,
-                      (i) => IconButton(
-                        tooltip: '${i + 1} yulduz',
-                        onPressed: () => refresh(() => rating = i + 1),
-                        icon: Icon(
-                          i < rating
-                              ? Icons.star_rounded
-                              : Icons.star_border_rounded,
-                          color: const Color(0xFFF59E0B),
-                        ),
-                      ),
-                    ),
-                  ),
-                  TextField(
-                    controller: controller,
-                    maxLines: 3,
-                    maxLength: 600,
-                    decoration: const InputDecoration(
-                      labelText: 'Sharhingiz',
-                      hintText: 'Kitob sizga yoqdimi?',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Bekor qilish'),
-            ),
-            FilledButton(
-              onPressed: () {
-                if (controller.text.trim().length < 2) return;
-                Navigator.pop(ctx, true);
-              },
-              child: const Text('Yuborish'),
-            ),
-          ],
-        ),
-      ),
-    );
-    final comment = controller.text.trim();
-    controller.dispose();
-    if (confirmed != true || !mounted) return;
-    try {
-      await context.read<AppState>().submitBookReview(
-        orderId: order.id,
-        phone: phone,
-        bookId: bookId,
-        rating: rating,
-        comment: comment,
-      );
-      if (!mounted) return;
-      setState(() => _reviewedBookKeys.add('${order.id}:$bookId'));
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Fikringiz uchun rahmat! ✅')),
-      );
-    } catch (error) {
-      if (mounted)
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Fikr yuborilmadi: $error')));
-    }
-  }
-
   @override
   void initState() {
     super.initState();
@@ -9409,33 +9304,12 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
               subtitle: 'Buyurtma berganingizdan keyin uning holati va tarixi shu yerda ko‘rinadi.',
             );
           }
-          final reviewsFeatureEnabled = _remoteFlag(
-            context,
-            'features.reviews_enabled',
-            listen: true,
-          );
-          final reviewReminders = context
-              .watch<AppState>()
-              .customerNotices
-              .where((n) => n['kind'] == 'review_reminder')
-              .toList();
           return ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 6, 16, 28),
             itemCount: orders.length,
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (_, i) {
               final order = orders[i];
-              final requestReview =
-                  reviewsFeatureEnabled &&
-                  order.isApp &&
-                  (order.status == 'shipping' || order.status == 'done') &&
-                  reviewReminders.any(
-                    (n) =>
-                        n['order_id']?.toString() == order.id ||
-                        (order.displayOrderNumber > 0 &&
-                            n['order_number']?.toString() ==
-                                '${order.displayOrderNumber}'),
-                  );
               return AppSurface(
                 padding: const EdgeInsets.all(15),
                 child: Column(
@@ -9557,69 +9431,6 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                         order.trackingNumber.trim().isNotEmpty) ...[
                       const SizedBox(height: 10),
                       _WebOrderTrackingCard(order: order),
-                    ],
-                    if (requestReview) ...[
-                      const SizedBox(height: 12),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: UzbekCustomerColors.goldSoft,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              '⭐ Kitob haqida fikr bildiring',
-                              style: TextStyle(fontWeight: FontWeight.w900),
-                            ),
-                            const SizedBox(height: 5),
-                            const Text(
-                              'Kitoblar sizga yoqdimi? Baho va sharh qoldiring.',
-                            ),
-                            const SizedBox(height: 8),
-                            ...order.items
-                                .where(
-                                  (item) =>
-                                      (item['book_id'] ?? item['id'] ?? '')
-                                          .toString()
-                                          .length ==
-                                      36,
-                                )
-                                .map((item) {
-                                  final bookId = (item['book_id'] ?? item['id'])
-                                      .toString();
-                                  final sent = _reviewedBookKeys.contains(
-                                    '${order.id}:$bookId',
-                                  );
-                                  return Padding(
-                                    padding: const EdgeInsets.only(top: 5),
-                                    child: OutlinedButton.icon(
-                                      onPressed: sent
-                                          ? null
-                                          : () => _reviewPurchasedBook(
-                                              order,
-                                              item,
-                                            ),
-                                      icon: Icon(
-                                        sent
-                                            ? Icons.check_circle
-                                            : Icons.rate_review_outlined,
-                                      ),
-                                      label: Text(
-                                        sent
-                                            ? 'Fikr yuborildi'
-                                            : '${item['title'] ?? 'Kitob'} — baholash',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  );
-                                }),
-                          ],
-                        ),
-                      ),
                     ],
                     if (order.status == 'paid' ||
                         order.status == 'shipping' ||

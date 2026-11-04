@@ -7,11 +7,15 @@ class AdminSalesHeatmap extends StatelessWidget {
   const AdminSalesHeatmap({
     super.key,required this.days,required this.totalSold,
     required this.activeDays,
+    this.showHeading = true,
+    this.title = 'Sotuv faolligi (oxirgi 30 kun)',
   });
 
   final List<Map<String,dynamic>> days;
   final int totalSold;
   final int activeDays;
+  final bool showHeading;
+  final String title;
 
   static const ink=Color(0xFF1A2B44);
   static const muted=Color(0xFF718098);
@@ -53,12 +57,18 @@ class AdminSalesHeatmap extends StatelessWidget {
             color:ink,fontSize:19,fontWeight:FontWeight.w900)),
           const SizedBox(height:12),
           _line('Sotilgan kitoblar',countOf(value).toString()+' dona'),
-          _line('Jami tushum',_won(amount(value,'revenue'))),
-          _line('Kitoblar foydasi',_won(amount(value,'profit'))),
+          _line('Jami tushum',value['revenue'] == null
+              ? 'Eski tarixda saqlanmagan'
+              : _won(amount(value,'revenue'))),
+          _line('Kitoblar foydasi',value['profit'] == null
+              ? 'Tan narxi saqlanmagan'
+              : _won(amount(value,'profit'))),
           const SizedBox(height:8),
-          const Text('Foyda sotuv vaqtida saqlangan tan narxi '
-            'asosida hisoblangan.',style:TextStyle(
-              color:muted,fontSize:11.5)),
+          Text(amount(value,'historic_sold')>0
+            ? 'Eski tarixdagi sotuvlar uchun pul va foyda qayd etilmagan. '
+              'Agar yangi sotuvlar ham bo‘lsa, summalar faqat ularga tegishli.'
+            : 'Foyda sotuv vaqtida saqlangan tan narxi asosida hisoblangan.',
+            style:const TextStyle(color:muted,fontSize:11.5)),
         ]),
       )),
     );
@@ -82,7 +92,7 @@ class AdminSalesHeatmap extends StatelessWidget {
 
     if(sorted.isEmpty){
       return const Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        Text('Sotuv faolligi (oxirgi 30 kun)',style:TextStyle(
+        if(showHeading) Text(title,style:const TextStyle(
           color:ink,fontSize:17,fontWeight:FontWeight.w900)),
         SizedBox(height:15),
         SizedBox(height:175,child:Center(child:Text(
@@ -104,12 +114,14 @@ class AdminSalesHeatmap extends StatelessWidget {
       sorted.where((r)=>countOf(r)>0).length;
 
     return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      const Text('Sotuv faolligi (oxirgi 30 kun)',style:TextStyle(
-        color:ink,fontSize:17,fontWeight:FontWeight.w900)),
-      const SizedBox(height:5),
-      const Text('Har bir katak — bir kun. Rang to‘q bo‘lsa, ko‘proq kitob sotilgan.',
-        style:TextStyle(color:muted,fontSize:11.5)),
-      const SizedBox(height:12),
+      if(showHeading) ...[
+        Text(title,style:const TextStyle(
+          color:ink,fontSize:17,fontWeight:FontWeight.w900)),
+        const SizedBox(height:5),
+        const Text('Har bir katak — bir kun. Rang to‘q bo‘lsa, ko‘proq kitob sotilgan.',
+          style:TextStyle(color:muted,fontSize:11.5)),
+        const SizedBox(height:12),
+      ],
       Row(children:[
         Expanded(child:_smallStat('Sotilgan nusxalar',
           showTotal.toString()+' dona',const Color(0xFF066F51))),
@@ -164,6 +176,15 @@ class AdminSalesHeatmap extends StatelessWidget {
                               ?const Color(0x0E25516F):
                               const Color(0xFFD9E2ED)),
                           ),
+                          alignment:Alignment.center,
+                          child:active?FittedBox(
+                            fit:BoxFit.scaleDown,
+                            child:Text(count.toString(),style:TextStyle(
+                              fontWeight:FontWeight.w900,
+                              color:count>=10?Colors.white:ink,
+                              fontSize:cellSize<34?13:16,
+                            )),
+                          ):null,
                         ),
                       ),
                     ),

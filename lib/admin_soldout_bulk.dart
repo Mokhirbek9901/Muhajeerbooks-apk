@@ -16,6 +16,7 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
   final _search = TextEditingController();
   final Set<String> _selected = <String>{};
   final Map<String, DateTime> _dates = <String, DateTime>{};
+  final Map<String, DateTime> _endDates = <String, DateTime>{};
   final Map<String, TextEditingController> _deposits =
       <String, TextEditingController>{};
 
@@ -75,6 +76,7 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
       }
       _deposits.clear();
       _dates.clear();
+      _endDates.clear();
       _selected.clear();
 
       final initialDay = DateUtils.dateOnly(DateTime.now()).add(
@@ -92,6 +94,11 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
                 !DateUtils.dateOnly(parsed).isBefore(DateUtils.dateOnly(DateTime.now()))
             ? DateUtils.dateOnly(parsed)
             : initialDay;
+        final end = DateTime.tryParse(stored?['end_date']?.toString() ?? '');
+        _endDates[book.id] = end != null &&
+                !DateUtils.dateOnly(end).isBefore(_dates[book.id]!)
+            ? DateUtils.dateOnly(end)
+            : _dates[book.id]!;
         _deposits[book.id] = TextEditingController(
           text: '${stored?['deposit'] ?? (book.preorderDepositMin >= 1000 ? book.preorderDepositMin : 5000)}',
         );
@@ -111,20 +118,35 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
     }
   }
 
-  Future<void> _selectDate(String bookId) async {
+  Future<void> _selectDate(String bookId, {required bool start}) async {
     final today = DateUtils.dateOnly(DateTime.now());
-    final current = _dates[bookId] ?? today.add(const Duration(days: 14));
+    final earliest = start ? today : _dates[bookId] ?? today;
+    final last = today.add(const Duration(days: 730));
+    var current = (start ? _dates[bookId] : _endDates[bookId]) ?? earliest;
+    if (current.isBefore(earliest)) current = earliest;
+    if (current.isAfter(last)) current = last;
     final value = await showDatePicker(
       context: context,
-      firstDate: today,
-      lastDate: today.add(const Duration(days: 730)),
-      initialDate: current.isBefore(today) ? today : current,
-      helpText: 'Kitobning taxminiy kelish sanasi',
+      firstDate: earliest,
+      lastDate: last,
+      initialDate: current,
+      helpText: start ? 'Taxminiy: shu sanadan' : 'Taxminiy: shu sanagacha',
       confirmText: 'Tanlash',
       cancelText: 'Bekor qilish',
     );
     if (value != null && mounted) {
-      setState(() => _dates[bookId] = DateUtils.dateOnly(value));
+      setState(() {
+        final chosen = DateUtils.dateOnly(value);
+        if (start) {
+          _dates[bookId] = chosen;
+          final oldEnd = _endDates[bookId];
+          if (oldEnd == null || oldEnd.isBefore(chosen)) {
+            _endDates[bookId] = chosen;
+          }
+        } else {
+          _endDates[bookId] = chosen;
+        }
+      });
     }
   }
 
@@ -162,8 +184,10 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
         _deposits[book.id]?.text.trim().replaceAll(',', '') ?? '',
       );
       final arrival = _dates[book.id];
+      final end = _endDates[book.id];
       if (amount == null || amount < 1000 || amount > 1000000 ||
-          arrival == null || arrival.isBefore(now)) {
+          arrival == null || end == null || arrival.isBefore(now) ||
+          end.isBefore(arrival) || end.isAfter(arrival.add(const Duration(days: 730)))) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -176,6 +200,7 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
       rows.add({
         'id': book.id,
         'date': DateFormat('yyyy-MM-dd').format(arrival),
+        'end_date': DateFormat('yyyy-MM-dd').format(end),
         'deposit': amount,
       });
     }
@@ -380,14 +405,41 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
                                             child: Column(
                                               crossAxisAlignment: CrossAxisAlignment.stretch,
                                               children: [
-                                                OutlinedButton.icon(
-                                                  onPressed: _busy
-                                                      ? null
-                                                      : () => _selectDate(book.id),
-                                                  icon: const Icon(Icons.calendar_month_outlined),
-                                                  label: Text(
-                                                    'Taxminiy kelishi: ${DateFormat('yyyy-MM-dd').format(_dates[book.id]!)}',
-                                                  ),
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: OutlinedButton(
+                                                        key: Key('soldout_eta_start_${book.id}'),
+                                                        onPressed: _busy
+                                                            ? null
+                                                            : () => _selectDate(book.id, start: true),
+                                                        child: Text(
+                                                          'Shu sanadan\n${DateFormat('yyyy-MM-dd').format(_dates[book.id]!)}',
+                                                          textAlign: TextAlign.center,
+                                                          maxLines: 2,
+                                                          style: const TextStyle(fontSize: 12),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const Padding(
+                                                      padding: EdgeInsets.symmetric(horizontal: 6),
+                                                      child: Text('~', style: TextStyle(fontWeight: FontWeight.bold)),
+                                                    ),
+                                                    Expanded(
+                                                      child: OutlinedButton(
+                                                        key: Key('soldout_eta_end_${book.id}'),
+                                                        onPressed: _busy
+                                                            ? null
+                                                            : () => _selectDate(book.id, start: false),
+                                                        child: Text(
+                                                          'Shu sanagacha\n${DateFormat('yyyy-MM-dd').format(_endDates[book.id]!)}',
+                                                          textAlign: TextAlign.center,
+                                                          maxLines: 2,
+                                                          style: const TextStyle(fontSize: 12),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                                 const SizedBox(height: 8),
                                                 TextField(

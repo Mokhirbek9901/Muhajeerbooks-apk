@@ -44,6 +44,7 @@ class WebPreorderConfig {
     this.arrival = '',
     this.arrivalStart = '',
     this.arrivalEnd = '',
+    this.customerNotice = '',
     this.deposit = 5000,
     this.batchQuantity = 0,
     this.revision = 1,
@@ -64,18 +65,62 @@ class WebPreorderConfig {
         arrival: (data['arrival_note'] ?? '').toString(),
         arrivalStart: (data['arrival_start'] ?? '').toString(),
         arrivalEnd: (data['arrival_end'] ?? '').toString(),
+        customerNotice: (data['customer_notice'] ?? '').toString(),
         deposit: (data['deposit_amount'] as num?)?.toInt() ?? 5000,
         batchQuantity: (data['batch_quantity'] as num?)?.toInt() ?? 0,
         revision: (data['revision'] as num?)?.toInt() ?? 1,
       );
   final bool enabled;
-  final String arrival, arrivalStart, arrivalEnd;
+  final String arrival, arrivalStart, arrivalEnd, customerNotice;
   final String bookId, bookTitle, bookImageUrl, termsToken;
   final int? depositMax;
   final int deposit, batchQuantity, revision;
   bool get accepting => enabled && arrival.trim().isNotEmpty && deposit >= 5000;
   int get maximumDeposit => depositMax ?? deposit;
   int total(int quantity, [int? perBook]) => (perBook ?? deposit) * quantity;
+}
+
+/// Shown before any customer can advance to the bank-transfer screen.
+/// Only the owner edits the message; customers can only acknowledge it.
+class PreorderCustomerNotice extends StatelessWidget {
+  const PreorderCustomerNotice({
+    super.key,
+    required this.notice,
+    required this.acknowledged,
+    required this.onChanged,
+  });
+
+  final String notice;
+  final bool acknowledged;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    if (notice.trim().isEmpty) return const SizedBox.shrink();
+    return AppSurface(
+      backgroundColor: const Color(0xFFFFF2DF),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Row(children: [
+          Icon(Icons.info_outline_rounded, color: Color(0xFF9E4B20)),
+          SizedBox(width: 8),
+          Expanded(child: Text('Oldindan buyurtma haqida muhim izoh',
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15))),
+        ]),
+        const SizedBox(height: 9),
+        Text(notice.trim(), style: const TextStyle(fontSize: 14, height: 1.45)),
+        const SizedBox(height: 8),
+        CheckboxListTile(
+          key: const Key('preorder_customer_notice_ack'),
+          controlAffinity: ListTileControlAffinity.leading,
+          contentPadding: EdgeInsets.zero,
+          value: acknowledged,
+          onChanged: (v) => onChanged(v == true),
+          title: const Text('Izohni o‘qidim va tushundim',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+        ),
+      ]),
+    );
+  }
 }
 
 class WebPreorderApi {
@@ -311,6 +356,7 @@ class _WebSinglePreorderPage extends StatefulWidget {
 }
 
 class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
+  bool _noticeAcknowledged = false;
   late final api = widget.api ?? WebPreorderApi();
   final form = GlobalKey<FormState>();
   final title = TextEditingController(),
@@ -381,6 +427,9 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
           : await api.bookConfig(widget.book!.id);
       if (mounted)
         setState(() {
+          if (config?.customerNotice != next.customerNotice) {
+            _noticeAcknowledged = false;
+          }
           if (config?.revision != next.revision ||
               config?.termsToken != next.termsToken) {
             payment = false;
@@ -589,7 +638,8 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
     await _reload();
     if (!mounted || config?.accepting != true) return false;
     if (old?.revision != config!.revision ||
-        old?.termsToken != config!.termsToken) {
+        old?.termsToken != config!.termsToken ||
+        (widget.book == null && old?.customerNotice != config!.customerNotice)) {
       _message(
         'Kelish sanasi yoki avans yangilandi. Shartlarni qayta ko‘rib chiqing.',
       );
@@ -600,6 +650,12 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
 
   Future<void> _continue() async {
     if (busy || !_validateDetails()) return;
+    if (widget.book == null &&
+        config?.customerNotice.trim().isNotEmpty == true &&
+        !_noticeAcknowledged) {
+      _message('Oldindan buyurtma izohini o‘qib, tasdiqlang.');
+      return;
+    }
     FocusScope.of(context).unfocus();
     if (widget.book == null && bookImage == null) {
       _message('Kitob rasmini tanlang.');
@@ -615,6 +671,12 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
 
   Future<void> _submit() async {
     if (busy || !await _requireProfile()) return;
+    if (widget.book == null &&
+        config?.customerNotice.trim().isNotEmpty == true &&
+        !_noticeAcknowledged) {
+      _message('Oldindan buyurtma izohini o‘qib, tasdiqlang.');
+      return;
+    }
     if (!mounted || !_validateDetails()) return;
     if (!validPreorderContact(instagram.text, contactPlatform)) {
       _message('${preorderContactName(contactPlatform)} username kiriting: @username');
@@ -758,6 +820,15 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
                           ),
                         ),
                         const SizedBox(height: 14),
+                        if (widget.book == null &&
+                            c?.customerNotice.trim().isNotEmpty == true) ...[
+                          PreorderCustomerNotice(
+                            notice: c!.customerNotice,
+                            acknowledged: _noticeAcknowledged,
+                            onChanged: (v) => setState(() => _noticeAcknowledged = v),
+                          ),
+                          const SizedBox(height: 14),
+                        ],
                         if (error != null || c?.accepting != true) ...[
                           Text(
                             error ?? 'Oldindan buyurtma qabuli hozircha yopiq. Avans yubormang.',
@@ -1133,6 +1204,7 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
   final form = GlobalKey<FormState>();
   final arrivalFrom = TextEditingController(),
       arrivalTo = TextEditingController(),
+      notice = TextEditingController(),
       deposit = TextEditingController(),
       batch = TextEditingController();
   WebPreorderConfig? config;
@@ -1152,6 +1224,7 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
   void dispose() {
     arrivalFrom.dispose();
     arrivalTo.dispose();
+    notice.dispose();
     deposit.dispose();
     batch.dispose();
     super.dispose();
@@ -1177,6 +1250,7 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
             : (singleDate ? c.arrival : '');
         deposit.text = '${c.deposit}';
         batch.text = '${c.batchQuantity}';
+        notice.text = c.customerNotice;
         error = null;
         requests = api.admin(widget.secret, 'list');
         hasMore = true;
@@ -1234,6 +1308,7 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
         },
         'deposit_amount': int.parse(deposit.text),
         'batch_quantity': int.parse(batch.text),
+        'customer_notice': notice.text.trim(),
         'revision': config!.revision,
       });
       await _load();
@@ -1698,6 +1773,21 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
                     const SizedBox(height: 8),
                     const Text('Mijoz ikkala sanani avans to‘lashdan oldin ko‘radi.',
                       style: TextStyle(fontSize: 12, color: Colors.black54)),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      key: const Key('admin_preorder_customer_notice'),
+                      controller: notice,
+                      readOnly: saving,
+                      maxLines: 4,
+                      minLines: 2,
+                      maxLength: 600,
+                      decoration: const InputDecoration(
+                        labelText: 'Mijozlarga umumiy muhim izoh (ixtiyoriy)',
+                        hintText: 'Masalan: ayrim kitoblar topilmasligi mumkin. Topilmasa sizga xabar beramiz.',
+                        helperText: 'Katalogda yo‘q kitobni oldindan so‘ragan mijozlar avansdan oldin o‘qiydi.',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: deposit,

@@ -140,7 +140,14 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byType(SwitchListTile));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Sozlamalarni saqlash'));
+    // The optional admin notice adds height. Scroll the lazy ListView
+    // instead of assuming its save button is already built offscreen.
+    await tester.scrollUntilVisible(
+      find.text('Sozlamalarni saqlash'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+      maxScrolls: 20,
+    );
     await tester.tap(find.text('Sozlamalarni saqlash'));
     await tester.pumpAndSettle();
     expect(api.saves, 0);
@@ -189,7 +196,14 @@ void main() {
     expect(find.byKey(const Key('preorder_eta_end')), findsOneWidget);
     expect(find.text('2026.11.07'), findsOneWidget);
     expect(find.text('2026.11.14'), findsOneWidget);
-    await tester.ensureVisible(find.text('Sozlamalarni saqlash'));
+    // The optional admin notice adds height. Scroll the lazy ListView
+    // instead of assuming its save button is already built offscreen.
+    await tester.scrollUntilVisible(
+      find.text('Sozlamalarni saqlash'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+      maxScrolls: 20,
+    );
     await tester.tap(find.text('Sozlamalarni saqlash'));
     await tester.pumpAndSettle();
     expect(api.saves, 1);
@@ -211,7 +225,14 @@ void main() {
     ));
     await tester.pumpAndSettle();
     expect(find.text('2026.11.07'), findsNWidgets(2));
-    await tester.ensureVisible(find.text('Sozlamalarni saqlash'));
+    // The optional admin notice adds height. Scroll the lazy ListView
+    // instead of assuming its save button is already built offscreen.
+    await tester.scrollUntilVisible(
+      find.text('Sozlamalarni saqlash'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+      maxScrolls: 20,
+    );
     await tester.tap(find.text('Sozlamalarni saqlash'));
     await tester.pumpAndSettle();
     expect(api.lastSave!['arrival_start'], '2026-11-07');

@@ -1,0 +1,12 @@
+{
+  "request": "TestFlight-only three profit metrics for every purchase batch",
+  "approved_baseline_commit": "034227bf66000289b80ed0c87125892c736bf220",
+  "approved_baseline_version": "2.5.26",
+  "approved_baseline_build": "300001",
+  "new_version": "2.5.26",
+  "changed_app_file": "lib/admin_profit_batches.dart",
+  "preserve_other_features": true,
+  "app_store_release": false,
+  "database_migration": false,
+  "workflow": ".github/workflows/testflight_profit_summary_three_cards_once.yml"
+}

@@ -42,6 +42,8 @@ class WebPreorderConfig {
   const WebPreorderConfig({
     this.enabled = false,
     this.arrival = '',
+    this.arrivalStart = '',
+    this.arrivalEnd = '',
     this.deposit = 5000,
     this.batchQuantity = 0,
     this.revision = 1,
@@ -60,12 +62,15 @@ class WebPreorderConfig {
         depositMax: (data['deposit_max'] as num?)?.toInt(),
         enabled: data['enabled'] == true,
         arrival: (data['arrival_note'] ?? '').toString(),
+        arrivalStart: (data['arrival_start'] ?? '').toString(),
+        arrivalEnd: (data['arrival_end'] ?? '').toString(),
         deposit: (data['deposit_amount'] as num?)?.toInt() ?? 5000,
         batchQuantity: (data['batch_quantity'] as num?)?.toInt() ?? 0,
         revision: (data['revision'] as num?)?.toInt() ?? 1,
       );
   final bool enabled;
-  final String arrival, bookId, bookTitle, bookImageUrl, termsToken;
+  final String arrival, arrivalStart, arrivalEnd;
+  final String bookId, bookTitle, bookImageUrl, termsToken;
   final int? depositMax;
   final int deposit, batchQuantity, revision;
   bool get accepting => enabled && arrival.trim().isNotEmpty && deposit >= 5000;
@@ -1126,7 +1131,8 @@ class WebPreorderAdminPage extends StatefulWidget {
 class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
   late final api = widget.api ?? WebPreorderApi();
   final form = GlobalKey<FormState>();
-  final arrival = TextEditingController(),
+  final arrivalFrom = TextEditingController(),
+      arrivalTo = TextEditingController(),
       deposit = TextEditingController(),
       batch = TextEditingController();
   WebPreorderConfig? config;
@@ -1144,7 +1150,8 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
 
   @override
   void dispose() {
-    arrival.dispose();
+    arrivalFrom.dispose();
+    arrivalTo.dispose();
     deposit.dispose();
     batch.dispose();
     super.dispose();
@@ -1160,7 +1167,14 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
       setState(() {
         config = c;
         enabled = c.enabled;
-        arrival.text = c.arrival;
+        final singleDate = RegExp(r'^[0-9]{4}[.][0-9]{2}[.][0-9]{2}$')
+            .hasMatch(c.arrival.trim());
+        arrivalFrom.text = c.arrivalStart.isNotEmpty
+            ? c.arrivalStart.replaceAll('-', '.')
+            : (singleDate ? c.arrival : '');
+        arrivalTo.text = c.arrivalEnd.isNotEmpty
+            ? c.arrivalEnd.replaceAll('-', '.')
+            : (singleDate ? c.arrival : '');
         deposit.text = '${c.deposit}';
         batch.text = '${c.batchQuantity}';
         error = null;
@@ -1174,49 +1188,111 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
 
   Future<void> _save() async {
     if (saving) return;
-    if (enabled && arrival.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Qabulni ochishdan oldin sanani kiriting'),
-        ),
-      );
+    final first = arrivalFrom.text.trim();
+    final second = arrivalTo.text.trim();
+    if (enabled && (first.isEmpty || second.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Qabulni ochishdan oldin sanani kiriting'),
+      ));
+      return;
+    }
+    if (first.isEmpty != second.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Ikkala sanani tanlang'),
+      ));
       return;
     }
     if (!form.currentState!.validate()) return;
+    DateTime? fromDate, toDate;
+    if (first.isNotEmpty) {
+      try {
+        fromDate = DateFormat('yyyy.MM.dd').parseStrict(first);
+        toDate = DateFormat('yyyy.MM.dd').parseStrict(second);
+      } catch (_) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Sanalarni tekshiring'),
+        ));
+        return;
+      }
+      if (toDate.isBefore(fromDate)) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Tugash sanasi boshlanishdan oldin bo‘lmasin'),
+        ));
+        return;
+      }
+    }
     setState(() => saving = true);
     try {
       await api.admin(widget.secret, 'save', {
         'enabled': enabled,
-        'arrival_note': arrival.text.trim(),
+        'arrival_note': fromDate != null && toDate != null
+            ? '${DateFormat('yyyy.MM.dd').format(fromDate)} ~ ${DateFormat('yyyy.MM.dd').format(toDate)}'
+            : config!.arrival,
+        if (fromDate != null && toDate != null) ...{
+          'arrival_start': DateFormat('yyyy-MM-dd').format(fromDate),
+          'arrival_end': DateFormat('yyyy-MM-dd').format(toDate),
+        },
         'deposit_amount': int.parse(deposit.text),
         'batch_quantity': int.parse(batch.text),
         'revision': config!.revision,
       });
       await _load();
-      if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Oldindan buyurtma sozlamalari saqlandi.'),
-          ),
-        );
-    } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Oldindan buyurtma sozlamalari saqlandi'),
+        ));
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${error}')),
+      );
     } finally {
       if (mounted) setState(() => saving = false);
     }
   }
 
-  Future<void> _date() async {
+  Future<void> _date({required bool start}) async {
     final now = koreaNow();
-    final value = await showDatePicker(
+    final today = DateTime(now.year, now.month, now.day);
+    var minimum = today;
+    if (!start && arrivalFrom.text.trim().isNotEmpty) {
+      try {
+        final from = DateFormat('yyyy.MM.dd').parseStrict(arrivalFrom.text);
+        if (from.isAfter(minimum)) minimum = from;
+      } catch (_) {}
+    }
+    final editor = start ? arrivalFrom : arrivalTo;
+    DateTime? current;
+    try {
+      if (editor.text.isNotEmpty) {
+        current = DateFormat('yyyy.MM.dd').parseStrict(editor.text);
+      }
+    } catch (_) {}
+    final maximum = DateTime(now.year + 3, 12, 31);
+    final initial = current == null || current.isBefore(minimum)
+        ? minimum
+        : current.isAfter(maximum) ? maximum : current;
+    final picked = await showDatePicker(
       context: context,
-      initialDate: now,
-      firstDate: DateTime(now.year, now.month, now.day),
-      lastDate: DateTime(now.year + 3),
+      initialDate: initial,
+      firstDate: minimum,
+      lastDate: maximum,
+      helpText: start ? 'Taxminiy: shu sanadan' : 'Taxminiy: shu sanagacha',
     );
-    if (value != null) arrival.text = DateFormat('yyyy.MM.dd').format(value);
+    if (picked == null || !mounted) return;
+    setState(() {
+      editor.text = DateFormat('yyyy.MM.dd').format(picked);
+      if (start && arrivalTo.text.isNotEmpty) {
+        try {
+          final to = DateFormat('yyyy.MM.dd').parseStrict(arrivalTo.text);
+          if (to.isBefore(picked)) {
+            arrivalTo.text = DateFormat('yyyy.MM.dd').format(picked);
+          }
+        } catch (_) {
+          arrivalTo.text = DateFormat('yyyy.MM.dd').format(picked);
+        }
+      }
+    });
   }
 
   Future<void> _status(Map row, String status) async {
@@ -1583,23 +1659,45 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
                           : (v) => setState(() => enabled = v),
                     ),
                     const SizedBox(height: 12),
-                    TextFormField(
-                      controller: arrival,
-                      maxLength: 200,
-                      readOnly: saving,
-                      decoration: InputDecoration(
-                        labelText: 'Taxminiy kelish sanasi yoki muddati',
-                        hintText: 'Masalan: 5-noyabr yoki 10–14 kun',
-                        suffixIcon: IconButton(
-                          onPressed: saving ? null : _date,
-                          icon: const Icon(Icons.calendar_month_outlined),
+                    const Text('Taxminiy kelish sanalari',
+                      style: TextStyle(fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 8),
+                    Row(children: [
+                      Expanded(child: TextFormField(
+                        key: const Key('preorder_eta_start'),
+                        controller: arrivalFrom,
+                        readOnly: true,
+                        onTap: saving ? null : () => _date(start: true),
+                        decoration: const InputDecoration(
+                          labelText: 'Shu sanadan',
+                          hintText: 'YYYY.MM.DD',
+                          isDense: true,
+                          suffixIcon: Icon(Icons.calendar_month_outlined),
                         ),
-                        helperText: 'Mijoz bu ma’lumotni avans to‘lashdan oldin ko‘radi.',
-                      ),
-                      validator: (v) => enabled && (v ?? '').trim().isEmpty
-                          ? 'Qabulni ochishdan oldin sanani kiriting'
-                          : null,
-                    ),
+                        validator: (value) => enabled && (value ?? '').trim().isEmpty
+                            ? 'Sanani tanlang' : null,
+                      )),
+                      const SizedBox(width: 8),
+                      const Text('~'),
+                      const SizedBox(width: 8),
+                      Expanded(child: TextFormField(
+                        key: const Key('preorder_eta_end'),
+                        controller: arrivalTo,
+                        readOnly: true,
+                        onTap: saving ? null : () => _date(start: false),
+                        decoration: const InputDecoration(
+                          labelText: 'Shu sanagacha',
+                          hintText: 'YYYY.MM.DD',
+                          isDense: true,
+                          suffixIcon: Icon(Icons.calendar_month_outlined),
+                        ),
+                        validator: (value) => enabled && (value ?? '').trim().isEmpty
+                            ? 'Sanani tanlang' : null,
+                      )),
+                    ]),
+                    const SizedBox(height: 8),
+                    const Text('Mijoz ikkala sanani avans to‘lashdan oldin ko‘radi.',
+                      style: TextStyle(fontSize: 12, color: Colors.black54)),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: deposit,

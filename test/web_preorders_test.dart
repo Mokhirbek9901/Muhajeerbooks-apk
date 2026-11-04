@@ -10,6 +10,7 @@ class FakePreorders extends WebPreorderApi {
   WebPreorderConfig value;
   int saves = 0, statusCalls = 0;
   Map<String, dynamic>? lastStatus;
+  Map<String, dynamic>? lastSave;
   List<Map<String, dynamic>> rows = [];
   bool failStatus = false, failRefresh = false;
   @override
@@ -24,6 +25,7 @@ class FakePreorders extends WebPreorderApi {
   ]) async {
     if (action == 'save') {
       saves++;
+      lastSave = Map<String,dynamic>.from(data);
       return {};
     }
     if (action == 'list') {
@@ -40,6 +42,8 @@ class FakePreorders extends WebPreorderApi {
     return {
       'enabled': value.enabled,
       'arrival_note': value.arrival,
+      'arrival_start': value.arrivalStart.isEmpty ? null : value.arrivalStart,
+      'arrival_end': value.arrivalEnd.isEmpty ? null : value.arrivalEnd,
       'deposit_amount': value.deposit,
       'batch_quantity': 20,
       'revision': value.revision,
@@ -146,6 +150,74 @@ void main() {
     );
     await tester.pumpWidget(const SizedBox());
   });
+  test('arrival range is parsed from server while old single date remains readable', () {
+    final range = WebPreorderConfig.fromMap({
+      'enabled': true,
+      'arrival_note': '2026.11.07 ~ 2026.11.14',
+      'arrival_start': '2026-11-07',
+      'arrival_end': '2026-11-14',
+      'deposit_amount': 5000,
+    });
+    expect(range.arrivalStart, '2026-11-07');
+    expect(range.arrivalEnd, '2026-11-14');
+    expect(range.arrival, '2026.11.07 ~ 2026.11.14');
+    expect(range.accepting, isTrue);
+    final legacy = WebPreorderConfig.fromMap({
+      'enabled': true,
+      'arrival_note': '2026.11.07',
+      'deposit_amount': 5000,
+    });
+    expect(legacy.arrivalStart, isEmpty);
+    expect(legacy.arrival, '2026.11.07');
+    expect(legacy.accepting, isTrue);
+  });
+
+  testWidgets('admin saves two dates and keeps customer-facing range', (
+    tester,
+  ) async {
+    final api = FakePreorders(const WebPreorderConfig(
+      enabled: true,
+      arrival: '2026.11.07 ~ 2026.11.14',
+      arrivalStart: '2026-11-07',
+      arrivalEnd: '2026-11-14',
+    ));
+    await tester.pumpWidget(MaterialApp(
+      home: WebPreorderAdminPage(secret: 'test', api: api),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('preorder_eta_start')), findsOneWidget);
+    expect(find.byKey(const Key('preorder_eta_end')), findsOneWidget);
+    expect(find.text('2026.11.07'), findsOneWidget);
+    expect(find.text('2026.11.14'), findsOneWidget);
+    await tester.ensureVisible(find.text('Sozlamalarni saqlash'));
+    await tester.tap(find.text('Sozlamalarni saqlash'));
+    await tester.pumpAndSettle();
+    expect(api.saves, 1);
+    expect(api.lastSave!['arrival_start'], '2026-11-07');
+    expect(api.lastSave!['arrival_end'], '2026-11-14');
+    expect(api.lastSave!['arrival_note'], '2026.11.07 ~ 2026.11.14');
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('legacy single date preloads both fields, never loses old setting', (
+    tester,
+  ) async {
+    final api = FakePreorders(const WebPreorderConfig(
+      enabled: true,
+      arrival: '2026.11.07',
+    ));
+    await tester.pumpWidget(MaterialApp(
+      home: WebPreorderAdminPage(secret: 'test', api: api),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('2026.11.07'), findsNWidgets(2));
+    await tester.ensureVisible(find.text('Sozlamalarni saqlash'));
+    await tester.tap(find.text('Sozlamalarni saqlash'));
+    await tester.pumpAndSettle();
+    expect(api.lastSave!['arrival_start'], '2026-11-07');
+    expect(api.lastSave!['arrival_end'], '2026-11-07');
+  });
+
   testWidgets('linked book uses admin arrival and deposit without asking for book upload', (tester) async {
     final api = FakePreorders(const WebPreorderConfig(enabled: true, arrival: '10–14 kun',
       deposit: 5000, depositMax: 10000, bookId: 'book-id', bookTitle: 'Jinoyat va jazo', termsToken: 'terms'));

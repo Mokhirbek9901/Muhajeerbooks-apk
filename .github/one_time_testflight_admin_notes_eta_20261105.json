@@ -1,0 +1,20 @@
+{
+  "purpose": "One approved internal TestFlight only build for Muhajeer Books iOS",
+  "features": [
+    "C-variant sotuv tarixi: 30 kun / Oy / Yil / Barcha davr (2024-aprel)",
+    "Faqat admin uchun buyurtma izohi; mijozga ko'rinmaydi",
+    "Oldindan buyurtma uchun boshlanish va tugash sanalari"
+  ],
+  "owner_requested": true,
+  "visibility": "TestFlight only, never public App Store",
+  "version": "2.5.24",
+  "source_branch": "feat/admin-private-order-notes-preorder-date-range-20261105",
+  "app_store_public_release_allowed": false,
+  "play_market_release_allowed": false,
+  "notes_rpc_edge_version": 44,
+  "includes_whitelisted_admin_rpc": true,
+  "request_revision": 3,
+  "build_runner": "macos-26-intel",
+  "ios_build_number_strategy": "100000 + GITHUB_RUN_NUMBER",
+  "public_release_allowed": false
+}

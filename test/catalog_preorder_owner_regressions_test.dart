@@ -13,6 +13,12 @@ void main() {
     expect(code.contains('_WebBookReviews(book: b)'), isFalse);
     expect(code.contains('Sharh qoldirish'), isFalse,
         reason: 'The owner permanently removed customer-written reviews.');
+    expect(code.contains('if (requestReview)'), isFalse,
+        reason: 'Old App Store builds must not expose a delayed review prompt.');
+    expect(code.contains('_reviewPurchasedBook('), isFalse,
+        reason: 'No hidden review dialog should remain in customer order history.');
+    expect(code.contains('submitBookReview('), isFalse,
+        reason: 'No customer review submission code should remain reachable.');
   });
 
   test('Sold-out per-book preorders keep both ETA dates and deposits', () {

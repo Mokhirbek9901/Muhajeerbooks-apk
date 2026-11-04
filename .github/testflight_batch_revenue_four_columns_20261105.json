@@ -11,5 +11,7 @@
   "sold_receipts": "existing dated_order_revenue, excludes legacy sales without known prices",
   "production_release": false,
   "database_migration": false,
-  "iOS_testflight_only": true
+  "iOS_testflight_only": true,
+  "test_update": "Correct standalone missing-value count in regression test; no app source changes",
+  "retry_after_test_fix": true
 }

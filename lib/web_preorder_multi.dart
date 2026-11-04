@@ -28,6 +28,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
   Uint8List? proof;
   String? proofPath, error;
   bool loading = true, saving = false, payment = false, picking = false, completed = false;
+  bool noticeAccepted = false;
   bool allowPop = false, leaving = false;
   late final String initialName, initialPhone;
   int get quantity => books.fold(0, (sum, b) => sum + b.quantity);
@@ -157,7 +158,12 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
     try {
       final next = await api.config();
       if (!mounted) return;
-      setState(() { config = next; loading = false; error = null; });
+      setState(() {
+        if (config?.customerNotice != next.customerNotice) noticeAccepted = false;
+        config = next;
+        loading = false;
+        error = null;
+      });
     } catch (_) {
       if (mounted) setState(() { loading = false; error = 'Shartlarni yuklab bo‘lmadi. Qayta urining.'; });
     }
@@ -168,8 +174,8 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
     try {
       final next = await api.config();
       if (!mounted) return false;
-      if (!next.accepting || old?.revision != next.revision || old?.deposit != next.deposit || old?.arrival != next.arrival) {
-        setState(() { config = next; payment = false; });
+      if (!next.accepting || old?.revision != next.revision || old?.deposit != next.deposit || old?.arrival != next.arrival || old?.customerNotice != next.customerNotice) {
+        setState(() { config = next; payment = false; noticeAccepted = false; });
         message('Qabul shartlari o‘zgardi. Sana va avansni qayta tekshiring.');
         return false;
       }
@@ -224,6 +230,10 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
 
   Future<void> next() async {
     if (saving || picking || completed || !validateDetails()) return;
+    if ((config?.customerNotice.trim().isNotEmpty ?? false) && !noticeAccepted) {
+      message('Muhim izohni o‘qib, tanishganingizni belgilang.');
+      return;
+    }
     FocusScope.of(context).unfocus();
     final missing = books.indexWhere((b) => b.image == null);
     if (missing >= 0) { message('${missing + 1}-kitob rasmini tanlang.'); return; }
@@ -238,6 +248,10 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
   Future<void> submit() async {
     if (saving || picking || completed || !await _requireProfile()) return;
     if (!mounted || !validateDetails()) return;
+    if ((config?.customerNotice.trim().isNotEmpty ?? false) && !noticeAccepted) {
+      message('Muhim izohni o‘qib, tasdiqlang.');
+      return;
+    }
     if (!validPreorderContact(instagram.text, contactPlatform)) { message('${preorderContactName(contactPlatform)} username kiriting: @username'); return; }
     if (proof == null) { message('Jami avans uchun to‘lov chekini yuklang.'); return; }
     setState(() => saving = true);
@@ -317,6 +331,40 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
             const Text('Sana taxminiy. Kitoblarni shu muddatga qarab buyurtma qiling.'),
           ])),
           const SizedBox(height: 14),
+          if ((config?.customerNotice.trim().isNotEmpty ?? false)) ...[
+            AppSurface(
+              backgroundColor: const Color(0xFFFFF2DA),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Row(children: [
+                    Icon(Icons.warning_amber_rounded, color: Color(0xFFAD5C00)),
+                    SizedBox(width: 8),
+                    Expanded(child: Text('Oldindan buyurtma uchun muhim izoh',
+                      style: TextStyle(fontWeight: FontWeight.w900))),
+                  ]),
+                  const SizedBox(height: 8),
+                  Text(config!.customerNotice,
+                    key: const Key('preorder_customer_notice_visible'),
+                    style: const TextStyle(fontSize: 14, height: 1.4)),
+                  if (config!.accepting && !payment) ...[
+                    const SizedBox(height: 10),
+                    CheckboxListTile(
+                      key: const Key('preorder_notice_acknowledgement'),
+                      value: noticeAccepted,
+                      onChanged: saving || picking ? null
+                          : (v) => setState(() => noticeAccepted = v ?? false),
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: const Text('Muhim izohni o‘qidim va tushundim',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
           if (error != null || config?.accepting != true) ...[
             Text(error ?? 'Oldindan buyurtma qabuli hozircha yopiq. Avans yubormang.'),
             OutlinedButton.icon(onPressed: _reload, icon: const Icon(Icons.refresh), label: const Text('Yangilash')),

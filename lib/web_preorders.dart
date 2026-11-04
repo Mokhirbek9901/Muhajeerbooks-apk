@@ -1167,7 +1167,15 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
       setState(() {
         config = c;
         enabled = c.enabled;
-        final legacyDate = RegExp(r'^\d{4}[.]\d{2}[.]\d{2}
+        final singleDate = RegExp(r'^[0-9]{4}[.][0-9]{2}[.][0-9]{2}$')
+            .hasMatch(c.arrival.trim());
+        arrivalFrom.text = c.arrivalStart.isNotEmpty
+            ? c.arrivalStart.replaceAll('-', '.')
+            : (singleDate ? c.arrival : '');
+        arrivalTo.text = c.arrivalEnd.isNotEmpty
+            ? c.arrivalEnd.replaceAll('-', '.')
+            : (singleDate ? c.arrival : '');
+        deposit.text = '${c.deposit}';
         batch.text = '${c.batchQuantity}';
         error = null;
         requests = api.admin(widget.secret, 'list');
@@ -1183,33 +1191,33 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
     final first = arrivalFrom.text.trim();
     final second = arrivalTo.text.trim();
     if (enabled && (first.isEmpty || second.isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Qabulni ochishdan oldin sanani kiriting')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Qabulni ochishdan oldin sanani kiriting'),
+      ));
       return;
     }
     if (first.isEmpty != second.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ikkala sanani ham tanlang.')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Ikkala sanani tanlang'),
+      ));
       return;
     }
     if (!form.currentState!.validate()) return;
-    DateTime? startDate, endDate;
+    DateTime? fromDate, toDate;
     if (first.isNotEmpty) {
       try {
-        startDate = DateFormat('yyyy.MM.dd').parseStrict(first);
-        endDate = DateFormat('yyyy.MM.dd').parseStrict(second);
+        fromDate = DateFormat('yyyy.MM.dd').parseStrict(first);
+        toDate = DateFormat('yyyy.MM.dd').parseStrict(second);
       } catch (_) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sanalarni qayta tanlang.')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Sanalarni tekshiring'),
+        ));
         return;
       }
-      if (startDate == null || endDate == null || endDate.isBefore(startDate)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tugash sanasi boshlanishdan oldin bo‘lmasin.')),
-        );
+      if (toDate.isBefore(fromDate)) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Tugash sanasi boshlanishdan oldin bo‘lmasin'),
+        ));
         return;
       }
     }
@@ -1217,28 +1225,27 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
     try {
       await api.admin(widget.secret, 'save', {
         'enabled': enabled,
-        'arrival_note': startDate != null && endDate != null
-            ? '${DateFormat('yyyy.MM.dd').format(startDate)} ~ ${DateFormat('yyyy.MM.dd').format(endDate)}'
+        'arrival_note': fromDate != null && toDate != null
+            ? '${DateFormat('yyyy.MM.dd').format(fromDate)} ~ ${DateFormat('yyyy.MM.dd').format(toDate)}'
             : config!.arrival,
-        if (startDate != null && endDate != null) ...{
-          'arrival_start': DateFormat('yyyy-MM-dd').format(startDate),
-          'arrival_end': DateFormat('yyyy-MM-dd').format(endDate),
+        if (fromDate != null && toDate != null) ...{
+          'arrival_start': DateFormat('yyyy-MM-dd').format(fromDate),
+          'arrival_end': DateFormat('yyyy-MM-dd').format(toDate),
         },
         'deposit_amount': int.parse(deposit.text),
         'batch_quantity': int.parse(batch.text),
         'revision': config!.revision,
       });
       await _load();
-      if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Oldindan buyurtma sozlamalari saqlandi.'),
-          ),
-        );
-    } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Oldindan buyurtma sozlamalari saqlandi'),
+        ));
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${error}')),
+      );
     } finally {
       if (mounted) setState(() => saving = false);
     }
@@ -1246,40 +1253,43 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
 
   Future<void> _date({required bool start}) async {
     final now = koreaNow();
-    final today = DateTime(now.year,now.month,now.day);
-    final other = arrivalFrom.text.trim();
-    DateTime? earliestEnd;
-    try {
-      if (!start && other.isNotEmpty) {
-        earliestEnd = DateFormat('yyyy.MM.dd').parseStrict(other);
-      }
-    } catch (_) { /* Ignore an unrecognized legacy date. */ }
-    final min = earliestEnd != null && earliestEnd.isAfter(today)
-        ? earliestEnd : today;
-    final controller = start ? arrivalFrom : arrivalTo;
+    final today = DateTime(now.year, now.month, now.day);
+    var minimum = today;
+    if (!start && arrivalFrom.text.trim().isNotEmpty) {
+      try {
+        final from = DateFormat('yyyy.MM.dd').parseStrict(arrivalFrom.text);
+        if (from.isAfter(minimum)) minimum = from;
+      } catch (_) {}
+    }
+    final editor = start ? arrivalFrom : arrivalTo;
     DateTime? current;
     try {
-      if (controller.text.isNotEmpty) {
-        current = DateFormat('yyyy.MM.dd').parseStrict(controller.text);
+      if (editor.text.isNotEmpty) {
+        current = DateFormat('yyyy.MM.dd').parseStrict(editor.text);
       }
-    } catch (_) { /* Open the calendar at the first allowed date. */ }
-    final max = DateTime(now.year + 3,12,31);
-    final initial = current == null || current.isBefore(min)
-        ? min : current.isAfter(max) ? max : current;
-    final chosen = await showDatePicker(
+    } catch (_) {}
+    final maximum = DateTime(now.year + 3, 12, 31);
+    final initial = current == null || current.isBefore(minimum)
+        ? minimum
+        : current.isAfter(maximum) ? maximum : current;
+    final picked = await showDatePicker(
       context: context,
       initialDate: initial,
-      firstDate: min,
-      lastDate: max,
+      firstDate: minimum,
+      lastDate: maximum,
       helpText: start ? 'Taxminiy: shu sanadan' : 'Taxminiy: shu sanagacha',
     );
-    if (chosen == null || !mounted) return;
+    if (picked == null || !mounted) return;
     setState(() {
-      controller.text = DateFormat('yyyy.MM.dd').format(chosen);
+      editor.text = DateFormat('yyyy.MM.dd').format(picked);
       if (start && arrivalTo.text.isNotEmpty) {
-        final oldEnd = DateFormat('yyyy.MM.dd').parseStrict(arrivalTo.text);
-        if (oldEnd.isBefore(chosen)) {
-          arrivalTo.text = DateFormat('yyyy.MM.dd').format(chosen);
+        try {
+          final to = DateFormat('yyyy.MM.dd').parseStrict(arrivalTo.text);
+          if (to.isBefore(picked)) {
+            arrivalTo.text = DateFormat('yyyy.MM.dd').format(picked);
+          }
+        } catch (_) {
+          arrivalTo.text = DateFormat('yyyy.MM.dd').format(picked);
         }
       }
     });
@@ -1651,904 +1661,43 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
                     const SizedBox(height: 12),
                     const Text('Taxminiy kelish sanalari',
                       style: TextStyle(fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 9),
+                    const SizedBox(height: 8),
                     Row(children: [
                       Expanded(child: TextFormField(
                         key: const Key('preorder_eta_start'),
                         controller: arrivalFrom,
                         readOnly: true,
                         onTap: saving ? null : () => _date(start: true),
-                        style: const TextStyle(fontSize: 14),
                         decoration: const InputDecoration(
                           labelText: 'Shu sanadan',
                           hintText: 'YYYY.MM.DD',
-                          suffixIcon: Icon(Icons.calendar_month_outlined),
                           isDense: true,
+                          suffixIcon: Icon(Icons.calendar_month_outlined),
                         ),
-                        validator: (v) => enabled && (v ?? '').isEmpty
+                        validator: (value) => enabled && (value ?? '').trim().isEmpty
                             ? 'Sanani tanlang' : null,
                       )),
                       const SizedBox(width: 8),
-                      const Text('~', style: TextStyle(fontWeight: FontWeight.w900)),
+                      const Text('~'),
                       const SizedBox(width: 8),
                       Expanded(child: TextFormField(
                         key: const Key('preorder_eta_end'),
                         controller: arrivalTo,
                         readOnly: true,
                         onTap: saving ? null : () => _date(start: false),
-                        style: const TextStyle(fontSize: 14),
                         decoration: const InputDecoration(
                           labelText: 'Shu sanagacha',
                           hintText: 'YYYY.MM.DD',
-                          suffixIcon: Icon(Icons.calendar_month_outlined),
                           isDense: true,
+                          suffixIcon: Icon(Icons.calendar_month_outlined),
                         ),
-                        validator: (v) => enabled && (v ?? '').isEmpty
+                        validator: (value) => enabled && (value ?? '').trim().isEmpty
                             ? 'Sanani tanlang' : null,
                       )),
                     ]),
-                    const SizedBox(height: 7),
-                    const Text(
-                      'Mijozga “Taxminiy: shu sanadan ~ shu sanagacha” '
-                      'deb ko‘rsatiladi.',
-                      style: TextStyle(color: Colors.black54,fontSize: 12),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: deposit,
-                      readOnly: saving,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      decoration: const InputDecoration(
-                        labelText: 'Bir kitob uchun avans (₩)',
-                        helperText:
-                            'Kamida ₩5 000; summani o‘zingiz belgilang.',
-                      ),
-                      validator: (v) {
-                        final n = int.tryParse(v ?? '') ?? 0;
-                        return n < 5000 || n > 10000000
-                            ? '₩5 000–₩10 000 000 oralig‘ida kiriting'
-                            : null;
-                      },
-                    ),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        for (final amount in [5000, 10000])
-                          ActionChip(
-                            label: Text(webPreorderMoney(amount)),
-                            onPressed: saving
-                                ? null
-                                : () => deposit.text = '$amount',
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: batch,
-                      readOnly: saving,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      decoration: const InputDecoration(
-                        labelText: 'Partiyada keladigan kitoblar soni',
-                        helperText: '0 bo‘lsa son mijozga ko‘rsatilmaydi.',
-                      ),
-                      validator: (v) {
-                        final n = int.tryParse(v ?? '') ?? -1;
-                        return n < 0 || n > 100000 ? 'Sonni tekshiring' : null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton.icon(
-                      onPressed: saving ? null : _save,
-                      icon: const Icon(Icons.save_outlined),
-                      label: Text(
-                        saving ? 'Saqlanmoqda…' : 'Sozlamalarni saqlash',
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    const Text(
-                      'Oldindan buyurtmalar',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 22,
-                      ),
-                    ),
-                    const Text(
-                      'Chekni bankdagi to‘lov bilan tekshiring. Bitta so‘rovdagi barcha kitoblar birgalikda boshqariladi.',
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      onChanged: (value) =>
-                          setState(() => search = value.trim().toLowerCase()),
-                      decoration: const InputDecoration(
-                        labelText:
-                            'Kitob, mijoz yoki telefon bo‘yicha qidirish',
-                        prefixIcon: Icon(Icons.search),
-                      ),
-                    ),
-                    Wrap(
-                      spacing: 6,
-                      children: [
-                        for (final entry in const {
-                          'all': 'Barchasi',
-                          'waiting': 'Tekshirish kerak',
-                          'accepted': 'Qabul qilingan',
-                          'arrived': 'Yangi kelgan',
-                          'cancelled': 'Bekor qilingan',
-                        }.entries)
-                          ChoiceChip(
-                            label: Text(entry.value),
-                            selected: statusFilter == entry.key,
-                            onSelected: (_) =>
-                                setState(() => statusFilter = entry.key),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    FutureBuilder<dynamic>(
-                      future: requests,
-                      builder: (ctx, snap) {
-                        if (snap.hasError)
-                          return OutlinedButton.icon(
-                            onPressed: () => setState(() {
-                              requests = api.admin(widget.secret, 'list');
-                              hasMore = true;
-                            }),
-                            icon: const Icon(Icons.refresh),
-                            label: const Text(
-                              'Buyurtmalar yuklanmadi. Qayta yuklash',
-                            ),
-                          );
-                        if (!snap.hasData)
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        final loaded = (snap.data as List)
-                            .whereType<Map>()
-                            .toList();
-                        final rows = loaded
-                            .where(
-                              (r) =>
-                                  (statusFilter == 'all'
-                                      ? r['status'] != 'cancelled'
-                                      : r['status'] == statusFilter) &&
-                                  (search.isEmpty ||
-                                      '${r['book_title']} ${r['request_items']} ${r['customer_name']} ${r['phone']}'
-                                          .toLowerCase()
-                                          .contains(search)),
-                            )
-                            .toList();
-                        if (rows.isEmpty)
-                          return Column(
-                            children: [
-                              const AppSurface(
-                                child: Text(
-                                  'Bu filtr bo‘yicha so‘rov topilmadi. Boshqa filtr yoki qidiruvni tanlang.',
-                                ),
-                              ),
-                              if (hasMore && loaded.length >= 200)
-                                OutlinedButton(
-                                  onPressed: loadingMore
-                                      ? null
-                                      : () => _more(loaded),
-                                  child: const Text('Yana so‘rovlarni yuklash'),
-                                ),
-                            ],
-                          );
-                        const labels = {
-                          'waiting': 'Chek tekshirilmoqda',
-                          'accepted': 'Qabul qilindi',
-                          'arrived': 'Keldi',
-                          'cancelled': 'Bekor qilindi',
-                        };
-                        return Column(
-                          children:
-                              rows
-                                  .map<Widget>(
-                                    (r) => Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 14,
-                                      ),
-                                      child: AppSurface(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              '${r['book_title']} • ${r['quantity']} dona',
-                                              style: const TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.w900,
-                                              ),
-                                            ),
-                                            if ((r['request_items'] as List?)
-                                                    ?.isNotEmpty ==
-                                                true)
-                                              SizedBox(
-                                                height:
-                                                    ((r['request_items']
-                                                                    as List)
-                                                                .length *
-                                                            88.0)
-                                                        .clamp(88.0, 352.0)
-                                                        .toDouble(),
-                                                child: ListView.builder(
-                                                  primary: false,
-                                                  itemCount:
-                                                      (r['request_items']
-                                                              as List)
-                                                          .length,
-                                                  itemBuilder: (_, index) {
-                                                    final item =
-                                                        (r['request_items']
-                                                            as List)[index];
-                                                    return Material(
-                                                      type: MaterialType
-                                                          .transparency,
-                                                      child: ListTile(
-                                                        contentPadding:
-                                                            EdgeInsets.zero,
-                                                        leading: SizedBox(
-                                                          width: 48,
-                                                          height: 64,
-                                                          child: Image.network(
-                                                            '${item['book_image_url'] ?? ''}',
-                                                            fit: BoxFit.contain,
-                                                            errorBuilder:
-                                                                (
-                                                                  _,
-                                                                  __,
-                                                                  ___,
-                                                                ) => const Icon(
-                                                                  Icons
-                                                                      .menu_book_outlined,
-                                                                ),
-                                                          ),
-                                                        ),
-                                                        title: Text(
-                                                          '${item['book_title']}',
-                                                        ),
-                                                        subtitle: Text(
-                                                          '${item['quantity']} dona',
-                                                        ),
-                                                        trailing: const Icon(
-                                                          Icons.zoom_in,
-                                                        ),
-                                                        onTap: () => _view(
-                                                          '${item['book_image_url'] ?? ''}',
-                                                        ),
-                                                      ),
-                                                    );
-                                                  },
-                                                ),
-                                              ),
-                                            SelectableText(
-                                              '${r['customer_name']}\n${r['phone']}',
-                                            ),
-                                            if ((r['instagram_handle'] ?? '').toString().isNotEmpty)
-                                              SelectableText('${r['contact_platform'] == 'telegram' ? 'Telegram' : 'Instagram'}: @${r['instagram_handle']}'),
-                                            Text(
-                                              'Yuborilgan: ${webPreorderTime(r['created_at'])}',
-                                            ),
-                                            Text(
-                                              'Avans: ${webPreorderMoney((r['deposit_amount'] as num).toInt())}',
-                                            ),
-                                            Text(
-                                              'Kelish muddati: ${r['arrival_note']}',
-                                            ),
-                                            Text(
-                                              'Holat: ${labels[r['status']] ?? r['status']}',
-                                            ),
-                                            Text(
-                                              'Buyurtma: ${r['id'].toString().substring(0, 8)}',
-                                            ),
-                                            if ((r['status_note'] ?? '')
-                                                .toString()
-                                                .isNotEmpty)
-                                              Text('Izoh: ${r['status_note']}'),
-                                            Text(
-                                              r['notification_state'] == null
-                                                  ? 'Holat yangilanganda mijozga xabar beriladi.'
-                                                  : r['notification_state'] ==
-                                                        'sent'
-                                                  ? 'Mijoz xabari: ilovaga yozildi, web push yuborildi.'
-                                                  : r['notification_state'] ==
-                                                        'failed'
-                                                  ? 'Mijoz xabari: ilovaga yozildi. Push yetkazilmadi.'
-                                                  : r['notification_state'] ==
-                                                        'no_subscribers'
-                                                  ? 'Mijoz xabari: ilovaga yozildi. Push ruxsati yo‘q.'
-                                                  : 'Mijoz xabari: ilovaga yozildi, push navbatda.',
-                                            ),
-                                            if ((r['history'] as List?)
-                                                    ?.isNotEmpty ==
-                                                true)
-                                              ExpansionTile(
-                                                title: const Text(
-                                                  'Holat tarixi',
-                                                ),
-                                                children: [
-                                                  for (final h
-                                                      in r['history'] as List)
-                                                    Material(
-                                                      type: MaterialType
-                                                          .transparency,
-                                                      child: ListTile(
-                                                        title: Text(
-                                                          '${labels[h['status']] ?? h['status']}',
-                                                        ),
-                                                        subtitle: Text(
-                                                          '${h['message']}\n${webPreorderTime(h['created_at'])}',
-                                                        ),
-                                                      ),
-                                                    ),
-                                                ],
-                                              ),
-
-                                            Wrap(
-                                              spacing: 8,
-                                              children: [
-                                                OutlinedButton.icon(
-                                                  onPressed: () => _view(
-                                                    '${r['book_image_url'] ?? ''}',
-                                                  ),
-                                                  icon: const Icon(
-                                                    Icons.menu_book_outlined,
-                                                  ),
-                                                  label: const Text(
-                                                    'Kitob rasmi',
-                                                  ),
-                                                ),
-                                                OutlinedButton.icon(
-                                                  onPressed: () => _view(
-                                                    '${r['payment_proof_url'] ?? ''}',
-                                                  ),
-                                                  icon: const Icon(
-                                                    Icons.receipt_outlined,
-                                                  ),
-                                                  label: const Text(
-                                                    'Avans cheki',
-                                                  ),
-                                                ),
-                                                OutlinedButton.icon(
-                                                  onPressed: () =>
-                                                      _checkoutPayment(r),
-                                                  icon: const Icon(
-                                                    Icons
-                                                        .account_balance_wallet_outlined,
-                                                  ),
-                                                  label: const Text(
-                                                    'Qolgan to‘lov va chek',
-                                                  ),
-                                                ),
-                                                for (final action in <String>[
-                                                  if (r['status'] == 'waiting')
-                                                    'accepted',
-                                                  if (r['status'] == 'accepted')
-                                                    'arrived',
-                                                  if (r['status'] !=
-                                                      'cancelled')
-                                                    'cancelled',
-                                                  if (r['status'] ==
-                                                      'cancelled')
-                                                    'waiting',
-                                                ])
-                                                  OutlinedButton(
-                                                    onPressed:
-                                                        statusSaving.contains(
-                                                          '${r['id']}',
-                                                        )
-                                                        ? null
-                                                        : () => _status(
-                                                            r,
-                                                            action,
-                                                          ),
-                                                    child: Text(
-                                                      action == 'accepted'
-                                                          ? 'Qabul qilish'
-                                                          : action == 'arrived'
-                                                          ? ((r['request_items']
-                                                                                as List?)
-                                                                            ?.length !=
-                                                                        null &&
-                                                                    (r['request_items']
-                                                                                as List)
-                                                                            .length >
-                                                                        1
-                                                                ? 'Barcha kitoblar keldi'
-                                                                : 'Kitob keldi')
-                                                          : action == 'waiting'
-                                                          ? 'Qayta ochish'
-                                                          : 'Bekor qilish',
-                                                    ),
-                                                  ),
-                                                if (statusSaving.contains(
-                                                  '${r['id']}',
-                                                ))
-                                                  const Padding(
-                                                    padding: EdgeInsets.all(10),
-                                                    child: Text('Saqlanmoqda…'),
-                                                  ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                  .toList()
-                                ..addAll([
-                                  if (hasMore && loaded.length >= 200)
-                                    OutlinedButton.icon(
-                                      onPressed: loadingMore
-                                          ? null
-                                          : () => _more(loaded),
-                                      icon: const Icon(Icons.expand_more),
-                                      label: Text(
-                                        loadingMore
-                                            ? 'Yuklanmoqda…'
-                                            : 'Yana so‘rovlarni yuklash',
-                                      ),
-                                    ),
-                                ]),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-      ),
-    ),
-  );
-}
-)
-            .hasMatch(c.arrival.trim());
-        arrivalFrom.text = c.arrivalStart.isNotEmpty
-            ? c.arrivalStart.replaceAll('-', '.')
-            : legacyDate ? c.arrival : '';
-        arrivalTo.text = c.arrivalEnd.isNotEmpty
-            ? c.arrivalEnd.replaceAll('-', '.')
-            : legacyDate ? c.arrival : '';
-        deposit.text = '${c.deposit}';
-        batch.text = '${c.batchQuantity}';
-        error = null;
-        requests = api.admin(widget.secret, 'list');
-        hasMore = true;
-      });
-    } catch (e) {
-      if (mounted) setState(() => error = '$e');
-    }
-  }
-
-  Future<void> _save() async {
-    if (saving) return;
-    if (enabled && arrival.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Qabulni ochishdan oldin sanani kiriting'),
-        ),
-      );
-      return;
-    }
-    if (!form.currentState!.validate()) return;
-    setState(() => saving = true);
-    try {
-      await api.admin(widget.secret, 'save', {
-        'enabled': enabled,
-        'arrival_note': arrival.text.trim(),
-        'deposit_amount': int.parse(deposit.text),
-        'batch_quantity': int.parse(batch.text),
-        'revision': config!.revision,
-      });
-      await _load();
-      if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Oldindan buyurtma sozlamalari saqlandi.'),
-          ),
-        );
-    } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
-    } finally {
-      if (mounted) setState(() => saving = false);
-    }
-  }
-
-  Future<void> _date() async {
-    final now = koreaNow();
-    final value = await showDatePicker(
-      context: context,
-      initialDate: now,
-      firstDate: DateTime(now.year, now.month, now.day),
-      lastDate: DateTime(now.year + 3),
-    );
-    if (value != null) arrival.text = DateFormat('yyyy.MM.dd').format(value);
-  }
-
-  Future<void> _status(Map row, String status) async {
-    final id = '${row['id']}';
-    if (statusSaving.contains(id)) return;
-    var reason = '';
-    final itemCount = (row['request_items'] as List?)?.length ?? 0;
-    final needsReason = status == 'cancelled' || status == 'waiting';
-    final key = GlobalKey<FormState>();
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(
-          status == 'accepted'
-              ? 'Avans chekini tasdiqlash'
-              : status == 'arrived'
-              ? 'Kitob keldimi?'
-              : status == 'waiting'
-              ? 'Qayta ko‘rib chiqish'
-              : 'Buyurtmani bekor qilish',
-        ),
-        content: Form(
-          key: key,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (itemCount > 1)
-                Text(
-                  '$itemCount turdagi kitobning barchasi uchun amal bajariladi.',
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-              Text(
-                status == 'accepted'
-                    ? 'Chek va bankdagi to‘lov mosligini tekshiring. Mijozga tasdiq xabari yuboriladi.'
-                    : status == 'cancelled'
-                    ? 'Mijozga sabab yoziladi. Avans bu tugma orqali avtomatik qaytarilmaydi.'
-                    : 'Mijozning bildirishnomalariga yangi holat yoziladi.',
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                onChanged: (v) => reason = v,
-                maxLength: 500,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  labelText: needsReason
-                      ? 'Sababi (majburiy)'
-                      : 'Mijozga izoh (ixtiyoriy)',
-                ),
-                validator: (v) => needsReason && (v ?? '').trim().length < 3
-                    ? 'Sababini yozing'
-                    : null,
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Yopish'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (key.currentState!.validate()) Navigator.pop(ctx, true);
-            },
-            child: const Text('Tasdiqlash'),
-          ),
-        ],
-      ),
-    );
-    final note = reason.trim();
-    if (confirmed != true || !mounted) return;
-    setState(() => statusSaving.add(id));
-    try {
-      final result = await api.admin(widget.secret, 'status', {
-        'id': id,
-        'status': status,
-        'version': row['status_version'] ?? 1,
-        'note': note,
-      });
-      if (result is! Map || result['status'] != status)
-        throw StateError('Holat tasdiqlanmadi. Yangilab tekshiring.');
-      var refreshFailed = false;
-      try {
-        final updated = await api.admin(widget.secret, 'list');
-        if (!mounted) return;
-        setState(() {
-          requests = Future.value(updated);
-          hasMore = (updated as List).length == 200;
-        });
-      } catch (_) {
-        refreshFailed = true;
-        if (!mounted) return;
-        setState(() {
-          row['status'] = status;
-          row['status_version'] =
-              result['version'] ?? (row['status_version'] as int? ?? 1) + 1;
-          row['status_note'] = note;
-          row['notification_state'] = 'pending';
-        });
-      }
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            (result['inbox_created'] == true
-                    ? 'Holat saqlandi. Mijozning bildirishnomalariga xabar yozildi.'
-                    : 'Holat saqlandi.') +
-                (refreshFailed ? ' Ro‘yxatni qayta yuklang.' : ''),
-          ),
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          requests = api.admin(widget.secret, 'list');
-        });
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
-      }
-    } finally {
-      if (mounted) setState(() => statusSaving.remove(id));
-    }
-  }
-
-  /// Legacy prepaid order balance is separate from the original advance.
-  /// Only the authenticated administrator can see the remaining receipt.
-  Future<void> _checkoutPayment(Map row) async {
-    final id = '${row['id']}';
-    try {
-      final raw = await api.admin(widget.secret, 'checkout_detail', {'id': id});
-      if (!mounted) return;
-      if (raw is! Map || raw['price_ready'] != true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Yakuniy narx hali tasdiqlanmagan yoki hisob ochilmagan.',
-            ),
-          ),
-        );
-        return;
-      }
-      final due = (raw['amount_due'] as num?)?.toInt() ?? 0;
-      final deposited = (raw['deposit_credit'] as num?)?.toInt() ?? 0;
-      final submitted = (raw['proof_submitted_amount'] as num?)?.toInt() ?? 0;
-      final refund = (raw['shipping_refund_due'] as num?)?.toInt() ?? 0;
-      final extra = (raw['extra_total'] as num?)?.toInt() ?? 0;
-      final status = '${raw['payment_state'] ?? ''}';
-      final receipt = '${raw['balance_proof_url'] ?? ''}';
-      final added = ((raw['extras'] as List?) ?? const [])
-          .whereType<Map>()
-          .toList();
-      final confirm = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Oldindan zakaz • Qolgan to‘lov'),
-          content: SizedBox(
-            width: 430,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Kitob: ${row['book_title'] ?? ''}'),
-                  Text('Avans: ${webPreorderMoney(deposited)}'),
-                  Text('Qo‘shimcha kitoblar: ${webPreorderMoney(extra)}'),
-                  for (final item in added)
-                    Text('• ${item['title']} × ${item['quantity']}'),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Qolgan summa: ${webPreorderMoney(due)}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 20,
-                    ),
-                  ),
-                  Text('Holat: $status'),
-                  if (submitted > 0)
-                    Text(
-                      'Yuborilgan chek summasi: ${webPreorderMoney(submitted)}',
-                    ),
-                  if (refund > 0) ...[
                     const SizedBox(height: 8),
-                    Text(
-                      'MUHIM: Mijozga ${webPreorderMoney(refund)} '
-                      'yetkazish puli qaytarilishi kerak.',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w900,
-                        color: Colors.deepOrange,
-                      ),
-                    ),
-                    const Text(
-                      'Bepul Gyeongsan yetkazish tanlangan. '
-                      'Bankdagi to‘lovni tekshirib, ortiqcha pulni qaytaring. '
-                      'Bu xabar pul qaytarildi degani emas.',
-                    ),
-                  ],
-                  const Divider(height: 16),
-                  Text(
-                    raw['delivery_saved'] == true
-                        ? 'Qabul qiluvchi: ' +
-                              (raw['recipient_name'] ?? '').toString()
-                        : 'Yetkazish ma’lumotlari hali kiritilmagan',
-                  ),
-                  if (raw['delivery_saved'] == true) ...[
-                    Text(
-                      'Telefon: ' + (raw['recipient_phone'] ?? '').toString(),
-                    ),
-                    Text(
-                      'Yetkazish: ' + (raw['delivery_type'] ?? '').toString(),
-                    ),
-                    Text(
-                      'Manzil: ' + (raw['delivery_address'] ?? '').toString(),
-                    ),
-                  ],
-                  if (receipt.isNotEmpty)
-                    TextButton.icon(
-                      onPressed: () {
-                        Navigator.pop(ctx, false);
-                        _view(receipt);
-                      },
-                      icon: const Icon(Icons.receipt_long),
-                      label: const Text('Qolgan to‘lov chekini ko‘rish'),
-                    ),
-                  if (status == 'proof_submitted')
-                    const Text(
-                      'Tasdiqlashdan oldin bankdagi haqiqiy tushumni tekshiring.',
-                    ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Yopish'),
-            ),
-            if (status == 'proof_submitted' ||
-                (due == 0 && status == 'requested'))
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Qolgan to‘lovni tasdiqlash'),
-              ),
-          ],
-        ),
-      );
-      if (confirm != true || !mounted) return;
-      final result = await api.admin(widget.secret, 'checkout_confirm', {
-        'id': id,
-      });
-      if (result is! Map || result['payment_state'] != 'verified') {
-        throw StateError('To‘lov tasdiqlanmadi');
-      }
-      await _load();
-      if (mounted)
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('To‘lov tasdiqlandi ✅')));
-    } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Qolgan to‘lov tekshirilmadi: $e')),
-        );
-    }
-  }
-
-  Future<void> _more(List<Map> loaded) async {
-    if (loadingMore) return;
-    setState(() => loadingMore = true);
-    try {
-      final next = await api.admin(widget.secret, 'list', {
-        'offset': loaded.length,
-        'limit': 200,
-      }) as List;
-      if (!mounted) return;
-      final merged = <String, Map>{
-        for (final row in [...loaded, ...next.whereType<Map>()])
-          '${row['id']}': row,
-      };
-      setState(() {
-        requests = Future.value(merged.values.toList());
-        hasMore = next.length == 200;
-      });
-    } catch (_) {
-      if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Keyingi so‘rovlar yuklanmadi. Qayta urining.'),
-          ),
-        );
-    } finally {
-      if (mounted) setState(() => loadingMore = false);
-    }
-  }
-
-  void _view(String url) {
-    if (url.isEmpty) return;
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => Dialog(
-        child: SizedBox(
-          width: 700,
-          height: MediaQuery.sizeOf(ctx).height * .8,
-          child: Column(
-            children: [
-              Align(
-                alignment: Alignment.centerRight,
-                child: IconButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  icon: const Icon(Icons.close),
-                ),
-              ),
-              Expanded(
-                child: InteractiveViewer(
-                  child: Image.network(
-                    url,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Text(
-                      'Rasmni yangilash uchun ro‘yxatni qayta yuklang.',
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('Oldindan buyurtma • Sozlamalar'),
-      actions: [
-        IconButton(
-          onPressed: saving ? null : _load,
-          icon: const Icon(Icons.refresh),
-        ),
-      ],
-    ),
-    body: Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 820),
-        child: config == null
-            ? Center(
-                child: error == null
-                    ? const CircularProgressIndicator()
-                    : Text(error!),
-              )
-            : Form(
-                key: form,
-                child: ListView(
-                  padding: const EdgeInsets.all(18),
-                  children: [
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Oldindan buyurtma qabul qilish'),
-                      subtitle: const Text(
-                        'O‘chirilsa yangi buyurtma va rasm yuklash serverda ham to‘xtaydi.',
-                      ),
-                      value: enabled,
-                      onChanged: saving
-                          ? null
-                          : (v) => setState(() => enabled = v),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: arrival,
-                      maxLength: 200,
-                      readOnly: saving,
-                      decoration: InputDecoration(
-                        labelText: 'Taxminiy kelish sanasi yoki muddati',
-                        hintText: 'Masalan: 5-noyabr yoki 10–14 kun',
-                        suffixIcon: IconButton(
-                          onPressed: saving ? null : _date,
-                          icon: const Icon(Icons.calendar_month_outlined),
-                        ),
-                        helperText: 'Mijoz bu ma’lumotni avans to‘lashdan oldin ko‘radi.',
-                      ),
-                      validator: (v) => enabled && (v ?? '').trim().isEmpty
-                          ? 'Qabulni ochishdan oldin sanani kiriting'
-                          : null,
-                    ),
+                    const Text('Mijoz ikkala sanani avans to‘lashdan oldin ko‘radi.',
+                      style: TextStyle(fontSize: 12, color: Colors.black54)),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: deposit,

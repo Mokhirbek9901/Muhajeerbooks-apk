@@ -57,10 +57,12 @@ class AdminSalesHeatmap extends StatelessWidget {
             color:ink,fontSize:19,fontWeight:FontWeight.w900)),
           const SizedBox(height:12),
           _line('Sotilgan kitoblar',countOf(value).toString()+' dona'),
-          _line('Jami tushum',value['revenue'] == null
+          _line('Jami tushum',countOf(value)==0
+              ? _won(0) : value['revenue'] == null
               ? 'Eski tarixda saqlanmagan'
               : _won(amount(value,'revenue'))),
-          _line('Kitoblar foydasi',value['profit'] == null
+          _line('Kitoblar foydasi',countOf(value)==0
+              ? _won(0) : value['profit'] == null
               ? 'Tan narxi saqlanmagan'
               : _won(amount(value,'profit'))),
           const SizedBox(height:8),

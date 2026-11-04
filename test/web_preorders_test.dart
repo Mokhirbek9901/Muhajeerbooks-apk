@@ -44,6 +44,7 @@ class FakePreorders extends WebPreorderApi {
       'arrival_note': value.arrival,
       'arrival_start': value.arrivalStart.isEmpty ? null : value.arrivalStart,
       'arrival_end': value.arrivalEnd.isEmpty ? null : value.arrivalEnd,
+      'customer_notice': value.customerNotice,
       'deposit_amount': value.deposit,
       'batch_quantity': 20,
       'revision': value.revision,
@@ -150,6 +151,54 @@ void main() {
     );
     await tester.pumpWidget(const SizedBox());
   });
+  test('Admin notice is parsed without changing delivery dates or deposit', () {
+    final settings = WebPreorderConfig.fromMap({
+      'enabled': true,
+      'arrival_note': '2026.11.17 ~ 2026.11.21',
+      'arrival_start': '2026-11-17',
+      'arrival_end': '2026-11-21',
+      'customer_notice': 'Ayrim kitoblarni topib bo‘lmasligi mumkin.',
+      'deposit_amount': 5000,
+    });
+    expect(settings.customerNotice, 'Ayrim kitoblarni topib bo‘lmasligi mumkin.');
+    expect(settings.arrivalStart, '2026-11-17');
+    expect(settings.arrivalEnd, '2026-11-21');
+    expect(settings.deposit, 5000);
+    expect(settings.accepting, isTrue);
+  });
+
+  testWidgets('Admin can save customer notice without changing old settings', (
+    tester,
+  ) async {
+    final api = FakePreorders(const WebPreorderConfig(
+      enabled: true,
+      arrival: '2026.11.17 ~ 2026.11.21',
+      arrivalStart: '2026-11-17',
+      arrivalEnd: '2026-11-21',
+    ));
+    await tester.pumpWidget(MaterialApp(
+      home: WebPreorderAdminPage(secret: 'test', api: api),
+    ));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const Key('preorder_customer_notice_admin')),
+    );
+    await tester.enterText(
+      find.byKey(const Key('preorder_customer_notice_admin')),
+      'Ayrim kitoblar topilmasligi mumkin.',
+    );
+    await tester.ensureVisible(find.text('Sozlamalarni saqlash'));
+    await tester.tap(find.text('Sozlamalarni saqlash'));
+    await tester.pumpAndSettle();
+    expect(api.saves, 1);
+    expect(api.lastSave!['customer_notice'],
+      'Ayrim kitoblar topilmasligi mumkin.');
+    expect(api.lastSave!['arrival_start'], '2026-11-17');
+    expect(api.lastSave!['arrival_end'], '2026-11-21');
+    expect(api.lastSave!['deposit_amount'], 5000);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   test('arrival range is parsed from server while old single date remains readable', () {
     final range = WebPreorderConfig.fromMap({
       'enabled': true,

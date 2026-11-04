@@ -44,6 +44,7 @@ class FakePreorders extends WebPreorderApi {
       'arrival_note': value.arrival,
       'arrival_start': value.arrivalStart.isEmpty ? null : value.arrivalStart,
       'arrival_end': value.arrivalEnd.isEmpty ? null : value.arrivalEnd,
+      'customer_notice': value.customerNotice,
       'deposit_amount': value.deposit,
       'batch_quantity': 20,
       'revision': value.revision,
@@ -216,6 +217,64 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.lastSave!['arrival_start'], '2026-11-07');
     expect(api.lastSave!['arrival_end'], '2026-11-07');
+  });
+
+  test('public config parses admin note without changing linked-book defaults', () {
+    final data = WebPreorderConfig.fromMap({
+      'enabled': true,
+      'arrival_note': '2026.11.07 ~ 2026.11.14',
+      'customer_notice': 'Ayrim kitoblarni topish imkoni bo‘lmasligi mumkin.',
+      'deposit_amount': 5000,
+    });
+    expect(data.customerNotice, contains('Ayrim kitoblarni'));
+    expect(const WebPreorderConfig().customerNotice, isEmpty);
+  });
+
+  testWidgets('admin warning field saves only an explicit editable customer notice',
+      (tester) async {
+    final api = FakePreorders(const WebPreorderConfig(
+      enabled: true, arrival: '2026.11.07',
+      customerNotice: 'Ayrim kitoblarni topish imkoni bo‘lmasligi mumkin.',
+    ));
+    await tester.pumpWidget(MaterialApp(
+      home: WebPreorderAdminPage(secret: 'test', api: api),
+    ));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('admin_custom_preorder_notice')),
+      190, scrollable: find.byType(Scrollable).first,
+    );
+    await tester.enterText(
+      find.byKey(const Key('admin_custom_preorder_notice')),
+      'Ayrim kitoblar topilmasligi mumkin. Avval shartlarni o‘qing.',
+    );
+    await tester.ensureVisible(find.text('Sozlamalarni saqlash'));
+    await tester.tap(find.text('Sozlamalarni saqlash'));
+    await tester.pumpAndSettle();
+    expect(api.lastSave?['customer_notice'],
+      'Ayrim kitoblar topilmasligi mumkin. Avval shartlarni o‘qing.');
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('customer warning requires explicit acknowledgement before payment',
+      (tester) async {
+    bool read = false;
+    await tester.pumpWidget(MaterialApp(home: StatefulBuilder(
+      builder: (context, update) => Scaffold(
+        body: PreorderCustomerNotice(
+          note: 'Ayrim kitoblar topilmasligi mumkin.',
+          acknowledged: read,
+          onChanged: (value) => update(() => read = value == true),
+        ),
+      ),
+    )));
+    expect(find.byKey(const Key('preorder_customer_notice_text')), findsOneWidget);
+    expect(find.text('Ogohlantirishni o‘qidim va tushundim.'), findsOneWidget);
+    expect(read, isFalse);
+    await tester.tap(find.byKey(const Key('preorder_customer_notice_ack')));
+    await tester.pumpAndSettle();
+    expect(read, isTrue);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('linked book uses admin arrival and deposit without asking for book upload', (tester) async {

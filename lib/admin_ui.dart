@@ -734,6 +734,27 @@ class _AdminApi {
         .toList();
   }
 
+  /// Only admin RPCs can read/write these private notes. They are NEVER part
+  /// of customer order payloads, notifications or the public orders table.
+  Future<Map<String, String>> privateOrderNotes() async {
+    final raw = await _rpc(
+      'admin_order_private_notes',
+      params: {'p_secret': secret},
+    );
+    if (raw is! Map) throw StateError('Ichki izohlar olinmadi.');
+    return raw.map((key, value) =>
+      MapEntry(key.toString(), (value ?? '').toString()));
+  }
+
+  Future<String> savePrivateOrderNote(String id, String note) async {
+    final raw = await _rpc('admin_order_private_note_save', params: {
+      'p_secret': secret,
+      'p_id': id,
+      'p_note': note,
+    });
+    return (raw ?? '').toString();
+  }
+
   Future<List<Map<String, dynamic>>> sales() async {
     const pageSize = 1000;
     final rows = <Map<String, dynamic>>[];
@@ -7705,16 +7726,43 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
   String filter = 'all';
   String query = '';
   final Set<String> busy = {};
+  Map<String, String> _privateNotes = const {};
+  bool _privateNotesReady = false;
+
+  Future<void> _loadPrivateNotes() async {
+    try {
+      final next = await widget.api.privateOrderNotes();
+      if (!mounted) return;
+      setState(() {
+        _privateNotes = next;
+        _privateNotesReady = true;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _privateNotesReady = false);
+    }
+  }
+
+  void _privateNoteSaved(String id, String note) {
+    if (!mounted) return;
+    setState(() {
+      _privateNotes = {..._privateNotes, id: note};
+      _privateNotesReady = true;
+    });
+  }
 
   @override
   void initState() {
     super.initState();
     future = widget.api.orders();
     filter = widget.initialFilter;
+    unawaited(_loadPrivateNotes());
   }
 
   void reload() {
-    if (mounted) setState(() => future = widget.api.orders());
+    if (mounted) {
+      setState(() => future = widget.api.orders());
+      unawaited(_loadPrivateNotes());
+    }
   }
 
   Future<void> reloadQuietly() async {
@@ -7722,6 +7770,7 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
       final data = await widget.api.orders();
       if (!mounted) return;
       setState(() => future = Future.value(data));
+      unawaited(_loadPrivateNotes());
     } catch (_) {
       // Keep the current orders visible during background refresh.
     }
@@ -8071,6 +8120,11 @@ class _OrdersAdminState extends State<_OrdersAdmin> {
                     loading: busy.contains(orders[i].id),
                     onStatus: (status) => changeStatus(orders[i], status),
                     onTrackingSaved: reload,
+                    privateNote: _privateNotes[orders[i].id] ?? '',
+                    privateNotesReady: _privateNotesReady,
+                    onPrivateNoteSaved: (note) =>
+                        _privateNoteSaved(orders[i].id, note),
+                    onPrivateNoteRetry: _loadPrivateNotes,
                   ),
                 ),
               ),
@@ -8111,12 +8165,77 @@ class _ProfessionalOrderCard extends StatelessWidget {
     required this.loading,
     required this.onStatus,
     required this.onTrackingSaved,
+    required this.privateNote,
+    required this.privateNotesReady,
+    required this.onPrivateNoteSaved,
+    required this.onPrivateNoteRetry,
   });
   final ShopOrder order;
   final _AdminApi api;
   final bool loading;
   final ValueChanged<String> onStatus;
   final VoidCallback onTrackingSaved;
+  final String privateNote;
+  final bool privateNotesReady;
+  final ValueChanged<String> onPrivateNoteSaved;
+  final VoidCallback onPrivateNoteRetry;
+
+  Future<void> _editPrivateNote(BuildContext context) async {
+    final editor = TextEditingController(text: privateNote);
+    try {
+      final shouldSave = await showDialog<bool>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          title: const Text('Faqat admin uchun izoh'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Text(
+              'Bu izoh faqat boshqaruv panelida saqlanadi. '
+              'Mijozga, Telegram botga va push xabarlarga yuborilmaydi.',
+              style: TextStyle(fontSize: 12, color: AppColors.muted),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('admin_private_order_note_input'),
+              controller: editor,
+              maxLines: 4,
+              minLines: 2,
+              maxLength: 1000,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Ichki izoh',
+                hintText: 'Masalan: mijoz bilan bog‘lanish, qadoqlash eslatmasi...',
+              ),
+            ),
+          ]),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialog, false),
+              child: const Text('Bekor qilish'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(dialog, true),
+              icon: const Icon(Icons.save_outlined),
+              label: const Text('Saqlash'),
+            ),
+          ],
+        ),
+      );
+      if (shouldSave != true || !context.mounted) return;
+      final saved = await api.savePrivateOrderNote(order.id, editor.text.trim());
+      if (!context.mounted) return;
+      onPrivateNoteSaved(saved);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Ichki izoh saqlandi. Mijozga yuborilmadi.'),
+      ));
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ichki izoh saqlanmadi: $error')),
+      );
+    } finally {
+      editor.dispose();
+    }
+  }
 
   Future<void> _editTracking(BuildContext context) async {
     final tracking = TextEditingController(text: order.trackingNumber);
@@ -8374,6 +8493,51 @@ class _ProfessionalOrderCard extends StatelessWidget {
             const SizedBox(height: 12),
             _PaymentProofPanel(api: api, path: order.paymentProofPath),
           ],
+          const SizedBox(height: 12),
+          Container(
+            key: const Key('admin_only_order_note_panel'),
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF8E9),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFEADBB7)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  const Icon(Icons.sticky_note_2_outlined, color: _navy),
+                  const SizedBox(width: 7),
+                  const Expanded(child: Text(
+                    'Faqat admin uchun izoh',
+                    style: TextStyle(fontWeight: FontWeight.w900),
+                  )),
+                  if (privateNotesReady)
+                    OutlinedButton.icon(
+                      key: const Key('admin_private_order_note_edit'),
+                      onPressed: () => _editPrivateNote(context),
+                      icon: const Icon(Icons.edit_note_rounded, size: 16),
+                      label: Text(privateNote.trim().isEmpty
+                          ? 'Yozish' : 'Tahrirlash'),
+                    )
+                  else TextButton(
+                    onPressed: onPrivateNoteRetry,
+                    child: const Text('Qayta yuklash'),
+                  ),
+                ]),
+                const SizedBox(height: 4),
+                Text(
+                  !privateNotesReady
+                      ? 'Ichki izohlarni yuklab bo‘lmadi.'
+                      : privateNote.trim().isEmpty
+                          ? 'Hozircha izoh yo‘q. Mijozga ko‘rinmaydi.'
+                          : privateNote,
+                  style: const TextStyle(color: _navy, height: 1.35),
+                ),
+              ],
+            ),
+          ),
           if (_enhancedAdminUi && order.status != 'cancelled') ...[
             const SizedBox(height: 12),
             Container(

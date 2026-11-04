@@ -1206,7 +1206,7 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
         );
         return;
       }
-      if (endDate.isBefore(startDate)) {
+      if (startDate == null || endDate == null || endDate.isBefore(startDate)) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Tugash sanasi boshlanishdan oldin bo‘lmasin.')),
         );

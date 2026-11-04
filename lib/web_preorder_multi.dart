@@ -29,6 +29,7 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
   String? proofPath, error;
   bool loading = true, saving = false, payment = false, picking = false, completed = false;
   bool allowPop = false, leaving = false;
+  bool noticeAcknowledged = false;
   late final String initialName, initialPhone;
   int get quantity => books.fold(0, (sum, b) => sum + b.quantity);
   int get total => (config?.deposit ?? 0) * quantity;
@@ -157,7 +158,16 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
     try {
       final next = await api.config();
       if (!mounted) return;
-      setState(() { config = next; loading = false; error = null; });
+      setState(() {
+        if (config?.revision != next.revision ||
+            config?.customerNotice != next.customerNotice) {
+          noticeAcknowledged = false;
+          payment = false;
+        }
+        config = next;
+        loading = false;
+        error = null;
+      });
     } catch (_) {
       if (mounted) setState(() { loading = false; error = 'Shartlarni yuklab bo‘lmadi. Qayta urining.'; });
     }
@@ -168,8 +178,8 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
     try {
       final next = await api.config();
       if (!mounted) return false;
-      if (!next.accepting || old?.revision != next.revision || old?.deposit != next.deposit || old?.arrival != next.arrival) {
-        setState(() { config = next; payment = false; });
+      if (!next.accepting || old?.revision != next.revision || old?.deposit != next.deposit || old?.arrival != next.arrival || old?.customerNotice != next.customerNotice) {
+        setState(() { config = next; payment = false; noticeAcknowledged = false; });
         message('Qabul shartlari o‘zgardi. Sana va avansni qayta tekshiring.');
         return false;
       }
@@ -210,6 +220,11 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
   }
 
   bool validateDetails() {
+    if (config?.customerNotice.trim().isNotEmpty == true &&
+        !noticeAcknowledged) {
+      message('Avval ogohlantirishni o‘qing va tasdiqlang.');
+      return false;
+    }
     // ListView disposes fields outside the viewport. Validate every controller,
     // including names above the scroll position, before showing bank details.
     final invalid = books.indexWhere((b) => b.title.text.trim().length < 2);
@@ -317,6 +332,16 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
             const Text('Sana taxminiy. Kitoblarni shu muddatga qarab buyurtma qiling.'),
           ])),
           const SizedBox(height: 14),
+          if (config?.customerNotice.trim().isNotEmpty == true) ...[
+            PreorderCustomerNotice(
+              note: config!.customerNotice,
+              acknowledged: noticeAcknowledged,
+              onChanged: (value) => setState(
+                () => noticeAcknowledged = value == true),
+              enabled: !saving && !picking && !payment && !completed,
+            ),
+            const SizedBox(height: 14),
+          ],
           if (error != null || config?.accepting != true) ...[
             Text(error ?? 'Oldindan buyurtma qabuli hozircha yopiq. Avans yubormang.'),
             OutlinedButton.icon(onPressed: _reload, icon: const Icon(Icons.refresh), label: const Text('Yangilash')),

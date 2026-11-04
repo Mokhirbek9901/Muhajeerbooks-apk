@@ -15,7 +15,9 @@ class _SoldoutPreorderBulkPage extends StatefulWidget {
 class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
   final _search = TextEditingController();
   final Set<String> _selected = <String>{};
+  // Start date kept compatible with existing single-date registry.
   final Map<String, DateTime> _dates = <String, DateTime>{};
+  final Map<String, DateTime> _endDates = <String, DateTime>{};
   final Map<String, TextEditingController> _deposits =
       <String, TextEditingController>{};
 
@@ -75,6 +77,7 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
       }
       _deposits.clear();
       _dates.clear();
+      _endDates.clear();
       _selected.clear();
 
       final initialDay = DateUtils.dateOnly(DateTime.now()).add(
@@ -88,10 +91,16 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
         if (stored != null) _selected.add(book.id);
         final rawDate = stored?['date']?.toString() ?? '';
         final parsed = DateTime.tryParse(rawDate);
-        _dates[book.id] = parsed != null &&
+        final start = parsed != null &&
                 !DateUtils.dateOnly(parsed).isBefore(DateUtils.dateOnly(DateTime.now()))
             ? DateUtils.dateOnly(parsed)
             : initialDay;
+        _dates[book.id] = start;
+        final oldEnd = DateTime.tryParse(stored?['end_date']?.toString() ?? '');
+        _endDates[book.id] = oldEnd != null &&
+                !DateUtils.dateOnly(oldEnd).isBefore(start)
+            ? DateUtils.dateOnly(oldEnd)
+            : start;
         _deposits[book.id] = TextEditingController(
           text: '${stored?['deposit'] ?? (book.preorderDepositMin >= 1000 ? book.preorderDepositMin : 5000)}',
         );
@@ -111,21 +120,37 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
     }
   }
 
-  Future<void> _selectDate(String bookId) async {
+  Future<void> _selectDate(String bookId, {required bool isEnd}) async {
     final today = DateUtils.dateOnly(DateTime.now());
-    final current = _dates[bookId] ?? today.add(const Duration(days: 14));
-    final value = await showDatePicker(
+    final start = _dates[bookId] ?? today.add(const Duration(days: 14));
+    final first = isEnd && start.isAfter(today) ? start : today;
+    final existing = isEnd ? _endDates[bookId] : _dates[bookId];
+    final latest = today.add(const Duration(days: 730));
+    final initial = existing == null || existing.isBefore(first)
+        ? first
+        : existing.isAfter(latest) ? latest : existing;
+    final picked = await showDatePicker(
       context: context,
-      firstDate: today,
-      lastDate: today.add(const Duration(days: 730)),
-      initialDate: current.isBefore(today) ? today : current,
-      helpText: 'Kitobning taxminiy kelish sanasi',
+      firstDate: first,
+      lastDate: latest,
+      initialDate: initial,
+      helpText: isEnd ? 'Taxminiy kelish: shu sanagacha'
+          : 'Taxminiy kelish: shu sanadan',
       confirmText: 'Tanlash',
       cancelText: 'Bekor qilish',
     );
-    if (value != null && mounted) {
-      setState(() => _dates[bookId] = DateUtils.dateOnly(value));
-    }
+    if (picked == null || !mounted) return;
+    final chosen = DateUtils.dateOnly(picked);
+    setState(() {
+      if (isEnd) {
+        _endDates[bookId] = chosen;
+      } else {
+        _dates[bookId] = chosen;
+        if ((_endDates[bookId] ?? chosen).isBefore(chosen)) {
+          _endDates[bookId] = chosen;
+        }
+      }
+    });
   }
 
   Future<bool> _confirm({
@@ -162,8 +187,11 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
         _deposits[book.id]?.text.trim().replaceAll(',', '') ?? '',
       );
       final arrival = _dates[book.id];
+      final arrivalEnd = _endDates[book.id];
       if (amount == null || amount < 1000 || amount > 1000000 ||
-          arrival == null || arrival.isBefore(now)) {
+          arrival == null || arrivalEnd == null ||
+          arrival.isBefore(now) || arrivalEnd.isBefore(arrival) ||
+          arrivalEnd.isAfter(arrival.add(const Duration(days: 730)))) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -176,6 +204,7 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
       rows.add({
         'id': book.id,
         'date': DateFormat('yyyy-MM-dd').format(arrival),
+        'end_date': DateFormat('yyyy-MM-dd').format(arrivalEnd),
         'deposit': amount,
       });
     }
@@ -301,7 +330,7 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
                           const SizedBox(height: 6),
                           const Text(
                             'Omborda 0 ta qolgan kitoblarni birma-bir tanlang. '
-                            'Har biriga kelish sanasi va avansni kiriting. '
+                            'Har biriga kelish muddatining boshlanish va tugash sanasini, avansni kiriting. '
                             'Oldingi buyurtmalarga tegilmaydi.',
                             style: TextStyle(color: AppColors.muted),
                           ),
@@ -380,15 +409,56 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
                                             child: Column(
                                               crossAxisAlignment: CrossAxisAlignment.stretch,
                                               children: [
-                                                OutlinedButton.icon(
-                                                  onPressed: _busy
-                                                      ? null
-                                                      : () => _selectDate(book.id),
-                                                  icon: const Icon(Icons.calendar_month_outlined),
-                                                  label: Text(
-                                                    'Taxminiy kelishi: ${DateFormat('yyyy-MM-dd').format(_dates[book.id]!)}',
-                                                  ),
+                                                const Text(
+                                                  'Taxminiy kelish muddati',
+                                                  style: TextStyle(fontWeight: FontWeight.w800),
                                                 ),
+                                                const SizedBox(height: 7),
+                                                Row(children: [
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                      children: [
+                                                        const Text('Shu sanadan', style:
+                                                          TextStyle(fontSize: 12)),
+                                                        const SizedBox(height: 4),
+                                                        OutlinedButton.icon(
+                                                          key: Key('soldout_eta_start_${book.id}'),
+                                                          onPressed: _busy ? null
+                                                              : () => _selectDate(book.id, isEnd: false),
+                                                          icon: const Icon(Icons.calendar_month_outlined, size: 16),
+                                                          label: FittedBox(
+                                                            fit: BoxFit.scaleDown,
+                                                            child: Text(DateFormat('yyyy.MM.dd').format(_dates[book.id]!)),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  const Text('~'),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                      children: [
+                                                        const Text('Shu sanagacha', style:
+                                                          TextStyle(fontSize: 12)),
+                                                        const SizedBox(height: 4),
+                                                        OutlinedButton.icon(
+                                                          key: Key('soldout_eta_end_${book.id}'),
+                                                          onPressed: _busy ? null
+                                                              : () => _selectDate(book.id, isEnd: true),
+                                                          icon: const Icon(Icons.calendar_month_outlined, size: 16),
+                                                          label: FittedBox(
+                                                            fit: BoxFit.scaleDown,
+                                                            child: Text(DateFormat('yyyy.MM.dd').format(_endDates[book.id]!)),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ]),
                                                 const SizedBox(height: 8),
                                                 TextField(
                                                   controller: _deposits[book.id],

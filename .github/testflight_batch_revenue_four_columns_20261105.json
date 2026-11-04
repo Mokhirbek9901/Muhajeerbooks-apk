@@ -1,0 +1,15 @@
+{
+  "purpose": "Only add the four-column 1st design variant for all batches",
+  "baseline_testflight_version": "2.5.26",
+  "baseline_build": "310031",
+  "baseline_sha": "22f968385ff9c26615c2849abed946d7f98cc026",
+  "baseline_run": "41924797751",
+  "only_ui_file": "lib/admin_profit_batches.dart",
+  "existing_metrics_preserved": true,
+  "existing_fifo_preserved": true,
+  "potential_receipts": "sum of per-lot quantity x current sale_price, no invented amount if not fully priced",
+  "sold_receipts": "existing dated_order_revenue, excludes legacy sales without known prices",
+  "production_release": false,
+  "database_migration": false,
+  "iOS_testflight_only": true
+}

@@ -13,8 +13,11 @@
   "play_market_release_allowed": false,
   "notes_rpc_edge_version": 44,
   "includes_whitelisted_admin_rpc": true,
-  "request_revision": 3,
+  "request_revision": 4,
   "build_runner": "macos-26-intel",
   "ios_build_number_strategy": "100000 + GITHUB_RUN_NUMBER",
-  "public_release_allowed": false
+  "public_release_allowed": false,
+  "ios_marketing_version": "2.5.25",
+  "apple_rejection_fixed": "90186/90062: public 2.5.24 train closed",
+  "scope": "TestFlight only: no App Store public release"
 }

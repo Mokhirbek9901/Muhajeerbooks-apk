@@ -349,16 +349,21 @@ class _WebMultiPreorderPageState extends State<WebMultiPreorderPage> {
                     style: const TextStyle(fontSize: 14, height: 1.4)),
                   if (config!.accepting && !payment) ...[
                     const SizedBox(height: 10),
-                    CheckboxListTile(
-                      key: const Key('preorder_notice_acknowledgement'),
-                      value: noticeAccepted,
-                      onChanged: saving || picking ? null
-                          : (v) => setState(() => noticeAccepted = v ?? false),
-                      contentPadding: EdgeInsets.zero,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      title: const Text('Muhim izohni o‘qidim va tushundim',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-                    ),
+                    Row(children: [
+                      Checkbox(
+                        key: const Key('preorder_notice_acknowledgement'),
+                        value: noticeAccepted,
+                        onChanged: saving || picking ? null
+                            : (v) => setState(() => noticeAccepted = v ?? false),
+                      ),
+                      Expanded(child: TextButton(
+                        onPressed: saving || picking ? null
+                            : () => setState(() => noticeAccepted = !noticeAccepted),
+                        child: const Text('Muhim izohni o‘qidim va tushundim',
+                          textAlign: TextAlign.left,
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                      )),
+                    ]),
                   ],
                 ],
               ),

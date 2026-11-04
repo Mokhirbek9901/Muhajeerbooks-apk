@@ -5197,14 +5197,10 @@ class BookDetailPage extends StatelessWidget {
                         : Column(
                             children: [cover, const SizedBox(height: 26), info],
                           ),
-                    if (_webOrPlayCustomer) ...[
-                      const SizedBox(height: 22),
-                      _WebBookReviews(book: b),
-                    ],
-                    if (b.stock <= 0 && _webOrPlayCustomer) ...[
-                      const SizedBox(height: 24),
-                      _SimilarAvailableBooks(book: b),
-                    ],
+                    // Keep book details aligned on iOS, Android and web.
+                    // Public review submission was intentionally removed.
+                    const SizedBox(height: 24),
+                    BookDetailRecommendations(book: b),
                   ],
                 ),
               ),
@@ -5417,100 +5413,110 @@ class BookDetailPage extends StatelessWidget {
   }
 }
 
-/// Recommend only available books in the same genre or by the same
-/// author. Never promise inventory for a title with zero stock.
-class _SimilarAvailableBooks extends StatelessWidget {
-  const _SimilarAvailableBooks({required this.book});
+/// Catalogue recommendations do not depend on stock availability.
+/// Preserve the existing book card, pricing and order functions.
+@visibleForTesting
+List<Book> otherBooksByAuthor(Book selected, Iterable<Book> catalogue) {
+  final author=selected.author.trim().toLowerCase();
+  if(author.isEmpty || author=='ko‘rsatilmagan' ||
+      author=="ko'rsatilmagan") return const [];
+  final results=catalogue.where((book)=>
+    book.id!=selected.id && book.isActive &&
+    book.author.trim().toLowerCase()==author).toList();
+  results.sort((a,b){
+    if(a.inStock!=b.inStock) return a.inStock?-1:1;
+    return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+  });
+  return results.take(12).toList();
+}
+
+@visibleForTesting
+List<Book> otherBooksInCategory(Book selected, Iterable<Book> catalogue) {
+  final category=selected.category.trim().toLowerCase();
+  if(category.isEmpty || category=='ko‘rsatilmagan' ||
+      category=="ko'rsatilmagan") return const [];
+  final results=catalogue.where((book)=>
+    book.id!=selected.id && book.isActive &&
+    book.category.trim().toLowerCase()==category).toList();
+  results.sort((a,b){
+    if(a.inStock!=b.inStock) return a.inStock?-1:1;
+    final authorA=a.author.trim().toLowerCase()==selected.author.trim().toLowerCase();
+    final authorB=b.author.trim().toLowerCase()==selected.author.trim().toLowerCase();
+    if(authorA!=authorB) return authorA?1:-1;
+    return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+  });
+  return results.take(12).toList();
+}
+
+/// Visible in iOS (App Store + TestFlight), Play Market and web.
+/// First other books by the same author, then the same category.
+class BookDetailRecommendations extends StatelessWidget {
+  const BookDetailRecommendations({super.key,required this.book});
   final Book book;
+
+  Widget _section({
+    required String title,
+    required IconData icon,
+    required String emptyMessage,
+    required List<Book> books,
+  }) {
+    return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      AppSectionHeader(title:title,icon:icon),
+      const SizedBox(height:10),
+      if(books.isEmpty)
+        Padding(
+          padding:const EdgeInsets.symmetric(vertical:5),
+          child:Text(emptyMessage,
+            style:const TextStyle(color:AppColors.muted,fontSize:13)),
+        )
+      else SizedBox(height:184,child:ListView.separated(
+        scrollDirection:Axis.horizontal,
+        itemCount:books.length,
+        separatorBuilder:(_,__)=>const SizedBox(width:12),
+        itemBuilder:(context,index){
+          final item=books[index];
+          return SizedBox(width:132,child:InkWell(
+            onTap:()=>_openBookDetail(context,item),
+            borderRadius:BorderRadius.circular(12),
+            child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Expanded(child:ClipRRect(
+                borderRadius:BorderRadius.circular(10),
+                child:_BookCover(book:item))),
+              const SizedBox(height:6),
+              Text(item.title,maxLines:1,overflow:TextOverflow.ellipsis,
+                style:const TextStyle(fontSize:12,fontWeight:FontWeight.w800)),
+              Text(item.inStock?won(item.currentPrice):'Hozir mavjud emas',
+                maxLines:1,overflow:TextOverflow.ellipsis,
+                style:TextStyle(fontSize:item.inStock?12:10,
+                  color:item.inStock?AppColors.success:AppColors.muted,
+                  fontWeight:FontWeight.w700)),
+            ]),
+          ));
+        },
+      )),
+    ]);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final candidates =
-        context.watch<AppState>().books.where((candidate) {
-          if (!candidate.isActive ||
-              candidate.stock <= 0 ||
-              candidate.id == book.id ||
-              candidate.preorderEnabled)
-            return false;
-          return (book.author.trim().isNotEmpty &&
-                  book.author != 'Ko‘rsatilmagan' &&
-                  candidate.author.trim().toLowerCase() ==
-                      book.author.trim().toLowerCase()) ||
-              (book.category.trim().isNotEmpty &&
-                  candidate.category.trim().toLowerCase() ==
-                      book.category.trim().toLowerCase());
-        }).toList()..sort((a, b) {
-          final sameAuthorA =
-              a.author.toLowerCase() == book.author.toLowerCase();
-          final sameAuthorB =
-              b.author.toLowerCase() == book.author.toLowerCase();
-          if (sameAuthorA != sameAuthorB) return sameAuthorA ? -1 : 1;
-          return b.stock.compareTo(a.stock);
-        });
-    if (candidates.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const AppSectionHeader(
-          title: 'O‘rniga o‘qish uchun',
-          subtitle: 'Hozir omborda bor, o‘xshash kitoblar',
-          icon: Icons.auto_awesome_outlined,
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 174,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: candidates.length > 5 ? 5 : candidates.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 9),
-            itemBuilder: (context, index) {
-              final item = candidates[index];
-              return SizedBox(
-                width: 130,
-                child: InkWell(
-                  onTap: () => _openBookDetail(context, item),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: _BookCover(book: item),
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        item.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      Text(
-                        won(item.currentPrice),
-                        maxLines: 1,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.success,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
+    final books=context.watch<AppState>().books;
+    final authorBooks=otherBooksByAuthor(book,books);
+    final similarBooks=otherBooksInCategory(book,books);
+    return Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+      _section(title:'Yozuvchining boshqa kitoblari',
+        icon:Icons.person_outline_rounded,
+        emptyMessage:'Hozircha bu yozuvchining boshqa kitobi yo‘q.',
+        books:authorBooks),
+      const SizedBox(height:24),
+      _section(title:'Shunga o‘xshash kitoblar',
+        icon:Icons.auto_awesome_outlined,
+        emptyMessage:'Hozircha shu turdagi boshqa kitob yo‘q.',
+        books:similarBooks),
+    ]);
   }
 }
 
+// ignore: unused_element
 class _WebBookReviews extends StatefulWidget {
   const _WebBookReviews({required this.book});
   final Book book;

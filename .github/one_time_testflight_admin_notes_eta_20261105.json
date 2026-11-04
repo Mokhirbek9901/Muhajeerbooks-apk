@@ -1,0 +1,13 @@
+{
+  "purpose": "One approved internal TestFlight only build for Muhajeer Books iOS",
+  "features": [
+    "Private admin-only note per order (never customer visible)",
+    "Preorder arrival date range from/to"
+  ],
+  "owner_requested": true,
+  "visibility": "TestFlight only, never public App Store",
+  "version": "2.5.24",
+  "source_branch": "feat/admin-private-order-notes-preorder-date-range-20261105",
+  "app_store_public_release_allowed": false,
+  "play_market_release_allowed": false
+}

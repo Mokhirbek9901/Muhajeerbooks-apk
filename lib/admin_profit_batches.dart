@@ -227,8 +227,8 @@ class AdminProfitBatchPanel extends StatelessWidget {
         (pricedSales>0 || unknownPriceSales==0);
     final purchaseCost=!incomplete && group['total_purchase_cost']!=null
         ? _won(_n(group,'total_purchase_cost')) : '—';
-    final expectedProfit=!incomplete && group['projected_profit']!=null
-        ? _won(amount) : '—';
+    final expectedProfit=incomplete ? 'Hisoblanmagan'
+        : group['projected_profit']!=null ? _won(amount) : '—';
     final realizedProfit=canShowRealized
         ? _won(_n(group,'dated_order_gross_profit')) : '—';
 

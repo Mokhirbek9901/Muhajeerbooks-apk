@@ -119,17 +119,20 @@ class PreorderCustomerNotice extends StatelessWidget {
           Text(note, key: const Key('preorder_customer_notice_text'),
             style: const TextStyle(fontSize: 14, height: 1.45)),
           const SizedBox(height: 9),
-          CheckboxListTile(
-            key: const Key('preorder_customer_notice_ack'),
-            contentPadding: EdgeInsets.zero,
-            dense: true,
-            controlAffinity: ListTileControlAffinity.leading,
-            title: const Text(
-              'Ogohlantirishni o‘qidim va tushundim.',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+          Material(
+            type: MaterialType.transparency,
+            child: CheckboxListTile(
+              key: const Key('preorder_customer_notice_ack'),
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              controlAffinity: ListTileControlAffinity.leading,
+              title: const Text(
+                'Ogohlantirishni o‘qidim va tushundim.',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+              ),
+              value: acknowledged,
+              onChanged: enabled ? onChanged : null,
             ),
-            value: acknowledged,
-            onChanged: enabled ? onChanged : null,
           ),
         ],
       ),

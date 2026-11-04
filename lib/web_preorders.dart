@@ -44,6 +44,7 @@ class WebPreorderConfig {
     this.arrival = '',
     this.arrivalStart = '',
     this.arrivalEnd = '',
+    this.customerNotice = '',
     this.deposit = 5000,
     this.batchQuantity = 0,
     this.revision = 1,
@@ -64,18 +65,76 @@ class WebPreorderConfig {
         arrival: (data['arrival_note'] ?? '').toString(),
         arrivalStart: (data['arrival_start'] ?? '').toString(),
         arrivalEnd: (data['arrival_end'] ?? '').toString(),
+        customerNotice: (data['customer_notice'] ?? '').toString(),
         deposit: (data['deposit_amount'] as num?)?.toInt() ?? 5000,
         batchQuantity: (data['batch_quantity'] as num?)?.toInt() ?? 0,
         revision: (data['revision'] as num?)?.toInt() ?? 1,
       );
   final bool enabled;
-  final String arrival, arrivalStart, arrivalEnd;
+  final String arrival, arrivalStart, arrivalEnd, customerNotice;
   final String bookId, bookTitle, bookImageUrl, termsToken;
   final int? depositMax;
   final int deposit, batchQuantity, revision;
   bool get accepting => enabled && arrival.trim().isNotEmpty && deposit >= 5000;
   int get maximumDeposit => depositMax ?? deposit;
   int total(int quantity, [int? perBook]) => (perBook ?? deposit) * quantity;
+}
+
+/// Important customer-visible notice for books not found in the catalog.
+/// The user must acknowledge the current saved notice before viewing
+/// bank-transfer instructions. It is not shown for catalog-linked books.
+class PreorderCustomerNotice extends StatelessWidget {
+  const PreorderCustomerNotice({
+    super.key,
+    required this.note,
+    required this.acknowledged,
+    required this.onChanged,
+    this.enabled = true,
+  });
+
+  final String note;
+  final bool acknowledged;
+  final ValueChanged<bool?> onChanged;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    if (note.trim().isEmpty) return const SizedBox.shrink();
+    return AppSurface(
+      backgroundColor: const Color(0xFFFFF5E5),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(children: [
+            Icon(Icons.warning_amber_rounded, color: Color(0xFFAA4518)),
+            SizedBox(width: 8),
+            Expanded(child: Text(
+              'Buyurtma berishdan oldin o‘qing',
+              style: TextStyle(
+                fontWeight: FontWeight.w900, color: Color(0xFF8C3917),
+              ),
+            )),
+          ]),
+          const SizedBox(height: 8),
+          Text(note, key: const Key('preorder_customer_notice_text'),
+            style: const TextStyle(fontSize: 14, height: 1.45)),
+          const SizedBox(height: 9),
+          CheckboxListTile(
+            key: const Key('preorder_customer_notice_ack'),
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            controlAffinity: ListTileControlAffinity.leading,
+            title: const Text(
+              'Ogohlantirishni o‘qidim va tushundim.',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+            ),
+            value: acknowledged,
+            onChanged: enabled ? onChanged : null,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class WebPreorderApi {
@@ -325,6 +384,7 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
   String? bookPath, proofPath, error;
   int quantity = 1;
   bool loading = true, payment = false, saving = false, picking = false;
+  bool noticeAcknowledged = false;
   bool completed = false, allowPop = false, leaving = false;
   bool get busy => saving || picking || completed;
   late final String initialName, initialPhone;
@@ -382,7 +442,9 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
       if (mounted)
         setState(() {
           if (config?.revision != next.revision ||
-              config?.termsToken != next.termsToken) {
+              config?.termsToken != next.termsToken ||
+              config?.customerNotice != next.customerNotice) {
+            noticeAcknowledged = false;
             payment = false;
             advance.text = '${next.deposit}';
           }
@@ -560,6 +622,12 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
   }
 
   bool _validateDetails() {
+    if (widget.book == null &&
+        config?.customerNotice.trim().isNotEmpty == true &&
+        !noticeAcknowledged) {
+      _message('Avval ogohlantirishni o‘qing va tasdiqlang.');
+      return false;
+    }
     // ListView may dispose offscreen FormFields; validate their controllers too.
     if (title.text.trim().length < 2 || title.text.trim().length > 160) {
       _message('Kitob nomini tekshiring.');
@@ -758,6 +826,17 @@ class _WebPreorderPageState extends State<_WebSinglePreorderPage> {
                           ),
                         ),
                         const SizedBox(height: 14),
+                        if (widget.book == null &&
+                            c?.customerNotice.trim().isNotEmpty == true) ...[
+                          PreorderCustomerNotice(
+                            note: c!.customerNotice,
+                            acknowledged: noticeAcknowledged,
+                            onChanged: (value) => setState(
+                              () => noticeAcknowledged = value == true),
+                            enabled: !busy && !payment,
+                          ),
+                          const SizedBox(height: 14),
+                        ],
                         if (error != null || c?.accepting != true) ...[
                           Text(
                             error ?? 'Oldindan buyurtma qabuli hozircha yopiq. Avans yubormang.',
@@ -1134,7 +1213,8 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
   final arrivalFrom = TextEditingController(),
       arrivalTo = TextEditingController(),
       deposit = TextEditingController(),
-      batch = TextEditingController();
+      batch = TextEditingController(),
+      customerNotice = TextEditingController();
   WebPreorderConfig? config;
   Future<dynamic>? requests;
   String? error;
@@ -1154,6 +1234,7 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
     arrivalTo.dispose();
     deposit.dispose();
     batch.dispose();
+    customerNotice.dispose();
     super.dispose();
   }
 
@@ -1177,6 +1258,7 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
             : (singleDate ? c.arrival : '');
         deposit.text = '${c.deposit}';
         batch.text = '${c.batchQuantity}';
+        customerNotice.text = c.customerNotice;
         error = null;
         requests = api.admin(widget.secret, 'list');
         hasMore = true;
@@ -1234,6 +1316,7 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
         },
         'deposit_amount': int.parse(deposit.text),
         'batch_quantity': int.parse(batch.text),
+        'customer_notice': customerNotice.text.trim(),
         'revision': config!.revision,
       });
       await _load();
@@ -1742,6 +1825,26 @@ class _WebPreorderAdminPageState extends State<WebPreorderAdminPage> {
                         final n = int.tryParse(v ?? '') ?? -1;
                         return n < 0 || n > 100000 ? 'Sonni tekshiring' : null;
                       },
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Katalogda yo‘q kitoblar uchun ogohlantirish',
+                      style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 7),
+                    TextFormField(
+                      key: const Key('admin_custom_preorder_notice'),
+                      controller: customerNotice,
+                      readOnly: saving,
+                      maxLines: 4,
+                      minLines: 2,
+                      maxLength: 600,
+                      decoration: const InputDecoration(
+                        labelText: 'Mijozga ko‘rinadigan izoh',
+                        hintText: 'Ayrim kitoblarni topishning imkoni bo‘lmasligi mumkin...',
+                        helperText: 'Mijoz avans to‘lashdan oldin o‘qib, tasdiqlaydi.',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     FilledButton.icon(

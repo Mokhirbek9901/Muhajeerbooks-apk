@@ -174,16 +174,62 @@ class AdminProfitBatchPanel extends StatelessWidget {
     return (_n(group,'estimated_sold_units')*100.0/count).clamp(0.0,100.0).toDouble();
   }
 
+  // Presentation only: all values come from the existing read-only batch RPC.
+  Widget _batchMetric({
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color iconColor,
+    required Color valueColor,
+  }) => Expanded(
+    child:Padding(
+      padding:const EdgeInsets.symmetric(horizontal:3,vertical:9),
+      child:Column(mainAxisSize:MainAxisSize.min,children:[
+        Container(
+          padding:const EdgeInsets.all(5),
+          decoration:BoxDecoration(
+            color:iconColor.withValues(alpha:.09),
+            borderRadius:BorderRadius.circular(9)),
+          child:Icon(icon,size:18,color:iconColor)),
+        const SizedBox(height:6),
+        SizedBox(height:31,child:Center(child:Text(label,
+          maxLines:2,overflow:TextOverflow.ellipsis,
+          textAlign:TextAlign.center,
+          style:const TextStyle(color:navy,fontSize:10,height:1.2)))),
+        const SizedBox(height:5),
+        SizedBox(width:double.infinity,child:FittedBox(
+          fit:BoxFit.scaleDown,
+          child:Text(value,style:TextStyle(
+            color:valueColor,fontSize:16,fontWeight:FontWeight.w900)))),
+      ]),
+    ),
+  );
+
   Widget _groupRow(BuildContext context,Map<String,dynamic> group,
     int index,int positiveTotal,{bool compact=false}) {
     final incomplete=group['missing_lot_details']==true;
     final amount=_n(group,'projected_profit');
-    final share=positiveTotal>0&&amount>0
-      ?(amount/positiveTotal).clamp(0.0,1.0):0.0;
     final received=_n(group,'purchased_units');
-    final estimatedSold=_n(group,'estimated_sold_units').clamp(0,received>0?received:0);
+    final estimatedSold=_n(group,'estimated_sold_units')
+        .clamp(0,received>0?received:0);
     final percent=_soldRate(group);
     final color=palette[index%palette.length];
+    final dated=group['date_fifo_applied']==true;
+    final pricedSales=_n(group,'dated_order_sales_units');
+    final unknownPriceSales=_n(group,'dated_legacy_sales_units');
+
+    // Do not estimate realized margin from the FIFO progress percentage:
+    // only sales with a recorded sale price have an attributable profit.
+    final canShowRealized=!incomplete && dated &&
+        group['dated_order_gross_profit'] != null &&
+        (pricedSales>0 || unknownPriceSales==0);
+    final purchaseCost=!incomplete && group['total_purchase_cost']!=null
+        ? _won(_n(group,'total_purchase_cost')) : '—';
+    final expectedProfit=!incomplete && group['projected_profit']!=null
+        ? _won(amount) : '—';
+    final realizedProfit=canShowRealized
+        ? _won(_n(group,'dated_order_gross_profit')) : '—';
+
     return InkWell(
       borderRadius:BorderRadius.circular(12),
       onTap:()=>_showGroupDetails(context,group),
@@ -216,23 +262,58 @@ class AdminProfitBatchPanel extends StatelessWidget {
               ],
             )),
             const SizedBox(width:8),
-            Column(crossAxisAlignment:CrossAxisAlignment.end,children:[
-              Text(incomplete?'Hisoblanmagan':_won(amount),
-                style:TextStyle(color:incomplete?muted:green,
-                  fontWeight:FontWeight.w900,fontSize:13)),
-              const SizedBox(height:3),
-              Text(incomplete?'Kitoblar kiritilmagan'
-                  :'Foyda ulushi: ${(share*100).round()}%',
-                style:const TextStyle(color:muted,fontSize:10)),
-            ]),
             const Icon(Icons.chevron_right_rounded,color:muted,size:17),
           ]),
+          const SizedBox(height:10),
+          Container(
+            decoration:BoxDecoration(
+              color:const Color(0xFFF0F8F5),
+              borderRadius:BorderRadius.circular(12)),
+            padding:const EdgeInsets.symmetric(horizontal:5),
+            child:Row(crossAxisAlignment:CrossAxisAlignment.center,children:[
+              _batchMetric(
+                label:'Partiya tan narxi',
+                value:purchaseCost,
+                icon:Icons.inventory_2_outlined,
+                iconColor:const Color(0xFF2B7EE5),
+                valueColor:navy),
+              Container(width:1,height:78,color:const Color(0xFFD6E5E3)),
+              _batchMetric(
+                label:'Kutilayotgan foyda',
+                value:expectedProfit,
+                icon:Icons.trending_up_rounded,
+                iconColor:green,
+                valueColor:green),
+              Container(width:1,height:78,color:const Color(0xFFD6E5E3)),
+              _batchMetric(
+                label:'Hozirgacha olingan foyda',
+                value:realizedProfit,
+                icon:Icons.monetization_on_outlined,
+                iconColor:const Color(0xFFEAA01E),
+                valueColor:green),
+            ]),
+          ),
           if (incomplete) ...[
             const SizedBox(height:11),
             Text('Moliyada: ${_won(_n(group,'finance_recorded_cost'))} · '
               'Foydani hisoblash uchun partiyadagi kitoblarni kiriting.',
               style:const TextStyle(color:muted,fontSize:11,height:1.4)),
           ] else ...[
+          if (dated && unknownPriceSales>0) ...[
+            const SizedBox(height:6),
+            Text(pricedSales>0
+              ? 'Olingan foydada faqat narxi ma’lum $pricedSales ta sotuv hisoblangan; '
+                '$unknownPriceSales ta eski narxsiz sotuv kiritilmagan.'
+              : '$unknownPriceSales ta eski narxsiz sotuvning foydasini '
+                'aniq hisoblab bo‘lmaydi.',
+              style:const TextStyle(color:muted,fontSize:10,height:1.35)),
+          ],
+          if (_n(group,'unpriced_rows')>0) ...[
+            const SizedBox(height:5),
+            const Text('Ba’zi kitoblarning tan narxi noma’lum: '
+              'partiya summalari to‘liq bo‘lmasligi mumkin.',
+              style:TextStyle(color:muted,fontSize:10,height:1.35)),
+          ],
           const SizedBox(height:11),
           Row(children:[
             Expanded(child:Text(group['date_fifo_applied']==true

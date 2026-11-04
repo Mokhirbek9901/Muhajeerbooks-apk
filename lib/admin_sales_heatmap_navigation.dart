@@ -36,7 +36,6 @@ class _AdminSalesHeatmapNavigatorState
   static const navy = Color(0xFF1A2B44);
   static const muted = Color(0xFF718098);
   static const green = Color(0xFF078B65);
-  static const earliest = '2024-04-01';
   static const months = <String>[
     'Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun',
     'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr',
@@ -159,10 +158,12 @@ class _AdminSalesHeatmapNavigatorState
     if (period == SalesHeatmapPeriod.thirtyDays) {
       return !next.isBefore(first);
     }
-    return !DateTime(
-      period == SalesHeatmapPeriod.year ? next.year : next.year,
-      period == SalesHeatmapPeriod.year ? 1 : next.month,
-    ).isBefore(first);
+    if (period == SalesHeatmapPeriod.year) {
+      // 2024 is partially available (from April); compare the END of
+      // the previous year, not its January 1 starting date.
+      return !DateTime(next.year,12,31).isBefore(first);
+    }
+    return !DateTime(next.year,next.month).isBefore(first);
   }
 
   bool get canNext {

@@ -9,5 +9,8 @@
   "version": "2.5.24",
   "source_branch": "feat/admin-private-order-notes-preorder-date-range-20261105",
   "app_store_public_release_allowed": false,
-  "play_market_release_allowed": false
+  "play_market_release_allowed": false,
+  "notes_rpc_edge_version": 44,
+  "includes_whitelisted_admin_rpc": true,
+  "request_revision": 2
 }

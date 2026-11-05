@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'admin_profit_lot_price_editor.dart';
 
 /// Keep finance-only historical groups in chronological order beside lots.
 @visibleForTesting
@@ -19,12 +20,17 @@ class AdminProfitBatchPanel extends StatelessWidget {
     required this.groups,
     required this.lots,
     this.unmatchedSalesCount = 0,
+    this.secret = '',
+    this.onPricesSaved,
   });
 
   final List<Map<String,dynamic>> groups;
   final List<Map<String,dynamic>> lots;
   /// Recorded sales without a safe, date-eligible, matching receipt.
   final int unmatchedSalesCount;
+  /// Admin-only price editor; disabled in non-admin/test-only panel use.
+  final String secret;
+  final Future<void> Function()? onPricesSaved;
 
   static const navy=Color(0xFF162743);
   static const muted=Color(0xFF708099);
@@ -44,6 +50,18 @@ class AdminProfitBatchPanel extends StatelessWidget {
     final key=group['group_key'];
     return lots.where((row)=>row['group_key']==key).toList()
       ..sort((a,b)=>_n(b,'quantity').compareTo(_n(a,'quantity')));
+  }
+
+  Future<void> _reviewLotPrice(
+    BuildContext sheetContext,
+    Map<String,dynamic> lot,
+  ) async {
+    final changed = await showAdminProfitLotPriceEditor(
+      sheetContext,secret:secret,lot:lot,
+    );
+    if (!changed || !sheetContext.mounted) return;
+    Navigator.of(sheetContext).pop();
+    if (onPricesSaved != null) await onPricesSaved!();
   }
 
   void _showGroupDetails(BuildContext context,Map<String,dynamic> group) {
@@ -142,6 +160,28 @@ class AdminProfitBatchPanel extends StatelessWidget {
             _line('Taxminiy foyda',item['projected_profit']==null
               ?'Hisoblab bo‘lmaydi'
               :_won(_n(item,'projected_profit'))),
+            if (secret.isNotEmpty) ...[
+              if (profitLotHasMissingPrice(item))
+                const Padding(
+                  padding: EdgeInsets.only(top:7),
+                  child:Text(
+                    'Narxlardan biri kiritilmagan. Taxminiy foyda to‘liq hisoblanmaydi.',
+                    style:TextStyle(color:Color(0xFFB16C14),fontSize:11.5),
+                  ),
+                ),
+              Align(
+                alignment:Alignment.centerRight,
+                child:OutlinedButton.icon(
+                  key:ValueKey('profit_lot_edit_${item['id']}'),
+                  onPressed:()=>_reviewLotPrice(context,item),
+                  icon:const Icon(Icons.edit_outlined,size:17),
+                  label:Text(profitLotHasMissingPrice(item)
+                    ? 'Narxlarni kiritish / tekshirish'
+                    : 'Tan va sotuv narxini tahlil qilish',
+                    style:const TextStyle(fontSize:12)),
+                ),
+              ),
+            ],
           ],
           const SizedBox(height:15),
           Text(group['date_fifo_applied']==true

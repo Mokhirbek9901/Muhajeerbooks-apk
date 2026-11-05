@@ -5197,6 +5197,13 @@ class BookDetailPage extends StatelessWidget {
                         : Column(
                             children: [cover, const SizedBox(height: 26), info],
                           ),
+                    if (preorderActive) ...[
+                      const SizedBox(height: 16),
+                      _PreorderWaitingPeople(
+                        key: ValueKey('preorder_waiting_${b.id}'),
+                        bookId: b.id,
+                      ),
+                    ],
                     // Restore both book-discovery sections for every active
                     // catalog book, on iOS, Android and web alike. Never show
                     // customer review submission in the detail view.
@@ -5412,6 +5419,61 @@ class BookDetailPage extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Read-only live count of distinct people with active advance orders.
+/// No customer details or cancelled/completed orders are exposed.
+class _PreorderWaitingPeople extends StatefulWidget {
+  const _PreorderWaitingPeople({super.key, required this.bookId});
+  final String bookId;
+
+  @override
+  State<_PreorderWaitingPeople> createState() => _PreorderWaitingPeopleState();
+}
+
+class _PreorderWaitingPeopleState extends State<_PreorderWaitingPeople> {
+  late Future<int?> _count;
+
+  @override
+  void initState() {
+    super.initState();
+    _count = _fetchCount();
+  }
+
+  Future<int?> _fetchCount() async {
+    try {
+      final raw = await Supabase.instance.client.rpc(
+        'customer_book_preorder_waiting_count',
+        params: {'p_book_id': widget.bookId},
+      );
+      return raw is num ? raw.toInt() : int.tryParse('$raw');
+    } catch (_) {
+      // A temporarily unavailable statistic must not break checkout.
+      return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<int?>(
+        future: _count,
+        builder: (context, snapshot) {
+          final count = snapshot.data;
+          if (count == null) return const SizedBox.shrink();
+          return AppSurface(
+            child: Row(
+              children: [
+                const Icon(Icons.people_alt_outlined, color: AppColors.success),
+                const SizedBox(width: 10),
+                Text(
+                  '$count ta odam kutyapti',
+                  key: const Key('catalog_preorder_waiting_people'),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ],
+            ),
+          );
+        },
+      );
 }
 
 /// Catalog discovery stays visible on every iOS/Android/web book page.

@@ -1,0 +1,42 @@
+name: Sync verified public Android version
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main, ops/published-store-sync-20261105]
+    paths:
+      - '.github/workflows/published_android_version_sync.yml'
+      - 'tools/android_store_manifest.py'
+permissions:
+  contents: write
+concurrency:
+  group: published-android-version-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 -m unittest discover -s server/tests -p test_android_store_manifest.py -v
+      - run: python3 -m pip install --quiet google-auth==2.43.0 requests==2.32.5
+      - name: Require actual published full Production availability
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: python3 tools/android_store_manifest.py .github/published-android-release.json
+      - name: Publish non-secret version metadata only
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/published-android-release.json
+          git diff --cached --quiet && exit 0
+          git commit -m '[skip ci] [web-only] Sync verified public Play version metadata'
+          git push origin HEAD:${{ github.ref_name }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: published-android-release
+          path: .github/published-android-release.json

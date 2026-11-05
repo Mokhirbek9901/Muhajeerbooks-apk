@@ -25,7 +25,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: play-release-${{ github.ref }}
+  group: muhajeer-google-play-api
   cancel-in-progress: false
 
 jobs:

@@ -21,6 +21,8 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
       <String, TextEditingController>{};
 
   List<Book> _books = <Book>[];
+  List<Book> _activePreorders = <Book>[];
+  bool _showActivePreorders = false;
   bool _loading = true;
   bool _busy = false;
   bool _globalEnabled = false;
@@ -60,6 +62,10 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
           .map((entry) => Map<String, dynamic>.from(entry))
           .toList();
       final managedIds = managed.map((entry) => '${entry['id']}').toSet();
+      final activePreorders = all.where(
+        (b) => b.isActive && (b.preorderEnabled || managedIds.contains(b.id)),
+      ).toList()
+        ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
       final soldout = all
           .where(
             (b) =>
@@ -105,6 +111,7 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
       }
       setState(() {
         _books = soldout;
+        _activePreorders = activePreorders;
         _savedCount = managed.length;
         _globalEnabled = settings['global_enabled'] == true;
         _loading = false;
@@ -316,6 +323,50 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
               : Column(
                   children: [
                     Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              key: const Key('soldout_preorder_tab_add'),
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: !_showActivePreorders
+                                    ? AppColors.successSoft : Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7, vertical: 12),
+                              ),
+                              onPressed: () => setState(
+                                () => _showActivePreorders = false),
+                              child: const Text(
+                                'Tugagan kitoblarni oldindan buyurtmaga qo‘shish',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton(
+                              key: const Key('soldout_preorder_tab_active'),
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: _showActivePreorders
+                                    ? AppColors.successSoft : Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7, vertical: 12),
+                              ),
+                              onPressed: () => setState(
+                                () => _showActivePreorders = true),
+                              child: const Text(
+                                'Oldindan sotuvga qo‘shilgan kitoblar',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!_showActivePreorders) Padding(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -360,7 +411,37 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
                       ),
                     ),
                     Expanded(
-                      child: visible.isEmpty
+                      child: _showActivePreorders
+                          ? (_activePreorders.isEmpty
+                              ? const Center(child: Text(
+                                  'Hozir oldindan sotuvga qo‘shilgan kitob yo‘q.'))
+                              : ListView.builder(
+                                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 14),
+                                  itemCount: _activePreorders.length,
+                                  itemBuilder: (context, index) {
+                                    final book = _activePreorders[index];
+                                    return Card(
+                                      key: ValueKey('active_preorder_${book.id}'),
+                                      color: Colors.white,
+                                      margin: const EdgeInsets.only(bottom: 8),
+                                      child: ListTile(
+                                        leading: const Icon(
+                                          Icons.event_available_rounded,
+                                          color: AppColors.success,
+                                        ),
+                                        title: Text(book.title, style: const TextStyle(
+                                          fontWeight: FontWeight.w800)),
+                                        subtitle: Text(
+                                          'Omborda ${book.stock} ta • Narx: ${_won(book.price)}\n'
+                                          'Kelishi: ${book.preorderArrivalNote.isEmpty ? 'Ko‘rsatilmagan' : book.preorderArrivalNote}\n'
+                                          'Avans: ${_won(book.preorderDepositMin)}',
+                                        ),
+                                        isThreeLine: true,
+                                      ),
+                                    );
+                                  },
+                                ))
+                          : visible.isEmpty
                           ? const Center(child: Text('Tugagan kitob topilmadi.'))
                           : ListView.builder(
                               padding: const EdgeInsets.fromLTRB(12, 4, 12, 14),
@@ -464,7 +545,7 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
                               },
                             ),
                     ),
-                    SafeArea(
+                    if (!_showActivePreorders) SafeArea(
                       top: false,
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),

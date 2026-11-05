@@ -88,6 +88,35 @@ List<Map<String, dynamic>> supplierSourceRows(
     ..sort((a, b) => (a['title'] as String).compareTo(b['title'] as String));
 }
 
+/// Supplier-only manual book, independent from all preorder demand.
+/// Cover URLs are permanent owner-uploaded images, not local file paths.
+@visibleForTesting
+Map<String,dynamic> supplierManualLineRow({
+  required String key,
+  required String title,
+  required int quantity,
+  required String imageUrl,
+  String publisher = '',
+}) {
+  final name = title.trim();
+  final edition = publisher.trim();
+  final url = imageUrl.trim();
+  if (key.isEmpty || key.length > 260 ||
+      name.isEmpty || name.length > 240 ||
+      edition.length > 160 ||
+      quantity < 1 || quantity > 10000 ||
+      url.length > 2200 ||
+      (url.isNotEmpty && !url.startsWith('https://'))) {
+    throw ArgumentError('Qo‘shimcha kitob ma’lumotlari noto‘g‘ri');
+  }
+  return {
+    'item_key': key, 'source_ref': '',
+    'title': name, 'publisher': edition,
+    'image_url': url, 'requested': 0,
+    'quantity': quantity, 'selected': true,
+  };
+}
+
 class _PreorderSupplierPage extends StatefulWidget {
   const _PreorderSupplierPage({required this.api, required this.orders});
   final _AdminApi api;
@@ -269,45 +298,170 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
       context: context, builder: (ctx) => AlertDialog(
         title: const Text('Jo‘natma kitobini tahrirlash'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(controller: title, maxLength: 240,
-            decoration: const InputDecoration(labelText: 'Kitob nomi')),
-          TextField(controller: publisher, maxLength: 160,
-            decoration: const InputDecoration(labelText: 'Nashriyot')),
-          const Text('Bu faqat ta’minot ro‘yxatini o‘zgartiradi. '
-            'Asl oldindan zakaz nomini alohida tahrirlash mumkin.',
-            style: TextStyle(fontSize: 12)),
-        ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Bekor')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Saqlash')),
-        ],
-      ));
-    if (mounted && result == true && title.text.trim().isNotEmpty) {
-      setState(() {
-        line.title = title.text.trim();
-        line.publisher = publisher.text.trim();
-      });
-    }
-    title.dispose();
-    publisher.dispose();
-  }
-
-  Future<void> _addLine() async {
+          TextField(cont  Future<void> _addLine() async {
+    if (busy) return;
     final title = TextEditingController();
     final publisher = TextEditingController();
     final quantity = TextEditingController(text: '1');
-    final result = await showDialog<bool>(context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Qo‘shimcha kitob qo‘shish'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(controller: title, decoration:
-            const InputDecoration(labelText: 'Kitob nomi')),
-          TextField(controller: publisher, decoration:
-            const InputDecoration(labelText: 'Nashriyot')),
-          TextField(controller: quantity, keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Olinadigan miqdor')),
+    XFile? imageFile;
+    Uint8List? preview;
+    String? error;
+    bool choosing = false;
+    bool uploading = false;
+    final result = await showDialog<_SupplierLine>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialog) => StatefulBuilder(
+        builder: (dialog, redraw) => AlertDialog(
+          title: const Text('Qo‘shimcha kitob qo‘shish'),
+          content: SizedBox(
+            width: 400,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    key: const Key('supplier_manual_name'),
+                    controller: title, maxLength: 240,
+                    enabled: !uploading,
+                    decoration: const InputDecoration(labelText: 'Kitob nomi')),
+                  TextField(
+                    controller: publisher, maxLength: 160,
+                    enabled: !uploading,
+                    decoration: const InputDecoration(
+                      labelText: 'Nashriyot (ixtiyoriy)')),
+                  TextField(
+                    key: const Key('supplier_manual_quantity'),
+                    controller: quantity, enabled: !uploading,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: const InputDecoration(
+                      labelText: 'Olinadigan miqdor')),
+                  const SizedBox(height: 12),
+                  const Text('Kitob rasmi (ixtiyoriy)',
+                    style: TextStyle(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: preview == null
+                        ? Container(
+                            key: const Key('supplier_photo_placeholder'),
+                            width: 70, height: 90,
+                            color: const Color(0xFFE7F0ED),
+                            child: const Icon(Icons.menu_book_outlined))
+                        : Image.memory(preview!,
+                            key: const Key('supplier_photo_preview'),
+                            width: 70, height: 90, cacheWidth: 160,
+                            fit: BoxFit.cover),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: OutlinedButton.icon(
+                      key: const Key('supplier_photo_choose'),
+                      icon: const Icon(Icons.add_photo_alternate_outlined),
+                      label: Text(imageFile == null
+                          ? 'Rasm qo‘shish' : 'Rasmni almashtirish'),
+                      onPressed: choosing || uploading ? null : () async {
+                        redraw(() { choosing = true; error = null; });
+                        try {
+                          final picked = await ImagePicker().pickImage(
+                            source: ImageSource.gallery,
+                            maxWidth: 1200, maxHeight: 1800,
+                            imageQuality: 82,
+                          );
+                          if (picked == null) return;
+                          if (await picked.length() > 20 * 1024 * 1024) {
+                            throw StateError('Rasm 20 MB dan kichik bo‘lsin');
+                          }
+                          final data = await picked.readAsBytes();
+                          if (!dialog.mounted) return;
+                          redraw(() { imageFile = picked; preview = data; });
+                        } catch (e) {
+                          if (dialog.mounted) redraw(
+                            () => error = 'Rasm tanlanmadi: $e');
+                        } finally {
+                          if (dialog.mounted) redraw(() => choosing = false);
+                        }
+                      },
+                    )),
+                  ]),
+                  if (imageFile != null)
+                    Align(alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        key: const Key('supplier_photo_remove'),
+                        onPressed: choosing || uploading ? null : () => redraw(() {
+                          imageFile = null; preview = null;
+                        }),
+                        icon: const Icon(Icons.close, size: 16),
+                        label: const Text('Rasmni olib tashlash'))),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Bu kitob faqat O‘zbekistonga jo‘natma ro‘yxatiga '
+                    'qo‘shiladi. Mijoz zakaslari o‘zgarmaydi. '
+                    'Rasm PDF, PNG va JPG fayllarda ham chiqadi.',
+                    style: TextStyle(fontSize: 12, color: AppColors.muted)),
+                  if (error != null)
+                    Padding(padding: const EdgeInsets.only(top: 10),
+                      child: Text(error!, style: const TextStyle(
+                        color: Colors.red, fontSize: 12))),
+                  if (uploading)
+                    const Padding(padding: EdgeInsets.only(top: 10),
+                      child: LinearProgressIndicator()),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: choosing || uploading ? null
+                : () => Navigator.pop(dialog),
+              child: const Text('Bekor')),
+            FilledButton.icon(
+              key: const Key('supplier_manual_add'),
+              icon: const Icon(Icons.add),
+              label: const Text('Qo‘shish'),
+              onPressed: choosing || uploading ? null : () async {
+                final count = int.tryParse(quantity.text.trim()) ?? 0;
+                if (title.text.trim().isEmpty || count < 1 || count > 10000) {
+                  redraw(() => error = 'Kitob nomi va to‘g‘ri miqdorni kiriting.');
+                  return;
+                }
+                redraw(() { uploading = true; error = null; });
+                try {
+                  var imageUrl = '';
+                  if (imageFile != null) {
+                    final uploaded = await widget.api.uploadCover(imageFile!);
+                    imageUrl = uploaded.url.trim();
+                    if (!imageUrl.startsWith('https://')) {
+                      throw StateError('Doimiy rasm manzili olinmadi');
+                    }
+                  }
+                  final row = supplierManualLineRow(
+                    key: 'manual:${_formRequestUuid()}',
+                    title: title.text, publisher: publisher.text,
+                    quantity: count, imageUrl: imageUrl,
+                  );
+                  if (dialog.mounted) {
+                    Navigator.pop(dialog, _SupplierLine.fromJson(row));
+                  }
+                } catch (e) {
+                  if (dialog.mounted) redraw(() {
+                    error = 'Kitob qo‘shilmadi: $e';
+                    uploading = false;
+                  });
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+    title.dispose(); publisher.dispose(); quantity.dispose();
+    if (mounted && result != null) setState(() => lines.add(result));
+  }
+
+oration: const InputDecoration(labelText: 'Olinadigan miqdor')),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false),
@@ -611,7 +765,8 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
                       Text(line.title,style:const TextStyle(fontWeight:FontWeight.w800)),
                       Text(line.publisher.isEmpty?'Nashriyot ko‘rsatilmagan':
                         line.publisher,style:const TextStyle(fontSize:11)),
-                      Text('Mijoz zakazi: ${line.requested} dona',
+                      Text(line.sourceRef.isEmpty ? 'O‘zingiz qo‘shgan kitob' :
+                         'Mijoz zakazi: ${line.requested} dona',
                         style:const TextStyle(fontSize:11,color:AppColors.muted)),
                     ])),
                   IconButton(tooltip:'Nom / nashriyotni tahrirlash',

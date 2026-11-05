@@ -1,0 +1,15 @@
+{
+  "purpose": "Owner-approved TestFlight-only 2.5.26 three-feature update",
+  "verified_source_sha": "6b311b4bb084b574b720cbad3da03306808dbd6b",
+  "verified_build": "2.5.26 (340031)",
+  "changes": [
+    "Sold-out advance-sale admin page: separate add and already-listed books tabs",
+    "Preorder-enabled book detail: live distinct active waiting customer count",
+    "Converted, paid, arrived preorder: Yuborildi confirmation marks normal order shipping and closes active preorder"
+  ],
+  "database_change": "new public aggregate and extra shipped action only; no existing rows touched",
+  "production_app_store": false,
+  "google_play": false,
+  "web_deployment": false,
+  "publish_testflight_only": true
+}

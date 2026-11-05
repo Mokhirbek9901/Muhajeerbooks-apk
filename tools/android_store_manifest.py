@@ -47,7 +47,8 @@ def main(output):
     finally:
         call('DELETE', f'{base}/edits/{edit}')
     if selected is None:
-        raise SystemExit('No fully published production binary confirmed. Preserve the last verified server configuration.')
+        print('No new full public Production release is confirmed; preserving the last verified metadata.')
+        return
     code, version = selected
     parts = version.split('.')
     if not 2 <= len(parts) <= 4 or not all(part.isdigit() for part in parts):

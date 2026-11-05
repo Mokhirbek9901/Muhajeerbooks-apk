@@ -15,5 +15,6 @@
   "app_store_production": false,
   "play_market_production": false,
   "web_deployment": false,
-  "testflight_only": true
+  "testflight_only": true,
+  "syntax_repair": "Restored original edit form; inserted optional photo dialog only (619b8a5c)"
 }

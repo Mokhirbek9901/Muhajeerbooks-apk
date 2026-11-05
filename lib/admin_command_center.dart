@@ -630,13 +630,14 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
         final rows = data.rows.where((row) {
           final status = '${row['status'] ?? 'waiting'}';
           return switch (statusFilter) {
-            'all' => status != 'cancelled',
+            'all' => status != 'cancelled' && status != 'fulfilled',
             'waiting' => status == 'waiting',
             'accepted' =>
               status == 'accepted' ||
                   status == 'contacted' ||
                   status == 'ordered',
-            'arrived' => status == 'arrived' || status == 'fulfilled',
+            'arrived' => status == 'arrived',
+            'sent' => status == 'fulfilled',
             'cancelled' => status == 'cancelled',
             _ => status != 'cancelled',
           };
@@ -671,6 +672,7 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
                     'waiting': 'Tekshirish kerak',
                     'accepted': 'Qabul qilingan',
                     'arrived': 'Yangi kelgan',
+                    'sent': 'Yuborilgan',
                     'cancelled': 'Bekor qilingan',
                   }.entries)
                     ChoiceChip(
@@ -737,7 +739,7 @@ class _CombinedPreorderPageState extends State<_CombinedPreorderPage> {
                         'converted': 'Buyurtmaga o‘tkazilgan',
                         'arrived': 'Kitob keldi',
                         'cancelled': 'Bekor qilindi',
-                        'fulfilled': 'Yakunlandi',
+                        'fulfilled': 'Yuborildi',
                         'ordered': 'Buyurtma qilindi',
                       }[status] ??
                       status;
@@ -1132,6 +1134,53 @@ class _CombinedPreorderDetailPageState
     if (ok == true) await _act('status', {'status': 'cancelled'});
   }
 
+  /// Completing the linked delivery is atomic in the existing admin RPC:
+  /// it changes the ordinary order to shipping, then hides this preorder from
+  /// active lists without touching its deposit, reserved stock, or invoices.
+  Future<void> _markShipped() async {
+    if (saving || data?['converted_order_id'] == null) return;
+    final approved = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Buyurtma yuborildimi?'),
+        content: const Text(
+          'Kitob haqiqatan jo‘natilgan bo‘lsa tasdiqlang. '
+          'Bu oldindan zakas faol ro‘yxatdan olinadi va '
+          'oddiy buyurtma “Jo‘natildi” holatiga o‘tadi. '
+          'To‘lov, avans va sotuv tarixi saqlanadi.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialog, false),
+            child: const Text('Hozir emas'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialog, true),
+            child: const Text('Yuborildi'),
+          ),
+        ],
+      ),
+    );
+    if (approved != true || !mounted) return;
+    setState(() => saving = true);
+    try {
+      await widget.api.releasePreorder(source, reference, 'shipped', {
+        if (data?['revision'] != null) 'revision': data!['revision'],
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Buyurtma yuborildi, faol oldindan zakasdan olindi.'),
+      ));
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Yuborildi holati saqlanmadi: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
   Future<void> _proof(bool balance) async {
     final path =
         '${data?[balance ? 'balance_proof_path' : 'payment_proof_path'] ?? ''}';
@@ -1331,6 +1380,20 @@ class _CombinedPreorderDetailPageState
                         child: const Text(
                           'To‘lovni tasdiqlash • jo‘natishga o‘tkazish',
                         ),
+                      ),
+                    if (d['status'] == 'arrived' &&
+                        d['payment_state'] == 'verified' &&
+                        d['converted_order_id'] != null)
+                      FilledButton.icon(
+                        key: const Key('preorder_mark_shipped'),
+                        onPressed: saving ? null : _markShipped,
+                        icon: const Icon(Icons.local_shipping_outlined),
+                        label: const Text('Yuborildi'),
+                      ),
+                    if (d['status'] == 'fulfilled')
+                      const Text(
+                        'Ushbu oldindan zakas yuborilganlar tarixida.',
+                        style: TextStyle(color: AppColors.success),
                       ),
                     if (d['status'] != 'cancelled' &&
                         d['converted_order_id'] == null)

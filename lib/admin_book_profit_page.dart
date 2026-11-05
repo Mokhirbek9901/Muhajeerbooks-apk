@@ -1207,6 +1207,8 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
                         AdminProfitBatchPanel(
                           groups: batches,
                           lots: lots,
+                          secret: widget.secret,
+                          onPricesSaved: _reload,
                           unmatchedSalesCount:
                             BookProfitMath.amount(batchData['dated_fifo_unmatched_sales']),
                         ),
@@ -1225,6 +1227,8 @@ class _AdminBookProfitPageState extends State<AdminBookProfitPage> {
                 _pane(AdminProfitBatchPanel(
                           groups: batches,
                           lots: lots,
+                          secret: widget.secret,
+                          onPricesSaved: _reload,
                           unmatchedSalesCount:
                             BookProfitMath.amount(batchData['dated_fifo_unmatched_sales']),
                         )),

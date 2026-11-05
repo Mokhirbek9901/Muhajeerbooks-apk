@@ -514,19 +514,51 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
                                       key: ValueKey('active_preorder_${book.id}'),
                                       color: Colors.white,
                                       margin: const EdgeInsets.only(bottom: 8),
-                                      child: ListTile(
-                                        leading: const Icon(
-                                          Icons.event_available_rounded,
-                                          color: AppColors.success,
-                                        ),
-                                        title: Text(book.title, style: const TextStyle(
-                                          fontWeight: FontWeight.w800)),
-                                        subtitle: Text(
-                                          'Omborda ${book.stock} ta • Narx: ${_won(book.price)}\n'
-                                          'Kelishi: ${book.preorderArrivalNote.isEmpty ? 'Ko‘rsatilmagan' : book.preorderArrivalNote}\n'
-                                          'Avans: ${_won(book.preorderDepositMin)}',
-                                        ),
-                                        isThreeLine: true,
+                                      child: Column(
+                                        children: [
+                                          ListTile(
+                                            leading: const Icon(
+                                              Icons.event_available_rounded,
+                                              color: AppColors.success,
+                                            ),
+                                            title: Text(book.title, style: const TextStyle(
+                                              fontWeight: FontWeight.w800)),
+                                            subtitle: Text(
+                                              'Omborda ${book.stock} ta • Narx: ${_won(book.price)}\\n'
+                                              'Kelishi: ${book.preorderArrivalNote.isEmpty ? 'Ko‘rsatilmagan' : book.preorderArrivalNote}\\n'
+                                              'Avans: ${_won(book.preorderDepositMin)}',
+                                            ),
+                                            isThreeLine: true,
+                                            onTap: _busy ? null
+                                                : () => _editActivePreorder(book),
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                                            child: Row(
+                                              children: [
+                                                Expanded(
+                                                  child: OutlinedButton.icon(
+                                                    key: ValueKey('preorder_active_edit_${book.id}'),
+                                                    onPressed: _busy ? null
+                                                        : () => _editActivePreorder(book),
+                                                    icon: const Icon(Icons.edit_calendar_outlined),
+                                                    label: const Text('Tahrirlash'),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: OutlinedButton.icon(
+                                                    key: ValueKey('preorder_active_remove_${book.id}'),
+                                                    onPressed: _busy ? null
+                                                        : () => _removeActivePreorder(book),
+                                                    icon: const Icon(Icons.remove_circle_outline),
+                                                    label: const Text('Sotuvdan olish'),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     );
                                   },

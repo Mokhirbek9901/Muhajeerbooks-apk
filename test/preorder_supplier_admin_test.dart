@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:muhajeerbooks/admin_ui.dart';
 
@@ -46,6 +48,52 @@ void main() {
     expect(output,hasLength(2));
     expect(output.map((x)=>x['requested']).toList(),[2,1]);
     expect(output.every((x)=>(x['image_url'] as String).startsWith('https://')),true);
+  });
+
+  test('manual book and photo persist in draft JSON without preorder data', () {
+    final row = supplierManualLineRow(
+      key: 'manual:test-key', title: '  O‘zimizga kerakli kitob  ',
+      quantity: 6, imageUrl: 'https://example.com/covers/manual.jpg',
+      publisher: 'Toshkent Nashr',
+    );
+    expect(row['title'], 'O‘zimizga kerakli kitob');
+    expect(row['quantity'], 6);
+    expect(row['requested'], 0);
+    expect(row['source_ref'], '');
+    expect(row['selected'], true);
+    final restored = jsonDecode(jsonEncode(<String, dynamic>{
+      'name': 'O‘zbekistonga buyurtma',
+      'lines': [row],
+    })) as Map<String, dynamic>;
+    final lines = restored['lines'] as List;
+    expect(lines, hasLength(1));
+    expect((lines.single as Map)['image_url'],
+      'https://example.com/covers/manual.jpg');
+    expect((lines.single as Map).containsKey('customer_name'), false);
+    expect((lines.single as Map).containsKey('deposit'), false);
+  });
+
+  test('manual supplier book may have no photo and never creates demand', () {
+    final row = supplierManualLineRow(
+      key: 'manual:without-photo', title: 'Kitob', quantity: 1, imageUrl: '',
+    );
+    expect(row['image_url'], '');
+    expect(row['requested'], 0);
+  });
+
+  test('manual supplier photo requires permanent HTTPS and valid quantity', () {
+    expect(() => supplierManualLineRow(
+      key: 'manual:bad-url', title: 'Kitob', quantity: 1,
+      imageUrl: 'file:///private/local/photo.jpg',
+    ), throwsArgumentError);
+    expect(() => supplierManualLineRow(
+      key: 'manual:bad-count', title: 'Kitob', quantity: 10001,
+      imageUrl: 'https://example.com/photo.png',
+    ), throwsArgumentError);
+    expect(() => supplierManualLineRow(
+      key: 'manual:bad-name', title: '  ', quantity: 2,
+      imageUrl: 'https://example.com/photo.png',
+    ), throwsArgumentError);
   });
 
   test('different publishers are separate, cancelled preorder excluded', () {

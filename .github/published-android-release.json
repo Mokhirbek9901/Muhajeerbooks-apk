@@ -1,0 +1,10 @@
+{
+  "package": "com.muhajeerbooks.app",
+  "version": "2.5.22",
+  "build": 1213,
+  "available": true,
+  "track": "production",
+  "lifecycle": "RELEASE_LIFECYCLE_STATE_PUBLISHED",
+  "full_rollout": true,
+  "verified_at": "2026-11-05T12:17:20.089092+00:00"
+}

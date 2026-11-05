@@ -11,7 +11,7 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: published-android-version-${{ github.ref }}
+  group: muhajeer-google-play-api
   cancel-in-progress: false
 jobs:
   sync:

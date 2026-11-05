@@ -1,0 +1,42 @@
+name: Final store status 20261105
+on:
+  push:
+    branches: ['release/final-store-20261105']
+    paths: ['.github/workflows/final_store_status_20261105.yml']
+permissions:
+  contents: read
+jobs:
+  app-store:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Read App Store and TestFlight only
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: ruby .github/release_tools/inspect_app_store_state.rb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: final-app-store-state
+          path: ${{ runner.temp }}/app-store-state.json
+  google-play:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 -m pip install --quiet google-auth requests
+      - name: Inspect tracks without committing an edit
+        env:
+          PLAY_TRACK: internal
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: python3 tools/play_candidate.py inspect
+      - uses: actions/upload-artifact@v4
+        with:
+          name: final-google-play-state
+          path: ${{ runner.temp }}/play-store-state.json

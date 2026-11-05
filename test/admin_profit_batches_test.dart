@@ -29,4 +29,191 @@ void main(){
     expect(find.text('O‘sha partiyadagi tan narxi'),findsOneWidget);
     expect(find.textContaining('hali haqiqiy olingan foyda emas'),findsOneWidget);
   });
+
+  testWidgets('every dated batch displays three sourced monetary figures',
+      (tester) async {
+    final groups=<Map<String,dynamic>>[
+      {
+        'group_key':'date:2026-12-01','title':'Yangi partiya',
+        'date':'2026-12-01','purchased_units':2,'book_titles':1,
+        'total_purchase_cost':15000,'projected_profit':5000,
+        'estimated_sold_units':0,'estimated_remaining_units':2,
+        'dated_order_sales_units':0,'dated_legacy_sales_units':0,
+        'dated_order_gross_profit':0,'date_fifo_applied':true,
+      },
+      {
+        'group_key':'date:2026-09-09','title':'Eski partiya',
+        'date':'2026-09-09','purchased_units':3,'book_titles':2,
+        'total_purchase_cost':30000,'projected_profit':12000,
+        'estimated_sold_units':2,'estimated_remaining_units':1,
+        'dated_order_sales_units':1,'dated_legacy_sales_units':1,
+        'dated_order_gross_profit':3000,'date_fifo_applied':true,
+      },
+    ];
+    await tester.pumpWidget(MaterialApp(home:Scaffold(
+      body:SingleChildScrollView(child:AdminProfitBatchPanel(
+        groups:groups,lots:const [])))));
+    expect(find.text('Partiya tan narxi'),findsNWidgets(2));
+    expect(find.text('Kutilayotgan foyda'),findsNWidgets(2));
+    expect(find.text('Hozirgacha olingan foyda'),findsNWidgets(2));
+    expect(find.text('₩15,000'),findsOneWidget);
+    expect(find.text('₩5,000'),findsOneWidget);
+    expect(find.text('₩0'),findsOneWidget);
+    expect(find.text('₩30,000'),findsOneWidget);
+    expect(find.text('₩12,000'),findsOneWidget);
+    expect(find.text('₩3,000'),findsOneWidget);
+    expect(find.textContaining('eski narxsiz sotuv kiritilmagan'),
+      findsOneWidget);
+    // Neither the FIFO row nor the existing batch details are removed.
+    expect(find.text('Sotuv sanasi bo‘yicha FIFO'),findsNWidgets(2));
+  });
+
+  testWidgets('unpriced historical sales never get an invented profit',
+      (tester) async {
+    final groups=<Map<String,dynamic>>[
+      {
+        'group_key':'date:2026-09-09','title':'Tarixiy partiya',
+        'date':'2026-09-09','purchased_units':2,'book_titles':1,
+        'total_purchase_cost':20000,'projected_profit':6000,
+        'estimated_sold_units':1,'estimated_remaining_units':1,
+        'dated_order_sales_units':0,'dated_legacy_sales_units':1,
+        'dated_order_gross_profit':0,'date_fifo_applied':true,
+      },
+      {
+        'group_key':'finance:123','title':'Kitoblari kiritilmagan',
+        'date':'2026-08-01','missing_lot_details':true,
+        'finance_purchase_count':1,'finance_recorded_cost':25000,
+      },
+    ];
+    await tester.pumpWidget(MaterialApp(home:Scaffold(
+      body:SingleChildScrollView(child:AdminProfitBatchPanel(
+        groups:groups,lots:const [])))));
+    expect(find.text('Hozirgacha olingan foyda'),findsNWidgets(2));
+    expect(find.text('—'),findsNWidgets(3));
+    expect(find.text('Hisoblanmagan'),findsOneWidget);
+    expect(find.textContaining('aniq hisoblab bo‘lmaydi'),findsOneWidget);
+    expect(find.text('Kitoblari kiritilmagan'),findsOneWidget);
+  });
+
+
+  testWidgets('four-column batch revenue uses actual prices, not profit',
+      (tester) async {
+    final groups=<Map<String,dynamic>>[
+      {
+        'group_key':'new','title':'Yangi partiya',
+        'date':'2026-12-01','purchased_units':2,'book_titles':1,
+        'total_purchase_cost':20000,'projected_profit':10000,
+        'dated_order_sales_units':1,'dated_legacy_sales_units':0,
+        'dated_order_revenue':15000,
+        'dated_order_gross_profit':5000,
+        'date_fifo_applied':true,
+      },
+      {
+        'group_key':'old','title':'Oldingi partiya',
+        'date':'2026-09-09','purchased_units':3,'book_titles':1,
+        'total_purchase_cost':30000,'projected_profit':12000,
+        'dated_order_sales_units':1,'dated_legacy_sales_units':1,
+        'dated_order_revenue':18000,
+        'dated_order_gross_profit':8000,
+        'date_fifo_applied':true,
+      },
+    ];
+    final lots=<Map<String,dynamic>>[
+      {
+        'group_key':'new','quantity':2,'unit_cost':10000,
+        'sale_price':15000,
+      },
+      {
+        'group_key':'old','quantity':3,'unit_cost':10000,
+        'sale_price':14000,
+      },
+    ];
+    await tester.pumpWidget(MaterialApp(home:Scaffold(
+      body:SingleChildScrollView(child:AdminProfitBatchPanel(
+        groups:groups,lots:lots)))));
+    expect(find.text('Partiya tan narxi'),findsNWidgets(2));
+    expect(find.text('Kutilayotgan foyda'),findsNWidgets(2));
+    expect(find.text('Hozirgacha olingan foyda'),findsNWidgets(2));
+    expect(find.text('Jami sotuv summasi'),findsNWidgets(2));
+    expect(find.text('₩30,000'),findsWidgets);
+    expect(find.text('₩42,000'),findsOneWidget);
+    expect(find.text('Sotilgani: ₩15,000'),findsOneWidget);
+    expect(find.text('Sotilgani (ma’lum): ₩18,000'),findsOneWidget);
+    expect(find.text('Sotuv sanasi bo‘yicha FIFO'),findsNWidgets(2));
+  });
+
+  testWidgets('unpriced receipts show unknown, not imaginary sales totals',
+      (tester) async {
+    final groups=<Map<String,dynamic>>[
+      {
+        'group_key':'missing','title':'Eski narxsiz',
+        'date':'2026-08-01','purchased_units':1,'book_titles':1,
+        'total_purchase_cost':10000,'projected_profit':null,
+        'dated_order_sales_units':0,'dated_legacy_sales_units':1,
+        'dated_order_revenue':0,'date_fifo_applied':true,
+      }
+    ];
+    final lots=<Map<String,dynamic>>[
+      {'group_key':'missing','quantity':1,'sale_price':null}
+    ];
+    await tester.pumpWidget(MaterialApp(home:Scaffold(
+      body:SingleChildScrollView(child:AdminProfitBatchPanel(
+        groups:groups,lots:lots)))));
+    expect(find.text('Jami sotuv summasi'),findsOneWidget);
+    expect(find.text('Sotilgani: Narxi noma’lum'),findsOneWidget);
+    expect(find.text('Hisoblanmagan'),findsWidgets);
+    expect(find.text('Eski narxsiz'),findsOneWidget);
+  });
+
+
+  testWidgets('2x2 layout shows full turnover even if a lot price is absent',
+      (tester) async {
+    final groups=<Map<String,dynamic>>[{
+      'group_key':'oct','title':'10.10.2026 partiyasi',
+      'date':'2026-10-10','purchased_units':124,'book_titles':25,
+      'total_purchase_cost':1308141,'projected_profit':803143,
+      'dated_order_revenue':1271455,'dated_order_sales_units':66,
+      'dated_legacy_sales_units':0,'dated_order_gross_profit':459855,
+      'date_fifo_applied':true,
+      'estimated_sold_units':66,'estimated_remaining_units':58,
+    }];
+    final lots=<Map<String,dynamic>>[{
+      'group_key':'oct','quantity':124,'sale_price':null,
+    }];
+    await tester.pumpWidget(MaterialApp(home:Scaffold(
+      body:SingleChildScrollView(child:AdminProfitBatchPanel(
+        groups:groups,lots:lots)))));
+    expect(find.text('Partiya tan narxi'),findsOneWidget);
+    expect(find.text('Kutilayotgan foyda'),findsOneWidget);
+    expect(find.text('Hozirgacha olingan foyda'),findsOneWidget);
+    expect(find.text('Jami sotuv summasi'),findsOneWidget);
+    expect(find.text('₩2,111,284'),findsOneWidget);
+    expect(find.text('Sotilgani: ₩1,271,455'),findsOneWidget);
+    expect(find.text('Sotuv sanasi bo‘yicha FIFO'),findsOneWidget);
+  });
+
+  testWidgets('two by two batch tiles fit a narrow phone screen',
+      (tester) async {
+    tester.view.physicalSize=const Size(320,700);
+    tester.view.devicePixelRatio=1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    final groups=<Map<String,dynamic>>[{
+      'group_key':'large','title':'Oldingi partiya',
+      'date':'2026-09-09','purchased_units':2,'book_titles':1,
+      'total_purchase_cost':923048,'projected_profit':1336338,
+      'dated_order_revenue':1850842,
+      'dated_order_sales_units':1,'dated_legacy_sales_units':0,
+      'dated_order_gross_profit':1181913,'date_fifo_applied':true,
+    }];
+    await tester.pumpWidget(MaterialApp(home:Scaffold(
+      body:SingleChildScrollView(child:AdminProfitBatchPanel(
+        groups:groups,lots:const [])))));
+    expect(find.text('₩2,259,386'),findsOneWidget);
+    expect(find.text('Sotilgani: ₩1,850,842'),findsOneWidget);
+    expect(tester.takeException(),isNull);
+  });
+
 }

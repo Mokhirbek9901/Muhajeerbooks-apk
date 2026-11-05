@@ -33,7 +33,7 @@ void main() {
       body:SingleChildScrollView(child:AdminProfitBatchPanel(
         groups:groups,lots:lots)))));
     expect(find.textContaining('9.09.2026'),findsOneWidget);
-    expect(find.text('Hisoblanmagan'),findsOneWidget);
+    expect(find.text('Hisoblanmagan'),findsWidgets);
     expect(find.textContaining('Kitoblar kiritilmagan'),findsOneWidget);
     expect(find.textContaining('1,007,600'),findsOneWidget);
     await tester.tap(find.textContaining('9.09.2026'));

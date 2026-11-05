@@ -1,0 +1,16 @@
+{
+  "purpose": "User-approved INTERNAL TESTFLIGHT ONLY - Muhajeer Books 2.5.26",
+  "commit_from_tested_main": "fbfdd66e021280836165341f11641cf3ca0440bf",
+  "features": [
+    "Tugaganlarni oldindan sotuvga: per-book arrival from and until dates",
+    "Catalog-absent preorder: admin editable notice customers must acknowledge",
+    "Catalog book detail: restore same-author books and similar books on every platform",
+    "Remove all customer-written review UI, disable review-submit RPC; preserve historical review records",
+    "Retain existing sales, preorder, stock, admin notes, order and app update behaviors"
+  ],
+  "verified_flutter_ci_run": 41899377955,
+  "public_app_store_allowed": false,
+  "play_store_allowed": false,
+  "no_public_releases": true,
+  "testflight_version": "2.5.26"
+}

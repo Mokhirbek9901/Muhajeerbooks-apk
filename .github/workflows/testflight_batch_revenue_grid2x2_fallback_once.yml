@@ -34,7 +34,8 @@ jobs:
             '.github/testflight_batch_revenue_grid2x2_fallback_20261105.json' \
             '.github/workflows/testflight_batch_revenue_grid2x2_fallback_once.yml' \
             'lib/admin_profit_batches.dart' \
-            'test/admin_profit_batches_test.dart' | sort)
+            'test/admin_profit_batches_test.dart' \
+            'test/admin_profit_consolidated_finance_batch_test.dart' | sort)
           if [ "$actual" != "$expected" ]; then
             printf 'Unapproved changed files:\n%s\n' "$actual"
             exit 1

@@ -1,0 +1,17 @@
+{
+  "purpose": "Owner-approved internal TestFlight only: professional management of already active advance-sale books",
+  "base_verified_testflight": "e34723744f1127c1f543cb2c6be2efc27cf598ad",
+  "source_version": "2.5.26",
+  "changes": [
+    "Per-book date-from/date-until and advance-deposit editing",
+    "Per-book remove from advance sales with explicit confirmation",
+    "Search existing active advance-sale titles",
+    "Preserve independently configured preorders, all past requests, advance payments and unrelated book settings"
+  ],
+  "release_channel": "TestFlight only",
+  "production_apple": false,
+  "production_android": false,
+  "web_deploy": false,
+  "database_change": "Add two admin-protected single-book modes to existing RPC, no historical order writes",
+  "verify_before_upload": true
+}

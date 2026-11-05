@@ -250,3 +250,5 @@ jobs:
           retention-days: 30
 
 # Retry the release matrix with the current URL launcher test interface.
+
+# Validate the update-button behavior with factory widget subtypes.

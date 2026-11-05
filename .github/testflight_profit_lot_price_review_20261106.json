@@ -1,0 +1,18 @@
+{
+  "purpose": "User-approved TestFlight-only batch-lot cost and current catalog sale price analysis",
+  "exact_tested_source_sha": "94feee9d9ce495c045c250f12f1b9fcbdeb218af",
+  "version": "2.5.26",
+  "scope": [
+    "Book profit → batch detail → per-lot missing-price analysis/edit button",
+    "Edit only selected purchase-lot unit cost",
+    "Edit only corresponding book's current base catalog sale price",
+    "Show expected unit and total-batch margin before owner save",
+    "Read-only and history preserving except explicit per-book owner save"
+  ],
+  "server": "Additive owner-secret-checked single-lot RPC and private audit log; existing data unchanged",
+  "allow_production": false,
+  "allow_app_store": false,
+  "allow_play_market": false,
+  "allow_web_deploy": false,
+  "testflight_only": true
+}

@@ -21,6 +21,9 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
       <String, TextEditingController>{};
 
   List<Book> _books = <Book>[];
+  List<Book> _activeBooks = <Book>[];
+  Map<String, Map<String, dynamic>> _managedById = {};
+  bool _showActive = false;
   bool _loading = true;
   bool _busy = false;
   bool _globalEnabled = false;
@@ -103,8 +106,14 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
           text: '${stored?['deposit'] ?? (book.preorderDepositMin >= 1000 ? book.preorderDepositMin : 5000)}',
         );
       }
+      final activeBooks = all.where((book) =>
+          book.isActive && book.price > 0 &&
+          (book.preorderEnabled || managedIds.contains(book.id))).toList()
+        ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
       setState(() {
         _books = soldout;
+        _activeBooks = activeBooks;
+        _managedById = byId;
         _savedCount = managed.length;
         _globalEnabled = settings['global_enabled'] == true;
         _loading = false;
@@ -281,7 +290,7 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
   @override
   Widget build(BuildContext context) {
     final searchTerm = _search.text.trim().toLowerCase();
-    final visible = _books.where((b) =>
+    final visible = (_showActive ? _activeBooks : _books).where((b) =>
         searchTerm.isEmpty || b.title.toLowerCase().contains(searchTerm)).toList();
 
     return Scaffold(
@@ -320,21 +329,53 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  key: const Key('soldout_preorder_select_tab'),
+                                  onPressed: _busy ? null : () => setState(() => _showActive = false),
+                                  style: OutlinedButton.styleFrom(
+                                    minimumSize: const Size.fromHeight(68),
+                                    backgroundColor: !_showActive ? UzbekCustomerColors.success : Colors.white,
+                                    foregroundColor: !_showActive ? Colors.white : AppColors.navy,
+                                  ),
+                                  child: const Text('Tugagan kitoblarni\\noldindan sotuvga', textAlign: TextAlign.center),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: OutlinedButton(
+                                  key: const Key('soldout_preorder_active_tab'),
+                                  onPressed: _busy ? null : () => setState(() => _showActive = true),
+                                  style: OutlinedButton.styleFrom(
+                                    minimumSize: const Size.fromHeight(68),
+                                    backgroundColor: _showActive ? UzbekCustomerColors.success : Colors.white,
+                                    foregroundColor: _showActive ? Colors.white : AppColors.navy,
+                                  ),
+                                  child: const Text('Oldindan sotuvga\\nqo‘shilgan kitoblar', textAlign: TextAlign.center),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
                           Text(
-                            '${_selected.length} ta tanlangan • $_savedCount ta hozir faol',
+                            _showActive
+                                ? '${_activeBooks.length} ta oldindan sotuvda'
+                                : '${_selected.length} ta tanlangan • $_savedCount ta hozir faol',
                             style: const TextStyle(
                               fontWeight: FontWeight.w900,
                               fontSize: 16,
                             ),
                           ),
                           const SizedBox(height: 6),
-                          const Text(
-                            'Omborda 0 ta qolgan kitoblarni birma-bir tanlang. '
-                            'Har biriga kelish oralig‘i (shu sanadan ~ shu sanagacha) va avansni kiriting. '
-                            'Oldingi buyurtmalarga tegilmaydi.',
-                            style: TextStyle(color: AppColors.muted),
+                          Text(
+                            _showActive
+                                ? 'Oldindan sotuvga chiqarilgan kitoblar. Bu ro‘yxat ma’lumot uchun; mavjud zakaslar o‘zgarmaydi.'
+                                : 'Omborda 0 ta qolgan kitoblarni birma-bir tanlang. Har biriga kelish oralig‘i va avansni kiriting. Oldingi buyurtmalarga tegilmaydi.',
+                            style: const TextStyle(color: AppColors.muted),
                           ),
-                          if (_globalEnabled)
+                          if (!_showActive && _globalEnabled)
                             const Padding(
                               padding: EdgeInsets.only(top: 8),
                               child: Text(
@@ -361,12 +402,35 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
                     ),
                     Expanded(
                       child: visible.isEmpty
-                          ? const Center(child: Text('Tugagan kitob topilmadi.'))
+                          ? Center(child: Text(_showActive
+                              ? 'Oldindan sotuvdagi kitob topilmadi.'
+                              : 'Tugagan kitob topilmadi.'))
                           : ListView.builder(
                               padding: const EdgeInsets.fromLTRB(12, 4, 12, 14),
                               itemCount: visible.length,
                               itemBuilder: (context, index) {
                                 final book = visible[index];
+                                if (_showActive) {
+                                  final saved = _managedById[book.id];
+                                  final start = (saved?['date'] ?? '').toString();
+                                  final end = (saved?['end_date'] ?? '').toString();
+                                  final arrival = start.isNotEmpty
+                                      ? '$start ~ ${end.isEmpty ? start : end}'
+                                      : book.preorderArrivalNote;
+                                  return Card(
+                                    key: ValueKey('active_preorder_${book.id}'),
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    color: Colors.white,
+                                    child: ListTile(
+                                      leading: const Icon(Icons.event_available_rounded, color: UzbekCustomerColors.success),
+                                      title: Text(book.title, style: const TextStyle(fontWeight: FontWeight.w800)),
+                                      subtitle: Text('Omborda ${book.stock} ta • Narx: ${_won(book.price)}'
+                                          '${arrival.isEmpty ? '' : '\\nKelishi: $arrival'}'
+                                          '\\nAvans: ${_won((saved?['deposit'] as num?)?.toInt() ?? book.preorderDepositMin)}'),
+                                      isThreeLine: true,
+                                    ),
+                                  );
+                                }
                                 final checked = _selected.contains(book.id);
                                 return Card(
                                   margin: const EdgeInsets.only(bottom: 8),
@@ -464,7 +528,7 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
                               },
                             ),
                     ),
-                    SafeArea(
+                    if (!_showActive) SafeArea(
                       top: false,
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),

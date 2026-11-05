@@ -298,7 +298,32 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
       context: context, builder: (ctx) => AlertDialog(
         title: const Text('Jo‘natma kitobini tahrirlash'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(cont  Future<void> _addLine() async {
+          TextField(controller: title, maxLength: 240,
+            decoration: const InputDecoration(labelText: 'Kitob nomi')),
+          TextField(controller: publisher, maxLength: 160,
+            decoration: const InputDecoration(labelText: 'Nashriyot')),
+          const Text('Bu faqat ta’minot ro‘yxatini o‘zgartiradi. '
+            'Asl oldindan zakaz nomini alohida tahrirlash mumkin.',
+            style: TextStyle(fontSize: 12)),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Bekor')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Saqlash')),
+        ],
+      ));
+    if (mounted && result == true && title.text.trim().isNotEmpty) {
+      setState(() {
+        line.title = title.text.trim();
+        line.publisher = publisher.text.trim();
+      });
+    }
+    title.dispose();
+    publisher.dispose();
+  }
+
+  Future<void> _addLine() async {
     if (busy) return;
     final title = TextEditingController();
     final publisher = TextEditingController();
@@ -461,30 +486,6 @@ class _PreorderSupplierPageState extends State<_PreorderSupplierPage> {
     if (mounted && result != null) setState(() => lines.add(result));
   }
 
-oration: const InputDecoration(labelText: 'Olinadigan miqdor')),
-        ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Bekor')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Qo‘shish')),
-        ],
-      ));
-    final count = int.tryParse(quantity.text) ?? 0;
-    if (mounted && result == true) {
-      if (title.text.trim().isEmpty || count < 1 || count > 10000) {
-        _message('Kitob nomi va to‘g‘ri miqdorni kiriting.');
-      } else {
-        setState(() => lines.add(_SupplierLine(
-          key: 'manual:${DateTime.now().microsecondsSinceEpoch}',
-          sourceRef: '', title: title.text.trim(),
-          publisher: publisher.text.trim(), imageUrl: '',
-          requested: 0, quantity: count,
-        )));
-      }
-    }
-    title.dispose(); publisher.dispose(); quantity.dispose();
-  }
 
   List<_SupplierLine> get selected =>
       lines.where((line) => line.selected && line.quantity > 0).toList();

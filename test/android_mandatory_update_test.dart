@@ -29,6 +29,8 @@ class ReleaseConfig extends RemoteConfigStore {
 class StoreLauncher extends UrlLauncherPlatform {
   String? opened;
   @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+  @override
   Future<bool> launchUrl(String url, LaunchOptions options) async {
     opened = url;
     return true;

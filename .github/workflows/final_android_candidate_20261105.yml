@@ -248,3 +248,5 @@ jobs:
           name: play-owner-test-candidate
           path: ${{ runner.temp }}/play-candidate.json
           retention-days: 30
+
+# Retry the release matrix with the current URL launcher test interface.

@@ -289,34 +289,38 @@ class _AppUpdateGateState extends State<AppUpdateGate>
     );
 
     try {
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) => PopScope(
-          canPop: false,
-          child: AlertDialog(
-            title: Text(title),
-            content: Text(
-              [
-                if (version.isNotEmpty) 'Yangi versiya: $version',
-                body,
-                '$storeName orqali yangilang.',
-              ].join('\n\n'),
-            ),
-            actions: [
-              FilledButton.icon(
-                onPressed: () async {
-                  final uri = Uri.tryParse(url.trim());
-                  if (uri == null) return;
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                },
-                icon: const Icon(Icons.system_update_alt_rounded),
-                label: Text(button),
+      do {
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => PopScope(
+            canPop: false,
+            child: AlertDialog(
+              title: Text(title),
+              content: Text(
+                [
+                  if (version.isNotEmpty) 'Yangi versiya: $version',
+                  body,
+                  '$storeName orqali yangilang.',
+                ].join('\n\n'),
               ),
-            ],
+              actions: [
+                FilledButton.icon(
+                  onPressed: () async {
+                    final uri = Uri.tryParse(url.trim());
+                    if (uri == null) return;
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  },
+                  icon: const Icon(Icons.system_update_alt_rounded),
+                  label: Text(button),
+                ),
+              ],
+            ),
           ),
-        ),
-      );
+        );
+      // Android resume/navigation helpers may pop routes programmatically.
+      // Reopen the mandatory gate before customers can continue in the old app.
+      } while (mounted && _isAndroid && _playStoreBuild);
     } finally {
       _dialogOpen = false;
     }

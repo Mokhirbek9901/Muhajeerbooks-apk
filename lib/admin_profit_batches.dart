@@ -298,8 +298,9 @@ class AdminProfitBatchPanel extends StatelessWidget {
     final hasProjectedRevenue=!incomplete &&
         group['total_purchase_cost']!=null &&
         group['projected_profit']!=null;
-    final possibleRevenue=hasProjectedRevenue
-        ? _won(_n(group,'total_purchase_cost')+amount)
+    final possibleRevenue=incomplete ? 'Ma’lumot yo‘q'
+        : hasProjectedRevenue
+          ? _won(_n(group,'total_purchase_cost')+amount)
         : pricedLots
           ? _won(groupLots.fold<int>(0,(total,l)=>total+
               _n(l,'quantity')*_n(l,'sale_price')))
@@ -307,8 +308,8 @@ class AdminProfitBatchPanel extends StatelessWidget {
 
     // 'Sotilgani' is turnover, never profit. Preserve actual dated FIFO
     // receipts; unpriced historic sales must not become fake zero revenue.
-    final soldRevenue=incomplete || !dated
-        ? 'Hisoblanmagan'
+    final soldRevenue=incomplete ? 'Ma’lumot yo‘q'
+        : !dated ? 'Hisoblanmagan'
         : pricedSales>0 && group['dated_order_revenue']!=null
           ? _won(_n(group,'dated_order_revenue'))
           : unknownPriceSales>0

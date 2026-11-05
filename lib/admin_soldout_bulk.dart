@@ -22,6 +22,7 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
 
   List<Book> _books = <Book>[];
   List<Book> _activePreorders = <Book>[];
+  Map<String, Map<String, dynamic>> _managedPreorders = {};
   bool _showActivePreorders = false;
   bool _loading = true;
   bool _busy = false;
@@ -112,6 +113,7 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
       setState(() {
         _books = soldout;
         _activePreorders = activePreorders;
+        _managedPreorders = byId;
         _savedCount = managed.length;
         _globalEnabled = settings['global_enabled'] == true;
         _loading = false;
@@ -183,6 +185,61 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
       ),
     );
     return result == true;
+  }
+
+  Future<void> _editActivePreorder(Book book) async {
+    if (_busy || _loading) return;
+    final row = await _showPreorderActiveEditor(
+      context, book, _managedPreorders[book.id],
+    );
+    if (row == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await widget.api.soldoutPreorderBulk(
+        mode: 'edit_one', rows: [row],
+      );
+      await _refresh();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${book.title}: sanasi va avansi saqlandi.')),
+      );
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Kitob tahrirlanmadi: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _removeActivePreorder(Book book) async {
+    if (_busy || _loading) return;
+    final confirmed = await _confirm(
+      title: 'Oldindan sotuvdan chiqarish',
+      text: '“${book.title}” endi yangi oldindan zakaslarni '
+        'qabul qilmaydi. Mijozlarning mavjud zakaslari, '
+        'avanslari va to‘lov cheklari saqlanadi. '
+        'Boshqa kitoblarning holati o‘zgarmaydi.',
+      action: 'Sotuvdan olish',
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await widget.api.soldoutPreorderBulk(
+        mode: 'remove_one', rows: [{'id': book.id}],
+      );
+      await _refresh();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${book.title} oldindan sotuvdan olindi.')),
+      );
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sotuvdan olib bo‘lmadi: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _apply() async {
@@ -289,6 +346,8 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
   Widget build(BuildContext context) {
     final searchTerm = _search.text.trim().toLowerCase();
     final visible = _books.where((b) =>
+        searchTerm.isEmpty || b.title.toLowerCase().contains(searchTerm)).toList();
+    final visibleActive = _activePreorders.where((b) =>
         searchTerm.isEmpty || b.title.toLowerCase().contains(searchTerm)).toList();
 
     return Scaffold(
@@ -410,16 +469,47 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
                         ],
                       ),
                     ),
+                    if (_showActivePreorders)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${_activePreorders.length} ta oldindan sotuvdagi kitob',
+                              style: const TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.w900),
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'Har bir kitobni alohida tahrirlash yoki sotuvdan olish '
+                              'mumkin. Eski mijoz buyurtmalari saqlanadi.',
+                              style: TextStyle(color: AppColors.muted),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              key: const Key('preorder_active_search'),
+                              controller: _search,
+                              onChanged: (_) => setState(() {}),
+                              decoration: const InputDecoration(
+                                labelText: 'Oldindan sotuvdagi kitobni qidirish',
+                                prefixIcon: Icon(Icons.search_rounded),
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     Expanded(
                       child: _showActivePreorders
-                          ? (_activePreorders.isEmpty
+                          ? (visibleActive.isEmpty
                               ? const Center(child: Text(
                                   'Hozir oldindan sotuvga qo‘shilgan kitob yo‘q.'))
                               : ListView.builder(
                                   padding: const EdgeInsets.fromLTRB(12, 4, 12, 14),
-                                  itemCount: _activePreorders.length,
+                                  itemCount: visibleActive.length,
                                   itemBuilder: (context, index) {
-                                    final book = _activePreorders[index];
+                                    final book = visibleActive[index];
                                     return Card(
                                       key: ValueKey('active_preorder_${book.id}'),
                                       color: Colors.white,

@@ -44,13 +44,16 @@ void main() {
     return;
   }
   TestWidgetsFlutterBinding.ensureInitialized();
+  void playTest(String description, Future<void> Function(WidgetTester) callback) {
+    testWidgets(description, callback,
+      variant: TargetPlatformVariant({TargetPlatform.android}));
+  }
   const playChannel = MethodChannel('de.ffuf.in_app_update/methods');
   final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   late StoreLauncher launcher;
   late UrlLauncherPlatform originalLauncher;
 
   setUp(() {
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
     PackageInfo.setMockInitialValues(appName: 'Muhajeer Books',
       packageName: 'com.muhajeerbooks.app', version: '2.5.26',
       buildNumber: '1215', buildSignature: '');
@@ -62,7 +65,6 @@ void main() {
     });
   });
   tearDown(() {
-    debugDefaultTargetPlatformOverride = null;
     UrlLauncherPlatform.instance = originalLauncher;
     messenger.setMockMethodCallHandler(playChannel, null);
   });
@@ -82,7 +84,7 @@ void main() {
     'release.android_published_build': 1216,
   };
 
-  testWidgets('verified public release survives Play errors and cannot be dismissed', (tester) async {
+  playTest('verified public release survives Play errors and cannot be dismissed', (tester) async {
     await show(tester, publicRelease);
     expect(find.text('Yangilanish kerak'), findsOneWidget);
     expect(find.descendant(of: find.byType(AlertDialog), matching: find.byWidgetPredicate((widget) => widget is FilledButton)), findsOneWidget);
@@ -104,21 +106,21 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('pending or internal release never blocks a customer', (tester) async {
+  playTest('pending or internal release never blocks a customer', (tester) async {
     await show(tester, {...publicRelease, 'release.android_published_available': false});
     expect(find.byType(AlertDialog), findsNothing);
     await tester.pumpWidget(const SizedBox());
   });
 
   for (final publishedCode in [1215, 1214]) {
-    testWidgets('current or newer tester build is not forced to code $publishedCode', (tester) async {
+    playTest('current or newer tester build is not forced to code $publishedCode', (tester) async {
       await show(tester, {...publicRelease, 'release.android_published_build': publishedCode});
       expect(find.byType(AlertDialog), findsNothing);
       await tester.pumpWidget(const SizedBox());
     });
   }
 
-  testWidgets('Play device-specific available update uses the same one-button gate', (tester) async {
+  playTest('Play device-specific available update uses the same one-button gate', (tester) async {
     messenger.setMockMethodCallHandler(playChannel, (call) async {
       expect(call.method, 'checkForUpdate');
       return <String, dynamic>{'updateAvailability': 2, 'immediateAllowed': true,
@@ -130,7 +132,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('slow Play response times out into the verified public gate', (tester) async {
+  playTest('slow Play response times out into the verified public gate', (tester) async {
     final pending = Completer<dynamic>();
     messenger.setMockMethodCallHandler(playChannel, (_) => pending.future);
     await show(tester, publicRelease);

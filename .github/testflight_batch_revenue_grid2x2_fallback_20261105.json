@@ -1,0 +1,12 @@
+{
+  "request": "TestFlight-only 2x2 profit batch cards, no dash for calculated full turnover",
+  "image_variant": 2,
+  "previous_testflight_version": "2.5.26",
+  "previous_testflight_build": 320021,
+  "previous_testflight_sha": "6fa937a01e62a66df61050eef7bb8571a5bfb880",
+  "approved_formula": "possible_total_sales = total_purchase_cost + projected_profit, with priced-lot fallback only when group values unavailable",
+  "known_receipts": "dated_order_revenue unchanged, no fake historic revenue",
+  "preserve_existing_app_and_database": true,
+  "public_app_store_release": false,
+  "workflow": ".github/workflows/testflight_batch_revenue_grid2x2_fallback_once.yml"
+}

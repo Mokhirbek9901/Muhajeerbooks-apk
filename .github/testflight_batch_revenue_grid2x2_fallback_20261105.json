@@ -8,5 +8,7 @@
   "known_receipts": "dated_order_revenue unchanged, no fake historic revenue",
   "preserve_existing_app_and_database": true,
   "public_app_store_release": false,
-  "workflow": ".github/workflows/testflight_batch_revenue_grid2x2_fallback_once.yml"
+  "workflow": ".github/workflows/testflight_batch_revenue_grid2x2_fallback_once.yml",
+  "preserve_legacy_finance_display": "One Hisoblanmagan label; missing details use Ma’lumot yo‘q",
+  "rerun_after_finance_label_fix": true
 }

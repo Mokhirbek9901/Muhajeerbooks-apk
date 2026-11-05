@@ -194,4 +194,4 @@ begin
   select count(*) into total from private.soldout_preorder_bulk_selections;
   return jsonb_build_object('saved',total,'mode',p_mode);
 end;
-$function$
+$function$;

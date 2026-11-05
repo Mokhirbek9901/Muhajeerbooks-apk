@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: play-release-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   regression-tests:
@@ -254,3 +254,5 @@ jobs:
 # Validate the update-button behavior with factory widget subtypes.
 
 # Verify Android navigation cannot bypass the mandatory update.
+
+# Supersede failed or queued candidate checks; never cancel a public promotion.

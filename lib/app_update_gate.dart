@@ -204,38 +204,39 @@ class _AppUpdateGateState extends State<AppUpdateGate>
   }
 
   Future<void> _checkGooglePlay(RemoteConfigStore remote) async {
+    // Only a full public release verified by the server may be a fallback.
+    // Internal/test releases and uploads still awaiting review never set this flag.
+    final package = await PackageInfo.fromPlatform()
+        .timeout(const Duration(seconds: 7));
+    final installedBuild = int.tryParse(package.buildNumber.trim()) ?? 0;
+    final publishedBuild = remote.intValue(
+      'release.android_published_build', fallback: 0);
+    final publishedVersion = remote.stringValue(
+      'release.android_published_version', fallback: '').trim();
+    final verifiedPublicUpdate = remote.boolValue(
+          'release.android_published_available', fallback: false) &&
+        publishedVersion.isNotEmpty && installedBuild > 0 &&
+        publishedBuild > installedBuild;
+    var playUpdateAvailable = false;
     try {
-      final info = await InAppUpdate.checkForUpdate();
-      if (!mounted ||
-          info.updateAvailability != UpdateAvailability.updateAvailable) {
-        return;
-      }
-
-      if (info.immediateUpdateAllowed) {
-        try {
-          await InAppUpdate.performImmediateUpdate();
-          if (!mounted) return;
-          final after = await InAppUpdate.checkForUpdate();
-          if (after.updateAvailability != UpdateAvailability.updateAvailable) {
-            return;
-          }
-        } catch (_) {
-          // Immediate flow ishlamasa pastdagi majburiy Play Market oynasi qoladi.
-        }
-      }
-
-      await _showMandatoryUpdate(
-        remote: remote,
-        version: '',
-        url: remote.stringValue(
-          'release.android_store_url',
-          fallback: _playStoreUrl,
-        ),
-        storeName: 'Google Play',
-      );
+      final info = await InAppUpdate.checkForUpdate()
+          .timeout(const Duration(seconds: 7));
+      playUpdateAvailable =
+          info.updateAvailability == UpdateAvailability.updateAvailable ||
+          info.updateAvailability ==
+              UpdateAvailability.developerTriggeredUpdateInProgress;
     } catch (_) {
-      // Play Core mavjud bo'lmagan qurilmada do'kon bloklanmaydi.
+      // A cached server-verified public release still protects old Play installs
+      // if Play Core times out or fails on an older Android phone.
     }
+    if (!mounted || (!playUpdateAvailable && !verifiedPublicUpdate)) return;
+    await _showMandatoryUpdate(
+      remote: remote,
+      version: verifiedPublicUpdate ? publishedVersion : '',
+      url: remote.stringValue(
+        'release.android_store_url', fallback: _playStoreUrl),
+      storeName: 'Google Play',
+    );
   }
 
   Future<void> _checkDirectAndroidBuild(RemoteConfigStore remote) async {

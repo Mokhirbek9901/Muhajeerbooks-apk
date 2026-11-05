@@ -113,7 +113,7 @@ begin
     where source=p_source and reference=p_id;
  else raise exception 'Amal noto‘g‘ri'; end if;
  return private.release_preorder_detail(p_source,p_id);
-end $function$
+end $function$;
 
 
 -- Public aggregate ONLY: per-book unique waiting people. No customer data

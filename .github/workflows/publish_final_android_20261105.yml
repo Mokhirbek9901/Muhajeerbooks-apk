@@ -1,0 +1,96 @@
+name: Publish verified Android 2.5.26 final candidate
+on:
+  push:
+    branches: ['release/final-store-20261105']
+    paths: ['.github/workflows/publish_final_android_20261105.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: muhajeer-final-android-production-20261105
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CANDIDATE_RUN: '42027562708'
+      EXPECTED_CANDIDATE_SOURCE: '464dd9594b12c42ca5b81e93e87d9e752da801be'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify complete successful release tests and unchanged application source
+        run: |
+          git diff --exit-code "$EXPECTED_CANDIDATE_SOURCE" HEAD -- lib assets ios config pubspec.yaml pubspec.lock integration_test tools/prepare_android_release_safety.py tools/prepare_android_fcm.py tools/prepare_android_biometrics.py tools/prepare_android_testlab_analytics.py tools/android_push tools/run_android_release_smoke.py
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN" > "$RUNNER_TEMP/candidate-run.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN/jobs" > "$RUNNER_TEMP/candidate-jobs.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN/artifacts" > "$RUNNER_TEMP/candidate-artifacts.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          temp=Path(os.environ['RUNNER_TEMP'])
+          run=json.loads((temp/'candidate-run.json').read_text())
+          assert run['conclusion']=='success'
+          assert run['head_sha']==os.environ['EXPECTED_CANDIDATE_SOURCE']
+          assert run['head_branch']=='release/final-store-20261105'
+          assert run['path']=='.github/workflows/final_android_candidate_20261105.yml'
+          jobs=json.loads((temp/'candidate-jobs.json').read_text())['jobs']
+          for name in ['android-smoke (28)','android-smoke (35)','regression-tests','build']:
+              assert any(j['name']==name and j['conclusion']=='success' for j in jobs), name
+          artifacts=json.loads((temp/'candidate-artifacts.json').read_text())['artifacts']
+          bundles=[a for a in artifacts if a['name'].startswith('muhajeer-books-play-signed-aab-') and not a['expired']]
+          assert len(bundles)==1 and bundles[0].get('digest')
+          assert any(a['name']=='play-owner-test-candidate' and not a['expired'] for a in artifacts)
+          with open(os.environ['GITHUB_ENV'],'a') as f:
+              f.write('AAB_ARTIFACT='+bundles[0]['name']+chr(10))
+              f.write('CANDIDATE_EVIDENCE_DIR='+str(temp/'exact-candidate')+chr(10))
+          print('VERIFIED exact source, 236 Flutter tests, both release emulators and immutable signed AAB artifact')
+          PY
+      - name: Download the tested signed binary without rebuilding
+        run: |
+          gh run download "$CANDIDATE_RUN" --repo "$GITHUB_REPOSITORY" --name "$AAB_ARTIFACT" --dir "$CANDIDATE_EVIDENCE_DIR/aab"
+          gh run download "$CANDIDATE_RUN" --repo "$GITHUB_REPOSITORY" --name play-owner-test-candidate --dir "$CANDIDATE_EVIDENCE_DIR/provenance"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          files=list(Path(os.environ['CANDIDATE_EVIDENCE_DIR']).rglob('play-candidate.json'))
+          assert len(files)==1
+          candidate=json.loads(files[0].read_text())
+          assert candidate['source']==os.environ['EXPECTED_CANDIDATE_SOURCE']
+          code=int(candidate['version_code'])
+          assert code>1214
+          with open(os.environ['GITHUB_ENV'],'a') as f:
+              f.write('OWNER_APPROVED_EXACT_RELEASE=com.muhajeerbooks.app:2.5.26:'+str(code)+chr(10))
+          PY
+      - name: Test public promotion guards without store credentials
+        run: python3 -m unittest discover -s server/tests -p test_final_android_promotion_guards.py -v
+      - run: python3 -m pip install --quiet google-auth==2.43.0 requests==2.32.5
+      - name: Verify signed bundle SHA256 and submit exact candidate to Production
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: python3 tools/promote_final_android_20261105.py
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Read final Apple review status without changing the submitted binary
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: ruby .github/release_tools/inspect_app_store_state.rb
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: final-store-public-submission-evidence
+          path: |
+            ${{ runner.temp }}/final-play-production.json
+            ${{ runner.temp }}/app-store-state.json
+            ${{ runner.temp }}/candidate-run.json
+            ${{ runner.temp }}/candidate-jobs.json
+            ${{ runner.temp }}/candidate-artifacts.json
+          retention-days: 90

@@ -91,6 +91,9 @@ void main() {
     await tester.tapAt(const Offset(5, 5));
     await tester.pumpAndSettle();
     expect(find.text('Yangilanish kerak'), findsOneWidget);
+    tester.state<NavigatorState>(find.byType(Navigator)).pop();
+    await tester.pumpAndSettle();
+    expect(find.text('Yangilanish kerak'), findsOneWidget);
     await tester.tap(find.text('Yangilash'));
     await tester.pumpAndSettle();
     expect(launcher.opened, 'https://play.google.com/store/apps/details?id=com.muhajeerbooks.app');

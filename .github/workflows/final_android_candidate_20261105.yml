@@ -252,3 +252,5 @@ jobs:
 # Retry the release matrix with the current URL launcher test interface.
 
 # Validate the update-button behavior with factory widget subtypes.
+
+# Verify Android navigation cannot bypass the mandatory update.

@@ -524,8 +524,8 @@ class _SoldoutPreorderBulkPageState extends State<_SoldoutPreorderBulkPage> {
                                             title: Text(book.title, style: const TextStyle(
                                               fontWeight: FontWeight.w800)),
                                             subtitle: Text(
-                                              'Omborda ${book.stock} ta • Narx: ${_won(book.price)}\\n'
-                                              'Kelishi: ${book.preorderArrivalNote.isEmpty ? 'Ko‘rsatilmagan' : book.preorderArrivalNote}\\n'
+                                              'Omborda ${book.stock} ta • Narx: ${_won(book.price)}\n'
+                                              'Kelishi: ${book.preorderArrivalNote.isEmpty ? 'Ko‘rsatilmagan' : book.preorderArrivalNote}\n'
                                               'Avans: ${_won(book.preorderDepositMin)}',
                                             ),
                                             isThreeLine: true,

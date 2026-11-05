@@ -37,6 +37,7 @@ import 'uzbek_customer_style.dart';
 import 'web_customer_upgrades.dart';
 import 'web_preorders.dart';
 import 'web_book_purchase_count.dart';
+import 'book_preorder_waiter_count.dart';
 import 'preview_features.dart';
 import 'purchase_price_notice.dart';
 import 'preorder_balance_page.dart';
@@ -5745,6 +5746,13 @@ class _BookDetailInfo extends StatelessWidget {
           fontWeight: FontWeight.w600,
         ),
       ),
+      if (book.preorderEnabled || soldoutPreorder) ...[
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: BookPreorderWaiterCount(bookId: book.id),
+        ),
+      ],
       if (webPreviewFeaturesAvailable) ...[
         const SizedBox(height: 12),
         Align(

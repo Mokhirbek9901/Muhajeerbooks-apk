@@ -59,8 +59,6 @@ Future<bool> showAdminProfitLotPriceEditor(
           final sale = int.tryParse(saleController.text.trim().replaceAll(',', ''));
           final forecast = profitLotForecast(quantity, cost, sale);
           final isChanged = cost != oldCost || sale != oldSale;
-          var busy = false;
-          // State for feedback is supplied by the editor shell below.
           return _ProfitLotEditorForm(
             title: (lot['book_title'] ?? 'Kitob').toString(),
             quantity: quantity,

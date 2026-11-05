@@ -10,5 +10,7 @@
   "public_app_store_release": false,
   "workflow": ".github/workflows/testflight_batch_revenue_grid2x2_fallback_once.yml",
   "preserve_legacy_finance_display": "One Hisoblanmagan label; missing details use Ma’lumot yo‘q",
-  "rerun_after_finance_label_fix": true
+  "rerun_after_finance_label_fix": true,
+  "rerun_reason": "Historical finance batch test now accepts missing-data label repeated in the added fourth tile; no financial data or other app features changed",
+  "test_guard_allows": "test/admin_profit_consolidated_finance_batch_test.dart"
 }

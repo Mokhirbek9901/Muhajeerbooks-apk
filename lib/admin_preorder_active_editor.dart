@@ -2,7 +2,8 @@ part of 'admin_ui.dart';
 
 /// Admin-only dialog for one already-active catalog preorder. No RPC is
 /// called until the owner confirms the final date range and advance amount.
-DateTime? _preorderActiveDate(
+@visibleForTesting
+DateTime? preorderActiveDate(
   String note,
   Map<String, dynamic>? managed, {
   required bool end,
@@ -25,10 +26,10 @@ Future<Map<String, dynamic>?> _showPreorderActiveEditor(
 ) async {
   final today = DateUtils.dateOnly(DateTime.now());
   final latest = today.add(const Duration(days: 730));
-  final originalStart = _preorderActiveDate(
+  final originalStart = preorderActiveDate(
     book.preorderArrivalNote, managed, end: false);
   var start = originalStart ?? today.add(const Duration(days: 14));
-  var until = _preorderActiveDate(
+  var until = preorderActiveDate(
     book.preorderArrivalNote, managed, end: true) ?? start;
   if (start.isBefore(today)) start = today;
   if (start.isAfter(latest)) start = latest;

@@ -85,7 +85,7 @@ void main() {
   testWidgets('verified public release survives Play errors and cannot be dismissed', (tester) async {
     await show(tester, publicRelease);
     expect(find.text('Yangilanish kerak'), findsOneWidget);
-    expect(find.descendant(of: find.byType(AlertDialog), matching: find.byType(FilledButton)), findsOneWidget);
+    expect(find.descendant(of: find.byType(AlertDialog), matching: find.byWidgetPredicate((widget) => widget is FilledButton)), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     await tester.tapAt(const Offset(5, 5));

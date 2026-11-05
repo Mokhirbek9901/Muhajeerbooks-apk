@@ -1,0 +1,19 @@
+{
+  "purpose": "User-approved TestFlight-only: add optional photos for manually added supplier books",
+  "verified_testflight_source": "34c376cf3f60f3681ff9b6ed1c2f6e434774f5c9",
+  "verified_testflight_version": "2.5.26",
+  "verified_testflight_build": 370011,
+  "new_changes": [
+    "Manual supplier Add Book dialog: optional gallery image, preview, replace/remove",
+    "Use existing verified admin-cover-upload service for permanent image URL",
+    "Save manual title, publisher, quantity and image in existing supplier drafts",
+    "Existing PDF, PNG, JPG export includes selected supplier cover",
+    "Manual rows have requested=0 and never mutate customer preorders"
+  ],
+  "changes_limited_to_supplier_feature": true,
+  "supabase_schema_changed": false,
+  "app_store_production": false,
+  "play_market_production": false,
+  "web_deployment": false,
+  "testflight_only": true
+}

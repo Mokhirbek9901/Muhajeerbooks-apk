@@ -40,6 +40,7 @@ jobs:
             'lib/customer_preorder_partial.dart' \
             'lib/preorder_balance_page.dart' \
             'supabase/functions/admin-rpc/index.ts' \
+            'supabase/migrations/20261107044000_partial_preorder_apply_all_credit_only.sql' \
             'supabase/migrations/20261107073000_partial_preorder_customer_notice_content.sql' \
             'test/preorder_partial_found_flow_test.dart' | sort)
           if [ "$actual" != "$expected" ]; then

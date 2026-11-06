@@ -247,6 +247,23 @@ class _AdminApi {
     );
   }
 
+  /// Only the signed-in administrator may create a partial-arrival wave.
+  /// The server reserves selected stock, records customer notice and keeps
+  /// the original customer advance ledger immutable.
+  Future<Map<String, dynamic>> partialWebPreorder(
+    String id,
+    String action, [
+    Map<String, dynamic> payload = const {},
+  ]) async {
+    final value = await _rpc('admin_web_preorder_partial', params: {
+      'p_secret': secret,
+      'p_id': id,
+      'p_action': action,
+      'p_payload': payload,
+    });
+    return Map<String, dynamic>.from(value as Map);
+  }
+
   Future<Map<String, dynamic>> releasePreorder(
     String source,
     String id,

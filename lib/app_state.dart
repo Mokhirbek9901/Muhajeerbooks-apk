@@ -2610,6 +2610,50 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     return _releasePreorder(id, 'proof', {'path': path});
   }
 
+  /// This public RPC authenticates the customer's opaque device capability
+  /// in Postgres (not by phone number). No admin action is accessible here.
+  Future<Map<String, dynamic>> customerWebPartial(
+    String id,
+    String action, {
+    Map<String, dynamic> payload = const {},
+  }) async {
+    if (_backend == null || !checkoutIdentityReady || !pinSessionActive) {
+      throw StateError('Oldindan zakaslarni ko‘rish uchun profilga kiring.');
+    }
+    final session = _pinSession!;
+    final result = await _backend!.client.rpc(
+      'customer_web_preorder_partial',
+      params: {
+        'p_session': session,
+        'p_id': id,
+        'p_action': action,
+        'p_payload': payload,
+      },
+    );
+    if (session != _pinSession) {
+      throw StateError('Profil o‘zgargan. Qayta kiring.');
+    }
+    if (result is! Map) {
+      throw StateError('Qisman zakasning server javobi noto‘g‘ri.');
+    }
+    return Map<String, dynamic>.from(result);
+  }
+
+  Future<Map<String, dynamic>> submitWebPartialPayment(
+    String id,
+    XFile proof,
+  ) async {
+    if (_backend == null || !checkoutIdentityReady || !pinSessionActive) {
+      throw StateError('Oldin profilga kiring.');
+    }
+    final session = _pinSession;
+    final path = await _backend!.uploadPaymentProof(proof);
+    if (session != _pinSession) {
+      throw StateError('Profil o‘zgargan. Chek qayta yuborilmadi.');
+    }
+    return customerWebPartial(id, 'proof', payload: {'path': path});
+  }
+
   Future<List<Map<String, dynamic>>> releasePreorders() async {
     if (_backend == null || !checkoutIdentityReady) return const [];
     final token = _pinSession;

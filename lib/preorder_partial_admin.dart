@@ -19,6 +19,7 @@ class _PartialPreorderAdminPageState extends State<_PartialPreorderAdminPage> {
   final quantities = <int, TextEditingController>{};
   final prices = <int, TextEditingController>{};
   bool busy = false;
+  bool showingMissing = false;
   String? error;
 
   List<Map<String, dynamic>> get originals =>
@@ -260,6 +261,25 @@ class _PartialPreorderAdminPageState extends State<_PartialPreorderAdminPage> {
                 style: const TextStyle(fontWeight: FontWeight.w800)),
               Text('Buyurtma: ' + widget.id.substring(0, 8)),
               const SizedBox(height: 8),
+              if (activeBatch)
+                Row(children: [
+                  Expanded(child: showingMissing
+                      ? OutlinedButton(
+                          onPressed: () => setState(() => showingMissing = false),
+                          child: const Text('Keldi'))
+                      : FilledButton.tonal(
+                          onPressed: () => setState(() => showingMissing = false),
+                          child: const Text('Keldi'))),
+                  const SizedBox(width: 8),
+                  Expanded(child: showingMissing
+                      ? FilledButton.tonal(
+                          onPressed: () => setState(() => showingMissing = true),
+                          child: const Text('Kelmagan'))
+                      : OutlinedButton(
+                          onPressed: () => setState(() => showingMissing = true),
+                          child: const Text('Kelmagan'))),
+                ]),
+              if (!showingMissing) ...[
               const Text('Kelgan kitoblar', style: TextStyle(
                   fontSize: 20, fontWeight: FontWeight.bold)),
               if (!activeBatch) ...[
@@ -287,6 +307,8 @@ class _PartialPreorderAdminPageState extends State<_PartialPreorderAdminPage> {
                       'Mijoz hali to‘lovni boshlamagan bo‘lsa, kelgan kitoblar omborga qaytariladi.'),
                     child: const Text('Kelganlarni belgilashni bekor qilish')),
               ],
+              ],
+              if (showingMissing) ...[
               const SizedBox(height: 20),
               const Text('Kelmagan kitoblar', style: TextStyle(
                   fontSize: 20, fontWeight: FontWeight.bold)),
@@ -306,6 +328,7 @@ class _PartialPreorderAdminPageState extends State<_PartialPreorderAdminPage> {
                       title: Text((raw['book_title'] ?? raw['title'] ?? 'Kitob').toString()),
                       subtitle: const Text('Kelmagan — mijozga xabar yuborilgan'),
                     ),
+              ],
               ],
               const SizedBox(height: 18),
               for (final batch in batches)

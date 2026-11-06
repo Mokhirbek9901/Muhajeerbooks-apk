@@ -324,9 +324,8 @@ class _CustomerWebPreorderPartialPageState
                         fontWeight:FontWeight.w900,fontSize:17)),
                     const SizedBox(height:7),
                     const Text('Qolgan summani quyidagi hisobga o‘tkazing:'),
-                    const SelectableText(
-                      AppState.bankName+' • '+AppState.bankAccount+
-                      ' • '+AppState.bankOwner),
+                    SelectableText(
+                      '${AppState.bankName} • ${AppState.bankAccount} • ${AppState.bankOwner}'),
                     Align(
                       alignment:Alignment.centerLeft,
                       child:TextButton.icon(

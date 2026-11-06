@@ -1291,6 +1291,22 @@ class _CombinedPreorderDetailPageState
                   SelectableText(
                     'Buyurtmaga o‘tkazildi: ${d['converted_order_id']}',
                   ),
+                if (source == 'web' &&
+                    d['request_items'] is List &&
+                    (d['request_items'] as List).length > 1)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 15, bottom: 8),
+                    child: FilledButton.icon(
+                      onPressed: saving ? null : () async {
+                        await Navigator.push<void>(context,
+                          MaterialPageRoute(builder: (_) =>
+                            _PartialPreorderAdminPage(api: widget.api, id: reference)));
+                        if (mounted) await _load();
+                      },
+                      icon: const Icon(Icons.inventory_2_outlined),
+                      label: const Text('Ayrim kitoblar keldi / kelmadi'),
+                    ),
+                  ),
                 const SizedBox(height: 16),
                 Wrap(
                   spacing: 10,
@@ -1313,7 +1329,8 @@ class _CombinedPreorderDetailPageState
                         child: const Text('Qabul qilish'),
                       ),
                     if (d['payment_state'] == 'requested' &&
-                        d['status'] != 'cancelled') ...[
+                        d['status'] != 'cancelled' &&
+                        d['partial_active'] != true) ...[
                       OutlinedButton(
                         onPressed: saving ? null : _batch,
                         child: const Text('Kelgan partiyani kiritish'),
@@ -1333,7 +1350,8 @@ class _CombinedPreorderDetailPageState
                         ),
                       ),
                     if (d['status'] != 'cancelled' &&
-                        d['converted_order_id'] == null)
+                        d['converted_order_id'] == null &&
+                        d['partial_active'] != true)
                       TextButton(
                         onPressed: saving ? null : _cancel,
                         child: const Text('Zakasni bekor qilish'),

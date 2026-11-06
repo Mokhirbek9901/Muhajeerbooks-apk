@@ -32,5 +32,8 @@
   "missing_books": "Topilmagan kitoblarni keyinchalik qayta buyurtma berishingiz mumkin",
   "previous_workflow": "Cancel superseded beta runs, run only most recent reviewed code",
   "payment_ui": "After customer presses 'Kelgan kitoblarni zakas qilish', show confirmed remaining amount, original bank transfer account and upload payment proof button. Zero due requires no upload.",
-  "last_review": "All unchanged app files checked against previously successful TestFlight baseline, no live customer notifications generated."
+  "last_review": "All unchanged app files checked against previously successful TestFlight baseline, no live customer notifications generated.",
+  "final_ci_scope": "2026-11-07 TestFlight only: exact found titles, full advance settlement and bank transfer details",
+  "final_latest_code": "customer_preorder_partial.dart bank transfer copied from existing AppState constants",
+  "final_source_checked": true
 }

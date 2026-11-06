@@ -1,0 +1,15 @@
+{
+  "goal": "Correct shifting and future dates shown on virtual, automatically calculated store postage expense",
+  "verified_previous_testflight_sha": "4a7d995a387addf61ff4a975399a929caa465f45",
+  "marketing_version": "2.5.28",
+  "changes": [
+    "Label the synthetic postage row as a period calculation without any transaction date",
+    "Identify source as automatically calculated, not entered by admin",
+    "Leave all real expense dates, amounts, reports, customer orders and prior app features unchanged"
+  ],
+  "server_records_edited": false,
+  "testflight_only": true,
+  "app_store_production": false,
+  "android_google_play": false,
+  "web_deployment": false
+}

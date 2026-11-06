@@ -1,0 +1,407 @@
+part of 'admin_ui.dart';
+
+/// Admin workflow for a multi-title web preorder. A selected catalog title
+/// must already have live stock. No customer order or payment is created by
+/// opening this page. Preparing one wave reserves only selected stock.
+class _AdminWebPreorderPartialPage extends StatefulWidget {
+  const _AdminWebPreorderPartialPage({
+    required this.api,
+    required this.id,
+    required this.customerTitle,
+  });
+  final _AdminApi api;
+  final String id;
+  final String customerTitle;
+
+  @override
+  State<_AdminWebPreorderPartialPage> createState() =>
+      _AdminWebPreorderPartialPageState();
+}
+
+class _AdminWebPreorderPartialPageState
+    extends State<_AdminWebPreorderPartialPage> {
+  Map<String, dynamic>? detail;
+  List<Book> catalog = [];
+  final Map<int, Book> matched = {};
+  final Map<int, TextEditingController> amounts = {};
+  final Map<int, TextEditingController> prices = {};
+  bool loading = true;
+  bool saving = false;
+  String? error;
+
+  int _num(dynamic value) =>
+      value is num ? value.toInt() : int.tryParse('$value') ?? 0;
+
+  TextEditingController _qty(int i) =>
+      amounts.putIfAbsent(i, () => TextEditingController(text: '1'));
+  TextEditingController _price(int i) =>
+      prices.putIfAbsent(i, () => TextEditingController(text: '0'));
+
+  Future<void> _load() async {
+    try {
+      final result = await Future.wait<dynamic>([
+        widget.api.partialWebPreorder(widget.id, 'detail'),
+        widget.api.books(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        detail = Map<String, dynamic>.from(result[0] as Map);
+        catalog = List<Book>.from(result[1] as List);
+        error = null;
+        loading = false;
+      });
+    } catch (e) {
+      if (mounted) setState(() {
+        error = 'Qisman zakas yuklanmadi: $e';
+        loading = false;
+      });
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    for (final c in amounts.values) { c.dispose(); }
+    for (final c in prices.values) { c.dispose(); }
+    super.dispose();
+  }
+
+  Future<void> _pickCatalog(int index) async {
+    var query = '';
+    final chosen = await showModalBottomSheet<Book>(
+      context: context, isScrollControlled: true, showDragHandle: true,
+      builder: (sheet) => StatefulBuilder(
+        builder: (sheet, refresh) => SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+                16, 8, 16, MediaQuery.viewInsetsOf(sheet).bottom + 16),
+            child: SizedBox(
+              height: MediaQuery.sizeOf(sheet).height * .65,
+              child: Column(children: [
+                const Text('Omborga kelgan kitobni katalogdan tanlang',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 10),
+                TextField(
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Kitob qidirish',
+                    prefixIcon: Icon(Icons.search),
+                    border: OutlineInputBorder()),
+                  onChanged: (v) => refresh(() => query = v),
+                ),
+                const SizedBox(height: 8),
+                Expanded(child: ListView(
+                  children: catalog.where((book) =>
+                    book.isActive && book.stock > 0 &&
+                    book.title.toLowerCase().contains(query.toLowerCase()))
+                    .map((book) => ListTile(
+                      title: Text(book.title),
+                      subtitle: Text(
+                        'Omborda: ${book.stock} dona • Narx: ${_won(book.currentPrice)}'),
+                      onTap: () => Navigator.pop(sheet, book),
+                    )).toList(),
+                )),
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
+    if (chosen != null && mounted) setState(() {
+      matched[index] = chosen;
+      _price(index).text = chosen.currentPrice.toString();
+    });
+  }
+
+  List<Map<String, dynamic>> _pending() =>
+    (detail?['items'] as List? ?? const [])
+      .whereType<Map>()
+      .map((item) => Map<String, dynamic>.from(item))
+      .toList();
+
+  List<Map<String, dynamic>> _batches() =>
+    (detail?['batches'] as List? ?? const [])
+      .whereType<Map>()
+      .map((item) => Map<String, dynamic>.from(item))
+      .toList();
+
+  Map<String, dynamic>? get _activeBatch {
+    for (final batch in _batches().reversed) {
+      if (const {'prepared','awaiting_payment','proof_submitted'}
+          .contains('${batch['status']}')) return batch;
+    }
+    return null;
+  }
+
+  /// Only a fully linked and quantitatively valid selection reaches server.
+  List<Map<String, dynamic>> _selection() {
+    final chosen = <Map<String,dynamic>>[];
+    for (final line in _pending()) {
+      final index = _num(line['index']);
+      final book = matched[index];
+      if (book == null) continue;
+      final count = int.tryParse(_qty(index).text.trim()) ?? 0;
+      final price = int.tryParse(_price(index).text.trim()) ?? 0;
+      final remaining = _num(line['remaining_quantity']);
+      if (count < 1 || count > remaining || count > book.stock || count > 200 ||
+          price < 1 || price > 10000000) {
+        throw StateError(
+          '“${line['book_title'] ?? line['title']}”: miqdor, ombor yoki narx noto‘g‘ri.');
+      }
+      chosen.add({
+        'index': index,
+        'book_id': book.id,
+        'quantity': count,
+        'unit_price': price,
+      });
+    }
+    if (chosen.isEmpty) throw StateError(
+      'Topilgan kitoblarni belgilang va katalogdan tanlang.');
+    return chosen;
+  }
+
+  Future<bool> _approve(String title, String text, String action) async =>
+    await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: Text(title),
+        content: Text(text),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialog,false),
+            child: const Text('Bekor')),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialog,true),
+            child: Text(action)),
+        ],
+      ),
+    ) ?? false;
+
+  Future<void> _prepare() async {
+    if (saving) return;
+    List<Map<String, dynamic>> items;
+    try { items = _selection(); }
+    catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e')));
+      return;
+    }
+    final total = items.fold<int>(0, (sum,item) =>
+      sum+_num(item['quantity'])*_num(item['unit_price']));
+    final lines = items.map((item) {
+      final index = _num(item['index']);
+      final book = matched[index]!;
+      return '${book.title}: ${item['quantity']} dona × ${_won(_num(item['unit_price']))}';
+    }).join('\n');
+    final confirmed = await _approve(
+      'Shular topildi — mijozga yuborish',
+      '$lines\n\nKelgan kitoblar jami: ${_won(total)}\n'
+      'Qolgan avans: ${_won(_num(detail?['deposit_remaining']))}\n\n'
+      'Avansning qanchasi ishlatilishi va pochta to‘lovi '
+      'mijoz tanlovidan so‘ng serverda hisoblanadi. '
+      'Faqat belgilangan kitoblar ombordan band qilinadi. '
+      'Mijozga ilova xabari yaratiladi, push yetishi qurilma ruxsatiga bog‘liq.',
+      'Shular topildi',
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => saving = true);
+    try {
+      await widget.api.partialWebPreorder(widget.id,'prepare', {
+        'items': items,
+        'apply_all': false,
+      });
+      if (!mounted) return;
+      matched.clear();
+      for(final c in amounts.values){c.dispose();}
+      for(final c in prices.values){c.dispose();}
+      amounts.clear(); prices.clear();
+      await _load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Topilgan kitoblar saqlandi. Mijozga xabar yaratildi; push yetkazilishi alohida tekshiriladi.')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Xabar yuborilmadi / saqlanmadi: $e')));
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  Future<void> _cancel() async {
+    if (saving) return;
+    if (!await _approve(
+      'Tayyorlovni bekor qilish',
+      'Mijoz hali avans taqsimotini tanlamagan bo‘lsa '
+      'band qilingan kitoblar omborga qaytariladi. '
+      'Avans va eski buyurtmalar saqlanadi.',
+      'Tayyorlovni bekor qilish')) return;
+    if (!mounted) return;
+    setState(() => saving = true);
+    try {
+      await widget.api.partialWebPreorder(widget.id,'cancel_prepare');
+      if (mounted) await _load();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Bekor qilinmadi: $e')));
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  Future<void> _confirm() async {
+    final b = _activeBatch;
+    if (saving || b == null) return;
+    final due = _num(b['amount_due']);
+    final allowed = (due == 0 && b['status']=='awaiting_payment') ||
+      b['status']=='proof_submitted';
+    if (!allowed) return;
+    if (!await _approve('To‘lovni tasdiqlash',
+      'Qolgan to‘lov: ${_won(due)}. '
+      'Faqat haqiqatan tekshirilgan chek yoki ₩0 qolgan to‘lovni '
+      'tasdiqlang. Bu kitoblar alohida jo‘natma buyurtmasiga o‘tadi.',
+      'Tasdiqlash')) return;
+    if (!mounted) return;
+    setState(() => saving = true);
+    try {
+      await widget.api.partialWebPreorder(widget.id,'confirm');
+      if (mounted) await _load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kelgan kitoblar jo‘natishga o‘tkazildi.')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Tasdiqlanmadi: $e')));
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  String _batchTitle(Map<String,dynamic> batch) {
+    final items=(batch['items'] as List? ?? const []).whereType<Map>().toList();
+    return items.map((x)=>'${x['requested_title']??x['title']}: ${x['quantity']} dona').join(', ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pending=_pending(), batches=_batches(), active=_activeBatch;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Qisman topilgan kitoblar'),
+        actions: [IconButton(onPressed: saving ? null : _load,
+          icon: const Icon(Icons.refresh),tooltip: 'Yangilash')]),
+      body: loading ? const Center(child: CircularProgressIndicator())
+      : error!=null ? Center(child: Text(error!))
+      : ListView(padding: const EdgeInsets.all(16),children: [
+        Text(widget.customerTitle,
+          style: const TextStyle(fontSize:20,fontWeight: FontWeight.w900)),
+        const SizedBox(height:8),
+        Text('To‘langan avans: ${_won(_num(detail?['deposit_amount']))} • '
+          'Hali ishlatilmagan: ${_won(_num(detail?['deposit_remaining']))}'),
+        const SizedBox(height:10),
+        const Text(
+          'Faqat kelgan kitoblarni tanlang. Kelmaganlari kutilayotgan '
+          'zakazda qoladi. Avans mijoz tanloviga ko‘ra bir marta ayiriladi.',
+          style: TextStyle(color:AppColors.muted)),
+        if (detail?['closed']==true)
+          const Padding(padding:EdgeInsets.only(top:12),
+            child:Text('Bu zakazning qolgan qismi yopilgan. '
+              'Qolgan kitoblar kerak bo‘lsa yangi zakaz qilinadi.')),
+        for (final batch in batches) Card(child: ListTile(
+          title: Text(_batchTitle(batch)),
+          subtitle: Text(
+            'Holat: ${batch['status']}\n'
+            'Kitoblar: ${_won(_num(batch['subtotal']))} • '
+            'Pochta: ${_won(_num(batch['shipping_fee']))}\n'
+            'Avansdan ayirildi: ${_won(_num(batch['deposit_applied']))} • '
+            'Qolgan to‘lov: ${_won(_num(batch['amount_due']))}\n'
+            'Qaytarilishi kerak: ${_won(_num(batch['refund_due']))}'),
+          isThreeLine:true,
+        )),
+        if (active != null) ...[
+          const SizedBox(height:12),
+          if (active['status']=='prepared') ...[
+            const Text('Mijoz avansni qanday ishlatishni tanlashi kutilmoqda.'),
+            OutlinedButton.icon(
+              onPressed:saving?null:_cancel,
+              icon: const Icon(Icons.undo),
+              label:const Text('Tayyorlovni bekor qilish')),
+          ] else ...[
+            const Text('Mijoz tanlovini saqlagan. Qolgan to‘lov '
+              'va manzilni tekshiring.'),
+            if (active['status']=='proof_submitted')
+              const Text('Mijoz qolgan to‘lov chekini yuborgan. '
+                'Tasdiqlashdan oldin chekni tekshiring.'),
+            FilledButton.icon(
+              onPressed: saving || !(
+                (active['status']=='awaiting_payment' &&
+                   _num(active['amount_due'])==0) ||
+                active['status']=='proof_submitted') ? null : _confirm,
+              icon: const Icon(Icons.verified_outlined),
+              label: const Text('Qolgan to‘lovni tasdiqlash')),
+          ],
+        ],
+        if (active==null && detail?['closed']!=true) ...[
+          const Divider(height:26),
+          const Text('Shular topildi',
+            style: TextStyle(fontSize:18,fontWeight:FontWeight.w900)),
+          const SizedBox(height:6),
+          for(final line in pending) if(_num(line['remaining_quantity'])>0)
+            _pendingCard(line),
+          const SizedBox(height:12),
+          FilledButton.icon(
+            key: const Key('admin_partial_send_found'),
+            onPressed:saving?null:_prepare,
+            icon: const Icon(Icons.send_outlined),
+            label: const Text('Shular topildi — mijozga yuborish')),
+        ],
+        if (saving) const LinearProgressIndicator(),
+      ]),
+    );
+  }
+
+  Widget _pendingCard(Map<String,dynamic> line) {
+    final index=_num(line['index']);
+    final remaining=_num(line['remaining_quantity']);
+    final linked=matched[index];
+    return Card(
+      child: Padding(padding:const EdgeInsets.all(12),
+        child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+          Text('${line['book_title']??'Kitob'}',
+            style:const TextStyle(fontWeight:FontWeight.w900)),
+          Text('Kutilmoqda: $remaining dona',
+            style:const TextStyle(color:AppColors.muted)),
+          const SizedBox(height:6),
+          OutlinedButton.icon(
+            key:ValueKey('partial_select_catalog_$index'),
+            onPressed:saving?null:()=>_pickCatalog(index),
+            icon:const Icon(Icons.search),
+            label:Text(linked==null
+              ? 'Kelgan kitobni katalogdan tanlash'
+              : '${linked.title} • ombor ${linked.stock} dona')),
+          if(linked!=null) ...[
+            Row(children:[
+              Expanded(child:TextField(
+                key:ValueKey('partial_qty_$index'),
+                controller:_qty(index),
+                keyboardType:TextInputType.number,
+                decoration:const InputDecoration(labelText:'Topilgan miqdor'),
+              )),
+              const SizedBox(width:12),
+              Expanded(child:TextField(
+                key:ValueKey('partial_price_$index'),
+                controller:_price(index),
+                keyboardType:TextInputType.number,
+                decoration:const InputDecoration(labelText:'Narx (₩)'),
+              )),
+              IconButton(
+                tooltip:'Tanlovni olib tashlash',
+                onPressed:()=>setState(()=>matched.remove(index)),
+                icon:const Icon(Icons.close_rounded)),
+            ]),
+          ],
+        ])),
+    );
+  }
+}

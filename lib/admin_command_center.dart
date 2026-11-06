@@ -1361,6 +1361,27 @@ class _CombinedPreorderDetailPageState
                             : () => _act('status', {'status': 'accepted'}),
                         child: const Text('Qabul qilish'),
                       ),
+                    if (source == 'web' &&
+                        (widget.record['request_items'] as List?)?.length != null &&
+                        (widget.record['request_items'] as List).length > 1 &&
+                        d['status'] != 'cancelled' &&
+                        d['converted_order_id'] == null &&
+                        d['price_ready'] != true)
+                      OutlinedButton.icon(
+                        key: const Key('admin_multi_preorder_partial_found'),
+                        onPressed: saving ? null : () async {
+                          await Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) => _AdminWebPreorderPartialPage(
+                              api: widget.api,
+                              id: reference,
+                              customerTitle: '${widget.record['book_title'] ?? 'Ko‘p kitobli zakas'}',
+                            ),
+                          ));
+                          if (mounted) await _load();
+                        },
+                        icon: const Icon(Icons.playlist_add_check_circle_outlined),
+                        label: const Text('Ayrimlari topildi — tanlash'),
+                      ),
                     if (d['payment_state'] == 'requested' &&
                         d['status'] != 'cancelled') ...[
                       OutlinedButton(

@@ -83,7 +83,7 @@ class _CustomerPartialPreorderPageState extends State<CustomerPartialPreorderPag
     var value = 0;
     for (var i = 0; i < original.length; i++) {
       final qty = (original[i]['quantity'] as num?)?.toInt() ?? 0;
-      value += (qty - arrivedFor(i)).clamp(0, 100000);
+      value += (qty - arrivedFor(i)).clamp(0, 100000).toInt();
     }
     return value;
   }
@@ -206,6 +206,15 @@ class _CustomerPartialPreorderPageState extends State<CustomerPartialPreorderPag
         )),
       const SizedBox(height: 10),
       if (status == 'prepared') ...[
+        Card(child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(children: [
+            _amount('Kelgan kitoblar', subtotal),
+            _amount('Oldindan to‘langan avans',
+              -((detail?['deposit_remaining'] as num?)?.toInt() ?? 0)),
+            const Text('Yetkazish xarajati tanlangach yakuniy to‘lov aniqlanadi.'),
+          ]),
+        )),
         Card(child: Padding(padding: const EdgeInsets.all(14),
           child: Form(key: form, child: Column(children: [
             const Text('Qabul qiluvchi va yetkazishni tasdiqlang',

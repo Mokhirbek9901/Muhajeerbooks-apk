@@ -35,5 +35,6 @@
   "last_review": "All unchanged app files checked against previously successful TestFlight baseline, no live customer notifications generated.",
   "final_ci_scope": "2026-11-07 TestFlight only: exact found titles, full advance settlement and bank transfer details",
   "final_latest_code": "customer_preorder_partial.dart bank transfer copied from existing AppState constants",
-  "final_source_checked": true
+  "final_source_checked": true,
+  "revision": "final customer-selected arrived books only, stable Flutter rendering, all-advance server policy; TestFlight only"
 }

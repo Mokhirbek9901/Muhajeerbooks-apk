@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'app_state.dart';
 import 'customer_pin_page.dart';
 import 'store_ui.dart' show CheckoutPage;
+import 'preorder_partial_customer.dart';
 import 'design_system.dart';
 import 'uzbek_customer_style.dart';
 
@@ -334,13 +335,42 @@ class _CustomerPreorderBalancesPageState
     if (mounted) await refresh();
   }
 
+  Future<void> _openPreorder(Map<String, dynamic> record) async {
+    final isWeb = record['source'] == 'web';
+    final id = (record['id'] ?? '').toString();
+    if (isWeb) {
+      try {
+        // Check authoritative server partial batches before opening
+        // old full-order checkout (which must never charge those batches).
+        final d = await context.read<AppState>().webPreorderPartial(id, 'detail');
+        if (!mounted) return;
+        final rows = (d['batches'] as List? ?? const []);
+        final partial = rows.whereType<Map>().any((b) => b['status'] != 'cancelled');
+        if (partial) {
+          await Navigator.push<void>(context,
+            MaterialPageRoute(builder: (_) =>
+              CustomerPartialPreorderPage(preorderId: id)));
+          if (mounted) await refresh();
+          return;
+        }
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Oldindan zakaz ochilmadi: ' + e.toString())));
+        return;
+      }
+    }
+    if (!mounted) return;
+    final ref = isWeb ? id : 'native:' + id;
+    await Navigator.push<void>(context,
+      MaterialPageRoute(builder: (_) => CheckoutPage(preorderId: ref)));
+    if (mounted) await refresh();
+  }
+
   Widget _invoiceCard(Map<String, dynamic> record) {
     final status = '${record['status'] ?? ''}';
     final isContactOnly = record['ownership'] == 'contact';
     final isWeb = record['source'] == 'web';
-    final ref = record['source'] == 'native'
-        ? 'native:${record['id']}'
-        : '${record['id']}';
+
     return Card(
       child: ListTile(
         title: Text('${record['title'] ?? record['book_title'] ?? 'Kitob'}'),
@@ -356,14 +386,7 @@ class _CustomerPreorderBalancesPageState
         trailing: isContactOnly
             ? const Icon(Icons.lock_outline)
             : const Icon(Icons.chevron_right),
-        onTap: isContactOnly
-            ? null
-            : () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => CheckoutPage(preorderId: ref),
-                ),
-              ).then((_) => refresh()),
+        onTap: isContactOnly ? null : () => _openPreorder(record),
       ),
     );
   }

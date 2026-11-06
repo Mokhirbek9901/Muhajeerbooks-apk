@@ -389,6 +389,25 @@ class _AdminWebPreorderPartialPageState
         )),
         if (active != null) ...[
           const SizedBox(height:12),
+          OutlinedButton.icon(
+            key: const Key('partial_copy_social_message'),
+            onPressed: () async {
+              final text =
+                'Assalomu alaykum! Oldindan buyurtmangizdagi quyidagi '
+                'kitoblar topildi: ${_batchTitle(active)}. '
+                'To‘lagan avansingizning ishlatilmagan qismi shu '
+                'kitoblar va ularning pochta haqidan to‘liq ayriladi. '
+                'Qolgan to‘lovni ko‘rish va manzilni tasdiqlash uchun '
+                'Muhajeer Books ilovasida “Oldindan zakaslarim”ga kiring. '
+                'Topilmagan kitoblarni keyinchalik qayta zakas qilishingiz mumkin.';
+              await Clipboard.setData(ClipboardData(text: text));
+              if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Xabar nusxalandi. '
+                  'Instagram/Telegram orqali o‘zingiz yuborishingiz mumkin.')));
+            },
+            icon: const Icon(Icons.copy_rounded),
+            label: const Text('Instagram/Telegram xabarini nusxalash')),
+          const SizedBox(height: 6),
           if (active['status']=='prepared') ...[
             const Text('Mijoz faqat manzilini va qolgan to‘lovni '
               'tasdiqlaydi. Barcha qolgan avans shu kelgan kitoblarga ishlatiladi. '

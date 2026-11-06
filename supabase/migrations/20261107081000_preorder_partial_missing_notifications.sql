@@ -359,3 +359,47 @@ begin
  'deposit_remaining',credit,'closed',closed);
 end $function$
 
+
+-- Preserve detailed arrival/missing descriptions in the customer in-app inbox.
+CREATE OR REPLACE FUNCTION public.customer_preorder_activity_list(p_install_id text, p_name text DEFAULT ''::text, p_phone text DEFAULT ''::text, p_limit integer DEFAULT 60)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare v_id text:=trim(coalesce(p_install_id,'')); v_rows jsonb;
+begin
+ if length(v_id) not between 12 and 120 or
+   coalesce(p_limit,0) not between 1 and 100 then
+   raise exception 'Qurilma ma’lumoti noto‘g‘ri'; end if;
+ select coalesce(jsonb_agg(to_jsonb(v) order by v.created_at desc,v.id desc),'[]'::jsonb)
+ into v_rows from (
+  select 'native:'||e.id::text id,'native'::text source,p.id::text preorder_id,
+   e.event_type,e.title,e.message,e.created_at
+   from private.customer_preorder_events e
+   join public.preorders p on p.id=e.preorder_id
+   where p.install_id=v_id
+    and not exists(select 1 from private.customer_pin_devices d where d.install_id=v_id)
+    and not exists(
+    select 1 from private.admin_preorder_hidden a
+    where a.source='native' and a.order_id=p.id::text)
+  union all
+  select 'web:'||e.id::text,'web'::text,w.id::text,
+   e.status,case when e.status in ('partial_arrived','partial_missing') then e.title
+       else case e.status when 'accepted' then 'Zakazingiz qabul qilindi ✅'
+         when 'arrived' then 'Kitobingiz keldi 📚'
+         else 'Oldindan zakaz holati o‘zgardi' end end,
+   case when e.status in ('partial_arrived','partial_missing') then e.body
+     else 'Oldindan zakazlarim bo‘limini tekshiring.'::text end,e.created_at
+   from private.web_preorder_events e
+   join public.web_preorder_requests w on w.id=e.preorder_id
+   where e.audience='customer' and w.install_id=v_id
+     and not exists(select 1 from private.customer_pin_devices d where d.install_id=v_id)
+     and not exists(select 1 from private.admin_preorder_hidden a
+      where a.source='web' and a.order_id=w.id::text)
+  order by created_at desc,id desc limit p_limit
+ ) v;
+ return v_rows;
+end;
+$function$
+

@@ -202,8 +202,10 @@ class _AdminWebPreorderPartialPageState
       'Shular topildi — mijozga yuborish',
       '$lines\n\nKelgan kitoblar jami: ${_won(total)}\n'
       'Qolgan avans: ${_won(_num(detail?['deposit_remaining']))}\n\n'
-      'Avansning qanchasi ishlatilishi va pochta to‘lovi '
-      'mijoz tanlovidan so‘ng serverda hisoblanadi. '
+      'Mijozning shu zakaz uchun hali ishlatilmagan AVANSI TO‘LIQ '
+      'faqat topilgan kitoblar va ularning pochtasidan ayriladi. '
+      'Mijozga qolgan summani va manzilni tasdiqlash ko‘rsatiladi. '
+      'Topilmagan kitoblarni keyin qaytadan oldindan buyurtma qilishi mumkin. '
       'Faqat belgilangan kitoblar ombordan band qilinadi. '
       'Mijozga ilova xabari yaratiladi, push yetishi qurilma ruxsatiga bog‘liq.',
       'Shular topildi',
@@ -213,7 +215,7 @@ class _AdminWebPreorderPartialPageState
     try {
       await widget.api.partialWebPreorder(widget.id,'prepare', {
         'items': items,
-        'apply_all': false,
+        'apply_all': true,
       });
       if (!mounted) return;
       matched.clear();
@@ -237,7 +239,7 @@ class _AdminWebPreorderPartialPageState
       'Tayyorlovni bekor qilish',
       'Mijoz hali avans taqsimotini tanlamagan bo‘lsa '
       'band qilingan kitoblar omborga qaytariladi. '
-      'Avans va eski buyurtmalar saqlanadi.',
+      'To‘langan avans o‘zgarmaydi.',
       'Tayyorlovni bekor qilish')) return;
     if (!mounted) return;
     setState(() => saving = true);
@@ -302,7 +304,9 @@ class _AdminWebPreorderPartialPageState
         const SizedBox(height:10),
         const Text(
           'Faqat kelgan kitoblarni tanlang. Kelmaganlari kutilayotgan '
-          'zakazda qoladi. Avans mijoz tanloviga ko‘ra bir marta ayiriladi.',
+          'bu bosqichda jo‘natilmaydi. To‘langan avansning barchasi '
+          'topilgan kitoblarga bir marta ishlatiladi. Qolgan kitoblarni '
+          'keyin qayta oldindan zakaz qilish mumkin.',
           style: TextStyle(color:AppColors.muted)),
         if (detail?['closed']==true)
           const Padding(padding:EdgeInsets.only(top:12),
@@ -322,7 +326,9 @@ class _AdminWebPreorderPartialPageState
         if (active != null) ...[
           const SizedBox(height:12),
           if (active['status']=='prepared') ...[
-            const Text('Mijoz avansni qanday ishlatishni tanlashi kutilmoqda.'),
+            const Text('Mijoz faqat manzilini va qolgan to‘lovni '
+              'tasdiqlaydi. Barcha qolgan avans shu kelgan kitoblarga ishlatiladi. '
+              'Topilmaganlarini keyinchalik qayta oldindan zakaz qilish mumkin.'),
             OutlinedButton.icon(
               onPressed:saving?null:_cancel,
               icon: const Icon(Icons.undo),

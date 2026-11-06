@@ -60,6 +60,29 @@ void main() {
       }), isNull);
     });
 
+    test('all remaining advance is the only admin-prepared policy', () {
+      final items = [
+        partialFoundSelectionRow(
+          index: 0, bookId: 'b1', requestedRemaining: 2,
+          availableStock: 2, quantity: 1, unitPrice: 12000),
+      ];
+      final payload = partialAllAdvancePreparePayload(items);
+      expect(payload['items'], items);
+      expect(payload['apply_all'], true);
+      expect(payload.containsKey('keep'), false);
+      expect(() => partialAllAdvancePreparePayload([]), throwsArgumentError);
+    });
+
+    test('customer request cannot retain any advance for missing titles', () {
+      final payload = partialCustomerAllAdvanceRequest(
+        recipientName: 'Xaridor', recipientPhone: '01012345678',
+        address: 'Gyongsan apartment 12', deliveryType: '택배',
+      );
+      expect(payload['choice'], 'all');
+      expect(payload.containsValue('keep'), false);
+      expect(payload['recipient_phone'], '01012345678');
+    });
+
     test('remaining amount always comes from server invoice', () {
       expect(partialPayableFromServer({
         'status': 'awaiting_payment',

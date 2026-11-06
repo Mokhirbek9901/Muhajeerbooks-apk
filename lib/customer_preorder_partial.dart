@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -312,12 +313,39 @@ class _CustomerWebPreorderPartialPageState
           if (b != null && b['status']=='awaiting_payment') ...[
             if(partialPayableFromServer(b)==null)
               const Text('To‘lov hisobi hozircha tayyor emas. Yangilang.')
-            else if(partialPayableFromServer(b)! > 0)
+            else if(partialPayableFromServer(b)! > 0) ...[
+              Card(child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('To‘lanadigan summa: ${won(partialPayableFromServer(b)!)}',
+                      style:const TextStyle(
+                        fontWeight:FontWeight.w900,fontSize:17)),
+                    const SizedBox(height:7),
+                    const Text('Qolgan summani quyidagi hisobga o‘tkazing:'),
+                    const SelectableText(
+                      AppState.bankName+' • '+AppState.bankAccount+
+                      ' • '+AppState.bankOwner),
+                    Align(
+                      alignment:Alignment.centerLeft,
+                      child:TextButton.icon(
+                        onPressed:busy ? null : () async {
+                          await Clipboard.setData(const ClipboardData(
+                            text:AppState.bankAccount));
+                          _snack('Bank hisob raqami nusxalandi.');
+                        },
+                        icon:const Icon(Icons.copy_outlined),
+                        label:const Text('Bank raqamini nusxalash'))),
+                  ],
+                ),
+              )),
               FilledButton.icon(
                 key:const Key('partial_upload_balance_proof'),
                 onPressed:busy?null:_sendProof,
                 icon:const Icon(Icons.receipt_long_outlined),
-                label:const Text('Qolgan to‘lov chekini yuborish'))
+                label:const Text('Qolgan to‘lov chekini yuborish')),
+            ]
             else
               const Text('Qolgan to‘lov ₩0. Admin tasdig‘i kutilmoqda.',
                 style:TextStyle(fontWeight:FontWeight.w800)),

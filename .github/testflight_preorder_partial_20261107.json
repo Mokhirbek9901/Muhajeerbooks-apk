@@ -26,5 +26,9 @@
   "owner_confirmed_flow": "Select found books only -> notify customer -> customer presses 'Kelgan kitoblarni zakas qilish' -> ALL unused deposit automatically applied to these books and postage -> customer pays only balance; missing books can be reordered later.",
   "version_marketing": "2.5.29",
   "update": "Fixed exclusive branch guard; replaced customer CTA and confirmation with explicit order button.",
-  "retry_gate": "Expected file list deduplicated."
+  "retry_gate": "Expected file list deduplicated.",
+  "confirmed_customer_cta": "Kelgan kitoblarni zakas qilish",
+  "deposit_rule": "ALL unused advance automatically applied to only arrived books + postage; remainder is payable by customer",
+  "missing_books": "Topilmagan kitoblarni keyinchalik qayta buyurtma berishingiz mumkin",
+  "previous_workflow": "Cancel superseded beta runs, run only most recent reviewed code"
 }

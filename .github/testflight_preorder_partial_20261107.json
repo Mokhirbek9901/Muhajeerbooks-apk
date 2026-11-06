@@ -30,5 +30,7 @@
   "confirmed_customer_cta": "Kelgan kitoblarni zakas qilish",
   "deposit_rule": "ALL unused advance automatically applied to only arrived books + postage; remainder is payable by customer",
   "missing_books": "Topilmagan kitoblarni keyinchalik qayta buyurtma berishingiz mumkin",
-  "previous_workflow": "Cancel superseded beta runs, run only most recent reviewed code"
+  "previous_workflow": "Cancel superseded beta runs, run only most recent reviewed code",
+  "payment_ui": "After customer presses 'Kelgan kitoblarni zakas qilish', show confirmed remaining amount, original bank transfer account and upload payment proof button. Zero due requires no upload.",
+  "last_review": "All unchanged app files checked against previously successful TestFlight baseline, no live customer notifications generated."
 }

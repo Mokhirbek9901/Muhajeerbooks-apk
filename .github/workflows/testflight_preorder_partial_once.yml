@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: muhajeer-testflight-preorder-partial-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   testflight:

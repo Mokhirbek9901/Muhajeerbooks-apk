@@ -406,5 +406,4 @@ begin
  ) v;
  return v_rows;
 end;
-$function$
-
+$function$;

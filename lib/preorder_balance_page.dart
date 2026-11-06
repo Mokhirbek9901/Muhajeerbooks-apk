@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'app_state.dart';
 import 'customer_pin_page.dart';
 import 'store_ui.dart' show CheckoutPage;
+import 'customer_preorder_partial.dart';
 import 'design_system.dart';
 import 'uzbek_customer_style.dart';
 
@@ -338,6 +339,9 @@ class _CustomerPreorderBalancesPageState
     final status = '${record['status'] ?? ''}';
     final isContactOnly = record['ownership'] == 'contact';
     final isWeb = record['source'] == 'web';
+    final multiWeb = isWeb &&
+        record['request_items'] is List &&
+        (record['request_items'] as List).length > 1;
     final ref = record['source'] == 'native'
         ? 'native:${record['id']}'
         : '${record['id']}';
@@ -361,7 +365,12 @@ class _CustomerPreorderBalancesPageState
             : () => Navigator.push(
                 context,
                 MaterialPageRoute<void>(
-                  builder: (_) => CheckoutPage(preorderId: ref),
+                  builder: (_) => multiWeb
+                    ? CustomerWebPreorderPartialPage(
+                        preorderId: '${record['id']}',
+                        title: '${record['title'] ?? record['book_title'] ?? 'Oldindan zakas'}',
+                      )
+                    : CheckoutPage(preorderId: ref),
                 ),
               ).then((_) => refresh()),
       ),

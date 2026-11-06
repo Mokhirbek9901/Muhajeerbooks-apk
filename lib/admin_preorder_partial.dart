@@ -1,5 +1,30 @@
 part of 'admin_ui.dart';
 
+/// Validate one selected wave without changing any stock or advance.
+/// The authoritative SQL routine repeats these checks under row locks.
+@visibleForTesting
+Map<String, dynamic> partialFoundSelectionRow({
+  required int index,
+  required String bookId,
+  required int requestedRemaining,
+  required int availableStock,
+  required int quantity,
+  required int unitPrice,
+}) {
+  if (index < 0 || bookId.trim().isEmpty ||
+      quantity < 1 || quantity > 200 ||
+      quantity > requestedRemaining || quantity > availableStock ||
+      unitPrice < 1 || unitPrice > 10000000) {
+    throw ArgumentError('Kelgan kitob miqdori yoki narxi noto‘g‘ri.');
+  }
+  return {
+    'index': index,
+    'book_id': bookId,
+    'quantity': quantity,
+    'unit_price': unitPrice,
+  };
+}
+
 /// Admin workflow for a multi-title web preorder. A selected catalog title
 /// must already have live stock. No customer order or payment is created by
 /// opening this page. Preparing one wave reserves only selected stock.
@@ -150,17 +175,19 @@ class _AdminWebPreorderPartialPageState
       final count = int.tryParse(_qty(index).text.trim()) ?? 0;
       final price = int.tryParse(_price(index).text.trim()) ?? 0;
       final remaining = _num(line['remaining_quantity']);
-      if (count < 1 || count > remaining || count > book.stock || count > 200 ||
-          price < 1 || price > 10000000) {
+      try {
+        chosen.add(partialFoundSelectionRow(
+          index: index,
+          bookId: book.id,
+          requestedRemaining: remaining,
+          availableStock: book.stock,
+          quantity: count,
+          unitPrice: price,
+        ));
+      } catch (_) {
         throw StateError(
           '“${line['book_title'] ?? line['title']}”: miqdor, ombor yoki narx noto‘g‘ri.');
       }
-      chosen.add({
-        'index': index,
-        'book_id': book.id,
-        'quantity': count,
-        'unit_price': price,
-      });
     }
     if (chosen.isEmpty) throw StateError(
       'Topilgan kitoblarni belgilang va katalogdan tanlang.');

@@ -205,7 +205,7 @@ begin
     'Qisman buyurtmangiz to‘lovi tekshirildi va jo‘natishga tayyorlanmoqda.','preorder_balance');
  else raise exception 'Amal noto‘g‘ri'; end if;
  return private.web_preorder_partial_detail(p_id);
-end $function$
+end $function$;
 
 
 -- The existing admin gateway accepts the separate missing action.
@@ -322,7 +322,7 @@ begin
     where source=p_source and reference=p_id;
  else raise exception 'Amal noto‘g‘ri'; end if;
  return private.release_preorder_detail(p_source,p_id);
-end $function$
+end $function$;
 
 
 -- Read-only customer/admin detail includes separately notified missing books.
@@ -362,7 +362,7 @@ begin
  'deposit_amount',w.deposit_amount,'deposit_per_book',w.deposit_per_book,
  'status',w.status,'original_items',w.request_items,'items',pending,'batches',batches,'missing_items',missing,
  'deposit_remaining',credit,'closed',closed);
-end $function$
+end $function$;
 
 
 -- Preserve detailed arrival/missing descriptions in the customer in-app inbox.

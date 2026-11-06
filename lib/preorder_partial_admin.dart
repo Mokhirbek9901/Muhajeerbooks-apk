@@ -95,11 +95,11 @@ class _PartialPreorderAdminPageState extends State<_PartialPreorderAdminPage> {
         for (var i = 0; i < originals.length; i++) {
           quantities.putIfAbsent(i, () => TextEditingController());
           prices.putIfAbsent(i, () => TextEditingController());
-          if (quantities[i]!.text.isEmpty) quantities[i]!.text = '$' + '{remaining(i)}';
+          if (quantities[i]!.text.isEmpty) quantities[i]!.text = remaining(i).toString();
         }
       });
     } catch (e) {
-      if (mounted) setState(() => error = '$' + 'e');
+      if (mounted) setState(() => error = e.toString());
     }
   }
 
@@ -125,7 +125,7 @@ class _PartialPreorderAdminPageState extends State<_PartialPreorderAdminPage> {
               itemCount: matching.length,
               itemBuilder: (_, i) => ListTile(
                 title: Text(matching[i].title),
-                subtitle: Text('Omborda: $' + '{matching[i].stock} ta'),
+                subtitle: Text('Omborda: ' + matching[i].stock.toString() + ' ta'),
                 trailing: const Icon(Icons.add_circle_outline),
                 onTap: () => Navigator.pop(sheet, matching[i]),
               ),
@@ -158,7 +158,7 @@ class _PartialPreorderAdminPageState extends State<_PartialPreorderAdminPage> {
       ));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Amal bajarilmadi: $' + 'e')));
+          SnackBar(content: Text('Amal bajarilmadi: ' + e.toString())));
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -210,9 +210,10 @@ class _PartialPreorderAdminPageState extends State<_PartialPreorderAdminPage> {
           contentPadding: EdgeInsets.zero,
           value: isSelected,
           title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-          subtitle: Text('So‘ralgan: $' + '{requestedQty(index)} dona · ' +
-              'Kelgan: $' + '{arrivedQty(index)} · Kelmagan deb yuborilgan: $' +
-              '{missingQty(index)} · Qolgan: $' + 'available'),
+          subtitle: Text('So‘ralgan: ' + requestedQty(index).toString() + ' dona · ' +
+              'Kelgan: ' + arrivedQty(index).toString() +
+              ' · Kelmagan deb yuborilgan: ' + missingQty(index).toString() +
+              ' · Qolgan: ' + available.toString()),
           onChanged: busy ? null : (v) => setState(() {
             final set = forArrival ? selectedArrival : selectedMissing;
             if (v == true) set.add(index); else set.remove(index);
@@ -255,7 +256,7 @@ class _PartialPreorderAdminPageState extends State<_PartialPreorderAdminPage> {
       body: d == null
           ? Center(child: Text(error ?? 'Yuklanmoqda…'))
           : ListView(padding: const EdgeInsets.all(16), children: [
-              Text('Mijoz: $' + '{d['customer_name'] ?? ''}',
+              Text('Mijoz: ' + (d['customer_name'] ?? '').toString(),
                 style: const TextStyle(fontWeight: FontWeight.w800)),
               Text('Buyurtma: ' + widget.id.substring(0, 8)),
               const SizedBox(height: 8),

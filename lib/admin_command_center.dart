@@ -1379,7 +1379,7 @@ class _CombinedPreorderDetailPageState
                           ));
                           if (mounted) await _load();
                         },
-                        icon: const Icon(Icons.playlist_add_check_circle_outlined),
+                        icon: const Icon(Icons.fact_check_outlined),
                         label: const Text('Ayrimlari topildi — tanlash'),
                       ),
                     if (d['payment_state'] == 'requested' &&

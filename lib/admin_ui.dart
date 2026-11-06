@@ -45,6 +45,7 @@ import 'web_preorders.dart';
 import 'preview_features.dart';
 
 part 'admin_command_center.dart';
+part 'admin_preorder_partial.dart';
 part 'admin_customer_safety.dart';
 part 'admin_soldout_bulk.dart';
 part 'admin_preorder_active_editor.dart';

@@ -25,6 +25,16 @@ Map<String, dynamic> partialFoundSelectionRow({
   };
 }
 
+/// Always settle the found wave using the whole unused advance.
+/// Neither admin UI nor older clients can select a keep-credit policy.
+@visibleForTesting
+Map<String,dynamic> partialAllAdvancePreparePayload(
+  List<Map<String,dynamic>> items,
+) {
+  if(items.isEmpty) throw ArgumentError('Topilgan kitoblarni tanlang');
+  return {'items': items, 'apply_all': true};
+}
+
 /// Admin workflow for a multi-title web preorder. A selected catalog title
 /// must already have live stock. No customer order or payment is created by
 /// opening this page. Preparing one wave reserves only selected stock.
@@ -242,10 +252,8 @@ class _AdminWebPreorderPartialPageState
     if (!confirmed || !mounted) return;
     setState(() => saving = true);
     try {
-      await widget.api.partialWebPreorder(widget.id,'prepare', {
-        'items': items,
-        'apply_all': true,
-      });
+      await widget.api.partialWebPreorder(
+        widget.id,'prepare',partialAllAdvancePreparePayload(items));
       if (!mounted) return;
       matched.clear();
       for(final c in amounts.values){c.dispose();}

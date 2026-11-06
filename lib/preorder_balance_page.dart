@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'app_state.dart';
 import 'customer_pin_page.dart';
 import 'store_ui.dart' show CheckoutPage;
+import 'preorder_partial_customer.dart';
 import 'design_system.dart';
 import 'uzbek_customer_style.dart';
 
@@ -34,6 +35,38 @@ class _CustomerPreorderBalancesPageState
     if (state.backendConfigured && !state.checkoutIdentityReady)
       return const [];
     final rows = await state.releasePreorders();
+    // Read-only summary lookup for multi-title web requests. Failed lookups
+    // cannot hide any preorder or change ordinary checkout flows.
+    final multi = rows.where((row) =>
+      row['source'] == 'web' &&
+      row['request_items'] is List &&
+      (row['request_items'] as List).length > 1).take(12);
+    await Future.wait(multi.map((row) async {
+      try {
+        final info = await state.webPreorderPartial((row['id'] ?? '').toString(), 'detail');
+        final batches = (info['batches'] as List? ?? const [])
+            .whereType<Map>().where((v) => v['status'] != 'cancelled').toList();
+        if (batches.isEmpty) return;
+        var arrived = 0;
+        for (final batch in batches) {
+          for (final item in (batch['items'] as List? ?? const [])) {
+            if (item is Map) arrived += (item['quantity'] as num?)?.toInt() ?? 0;
+          }
+        }
+        var requested = 0;
+        for (final item in (info['original_items'] as List? ?? const [])) {
+          if (item is Map) requested += (item['quantity'] as num?)?.toInt() ?? 0;
+        }
+        row['_partial_active'] = true;
+        row['_partial_arrived'] = arrived;
+        row['_partial_missing'] = (requested - arrived).clamp(0, 100000).toInt();
+        final current = batches.last;
+        row['_partial_payment_ready'] = current['status'] != 'prepared';
+        row['_partial_due'] = (current['amount_due'] as num?)?.toInt() ?? 0;
+      } catch (_) {
+        // A temporary partial-status failure does not affect order visibility.
+      }
+    }));
     rows.sort((a, b) {
       final target = widget.focusPreorderId;
       if (target != null) {
@@ -334,21 +367,52 @@ class _CustomerPreorderBalancesPageState
     if (mounted) await refresh();
   }
 
+  Future<void> _openPreorder(Map<String, dynamic> record) async {
+    final isWeb = record['source'] == 'web';
+    final id = (record['id'] ?? '').toString();
+    if (isWeb) {
+      try {
+        // Check authoritative server partial batches before opening
+        // old full-order checkout (which must never charge those batches).
+        final d = await context.read<AppState>().webPreorderPartial(id, 'detail');
+        if (!mounted) return;
+        final rows = (d['batches'] as List? ?? const []);
+        final partial = rows.whereType<Map>().any((b) => b['status'] != 'cancelled');
+        if (partial) {
+          await Navigator.push<void>(context,
+            MaterialPageRoute(builder: (_) =>
+              CustomerPartialPreorderPage(preorderId: id)));
+          if (mounted) await refresh();
+          return;
+        }
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Oldindan zakaz ochilmadi: ' + e.toString())));
+        return;
+      }
+    }
+    if (!mounted) return;
+    final ref = isWeb ? id : 'native:' + id;
+    await Navigator.push<void>(context,
+      MaterialPageRoute(builder: (_) => CheckoutPage(preorderId: ref)));
+    if (mounted) await refresh();
+  }
+
   Widget _invoiceCard(Map<String, dynamic> record) {
     final status = '${record['status'] ?? ''}';
     final isContactOnly = record['ownership'] == 'contact';
     final isWeb = record['source'] == 'web';
-    final ref = record['source'] == 'native'
-        ? 'native:${record['id']}'
-        : '${record['id']}';
+    final isPartial = record['_partial_active'] == true;
+
     return Card(
       child: ListTile(
         title: Text('${record['title'] ?? record['book_title'] ?? 'Kitob'}'),
         subtitle: Text(
           '${isWeb ? 'Web oldindan zakaz\n' : ''}'
-          'Holat: ${status == 'arrived' ? 'Kitob keldi' : status}\n'
+          'Holat: ${isPartial ? 'Qisman keldi' : (status == 'arrived' ? 'Kitob keldi' : status)}\n'
+          '${isPartial ? 'Keldi: ${record['_partial_arrived']} ta · Kelmagan: ${record['_partial_missing']} ta\n' : ''}'
           'Avans: ${won((record['deposit_credit'] as num?)?.toInt() ?? 0)}'
-          '\nQolgan to‘lov: ${won((record['amount_due'] as num?)?.toInt() ?? 0)}'
+          '\nQolgan to‘lov: ${isPartial && record['_partial_payment_ready'] != true ? 'Manzil tanlangach hisoblanadi' : won(isPartial ? ((record['_partial_due'] as num?)?.toInt() ?? 0) : ((record['amount_due'] as num?)?.toInt() ?? 0))}'
           '\nQaytariladigan pul: ${won((record['refund_due'] as num?)?.toInt() ?? 0)}'
           '${isContactOnly ? '\nBu zakaz profil ma’lumotlari bilan topildi. To‘lovni davom ettirish uchun asl qurilmada oching yoki admin bilan bog‘laning.' : ''}',
         ),
@@ -356,14 +420,7 @@ class _CustomerPreorderBalancesPageState
         trailing: isContactOnly
             ? const Icon(Icons.lock_outline)
             : const Icon(Icons.chevron_right),
-        onTap: isContactOnly
-            ? null
-            : () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => CheckoutPage(preorderId: ref),
-                ),
-              ).then((_) => refresh()),
+        onTap: isContactOnly ? null : () => _openPreorder(record),
       ),
     );
   }

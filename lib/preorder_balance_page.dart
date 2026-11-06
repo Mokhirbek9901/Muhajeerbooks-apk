@@ -342,10 +342,13 @@ class _CustomerPreorderBalancesPageState
     final multiWeb = isWeb &&
         record['request_items'] is List &&
         (record['request_items'] as List).length > 1;
+    // A previously prepared full-arrival invoice MUST continue to use the
+    // original checkout. Partial preparation is disallowed by that invoice.
+    final partialEligible = multiWeb && record['price_ready'] != true;
     final ref = record['source'] == 'native'
         ? 'native:${record['id']}'
         : '${record['id']}';
-    final amountLine = multiWeb
+    final amountLine = partialEligible
         ? '\nTopilgan kitoblar uchun hisob va avans tanlovini oching.'
         : '\nQolgan to‘lov: ${won((record['amount_due'] as num?)?.toInt() ?? 0)}'
           '\nQaytariladigan pul: ${won((record['refund_due'] as num?)?.toInt() ?? 0)}';
@@ -368,7 +371,7 @@ class _CustomerPreorderBalancesPageState
             : () => Navigator.push(
                 context,
                 MaterialPageRoute<void>(
-                  builder: (_) => multiWeb
+                  builder: (_) => partialEligible
                     ? CustomerWebPreorderPartialPage(
                         preorderId: '${record['id']}',
                         title: '${record['title'] ?? record['book_title'] ?? 'Oldindan zakas'}',

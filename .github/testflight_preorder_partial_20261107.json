@@ -22,5 +22,9 @@
   "no_live_customer_notifications_sent_during_testing": true,
   "settlement_policy": "ALL remaining prepaid credit is applied to found titles and shipping; missing titles must be reordered",
   "server_policy_migration": "20261107044000_partial_preorder_apply_all_credit_only.sql",
-  "retry_note": "Include concurrently committed same-feature all-advance migration; previous run blocked before tests by strict file gate."
+  "retry_note": "Include concurrently committed same-feature all-advance migration; previous run blocked before tests by strict file gate.",
+  "owner_confirmed_flow": "Select found books only -> notify customer -> customer presses 'Kelgan kitoblarni zakas qilish' -> ALL unused deposit automatically applied to these books and postage -> customer pays only balance; missing books can be reordered later.",
+  "version_marketing": "2.5.29",
+  "update": "Fixed exclusive branch guard; replaced customer CTA and confirmation with explicit order button.",
+  "retry_gate": "Expected file list deduplicated."
 }

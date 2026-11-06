@@ -1,0 +1,9 @@
+{
+  "purpose": "Upload only the missing-book notification feature on top of verified TestFlight 2.5.29",
+  "base_commit": "26bdee036e83d4bc104bb0c100724c11caf2a9ef",
+  "marketing_version": "2.5.30",
+  "platform": "ios",
+  "distribution": "TestFlight only",
+  "preserve_existing_features": true,
+  "requested_on": "2026-11-07"
+}

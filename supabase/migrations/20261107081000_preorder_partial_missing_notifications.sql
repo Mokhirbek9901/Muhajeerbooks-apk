@@ -132,6 +132,11 @@ begin
          notice,'preorder_partial_missing',now());
    perform private.web_preorder_retry();
  elsif p_action='cancel_prepare' then
+   -- Do not silently undo an arrival after an explicit missing notice.
+   if exists(select 1 from private.web_preorder_missing_marks
+       where preorder_id=p_id) then
+     raise exception 'Kelmagan kitoblar haqida xabar yuborilgan. Bu bosqichni avtomatik bekor qilish mumkin emas';
+   end if;
    select * into old from private.web_preorder_partial_batches
      where preorder_id=p_id and status='prepared' order by created_at desc limit 1 for update;
    if not found then raise exception 'Bekor qilish mumkin bo‘lgan tayyorlash yo‘q'; end if;

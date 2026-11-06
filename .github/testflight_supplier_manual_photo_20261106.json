@@ -16,5 +16,8 @@
   "play_market_production": false,
   "web_deployment": false,
   "testflight_only": true,
-  "syntax_repair": "Restored original edit form; inserted optional photo dialog only (619b8a5c)"
+  "syntax_repair": "Restored original edit form; inserted optional photo dialog only (619b8a5c)",
+  "testflight_marketing_version": "2.5.27",
+  "retry_reason": "Apple 2.5.26 release train closed; 90062/90186. Dart/Flutter tests and IPA signing passed. Only iOS marketing version changed.",
+  "allowed_scope": "testflight only; no App Store production or Android upload"
 }

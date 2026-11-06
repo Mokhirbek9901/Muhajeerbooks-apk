@@ -34,7 +34,6 @@ class _CustomerWebPreorderPartialPageState
   bool busy = false;
   bool loading = true;
   String? error;
-  String choice = '';
   String delivery = '택배';
   int n(dynamic v) => v is num ? v.toInt() : int.tryParse('$v') ?? 0;
   String won(int v) => '₩${money.format(v)}';
@@ -95,11 +94,8 @@ class _CustomerWebPreorderPartialPageState
   Future<void> _choose() async {
     final b = active;
     if (busy || b == null || b['status'] != 'prepared') return;
-    final appliedChoice = b['choice'] == 'all' ? 'all' : choice;
-    if (!const {'all', 'keep'}.contains(appliedChoice)) {
-      _snack('Avansdan foydalanish variantini tanlang.');
-      return;
-    }
+    // One rule: all unused prepaid credit funds the found titles.
+    const appliedChoice = 'all';
     final name = recipient.text.trim();
     final digits = phone.text.replaceAll(RegExp(r'\D'), '');
     final location = address.text.trim();
@@ -110,15 +106,13 @@ class _CustomerWebPreorderPartialPageState
     }
     final yes = await showDialog<bool>(context: context,
       builder: (dialog) => AlertDialog(
-        title: const Text('Avans tanlovini tasdiqlash'),
-        content: Text(
-          appliedChoice == 'all'
-          ? 'Avansning hali ishlatilmagan qismi kelgan kitoblar va '
-            'pochtaga hisoblanadi. Qolgan kitoblar uchun ushbu '
-            'oldindan zakas yakunlanadi. Kerak bo‘lsa keyin yangi zakas '
-            'berasiz. Ortiqcha avans bo‘lsa qaytariladigan pul ko‘rsatiladi.'
-          : 'Kelgan kitoblar uchun tegishli avans ishlatiladi. '
-            'Qolgan avans va topilmagan kitoblar kutishdagi zakasda qoladi.',
+        title: const Text('Avans to‘liq chegiriladi'),
+        content: const Text(
+          'To‘langan avansning hali ishlatilmagan qismi TO‘LIQ '
+          'topilgan kitoblar va ularning pochta haqidan ayriladi. '
+          'Qolgan kitoblarni keyinchalik yana oldindan buyurtma '
+          'berib olib kelishingiz mumkin. Agar avans ortib qolsa, '
+          'qaytariladigan summa alohida ko‘rsatiladi.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialog,false),
@@ -242,32 +236,12 @@ class _CustomerWebPreorderPartialPageState
           )),
           if (b?.isNotEmpty == true && b?['status']=='prepared') ...[
             const SizedBox(height:12),
-            const Text('Avans qanday ishlatilsin?',
+            const Text('Barcha avans topilgan kitoblarga ishlatiladi',
               style:TextStyle(fontSize:18,fontWeight:FontWeight.w900)),
             const SizedBox(height:7),
-            if (b?['choice']=='all')
-              const Text('Sizning zakasingiz uchun barcha avansni kelgan '
-                'kitoblarga hisoblash oldindan belgilangan.')
-            else ...[
-              ListTile(
-                key:const Key('partial_advance_keep'),
-                leading:Icon(choice=='keep'
-                  ? Icons.radio_button_checked : Icons.radio_button_unchecked),
-                title:const Text('Qolgan kitoblarga avans saqlansin'),
-                subtitle:const Text('Kelgan kitoblar uchun tegishli avans '
-                  'ayriladi, ortig‘i kelmagan kitoblar uchun qoladi.'),
-                onTap:()=>setState(()=>choice='keep'),
-              ),
-              ListTile(
-                key:const Key('partial_advance_all'),
-                leading:Icon(choice=='all'
-                  ? Icons.radio_button_checked : Icons.radio_button_unchecked),
-                title:const Text('Barcha avans kelganlarga ishlatilsin'),
-                subtitle:const Text('Qolgan kitoblar uchun ushbu zakas '
-                  'yopiladi, kerak bo‘lsa qayta zakas qilasiz.'),
-                onTap:()=>setState(()=>choice='all'),
-              ),
-            ],
+            Text('Hali ishlatilmagan avans: ${won(n(data?['deposit_remaining']))}. '
+              'Hammasi topilgan kitoblar va ularning pochtasidan ayriladi. '
+              'Qolganlariga avans saqlash varianti yo‘q.'),
             const SizedBox(height:8),
             TextField(
               controller:recipient,enabled:!busy,
@@ -339,8 +313,13 @@ class _CustomerWebPreorderPartialPageState
                   '${item['remaining_quantity']} dona'),
           ],
           if (data?['closed']==true)
-            const Text('Bu oldindan zakasning qolgan qismi yopilgan. '
-              'Topilmagan kitoblarni keyin yangidan buyurtma qilishingiz mumkin.'),
+            const Text('Bu oldindan zakasning qolgan qismi yopilgan.'),
+          const SizedBox(height:12),
+          const Text('Topilmagan kitoblarni keyinchalik yana '
+            'oldindan buyurtma berib olib kelishingiz mumkin. '
+            'Avansning hammasi hozir topilgan kitoblarga hisoblanadi; '
+            'qolganlariga saqlab qolinmaydi.',
+            style:TextStyle(fontSize:13,fontWeight:FontWeight.w700)),
           if (busy) const LinearProgressIndicator(),
           const SizedBox(height:24),
         ],

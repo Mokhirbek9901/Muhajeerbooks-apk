@@ -81,9 +81,9 @@ jobs:
           current_public = Path('.github/ios-marketing-version').read_text().strip()
           if current_public != '2.5.24':
               raise SystemExit(f'Unexpected published marketing baseline {current_public}; select a newer beta version explicitly.')
-          # Apple closed the 2.5.24 train (90186/90062) after public release.
+          # Apple closed the public 2.5.26 train (90062/90186); use 2.5.27 for TestFlight.
           # This workflow is TestFlight-only; public and server versions stay unchanged.
-          version = '2.5.26'
+          version = '2.5.27'
           with open(os.environ['GITHUB_ENV'], 'a') as env:
               env.write(f'ASC_PRIVATE_KEY_PATH={path}\n')
               env.write(f'IOS_BUILD_NUMBER={380000 + 10*int(os.environ["GITHUB_RUN_NUMBER"]) + int(os.environ["GITHUB_RUN_ATTEMPT"])}\n')

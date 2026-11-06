@@ -2581,6 +2581,22 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     return Map<String, dynamic>.from(value as Map);
   }
 
+  /// A separate partial fulfilment transaction on the original web preorder.
+  /// This uses the existing release-preorder device-authenticated gateway.
+  Future<Map<String, dynamic>> webPreorderPartial(
+    String id, String action, [
+    Map<String, dynamic> payload = const {},
+  ]) => _releasePreorder(id, 'partial_' + action, payload);
+
+  Future<Map<String, dynamic>> submitWebPreorderPartialProof(
+    String id, XFile file,
+  ) async {
+    if (_backend == null || !checkoutIdentityReady)
+      throw StateError('Avval ma’lumotlaringizni saqlang');
+    final path = await _backend!.uploadPaymentProof(file);
+    return webPreorderPartial(id, 'proof', {'path': path});
+  }
+
   Future<Map<String, dynamic>> webPreorderInvoice(String id) =>
       _releasePreorder(id, 'detail');
   Future<Map<String, dynamic>> saveWebPreorderDelivery(

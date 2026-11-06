@@ -63,6 +63,8 @@ class _AdminWebPreorderPartialPageState
   bool loading = true;
   bool saving = false;
   bool proofViewed = false;
+  bool showMissing = false;
+  final Set<int> missingSelection = {};
   String? error;
 
   int _num(dynamic value) =>
@@ -85,6 +87,7 @@ class _AdminWebPreorderPartialPageState
         catalog = List<Book>.from(result[1] as List);
         error = null;
         proofViewed = false;
+        missingSelection.clear();
         loading = false;
       });
     } catch (e) {
@@ -238,7 +241,7 @@ class _AdminWebPreorderPartialPageState
       return '${book.title}: ${item['quantity']} dona × ${_won(_num(item['unit_price']))}';
     }).join('\n');
     final confirmed = await _approve(
-      'Shular topildi — mijozga yuborish',
+      'Shu kitoblar keldi — mijozga yuborish',
       '$lines\n\nKelgan kitoblar jami: ${_won(total)}\n'
       'Qolgan avans: ${_won(_num(detail?['deposit_remaining']))}\n\n'
       'Mijozning shu zakaz uchun hali ishlatilmagan AVANSI TO‘LIQ '
@@ -247,7 +250,7 @@ class _AdminWebPreorderPartialPageState
       'Topilmagan kitoblarni keyin qaytadan oldindan buyurtma qilishi mumkin. '
       'Faqat belgilangan kitoblar ombordan band qilinadi. '
       'Mijozga ilova xabari yaratiladi, push yetishi qurilma ruxsatiga bog‘liq.',
-      'Shular topildi',
+      'Shu kitoblar keldi',
     );
     if (!confirmed || !mounted) return;
     setState(() => saving = true);
@@ -260,11 +263,57 @@ class _AdminWebPreorderPartialPageState
       for(final c in prices.values){c.dispose();}
       amounts.clear(); prices.clear();
       await _load();
+      if (mounted) setState(() => showMissing = true);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Topilgan kitoblar saqlandi. Mijozga xabar yaratildi; push yetkazilishi alohida tekshiriladi.')));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Xabar yuborilmadi / saqlanmadi: $e')));
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  List<Map<String, dynamic>> _missingRows() =>
+    preorderMissingBookRows(detail ?? const <String, dynamic>{});
+
+  bool get _hasReceived => _batches().any(
+    (b) => b['status'] != 'cancelled');
+
+  Future<void> _notifyMissing() async {
+    if (saving || missingSelection.isEmpty || !_hasReceived) return;
+    final selected = _missingRows()
+      .where((row) => missingSelection.contains(_num(row['index'])) &&
+          _num(row['unreported_quantity']) > 0)
+      .toList();
+    if (selected.length != missingSelection.length) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Kelmagan kitoblar ro‘yxatini yangilang.')));
+      return;
+    }
+    final names = selected.map((row) =>
+      '${row['title']} — ${row['unreported_quantity']} dona').join('\n');
+    if (!await _approve(
+      'Tanlangan kitoblar kelmadi',
+      'Quyidagi kitoblar hozircha kelmadi:\n$names\n\n'
+      'Mijozga alohida bildirishnoma yuboriladi. '
+      'Ularni keyinchalik qayta buyurtma qilishi mumkin. '
+      'Avans, kelgan kitoblar va ombor o‘zgarmaydi.',
+      'Kelmadi deb yuborish')) return;
+    if (!mounted) return;
+    setState(() => saving = true);
+    try {
+      await widget.api.partialWebPreorder(
+        widget.id, 'missing',
+        {'indices': selected.map((row) => _num(row['index'])).toList()});
+      missingSelection.clear();
+      await _load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(
+          'Kelmagan kitoblar haqida mijozga alohida xabar yaratildi.')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Kelmaganlar yuborilmadi: $e')));
     } finally {
       if (mounted) setState(() => saving = false);
     }
@@ -376,6 +425,25 @@ class _AdminWebPreorderPartialPageState
           const Padding(padding:EdgeInsets.only(top:12),
             child:Text('Bu zakazning qolgan qismi yopilgan. '
               'Qolgan kitoblar kerak bo‘lsa yangi zakaz qilinadi.')),
+        if (_hasReceived)
+          Row(children: [
+            Expanded(child: showMissing
+              ? OutlinedButton(
+                  onPressed: () => setState(() => showMissing = false),
+                  child: const Text('Keldi'))
+              : FilledButton.tonal(
+                  onPressed: () => setState(() => showMissing = false),
+                  child: const Text('Keldi'))),
+            const SizedBox(width: 8),
+            Expanded(child: showMissing
+              ? FilledButton.tonal(
+                  onPressed: () => setState(() => showMissing = true),
+                  child: const Text('Kelmagan'))
+              : OutlinedButton(
+                  onPressed: () => setState(() => showMissing = true),
+                  child: const Text('Kelmagan'))),
+          ]),
+        if (!showMissing) ...[
         for (final batch in batches) Card(child: ListTile(
           title: Text(_batchTitle(batch)),
           subtitle: Text(
@@ -439,7 +507,7 @@ class _AdminWebPreorderPartialPageState
         ],
         if (active==null && detail?['closed']!=true) ...[
           const Divider(height:26),
-          const Text('Shular topildi',
+          const Text('Kelgan kitoblar',
             style: TextStyle(fontSize:18,fontWeight:FontWeight.w900)),
           const SizedBox(height:6),
           for(final line in pending) if(_num(line['remaining_quantity'])>0)
@@ -449,7 +517,46 @@ class _AdminWebPreorderPartialPageState
             key: const Key('admin_partial_send_found'),
             onPressed:saving?null:_prepare,
             icon: const Icon(Icons.send_outlined),
-            label: const Text('Shular topildi — mijozga yuborish')),
+            label: const Text('Shu kitoblar keldi — mijozga yuborish')),
+        ],
+        ],
+        if (showMissing) ...[
+          const SizedBox(height: 12),
+          const Text('Kelmagan kitoblar',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+          const Text('Avval kelgan kitoblarni mijozga yuboring. '
+            'Keyin kelmaganlarini tanlab alohida xabar jo‘nating.'),
+          for (final row in _missingRows())
+            Card(child: CheckboxListTile(
+              key: ValueKey('partial_missing_${row['index']}'),
+              value: missingSelection.contains(_num(row['index'])),
+              onChanged: saving || !_hasReceived ||
+                _num(row['unreported_quantity']) <= 0
+                  ? null
+                  : (value) => setState(() {
+                      final i = _num(row['index']);
+                      if (value == true) missingSelection.add(i);
+                      else missingSelection.remove(i);
+                    }),
+              title: Text(row['title'].toString()),
+              subtitle: Text(
+                'Kelmagan: ${row['remaining_quantity']} dona • '
+                '${_num(row['reported_quantity']) > 0 ? 'Xabar yuborilgan' : 'Hali xabar yuborilmagan'}'),
+              secondary: Icon(
+                _num(row['reported_quantity']) > 0
+                  ? Icons.cancel_outlined : Icons.schedule_outlined,
+                color: _num(row['reported_quantity']) > 0
+                  ? Colors.red : Colors.orange),
+            )),
+          if (_missingRows().isEmpty)
+            const Text('Kelmagan kitob qolmadi.'),
+          const SizedBox(height: 10),
+          FilledButton.icon(
+            key: const Key('admin_partial_send_missing'),
+            onPressed: saving || missingSelection.isEmpty
+              ? null : _notifyMissing,
+            icon: const Icon(Icons.notifications_active_outlined),
+            label: const Text('Tanlangan kitoblar kelmadi')),
         ],
         if (saving) const LinearProgressIndicator(),
       ]),

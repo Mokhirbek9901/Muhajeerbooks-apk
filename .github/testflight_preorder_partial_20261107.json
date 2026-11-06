@@ -1,18 +1,19 @@
 {
-  "feature": "Qisman topilgan kitoblar: customer notification, per-title selection, advance allocation",
+  "feature": "Qisman topilgan kitoblar: faqat kelganlari va oldindan to‘langan avansning barchasini ishlatish",
   "baseline_source": "a001878f56f28cafd13870c701b82db8ccd01f73",
   "build_version": "2.5.29",
   "scope": [
     "Admin selects only found items, quantities and actual catalog stock; sends exactly one preparation event",
     "Customer is notified in their preorder activity inbox (push is best effort)",
-    "Customer chooses how to allocate advance: apply all or keep credit for remaining books",
+    "All unused advance automatically applies only to found books; there is NO credit-keep choice; missing titles can be reordered later",
     "Remaining due and refund are server computed, no double deposit subtraction",
     "Customer uploads payment proof; admin must open proof before confirmation",
     "Past reservations, completed orders and unrelated app features preserved"
   ],
   "backend_already_updated": [
     "admin-rpc allowlist for admin_web_preorder_partial, protected by admin secret",
-    "owner-scoped customer device event message uses actual found book titles"
+    "owner-scoped customer device event message uses actual found book titles",
+    "admin/customer SQL functions require full unused advance and provide later reorder notice"
   ],
   "testflight_only": true,
   "app_store_release": false,

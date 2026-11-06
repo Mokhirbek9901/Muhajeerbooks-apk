@@ -64,7 +64,7 @@ class _PartialPreorderAdminPageState extends State<_PartialPreorderAdminPage> {
   }
 
   int remaining(int index) =>
-      (requestedQty(index) - arrivedQty(index) - missingQty(index)).clamp(0, 100000);
+      (requestedQty(index) - arrivedQty(index) - missingQty(index)).clamp(0, 100000).toInt();
 
   @override
   void initState() {

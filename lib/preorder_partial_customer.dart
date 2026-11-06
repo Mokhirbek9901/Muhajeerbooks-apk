@@ -354,13 +354,21 @@ class _CustomerPartialPreorderPageState extends State<CustomerPartialPreorderPag
             style: TextStyle(color: Colors.green, fontWeight: FontWeight.w800)),
           const SizedBox(height: 12),
           Row(children: [
-            Expanded(child: OutlinedButton(
-              onPressed: () => setState(() => showingMissing = false),
-              child: Text('Keldi (' + arrivedTotal.toString() + ')'))),
+            Expanded(child: showingMissing
+              ? OutlinedButton(
+                  onPressed: () => setState(() => showingMissing = false),
+                  child: Text('Keldi (' + arrivedTotal.toString() + ')'))
+              : FilledButton.tonal(
+                  onPressed: () => setState(() => showingMissing = false),
+                  child: Text('Keldi (' + arrivedTotal.toString() + ')'))),
             const SizedBox(width: 7),
-            Expanded(child: OutlinedButton(
-              onPressed: () => setState(() => showingMissing = true),
-              child: Text('Kelmagan (' + missingTotal.toString() + ')'))),
+            Expanded(child: showingMissing
+              ? FilledButton.tonal(
+                  onPressed: () => setState(() => showingMissing = true),
+                  child: Text('Kelmagan (' + missingTotal.toString() + ')'))
+              : OutlinedButton(
+                  onPressed: () => setState(() => showingMissing = true),
+                  child: Text('Kelmagan (' + missingTotal.toString() + ')'))),
           ]),
           const SizedBox(height: 12),
           if (showingMissing) _missingSection() else _arrivedSection(),

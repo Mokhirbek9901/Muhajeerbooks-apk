@@ -130,7 +130,7 @@ class _CustomerWebPreorderPartialPageState
     }
     final yes = await showDialog<bool>(context: context,
       builder: (dialog) => AlertDialog(
-        title: const Text('Avans to‘liq chegiriladi'),
+        title: const Text('Kelgan kitoblarga zakas berish'),
         content: const Text(
           'To‘langan avansning hali ishlatilmagan qismi TO‘LIQ '
           'topilgan kitoblar va ularning pochta haqidan ayriladi. '
@@ -142,7 +142,7 @@ class _CustomerWebPreorderPartialPageState
           TextButton(onPressed: () => Navigator.pop(dialog,false),
             child: const Text('Ortga')),
           FilledButton(onPressed: () => Navigator.pop(dialog,true),
-            child: const Text('Tasdiqlash')),
+            child: const Text('Zakas berish')),
         ],
       ),
     );
@@ -307,7 +307,7 @@ class _CustomerWebPreorderPartialPageState
               key:const Key('partial_choose_advance'),
               onPressed:busy?null:_choose,
               icon:const Icon(Icons.calculate_outlined),
-              label:const Text('Avansni ayirib qolgan to‘lovni hisoblash')),
+              label:const Text('Kelgan kitoblarni zakas qilish')),
           ],
           if (b != null && b['status']=='awaiting_payment') ...[
             if(partialPayableFromServer(b)==null)

@@ -17,6 +17,21 @@ int? partialPayableFromServer(Map<String, dynamic> batch) {
   return value != null && value >= 0 ? value : null;
 }
 
+/// Advance allocation is fixed, never an arbitrary customer choice.
+@visibleForTesting
+Map<String,dynamic> partialCustomerAllAdvanceRequest({
+  required String recipientName,
+  required String recipientPhone,
+  required String address,
+  required String deliveryType,
+}) => {
+  'choice': 'all',
+  'recipient_name': recipientName,
+  'recipient_phone': recipientPhone,
+  'address': address,
+  'delivery_type': deliveryType,
+};
+
 /// Customer-owned partial receipt. The server alone decides stock, postage,
 /// advance allocation and amount due. No new order or double deposit is made.
 class CustomerWebPreorderPartialPage extends StatefulWidget {
@@ -105,7 +120,6 @@ class _CustomerWebPreorderPartialPageState
     final b = active;
     if (busy || b == null || b['status'] != 'prepared') return;
     // One rule: all unused prepaid credit funds the found titles.
-    const appliedChoice = 'all';
     final name = recipient.text.trim();
     final digits = phone.text.replaceAll(RegExp(r'\D'), '');
     final location = address.text.trim();
@@ -137,13 +151,10 @@ class _CustomerWebPreorderPartialPageState
     try {
       await context.read<AppState>().customerWebPartial(
         widget.preorderId, 'choose',
-        payload: {
-          'choice': appliedChoice,
-          'recipient_name': name,
-          'recipient_phone': digits,
-          'address': location,
-          'delivery_type': delivery,
-        },
+        payload: partialCustomerAllAdvanceRequest(
+          recipientName: name, recipientPhone: digits,
+          address: location, deliveryType: delivery,
+        ),
       );
       if (mounted) await refresh();
     } catch (e) {

@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import 'app_state.dart';
+import 'preorder_partial_book_status.dart';
+import 'web_preorders.dart';
 import 'design_system.dart';
 import 'uzbek_customer_style.dart';
 
@@ -58,6 +60,7 @@ class _CustomerWebPreorderPartialPageState
   final money = NumberFormat('#,##0', 'en_US');
   Map<String, dynamic>? data;
   bool busy = false;
+  bool showMissing = false;
   bool loading = true;
   String? error;
   String delivery = '택배';
@@ -202,6 +205,7 @@ class _CustomerWebPreorderPartialPageState
     final pending = (data?['items'] as List? ?? const [])
       .whereType<Map>().toList();
     final b = active;
+    final missing = preorderMissingBookRows(data ?? const <String, dynamic>{});
     return Scaffold(
       backgroundColor: UzbekCustomerColors.background,
       appBar: AppBar(title: const Text('Topilgan kitoblarim'),
@@ -225,6 +229,25 @@ class _CustomerWebPreorderPartialPageState
           Text('Hali ishlatilmagan avans: ${won(n(data?['deposit_remaining']))}',
             style:const TextStyle(fontWeight:FontWeight.w800)),
           const SizedBox(height:12),
+          if (batches.isNotEmpty)
+            Row(children: [
+              Expanded(child: showMissing
+                ? OutlinedButton(
+                    onPressed: () => setState(() => showMissing = false),
+                    child: const Text('Keldi'))
+                : FilledButton.tonal(
+                    onPressed: () => setState(() => showMissing = false),
+                    child: const Text('Keldi'))),
+              const SizedBox(width: 8),
+              Expanded(child: showMissing
+                ? FilledButton.tonal(
+                    onPressed: () => setState(() => showMissing = true),
+                    child: const Text('Kelmagan'))
+                : OutlinedButton(
+                    onPressed: () => setState(() => showMissing = true),
+                    child: const Text('Kelmagan'))),
+            ]),
+          if (!showMissing) ...[
           for (final batch in batches) Card(child: Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
@@ -373,6 +396,41 @@ class _CustomerWebPreorderPartialPageState
             'Avansning hammasi hozir topilgan kitoblarga hisoblanadi; '
             'qolganlariga saqlab qolinmaydi.',
             style:TextStyle(fontSize:13,fontWeight:FontWeight.w700)),
+          ],
+          if (showMissing) ...[
+            const SizedBox(height: 10),
+            const Text('Kelmagan kitoblar',
+              style: TextStyle(fontSize:18,fontWeight:FontWeight.w900)),
+            for (final row in missing)
+              Card(child: ListTile(
+                leading: Icon(
+                  n(row['reported_quantity']) > 0
+                    ? Icons.cancel_outlined : Icons.schedule_outlined,
+                  color: n(row['reported_quantity']) > 0
+                    ? Colors.red : Colors.orange),
+                title: Text(row['title'].toString()),
+                subtitle: Text(n(row['reported_quantity']) > 0
+                  ? 'Kelmagan — admin sizga xabar yuborgan'
+                  : 'Hali kelmagan, kutilmoqda'),
+                trailing: Text(row['remaining_quantity'].toString() + ' dona'),
+              )),
+            if (missing.isEmpty) const Text('Kelmagan kitob qolmadi.'),
+            const Card(child: Padding(
+              padding: EdgeInsets.all(14),
+              child: Text('Ushbu kitoblar hozircha kelmadi. '
+                'Kelmagan kitoblar uchun alohida to‘lov olinmaydi. '
+                'Oldindan to‘langan avansning ishlatilmagan qismi '
+                'faqat kelgan kitoblarga hisoblanadi. '
+                'Kelmagan kitoblarni keyinchalik qayta buyurtma qilishingiz mumkin.'),
+            )),
+            const SizedBox(height:8),
+            OutlinedButton.icon(
+              onPressed: busy ? null : () => Navigator.push<void>(
+                context, MaterialPageRoute(
+                  builder: (_) => const WebPreorderPage())),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Qayta buyurtma qilish')),
+          ],
           if (busy) const LinearProgressIndicator(),
           const SizedBox(height:24),
         ],

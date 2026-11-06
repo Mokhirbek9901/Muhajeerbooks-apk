@@ -43,6 +43,7 @@ import 'uzbek_customer_style.dart';
 import 'web_admin_upgrades.dart';
 import 'web_preorders.dart';
 import 'preview_features.dart';
+import 'preorder_partial_book_status.dart';
 
 part 'admin_command_center.dart';
 part 'admin_preorder_partial.dart';

@@ -7,6 +7,16 @@ import 'app_state.dart';
 import 'design_system.dart';
 import 'uzbek_customer_style.dart';
 
+/// Only the backend can decide the due amount after postage and advance
+/// choice. Missing or not-yet-confirmed figures must NEVER be shown as ₩0.
+@visibleForTesting
+int? partialPayableFromServer(Map<String, dynamic> batch) {
+  if (batch['status'] == 'prepared') return null;
+  final raw = batch['amount_due'];
+  final value = raw is num ? raw.toInt() : int.tryParse('${raw ?? ''}');
+  return value != null && value >= 0 ? value : null;
+}
+
 /// Customer-owned partial receipt. The server alone decides stock, postage,
 /// advance allocation and amount due. No new order or double deposit is made.
 class CustomerWebPreorderPartialPage extends StatefulWidget {
@@ -223,7 +233,10 @@ class _CustomerWebPreorderPartialPageState
                 if (batch['status']!='prepared') ...[
                   Text('Pochta: ${won(n(batch['shipping_fee']))}'),
                   Text('Avansdan ayirildi: −${won(n(batch['deposit_applied']))}'),
-                  Text('Qolgan to‘lov: ${won(n(batch['amount_due']))}',
+                  Text(
+                    partialPayableFromServer(batch)==null
+                      ? 'Qolgan to‘lov hisoblanmoqda'
+                      : 'Qolgan to‘lov: ${won(partialPayableFromServer(batch)!)}',
                     style:const TextStyle(fontWeight:FontWeight.w900,fontSize:18)),
                   if(n(batch['refund_due'])>0)
                     Text('Qaytarilishi kerak: ${won(n(batch['refund_due']))}',
@@ -286,7 +299,9 @@ class _CustomerWebPreorderPartialPageState
               label:const Text('Avansni ayirib qolgan to‘lovni hisoblash')),
           ],
           if (b != null && b['status']=='awaiting_payment') ...[
-            if(n(b['amount_due'])>0)
+            if(partialPayableFromServer(b)==null)
+              const Text('To‘lov hisobi hozircha tayyor emas. Yangilang.')
+            else if(partialPayableFromServer(b)! > 0)
               FilledButton.icon(
                 key:const Key('partial_upload_balance_proof'),
                 onPressed:busy?null:_sendProof,

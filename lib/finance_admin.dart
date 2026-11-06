@@ -24,6 +24,30 @@ final _financeDisplayDate = DateFormat('dd.MM.yyyy');
 final _financeServerDate = DateFormat('yyyy-MM-dd');
 
 String _financeWon(num value) => '₩${_financeMoney.format(value.round())}';
+/// The synthetic period-wide postage row has no real transaction date.
+/// Its internal date is used only for sorting the list.
+@visibleForTesting
+String financeExpenseHistorySubtitle(
+  Map<String, dynamic> expense,
+  DateTime sortDate,
+) {
+  final note = (expense['note'] ?? '').toString().trim();
+  if (expense['_system'] == true) {
+    return [
+      'Tanlangan davr bo‘yicha hisob (aniq xarajat sanasi yo‘q)',
+      if (note.isNotEmpty) note,
+      'Avtomatik hisoblangan',
+    ].join(' • ');
+  }
+  return [
+    _financeDisplayDate.format(sortDate),
+    if (note.isNotEmpty) note,
+    expense['source'] == 'telegram'
+        ? 'Telegramdan kiritilgan'
+        : 'Admin ilovadan kiritilgan',
+  ].join(' • ');
+}
+
 String _financeSignedWon(num value) {
   final amount = value.round();
   if (amount > 0) return '+₩${_financeMoney.format(amount)}';
@@ -1129,14 +1153,7 @@ class _FinanceAdminPageState extends State<FinanceAdminPage> {
                           '${_financeWon((e['amount'] as num?) ?? 0)}',
                   ),
                   subtitle: Text(
-                    [
-                      _financeDisplayDate.format(date),
-                      if ((e['note'] ?? '').toString().trim().isNotEmpty)
-                        (e['note'] ?? '').toString(),
-                      (e['source'] ?? '').toString() == 'telegram'
-                          ? 'Telegramdan kiritilgan'
-                          : 'Admin ilovadan kiritilgan',
-                    ].join(' • '),
+                    financeExpenseHistorySubtitle(e, date),
                   ),
                   trailing: e['_consolidated_display_only'] == true
                       ? const Tooltip(

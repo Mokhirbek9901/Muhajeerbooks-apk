@@ -27,6 +27,7 @@ class _AdminWebPreorderPartialPageState
   final Map<int, TextEditingController> prices = {};
   bool loading = true;
   bool saving = false;
+  bool proofViewed = false;
   String? error;
 
   int _num(dynamic value) =>
@@ -48,6 +49,7 @@ class _AdminWebPreorderPartialPageState
         detail = Map<String, dynamic>.from(result[0] as Map);
         catalog = List<Book>.from(result[1] as List);
         error = null;
+        proofViewed = false;
         loading = false;
       });
     } catch (e) {
@@ -254,6 +256,28 @@ class _AdminWebPreorderPartialPageState
     }
   }
 
+  Future<void> _openBalanceProof() async {
+    final batch = _activeBatch;
+    if (batch == null) return;
+    final path = '${batch['proof_path'] ?? ''}'.trim();
+    if (path.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Mijozning to‘lov cheki hali yuborilmagan.')));
+      return;
+    }
+    try {
+      final url = await widget.api.paymentProofUrl(path);
+      if (url.isEmpty || !await launchUrl(
+        Uri.parse(url), mode: LaunchMode.externalApplication)) {
+        throw StateError('To‘lov cheki ochilmadi');
+      }
+      if (mounted) setState(() => proofViewed = true);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Chekni ochib bo‘lmadi: $e')));
+    }
+  }
+
   Future<void> _confirm() async {
     final b = _activeBatch;
     if (saving || b == null) return;
@@ -261,6 +285,11 @@ class _AdminWebPreorderPartialPageState
     final allowed = (due == 0 && b['status']=='awaiting_payment') ||
       b['status']=='proof_submitted';
     if (!allowed) return;
+    if (due > 0 && !proofViewed) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Avval qolgan to‘lov chekini ochib tekshiring.')));
+      return;
+    }
     if (!await _approve('To‘lovni tasdiqlash',
       'Qolgan to‘lov: ${_won(due)}. '
       'Faqat haqiqatan tekshirilgan chek yoki ₩0 qolgan to‘lovni '
@@ -336,14 +365,20 @@ class _AdminWebPreorderPartialPageState
           ] else ...[
             const Text('Mijoz tanlovini saqlagan. Qolgan to‘lov '
               'va manzilni tekshiring.'),
-            if (active['status']=='proof_submitted')
+            if (active['status']=='proof_submitted') ...[
               const Text('Mijoz qolgan to‘lov chekini yuborgan. '
                 'Tasdiqlashdan oldin chekni tekshiring.'),
+              OutlinedButton.icon(
+                onPressed: saving ? null : _openBalanceProof,
+                icon: const Icon(Icons.receipt_long_outlined),
+                label: const Text('Qolgan to‘lov chekini ko‘rish')),
+            ],
             FilledButton.icon(
               onPressed: saving || !(
                 (active['status']=='awaiting_payment' &&
                    _num(active['amount_due'])==0) ||
-                active['status']=='proof_submitted') ? null : _confirm,
+                (active['status']=='proof_submitted' &&
+                  (proofViewed || _num(active['amount_due'])==0))) ? null : _confirm,
               icon: const Icon(Icons.verified_outlined),
               label: const Text('Qolgan to‘lovni tasdiqlash')),
           ],

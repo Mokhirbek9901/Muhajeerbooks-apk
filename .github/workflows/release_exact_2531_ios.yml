@@ -1,0 +1,51 @@
+name: App Store submit exact TestFlight 2.5.31 (420011)
+on:
+  push:
+    branches: ['release/exact-testflight-2531-20261107']
+    paths: ['.github/release_2531_ios_approval.json']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: public-ios-2531-420011
+  cancel-in-progress: false
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify unchanged tested app source and exact successful TestFlight
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git diff --exit-code 713d644f22453c88c1c49b2a7563b1173cdd744c HEAD -- lib assets ios config pubspec.yaml pubspec.lock
+          gh api repos/$GITHUB_REPOSITORY/actions/runs/42318426177 > "$RUNNER_TEMP/testflight-run.json"
+          python3 - <<'PY'
+          import json,os
+          x=json.load(open(os.environ['RUNNER_TEMP']+'/testflight-run.json'))
+          assert x['conclusion']=='success' and x['head_sha']=='713d644f22453c88c1c49b2a7563b1173cdd744c'
+          assert x['path']=='.github/workflows/testflight_private_reserve_20261107.yml'
+          PY
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - run: ruby -c .github/release_tools/submit_exact_2531_420011.rb
+      - name: Submit exact existing TestFlight build to Apple review
+        env:
+          OWNER_APPROVED_PUBLIC_RELEASE: '2.5.31(420011)'
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: ruby .github/release_tools/submit_exact_2531_420011.rb
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-public-2531-420011-evidence
+          path: |
+            ${{ runner.temp }}/ios-final-submission.json
+            ${{ runner.temp }}/testflight-run.json
+          retention-days: 90

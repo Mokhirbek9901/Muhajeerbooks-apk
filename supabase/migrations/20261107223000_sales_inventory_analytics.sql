@@ -132,14 +132,14 @@ begin
       sum(unit_price-unit_cost) filter(where cost_known)::bigint profit
     from selected group by book_id
   ), days as (
-    select d::date day from generate_series(v_from,v_today,interval '1 day') d
+    select d::date as snapshot_day from generate_series(v_from,v_today,interval '1 day') d
   ), stock_stats as (
     select b.id, count(snap.stock_quantity)::integer coverage_days,
       round(avg(snap.stock_quantity),2) avg_stock
     from public.books b cross join days d
     left join lateral (
       select q.stock_quantity from public.stock_daily_snapshots q
-      where q.book_id=b.id and q.snapshot_date <= d.day
+      where q.book_id=b.id and q.snapshot_date <= d.snapshot_day
       order by q.snapshot_date desc limit 1
     ) snap on true
     group by b.id

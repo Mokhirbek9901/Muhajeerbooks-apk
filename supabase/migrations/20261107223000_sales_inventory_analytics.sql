@@ -82,7 +82,7 @@ declare
   v_genres jsonb;
   v_daily jsonb;
   v_suppliers jsonb;
-  v_unlinked integer;
+  v_batches jsonb;
 begin
   if not coalesce(public.admin_verify(p_secret),false) then
     raise exception 'Admin tasdiqlanmadi';
@@ -192,7 +192,9 @@ begin
       and (p_source='all' or s.source=p_source)
   )
   select coalesce(jsonb_agg(jsonb_build_object(
-     'category',category,'sold',sold,'revenue',revenue,'profit',profit)
+     'category',category,'sold',sold,'revenue',revenue,'profit',profit,
+     'stock_value',(select coalesce(sum(b.stock::bigint*b.cost_price),0) from public.books b
+       where coalesce(nullif(trim(b.category),''),'Boshqalar')=category))
       order by sold desc),'[]'::jsonb)
   into v_genres from (
     select category,count(*) sold,sum(unit_price)::bigint revenue,
@@ -227,9 +229,18 @@ begin
      left join public.suppliers s on s.id=w.supplier_id
      group by s.name
   ) x;
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id',w.id,'book_id',w.book_id,'book_title',b.title,'quantity',w.quantity,
+    'purchased_at',w.purchased_at,'supplier_id',w.supplier_id,
+    'supplier_name',su.name) order by w.purchased_at desc,w.id desc),'[]'::jsonb)
+  into v_batches
+  from public.web_book_batches w
+  join public.books b on b.id=w.book_id
+  left join public.suppliers su on su.id=w.supplier_id;
   return jsonb_build_object('days',p_days,'from',v_from,'to',v_today,
      'source',p_source,'summary',v_summary,'books',v_books,'channels',v_channels,
-     'genres',v_genres,'daily',v_daily,'suppliers',v_suppliers,'generated_at',now());
+     'genres',v_genres,'daily',v_daily,'suppliers',v_suppliers,
+     'batches',v_batches,'generated_at',now());
 end;
 $fn$;
 
@@ -388,4 +399,52 @@ end;
 $fn$;
 revoke all on function public.admin_record_offline_sale(text,text,jsonb,text,text,text,text) from public;
 grant execute on function public.admin_record_offline_sale(text,text,jsonb,text,text,text,text)
+  to anon,authenticated;
+
+
+-- Supplier creation and linking to exact purchase-batch lines.
+create or replace function public.admin_manage_inventory_supplier(
+  p_secret text,p_action text,p_supplier_id uuid default null,
+  p_name text default null,p_country text default '',
+  p_contact text default '',p_batch_id bigint default null
+) returns jsonb language plpgsql security definer set search_path = ''
+as $fn$
+declare
+  v_id uuid;
+begin
+  if not coalesce(public.admin_verify(p_secret),false) then
+    raise exception 'Admin tasdiqlanmadi';
+  end if;
+  if p_action='save' then
+    if length(trim(coalesce(p_name,''))) not between 2 and 200 then
+      raise exception 'Yetkazib beruvchi nomi noto‘g‘ri';
+    end if;
+    if p_supplier_id is null then
+      insert into public.suppliers(name,country,contact)
+        values(trim(p_name),left(coalesce(p_country,''),120),left(coalesce(p_contact,''),200))
+        returning id into v_id;
+    else
+      update public.suppliers
+      set name=trim(p_name),country=left(coalesce(p_country,''),120),
+        contact=left(coalesce(p_contact,''),200)
+      where id=p_supplier_id returning id into v_id;
+      if v_id is null then raise exception 'Yetkazib beruvchi topilmadi'; end if;
+    end if;
+    return jsonb_build_object('ok',true,'supplier_id',v_id);
+  elsif p_action='assign' then
+    if p_batch_id is null then raise exception 'Partiya qatori tanlanmagan'; end if;
+    if p_supplier_id is not null and
+      not exists(select 1 from public.suppliers where id=p_supplier_id)
+    then raise exception 'Yetkazib beruvchi topilmadi'; end if;
+    update public.web_book_batches
+      set supplier_id=p_supplier_id where id=p_batch_id;
+    if not found then raise exception 'Partiya qatori topilmadi'; end if;
+    return jsonb_build_object('ok',true,'batch_id',p_batch_id);
+  else
+    raise exception 'Amal noto‘g‘ri';
+  end if;
+end;
+$fn$;
+revoke all on function public.admin_manage_inventory_supplier(text,text,uuid,text,text,text,bigint) from public;
+grant execute on function public.admin_manage_inventory_supplier(text,text,uuid,text,text,text,bigint)
   to anon,authenticated;

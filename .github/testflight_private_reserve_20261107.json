@@ -1,0 +1,9 @@
+{
+  "purpose": "Keldi/Kelmadi per book, automatic zero-stock catalog, customer-only private reserve, one final customer message",
+  "source_testflight_commit": "d2340b90554f3cd515ab10dd815ba6896508ba78",
+  "beta_version": "2.5.31",
+  "platform": "ios",
+  "target": "TestFlight only",
+  "preserve_all_other_features": true,
+  "requested_on": "2026-11-07"
+}

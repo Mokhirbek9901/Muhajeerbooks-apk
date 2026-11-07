@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 
 import 'app_state.dart';
 import 'preorder_partial_book_status.dart';
-import 'web_preorders.dart';
 import 'design_system.dart';
 import 'uzbek_customer_style.dart';
 
@@ -287,6 +286,8 @@ class _CustomerWebPreorderPartialPageState
             const Text('Barcha avans topilgan kitoblarga ishlatiladi',
               style:TextStyle(fontSize:18,fontWeight:FontWeight.w900)),
             const SizedBox(height:7),
+            const Text('Ogohlantirish: kelmagan kitoblarni keyinchalik alohida qayta oldindan buyurtma qilishingiz mumkin. Bu sahifa faqat hozir kelgan kitoblar uchun to‘lovni qabul qiladi.'),
+            const SizedBox(height: 6),
             Text('Hali ishlatilmagan avans: ${won(n(data?['deposit_remaining']))}. '
               'Hammasi topilgan kitoblar va ularning pochtasidan ayriladi. '
               'Qolganlariga avans saqlash varianti yo‘q.'),
@@ -423,13 +424,6 @@ class _CustomerWebPreorderPartialPageState
                 'faqat kelgan kitoblarga hisoblanadi. '
                 'Kelmagan kitoblarni keyinchalik qayta buyurtma qilishingiz mumkin.'),
             )),
-            const SizedBox(height:8),
-            OutlinedButton.icon(
-              onPressed: busy ? null : () => Navigator.push<void>(
-                context, MaterialPageRoute(
-                  builder: (_) => const WebPreorderPage())),
-              icon: const Icon(Icons.refresh),
-              label: const Text('Qayta buyurtma qilish')),
           ],
           if (busy) const LinearProgressIndicator(),
           const SizedBox(height:24),

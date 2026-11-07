@@ -304,10 +304,10 @@ class _AdminWebPreorderPartialPageState
       'Mijozning shu zakaz uchun hali ishlatilmagan AVANSI TO‘LIQ '
       'faqat topilgan kitoblar va ularning pochtasidan ayriladi. '
       'Mijozga qolgan summani va manzilni tasdiqlash ko‘rsatiladi. '
-      'Topilmagan kitoblarni keyin qaytadan oldindan buyurtma qilishi mumkin. '
-      'Faqat belgilangan kitoblar ombordan band qilinadi. '
+      'Kelmadi deb belgilangan kitoblar keyin yangi oldindan buyurtma bilan qayta so‘ralishi mumkin, ammo mijozga bu yerda qayta zakaz tugmasi ko‘rsatilmaydi. '
+      'Kelgan nusxalar faqat shu mijozga ajratiladi, umumiy sotuv zaxirasi o‘zgarmaydi. '
       'Mijozga ilova xabari yaratiladi, push yetishi qurilma ruxsatiga bog‘liq.',
-      'Shu kitoblar keldi',
+      'Mijozga yuborish',
     );
     if (!confirmed || !mounted) return;
     setState(() => saving = true);

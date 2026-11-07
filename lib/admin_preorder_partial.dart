@@ -25,6 +25,12 @@ Map<String, dynamic> partialFoundSelectionRow({
   };
 }
 
+/// Admin preorder allocation is allowed for both published and hidden catalog
+/// titles. Customer-facing catalog visibility is never modified here.
+@visibleForTesting
+bool preorderPartialCatalogSelectableForAdmin(Book book, String query) =>
+    book.title.toLowerCase().contains(query.trim().toLowerCase());
+
 /// A physically received preorder copy is owned by one customer, not public stock.
 @visibleForTesting
 Map<String, dynamic> privatePreorderSelectionRow({
@@ -155,7 +161,7 @@ class _AdminWebPreorderPartialPageState
             child: SizedBox(
               height: MediaQuery.sizeOf(sheet).height * .65,
               child: Column(children: [
-                const Text('Omborga kelgan kitobni katalogdan tanlang',
+                const Text('Oldindan buyurtma uchun katalogdan tanlang',
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 10),
                 TextField(
@@ -174,12 +180,13 @@ class _AdminWebPreorderPartialPageState
                 ),
                 Expanded(child: ListView(
                   children: catalog.where((book) =>
-                    book.isActive &&
-                    book.title.toLowerCase().contains(query.toLowerCase()))
+                    preorderPartialCatalogSelectableForAdmin(book, query))
                     .map((book) => ListTile(
                       title: Text(book.title),
                       subtitle: Text(
-                        'Omborda: ${book.stock} dona • Narx: ${_won(book.currentPrice)}'),
+                        '${book.isActive ? 'Katalogda ko‘rinadi' : 'Katalogda yashirilgan'} '
+                        '• Ommaviy sotuv: ${book.stock} dona '
+                        '• Narx: ${_won(book.currentPrice)}'),
                       onTap: () => Navigator.pop(sheet, book),
                     )).toList(),
                 )),
@@ -676,7 +683,7 @@ class _AdminWebPreorderPartialPageState
             label: Text(createCatalog.contains(index)
               ? 'Katalogga yangi kiritiladi • sotuv 0 dona'
               : linked == null ? 'Katalogdan tanlash / yangisini yaratish'
-              : '${linked.title} • umumiy ombor: ${linked.stock} dona'),
+              : '${linked.title} • ${linked.isActive ? 'katalogda ko‘rinadi' : 'yashirilgan'} • umumiy ombor: ${linked.stock} dona'),
           ),
           const Text('Bu nusxalar faqat shu mijoz uchun ajratiladi; '
             'umumiy sotuv ombori o‘zgarmaydi.',

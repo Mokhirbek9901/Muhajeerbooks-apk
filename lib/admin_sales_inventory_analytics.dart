@@ -154,10 +154,47 @@ class _AdminSalesInventoryAnalyticsPageState extends State<AdminSalesInventoryAn
         Text(count(x['units'])+' dona'),
       ])),
     const SizedBox(height:8),
+    OutlinedButton.icon(
+      onPressed:manageSuppliers,
+      icon:const Icon(Icons.edit_outlined),
+      label:const Text('Yetkazib beruvchilarni boshqarish')),
+    const SizedBox(height:8),
     const Text('Eski partiyalarning yetkazib beruvchisi ko‘rsatilmagan bo‘lsa, '
       'taxminiy nom yozilmaydi.',
       style:TextStyle(fontSize:12,color:Colors.black54)),
   ]),icon:Icons.local_shipping_outlined);
+  Future<void> manageSuppliers() async {
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder:(_)=>_InventorySupplierPage(secret:widget.secret)));
+    if(mounted)await load();
+  }
+  Widget categoryInvestments() {
+    final genres=rows(report['genres']);
+    return card('Kategoriya menejmenti',
+      Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        const Text('Janrlar bo‘yicha sotuv, foyda va omborga bog‘langan '
+          'tannarx. Eski katalogga bog‘lanmagan sotuvlar alohida.',
+          style:TextStyle(fontSize:12,color:Colors.black54)),
+        const SizedBox(height:10),
+        SingleChildScrollView(scrollDirection:Axis.horizontal,child:DataTable(
+          columns:const [
+            DataColumn(label:Text('Kategoriya')),
+            DataColumn(label:Text('Sotilgan')),
+            DataColumn(label:Text('Tushum')),
+            DataColumn(label:Text('Yalpi foyda')),
+            DataColumn(label:Text('Ombor kapitali')),
+          ],
+          rows:genres.map((g)=>DataRow(cells:[
+            DataCell(SizedBox(width:160,child:Text(g['category'].toString(),
+              maxLines:2,overflow:TextOverflow.ellipsis))),
+            DataCell(Text(count(g['sold']))),
+            DataCell(Text(won(g['revenue']))),
+            DataCell(Text(won(g['profit']))),
+            DataCell(Text(won(g['stock_value']))),
+          ])).toList(),
+        )),
+      ]),icon:Icons.category_outlined);
+  }
   Future<void> offline() async {
     final ok=await Navigator.of(context).push<bool>(MaterialPageRoute(
       builder:(_)=>_OfflineSalePage(secret:widget.secret,books:rows(report['books']))));
@@ -214,6 +251,7 @@ class _AdminSalesInventoryAnalyticsPageState extends State<AdminSalesInventoryAn
               Column(children:widgets);
           }),
           turnover(),
+          categoryInvestments(),
           LayoutBuilder(builder:(context,c)=>c.maxWidth>750
             ?Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
               Expanded(child:inventory()),Expanded(child:supplier()),
@@ -417,4 +455,142 @@ class _OfflineSalePageState extends State<_OfflineSalePage>{
       ]),
     );
   }
+}
+
+
+/// Supplier metadata is administered separately from inventory quantities.
+class _InventorySupplierPage extends StatefulWidget {
+  const _InventorySupplierPage({required this.secret});
+  final String secret;
+  @override
+  State<_InventorySupplierPage> createState()=>_InventorySupplierPageState();
+}
+class _InventorySupplierPageState extends State<_InventorySupplierPage> {
+  List<Map<String,dynamic>> suppliers=[],batches=[];
+  bool busy=true;
+  String? error;
+  Map<String,dynamic> asMap(dynamic v)=>
+    v is Map ? Map<String,dynamic>.from(v):<String,dynamic>{};
+  List<Map<String,dynamic>> asList(dynamic v)=>v is List
+    ?v.whereType<Map>().map((x)=>Map<String,dynamic>.from(x)).toList():[];
+  @override
+  void initState(){super.initState();load();}
+  Future<void> load() async {
+    setState((){busy=true;error=null;});
+    try {
+      final result=asMap(await Supabase.instance.client.rpc(
+        'admin_sales_inventory_analytics',
+        params:{'p_secret':widget.secret,'p_days':30,'p_source':'all'}));
+      if(mounted)setState((){
+        suppliers=asList(result['supplier_catalog']);
+        batches=asList(result['batches']);
+      });
+    }catch(e){if(mounted)setState(()=>error='Xato: '+e.toString());}
+    finally{if(mounted)setState(()=>busy=false);}
+  }
+  Future<void> editSupplier([Map<String,dynamic>? existing]) async {
+    final name=TextEditingController(text:(existing?['name']??'').toString());
+    final country=TextEditingController(text:(existing?['country']??'').toString());
+    final contact=TextEditingController(text:(existing?['contact']??'').toString());
+    final data=await showDialog<List<String>>(context:context,
+      builder:(dialog)=>AlertDialog(
+        title:Text(existing==null?'Yetkazib beruvchi qo‘shish':'Yetkazib beruvchini tahrirlash'),
+        content:SizedBox(width:420,child:Column(mainAxisSize:MainAxisSize.min,children:[
+          TextField(controller:name,decoration:const InputDecoration(
+            labelText:'Do‘kon yoki nashriyot nomi')),
+          TextField(controller:country,decoration:const InputDecoration(
+            labelText:'Davlat (ixtiyoriy)')),
+          TextField(controller:contact,decoration:const InputDecoration(
+            labelText:'Aloqa (ixtiyoriy)')),
+        ])),
+        actions:[
+          TextButton(onPressed:()=>Navigator.pop(dialog),
+            child:const Text('Bekor')),
+          FilledButton(onPressed:()=>Navigator.pop(dialog,
+            [name.text.trim(),country.text.trim(),contact.text.trim()]),
+            child:const Text('Saqlash')),
+        ],
+      ));
+    name.dispose();country.dispose();contact.dispose();
+    if(!mounted||data==null)return;
+    if(data[0].length<2){
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content:Text('Yetkazib beruvchi nomini kiriting')));return;
+    }
+    try {
+      await Supabase.instance.client.rpc('admin_manage_inventory_supplier',
+        params:{
+          'p_secret':widget.secret,'p_action':'save',
+          'p_supplier_id':existing?['id'],'p_name':data[0],
+          'p_country':data[1],'p_contact':data[2],
+        });
+      if(mounted)await load();
+    }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content:Text('Saqlanmadi: '+e.toString())));}
+  }
+  Future<void> assign(Map<String,dynamic> batch,String? supplierId) async {
+    try{
+      await Supabase.instance.client.rpc('admin_manage_inventory_supplier',
+        params:{
+          'p_secret':widget.secret,'p_action':'assign',
+          'p_supplier_id':supplierId,'p_batch_id':batch['id'],
+        });
+      if(mounted){
+        setState(()=>batch['supplier_id']=supplierId);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content:Text('Partiya yetkazib beruvchiga bog‘landi')));
+      }
+    }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content:Text('O‘zgartirib bo‘lmadi: '+e.toString())));}
+  }
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar:AppBar(title:const Text('Yetkazib beruvchilar'),
+      actions:[IconButton(onPressed:load,icon:const Icon(Icons.refresh))]),
+    floatingActionButton:FloatingActionButton.extended(
+      onPressed:()=>editSupplier(),
+      icon:const Icon(Icons.add),label:const Text('Yangi yetkazib beruvchi')),
+    body:busy?const Center(child:CircularProgressIndicator()):
+      ListView(padding:const EdgeInsets.fromLTRB(12,8,12,90),children:[
+        if(error!=null)Text(error!,style:const TextStyle(color:Colors.red)),
+        const Padding(padding:EdgeInsets.all(8),child:Text('Yetkazib beruvchilar',
+          style:TextStyle(fontSize:18,fontWeight:FontWeight.w800))),
+        for(final s in suppliers)
+          ListTile(leading:const Icon(Icons.storefront_outlined),
+            title:Text(s['name'].toString()),
+            subtitle:Text((s['country']??'').toString()),
+            trailing:IconButton(icon:const Icon(Icons.edit_outlined),
+              onPressed:()=>editSupplier(s))),
+        const Padding(padding:EdgeInsets.all(8),
+          child:Text('Partiya qatorlariga bog‘lash',
+            style:TextStyle(fontSize:18,fontWeight:FontWeight.w800))),
+        const Padding(padding:EdgeInsets.all(8),
+          child:Text('Har bir kitobning xarid partiyasi uchun yetkazib beruvchini '
+            'tanlang. Ombor soni, tannarx yoki eski foyda o‘zgarmaydi.',
+            style:TextStyle(fontSize:12,color:Colors.black54))),
+        for(final b in batches)
+          Card(child:Padding(padding:const EdgeInsets.all(12),child:Column(
+            crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Text(b['book_title'].toString(),
+                style:const TextStyle(fontWeight:FontWeight.bold)),
+              Text('Sana: '+b['purchased_at'].toString()+
+                ' · '+b['quantity'].toString()+' dona',
+                style:const TextStyle(fontSize:12)),
+              DropdownButtonFormField<String>(
+                value:b['supplier_id'] as String?,
+                decoration:const InputDecoration(
+                  labelText:'Yetkazib beruvchi',isDense:true),
+                items:[
+                  const DropdownMenuItem<String>(value:null,
+                    child:Text('Ko‘rsatilmagan')),
+                  for(final s in suppliers)
+                    DropdownMenuItem<String>(value:s['id'].toString(),
+                      child:Text(s['name'].toString(),
+                        overflow:TextOverflow.ellipsis)),
+                ],
+                onChanged:(v)=>assign(b,v),
+              ),
+            ]))),
+      ]),
+  );
 }

@@ -1,0 +1,11 @@
+{
+  "approved_by_owner": true,
+  "app": "Muhajeer Books",
+  "platform": "ios",
+  "exact_testflight": "2.5.31 (420011)",
+  "verified_source": "713d644f22453c88c1c49b2a7563b1173cdd744c",
+  "verified_testflight_run": 42318426177,
+  "submit_app_review": true,
+  "release_after_approval": true,
+  "no_ios_rebuild": true
+}

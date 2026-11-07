@@ -29,6 +29,7 @@ import 'admin_order_private_note_badge.dart';
 import 'admin_session.dart';
 import 'business_time.dart';
 import 'admin_book_profit_page.dart';
+import 'admin_sales_inventory_analytics.dart';
 import 'app_state.dart';
 import 'brand.dart';
 import 'book_story_page.dart';

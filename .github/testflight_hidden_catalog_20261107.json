@@ -1,0 +1,10 @@
+{
+  "intent": "TestFlight ONLY: hidden catalog titles can be chosen by admin for preorders without making them publicly available",
+  "verified_testflight_source": "713d644f22453c88c1c49b2a7563b1173cdd744c",
+  "previous_testflight": "2.5.31 (420011)",
+  "new_marketing_version": "2.5.32",
+  "preserve_is_active": true,
+  "preserve_public_stock": true,
+  "do_not_submit_app_store": true,
+  "do_not_publish_google_play": true
+}

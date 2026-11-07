@@ -1,0 +1,26 @@
+name: Read TestFlight baseline for analytics update
+on:
+  push:
+    branches: ['feature/sales-inventory-analytics-20261107']
+    paths:
+      - '.github/workflows/analytics_testflight_status_20261107.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Check current TestFlight and App Store records (read-only)
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: ruby .github/release_tools/inspect_app_store_state.rb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: analytics-testflight-baseline
+          path: ${{ runner.temp }}/app-store-state.json

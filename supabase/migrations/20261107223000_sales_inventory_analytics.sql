@@ -201,7 +201,7 @@ begin
   ) g;
 
   with day_totals as (
-    select (coalesce(ps.first_sold_at,s.sold_at) at time zone 'Asia/Seoul')::date day,
+    select (coalesce(ps.first_sold_at,s.sold_at) at time zone 'Asia/Seoul')::date as sale_day,
       count(*) sold,sum(s.unit_price)::bigint revenue
     from public.sales_log s
     left join private.book_sale_profit_snapshots ps
@@ -214,7 +214,7 @@ begin
     'sold',coalesce(t.sold,0),'revenue',coalesce(t.revenue,0))
     order by d),'[]'::jsonb)
   into v_daily from generate_series(v_from,v_today,interval '1 day') d
-  left join day_totals t on t.day=d::date;
+  left join day_totals t on t.sale_day=d::date;
 
   select coalesce(jsonb_agg(jsonb_build_object(
     'name',supplier_name,'units',units,'last_received',last_received)

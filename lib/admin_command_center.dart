@@ -1911,6 +1911,13 @@ class _AdminCommandCenterState extends State<_AdminCommandCenter> {
     if (!mounted) return;
     final actions = <_AdminMenuAction>[
       _AdminMenuAction(
+        'Savdo va ombor tahlili',
+        'Janrlar, kanallar, aylanma va oflayn sotuvlar',
+        Icons.insights_rounded,
+        (ctx) => _pushPage(ctx,
+          AdminSalesInventoryAnalyticsPage(secret: widget.api.secret)),
+      ),
+      _AdminMenuAction(
         'Kitoblar foydasi',
         'Sotilgan paytdagi tan narx va o‘zgarmas foyda tarixi',
         Icons.bar_chart_rounded,

@@ -260,7 +260,7 @@ class _AdminSalesInventoryAnalyticsPageState extends State<AdminSalesInventoryAn
             child:Text('Chegirma va qayta buyurtma faqat admin qarori bilan. '
               'Foyda sotilgan paytdagi tannarxga asoslanadi.',
               style:TextStyle(fontSize:12,color:Colors.black54))),
-        ]))),
+        ])),
     );
   }
 }

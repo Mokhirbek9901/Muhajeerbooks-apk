@@ -1,0 +1,292 @@
+name: Android 2.5.31 exact-source public release
+
+# Reuses the existing Play upload key. Only the verified same-source signed AAB is promoted; Android emulator smoke tests required.
+
+on:
+  push:
+    branches: ['release/exact-testflight-2531-20261107']
+    paths: ['.github/release_2531_android_approval.json']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: play-release-exact-2531-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify application code identical to TestFlight 2.5.31
+        run: |
+          git diff --exit-code 713d644f22453c88c1c49b2a7563b1173cdd744c HEAD -- lib assets ios config pubspec.yaml pubspec.lock integration_test
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-warnings --no-fatal-infos
+      - run: flutter test --dart-define=STORE_FEATURES=true --dart-define=PLAY_STORE_BUILD=true
+      - run: python3 -m unittest discover -s server/tests -p test_android_release_safety.py -v
+  android-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [28, 35]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: true
+      - name: Prepare the real Android release configuration
+        run: |
+          flutter create . --platforms=android --project-name muhajeerbooks --org com.muhajeerbooks
+          flutter pub get
+          python3 tools/prepare_android_testlab_analytics.py
+          python3 tools/prepare_android_biometrics.py
+          python3 tools/prepare_android_release_safety.py
+          python3 tools/prepare_android_fcm.py --require-config
+      - name: Enable emulator hardware acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Release startup and preferences smoke on Android ${{ matrix.api }}
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none -memory 2048
+          script: python3 tools/run_android_release_smoke.py
+      - name: Save Android release startup evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-startup-api-${{ matrix.api }}
+          path: |
+            android-release-startup.log
+            android-release-startup.png
+          retention-days: 30
+  build:
+    if: ${{ github.ref == 'refs/heads/release/exact-testflight-2531-20261107' }}
+    needs: [android-smoke, regression-tests]
+    runs-on: ubuntu-latest
+    env:
+      ENC_KEYSTORE: .github/signing/upload-keystore.jks.enc
+      KEYSTORE_SECRET: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+      # Production is gated by completed emulator + Flutter validation, signed internal release and owner approval.
+      # Web commits cannot trigger this workflow; repository variables cannot
+      # silently redirect this build to Production.
+      PLAY_TRACK: internal
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify unchanged code from iOS TestFlight build
+        run: |
+          git diff --exit-code 713d644f22453c88c1c49b2a7563b1173cdd744c HEAD -- lib assets ios config pubspec.yaml pubspec.lock integration_test
+
+      - name: Prepare upload key
+        id: key
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_SECRET" || { echo 'Existing Android upload key password is missing'; exit 1; }
+          test -f "$ENC_KEYSTORE" || { echo 'Existing encrypted upload key is missing; refusing to rotate it'; exit 1; }
+          KS="$RUNNER_TEMP/upload-keystore.jks"
+          PASS="$KEYSTORE_SECRET"
+          test "${#PASS}" -ge 16 || { echo 'Existing key password must have at least 16 characters'; exit 1; }
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -in "$ENC_KEYSTORE" -out "$KS" -pass env:KEYSTORE_SECRET
+          echo "mode=release" >> "$GITHUB_OUTPUT"
+          echo "::add-mask::$PASS"
+          {
+            echo "ANDROID_KEYSTORE_PATH=$KS"
+            echo "ANDROID_KEYSTORE_PASS=$PASS"
+          } >> "$GITHUB_ENV"
+          keytool -list -v -keystore "$KS" -storepass "$PASS" -alias upload | grep -E "SHA1:|SHA256:" || true
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: true
+
+      - name: Create Android platform files
+        run: flutter create . --platforms=android --project-name muhajeerbooks --org com.muhajeerbooks
+
+      - run: flutter pub get
+
+      - name: Configure Android release signing and package
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('android/app/build.gradle.kts')
+          s = p.read_text(encoding='utf-8')
+          s = re.sub(r'applicationId\s*=\s*"[^"]+"', 'applicationId = "com.muhajeerbooks.app"', s)
+          signing = (
+              '    signingConfigs {\n'
+              '        create("upload") {\n'
+              '            storeFile = file(System.getenv("ANDROID_KEYSTORE_PATH"))\n'
+              '            storePassword = System.getenv("ANDROID_KEYSTORE_PASS")\n'
+              '            keyAlias = "upload"\n'
+              '            keyPassword = System.getenv("ANDROID_KEYSTORE_PASS")\n'
+              '        }\n'
+              '    }\n\n'
+              '    buildTypes {'
+          )
+          if s.count('    buildTypes {') != 1:
+              raise SystemExit('buildTypes block not found')
+          s = s.replace('    buildTypes {', signing, 1)
+          debug = 'signingConfig = signingConfigs.getByName("debug")'
+          if debug not in s:
+              raise SystemExit('debug signing line not found')
+          s = s.replace(debug, 'signingConfig = signingConfigs.getByName("upload")', 1)
+          p.write_text(s, encoding='utf-8')
+
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          m = manifest.read_text(encoding='utf-8')
+          permissions = [
+              'android.permission.INTERNET',
+              'android.permission.POST_NOTIFICATIONS',
+          ]
+          for permission in permissions:
+              if permission not in m:
+                  m = m.replace(
+                      '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
+                      f'<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="{permission}" />',
+                      1,
+                  )
+          m = re.sub(r'android:label="[^"]*"', 'android:label="Muhajeer Books"', m, count=1)
+          manifest.write_text(m, encoding='utf-8')
+          PY
+
+      - name: Ignore Firebase Test Lab in device analytics
+        run: python3 tools/prepare_android_testlab_analytics.py
+
+      - name: Prepare Android biometrics
+        run: python3 tools/prepare_android_biometrics.py
+
+      - name: Enforce Android release startup safety
+        run: |
+          python3 tools/prepare_android_release_safety.py
+          python3 tools/prepare_android_fcm.py --require-config
+
+      - name: Apply official Muhajeer launcher icon
+        run: |
+          sudo apt-get -qq update
+          sudo apt-get -qq install -y imagemagick
+          for spec in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+            density="${spec%%:*}"; size="${spec##*:}"; dir="android/app/src/main/res/mipmap-${density}"
+            convert assets/images/muhajeer_logo.jpg -resize "${size}x${size}^" -gravity center -extent "${size}x${size}" "$dir/ic_launcher.png"
+          done
+
+      - name: Select a newer internal code and record Production state
+        run: |
+          python3 -m pip install --quiet google-auth requests
+          python3 tools/play_candidate.py preflight
+
+      - name: Build signed App Bundle
+        run: |
+          BUILD_NUMBER="$PLAY_BUILD_NUMBER"
+          flutter build appbundle --release \
+            --build-name="2.5.31" \
+            --build-number="$BUILD_NUMBER" \
+            --dart-define=STORE_FEATURES=true \
+            --dart-define=PLAY_STORE_BUILD=true \
+            --dart-define=PLAY_STORE_URL="https://play.google.com/store/apps/details?id=com.muhajeerbooks.app" \
+            --dart-define=APP_BUILD_NUMBER="$BUILD_NUMBER" \
+            --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
+            --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
+
+      - name: Verify bundle signature
+        run: |
+          AAB=build/app/outputs/bundle/release/app-release.aab
+          jarsigner -verify "$AAB" | tail -1
+          keytool -printcert -jarfile "$AAB" | grep -E "Owner:|SHA256:"
+          if keytool -printcert -jarfile "$AAB" | grep -q "CN=Android Debug"; then
+            echo "::error::Bundle debug kalit bilan imzolangan."
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: steps.key.outputs.mode == 'release'
+        with:
+          name: muhajeer-books-play-signed-aab-${{ github.run_number }}
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 30
+
+      # Automatic Google Play upload. Needs the PLAY_SERVICE_ACCOUNT_JSON
+      # secret (a service account invited in Play Console with release
+      # permission); without it the bundle is only kept as an artifact.
+      - name: Upload to Google Play
+        if: steps.key.outputs.mode == 'release' && env.PLAY_SERVICE_ACCOUNT_JSON != ''
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.muhajeerbooks.app
+          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          track: ${{ env.PLAY_TRACK }}
+          status: completed
+
+      - name: Verify internal-only availability and unchanged Production
+        run: python3 tools/play_candidate.py verify
+      - name: Promote exact signed Android 2.5.31 to Google Play Production
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/exact-candidate"
+          cp build/app/outputs/bundle/release/app-release.aab "$RUNNER_TEMP/exact-candidate/"
+          cp "$RUNNER_TEMP/play-candidate.json" "$RUNNER_TEMP/exact-candidate/"
+          export CANDIDATE_EVIDENCE_DIR="$RUNNER_TEMP/exact-candidate"
+          export EXPECTED_CANDIDATE_SOURCE="$GITHUB_SHA"
+          export OWNER_APPROVED_EXACT_RELEASE="com.muhajeerbooks.app:2.5.31:$PLAY_BUILD_NUMBER"
+          python3 tools/promote_exact_android_2531.py
+
+      - name: Preserve public release result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-public-2531-evidence
+          path: |
+            ${{ runner.temp }}/final-play-production.json
+            ${{ runner.temp }}/play-candidate.json
+            ${{ runner.temp }}/play-production-before.json
+          retention-days: 90
+
+      - name: Save owner-test candidate evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: play-owner-test-candidate
+          path: ${{ runner.temp }}/play-candidate.json
+          retention-days: 30
+
+# Retry the release matrix with the current URL launcher test interface.
+
+# Validate the update-button behavior with factory widget subtypes.
+
+# Verify Android navigation cannot bypass the mandatory update.
+
+# Supersede failed or queued candidate checks; never cancel a public promotion.

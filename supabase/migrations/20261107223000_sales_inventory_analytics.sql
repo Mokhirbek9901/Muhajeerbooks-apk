@@ -388,8 +388,16 @@ begin
     coalesce(nullif(trim(p_customer_name),''),'Oflayn mijoz'),
     coalesce(nullif(trim(p_phone),''),'00000000'),
     'Oflayn savdo','pickup',0,v_total::integer,v_total::integer,
-    'accepted',v_items,p_channel,true,false,true,'paid',coalesce(p_note,'')
+    'accepted',v_items,'telegram',true,false,false,'paid',coalesce(p_note,'')
   ) returning id into v_order;
+  -- Existing BEFORE INSERT pipeline only preserves custom line prices for
+  -- telegram source; all other sources would be rewritten as app checkout.
+  -- Change to the actual channel in the same transaction after those guards.
+  update public.orders
+    set source=p_channel,delivery_type='pickup',delivery_fee=0,
+        subtotal=v_total::integer,total=v_total::integer,
+        entered_by_admin=false
+    where id=v_order;
   for rec in
     select (x->>'book_id')::uuid book_id,(x->>'quantity')::integer quantity
     from jsonb_array_elements(v_items) x

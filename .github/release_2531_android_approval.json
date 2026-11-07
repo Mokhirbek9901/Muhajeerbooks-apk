@@ -1,0 +1,12 @@
+{
+  "owner_approved": true,
+  "app": "Muhajeer Books",
+  "platform": "android",
+  "app_version": "2.5.31",
+  "source_testflight": "713d644f22453c88c1c49b2a7563b1173cdd744c",
+  "source_ios_build": "420011",
+  "promote_to_google_play_production": true,
+  "require_flutter_tests": true,
+  "require_android_api28_and_api35_smoke": true,
+  "preserve_existing_features": true
+}

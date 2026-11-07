@@ -194,7 +194,7 @@ begin
   select coalesce(jsonb_agg(jsonb_build_object(
      'category',category,'sold',sold,'revenue',revenue,'profit',profit,
      'stock_value',(select coalesce(sum(b.stock::bigint*b.cost_price),0) from public.books b
-       where coalesce(nullif(trim(b.category),''),'Boshqalar')=category))
+       where coalesce(nullif(trim(b.category),''),'Boshqalar')=g.category))
       order by sold desc),'[]'::jsonb)
   into v_genres from (
     select category,count(*) sold,sum(unit_price)::bigint revenue,

@@ -25,6 +25,34 @@ Map<String, dynamic> partialFoundSelectionRow({
   };
 }
 
+/// A physically received preorder copy is owned by one customer, not public stock.
+@visibleForTesting
+Map<String, dynamic> privatePreorderSelectionRow({
+  required int index,
+  required int remaining,
+  required int quantity,
+  required int unitPrice,
+  String? existingBookId,
+  bool createCatalog = false,
+}) {
+  if (index < 0 || remaining <= 0 || quantity < 1 ||
+      quantity > remaining || quantity > 200 ||
+      unitPrice < 1 || unitPrice > 10000000 ||
+      (createCatalog
+        ? (existingBookId != null && existingBookId.trim().isNotEmpty)
+        : (existingBookId == null || existingBookId.trim().isEmpty))) {
+    throw ArgumentError('Kelgan kitob miqdori, katalogi yoki narxi noto‘g‘ri.');
+  }
+  return {
+    'index': index,
+    'quantity': quantity,
+    'unit_price': unitPrice,
+    'private_preorder_stock': true,
+    if (createCatalog) 'create_catalog': true,
+    if (!createCatalog) 'book_id': existingBookId,
+  };
+}
+
 /// Always settle the found wave using the whole unused advance.
 /// Neither admin UI nor older clients can select a keep-credit policy.
 @visibleForTesting
@@ -58,6 +86,8 @@ class _AdminWebPreorderPartialPageState
   Map<String, dynamic>? detail;
   List<Book> catalog = [];
   final Map<int, Book> matched = {};
+  final Map<int, String> bookStatus = {}; // arrived / missing
+  final Set<int> createCatalog = {};
   final Map<int, TextEditingController> amounts = {};
   final Map<int, TextEditingController> prices = {};
   bool loading = true;
@@ -88,6 +118,8 @@ class _AdminWebPreorderPartialPageState
         error = null;
         proofViewed = false;
         missingSelection.clear();
+        bookStatus.clear();
+        createCatalog.clear();
         loading = false;
       });
     } catch (e) {
@@ -113,7 +145,7 @@ class _AdminWebPreorderPartialPageState
 
   Future<void> _pickCatalog(int index) async {
     var query = '';
-    final chosen = await showModalBottomSheet<Book>(
+    final chosen = await showModalBottomSheet<Object>(
       context: context, isScrollControlled: true, showDragHandle: true,
       builder: (sheet) => StatefulBuilder(
         builder: (sheet, refresh) => SafeArea(
@@ -135,9 +167,14 @@ class _AdminWebPreorderPartialPageState
                   onChanged: (v) => refresh(() => query = v),
                 ),
                 const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.pop(sheet, 'new_catalog'),
+                  icon: const Icon(Icons.library_add_outlined),
+                  label: const Text('Katalogda yo‘q — yangi kitob (sotuv 0 dona)'),
+                ),
                 Expanded(child: ListView(
                   children: catalog.where((book) =>
-                    book.isActive && book.stock > 0 &&
+                    book.isActive &&
                     book.title.toLowerCase().contains(query.toLowerCase()))
                     .map((book) => ListTile(
                       title: Text(book.title),
@@ -152,9 +189,15 @@ class _AdminWebPreorderPartialPageState
         ),
       ),
     );
-    if (chosen != null && mounted) setState(() {
+    if (chosen is Book && mounted) setState(() {
       matched[index] = chosen;
+      createCatalog.remove(index);
       _price(index).text = chosen.currentPrice.toString();
+    });
+    if (chosen == 'new_catalog' && mounted) setState(() {
+      matched.remove(index);
+      createCatalog.add(index);
+      _price(index).text = '0';
     });
   }
 
@@ -178,34 +221,43 @@ class _AdminWebPreorderPartialPageState
     return null;
   }
 
-  /// Only a fully linked and quantitatively valid selection reaches server.
+  /// Every title must be classified. These copies are not for public sale.
   List<Map<String, dynamic>> _selection() {
-    final chosen = <Map<String,dynamic>>[];
+    final chosen = <Map<String, dynamic>>[];
     for (final line in _pending()) {
+      if (_num(line['remaining_quantity']) < 1) continue;
       final index = _num(line['index']);
-      final book = matched[index];
-      if (book == null) continue;
+      if (bookStatus[index] != 'arrived') continue;
       final count = int.tryParse(_qty(index).text.trim()) ?? 0;
       final price = int.tryParse(_price(index).text.trim()) ?? 0;
-      final remaining = _num(line['remaining_quantity']);
       try {
-        chosen.add(partialFoundSelectionRow(
+        chosen.add(privatePreorderSelectionRow(
           index: index,
-          bookId: book.id,
-          requestedRemaining: remaining,
-          availableStock: book.stock,
+          remaining: _num(line['remaining_quantity']),
           quantity: count,
           unitPrice: price,
+          existingBookId: matched[index]?.id,
+          createCatalog: createCatalog.contains(index),
         ));
       } catch (_) {
         throw StateError(
-          '“${line['book_title'] ?? line['title']}”: miqdor, ombor yoki narx noto‘g‘ri.');
+          '“${line['book_title'] ?? line['title']}”: katalog, miqdor yoki narxni tekshiring.');
       }
     }
     if (chosen.isEmpty) throw StateError(
-      'Topilgan kitoblarni belgilang va katalogdan tanlang.');
+      'Mijozga yuborish uchun kamida bitta “Keldi” kitobini tanlang.');
     return chosen;
   }
+
+  List<int> _missingChoices() => _pending()
+      .where((row) => _num(row['remaining_quantity']) > 0 &&
+          bookStatus[_num(row['index'])] == 'missing')
+      .map((row) => _num(row['index']))
+      .toList(growable: false);
+
+  bool get _classifiedAll => _pending()
+      .where((row) => _num(row['remaining_quantity']) > 0)
+      .every((row) => bookStatus.containsKey(_num(row['index'])));
 
   Future<bool> _approve(String title, String text, String action) async =>
     await showDialog<bool>(
@@ -226,6 +278,11 @@ class _AdminWebPreorderPartialPageState
 
   Future<void> _prepare() async {
     if (saving) return;
+    if (!_classifiedAll) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Har bir kitob uchun “Keldi” yoki “Kelmadi”ni tanlang.')));
+      return;
+    }
     List<Map<String, dynamic>> items;
     try { items = _selection(); }
     catch (e) {
@@ -237,11 +294,11 @@ class _AdminWebPreorderPartialPageState
       sum+_num(item['quantity'])*_num(item['unit_price']));
     final lines = items.map((item) {
       final index = _num(item['index']);
-      final book = matched[index]!;
-      return '${book.title}: ${item['quantity']} dona × ${_won(_num(item['unit_price']))}';
+      final bookTitle = matched[index]?.title ?? (_pending().firstWhere((r) => _num(r['index']) == index)['book_title'] ?? 'Kitob').toString();
+      return '$bookTitle: ${item['quantity']} dona × ${_won(_num(item['unit_price']))}';
     }).join('\n');
     final confirmed = await _approve(
-      'Shu kitoblar keldi — mijozga yuborish',
+      'Tanlangan kitoblarni mijozga yuborish',
       '$lines\n\nKelgan kitoblar jami: ${_won(total)}\n'
       'Qolgan avans: ${_won(_num(detail?['deposit_remaining']))}\n\n'
       'Mijozning shu zakaz uchun hali ishlatilmagan AVANSI TO‘LIQ '
@@ -256,9 +313,14 @@ class _AdminWebPreorderPartialPageState
     setState(() => saving = true);
     try {
       await widget.api.partialWebPreorder(
-        widget.id,'prepare',partialAllAdvancePreparePayload(items));
+        widget.id, 'prepare', {
+          ...partialAllAdvancePreparePayload(items),
+          'missing_indices': _missingChoices(),
+        });
       if (!mounted) return;
       matched.clear();
+      bookStatus.clear();
+      createCatalog.clear();
       for(final c in amounts.values){c.dispose();}
       for(final c in prices.values){c.dispose();}
       amounts.clear(); prices.clear();
@@ -507,7 +569,7 @@ class _AdminWebPreorderPartialPageState
         ],
         if (active==null && detail?['closed']!=true) ...[
           const Divider(height:26),
-          const Text('Kelgan kitoblar',
+          const Text('Har bir kitobni belgilang: Keldi yoki Kelmadi',
             style: TextStyle(fontSize:18,fontWeight:FontWeight.w900)),
           const SizedBox(height:6),
           for(final line in pending) if(_num(line['remaining_quantity'])>0)
@@ -517,7 +579,7 @@ class _AdminWebPreorderPartialPageState
             key: const Key('admin_partial_send_found'),
             onPressed:saving?null:_prepare,
             icon: const Icon(Icons.send_outlined),
-            label: const Text('Shu kitoblar keldi — mijozga yuborish')),
+            label: const Text('Tanlanganlarni mijozga yuborish')),
         ],
         ],
         if (showMissing) ...[
@@ -564,46 +626,84 @@ class _AdminWebPreorderPartialPageState
   }
 
   Widget _pendingCard(Map<String,dynamic> line) {
-    final index=_num(line['index']);
-    final remaining=_num(line['remaining_quantity']);
-    final linked=matched[index];
-    return Card(
-      child: Padding(padding:const EdgeInsets.all(12),
-        child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
-          Text('${line['book_title']??'Kitob'}',
-            style:const TextStyle(fontWeight:FontWeight.w900)),
-          Text('Kutilmoqda: $remaining dona',
-            style:const TextStyle(color:AppColors.muted)),
-          const SizedBox(height:6),
+    final index = _num(line['index']);
+    final remaining = _num(line['remaining_quantity']);
+    final linked = matched[index];
+    final choice = bookStatus[index];
+    return Card(child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('${line['book_title'] ?? 'Kitob'}',
+          style: const TextStyle(fontWeight: FontWeight.w900)),
+        Text('Oldindan so‘ralgan: $remaining dona',
+          style: const TextStyle(color: AppColors.muted)),
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(child: choice == 'arrived'
+            ? FilledButton.tonal(
+                key: ValueKey('partial_arrived_$index'),
+                onPressed: saving ? null : () => setState(() => bookStatus[index] = 'arrived'),
+                child: const Text('Keldi'))
+            : OutlinedButton(
+                key: ValueKey('partial_arrived_$index'),
+                onPressed: saving ? null : () => setState(() => bookStatus[index] = 'arrived'),
+                child: const Text('Keldi'))),
+          const SizedBox(width: 8),
+          Expanded(child: choice == 'missing'
+            ? FilledButton.tonal(
+                key: ValueKey('partial_missing_choice_$index'),
+                onPressed: saving ? null : () => setState(() {
+                  bookStatus[index] = 'missing';
+                  matched.remove(index);
+                  createCatalog.remove(index);
+                }),
+                child: const Text('Kelmadi'))
+            : OutlinedButton(
+                key: ValueKey('partial_missing_choice_$index'),
+                onPressed: saving ? null : () => setState(() {
+                  bookStatus[index] = 'missing';
+                  matched.remove(index);
+                  createCatalog.remove(index);
+                }),
+                child: const Text('Kelmadi'))),
+        ]),
+        if (choice == 'arrived') ...[
+          const SizedBox(height: 7),
           OutlinedButton.icon(
-            key:ValueKey('partial_select_catalog_$index'),
-            onPressed:saving?null:()=>_pickCatalog(index),
-            icon:const Icon(Icons.search),
-            label:Text(linked==null
-              ? 'Kelgan kitobni katalogdan tanlash'
-              : '${linked.title} • ombor ${linked.stock} dona')),
-          if(linked!=null) ...[
-            Row(children:[
-              Expanded(child:TextField(
-                key:ValueKey('partial_qty_$index'),
-                controller:_qty(index),
-                keyboardType:TextInputType.number,
-                decoration:const InputDecoration(labelText:'Topilgan miqdor'),
+            key: ValueKey('partial_select_catalog_$index'),
+            onPressed: saving ? null : () => _pickCatalog(index),
+            icon: const Icon(Icons.search),
+            label: Text(createCatalog.contains(index)
+              ? 'Katalogga yangi kiritiladi • sotuv 0 dona'
+              : linked == null ? 'Katalogdan tanlash / yangisini yaratish'
+              : '${linked.title} • umumiy ombor: ${linked.stock} dona'),
+          ),
+          const Text('Bu nusxalar faqat shu mijoz uchun ajratiladi; '
+            'umumiy sotuv ombori o‘zgarmaydi.',
+            style: TextStyle(fontSize: 12, color: AppColors.muted)),
+          if (linked != null || createCatalog.contains(index))
+            Row(children: [
+              Expanded(child: TextField(
+                key: ValueKey('partial_qty_$index'),
+                controller: _qty(index),
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Kelgan miqdor'),
               )),
-              const SizedBox(width:12),
-              Expanded(child:TextField(
-                key:ValueKey('partial_price_$index'),
-                controller:_price(index),
-                keyboardType:TextInputType.number,
-                decoration:const InputDecoration(labelText:'Narx (₩)'),
+              const SizedBox(width: 12),
+              Expanded(child: TextField(
+                key: ValueKey('partial_price_$index'),
+                controller: _price(index),
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Narx (₩)'),
               )),
-              IconButton(
-                tooltip:'Tanlovni olib tashlash',
-                onPressed:()=>setState(()=>matched.remove(index)),
-                icon:const Icon(Icons.close_rounded)),
             ]),
-          ],
-        ])),
-    );
+        ],
+        if (choice == 'missing')
+          const Padding(padding: EdgeInsets.only(top: 7),
+            child: Text('Kelmagan deb mijozga xabar yuboriladi. '
+              'Bu kitobga avans ajratilmaydi.',
+              style: TextStyle(fontSize: 12, color: AppColors.muted))),
+      ]),
+    ));
   }
 }

@@ -83,6 +83,33 @@ void main() {
       expect(payload['recipient_phone'], '01012345678');
     });
 
+    test('one arrived book: 24000 + 4000 postage - 10000 advance = 18000', () {
+      final result = partialPreorderPostagePreview(
+        subtotal: 24000, quantity: 1, unusedAdvance: 10000);
+      expect(result['shipping_fee'], 4000);
+      expect(result['total_with_shipping'], 28000);
+      expect(result['deposit_applied'], 10000);
+      expect(result['amount_due'], 18000);
+      expect(result['refund_due'], 0);
+    });
+
+    test('four-book ordinary post is free unless discount blocks it', () {
+      expect(partialPreorderPostagePreview(
+        subtotal: 60000, quantity: 4, unusedAdvance: 10000)['shipping_fee'], 0);
+      expect(partialPreorderPostagePreview(
+        subtotal: 60000, quantity: 4, unusedAdvance: 10000,
+        discountBlocksFreeShipping: true)['shipping_fee'], 4000);
+    });
+
+    test('full advance is not silently discarded if it exceeds the invoice', () {
+      final result = partialPreorderPostagePreview(
+        subtotal: 8000, quantity: 1, unusedAdvance: 15000);
+      expect(result['amount_due'], 0);
+      expect(result['refund_due'], 3000);
+      expect(() => partialPreorderPostagePreview(
+        subtotal: -1, quantity: 1, unusedAdvance: 0), throwsArgumentError);
+    });
+
     test('remaining amount always comes from server invoice', () {
       expect(partialPayableFromServer({
         'status': 'awaiting_payment',

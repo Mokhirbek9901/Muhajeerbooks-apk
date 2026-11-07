@@ -69,6 +69,30 @@ Map<String,dynamic> partialAllAdvancePreparePayload(
   return {'items': items, 'apply_all': true};
 }
 
+/// Admin estimate of normal postage. The customer checkout recalculates
+/// the final fee after choosing pickup, delivery, and discount conditions.
+@visibleForTesting
+Map<String,int> partialPreorderPostagePreview({
+  required int subtotal,
+  required int quantity,
+  required int unusedAdvance,
+  bool discountBlocksFreeShipping = false,
+}) {
+  if (subtotal < 0 || quantity < 1 || unusedAdvance < 0) {
+    throw ArgumentError('Kitob yoki avans miqdori noto‘g‘ri.');
+  }
+  final fee = quantity >= 4 && !discountBlocksFreeShipping ? 0 : 4000;
+  final gross = subtotal + fee;
+  return {
+    'subtotal':subtotal,
+    'shipping_fee':fee,
+    'total_with_shipping':gross,
+    'deposit_applied':unusedAdvance,
+    'amount_due':gross > unusedAdvance ? gross-unusedAdvance : 0,
+    'refund_due':unusedAdvance > gross ? unusedAdvance-gross : 0,
+  };
+}
+
 /// Admin workflow for a multi-title web preorder. A selected catalog title
 /// must already have live stock. No customer order or payment is created by
 /// opening this page. Preparing one wave reserves only selected stock.
@@ -299,6 +323,11 @@ class _AdminWebPreorderPartialPageState
     }
     final total = items.fold<int>(0, (sum,item) =>
       sum+_num(item['quantity'])*_num(item['unit_price']));
+    final selectedUnits = items.fold<int>(0,(sum,item) =>
+      sum+_num(item['quantity']));
+    final advance = _num(detail?['deposit_remaining']);
+    final postage = partialPreorderPostagePreview(
+      subtotal:total, quantity:selectedUnits, unusedAdvance:advance);
     final lines = items.map((item) {
       final index = _num(item['index']);
       final bookTitle = matched[index]?.title ?? (_pending().firstWhere((r) => _num(r['index']) == index)['book_title'] ?? 'Kitob').toString();
@@ -307,7 +336,13 @@ class _AdminWebPreorderPartialPageState
     final confirmed = await _approve(
       'Tanlangan kitoblarni mijozga yuborish',
       '$lines\n\nKelgan kitoblar jami: ${_won(total)}\n'
-      'Qolgan avans: ${_won(_num(detail?['deposit_remaining']))}\n\n'
+      'Pochta (oddiy 택배, taxmin): ${_won(postage['shipping_fee']!)}\n'
+      'Jami (pochta bilan): ${_won(postage['total_with_shipping']!)}\n'
+      'To‘langan avansdan ayriladi: −${_won(advance)}\n'
+      'Taxminiy qolgan to‘lov: ${_won(postage['amount_due']!)}\n\n'
+      'Yakuniy pochta mijoz tanlagan yetkazish usuli, '
+      '4+ kitob aksiyasi va chegirma qoidalariga qarab hisoblanadi. '
+      'Gyeongsandan o‘zi olib ketsa pochta 0 won.\n\n'
       'Mijozning shu zakaz uchun hali ishlatilmagan AVANSI TO‘LIQ '
       'faqat topilgan kitoblar va ularning pochtasidan ayriladi. '
       'Mijozga qolgan summani va manzilni tasdiqlash ko‘rsatiladi. '
@@ -518,7 +553,7 @@ class _AdminWebPreorderPartialPageState
           subtitle: Text(
             'Holat: ${batch['status']}\n'
             'Kitoblar: ${_won(_num(batch['subtotal']))} • '
-            'Pochta: ${_won(_num(batch['shipping_fee']))}\n'
+            'Pochta: ${batch['status']=='prepared' ? 'mijoz manzil tanlagach hisoblanadi' : _won(_num(batch['shipping_fee']))}\n'
             'Avansdan ayirildi: ${_won(_num(batch['deposit_applied']))} • '
             'Qolgan to‘lov: ${_won(_num(batch['amount_due']))}\n'
             'Qaytarilishi kerak: ${_won(_num(batch['refund_due']))}'),

@@ -83,6 +83,7 @@ declare
   v_daily jsonb;
   v_suppliers jsonb;
   v_batches jsonb;
+  v_supplier_catalog jsonb;
 begin
   if not coalesce(public.admin_verify(p_secret),false) then
     raise exception 'Admin tasdiqlanmadi';
@@ -237,10 +238,13 @@ begin
   from public.web_book_batches w
   join public.books b on b.id=w.book_id
   left join public.suppliers su on su.id=w.supplier_id;
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id',id,'name',name,'country',country,'contact',contact)
+    order by name),'[]'::jsonb) into v_supplier_catalog from public.suppliers;
   return jsonb_build_object('days',p_days,'from',v_from,'to',v_today,
      'source',p_source,'summary',v_summary,'books',v_books,'channels',v_channels,
      'genres',v_genres,'daily',v_daily,'suppliers',v_suppliers,
-     'batches',v_batches,'generated_at',now());
+     'batches',v_batches,'supplier_catalog',v_supplier_catalog,'generated_at',now());
 end;
 $fn$;
 

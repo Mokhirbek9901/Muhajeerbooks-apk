@@ -272,5 +272,4 @@ begin
     'Qisman buyurtmangiz to‘lovi tekshirildi va jo‘natishga tayyorlanmoqda.','preorder_balance');
  else raise exception 'Amal noto‘g‘ri'; end if;
  return private.web_preorder_partial_detail(p_id);
-end $function$
-
+end $function$;
